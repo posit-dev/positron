@@ -51,11 +51,6 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	private readonly _onDidChangeActivePositronVariablesInstanceEmitter =
 		this._register(new Emitter<IPositronVariablesInstance | undefined>);
 
-	/**
-	 * The previous console session. Used to restore variables pane to active session
-	 * when a notebook is hidden.
-	 */
-	private _activeConsoleSession?: ILanguageRuntimeSession;
 
 	//#endregion Private Properties
 
@@ -102,11 +97,6 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 		this._register(this._runtimeSessionService.onWillStartSession(e => {
 			this.createOrAssignPositronVariablesInstance(e.session);
 
-			// If this is a console session, set it as the main console session that is
-			// used when the notebook is hidden.
-			if (e.session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-				this._activeConsoleSession = e.session;
-			}
 		}));
 
 		// Register session cleanup handler
@@ -133,29 +123,11 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 		}));
 
 		this._register(this._editorService.onDidActiveEditorChange(() => {
-			// Check for feature flag for session following editor being on before proceeding
-			if (!this._configurationService.getValue('positron.variables.followMode')) {
-				return;
-			}
-
-			const editorInput = this._editorService.activeEditor;
-			if (editorInput instanceof NotebookEditorInput || editorInput instanceof PositronNotebookEditorInput) {
-				// If this is a notebook editor try and set the active variables session to the one
-				// that corresponds with it.
-				const notebookSession = this._runtimeSessionService.activeSessions.find(
-					s => s.metadata.notebookUri && isEqual(s.metadata.notebookUri, editorInput.resource)
-				);
-				// If the editor is not for a jupyter notebook, just leave variables session as is.
-				if (!notebookSession) { return; }
-				this._setActivePositronVariablesBySession(notebookSession);
-			} else if (this._activeConsoleSession) {
-				// Revert to the most recent console session if we're not in a notebook editor
-				this._setActivePositronVariablesBySession(this._activeConsoleSession);
-			} else {
-				// All else fails, just reset to the default
-				this._setActivePositronVariablesInstance()
-			}
+			this._syncToActiveEditor();
 		}));
+
+		// Sync to the active editor when the service is initialized
+		this._syncToActiveEditor();
 	}
 
 	//#endregion Constructor & Dispose
@@ -225,13 +197,38 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 				this._setActivePositronVariablesInstance(undefined);
 			}
 
-			// If this was the previous console session, clear it
-			if (this._activeConsoleSession === instance.session) {
-				this._activeConsoleSession = undefined;
-			}
 
 			// Dispose the instance and remove it from our map
 			this._positronVariablesInstancesBySessionId.deleteAndDispose(sessionId);
+		}
+	}
+
+	/**
+	 * Syncs the active variables instance to the active editor.
+	 * This is called when the active editor changes or the service is initialized.
+	 */
+	private _syncToActiveEditor() {
+		// Check for feature flag for session following editor being on before proceeding
+		if (!this._configurationService.getValue('positron.variables.followMode')) {
+			return;
+		}
+
+		const editorInput = this._editorService.activeEditor;
+		if (editorInput instanceof NotebookEditorInput || editorInput instanceof PositronNotebookEditorInput) {
+			// If this is a notebook editor try and set the active variables session to the one
+			// that corresponds with it.
+			const notebookSession = this._runtimeSessionService.activeSessions.find(
+				s => s.metadata.notebookUri && isEqual(s.metadata.notebookUri, editorInput.resource)
+			);
+			// If the editor is not for a jupyter notebook, just leave variables session as is.
+			if (!notebookSession) { return; }
+			this._setActivePositronVariablesBySession(notebookSession);
+		} else if (this._runtimeSessionService.foregroundSession) {
+			// Revert to the most recent console session if we're not in a notebook editor
+			this._setActivePositronVariablesBySession(this._runtimeSessionService.foregroundSession);
+		} else {
+			// All else fails, just reset to the default
+			this._setActivePositronVariablesInstance()
 		}
 	}
 
