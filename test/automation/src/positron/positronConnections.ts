@@ -20,12 +20,14 @@ export class PositronConnections {
 	disconnectButton: Locator;
 	connectIcon: Locator;
 	connectionItems: Locator;
+	resumeConnectionButton: Locator;
 
 	constructor(private code: Code, private quickaccess: QuickAccess) {
 		this.deleteConnectionButton = code.driver.page.getByLabel('Delete Connection');
 		this.disconnectButton = code.driver.page.getByLabel('Disconnect');
 		this.connectIcon = code.driver.page.locator('.codicon-arrow-circle-right');
 		this.connectionItems = code.driver.page.locator('.connections-list-item');
+		this.resumeConnectionButton = code.driver.page.locator('.positron-modal-dialog-box').getByRole('button', { name: 'Resume Connection' });
 	}
 
 	async openConnectionsNodes(nodes: string[]) {
