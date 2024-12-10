@@ -22,6 +22,6 @@ export const ProductQualityContext = new RawContextKey<string>('productQualityTy
 export const InputFocusedContextKey = 'inputFocus';
 export const InputFocusedContext = new RawContextKey<boolean>(InputFocusedContextKey, false, localize('inputFocus', "Whether keyboard focus is inside an input box"));
 
-// --- START POSITRON ---
+// --- Start Positron ---
 export const IsPositronContext = new RawContextKey<boolean>('isPositron', true, localize('isPositron', "Whether the application is Positron"));
-// --- END POSITRON ---
+// --- End Positron ---
