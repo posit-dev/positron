@@ -27,19 +27,14 @@ on:
     inputs:
       grep:
         required: false
-        description: "Tests tagged with @win are always run. Can specify other tags, test titles, filenames, etc. to filter tests further."
-        default: ""
+        description: "Only tests tagged with @win are pre-filtered. Specify other tags, test titles, filenames, etc. to filter tests further."
+        default: "@win"
         type: string
       repeat_each:
         required: false
         description: "Run each test N times, defaults to one."
         default: 1
         type: number
-      currents_tags:
-          required: false
-          description: "The tags to use for Currents recording."
-          default: "@windows/linux"
-          type: string
 
 permissions:
   id-token: write
