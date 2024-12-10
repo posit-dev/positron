@@ -7,7 +7,6 @@
 import * as playwright from '@playwright/test';
 const { test: base, expect: playwrightExpect } = playwright;
 
-
 // Node.js built-in modules
 import { join } from 'path';
 import * as os from 'os';
