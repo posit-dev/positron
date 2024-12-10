@@ -10,7 +10,7 @@ import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnec
 import 'vs/css!./createConnectionState';
 import { SimpleCodeEditor, SimpleCodeEditorWidget } from 'vs/workbench/contrib/positronConnections/browser/components/simpleCodeEditor';
 import Severity from 'vs/base/common/severity';
-import { Driver, Input, InputType } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog/driver';
+import { IDriver, Input, InputType } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsDriver';
 import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
 import { RadioGroup } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioGroup';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
@@ -20,7 +20,7 @@ interface CreateConnectionProps {
 	readonly renderer: PositronModalReactRenderer;
 	readonly onCancel: () => void;
 	readonly onBack: () => void;
-	readonly selectedDriver: Driver;
+	readonly selectedDriver: IDriver;
 }
 
 export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>) => {

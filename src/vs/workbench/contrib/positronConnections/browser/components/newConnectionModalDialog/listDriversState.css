@@ -62,6 +62,13 @@
 	grid-column: left / middle;
 }
 
+.driver-list > .no-drivers {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 100%;
+}
+
 .driver-list-item {
 	display: grid;
 	grid-template-columns: 24px auto;

@@ -22,7 +22,7 @@ export interface Input {
 	value?: string;
 }
 
-export interface Driver {
+export interface IDriver {
 	// The unique identifier for the driver.
 	driverId: string;
 	// The language identifier for the driver.

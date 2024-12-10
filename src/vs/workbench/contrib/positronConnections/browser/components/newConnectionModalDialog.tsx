@@ -13,7 +13,7 @@ import 'vs/css!./newConnectionModelDialog';
 import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
 import { CreateConnection } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog/createConnectionState';
 import { ListDrivers } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog/listDriversState';
-import { Driver } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog/driver';
+import { IDriver } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsDriver';
 
 const NEW_CONNECTION_MODAL_DIALOG_WIDTH = 700;
 const NEW_CONNECTION_MODAL_DIALOG_HEIGHT = 630;
@@ -42,7 +42,7 @@ interface NewConnectionModalDialogProps {
 
 const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDialogProps>) => {
 
-	const [selectedDriver, setSelectedDriver] = useState<Driver | undefined>();
+	const [selectedDriver, setSelectedDriver] = useState<IDriver | undefined>();
 
 	const cancelHandler = () => {
 		props.renderer.dispose();
