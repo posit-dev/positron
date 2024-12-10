@@ -49,7 +49,7 @@ jobs:
       grep: ""
       project: "e2e-electron"
       display_name: "electron (linux)"
-      currents_tags: "nightly,electron/linux"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/linux' || 'electron/linux' }}
     secrets: inherit
 
   e2e-windows:
@@ -59,7 +59,7 @@ jobs:
     with:
       grep: ""
       display_name: "electron (win)"
-      currents_tags: "nightly,electron/win"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/win' || 'electron/win' }}
     secrets: inherit
 
   e2e-browser:
@@ -70,7 +70,7 @@ jobs:
       grep: ""
       project: "e2e-browser"
       display_name: "browser (linux)"
-      currents_tags: "nightly,browser/linux"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,browser/linux' || 'browser/linux' }}
     secrets: inherit
 
   unit-tests:
