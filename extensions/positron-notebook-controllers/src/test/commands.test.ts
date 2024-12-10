@@ -38,16 +38,21 @@ suite('commands', () => {
 		// Open a test Jupyter notebook.
 		await openTestJupyterNotebookDocument();
 
-		// Capture hasRunningNotebookSession context values.
-		const values: boolean[] = [];
-		disposables.push(onDidSetHasRunningNotebookSessionContext(value => {
-			values.push(value);
-		}));
+		// Capture the first two hasRunningNotebookSession context values.
+		const promise = new Promise<boolean[]>(resolve => {
+			const values: boolean[] = [];
+			disposables.push(onDidSetHasRunningNotebookSessionContext(value => {
+				values.push(value);
+				if (values.length === 2) {
+					resolve(values);
+				}
+			}));
+		});
 
 		// Restart.
 		await vscode.commands.executeCommand('positron.restartKernel');
 
 		// Assert that the context is first set to false, then true.
-		assert.deepStrictEqual(values, [false, true]);
+		assert.deepStrictEqual(await promise, [false, true]);
 	});
 });

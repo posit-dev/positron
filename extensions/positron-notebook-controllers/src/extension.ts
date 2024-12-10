@@ -16,7 +16,10 @@ export const log = vscode.window.createOutputChannel('Positron Notebook Controll
 
 const _onDidSetHasRunningNotebookSessionContext = new vscode.EventEmitter<boolean>();
 
-/** An event that fires when the hasRunningNotebookSessionContext is set. */
+/**
+ * An event that fires when the hasRunningNotebookSessionContext is set.
+ * Currently only for testing purposes.
+ */
 export const onDidSetHasRunningNotebookSessionContext = _onDidSetHasRunningNotebookSessionContext.event;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {

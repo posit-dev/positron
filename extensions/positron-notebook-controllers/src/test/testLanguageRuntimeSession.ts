@@ -12,10 +12,12 @@ export class TestLanguageRuntimeSession implements Partial<positron.LanguageRunt
 	private readonly _onDidChangeRuntimeState = new vscode.EventEmitter<positron.RuntimeState>();
 	private readonly _onDidReceiveRuntimeMessage = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
 	private readonly _onDidExecute = new vscode.EventEmitter<string>();
+	private readonly _onDidEndSession = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
 
 	public readonly onDidChangeRuntimeState = this._onDidChangeRuntimeState.event;
 	public readonly onDidReceiveRuntimeMessage = this._onDidReceiveRuntimeMessage.event;
 	public readonly onDidExecute = this._onDidExecute.event;
+	public readonly onDidEndSession = this._onDidEndSession.event;
 
 	public readonly metadata = {
 		sessionId: 'test-session',
@@ -41,8 +43,16 @@ export class TestLanguageRuntimeSession implements Partial<positron.LanguageRunt
 		}
 	}
 
-	async shutdown(): Promise<void> {
-		// Do nothing.
+	async shutdown(exitReason: positron.RuntimeExitReason): Promise<void> {
+		// Complete the shutdown on the next tick, trying to match real runtime behavior.
+		setTimeout(() => {
+			this._onDidEndSession.fire({
+				runtime_name: this.runtimeMetadata.runtimeName,
+				exit_code: 0,
+				reason: exitReason,
+				message: '',
+			});
+		}, 0);
 	}
 
 	dispose() {
