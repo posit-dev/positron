@@ -25,7 +25,7 @@ import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebo
 /**
  * PositronVariablesService class.
  */
-class PositronVariablesService extends Disposable implements IPositronVariablesService {
+export class PositronVariablesService extends Disposable implements IPositronVariablesService {
 	//#region Private Properties
 
 	/**

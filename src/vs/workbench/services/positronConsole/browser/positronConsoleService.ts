@@ -129,7 +129,7 @@ const formatTraceback = (traceback: string[]) => {
 /**
  * PositronConsoleService class.
  */
-class PositronConsoleService extends Disposable implements IPositronConsoleService {
+export class PositronConsoleService extends Disposable implements IPositronConsoleService {
 	//#region Private Properties
 
 	/**
