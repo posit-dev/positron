@@ -5,6 +5,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { log } from './extension';
 
 export function delay(ms: number) {
 	return new Promise(resolve => setTimeout(resolve, ms));
@@ -35,6 +36,8 @@ export async function getNotebookSession(
 
 	// Ensure that the session is for the requested runtime.
 	if (runtimeId && session.runtimeMetadata.runtimeId !== runtimeId) {
+		log.warn(`Expected session for notebook ${notebookUri} to be for runtime ${runtimeId}, ` +
+			`but it is for runtime ${session.runtimeMetadata.runtimeId}`);
 		return undefined;
 	}
 
