@@ -20,7 +20,8 @@ main branch by either pulling or rebasing.
 
 &critical
 <!-- Available tags:
-  &critical, &quarto, &console
+  &apps, &connections, &console, &data-explorer, &duck-db, &help, &layouts, &viewer, &editor, &quarto, &console, &new-project-wizard
+  &notebook, &outline, &plots, &editor, &r-markdown, &r-pkg-development, &reticulate, &test-explorer, &top-action-bar, &variables
 -->
 
 ### QA Notes
