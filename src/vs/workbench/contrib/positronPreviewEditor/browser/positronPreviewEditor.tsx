@@ -111,16 +111,6 @@ export class PositronPreviewEditor
 			storageService
 		);
 		this._container = DOM.$('.positron-preview-editor-container');
-
-		this._register(this.onVisibilityChanged(visible => {
-			if (!visible) {
-				this._onSaveScrollPositionEmitter.fire();
-			} else {
-				this._onRestoreScrollPositionEmitter.fire();
-			}
-			this._onVisibilityChangedEmitter.fire(visible);
-		}
-		));
 	}
 
 	private renderContainer(previewId: string): void {
@@ -184,12 +174,9 @@ export class PositronPreviewEditor
 		// Dispose the PositronReactRenderer.
 		this.disposeReactRenderer();
 
-		// // If there is an identifier, clear it.
-		if (this._identifier) {
-			// Clear the focused Positron data explorer.
-			//this._positronPreviewService.editorWebview(this._identifier)?.dispose();
-
-			// Clear the identifier.
+		// If there is an identifier, clear it.
+		if (this._identifier && this._preview) {
+			this._preview.dispose();
 			this._identifier = undefined;
 		}
 
@@ -222,7 +209,6 @@ export class PositronPreviewEditor
 	override dispose(): void {
 		this.disposeReactRenderer();
 
-		// if there is a preview, dispose it.
 		if (this._preview) {
 			this._preview.dispose();
 		}
