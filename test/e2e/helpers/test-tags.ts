@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// In addition to the list of tags below, you can also specify `&all` to run all tests in your PR.
+
 export enum TestTags {
 	APPS = '@apps',
 	CONNECTIONS = '@connections',

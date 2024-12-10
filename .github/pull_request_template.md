@@ -19,10 +19,7 @@ main branch by either pulling or rebasing.
 ### Tests to Run
 
 &critical
-<!-- Available tags:
-  &apps, &connections, &console, &data-explorer, &duck-db, &help, &layouts, &viewer, &editor, &quarto, &console, &new-project-wizard
-  &notebook, &outline, &plots, &editor, &r-markdown, &r-pkg-development, &reticulate, &test-explorer, &top-action-bar, &variables
--->
+<!-- See `test/e2e/helpers/test-tags.ts` for a complete list of available tags. -->
 
 ### QA Notes
 
