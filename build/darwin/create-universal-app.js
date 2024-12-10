@@ -66,7 +66,7 @@ const reconciliationFiles = [
     'Contents/Resources/app/out/vs/code/node/cliProcessMain.js',
     'Contents/Resources/app/out/vs/code/electron-sandbox/processExplorer/processExplorerMain.js',
     'Contents/Resources/app/out/vs/code/electron-utility/sharedProcess/sharedProcessMain.js',
-    'Contents/Resources/app/out/vs/workbench/contrib/notebook/common/services/notebookSimpleWorker.js',
+    'Contents/Resources/app/out/vs/workbench/contrib/notebook/common/services/notebookSimpleWorkerMain.js',
     'Contents/Resources/app/out/vs/workbench/contrib/issue/electron-sandbox/issueReporterMain.js',
     'Contents/Resources/app/out/vs/workbench/api/worker/extensionHostWorker.js',
     'Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js',
