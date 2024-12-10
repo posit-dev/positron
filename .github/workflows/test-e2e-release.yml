@@ -118,5 +118,5 @@ jobs:
         uses: midleman/slack-workflow-status@master
         with:
           repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
+          slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL }}
           notify_on: ${{ inputs.notify_on }}
