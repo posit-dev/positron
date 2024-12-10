@@ -11,7 +11,7 @@ import { LanguageRuntimeMetadata } from 'positron';
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import 'vs/css!./listDriversState';
-import { Driver, InputType } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog/driver';
+import { Driver, Input, InputType } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog/driver';
 
 interface ListDriversProps {
 	readonly services: PositronConnectionsServices;
@@ -127,43 +127,70 @@ const getRegisteredDrivers = (languageId: string): Array<Driver> => {
 			name: 'PostgresSQL',
 			inputs: [
 				{
-					'id': 'server',
-					'label': 'Server',
+					'id': 'dbname',
+					'label': 'Database Name',
 					'type': InputType.String,
-					'defaultValue': 'localhost'
+					'value': 'localhost'
+				},
+				{
+					'id': 'host',
+					'label': 'Host',
+					'type': InputType.String,
+					'value': 'localhost'
 				},
 				{
 					'id': 'port',
 					'label': 'Port',
 					'type': InputType.Number,
-					'defaultValue': '5432'
+					'value': '5432'
 				},
 				{
-					'id': 'database',
-					'label': 'Database',
+					'id': 'user',
+					'label': 'User',
 					'type': InputType.String,
-					'defaultValue': 'main'
-				},
-				{
-					'id': 'user_id',
-					'label': 'User ID',
-					'type': InputType.String,
-					'defaultValue': 'postgres'
+					'value': 'postgres'
 				},
 				{
 					'id': 'password',
 					'label': 'Password',
 					'type': InputType.String,
-					'defaultValue': 'password'
+					'value': 'password'
 				},
 				{
-					'id': 'bool_as_char',
-					'label': 'Boolean as Character',
+					'id': 'bigint',
+					'label': 'Integer representation',
 					'type': InputType.Option,
-					'options': [{ 'identifier': 'yes', 'title': 'Yes' }, { 'identifier': 'no', 'title': 'No' }],
-					'defaultValue': 'Yes'
+					'options': [
+						{ 'identifier': 'integer64', 'title': 'integer64' },
+						{ 'identifier': 'integer', 'title': 'integer' },
+						{ 'identifier': 'numeric', 'title': 'numeric' },
+						{ 'identifier': 'character', 'title': 'character' }
+					],
+					'value': 'integer64'
 				}
-			]
+			],
+			generateCode: (inputs: Array<Input>) => {
+				const dbname = inputs.find(input => input.id === 'dbname')?.value;
+				const host = inputs.find(input => input.id === 'host')?.value;
+				const port = inputs.find(input => input.id === 'port')?.value;
+				const user = inputs.find(input => input.id === 'user')?.value;
+				const password = inputs.find(input => input.id === 'password')?.value;
+				const bigint = inputs.find(input => input.id === 'bigint')?.value;
+
+
+				return `library(DBI)
+con <- dbConnect(
+	RPostgres::Postgres(),
+	dbname = '${dbname ?? ''}',
+	host = '${host ?? ''}',
+	port = ${port ?? ''},
+	user = '${user ?? ''}',
+	password = '${password ?? ''}',
+	bigint = '${bigint ?? ''}'
+)
+
+`;
+			}
 		},
 	];
 };

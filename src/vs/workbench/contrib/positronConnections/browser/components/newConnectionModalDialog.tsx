@@ -16,7 +16,7 @@ import { ListDrivers } from 'vs/workbench/contrib/positronConnections/browser/co
 import { Driver } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog/driver';
 
 const NEW_CONNECTION_MODAL_DIALOG_WIDTH = 700;
-const NEW_CONNECTION_MODAL_DIALOG_HEIGHT = 430;
+const NEW_CONNECTION_MODAL_DIALOG_HEIGHT = 630;
 
 export const showNewConnectionModalDialog = (services: PositronConnectionsServices) => {
 

@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { PropsWithChildren, useRef } from 'react';
+import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 import { localize } from 'vs/nls';
 import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
@@ -23,9 +23,23 @@ interface CreateConnectionProps {
 
 export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>) => {
 
-	const { name, languageId, inputs } = props.selectedDriver;
+	const { name, languageId, generateCode } = props.selectedDriver;
 	const { onBack, onCancel, services } = props;
 	const editorRef = useRef<SimpleCodeEditorWidget>(undefined!);
+
+	const [inputs, setInputs] = useState<Array<Input>>(props.selectedDriver.inputs);
+	const [code, setCode] = useState<string | undefined>(props.selectedDriver.generateCode?.(props.selectedDriver.inputs));
+
+	useEffect(() => {
+		// Debounce the code generation to avoid unnecessary re-renders
+		const timeoutId = setTimeout(() => {
+			if (generateCode) {
+				const code = generateCode(inputs);
+				setCode(code);
+			}
+		}, 200);
+		return () => clearTimeout(timeoutId);
+	}, [inputs, generateCode, setCode]);
 
 	const onCopy = async () => {
 		const code = editorRef.current.getValue();
@@ -46,13 +60,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 			</h1>
 		</div>
 
-		<form className='create-connection-inputs'>
-			{
-				inputs.map((input) => {
-					return <FormElement key={input.id} {...input}></FormElement>;
-				})
-			}
-		</form>
+		<Form inputs={props.selectedDriver.inputs} onInputsChange={setInputs}></Form>
 
 		<div className='create-connection-code-title'>
 			{localize('positron.newConnectionModalDialog.createConnection.code', "Connection Code")}
@@ -67,6 +75,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 					readOnly: true,
 					cursorBlinking: 'solid'
 				}}
+				code={code}
 			>
 			</SimpleCodeEditor>
 		</div>
@@ -103,8 +112,34 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 	</div>;
 };
 
-const FormElement = (props: PropsWithChildren<Input>) => {
-	const { label, defaultValue = '', type } = props;
+const Form = (props: PropsWithChildren<{ inputs: Input[], onInputsChange: (inputs: Input[]) => void }>) => {
+	const { inputs, onInputsChange } = props;
+
+	return <form className='create-connection-inputs'>
+		{
+			inputs.map((input) => {
+				return <FormElement key={input.id} input={input} onChange={(value) => {
+					onInputsChange(
+						inputs.map((i) => {
+							if (i.id === input.id) {
+								i.value = value;
+							}
+							return i;
+						})
+					);
+				}}></FormElement>;
+			})
+		}
+	</form>;
+}
+
+interface FormElementProps {
+	input: Input;
+	onChange: (value: string) => void;
+}
+
+const FormElement = (props: PropsWithChildren<FormElementProps>) => {
+	const { label, value: defaultValue = '', type, options } = props.input;
 
 	switch (type) {
 		case InputType.Number:
@@ -113,19 +148,20 @@ const FormElement = (props: PropsWithChildren<Input>) => {
 					label={label}
 					value={defaultValue}
 					type='text'
+					onChange={(e) => props.onChange(e.target.value)}
 				></LabeledTextInput>
 			</div>;
 		case InputType.Option:
 			return <div className='labeled-input'><label>
-				<span className='label-text'>{label}</span>\
+				<span className='label-text'>{label}</span>
 				{
-					props.options && props.options.length > 0 ?
+					options && options.length > 0 ?
 						<RadioGroup
 							name={label}
 							labelledBy={label}
-							entries={props.options.map(option => ({ options: option }))}
-							initialSelectionId={props.options[0].identifier}
-							onSelectionChanged={() => { }}
+							entries={options.map(option => ({ options: option }))}
+							initialSelectionId={options[0].identifier}
+							onSelectionChanged={(option) => props.onChange(option)}
 						/>
 						: <p>
 							{localize('positron.newConnectionModalDialog.createConnection.input.noOption', 'No options provided')}
@@ -139,6 +175,7 @@ const FormElement = (props: PropsWithChildren<Input>) => {
 					label={label}
 					value={defaultValue}
 					type='text'
+					onChange={(e) => props.onChange(e.target.value)}
 				></LabeledTextInput>
 			</div>;
 	}

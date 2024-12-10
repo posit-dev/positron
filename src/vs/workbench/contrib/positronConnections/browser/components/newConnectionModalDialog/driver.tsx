@@ -19,7 +19,7 @@ export interface Input {
 	// Options, if the input type is an option.
 	options?: { 'identifier': string; 'title': string }[];
 	// The default value for the input.
-	defaultValue?: string;
+	value?: string;
 }
 
 export interface Driver {

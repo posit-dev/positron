@@ -8,6 +8,7 @@ import { Emitter } from 'vs/base/common/event';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
+import { IIdentifiedSingleEditOperation, ITextModel } from 'vs/editor/common/model';
 import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from 'vs/workbench/contrib/codeEditor/browser/simpleEditorOptions';
 import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
 
@@ -20,9 +21,12 @@ export interface SimpleCodeEditorProps {
 
 export interface SimpleCodeEditorWidget {
 	getValue: () => string;
+	setValue(value: string): void;
 	updateOptions: (options: IEditorOptions) => void;
 	setScrollTop: (newScrollTop: number) => void;
 	focus: () => void;
+	getModel(): ITextModel | null;
+	executeEdits: (source: string, edits: IIdentifiedSingleEditOperation[]) => boolean;
 }
 
 /**
@@ -39,9 +43,12 @@ export const SimpleCodeEditor = forwardRef<
 
 	useImperativeHandle(ref, () => ({
 		getValue: () => editorRef.current.getValue(),
+		setValue: (value) => editorRef.current.setValue(value),
 		updateOptions: (options: IEditorOptions) => editorRef.current.updateOptions(options),
 		setScrollTop: (newScrollTop) => editorRef.current.setScrollTop(newScrollTop),
-		focus: () => editorRef.current.focus()
+		focus: () => editorRef.current.focus(),
+		getModel: () => editorRef.current.getModel(),
+		executeEdits: (source, edits) => editorRef.current.executeEdits(source, edits)
 	}));
 
 	const { code, language, services, editorOptions } = props;
