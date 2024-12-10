@@ -7,18 +7,17 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
-import { openTestJupyterNotebookDocument, stubSetHasRunningNotebookSessionContext } from './utils';
+import { openTestJupyterNotebookDocument } from './utils';
 import { TestLanguageRuntimeSession } from './testLanguageRuntimeSession';
+import { onDidSetHasRunningNotebookSessionContext } from '../extension';
 
 suite('commands', () => {
 	let disposables: vscode.Disposable[];
 	let session: TestLanguageRuntimeSession;
-	let onDidSetPositronHasRunningNotebookSessionContext: vscode.Event<boolean>;
 
 	setup(() => {
 		disposables = [];
 		session = new TestLanguageRuntimeSession();
-		onDidSetPositronHasRunningNotebookSessionContext = stubSetHasRunningNotebookSessionContext(disposables);
 	});
 
 	teardown(() => {
@@ -40,10 +39,11 @@ suite('commands', () => {
 
 		// Capture hasRunningNotebookSession context values.
 		const values: boolean[] = [];
-		disposables.push(onDidSetPositronHasRunningNotebookSessionContext(value => {
+		disposables.push(onDidSetHasRunningNotebookSessionContext(value => {
 			values.push(value);
 		}));
 
+		// Restart.
 		await vscode.commands.executeCommand('positron.restartKernel');
 
 		// Assert that the context is first set to false, then true.

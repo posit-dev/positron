@@ -7,19 +7,11 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
-import { closeAllEditors, eventToPromise, openTestJupyterNotebookDocument, stubSetHasRunningNotebookSessionContext } from './utils';
+import { closeAllEditors, eventToPromise, openTestJupyterNotebookDocument } from './utils';
+import { onDidSetHasRunningNotebookSessionContext } from '../extension';
 
 suite('extension', () => {
-	let disposables: vscode.Disposable[];
-	let onDidSetPositronHasRunningNotebookSessionContext: vscode.Event<boolean>;
-
-	setup(() => {
-		disposables = [];
-		onDidSetPositronHasRunningNotebookSessionContext = stubSetHasRunningNotebookSessionContext(disposables);
-	});
-
 	teardown(async () => {
-		vscode.Disposable.from(...disposables).dispose();
 		sinon.restore();
 		await closeAllEditors();
 	});
@@ -29,7 +21,7 @@ suite('extension', () => {
 		sinon.stub(positron.runtime, 'getNotebookSession').resolves({} as positron.LanguageRuntimeSession);
 
 		// Create a promise that resolves when the hasRunningNotebookSession context is set.
-		const promise = eventToPromise(onDidSetPositronHasRunningNotebookSessionContext);
+		const promise = eventToPromise(onDidSetHasRunningNotebookSessionContext);
 
 		// Open a test Jupyter notebook.
 		await openTestJupyterNotebookDocument();
@@ -43,7 +35,7 @@ suite('extension', () => {
 		sinon.stub(positron.runtime, 'getNotebookSession').resolves(undefined);
 
 		// Create a promise that resolves when the hasRunningNotebookSession context is set.
-		const promise = eventToPromise(onDidSetPositronHasRunningNotebookSessionContext);
+		const promise = eventToPromise(onDidSetHasRunningNotebookSessionContext);
 
 		// Open a test Jupyter notebook.
 		await openTestJupyterNotebookDocument();
@@ -60,7 +52,7 @@ suite('extension', () => {
 		await openTestJupyterNotebookDocument();
 
 		// Create a promise that resolves when the hasRunningNotebookSession context is set.
-		const promise = eventToPromise(onDidSetPositronHasRunningNotebookSessionContext);
+		const promise = eventToPromise(onDidSetHasRunningNotebookSessionContext);
 
 		// Show a text file.
 		const document = await vscode.workspace.openTextDocument({ content: 'Hello, world!' });
@@ -78,7 +70,7 @@ suite('extension', () => {
 		await openTestJupyterNotebookDocument();
 
 		// Create a promise that resolves when the hasRunningNotebookSession context is set.
-		const promise = eventToPromise(onDidSetPositronHasRunningNotebookSessionContext);
+		const promise = eventToPromise(onDidSetHasRunningNotebookSessionContext);
 
 		// Close the notebook.
 		await closeAllEditors();

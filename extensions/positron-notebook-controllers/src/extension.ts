@@ -14,6 +14,11 @@ import { getNotebookSession, isActiveNotebookEditorUri } from './utils';
 
 export const log = vscode.window.createOutputChannel('Positron Notebook Controllers', { log: true });
 
+const _onDidSetHasRunningNotebookSessionContext = new vscode.EventEmitter<boolean>();
+
+/** An event that fires when the hasRunningNotebookSessionContext is set. */
+export const onDidSetHasRunningNotebookSessionContext = _onDidSetHasRunningNotebookSessionContext.event;
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	const notebookSessionService = new NotebookSessionService();
 
@@ -95,6 +100,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 }
 
 export function setHasRunningNotebookSessionContext(value: boolean): Thenable<unknown> {
+	_onDidSetHasRunningNotebookSessionContext.fire(value);
 	return vscode.commands.executeCommand(
 		'setContext',
 		'positron.hasRunningNotebookSession',

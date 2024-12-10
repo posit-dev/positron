@@ -11,10 +11,10 @@ import * as vscode from 'vscode';
 import { JUPYTER_NOTEBOOK_TYPE } from '../constants';
 import { DidEndExecutionEvent, DidStartExecutionEvent, NotebookController } from '../notebookController';
 import { NotebookSessionService } from '../notebookSessionService';
-import { log } from '../extension';
+import { log, onDidSetHasRunningNotebookSessionContext } from '../extension';
 import { TestNotebookCellExecution } from './testNotebookCellExecution';
 import { TestLanguageRuntimeSession } from './testLanguageRuntimeSession';
-import { eventToPromise, stubSetHasRunningNotebookSessionContext } from './utils';
+import { closeAllEditors, eventToPromise, openTestJupyterNotebookDocument } from './utils';
 
 suite('NotebookController', () => {
 	let runtime: positron.LanguageRuntimeMetadata;
@@ -22,7 +22,6 @@ suite('NotebookController', () => {
 	let notebookSessionService: NotebookSessionService;
 	let notebookController: NotebookController;
 	let notebook: vscode.NotebookDocument;
-	let cells: vscode.NotebookCell[];
 	let session: TestLanguageRuntimeSession;
 	let getNotebookSessionStub: sinon.SinonStub;
 	let startLanguageRuntimeStub: sinon.SinonStub;
@@ -32,7 +31,6 @@ suite('NotebookController', () => {
 		readonly selected: boolean;
 	}>;
 	let onDidCreateNotebookCellExecution: vscode.EventEmitter<TestNotebookCellExecution>;
-	let onDidSetPositronHasRunningNotebookSessionContext: vscode.Event<boolean>;
 
 	setup(async () => {
 		disposables = [];
@@ -49,39 +47,8 @@ suite('NotebookController', () => {
 		disposables.push(session);
 		runtime = session.runtimeMetadata;
 
-		// Create a mock notebook.
-		notebook = {
-			metadata: {
-				custom: {
-					metadata: {
-						language_info: {
-							name: runtime.languageId,
-						},
-					},
-				},
-			},
-			uri: vscode.Uri.parse('file:///path/to/notebook.ipynb'),
-			getCells: () => cells,
-		} as Partial<vscode.NotebookDocument> as vscode.NotebookDocument;
-
-		// Create mock cells.
-		cells = [{
-			index: 0,
-			document: {
-				getText: () => 'code',
-				kind: vscode.NotebookCellKind.Code,
-				languageId: runtime.languageId,
-			} as Partial<vscode.TextDocument> as vscode.TextDocument,
-			notebook,
-		} as vscode.NotebookCell, {
-			index: 1,
-			document: {
-				getText: () => 'more code',
-				kind: vscode.NotebookCellKind.Code,
-				languageId: runtime.languageId,
-			} as Partial<vscode.TextDocument> as vscode.TextDocument,
-			notebook,
-		} as vscode.NotebookCell];
+		// Open a test Jupyter notebook.
+		notebook = await openTestJupyterNotebookDocument(runtime.languageId);
 
 		// Stub vscode notebook controllers so that we can fire onDidChangeSelectedNotebooks manually.
 		onDidChangeSelectedNotebooks = new vscode.EventEmitter();
@@ -113,12 +80,10 @@ suite('NotebookController', () => {
 				onDidCreateNotebookCellExecution.fire(execution);
 				return execution;
 			});
-
-		// An event that fires when the hasRunningNotebookSession context is set.
-		onDidSetPositronHasRunningNotebookSessionContext = stubSetHasRunningNotebookSessionContext(disposables);
 	});
 
-	teardown(() => {
+	teardown(async () => {
+		await closeAllEditors();
 		disposables.forEach(d => d.dispose());
 		sinon.restore();
 	});
@@ -136,7 +101,7 @@ suite('NotebookController', () => {
 	});
 
 	function executeNotebook(cellIndexes: number[]) {
-		const cellsToExecute = cells.filter(cell => cellIndexes.includes(cell.index));
+		const cellsToExecute = notebook.getCells().filter(cell => cellIndexes.includes(cell.index));
 		return notebookController.controller.executeHandler(cellsToExecute, notebook, notebookController.controller);
 	}
 
@@ -154,7 +119,7 @@ suite('NotebookController', () => {
 		// Capture the first two hasRunningNotebookSession context values.
 		const promise = new Promise<boolean[]>(resolve => {
 			const values: boolean[] = [];
-			disposables.push(onDidSetPositronHasRunningNotebookSessionContext(value => {
+			disposables.push(onDidSetHasRunningNotebookSessionContext(value => {
 				values.push(value);
 				if (values.length === 2) {
 					resolve(values);
@@ -182,7 +147,7 @@ suite('NotebookController', () => {
 		sinon.stub(vscode.window, 'activeNotebookEditor').value({ notebook });
 
 		// Create a promise that resolves when the hasRunningNotebookSession context is set.
-		const promise = eventToPromise(onDidSetPositronHasRunningNotebookSessionContext);
+		const promise = eventToPromise(onDidSetHasRunningNotebookSessionContext);
 
 		// Deselect the controller for the notebook.
 		onDidChangeSelectedNotebooks.fire({ notebook, selected: false });
@@ -230,7 +195,7 @@ suite('NotebookController', () => {
 			sinon.stub(vscode.window, 'activeNotebookEditor').value({ notebook });
 
 			// Create a promise that resolves when the hasRunningNotebookSession context is set.
-			const promise = eventToPromise(onDidSetPositronHasRunningNotebookSessionContext);
+			const promise = eventToPromise(onDidSetHasRunningNotebookSessionContext);
 
 			// Execute a cell.
 			await executeNotebook([0]);
