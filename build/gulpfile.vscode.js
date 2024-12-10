@@ -147,16 +147,24 @@ const bundleVSCodeTask = task.define('bundle-vscode', task.series(
 				],
 				resources: vscodeResources,
 				fileContentMapper: filePath => {
+					// --- Start Positron ---
+					// We have modified these `endsWith` statements to use
+					// `path.join` instead of hardcoded `/` path separators;
+					// without this change, no content would be prepended on
+					// Windows. (Presumably, the upstream build process is
+					// running on a Unix-like system or the path separators are
+					// being normalized somewhere else.)
 					if (
-						filePath.endsWith('vs/code/electron-sandbox/workbench/workbench.js') ||
+						filePath.endsWith(path.join('vs', 'code', 'electron-sandbox', 'workbench', 'workbench.js')) ||
 						// TODO: @justchen https://github.com/microsoft/vscode/issues/213332 make sure to remove when we use window.open on desktop
-						filePath.endsWith('vs/workbench/contrib/issue/electron-sandbox/issueReporter.js') ||
-						filePath.endsWith('vs/code/electron-sandbox/processExplorer/processExplorer.js')) {
+						filePath.endsWith(path.join('vs', 'workbench', 'contrib', 'issue', 'electron-sandbox', 'issueReporter.js')) ||
+						filePath.endsWith(path.join('vs', 'code', 'electron-sandbox', 'processExplorer', 'processExplorer.js'))) {
 						return async (content) => {
 							const bootstrapWindowContent = await fs.promises.readFile(path.join(root, 'out-build', 'bootstrap-window.js'), 'utf-8');
 							return `${bootstrapWindowContent}\n${content}`; // prepend bootstrap-window.js content to entry points that are Electron windows
 						};
 					}
+					// --- End Positron ---
 					return undefined;
 				},
 				skipTSBoilerplateRemoval: entryPoint =>
