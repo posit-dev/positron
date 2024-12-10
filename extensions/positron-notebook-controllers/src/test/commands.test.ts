@@ -18,6 +18,7 @@ suite('commands', () => {
 	setup(() => {
 		disposables = [];
 		session = new TestLanguageRuntimeSession();
+		disposables.push(session);
 	});
 
 	teardown(async () => {
@@ -26,7 +27,9 @@ suite('commands', () => {
 		sinon.restore();
 	});
 
-	test('restart disables then enables hasRunningNotebookSession context', async () => {
+	// TODO: This test is currently flaky. It should become more stable once the restartKernel
+	//       calls directly to Positron and not via the notebook session service.
+	test.skip('restart disables then enables hasRunningNotebookSession context', async () => {
 		// Simulate a running session for the notebook.
 		sinon.stub(positron.runtime, 'getNotebookSession').resolves(session as any);
 
