@@ -5,7 +5,7 @@ inputs:
     description: "The AWS role to assume"
     required: true
   report-dir:
-    description: "The directory containing the Playwright report"
+    description: "The path to the directory containing the Playwright report"
     required: true
 
 runs:

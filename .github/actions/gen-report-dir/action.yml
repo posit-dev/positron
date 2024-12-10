@@ -1,5 +1,5 @@
 name: "Generate Report Directory & Send to GH Summary"
-description: "Generates a unique REPORT_DIR and appends the report URL to the GitHub Actions summary"
+description: "Generates a unique REPORT_DIR and appends the report URL to the GitHub Step summary"
 inputs:
   bucket-url:
     description: "Base URL of the S3 bucket or CDN for the report"
@@ -23,5 +23,5 @@ runs:
         REPORT_URL="${{ inputs.bucket-url }}/$REPORT_DIR/index.html"
         echo "Report URL: $REPORT_URL"
 
-        # Append REPORT_URL to the GitHub Actions summary
+        # Append REPORT_URL to the GitHub Step summary
         echo "📄 [Playwright Report]($REPORT_URL) <br>" >> $GITHUB_STEP_SUMMARY

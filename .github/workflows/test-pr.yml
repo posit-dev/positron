@@ -7,14 +7,12 @@ on:
       - 'prerelease/**'
 
 jobs:
-  extract-pr-tags:
+  pr-tags:
     runs-on: ubuntu-latest
     outputs:
-      pr-tags: ${{ steps.extract-tags.outputs.tags }}
+      tags: ${{ steps.extract-tags.outputs.tags }}
     steps:
-
       - name: Extract PR Body
-        id: extract-body
         # if @all, set to ""
         # else append @critical
         run: |
@@ -38,9 +36,9 @@ jobs:
   e2e-electron:
     name: e2e
     uses: ./.github/workflows/test-e2e-linux.yml
-    needs: extract-pr-tags
+    needs: pr-tags
     with:
-      grep: "@critical,$TAGS"
+      grep: "@critical,${{ needs.pr-tags.outputs.tags }}"
       display_name: "electron (linux)"
       currents_tags: "electron/linux,$TAGS"
     secrets: inherit
