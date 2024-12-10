@@ -45,6 +45,22 @@ if (process.env['VSCODE_DEV']) {
 globalThis._VSCODE_PACKAGE_JSON = { ...pkg };
 globalThis._VSCODE_FILE_ROOT = __dirname;
 
+// --- Start Positron ---
+
+// Add a global API accessor. This simple wrapper is used to make it possible
+// for extensions that target both Positron and VS Code to obtain a handle to
+// the Positron API.
+// @ts-ignore
+globalThis.acquirePositronApi = function () {
+	try {
+		return require('positron');
+	} catch (err) {
+		return undefined;
+	}
+};
+
+// --- End Positron ---
+
 //#region NLS helpers
 
 let setupNLSResult: Promise<INLSConfiguration | undefined> | undefined = undefined;
