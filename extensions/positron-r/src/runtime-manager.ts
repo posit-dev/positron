@@ -5,8 +5,8 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { findCurrentRBinary, makeMetadata, rRuntimeDiscoverer } from './provider';
-import { RInstallation, RMetadataExtra } from './r-installation';
+import { currentRBinary, makeMetadata, rRuntimeDiscoverer } from './provider';
+import { RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason } from './r-installation';
 import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
 
@@ -44,7 +44,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 		// Validate that the metadata has all of the extra data we need
 		if (!metadataExtra) {
-			throw new Error('R metadata is missing binary path');
+			throw new Error('R metadata is missing extra fields needed for validation');
 		}
 		if (!metadataExtra.homepath) {
 			throw new Error('R metadata is missing home path');
@@ -56,7 +56,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		// Look for the current R binary. Note that this can return undefined,
 		// if there are no current/default R installations on the system. This
 		// is okay.
-		const curBin = await findCurrentRBinary();
+		const curBin = await currentRBinary();
 
 		let inst: RInstallation;
 		if (curBin && metadataExtra.current) {
@@ -66,24 +66,22 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			// The motivation for this mindset is immediate launch of an affiliated runtime.
 			// More thoughts in this issue:
 			// https://github.com/posit-dev/positron/issues/2659
-			inst = new RInstallation(curBin, true);
+			curBin.reasons.unshift(ReasonDiscovered.affiliated);
+			inst = new RInstallation(curBin.path, true, curBin.reasons);
 		} else {
-			inst = new RInstallation(metadataExtra.binpath, curBin === metadataExtra.binpath);
+			inst = new RInstallation(metadataExtra.binpath, curBin?.path === metadataExtra.binpath, [ReasonDiscovered.affiliated]);
 		}
 
 		// Check the installation for validity
-		if (!inst.valid) {
+		if (!inst.usable) {
 
-			// Consider future improvements:
-			//
-			// We could name the specific reason the installation is invalid, if
-			// only for logging purposes.
+			// Possible future improvement:
 			//
 			// It'd be helpful to select and return a valid installation if it's
 			// available and reasonably compatible with the installation we were
 			// asked for. This is probably going to be common for cases wherein
 			// R is upgraded in place.
-			throw new Error(`R installation at ${metadataExtra.binpath} is not usable.`);
+			throw new Error(`R installation at ${metadataExtra.binpath} is not usable. Reason: ${friendlyReason(inst.reasonRejected)}`);
 		}
 
 		// Looks like a valid R installation.
