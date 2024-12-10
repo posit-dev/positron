@@ -254,6 +254,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		const config = vscode.workspace.getConfiguration('positronKernelSupervisor');
 		const attachOnStartup = config.get('attachOnStartup', false) && this._extra?.attachOnStartup;
 		const sleepOnStartup = config.get('sleepOnStartup', undefined) && this._extra?.sleepOnStartup;
+		const connectionTimeout = config.get('connectionTimeout', 30);
 		if (attachOnStartup) {
 			this._extra!.attachOnStartup!.init(args);
 		}
@@ -273,7 +274,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			env,
 			workingDirectory: workingDir,
 			username: os.userInfo().username,
-			interruptMode
+			interruptMode,
+			connectionTimeout,
 		};
 		await this._api.newSession(session);
 		this.log(`${kernelSpec.display_name} session '${this.metadata.sessionId}' created in ${workingDir} with command:`, vscode.LogLevel.Info);
