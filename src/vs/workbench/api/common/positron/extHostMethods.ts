@@ -204,12 +204,16 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 			const unicodePointsBeforeStart = Array.from(lineTextBeforeStart).length;
 
 			const text = editor.document.getText(selection);
-			const unicodePointsInSelection = Array.from(text).length;
+
+			const lineTextBeforeEnd = editor.document
+				.lineAt(selection.end.line)
+				.text.substring(0, selection.end.character);
+			const unicodePointsInSelectionEnd = Array.from(lineTextBeforeEnd).length;
 
 			return {
 				active: { line: selection.active.line, character: unicodePointsBeforeActive },
 				start: { line: selection.start.line, character: unicodePointsBeforeStart },
-				end: { line: selection.end.line, character: unicodePointsBeforeStart + unicodePointsInSelection },
+				end: { line: selection.end.line, character: unicodePointsInSelectionEnd },
 				text: text
 			};
 		});
