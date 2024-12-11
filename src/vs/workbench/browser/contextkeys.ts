@@ -36,6 +36,8 @@ import { IEditorService } from 'vs/workbench/services/editor/common/editorServic
 // eslint-disable-next-line no-duplicate-imports
 import { PositronTopActionBarVisibleContext } from 'vs/workbench/common/contextkeys';
 // eslint-disable-next-line no-duplicate-imports
+import { IsPositronContext } from 'vs/platform/contextkey/common/contextkeys';
+// eslint-disable-next-line no-duplicate-imports
 import { isTemporaryWorkspace } from 'vs/platform/workspace/common/workspace';
 // --- End Positron ---
 
@@ -116,6 +118,7 @@ export class WorkbenchContextKeysHandler extends Disposable {
 		this.virtualWorkspaceContext = VirtualWorkspaceContext.bindTo(this.contextKeyService);
 		// --- Start Positron ---
 		this.temporaryWorkspaceContext = TemporaryWorkspaceContext.bindTo(this.contextKeyService);
+		IsPositronContext.bindTo(this.contextKeyService);
 		// --- End Positron ---
 		this.updateWorkspaceContextKeys();
 

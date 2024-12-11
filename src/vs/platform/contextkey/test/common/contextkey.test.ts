@@ -376,4 +376,10 @@ suite('ContextKeyExpr', () => {
 			)!
 		));
 	});
+
+	// --- Start Positron ---
+	test('Positron Context Key', () => {
+		assert.ok(ContextKeyExpr.has('isPositron').equals(ContextKeyExpr.true()));
+	});
+	// --- End Positron ---
 });
