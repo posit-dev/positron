@@ -163,49 +163,6 @@ class NotebookRuntimeKernel implements INotebookKernel {
 				session.replyToPrompt(message.id, reply ?? '');
 			}));
 
-			disposables.add(session.onDidReceiveRuntimeMessageStream(async message => {
-				// Only handle replies to this execution.
-				if (message.parent_id !== id) {
-					return;
-				}
-
-				// Convert the runtime message into an output item data transfer object.
-				let mime: string;
-				if (message.name === 'stdout') {
-					mime = 'application/vnd.code.notebook.stdout';
-				} else if (message.name === 'stderr') {
-					mime = 'application/vnd.code.notebook.stderr';
-				} else {
-					this._logService.warn(`[NotebookRuntimeKernel] Ignoring runtime message with unknown stream name: ${message.name}`);
-					return;
-				}
-				const newOutputItem: IOutputItemDto = { data: VSBuffer.fromString(message.text), mime };
-
-				// If the last output has items of the same mime type (i.e. from the same stream: stdout/stderr),
-				// append the new item to the last output. Otherwise, create a new output.
-				const lastOutput = cell.outputs.at(-1);
-				const lastOutputItems = lastOutput?.outputs;
-				if (lastOutputItems && lastOutputItems.every(item => item.mime === mime)) {
-					execution.update([{
-						editType: CellExecutionUpdateType.OutputItems,
-						append: true,
-						outputId: lastOutput.outputId,
-						items: [newOutputItem],
-					}]);
-				} else {
-					execution.update([{
-						editType: CellExecutionUpdateType.Output,
-						cellHandle,
-						append: true,
-						outputs: [{
-							outputId: message.id,
-							outputs: [newOutputItem],
-							metadata: message.metadata,
-						}]
-					}]);
-				}
-			}));
-
 			const handleRuntimeMessageOutput = async (
 				message: ILanguageRuntimeMessageOutput,
 				outputType: JupyterNotebookCellOutputType,
@@ -261,6 +218,49 @@ class NotebookRuntimeKernel implements INotebookKernel {
 
 			disposables.add(session.onDidReceiveRuntimeMessageResult(async message => {
 				await handleRuntimeMessageOutput(message, JupyterNotebookCellOutputType.ExecuteResult);
+			}));
+
+			disposables.add(session.onDidReceiveRuntimeMessageStream(async message => {
+				// Only handle replies to this execution.
+				if (message.parent_id !== id) {
+					return;
+				}
+
+				// Convert the runtime message into an output item data transfer object.
+				let mime: string;
+				if (message.name === 'stdout') {
+					mime = 'application/vnd.code.notebook.stdout';
+				} else if (message.name === 'stderr') {
+					mime = 'application/vnd.code.notebook.stderr';
+				} else {
+					this._logService.warn(`[NotebookRuntimeKernel] Ignoring runtime message with unknown stream name: ${message.name}`);
+					return;
+				}
+				const newOutputItem: IOutputItemDto = { data: VSBuffer.fromString(message.text), mime };
+
+				// If the last output has items of the same mime type (i.e. from the same stream: stdout/stderr),
+				// append the new item to the last output. Otherwise, create a new output.
+				const lastOutput = cell.outputs.at(-1);
+				const lastOutputItems = lastOutput?.outputs;
+				if (lastOutputItems && lastOutputItems.every(item => item.mime === mime)) {
+					execution.update([{
+						editType: CellExecutionUpdateType.OutputItems,
+						append: true,
+						outputId: lastOutput.outputId,
+						items: [newOutputItem],
+					}]);
+				} else {
+					execution.update([{
+						editType: CellExecutionUpdateType.Output,
+						cellHandle,
+						append: true,
+						outputs: [{
+							outputId: message.id,
+							outputs: [newOutputItem],
+							metadata: message.metadata,
+						}]
+					}]);
+				}
 			}));
 
 			disposables.add(session.onDidReceiveRuntimeMessageState(message => {
