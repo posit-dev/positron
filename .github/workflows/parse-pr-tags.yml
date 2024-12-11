@@ -30,8 +30,9 @@ jobs:
           # Check if a comment with the marker already exists
           COMMENT_ID=$(echo "$COMMENTS" | jq -r ".[] | select(.body | contains(\"$COMMENT_MARKER\")) | .id")
 
-          # Build the new comment body
-          NEW_COMMENT="$COMMENT_MARKER\n**E2E Test Tags:** ${{ env.tags }}"
+          # Build the new comment body with proper newlines and backticks
+          FORMATTED_TAGS=$(echo "${{ env.tags }}" | sed 's/,/`, `/g') # Format tags for readability
+          NEW_COMMENT="${COMMENT_MARKER}\n\n**E2E Test Tags:**\n\`\`${FORMATTED_TAGS}\`\`"
 
           if [ -n "$COMMENT_ID" ]; then
             # Update the existing comment
