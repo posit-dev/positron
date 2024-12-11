@@ -78,5 +78,13 @@ export default defineConfig<CustomTestOptions>({
 			},
 			grep: /@web/
 		},
+		{
+			name: 'e2e-windows',
+			use: {
+				web: false,
+				artifactDir: 'e2e-windows',
+			},
+			grep: /@win/
+		},
 	],
 });

@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// Along with the tags listed below, you can use `&all` to run all e2e tests against your PR.
+
 export enum TestTags {
 	APPS = '@apps',
 	CONNECTIONS = '@connections',
