@@ -242,7 +242,7 @@ export class KCApi implements KallichoreAdapterApi {
 			}
 
 			// Ignore if the start barrier is already open (that means the
-			// server started successfully)
+			// server started successfully), or if more than 5 minutes have elapsed
 			if (this._started.isOpen()) {
 				return;
 			}
@@ -272,6 +272,11 @@ export class KCApi implements KallichoreAdapterApi {
 
 		// Ensure this listener is disposed when the API is disposed
 		this._disposables.push(closeListener);
+
+		// Ensure the output file is cleaned up when the API is disposed
+		this._disposables.push(new vscode.Disposable(() => {
+			fs.unlinkSync(outFile);
+		}));
 
 		// Wait for the terminal to start and get the PID
 		await terminal.processId;
