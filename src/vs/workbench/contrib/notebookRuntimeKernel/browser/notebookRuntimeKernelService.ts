@@ -4,19 +4,26 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { AsyncIterableObject } from 'vs/base/common/async';
+import { VSBuffer } from 'vs/base/common/buffer';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { Emitter, Event } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
+import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
+import { basename } from 'vs/base/common/path';
 import { URI } from 'vs/base/common/uri';
+import { generateUuid } from 'vs/base/common/uuid';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ILogService } from 'vs/platform/log/common/log';
-import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
+import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
+import { IOutputItemDto } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { CellExecutionUpdateType } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
+import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookKernel, INotebookKernelChangeEvent, INotebookKernelService, VariablesResult } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { INotebookRuntimeKernelService } from 'vs/workbench/contrib/notebookRuntimeKernel/browser/interfaces/notebookRuntimeKernelService';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 class NotebookRuntimeKernel implements INotebookKernel {
 	public readonly viewType = 'jupyter-notebook';
@@ -40,8 +47,11 @@ class NotebookRuntimeKernel implements INotebookKernel {
 
 	constructor(
 		private readonly _runtime: ILanguageRuntimeMetadata,
-		@INotebookService private readonly _notebookService: INotebookService,
 		@ILogService private readonly _logService: ILogService,
+		@INotebookService private readonly _notebookService: INotebookService,
+		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@IQuickInputService private readonly _quickInputService: IQuickInputService,
 	) {
 	}
 
@@ -72,16 +82,141 @@ class NotebookRuntimeKernel implements INotebookKernel {
 			// Copying ExtHostNotebookController.getNotebookDocument for now.
 			throw new Error(`NO notebook document for '${uri}'`);
 		}
-		const cells: NotebookCellTextModel[] = [];
+
+		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(uri);
+		if (!session) {
+			throw new Error(`NO runtime session for notebook '${uri}'`);
+		}
+
+		this._logService.debug(`[NotebookRuntimeKernel] Executing cells: ${cellHandles.join(', ')}`);
 		for (const cellHandle of cellHandles) {
 			const cell = notebookModel.cells.find(cell => cell.handle === cellHandle);
-			if (cell) {
-				cells.push(cell);
+			// TODO: When does this happen?
+			if (!cell) {
+				continue;
+			}
+
+			const code = cell.getValue();
+
+			// If the cell is empty, skip it.
+			if (!code.trim()) {
+				continue;
+			}
+
+			const execution = this._notebookExecutionStateService.getCellExecution(cell.uri);
+			if (!execution) {
+				throw new Error(`NO execution for cell '${cell.uri}'`);
+			}
+
+			// Clear any existing outputs.
+			execution.update([{
+				editType: CellExecutionUpdateType.Output,
+				cellHandle,
+				outputs: [],
+			}]);
+
+			// TODO: This can be a simple counter for the session.
+			const id = generateUuid();
+
+			const disposables = new DisposableStore();
+
+			// TODO: We could register all of these when the session is attached and route them to
+			//       the right place. Not sure which is better.
+			disposables.add(session.onDidReceiveRuntimeMessageInput(message => {
+				// Only handle replies to this execution.
+				if (message.parent_id !== id) {
+					return;
+				}
+
+				// Update the cell's execution order (usually displayed in notebook UIs).
+				// TODO: Which of these should we prefer?
+				// cell.internalMetadata.executionOrder = message.execution_count;
+				execution.update([{
+					editType: CellExecutionUpdateType.ExecutionState,
+					executionOrder: message.execution_count,
+				}]);
+			}));
+
+			disposables.add(session.onDidReceiveRuntimeMessagePrompt(async message => {
+				// Only handle replies to this execution.
+				if (message.parent_id !== id) {
+					return;
+				}
+
+				// Let the user input a reply.
+				const reply = await this._quickInputService.input({
+					password: message.password,
+					prompt: message.prompt,
+				});
+
+				// Reply to the prompt.
+				session.replyToPrompt(message.id, reply ?? '');
+			}));
+
+			disposables.add(session.onDidReceiveRuntimeMessageStream(async message => {
+				// Only handle replies to this execution.
+				if (message.parent_id !== id) {
+					return;
+				}
+
+				// Convert the runtime message into an output item data transfer object.
+				const encoder = new TextEncoder();
+				const bytes = encoder.encode(message.text);
+				const data = VSBuffer.wrap(bytes);
+				let mime: string;
+				if (message.name === 'stdout') {
+					mime = 'application/vnd.code.notebook.stdout';
+				} else if (message.name === 'stderr') {
+					mime = 'application/vnd.code.notebook.stderr';
+				} else {
+					this._logService.warn(`[NotebookRuntimeKernel] Ignoring runtime message with unknown stream name: ${message.name}`);
+					return;
+				}
+				const newOutputItem: IOutputItemDto = { data, mime };
+
+				// If the last output has items of the same mime type (i.e. from the same stream: stdout/stderr),
+				// append the new item to the last output. Otherwise, create a new output.
+				const lastOutput = cell.outputs.at(-1);
+				const lastOutputItems = lastOutput?.outputs;
+				if (lastOutputItems && lastOutputItems.every(item => item.mime === mime)) {
+					execution.update([{
+						editType: CellExecutionUpdateType.OutputItems,
+						append: true,
+						outputId: lastOutput.outputId,
+						items: [newOutputItem],
+					}]);
+				} else {
+					execution.update([{
+						editType: CellExecutionUpdateType.Output,
+						cellHandle,
+						append: true,
+						outputs: [{
+							outputId: message.id,
+							outputs: [newOutputItem],
+							metadata: message.metadata,
+						}]
+					}]);
+				}
+			}));
+
+			disposables.add(session.onDidReceiveRuntimeMessageState(message => {
+				// Only handle replies to this execution.
+				if (message.parent_id !== id) {
+					return;
+				}
+			}));
+
+			try {
+				session.execute(
+					code,
+					id,
+					RuntimeCodeExecutionMode.Interactive,
+					RuntimeErrorBehavior.Stop,
+				);
+			} catch (err) {
+				throw err;
 			}
 		}
-		this._logService.debug(`[NotebookRuntimeKernel] Executing cells: ${cells.map(cell => cell.handle).join(', ')}`);
-
-		// TODO: Actually execute the cells.
 	}
 
 	async cancelNotebookCellExecution(uri: URI, cellHandles: number[]): Promise<void> {
@@ -95,19 +230,49 @@ class NotebookRuntimeKernel implements INotebookKernel {
 	}
 }
 
+// class NotebookRuntimeKernelSession {
+// 	constructor(
+// 		private readonly _kernel: NotebookRuntimeKernel,
+// 		private readonly _session: ILanguageRuntimeSession,
+// 		private readonly _notebookUri: URI,
+// 	) {
+// 	}
+// }
+
 class NotebookRuntimeKernelService extends Disposable implements INotebookRuntimeKernelService {
 	constructor(
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 	) {
 		super();
 
 		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
 			const kernel = this._instantiationService.createInstance(NotebookRuntimeKernel, runtime);
+			// TODO: Dispose the kernel when the runtime is disposed/unregistered?
 			this._notebookKernelService.registerKernel(kernel);
 			this._logService.debug(`[NotebookRuntimeKernelService] Registered kernel for runtime: ${runtime.runtimeName}`);
+
+			// TODO: Dispose
+			this._notebookKernelService.onDidChangeSelectedNotebooks(async e => {
+				if (e.oldKernel === kernel.id) {
+					// This kernel was deselected.
+					// TODO: Shutdown the session.
+				} else if (e.newKernel === kernel.id) {
+					// This kernel was selected.
+					// TODO: Shutdown any existing session for the notebook first.
+					await this._runtimeSessionService.startNewRuntimeSession(
+						runtime.runtimeId,
+						basename(e.notebook.fsPath),
+						LanguageRuntimeSessionMode.Notebook,
+						e.notebook,
+						// TODO: Is this a user action or can it be automatic?
+						`Runtime selected for notebook`,
+					);
+				}
+			});
 		}));
 
 		// TODO: Also register kernels for existing runtimes.
