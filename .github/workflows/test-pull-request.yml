@@ -27,7 +27,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Fetch Tags from PR Comment
-        id: fetch-tags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Define the comment marker
           COMMENT_MARKER="<!-- PR Tags -->"
