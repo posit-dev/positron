@@ -233,11 +233,14 @@ export class KCApi implements KallichoreAdapterApi {
 			isTransient: false
 		});
 
+		// Flag to track if the terminal exited before the start barrier opened
+		let exited = false;
+
 		// Listen for the terminal to close. If it closes unexpectedly before
 		// the start barrier opens, provide some feedback.
-		const closeListener = vscode.window.onDidCloseTerminal((closedTerminal) => {
+		const closeListener = vscode.window.onDidCloseTerminal(async (closedTerminal) => {
 			// Ignore closed terminals that aren't the one we started
-			if (closedTerminal === terminal) {
+			if (closedTerminal !== terminal) {
 				return;
 			}
 
@@ -252,6 +255,9 @@ export class KCApi implements KallichoreAdapterApi {
 				return;
 			}
 
+			// Mark the terminal as exited
+			exited = true;
+
 			// Read the contents of the output file and log it
 			const contents = fs.readFileSync(outFile, 'utf8');
 			if (terminal.exitStatus && terminal.exitStatus.code) {
@@ -261,13 +267,16 @@ export class KCApi implements KallichoreAdapterApi {
 			}
 
 			// Display a notification that directs users to open the log to get more information
-			vscode.window.showInformationMessage(
+			const selection = await vscode.window.showInformationMessage(
 				vscode.l10n.t('There was an error starting the kernel supervisor. Check the log for more information.'), {
 				title: vscode.l10n.t('Open Log'),
-				run: () => {
-					this._log.show();
+				execute: () => {
+					this._log.show(false);
 				}
 			});
+			if (selection) {
+				selection.execute();
+			}
 		});
 
 		// Ensure this listener is disposed when the API is disposed
@@ -295,6 +304,11 @@ export class KCApi implements KallichoreAdapterApi {
 				break;
 			} catch (err) {
 				const elapsed = Date.now() - startTime;
+
+				// Has the terminal exited? if it has, there's no point in continuing to retry.
+				if (exited) {
+					throw new Error(`The supervisor process exited before the server was ready.`);
+				}
 
 				// ECONNREFUSED is a normal condition during startup; the server
 				// isn't ready yet. Keep trying until we hit the retry limit,
