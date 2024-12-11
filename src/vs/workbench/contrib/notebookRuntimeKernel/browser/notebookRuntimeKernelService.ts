@@ -22,7 +22,7 @@ import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/co
 import { INotebookKernel, INotebookKernelChangeEvent, INotebookKernelService, VariablesResult } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { INotebookRuntimeKernelService } from 'vs/workbench/contrib/notebookRuntimeKernel/browser/interfaces/notebookRuntimeKernelService';
-import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 // TODO: Add from PR #5680.
@@ -87,6 +87,8 @@ class NotebookRuntimeKernel implements INotebookKernel {
 	}
 
 	async executeNotebookCellsRequest(uri: URI, cellHandles: number[]): Promise<void> {
+		this._logService.debug(`[NotebookRuntimeKernel] Executing cells: ${cellHandles.join(', ')}`);
+
 		const notebookModel = this._notebookService.getNotebookTextModel(uri);
 		if (!notebookModel) {
 			// Copying ExtHostNotebookController.getNotebookDocument for now.
@@ -98,7 +100,6 @@ class NotebookRuntimeKernel implements INotebookKernel {
 			throw new Error(`NO runtime session for notebook '${uri}'`);
 		}
 
-		this._logService.debug(`[NotebookRuntimeKernel] Executing cells: ${cellHandles.join(', ')}`);
 		for (const cellHandle of cellHandles) {
 			const cell = notebookModel.cells.find(cell => cell.handle === cellHandle);
 			// TODO: When does this happen?
@@ -280,6 +281,19 @@ class NotebookRuntimeKernel implements INotebookKernel {
 						}]
 					}]
 				}]);
+				execution.complete({
+					runEndTime: Date.now(),
+					lastRunSuccess: false,
+					error: {
+						message: message.message,
+						stack: message.traceback.join('\n'),
+						uri: cell.uri,
+						location: undefined,
+					},
+				});
+
+				// The execution is finished - stop listening for replies.
+				disposables.dispose();
 			}));
 
 			disposables.add(session.onDidReceiveRuntimeMessageState(message => {
@@ -287,7 +301,22 @@ class NotebookRuntimeKernel implements INotebookKernel {
 				if (message.parent_id !== id) {
 					return;
 				}
+
+				if (message.state === RuntimeOnlineState.Idle) {
+					execution.complete({
+						runEndTime: Date.now(),
+						lastRunSuccess: true,
+					});
+
+					// The execution is finished - stop listening for replies.
+					disposables.dispose();
+				}
 			}));
+
+			execution.update([{
+				editType: CellExecutionUpdateType.ExecutionState,
+				runStartTime: Date.now(),
+			}]);
 
 			try {
 				session.execute(
@@ -297,6 +326,20 @@ class NotebookRuntimeKernel implements INotebookKernel {
 					RuntimeErrorBehavior.Stop,
 				);
 			} catch (err) {
+				execution.complete({
+					runEndTime: Date.now(),
+					lastRunSuccess: false,
+					error: {
+						message: err.message,
+						stack: err.stack,
+						uri: cell.uri,
+						location: undefined,
+					},
+				});
+
+				// The execution is finished - stop listening for replies.
+				disposables.dispose();
+
 				throw err;
 			}
 		}
