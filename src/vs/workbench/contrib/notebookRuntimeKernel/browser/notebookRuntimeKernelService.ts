@@ -345,10 +345,15 @@ class NotebookRuntimeKernel implements INotebookKernel {
 		}
 	}
 
-	async cancelNotebookCellExecution(uri: URI, cellHandles: number[]): Promise<void> {
+	async cancelNotebookCellExecution(uri: URI, _cellHandles: number[]): Promise<void> {
 		this._logService.debug(`[NotebookRuntimeKernel] Interrupting`);
 
-		// TODO: Actually interrupt the execution.
+		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(uri);
+		if (!session) {
+			throw new Error(`NO runtime session for notebook '${uri}'`);
+		}
+
+		session.interrupt();
 	}
 
 	provideVariables(notebookUri: URI, parentId: number | undefined, kind: 'named' | 'indexed', start: number, token: CancellationToken): AsyncIterableObject<VariablesResult> {
