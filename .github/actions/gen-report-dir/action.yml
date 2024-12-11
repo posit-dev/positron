@@ -1,0 +1,27 @@
+name: "Generate Report Directory & Send to GH Summary"
+description: "Generates a unique REPORT_DIR and appends the report URL to the GitHub Step summary"
+inputs:
+  bucket-url:
+    description: "Base URL of the S3 bucket or CDN for the report"
+    required: false
+    default: "https://d38p2avprg8il3.cloudfront.net"
+runs:
+  using: "composite"
+  steps:
+    - name: Generate REPORT_DIR
+      shell: bash
+      run: |
+        # Generate a unique REPORT_DIR
+        RANDOM_SUFFIX=$RANDOM
+        REPORT_DIR="playwright-report-${{ github.run_id }}-${RANDOM_SUFFIX}"
+
+        # Export REPORT_DIR for downstream steps
+        echo "REPORT_DIR=$REPORT_DIR" >> $GITHUB_ENV
+        echo "Generated REPORT_DIR: $REPORT_DIR"
+
+        # Generate the REPORT_URL
+        REPORT_URL="${{ inputs.bucket-url }}/$REPORT_DIR/index.html"
+        echo "Report URL: $REPORT_URL"
+
+        # Append REPORT_URL to the GitHub Step summary
+        echo "📄 [Playwright Report]($REPORT_URL) <br>" >> $GITHUB_STEP_SUMMARY

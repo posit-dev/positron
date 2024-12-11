@@ -1,17 +1,48 @@
-name: "Test: E2E Tests (Windows)"
-
-# Run tests daily at 4am UTC (11p EST) on weekdays for now, or manually
+name: "Test: E2E (Windows)"
 on:
-  schedule:
-    - cron: "0 4 * * 1-5"
+  workflow_call:
+    inputs:
+      grep:
+        required: false
+        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames, etc. For windows, use this format: (?=.*@win)(?=.*@feature)"
+        default: "@win"
+        type: string
+      repeat_each:
+        required: false
+        description: "Run each test N times, defaults to one."
+        default: 1
+        type: number
+      display_name:
+        required: false
+        description: "The name of the job as it will appear in the GitHub Actions UI."
+        default: "e2e-windows"
+        type: string
+      currents_tags:
+        required: false
+        description: "The tags to use for Currents recording."
+        default: ""
+        type: string
+
   workflow_dispatch:
+    inputs:
+      grep:
+        required: false
+        description: "Tests tagged with @win are pre-filtered. Specify other tags, test titles, filenames, etc. to filter tests further."
+        default: "@win"
+        type: string
+      repeat_each:
+        required: false
+        description: "Run each test N times, defaults to one."
+        default: 1
+        type: number
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  e2e-windows-tests:
+  e2e-windows:
+    name: ${{ inputs.display_name }}
     runs-on:
       labels: [windows-latest-8x]
     timeout-minutes: 80
@@ -104,6 +135,14 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
+      - name: Transform to Playwright tags $PW_TAGS
+        run: bash scripts/pr-tags-transform.sh "e2e-windows" "${{ inputs.grep }}"
+        shell: bash
+
+      - name: Send Results to GH Summary
+        uses: ./.github/actions/gen-report-dir
+        if: ${{ !cancelled() }}
+
       - name: Run Tests on Windows (Electron)
         env:
           POSITRON_PY_VER_SEL: 3.10.10
@@ -113,56 +152,13 @@ jobs:
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: "electron,@win"
+          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/win'}}
         if: ${{ !cancelled() }}
-        id: e2e-win-electron-tests
-        run: npx playwright test --project e2e-electron --grep "@win" --workers 2
+        run: npx playwright test --project "e2e-windows" --grep "${{ env.PW_TAGS }}" --workers 2 --repeat-each ${{ inputs.repeat_each }}
 
-      - name: Upload blob report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+      - name: Upload Playwright Report to S3
+        if: ${{ success() || failure() }}
+        uses: ./.github/actions/upload-report-to-s3
         with:
-          name: blob-report-electron
-          path: blob-report
-          retention-days: 14
-
-      - name: Upload junit report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: junit-report-electron
-          path: test-results/junit.xml
-
-  e2e-report:
-    if: always()
-    runs-on: ubuntu-latest
-    container:
-      image: mcr.microsoft.com/playwright:v1.48.0-jammy
-    needs: e2e-windows-tests
-    env:
-      REPORT_DIR: playwright-report-${{ github.run_id }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-
-      - name: Run E2E Report
-        uses: ./.github/actions/e2e-report
-        if: always()
-        with:
-          aws-s3-bucket: positron-test-reports
-          aws-role: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          testrail-api-key: ${{ secrets.TESTRAIL_API_KEY }}
-          testrail-title: "E2E Electron Test Run"
-
-      - name: Send Slack Notification
-        uses: midleman/slack-workflow-status@master
-        if: always()
-        with:
-          repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL }}
-          notify_on: "failure"
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
