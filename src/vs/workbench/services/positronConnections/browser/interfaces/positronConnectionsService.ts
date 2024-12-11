@@ -9,12 +9,15 @@ import { Emitter, Event } from 'vs/base/common/event';
 import Severity from 'vs/base/common/severity';
 import { INotificationHandle } from 'vs/platform/notification/common/notification';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { PositronConnectionsDriverManager } from 'vs/workbench/services/positronConnections/browser/positronConnectionsDrivers';
 
 export const IPositronConnectionsService = createDecorator<IPositronConnectionsService>('positronConnectionsService');
 export const POSITRON_CONNECTIONS_VIEW_ID = 'workbench.panel.positronConnections';
 
 export interface IPositronConnectionsService {
 	readonly _serviceBrand: undefined;
+	readonly driverManager: PositronConnectionsDriverManager;
+
 	initialize(): void;
 	addConnection(instance: IPositronConnectionInstance): void;
 	getConnections(): IPositronConnectionInstance[];

@@ -51,7 +51,7 @@ export const LabeledTextInput = forwardRef<HTMLInputElement, LabeledTextInputPro
 	return (
 		<div className={positronClassNames('labeled-text-input', { 'disabled': props.disabled })}>
 			<label className='label'>
-				{props.label}
+				<span className='label-text'>{props.label}</span>
 				<input
 					className={positronClassNames('text-input', { 'error': props.error })}
 					ref={ref}

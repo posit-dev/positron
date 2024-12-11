@@ -20,6 +20,7 @@ import { INotificationService, Severity } from 'vs/platform/notification/common/
 import { ISecretStorageService } from 'vs/platform/secrets/common/secrets';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { generateUuid } from 'vs/base/common/uuid';
+import { PositronConnectionsDriverManager } from 'vs/workbench/services/positronConnections/browser/positronConnectionsDrivers';
 
 class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
@@ -32,6 +33,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 	public onDidFocus = this.onDidFocusEmitter.event;
 
 	private readonly connections: IPositronConnectionInstance[] = [];
+	public readonly driverManager = new PositronConnectionsDriverManager();
 	private readonly viewEnabled: IContextKey<boolean>;
 
 	constructor(
