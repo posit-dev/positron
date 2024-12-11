@@ -17,9 +17,8 @@ main branch by either pulling or rebasing.
 -->
 
 ### Tests to Run
-
-&critical
 <!-- See `test/e2e/helpers/test-tags.ts` for a complete list of available tags. -->
+`@:critical`
 
 ### QA Notes
 
