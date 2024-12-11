@@ -10,6 +10,7 @@ import 'vs/css!./tableDataCell';
 import * as React from 'react';
 
 // Other dependencies.
+import { localize } from 'vs/nls';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { DataCell, DataCellKind } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
@@ -74,7 +75,7 @@ export const TableDataCell = (props: TableDataCellProps) => {
 	let renderedOutput = parts;
 	if (props.dataCell.kind === DataCellKind.NON_NULL && formattedText === '') {
 		isSpecialValue = true;
-		renderedOutput = ['<empty>'];
+		renderedOutput = [`<${localize('positron.dataExplorer.emptyString', "empty")}>`];
 	}
 
 	// Set the class names.
