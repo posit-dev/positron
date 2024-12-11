@@ -58,14 +58,13 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 		});
 
 		try {
-			const connect = props.selectedDriver.connect;
-			if (!connect) {
+			if (!props.selectedDriver.connect) {
 				throw new Error(
 					localize('positron.newConnectionModalDialog.createConnection.connectNotImplemented', "Connect method not implemented")
 				);
 			}
 
-			connect(code);
+			await props.selectedDriver.connect(code);
 		} catch (err) {
 			services.notificationService.error(err);
 		}

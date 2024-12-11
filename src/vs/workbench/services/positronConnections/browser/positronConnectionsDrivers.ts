@@ -3,12 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IDriver, Input, InputType } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsDriver';
+import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
+import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 export class PositronConnectionsDriverManager {
 	private readonly drivers: IDriver[] = [];
 
-	constructor() {
+	constructor(readonly service: IPositronConnectionsService) {
 		this.registerDefaultDrivers();
 	}
 
@@ -27,12 +30,14 @@ export class PositronConnectionsDriverManager {
 	}
 
 	private registerDefaultDrivers(): void {
-		this.registerDriver(new RPostgreSQLDriver());
+		this.registerDriver(new RPostgreSQLDriver(this.service));
 	}
 }
 
 
 class RPostgreSQLDriver implements IDriver {
+	constructor(readonly service: IPositronConnectionsService) { }
+
 	languageId: string = 'r';
 	driverId: string = 'postgres';
 	name: string = 'PostgresSQL';
@@ -80,7 +85,8 @@ class RPostgreSQLDriver implements IDriver {
 			'value': 'integer64'
 		}
 	];
-	generateCode?: ((inputs: Array<Input>) => string) | undefined = (inputs: Array<Input>) => {
+
+	generateCode(inputs: Array<Input>) {
 		const dbname = inputs.find(input => input.id === 'dbname')?.value;
 		const host = inputs.find(input => input.id === 'host')?.value;
 		const port = inputs.find(input => input.id === 'port')?.value;
@@ -99,5 +105,34 @@ class RPostgreSQLDriver implements IDriver {
 	bigint = '${bigint ?? ''}'
 )
 `;
-	};
+	}
+
+	async connect(code: string) {
+		// Check if the foreground session is an R session.
+		const session = this.getSession();
+
+		if (!session) {
+			throw new Error('No R session found. Create an R session and retry.');
+		}
+
+		// We don't get to know if something failed. That's fine for now as the error would be displayed
+		// in the console.
+		session.execute(code, 'connect', RuntimeCodeExecutionMode.Interactive, RuntimeErrorBehavior.Stop);
+	}
+
+	getSession(): ILanguageRuntimeSession | undefined {
+		const foregroundSession = this.service.runtimeSessionService.foregroundSession;
+		if (foregroundSession && foregroundSession.runtimeMetadata.languageId === 'r') {
+			return foregroundSession;
+		}
+
+		// If no foreground session, we'll check if there's a running R session.
+		const session = this.service.runtimeSessionService.activeSessions.find(session => session.runtimeMetadata.languageId === 'r');
+		if (session) {
+			return session;
+		}
+
+		// No running R session. For now we don't do anything to start a new session.
+		return undefined;
+	}
 }
