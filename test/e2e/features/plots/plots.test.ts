@@ -41,7 +41,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('Python - Verifies basic plot functionality - Dynamic Plot [C608114]', {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
-		}, async function ({ app, logger, headless, logsPath }) {
+		}, async function ({ app, logger, headless, logsPath }, testInfo) {
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('Python', pythonDynamicPlot, '>>>');
@@ -50,10 +50,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 			await compareImages({
 				app,
-				logsPath,
 				buffer,
 				diffScreenshotName: 'pythonScatterplotDiff',
 				masterScreenshotName: 'pythonScatterplot',
+				testInfo: testInfo
 			});
 
 			if (!headless) {
@@ -81,7 +81,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('Python - Verifies basic plot functionality - Static Plot [C654401]', {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
-		}, async function ({ app, logger, logsPath }) {
+		}, async function ({ app, logger, logsPath }, testInfo) {
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('Python', pythonStaticPlot, '>>>');
 			await app.workbench.positronPlots.waitForCurrentStaticPlot();
@@ -89,10 +89,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			const buffer = await app.workbench.positronPlots.getCurrentStaticPlotAsBuffer();
 			await compareImages({
 				app,
-				logsPath,
 				buffer,
 				diffScreenshotName: 'graphvizDiff',
 				masterScreenshotName: 'graphviz',
+				testInfo
 			});
 
 			await test.step('Verify plot can be opened in editor', async () => {
@@ -269,7 +269,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('R - Verifies basic plot functionality [C628633]', {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
-		}, async function ({ app, logger, headless, logsPath }) {
+		}, async function ({ app, logger, headless, logsPath }, testInfo) {
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('R', rBasicPlot, '>');
 			await app.workbench.positronPlots.waitForCurrentPlot();
@@ -277,10 +277,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 			await compareImages({
 				app,
-				logsPath,
 				buffer,
 				diffScreenshotName: 'autosDiff',
 				masterScreenshotName: 'autos',
+				testInfo
 			});
 
 			if (!headless) {
@@ -364,32 +364,28 @@ async function runScriptAndValidatePlot(app: Application, script: string, locato
 
 async function compareImages({
 	app,
-	logsPath,
 	buffer,
 	diffScreenshotName,
 	masterScreenshotName,
+	testInfo
 }: {
 	app: any;
-	logsPath: string;
 	buffer: Buffer;
 	diffScreenshotName: string;
 	masterScreenshotName: string;
+	testInfo: any;
 }) {
 	await test.step('compare images', async () => {
 		const data = await resembleCompareImages(fs.readFileSync(path.join(__dirname, `${masterScreenshotName}.png`),), buffer, options);
 
 		if (process.env.GITHUB_ACTIONS && !app.web && data.rawMisMatchPercentage > 2.0) {
 			if (data.getBuffer) {
-				// Temporarily save the buffer to a file for screenshot purposes
-				const tempScreenshotPath = path.join(logsPath, 'tempDiffScreenshot.png');
-				fs.writeFileSync(tempScreenshotPath, data.getBuffer(true));
-
-				// Append it as a screenshot
-				app.code.driver.takeScreenshot(diffScreenshotName);
+				await testInfo.attach(diffScreenshotName, { body: data.getBuffer(true), contentType: 'image/png' });
 			}
 
 			// Capture a new master image in CI
-			app.code.driver.takeScreenshot(masterScreenshotName);
+			const newMaster = await app.workbench.positronPlots.currentPlot.screenshot();
+			await testInfo.attach(masterScreenshotName, { body: newMaster, contentType: 'image/png' });
 
 			// Fail the test with mismatch details
 			fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
