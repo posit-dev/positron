@@ -1,3 +1,5 @@
+@echo off
+
 REM ---------------------------------------------------------------------------------------------
 REM Copyright (C) 2024 Posit Software, PBC. All rights reserved.
 REM ---------------------------------------------------------------------------------------------
@@ -5,8 +7,6 @@ REM ----------------------------------------------------------------------------
 REM This script is used to run a program and capture its output to a file. It is
 REM used to capture the output of the supervisor process so that it can be displayed
 REM in the UI in the case of a startup failure.
-
-@echo off
 
 REM Check that the user provided at least two arguments; the first is the output
 REM file and the second is the program to run and any arguments. If not, print a
