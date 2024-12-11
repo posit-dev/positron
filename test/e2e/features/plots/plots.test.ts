@@ -91,8 +91,8 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				app,
 				logsPath,
 				buffer,
-				diffScreenshotName: 'graphVizDiff',
-				masterScreenshotName: 'graphViz',
+				diffScreenshotName: 'graphvizDiff',
+				masterScreenshotName: 'graphviz',
 			});
 
 			await test.step('Verify plot can be opened in editor', async () => {
