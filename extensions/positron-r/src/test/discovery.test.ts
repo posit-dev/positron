@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as Fs from "fs"
 import * as Sinon from 'sinon';
-import { findRBinaryFromPATHWindows } from '../provider';
+import { currentRBinaryFromPATHWindows } from '../provider';
 import path = require('path');
 
 
@@ -65,8 +65,8 @@ suite('Discovery', () => {
 		});
 
 		test('Find R on Windows path', async () => {
-			const result = await findRBinaryFromPATHWindows(r432);
-			assert.strictEqual(result, r432);
+			const result = await currentRBinaryFromPATHWindows(r432);
+			assert.strictEqual(result?.path, r432);
 		});
 	});
 
@@ -83,7 +83,7 @@ suite('Discovery', () => {
 		});
 
 		test('Find R on Windows path', async () => {
-			const result = await findRBinaryFromPATHWindows(rbat);
+			const result = await currentRBinaryFromPATHWindows(rbat);
 			assert.strictEqual(result, undefined);
 		});
 	});
@@ -102,8 +102,8 @@ suite('Discovery', () => {
 		});
 
 		test('Find R on Windows path', async () => {
-			const result = await findRBinaryFromPATHWindows(smartshim);
-			assert.strictEqual(result, x64);
+			const result = await currentRBinaryFromPATHWindows(smartshim);
+			assert.strictEqual(result?.path, x64);
 		});
 	});
 });
