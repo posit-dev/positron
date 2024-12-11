@@ -19,7 +19,7 @@ if echo "$PR_BODY" | grep -q "@:all"; then
   TAGS="" # Set to an empty string to indicate all tests should run
 else
   # Parse tags starting with '@:' and convert to '@'
-  TAGS=$(echo "$PR_BODY" | grep -o "@:[a-zA-Z0-9_-]*" | sed 's/@://g' | tr '\n' ',' | sed 's/,$//')
+  TAGS=$(echo "$PR_BODY" | grep -o "@:[a-zA-Z0-9_-]*" | sed 's/@://g' | sed 's/^/@/' | tr '\n' ',' | sed 's/,$//')
 
   # Always add @critical if not already included
   if [[ ! "$TAGS" =~ "@critical" ]]; then
