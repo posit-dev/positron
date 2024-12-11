@@ -48,7 +48,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * Gets or sets the runtime disposable store. This contains things that are disposed when a
 	 * runtime is detached.
 	 */
-	private _runtimeDisposableStore = new DisposableStore();
+	private _runtimeDisposableStore = this._register(new DisposableStore());
 
 	/**
 	 * Gets or sets the variable items map.
@@ -474,8 +474,8 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		// Try to create the runtime client.
 		try {
 			// Create the runtime client.
-			const client = await this._session.createClient<any, any>(
-				RuntimeClientType.Variables, {});
+			const client = this._register(await this._session.createClient<any, any>(
+				RuntimeClientType.Variables, {}));
 			this._variablesClient = new VariablesClientInstance(client);
 
 			// Add the onDidReceiveList event handler.
@@ -494,8 +494,9 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 
 			// Create an event handler for the client state.
 			const event = Event.fromObservable(
-				this._variablesClient.clientState, this._runtimeDisposableStore);
-			event(state => {
+				this._variablesClient.clientState, this._runtimeDisposableStore)
+
+			this._runtimeDisposableStore.add(event(state => {
 				// Clear all expanded paths if the client is closed.
 				if (state === RuntimeClientState.Closed) {
 					this._expandedPaths.clear();
@@ -503,8 +504,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 
 				// Fire the onDidChangeState event.
 				this._onDidChangeStateEmitter.fire(state);
-			});
-
+			}));
 
 			// Add the runtime client to the runtime disposable store.
 			this._runtimeDisposableStore.add(this._variablesClient);

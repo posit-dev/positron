@@ -8,7 +8,7 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { ILogService } from 'vs/platform/log/common/log';
-import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
+import { Disposable, DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -129,7 +129,7 @@ const formatTraceback = (traceback: string[]) => {
 /**
  * PositronConsoleService class.
  */
-class PositronConsoleService extends Disposable implements IPositronConsoleService {
+export class PositronConsoleService extends Disposable implements IPositronConsoleService {
 	//#region Private Properties
 
 	/**
@@ -434,11 +434,11 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		attachMode: SessionAttachMode
 	): IPositronConsoleInstance {
 		// Create the new Positron console instance.
-		const positronConsoleInstance = this._instantiationService.createInstance(
+		const positronConsoleInstance = this._register(this._instantiationService.createInstance(
 			PositronConsoleInstance,
 			session,
 			attachMode
-		);
+		));
 
 		// Add the Positron console instance.
 		this._positronConsoleInstancesByLanguageId.set(
@@ -522,7 +522,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Gets or sets the disposable store. This contains things that are disposed when a runtime is
 	 * detached.
 	 */
-	private _runtimeDisposableStore = new DisposableStore();
+	private _runtimeDisposableStore = this._register(new DisposableStore());
 
 	/**
 	 * Gets or sets the runtime state.
@@ -764,6 +764,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Dispose of the runtime event handlers.
 		this._runtimeDisposableStore.dispose();
+	}
+
+	/**
+	 * Adds disposables that should be cleaned up when this instance is disposed.
+	 * @param disposables The disposables to add.
+	 */
+	addDisposables(disposables: IDisposable): void {
+		this._register(disposables);
 	}
 
 	//#endregion Constructor & Dispose

@@ -10,6 +10,7 @@ import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/class
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { ActivityItemPrompt } from 'vs/workbench/services/positronConsole/browser/classes/activityItemPrompt';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IDisposable } from 'vs/base/common/lifecycle';
 
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
@@ -175,6 +176,12 @@ export interface IPositronConsoleInstance {
 	 * Last saved scroll top.
 	 */
 	lastScrollTop: number;
+
+	/**
+	 * Adds disposables that should be cleaned up when this instance is disposed.
+	 * @param disposables The disposables to add.
+	 */
+	addDisposables(disposables: IDisposable): void;
 
 	/**
 	 * The onFocusInput event.

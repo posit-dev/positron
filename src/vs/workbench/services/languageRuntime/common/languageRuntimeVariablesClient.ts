@@ -232,16 +232,16 @@ export class VariablesClientInstance extends Disposable {
 	private connectClient(client: PositronVariablesComm) {
 		this._register(client);
 
-		this._comm.onDidRefresh((e: RefreshEvent) => {
+		this._register(this._comm.onDidRefresh((e: RefreshEvent) => {
 			this._onDidReceiveListEmitter.fire(new PositronVariablesList(
 				e.variables,
 				[], // No parent names; this is the top-level list
 				this._comm));
-		});
+		}));
 
-		this._comm.onDidUpdate((e: UpdateEvent) => {
+		this._register(this._comm.onDidUpdate((e: UpdateEvent) => {
 			this._onDidReceiveUpdateEmitter.fire(new PositronVariablesUpdate(
 				e, this._comm));
-		});
+		}));
 	}
 }
