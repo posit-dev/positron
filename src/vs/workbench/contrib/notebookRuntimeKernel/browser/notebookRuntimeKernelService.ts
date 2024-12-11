@@ -263,6 +263,25 @@ class NotebookRuntimeKernel implements INotebookKernel {
 				}
 			}));
 
+			disposables.add(session.onDidReceiveRuntimeMessageError(message => {
+				execution.update([{
+					editType: CellExecutionUpdateType.Output,
+					cellHandle,
+					append: true,
+					outputs: [{
+						outputId: message.id,
+						outputs: [{
+							data: VSBuffer.fromString(JSON.stringify({
+								name: message.name,
+								message: message.message,
+								stack: message.traceback.join('\n'),
+							}, undefined, '\t')),
+							mime: 'application/vnd.code.notebook.error',
+						}]
+					}]
+				}]);
+			}));
+
 			disposables.add(session.onDidReceiveRuntimeMessageState(message => {
 				// Only handle replies to this execution.
 				if (message.parent_id !== id) {
