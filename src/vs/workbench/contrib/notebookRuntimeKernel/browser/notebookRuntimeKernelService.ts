@@ -107,6 +107,11 @@ class NotebookRuntimeKernel implements INotebookKernel {
 				continue;
 			}
 
+			// Don't try to execute raw cells; they're often used to define metadata e.g in Quarto notebooks.
+			if (cell.language === 'raw') {
+				return;
+			}
+
 			const code = cell.getValue();
 
 			// If the cell is empty, skip it.
