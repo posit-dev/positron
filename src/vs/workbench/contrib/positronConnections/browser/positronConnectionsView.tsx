@@ -34,6 +34,7 @@ import { IAccessibilityService } from 'vs/platform/accessibility/common/accessib
 import { IModelService } from 'vs/editor/common/services/model';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 export class PositronConnectionsView
 	extends PositronViewPane
@@ -95,7 +96,8 @@ export class PositronConnectionsView
 		@IEditorService private readonly editorService: IEditorService,
 		@IModelService private readonly modelService: IModelService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
-		@IRuntimeStartupService private readonly runtimeStartupService: IRuntimeStartupService
+		@IRuntimeStartupService private readonly runtimeStartupService: IRuntimeStartupService,
+		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService
 	) {
 		super(
 			options,
@@ -158,6 +160,7 @@ export class PositronConnectionsView
 				modelService={this.modelService}
 				languageRuntimeService={this.languageRuntimeService}
 				runtimeAffiliationService={this.runtimeStartupService}
+				runtimeSessionService={this.runtimeSessionService}
 			/>
 		);
 	}

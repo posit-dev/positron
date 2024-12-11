@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { PropsWithChildren, useState } from 'react';
+import React, { PropsWithChildren } from 'react';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 import { localize } from 'vs/nls';
 import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
@@ -17,6 +17,8 @@ interface ListDriversProps {
 	readonly services: PositronConnectionsServices;
 	readonly onCancel: () => void;
 	readonly onSelection: (driver: IDriver) => void;
+	readonly languageId?: string;
+	readonly setLanguageId: (languageId: string) => void;
 }
 
 export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
@@ -25,9 +27,7 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 		props.onSelection(driver);
 	};
 
-	const entries = getRegisteredLanguages(props.services);
-	const [languageId, setLanguageId] = useState<string>(entries[0]?.languageId);
-
+	const { languageId, setLanguageId } = props;
 	const driverManager = props.services.connectionsService.driverManager;
 
 	const drivers = languageId ?

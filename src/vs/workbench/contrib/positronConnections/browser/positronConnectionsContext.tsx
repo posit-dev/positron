@@ -20,6 +20,7 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 export interface PositronConnectionsServices {
@@ -40,6 +41,7 @@ export interface PositronConnectionsServices {
 	readonly modelService: IModelService;
 	readonly languageRuntimeService: ILanguageRuntimeService;
 	readonly runtimeAffiliationService: IRuntimeStartupService;
+	readonly runtimeSessionService: IRuntimeSessionService;
 }
 
 const PositronConnectionsContext = createContext<PositronConnectionsServices>(undefined!);

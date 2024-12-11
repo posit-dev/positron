@@ -43,12 +43,15 @@ interface NewConnectionModalDialogProps {
 const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDialogProps>) => {
 
 	const [selectedDriver, setSelectedDriver] = useState<IDriver | undefined>();
+	const [languageId, setLanguageId] = useState<string | undefined>(getPreferedLanguageId(props.services));
 
 	const cancelHandler = () => {
 		props.renderer.dispose();
 	};
 
 	const backHandler = () => {
+		// When hitting back, reset the language ID to the previously selected language id
+		setLanguageId(selectedDriver?.languageId);
 		setSelectedDriver(undefined);
 	};
 
@@ -73,9 +76,15 @@ const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDia
 							services={props.services}
 							onCancel={cancelHandler}
 							onSelection={(driver) => setSelectedDriver(driver)}
+							languageId={languageId}
+							setLanguageId={setLanguageId}
 						/>}
 			</ContentArea>
 		</div>
 	</PositronModalDialog>;
 };
 
+const getPreferedLanguageId = (services: PositronConnectionsServices): string | undefined => {
+	// If threre is a foreground session, use its language ID as the preferred language id
+	return services.runtimeSessionService.foregroundSession?.runtimeMetadata.languageId;
+};
