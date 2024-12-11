@@ -84,7 +84,7 @@ jobs:
         if: ${{ !cancelled() }}
 
       - name: Transform to Playwright Tags $PW_TAGS
-        run: bash scripts/pr-tags-transform "e2e-electron" "${{ inputs.grep }}"
+        run: bash scripts/pr-tags-transform.sh "e2e-electron" "${{ inputs.grep }}"
         shell: bash
 
       - name: Run Tests (Electron)
