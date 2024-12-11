@@ -21,6 +21,7 @@ import { NotebookEditorInput } from 'vs/workbench/contrib/notebook/common/notebo
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
+import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 
 /**
  * PositronVariablesService class.
@@ -111,17 +112,17 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			this._setActivePositronVariablesBySession(session)
 		}));
 
+		// Set up listeners for any existing console instances
+		this._positronConsoleService.positronConsoleInstances.forEach(instance => {
+			instance.addDisposables(instance.onDidExecuteCode(() => this._watchForConsoleCodeExecution(instance)));
+		});
+
 		// Listen for console instances executing code
 		this._register(this._positronConsoleService.onDidStartPositronConsoleInstance((instance) => {
-			instance.addDisposables(instance.onDidExecuteCode(() => {
-				// Check for feature flag for session following editor being on before proceeding
-				if (!this._configurationService.getValue('positron.variables.followMode')) {
-					return;
-				}
-				this._setActivePositronVariablesBySession(instance.session);
-			}));
+			instance.addDisposables(instance.onDidExecuteCode(() => this._watchForConsoleCodeExecution(instance)));
 		}));
 
+		// Listen for editor changes
 		this._register(this._editorService.onDidActiveEditorChange(() => {
 			this._syncToActiveEditor();
 		}));
@@ -204,12 +205,20 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	}
 
 	/**
+	 * Gets whether the follow mode is enabled.
+	 * @returns Whether the follow mode is enabled.
+	 */
+	private get _inFollowMode(): boolean {
+		return this._configurationService.getValue('positron.variables.followMode');
+	}
+
+	/**
 	 * Syncs the active variables instance to the active editor.
 	 * This is called when the active editor changes or the service is initialized.
 	 */
 	private _syncToActiveEditor() {
 		// Check for feature flag for session following editor being on before proceeding
-		if (!this._configurationService.getValue('positron.variables.followMode')) {
+		if (!this._inFollowMode) {
 			return;
 		}
 
@@ -231,6 +240,19 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			this._setActivePositronVariablesInstance()
 		}
 	}
+
+	/**
+	 * Handles code execution in a console instance by updating the active variables if follow mode is enabled.
+	 * @param instance The console instance that executed code
+	 */
+	private _watchForConsoleCodeExecution(instance: IPositronConsoleInstance): void {
+		// Check for feature flag for session following editor being on before proceeding
+		if (!this._inFollowMode) {
+			return;
+		}
+		this._setActivePositronVariablesBySession(instance.session);
+	}
+
 
 	/**
 	 * Creates or assigns a Positron variables instance for the specified session.
