@@ -45,7 +45,12 @@ jobs:
           fi
 
           # Extract the tags from the comment body
-          TAGS=$(echo "$COMMENT_BODY" | grep -oP "(?<=Running E2E tests tagged with:\n).+" | tr -d '`')
+          TAGS=$(echo "$COMMENT_BODY" | awk '/Running E2E tests tagged with:/{flag=1; next} /<!--/{flag=0} flag' | tr -d '`')
+
+          if [ -z "$TAGS" ]; then
+            echo "No tags found in comment body. Exiting."
+            exit 1
+          fi
 
           echo "Extracted Tags: $TAGS"
           echo "tags=$TAGS" >> $GITHUB_ENV
