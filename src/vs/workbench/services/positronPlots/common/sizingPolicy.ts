@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { PlotClientInstance } from '../../languageRuntime/common/languageRuntimePlotClient.js';
 
 /**
  * Represents the size of a plot in pixels.

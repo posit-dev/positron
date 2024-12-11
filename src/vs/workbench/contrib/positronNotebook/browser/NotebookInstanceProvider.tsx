@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
+// React.
+import React from 'react';
 
-
-
+// Other dependencies.
+import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 
 /**
  * Context to be used by React components to get access to the notebook instance for given notebook provided by the extension host.

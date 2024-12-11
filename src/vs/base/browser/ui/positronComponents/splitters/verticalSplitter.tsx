@@ -4,21 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./verticalSplitter';
+import './verticalSplitter.css';
 
 // React.
-import * as React from 'react';
-import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { PointerEvent, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
-import * as DOM from 'vs/base/browser/dom';
-import { Delayer } from 'vs/base/common/async';
-import { isMacintosh } from 'vs/base/common/platform';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { Button, KeyboardModifiers, MouseTrigger } from 'vs/base/browser/ui/positronComponents/button/button';
+import * as DOM from '../../../dom.js';
+import { Delayer } from '../../../../common/async.js';
+import { isMacintosh } from '../../../../common/platform.js';
+import { DisposableStore } from '../../../../common/lifecycle.js';
+import { useStateRef } from '../../react/useStateRef.js';
+import { positronClassNames } from '../../../../common/positronUtilities.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { Button, KeyboardModifiers, MouseTrigger } from '../button/button.js';
 
 /**
  * Constants.
@@ -341,7 +340,9 @@ export const VerticalSplitter = ({
 			pointerMoveHandler(e);
 
 			// Remove our pointer event handlers.
+			// @ts-ignore
 			target.removeEventListener('pointermove', pointerMoveHandler);
+			// @ts-ignore
 			target.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
 
 			// Remove the style sheet.
@@ -359,7 +360,9 @@ export const VerticalSplitter = ({
 		// Set the capture target of future pointer events to be the current target and add our
 		// pointer event handlers.
 		target.setPointerCapture(e.pointerId);
+		// @ts-ignore
 		target.addEventListener('pointermove', pointerMoveHandler);
+		// @ts-ignore
 		target.addEventListener('lostpointercapture', lostPointerCaptureHandler);
 	};
 

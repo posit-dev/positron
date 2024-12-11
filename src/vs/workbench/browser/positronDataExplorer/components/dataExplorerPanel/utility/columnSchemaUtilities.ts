@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ColumnSchema, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSchema, ColumnDisplayType } from '../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Returns the data type icon for the column schema.

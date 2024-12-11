@@ -3,31 +3,31 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from 'vs/nls';
-import { ITelemetryData } from 'vs/base/common/actions';
-import { IFileService } from 'vs/platform/files/common/files';
-import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
-import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
-import { IPathService } from 'vs/workbench/services/path/common/pathService';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { workspacesCategory } from 'vs/workbench/browser/actions/workspaceActions';
-import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { EnterMultiRootWorkspaceSupportContext } from 'vs/workbench/common/contextkeys';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { showNewFolderModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderModalDialog';
-import { showNewFolderFromGitModalDialog } from 'vs/workbench/browser/positronModalDialogs/newFolderFromGitModalDialog';
-import { showNewProjectModalDialog } from 'vs/workbench/browser/positronNewProjectWizard/newProjectModalDialog';
-import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { ILogService } from 'vs/platform/log/common/log';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
-import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
-import { ILabelService } from 'vs/platform/label/common/label';
+import { localize } from '../../../nls.js';
+import { ITelemetryData } from '../../../base/common/actions.js';
+import { IFileService } from '../../../platform/files/common/files.js';
+import { ServicesAccessor } from '../../../editor/browser/editorExtensions.js';
+import { ICommandService } from '../../../platform/commands/common/commands.js';
+import { IFileDialogService } from '../../../platform/dialogs/common/dialogs.js';
+import { ContextKeyExpr } from '../../../platform/contextkey/common/contextkey.js';
+import { IPathService } from '../../services/path/common/pathService.js';
+import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
+import { workspacesCategory } from './workspaceActions.js';
+import { Action2, MenuId, registerAction2 } from '../../../platform/actions/common/actions.js';
+import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { EnterMultiRootWorkspaceSupportContext } from '../../common/contextkeys.js';
+import { IWorkbenchLayoutService } from '../../services/layout/browser/layoutService.js';
+import { showNewFolderModalDialog } from '../positronModalDialogs/newFolderModalDialog.js';
+import { showNewFolderFromGitModalDialog } from '../positronModalDialogs/newFolderFromGitModalDialog.js';
+import { showNewProjectModalDialog } from '../positronNewProjectWizard/newProjectModalDialog.js';
+import { ILanguageRuntimeService } from '../../services/languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeSessionService } from '../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeStartupService } from '../../services/runtimeStartup/common/runtimeStartupService.js';
+import { ILogService } from '../../../platform/log/common/log.js';
+import { IOpenerService } from '../../../platform/opener/common/opener.js';
+import { IPositronNewProjectService } from '../../services/positronNewProject/common/positronNewProject.js';
+import { IWorkspaceTrustManagementService } from '../../../platform/workspace/common/workspaceTrust.js';
+import { ILabelService } from '../../../platform/label/common/label.js';
 
 /**
  * The PositronNewProjectAction.

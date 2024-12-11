@@ -4,14 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./vectorHistogram';
+import './vectorHistogram.css';
 
 // React.
-import * as React from 'react';
-import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useState } from 'react';
 
 // Other dependencies.
-import { ColumnHistogram } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnHistogram } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * VectorHistogramProps interface.

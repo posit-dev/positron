@@ -4,22 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dropDownListBox';
+import './dropDownListBox.css';
 
 // React.
-import * as React from 'react';
-import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { JSX, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
-import * as DOM from 'vs/base/browser/dom';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
-import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { DropDownListBoxSeparator } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxSeparator';
+import * as DOM from '../../../../base/browser/dom.js';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { DropDownListBoxItem } from './dropDownListBoxItem.js';
+import { PositronModalPopup } from '../positronModalPopup/positronModalPopup.js';
+import { PositronModalReactRenderer } from '../../positronModalReactRenderer/positronModalReactRenderer.js';
+import { DropDownListBoxSeparator } from './dropDownListBoxSeparator.js';
 
 /**
  * DropDownListBoxEntry type.

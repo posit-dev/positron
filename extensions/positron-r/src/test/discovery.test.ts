@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import * as Fs from "fs"
+import * as Fs from "fs";
 import * as Sinon from 'sinon';
 import { currentRBinaryFromPATHWindows } from '../provider';
 import path = require('path');

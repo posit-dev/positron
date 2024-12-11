@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from 'vs/nls';
-import { OS } from 'vs/base/common/platform';
-import { IAction } from 'vs/base/common/actions';
-import { UILabelProvider } from 'vs/base/common/keybindingLabels';
-import { MenuItemAction } from 'vs/platform/actions/common/actions';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { localize } from '../../../nls.js';
+import { OS } from '../../../base/common/platform.js';
+import { IAction } from '../../../base/common/actions.js';
+import { UILabelProvider } from '../../../base/common/keybindingLabels.js';
+import { MenuItemAction } from '../../actions/common/actions.js';
+import { IContextKeyService } from '../../contextkey/common/contextkey.js';
+import { IKeybindingService } from '../../keybinding/common/keybinding.js';
 
 /**
  * Gets a menu action item from an action.

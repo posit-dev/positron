@@ -3,20 +3,20 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter, Event } from 'vs/base/common/event';
-import { IDisposable } from 'vs/base/common/lifecycle';
-import { URI } from 'vs/base/common/uri';
-import { ICommandService, ICommandEvent, CommandsRegistry } from 'vs/platform/commands/common/commands';
-import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { IOpenerService, IOpener, IValidator, IExternalUriResolver, IExternalOpener, OpenInternalOptions, OpenExternalOptions, ResolveExternalUriOptions, IResolvedExternalUri } from 'vs/platform/opener/common/opener';
-import { INotebookRendererInfo, INotebookStaticPreloadInfo } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { NotebookOutputRendererInfo } from 'vs/workbench/contrib/notebook/common/notebookOutputRenderer';
-import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
-import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronModalDialogsService, ShowConfirmationModalDialogOptions, IModalDialogPromptInstance } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
-import { ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { TestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testLanguageRuntimeSession';
+import { Emitter, Event } from '../../../base/common/event.js';
+import { IDisposable } from '../../../base/common/lifecycle.js';
+import { URI } from '../../../base/common/uri.js';
+import { ICommandService, ICommandEvent, CommandsRegistry } from '../../../platform/commands/common/commands.js';
+import { ExtensionIdentifier } from '../../../platform/extensions/common/extensions.js';
+import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
+import { IOpenerService, IOpener, IValidator, IExternalUriResolver, IExternalOpener, OpenInternalOptions, OpenExternalOptions, ResolveExternalUriOptions, IResolvedExternalUri } from '../../../platform/opener/common/opener.js';
+import { INotebookRendererInfo, INotebookStaticPreloadInfo } from '../../contrib/notebook/common/notebookCommon.js';
+import { NotebookOutputRendererInfo } from '../../contrib/notebook/common/notebookOutputRenderer.js';
+import { INotebookService } from '../../contrib/notebook/common/notebookService.js';
+import { ILanguageRuntimeMetadata } from '../../services/languageRuntime/common/languageRuntimeService.js';
+import { IPositronModalDialogsService, ShowConfirmationModalDialogOptions, IModalDialogPromptInstance } from '../../services/positronModalDialogs/common/positronModalDialogs.js';
+import { ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, ILanguageRuntimeSession } from '../../services/runtimeSession/common/runtimeSessionService.js';
+import { TestLanguageRuntimeSession } from '../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 
 export class TestNotebookService implements Partial<INotebookService> {
 	getRenderers(): INotebookRendererInfo[] {

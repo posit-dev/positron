@@ -4,14 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
-import * as DOM from 'vs/base/browser/dom';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { WelcomeButton } from 'vs/workbench/contrib/welcomeGettingStarted/browser/positronWelcomeButton';
+// Other dependencies.
+import * as DOM from '../../../../base/browser/dom.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { PositronModalPopup } from '../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
+import { PositronModalReactRenderer } from '../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
+import { WelcomeButton } from './positronWelcomeButton.js';
 
 export interface WelcomeMenuButtonAction {
 	id: string;

@@ -3,21 +3,21 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from 'vs/nls';
-import { IEditorPane } from 'vs/workbench/common/editor';
-import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
-import { ILocalizedString } from 'vs/platform/action/common/action';
-import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
-import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
-import { PositronDataExplorerFocused } from 'vs/workbench/common/contextkeys';
-import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
-import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
-import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
-import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
-import { IPositronDataExplorerEditor } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor';
-import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
-import { PositronDataExplorerEditorInput } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditorInput';
+import { localize } from '../../../../nls.js';
+import { IEditorPane } from '../../../common/editor.js';
+import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
+import { ILocalizedString } from '../../../../platform/action/common/action.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { PositronDataExplorerFocused } from '../../../common/contextkeys.js';
+import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
+import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { IPositronDataExplorerEditor } from './positronDataExplorerEditor.js';
+import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 
 /**
  * Positron data explorer action category.

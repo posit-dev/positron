@@ -2,24 +2,26 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import 'vs/css!./CellEditorMonacoWidget';
 
+// CSS.
+import './CellEditorMonacoWidget.css';
 
-import * as React from 'react';
-import * as DOM from 'vs/base/browser/dom';
-import { EditorExtensionsRegistry, IEditorContributionDescription } from 'vs/editor/browser/editorExtensions';
-import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
-import { Event } from 'vs/base/common/event';
+// React.
+import React from 'react';
 
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
-import { FloatingEditorClickMenu } from 'vs/workbench/browser/codeeditor';
-import { CellEditorOptions } from 'vs/workbench/contrib/notebook/browser/view/cellParts/cellEditorOptions';
-import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
-import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { PositronNotebookCellGeneral } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCells/PositronNotebookCell';
+import * as DOM from '../../../../../base/browser/dom.js';
+import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../../../../editor/browser/editorExtensions.js';
+import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
+import { Event } from '../../../../../base/common/event.js';
 
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
+import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
+import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cellEditorOptions.js';
+import { useNotebookInstance } from '../NotebookInstanceProvider.js';
+import { useServices } from '../ServicesProvider.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
 
 /**
  *

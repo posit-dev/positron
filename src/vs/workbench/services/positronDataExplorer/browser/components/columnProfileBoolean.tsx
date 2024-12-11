@@ -4,17 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./columnProfileBoolean';
+import './columnProfileBoolean.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
-import { StatsValue } from 'vs/workbench/services/positronDataExplorer/browser/components/statsValue';
-import { positronFalse, positronMissing, positronTrue } from 'vs/workbench/services/positronDataExplorer/common/constants';
-import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
-import { ColumnProfileNullCountValue } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileNullCountValue';
-import { ColumnProfileSparklineFrequencyTable } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileSparklines';
+import { StatsValue } from './statsValue.js';
+import { positronFalse, positronMissing, positronTrue } from '../../common/constants.js';
+import { TableSummaryDataGridInstance } from '../tableSummaryDataGridInstance.js';
+import { ColumnProfileNullCountValue } from './columnProfileNullCountValue.js';
+import { ColumnProfileSparklineFrequencyTable } from './columnProfileSparklines.js';
 
 /**
  * Constants.

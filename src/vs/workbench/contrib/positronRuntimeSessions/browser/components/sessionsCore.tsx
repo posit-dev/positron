@@ -3,13 +3,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./sessionsCore';
-import * as React from 'react';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { ActionBars } from 'vs/workbench/contrib/positronRuntimeSessions/browser/components/actionBars';
-import { PositronSessionsProps } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessions';
-import { usePositronRuntimeSessionsContext } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessionsContext';
-import { RuntimeSession } from 'vs/workbench/contrib/positronRuntimeSessions/browser/components/runtimeSession';
+// CSS.
+import './sessionsCore.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
+import { ActionBars } from './actionBars.js';
+import { PositronSessionsProps } from '../positronRuntimeSessions.js';
+import { usePositronRuntimeSessionsContext } from '../positronRuntimeSessionsContext.js';
+import { RuntimeSession } from './runtimeSession.js';
 
 // SessionsCoreProps interface.
 interface SessionsCoreProps extends PositronSessionsProps {

@@ -42,12 +42,12 @@ jobs:
       - name: Compile tests
         run: |
           corepack enable
-          yarn global add node-gyp
-          yarn install
-          yarn --cwd test/automation install
-          yarn --cwd test/e2e install
-          yarn --cwd test/automation compile
-          yarn --cwd test/e2e compile
+          npm -i global node-gyp
+          npm install
+          npm --prefix test/automation install
+          npm --prefix test/e2e install
+          npm --prefix test/automation run compile
+          npm --prefix test/e2e run compile
 
       - name: Get & install latest release
         id: get_latest_release
@@ -103,4 +103,3 @@ jobs:
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-

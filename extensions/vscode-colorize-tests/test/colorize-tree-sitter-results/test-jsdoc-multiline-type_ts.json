@@ -1,0 +1,182 @@
+[
+	{
+		"c": "/**\n * @typedef {{\n *   id: number,\n *   fn: !Function,\n *   context: (!Object|undefined)\n * }}\n * @private\n */",
+		"t": "comment",
+		"r": {
+			"hc_black": "comment: #7CA668",
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
+		}
+	},
+	{
+		"c": "goog",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": ".",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "dom",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": ".",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "animationFrame",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": ".",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "Task_",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "/**\n * @typedef {{\n *   measureTask: goog.dom.animationFrame.Task_,\n *   mutateTask: goog.dom.animationFrame.Task_,\n *   state: (!Object|undefined),\n *   args: (!Array|undefined),\n *   isScheduled: boolean\n * }}\n * @private\n */",
+		"t": "comment",
+		"r": {
+			"hc_black": "comment: #7CA668",
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
+		}
+	},
+	{
+		"c": "goog",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": ".",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "dom",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": ".",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "animationFrame",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": ".",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "TaskSet_",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	}
+]

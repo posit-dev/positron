@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { PositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { IPositronNotebookOutputWebviewService } from './notebookOutputWebviewService.js';
+import { PositronNotebookOutputWebviewService } from './notebookOutputWebviewServiceImpl.js';
 
 registerSingleton(IPositronNotebookOutputWebviewService,
 	PositronNotebookOutputWebviewService,

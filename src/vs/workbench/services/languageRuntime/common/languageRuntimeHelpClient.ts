@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
-import { Event } from 'vs/base/common/event';
-import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { PositronHelpComm, ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/positronHelpComm';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Event } from '../../../../base/common/event.js';
+import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
+import { PositronHelpComm, ShowHelpEvent } from './positronHelpComm.js';
 
 /**
  * A help client instance.

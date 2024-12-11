@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize2 } from 'vs/nls';
-import { registerAction2 } from 'vs/platform/actions/common/actions';
-import { Parts } from 'vs/workbench/services/layout/browser/layoutService';
-import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction';
+import { localize2 } from '../../../../../nls.js';
+import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
+import { Parts } from '../../../layout/browser/layoutService.js';
+import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction.js';
 
 export const positronNotebookLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronNotebookLayout',

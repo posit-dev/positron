@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useEffect, useState } from 'react';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
-import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronPlotClient, IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { PositronActionBarServices } from '../../../../platform/positronActionBar/browser/positronActionBarState.js';
+import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IPositronPlotClient, IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 
 /**
  * PositronPlotsServices interface. Defines the set of services that are required by the Positron plots.

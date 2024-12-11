@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { DataExplorerUiEvent, IDataExplorerBackendClient } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
+import { Emitter } from '../../../../base/common/event.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { DataExplorerUiEvent, IDataExplorerBackendClient } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import {
 	ArraySelection,
 	BackendState,
@@ -37,8 +37,9 @@ import {
 	TableRowLabels,
 	TableSchema,
 	TableSelection
-} from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { ICommandService, CommandsRegistry } from 'vs/platform/commands/common/commands';
+} from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { ICommandService, CommandsRegistry } from '../../../../platform/commands/common/commands.js';
+
 
 /**
  * Descriptor for backend method invocation in via extension command.

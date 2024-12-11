@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IPositronPlotSizingPolicy, IPlotSize } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
-import * as nls from 'vs/nls';
-import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { IPositronPlotSizingPolicy, IPlotSize } from './sizingPolicy.js';
+import * as nls from '../../../../nls.js';
+import { PlotClientInstance } from '../../languageRuntime/common/languageRuntimePlotClient.js';
 
 /**
  * The simplest plot sizing policy. The plot is sized to fill the viewport exactly, no

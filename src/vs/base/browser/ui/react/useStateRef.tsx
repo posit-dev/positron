@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useEffect, useRef, useState } from 'react';  // eslint-disable-line no-duplicate-imports
+// React.
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * useStateRef hook.

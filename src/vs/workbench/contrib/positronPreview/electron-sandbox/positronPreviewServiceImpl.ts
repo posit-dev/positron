@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewServiceImpl';
-import { PreviewOverlayWebview } from 'vs/workbench/contrib/positronPreview/browser/previewOverlayWebview';
-import { ElectronPreviewOverlayWebview } from 'vs/workbench/contrib/positronPreview/electron-sandbox/previewOverlayWebview';
-import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
+import { PositronPreviewService } from '../browser/positronPreviewServiceImpl.js';
+import { PreviewOverlayWebview } from '../browser/previewOverlayWebview.js';
+import { ElectronPreviewOverlayWebview } from './previewOverlayWebview.js';
+import { IOverlayWebview } from '../../webview/browser/webview.js';
 
 /**
  * Electron version of the Positron preview service.

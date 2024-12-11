@@ -3,11 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { PropsWithChildren, useState } from 'react';  // eslint-disable-line no-duplicate-imports
-import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
-import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
-import { NewProjectWizardStepLookup } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepLookup';
+// React.
+import React, { PropsWithChildren, useState } from 'react';
+
+// Other dependencies.
+import { useNewProjectWizardContext } from './newProjectWizardContext.js';
+import { NewProjectWizardStep } from './interfaces/newProjectWizardEnums.js';
+import { NewProjectWizardStepLookup } from './interfaces/newProjectWizardStepLookup.js';
 
 interface NewProjectWizardStepContainerProps {
 	cancel: () => void;

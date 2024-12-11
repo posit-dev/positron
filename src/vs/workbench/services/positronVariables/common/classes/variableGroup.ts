@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { VariableItem } from 'vs/workbench/services/positronVariables/common/classes/variableItem';
-import { IVariableGroup } from 'vs/workbench/services/positronVariables/common/interfaces/variableGroup';
+import { VariableItem } from './variableItem.js';
+import { IVariableGroup } from '../interfaces/variableGroup.js';
 
 /**
  * VariableGroup class.

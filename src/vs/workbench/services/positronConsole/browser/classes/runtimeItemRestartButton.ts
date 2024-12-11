@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
+import { RuntimeItem } from './runtimeItem.js';
 
 /**
  * RuntimeItemRestartButton class.

@@ -2,20 +2,20 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { Disposable, DisposableStore, toDisposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageStream, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { Emitter, Event } from 'vs/base/common/event';
-import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
-import { INotebookEditorService } from 'vs/workbench/contrib/notebook/browser/services/notebookEditorService';
-import { isEqual } from 'vs/base/common/resources';
-import { ILogService } from 'vs/platform/log/common/log';
+import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
+import { ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageStream, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeOutputKind, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
+import { IPositronIPyWidgetsService } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
+import { INotebookEditorService } from '../../notebook/browser/services/notebookEditorService.js';
+import { isEqual } from '../../../../base/common/resources.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { FromWebviewMessage, ICommOpenFromWebview, IGetPreferredRendererFromWebview, ToWebviewMessage } from '../../../services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
-import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { IIPyWidgetsWebviewMessaging, IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
-import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
-import { NotebookOutputPlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookOutputPlotClient';
-import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
+import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { IIPyWidgetsWebviewMessaging, IPyWidgetClientInstance } from '../../../services/languageRuntime/common/languageRuntimeIPyWidgetClient.js';
+import { INotebookRendererMessagingService } from '../../notebook/common/notebookRendererMessagingService.js';
+import { NotebookOutputPlotClient } from '../../positronPlots/browser/notebookOutputPlotClient.js';
+import { INotebookService } from '../../notebook/common/notebookService.js';
 
 /**
  * The PositronIPyWidgetsService is responsible for managing IPyWidgetsInstances.

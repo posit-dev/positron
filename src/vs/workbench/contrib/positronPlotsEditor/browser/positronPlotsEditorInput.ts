@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { URI } from 'vs/base/common/uri';
-import { IUntypedEditorInput } from 'vs/workbench/common/editor';
-import { EditorInput } from 'vs/workbench/common/editor/editorInput';
-import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { URI } from '../../../../base/common/uri.js';
+import { IUntypedEditorInput } from '../../../common/editor.js';
+import { EditorInput } from '../../../common/editor/editorInput.js';
+import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 
 export class PositronPlotsEditorInput extends EditorInput {
 	static readonly TypeID: string = 'workbench.input.positronPlots';

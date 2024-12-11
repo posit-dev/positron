@@ -3,23 +3,23 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter, Event } from 'vs/base/common/event';
-import { ILogService } from 'vs/platform/log/common/log';
-import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
-import { VariableItem } from 'vs/workbench/services/positronVariables/common/classes/variableItem';
-import { VariableGroup } from 'vs/workbench/services/positronVariables/common/classes/variableGroup';
-import { VariableOverflow } from 'vs/workbench/services/positronVariables/common/classes/variableOverflow';
-import { RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService';
-import { sortVariableItemsByName, sortVariableItemsByRecent, sortVariableItemsBySize } from 'vs/workbench/services/positronVariables/common/helpers/utils';
-import { PositronVariablesList, PositronVariablesUpdate, VariablesClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
-import { VariableEntry, IPositronVariablesInstance, PositronVariablesGrouping, PositronVariablesSorting } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
-import { VariableKind } from 'vs/workbench/services/languageRuntime/common/positronVariablesComm';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { PositronCommError } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
-import { localize } from 'vs/nls';
-import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
+import { Emitter, Event } from '../../../../base/common/event.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { VariableItem } from './classes/variableItem.js';
+import { VariableGroup } from './classes/variableGroup.js';
+import { VariableOverflow } from './classes/variableOverflow.js';
+import { RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService.js';
+import { sortVariableItemsByName, sortVariableItemsByRecent, sortVariableItemsBySize } from './helpers/utils.js';
+import { PositronVariablesList, PositronVariablesUpdate, VariablesClientInstance } from '../../languageRuntime/common/languageRuntimeVariablesClient.js';
+import { VariableEntry, IPositronVariablesInstance, PositronVariablesGrouping, PositronVariablesSorting } from './interfaces/positronVariablesInstance.js';
+import { VariableKind } from '../../languageRuntime/common/positronVariablesComm.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { PositronCommError } from '../../languageRuntime/common/positronBaseComm.js';
+import { localize } from '../../../../nls.js';
+import { RuntimeClientState } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 
 /**
  * Constants.

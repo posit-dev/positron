@@ -485,7 +485,7 @@ suite('TensorBoard session creation', async () => {
             return [showQuickPickStub, createInputStub, filePickerStub];
         }
         test('Resolves filepaths without displaying prompt', async () => {
-            const session = (await createSession()) as unknown as ITensorBoardSessionTestAPI;
+            const session = ((await createSession()) as unknown) as ITensorBoardSessionTestAPI;
             const stubs = setupStubsForMultiStepInput();
             await session.jumpToSource(fsPath, 0);
             assert.ok(window.activeTextEditor !== undefined, 'Source file not resolved');
@@ -496,7 +496,7 @@ suite('TensorBoard session creation', async () => {
             );
         });
         test('Display quickpick to user if filepath is not on disk', async () => {
-            const session = (await createSession()) as unknown as ITensorBoardSessionTestAPI;
+            const session = ((await createSession()) as unknown) as ITensorBoardSessionTestAPI;
             const stubs = setupStubsForMultiStepInput();
             await session.jumpToSource('/nonexistent/file/path.py', 0);
             assert.ok(window.activeTextEditor !== undefined, 'Source file not resolved');

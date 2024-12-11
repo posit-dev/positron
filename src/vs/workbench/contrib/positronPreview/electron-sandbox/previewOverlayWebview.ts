@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { URI } from 'vs/base/common/uri';
-import { PreviewOverlayWebview } from 'vs/workbench/contrib/positronPreview/browser/previewOverlayWebview';
+import { URI } from '../../../../base/common/uri.js';
+import { PreviewOverlayWebview } from '../browser/previewOverlayWebview.js';
 
 /**
  * Electron version of the Positron preview URL object.

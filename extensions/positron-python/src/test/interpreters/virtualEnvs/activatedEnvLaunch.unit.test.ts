@@ -74,7 +74,7 @@ suite('Activated Env Launch', async () => {
             process.env.CONDA_SHLVL = '1';
             interpreterService
                 .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
-                .returns(() => Promise.resolve({ envName: 'env' } as unknown as PythonEnvironment));
+                .returns(() => Promise.resolve(({ envName: 'env' } as unknown) as PythonEnvironment));
             workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
             const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
             workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
@@ -107,7 +107,7 @@ suite('Activated Env Launch', async () => {
             process.env.CONDA_SHLVL = '1';
             interpreterService
                 .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
-                .returns(() => Promise.resolve({ envName: 'env' } as unknown as PythonEnvironment));
+                .returns(() => Promise.resolve(({ envName: 'env' } as unknown) as PythonEnvironment));
             workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
             const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
             workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
@@ -140,7 +140,7 @@ suite('Activated Env Launch', async () => {
             process.env.CONDA_AUTO_ACTIVATE_BASE = 'false';
             interpreterService
                 .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
-                .returns(() => Promise.resolve({ envName: 'base' } as unknown as PythonEnvironment));
+                .returns(() => Promise.resolve(({ envName: 'base' } as unknown) as PythonEnvironment));
             workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
             const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
             workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
@@ -173,7 +173,7 @@ suite('Activated Env Launch', async () => {
             process.env.CONDA_AUTO_ACTIVATE_BASE = 'true';
             interpreterService
                 .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
-                .returns(() => Promise.resolve({ envName: 'base' } as unknown as PythonEnvironment));
+                .returns(() => Promise.resolve(({ envName: 'base' } as unknown) as PythonEnvironment));
             workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
             const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
             workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
@@ -205,7 +205,7 @@ suite('Activated Env Launch', async () => {
             process.env.VIRTUAL_ENV = virtualEnvPrefix;
             interpreterService
                 .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
-                .returns(() => Promise.resolve({ envName: 'base' } as unknown as PythonEnvironment));
+                .returns(() => Promise.resolve(({ envName: 'base' } as unknown) as PythonEnvironment));
             workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
             const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
             workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
@@ -237,7 +237,7 @@ suite('Activated Env Launch', async () => {
             process.env.CONDA_SHLVL = '1';
             interpreterService
                 .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
-                .returns(() => Promise.resolve({ envName: 'env' } as unknown as PythonEnvironment));
+                .returns(() => Promise.resolve(({ envName: 'env' } as unknown) as PythonEnvironment));
             workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
             workspaceService.setup((w) => w.workspaceFolders).returns(() => []);
             pythonPathUpdaterService
@@ -267,7 +267,7 @@ suite('Activated Env Launch', async () => {
             process.env.VIRTUAL_ENV = virtualEnvPrefix;
             interpreterService
                 .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
-                .returns(() => Promise.resolve({ envName: 'base' } as unknown as PythonEnvironment));
+                .returns(() => Promise.resolve(({ envName: 'base' } as unknown) as PythonEnvironment));
             workspaceService.setup((w) => w.workspaceFile).returns(() => uri);
             const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
             workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
@@ -346,7 +346,7 @@ suite('Activated Env Launch', async () => {
             process.env.CONDA_SHLVL = '1';
             interpreterService
                 .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
-                .returns(() => Promise.resolve({ envName: 'base' } as unknown as PythonEnvironment));
+                .returns(() => Promise.resolve(({ envName: 'base' } as unknown) as PythonEnvironment));
             workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
             const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
             workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
@@ -368,7 +368,9 @@ suite('Activated Env Launch', async () => {
             processService
                 .setup((p) => p.shellExec('conda config --get auto_activate_base'))
                 .returns(() =>
-                    Promise.resolve({ stdout: '--set auto_activate_base False' } as unknown as ExecutionResult<string>),
+                    Promise.resolve(({ stdout: '--set auto_activate_base False' } as unknown) as ExecutionResult<
+                        string
+                    >),
                 );
             activatedEnvLaunch = new ActivatedEnvironmentLaunch(
                 workspaceService.object,
@@ -386,7 +388,7 @@ suite('Activated Env Launch', async () => {
             process.env.CONDA_SHLVL = '1';
             interpreterService
                 .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
-                .returns(() => Promise.resolve({ envName: 'base' } as unknown as PythonEnvironment));
+                .returns(() => Promise.resolve(({ envName: 'base' } as unknown) as PythonEnvironment));
             workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
             const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
             workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
@@ -407,7 +409,9 @@ suite('Activated Env Launch', async () => {
             processService
                 .setup((p) => p.shellExec('conda config --get auto_activate_base'))
                 .returns(() =>
-                    Promise.resolve({ stdout: '--set auto_activate_base False' } as unknown as ExecutionResult<string>),
+                    Promise.resolve(({ stdout: '--set auto_activate_base False' } as unknown) as ExecutionResult<
+                        string
+                    >),
                 );
             activatedEnvLaunch = new ActivatedEnvironmentLaunch(
                 workspaceService.object,
@@ -425,7 +429,7 @@ suite('Activated Env Launch', async () => {
             process.env.CONDA_SHLVL = '1';
             interpreterService
                 .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
-                .returns(() => Promise.resolve({ envName: 'base' } as unknown as PythonEnvironment));
+                .returns(() => Promise.resolve(({ envName: 'base' } as unknown) as PythonEnvironment));
             workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
             const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
             workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
@@ -446,7 +450,9 @@ suite('Activated Env Launch', async () => {
             processService
                 .setup((p) => p.shellExec('conda config --get auto_activate_base'))
                 .returns(() =>
-                    Promise.resolve({ stdout: '--set auto_activate_base False' } as unknown as ExecutionResult<string>),
+                    Promise.resolve(({ stdout: '--set auto_activate_base False' } as unknown) as ExecutionResult<
+                        string
+                    >),
                 );
             activatedEnvLaunch = new ActivatedEnvironmentLaunch(
                 workspaceService.object,
@@ -464,7 +470,7 @@ suite('Activated Env Launch', async () => {
             process.env.CONDA_SHLVL = '1';
             interpreterService
                 .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
-                .returns(() => Promise.resolve({ envName: 'base' } as unknown as PythonEnvironment));
+                .returns(() => Promise.resolve(({ envName: 'base' } as unknown) as PythonEnvironment));
             workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
             const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
             workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
@@ -475,7 +481,9 @@ suite('Activated Env Launch', async () => {
             processService
                 .setup((p) => p.shellExec('conda config --get auto_activate_base'))
                 .returns(() =>
-                    Promise.resolve({ stdout: '--set auto_activate_base True' } as unknown as ExecutionResult<string>),
+                    Promise.resolve(({ stdout: '--set auto_activate_base True' } as unknown) as ExecutionResult<
+                        string
+                    >),
                 );
             activatedEnvLaunch = new ActivatedEnvironmentLaunch(
                 workspaceService.object,
@@ -493,7 +501,7 @@ suite('Activated Env Launch', async () => {
             process.env.CONDA_SHLVL = '1';
             interpreterService
                 .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
-                .returns(() => Promise.resolve({ envName: 'nonbase' } as unknown as PythonEnvironment));
+                .returns(() => Promise.resolve(({ envName: 'nonbase' } as unknown) as PythonEnvironment));
             workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
             const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
             workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
@@ -504,7 +512,9 @@ suite('Activated Env Launch', async () => {
             processService
                 .setup((p) => p.shellExec('conda config --get auto_activate_base'))
                 .returns(() =>
-                    Promise.resolve({ stdout: '--set auto_activate_base False' } as unknown as ExecutionResult<string>),
+                    Promise.resolve(({ stdout: '--set auto_activate_base False' } as unknown) as ExecutionResult<
+                        string
+                    >),
                 );
             activatedEnvLaunch = new ActivatedEnvironmentLaunch(
                 workspaceService.object,
@@ -520,7 +530,7 @@ suite('Activated Env Launch', async () => {
         test('Do not show prompt if conda environment is not activated', async () => {
             interpreterService
                 .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
-                .returns(() => Promise.resolve({ envName: 'base' } as unknown as PythonEnvironment));
+                .returns(() => Promise.resolve(({ envName: 'base' } as unknown) as PythonEnvironment));
             workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
             const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
             workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
@@ -531,7 +541,9 @@ suite('Activated Env Launch', async () => {
             processService
                 .setup((p) => p.shellExec('conda config --get auto_activate_base'))
                 .returns(() =>
-                    Promise.resolve({ stdout: '--set auto_activate_base False' } as unknown as ExecutionResult<string>),
+                    Promise.resolve(({ stdout: '--set auto_activate_base False' } as unknown) as ExecutionResult<
+                        string
+                    >),
                 );
             activatedEnvLaunch = new ActivatedEnvironmentLaunch(
                 workspaceService.object,

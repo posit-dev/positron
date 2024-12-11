@@ -1,0 +1,82 @@
+[
+	{
+		"c": "{",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "this",
+		"t": "variable.language.this",
+		"r": {
+			"hc_black": "variable.language.this: #569CD6",
+			"positron_dark": "variable.language: #569CD6",
+			"positron_light": "variable.language: #0000FF",
+			"hc_light": "variable.language: #0F4A85"
+		}
+	},
+	{
+		"c": ".",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "foo",
+		"t": "variable variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "=",
+		"t": "keyword.operator.assignment",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "9",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "}",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	}
+]

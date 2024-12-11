@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
-import { InterpreterInfo } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
-import { DropdownEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/dropdownEntry';
+import { InterpreterInfo } from '../../utilities/interpreterDropDownUtils.js';
+import { DropdownEntry } from './dropdownEntry.js';
 
 /**
  * InterpreterEntryProps interface.

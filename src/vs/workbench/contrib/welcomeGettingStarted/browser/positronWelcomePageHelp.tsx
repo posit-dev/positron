@@ -4,15 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./media/positronGettingStarted';
+import './media/positronGettingStarted.css';
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren } from 'react';
 
-import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { localize } from 'vs/nls';
+// Other dependencies.
+import { ExternalLink } from '../../../../base/browser/ui/ExternalLink/ExternalLink.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { localize } from '../../../../nls.js';
 
 export interface PositronWelcomePageHelpProps {
 	openerService: IOpenerService;

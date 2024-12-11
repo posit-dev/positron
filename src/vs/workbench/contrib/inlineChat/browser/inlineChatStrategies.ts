@@ -3,49 +3,46 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { getTotalWidth, WindowIntervalTimer } from 'vs/base/browser/dom';
-import { coalesceInPlace } from 'vs/base/common/arrays';
-import { CancellationToken } from 'vs/base/common/cancellation';
-import { Emitter, Event } from 'vs/base/common/event';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { themeColorFromId, ThemeIcon } from 'vs/base/common/themables';
-import { ICodeEditor, IOverlayWidget, IOverlayWidgetPosition, IViewZone, IViewZoneChangeAccessor } from 'vs/editor/browser/editorBrowser';
-import { StableEditorScrollState } from 'vs/editor/browser/stableEditorScroll';
-import { LineSource, RenderOptions, renderLines } from 'vs/editor/browser/widget/diffEditor/components/diffEditorViewZones/renderLines';
-import { ISingleEditOperation } from 'vs/editor/common/core/editOperation';
-import { LineRange } from 'vs/editor/common/core/lineRange';
-import { Position } from 'vs/editor/common/core/position';
-import { Range } from 'vs/editor/common/core/range';
-import { IEditorDecorationsCollection } from 'vs/editor/common/editorCommon';
-import { IModelDecorationsChangeAccessor, IModelDeltaDecoration, IValidEditOperation, MinimapPosition, OverviewRulerLane, TrackedRangeStickiness } from 'vs/editor/common/model';
-import { ModelDecorationOptions } from 'vs/editor/common/model/textModel';
-import { IEditorWorkerService } from 'vs/editor/common/services/editorWorker';
-import { InlineDecoration, InlineDecorationType } from 'vs/editor/common/viewModel';
-import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { Progress } from 'vs/platform/progress/common/progress';
-import { SaveReason } from 'vs/workbench/common/editor';
-import { countWords } from 'vs/workbench/contrib/chat/common/chatWordCounter';
-import { HunkInformation, Session, HunkState } from 'vs/workbench/contrib/inlineChat/browser/inlineChatSession';
-import { InlineChatZoneWidget } from './inlineChatZoneWidget';
-import { ACTION_TOGGLE_DIFF, CTX_INLINE_CHAT_CHANGE_HAS_DIFF, CTX_INLINE_CHAT_CHANGE_SHOWS_DIFF, CTX_INLINE_CHAT_DOCUMENT_CHANGED, InlineChatConfigKeys, MENU_INLINE_CHAT_ZONE, minimapInlineChatDiffInserted, overviewRulerInlineChatDiffInserted } from 'vs/workbench/contrib/inlineChat/common/inlineChat';
-import { assertType } from 'vs/base/common/types';
-import { IModelService } from 'vs/editor/common/services/model';
-import { performAsyncTextEdit, asProgressiveEdit } from './utils';
-import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { ITextFileService } from 'vs/workbench/services/textfile/common/textfiles';
-import { IUntitledTextEditorModel } from 'vs/workbench/services/untitled/common/untitledTextEditorModel';
-import { Schemas } from 'vs/base/common/network';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { DefaultChatTextEditor } from 'vs/workbench/contrib/chat/browser/codeBlockPart';
-import { isEqual } from 'vs/base/common/resources';
-import { generateUuid } from 'vs/base/common/uuid';
-import { MenuWorkbenchButtonBar } from 'vs/platform/actions/browser/buttonbar';
-import { EditorOption } from 'vs/editor/common/config/editorOptions';
-import { Iterable } from 'vs/base/common/iterator';
-import { ConflictActionsFactory, IContentWidgetAction } from 'vs/workbench/contrib/mergeEditor/browser/view/conflictActions';
-import { observableValue } from 'vs/base/common/observable';
-import { IMenuService, MenuItemAction } from 'vs/platform/actions/common/actions';
+import { WindowIntervalTimer } from '../../../../base/browser/dom.js';
+import { coalesceInPlace } from '../../../../base/common/arrays.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { themeColorFromId, ThemeIcon } from '../../../../base/common/themables.js';
+import { ICodeEditor, IViewZone, IViewZoneChangeAccessor } from '../../../../editor/browser/editorBrowser.js';
+import { StableEditorScrollState } from '../../../../editor/browser/stableEditorScroll.js';
+import { LineSource, RenderOptions, renderLines } from '../../../../editor/browser/widget/diffEditor/components/diffEditorViewZones/renderLines.js';
+import { ISingleEditOperation } from '../../../../editor/common/core/editOperation.js';
+import { LineRange } from '../../../../editor/common/core/lineRange.js';
+import { Position } from '../../../../editor/common/core/position.js';
+import { Range } from '../../../../editor/common/core/range.js';
+import { IEditorDecorationsCollection } from '../../../../editor/common/editorCommon.js';
+import { IModelDecorationsChangeAccessor, IModelDeltaDecoration, IValidEditOperation, MinimapPosition, OverviewRulerLane, TrackedRangeStickiness } from '../../../../editor/common/model.js';
+import { ModelDecorationOptions } from '../../../../editor/common/model/textModel.js';
+import { IEditorWorkerService } from '../../../../editor/common/services/editorWorker.js';
+import { InlineDecoration, InlineDecorationType } from '../../../../editor/common/viewModel.js';
+import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { Progress } from '../../../../platform/progress/common/progress.js';
+import { SaveReason } from '../../../common/editor.js';
+import { countWords } from '../../chat/common/chatWordCounter.js';
+import { HunkInformation, Session, HunkState } from './inlineChatSession.js';
+import { InlineChatZoneWidget } from './inlineChatZoneWidget.js';
+import { ACTION_TOGGLE_DIFF, CTX_INLINE_CHAT_CHANGE_HAS_DIFF, CTX_INLINE_CHAT_CHANGE_SHOWS_DIFF, CTX_INLINE_CHAT_DOCUMENT_CHANGED, InlineChatConfigKeys, MENU_INLINE_CHAT_ZONE, minimapInlineChatDiffInserted, overviewRulerInlineChatDiffInserted } from '../common/inlineChat.js';
+import { assertType } from '../../../../base/common/types.js';
+import { IModelService } from '../../../../editor/common/services/model.js';
+import { performAsyncTextEdit, asProgressiveEdit } from './utils.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ITextFileService } from '../../../services/textfile/common/textfiles.js';
+import { IUntitledTextEditorModel } from '../../../services/untitled/common/untitledTextEditorModel.js';
+import { Schemas } from '../../../../base/common/network.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { DefaultChatTextEditor } from '../../chat/browser/codeBlockPart.js';
+import { isEqual } from '../../../../base/common/resources.js';
+import { Iterable } from '../../../../base/common/iterator.js';
+import { ConflictActionsFactory, IContentWidgetAction } from '../../mergeEditor/browser/view/conflictActions.js';
+import { observableValue } from '../../../../base/common/observable.js';
+import { IMenuService, MenuItemAction } from '../../../../platform/actions/common/actions.js';
 
 export interface IEditObserver {
 	start(): void;
@@ -507,20 +504,14 @@ export class LiveStrategy extends EditModeStrategy {
 									const [hunkRange] = hunkData.getRangesN();
 									viewZoneData.afterLineNumber = hunkRange.startLineNumber - 1;
 									data.diffViewZoneId = viewZoneAccessor.addZone(viewZoneData);
-									overlay?.updateExtraTop(result.heightInLines);
 								} else {
 									viewZoneAccessor.removeZone(data.diffViewZoneId!);
-									overlay?.updateExtraTop(0);
 									data.diffViewZoneId = undefined;
 								}
 							});
 							this._ctxCurrentChangeShowsDiff.set(typeof data?.diffViewZoneId === 'string');
 							scrollState.restore(this._editor);
 						};
-
-						const overlay = this._showOverlayToolbar && false
-							? this._instaService.createInstance(InlineChangeOverlay, this._editor, hunkData)
-							: undefined;
 
 
 						let lensActions: DisposableStore | undefined;
@@ -533,7 +524,7 @@ export class LiveStrategy extends EditModeStrategy {
 							const menu = this._menuService.createMenu(MENU_INLINE_CHAT_ZONE, this._contextService);
 							const makeActions = () => {
 								const actions: IContentWidgetAction[] = [];
-								const tuples = menu.getActions();
+								const tuples = menu.getActions({ arg: hunkData });
 								for (const [, group] of tuples) {
 									for (const item of group) {
 										if (item instanceof MenuItemAction) {
@@ -585,7 +576,6 @@ export class LiveStrategy extends EditModeStrategy {
 							});
 
 							lensActions?.dispose();
-							overlay?.dispose();
 						};
 
 						const move = (next: boolean) => {
@@ -649,8 +639,7 @@ export class LiveStrategy extends EditModeStrategy {
 			});
 
 			if (widgetData) {
-				this._zone.updatePositionAndHeight(widgetData.position);
-
+				this._zone.reveal(widgetData.position);
 
 				const mode = this._configService.getValue<'on' | 'off' | 'auto'>(InlineChatConfigKeys.AccessibleDiffView);
 				if (mode === 'on' || mode === 'auto' && this._accessibilityService.isScreenReaderOptimized()) {
@@ -697,79 +686,4 @@ function changeDecorationsAndViewZones(editor: ICodeEditor, callback: (accessor:
 			callback(decorationsAccessor, viewZoneAccessor);
 		});
 	});
-}
-
-
-class InlineChangeOverlay implements IOverlayWidget {
-
-	readonly allowEditorOverflow: boolean = false;
-
-	private readonly _id: string = `inline-chat-diff-overlay-` + generateUuid();
-	private readonly _domNode: HTMLElement = document.createElement('div');
-	private readonly _store: DisposableStore = new DisposableStore();
-
-	private _extraTopLines: number = 0;
-
-	constructor(
-		private readonly _editor: ICodeEditor,
-		private readonly _hunkInfo: HunkInformation,
-		@IInstantiationService private readonly _instaService: IInstantiationService,
-	) {
-
-		this._domNode.classList.add('inline-chat-diff-overlay');
-
-		if (_hunkInfo.getState() === HunkState.Pending) {
-
-			const menuBar = this._store.add(this._instaService.createInstance(MenuWorkbenchButtonBar, this._domNode, MENU_INLINE_CHAT_ZONE, {
-				menuOptions: { arg: _hunkInfo },
-				telemetrySource: 'inlineChat-changesZone',
-				buttonConfigProvider: (_action, idx) => {
-					return {
-						isSecondary: idx > 0,
-						showIcon: true,
-						showLabel: false
-					};
-				},
-			}));
-
-			this._store.add(menuBar.onDidChange(() => this._editor.layoutOverlayWidget(this)));
-		}
-
-		this._editor.addOverlayWidget(this);
-		this._store.add(Event.any(this._editor.onDidLayoutChange, this._editor.onDidScrollChange)(() => this._editor.layoutOverlayWidget(this)));
-		queueMicrotask(() => this._editor.layoutOverlayWidget(this)); // FUNKY but needed to get the initial layout right
-	}
-
-	dispose(): void {
-		this._editor.removeOverlayWidget(this);
-		this._store.dispose();
-	}
-
-	getId(): string {
-		return this._id;
-	}
-
-	getDomNode(): HTMLElement {
-		return this._domNode;
-	}
-
-	getPosition(): IOverlayWidgetPosition | null {
-
-		const line = this._hunkInfo.getRangesN()[0].startLineNumber;
-		const info = this._editor.getLayoutInfo();
-		const top = this._editor.getTopForLineNumber(line) - this._editor.getScrollTop();
-		const left = info.contentLeft + info.contentWidth - info.verticalScrollbarWidth;
-
-		const extraTop = this._editor.getOption(EditorOption.lineHeight) * this._extraTopLines;
-		const width = getTotalWidth(this._domNode);
-
-		return { preference: { top: top - extraTop, left: left - width } };
-	}
-
-	updateExtraTop(value: number) {
-		if (this._extraTopLines !== value) {
-			this._extraTopLines = value;
-			this._editor.layoutOverlayWidget(this);
-		}
-	}
 }

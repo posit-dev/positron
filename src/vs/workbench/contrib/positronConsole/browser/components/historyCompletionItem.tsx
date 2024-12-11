@@ -3,9 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./historyCompletionItem';
-import * as React from 'react';
-import { HistoryMatch } from 'vs/workbench/contrib/positronConsole/common/historyMatchStrategy';
+// CSS.
+import './historyCompletionItem.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { HistoryMatch } from '../../common/historyMatchStrategy.js';
 
 export interface HistoryCompletionItemProps {
 	readonly match: HistoryMatch;

@@ -2,13 +2,13 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { isValidBasename } from 'vs/base/common/extpath';
-import { OS, OperatingSystem } from 'vs/base/common/platform';
-import { basename } from 'vs/base/common/resources';
-import { truncateMiddle } from 'vs/base/common/strings';
-import { URI } from 'vs/base/common/uri';
-import { localize } from 'vs/nls';
-import { IFileService } from 'vs/platform/files/common/files';
+import { isValidBasename } from '../../../../../base/common/extpath.js';
+import { OS, OperatingSystem } from '../../../../../base/common/platform.js';
+import { basename } from '../../../../../base/common/resources.js';
+import { truncateMiddle } from '../../../../../base/common/strings.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { localize } from '../../../../../nls.js';
+import { IFileService } from '../../../../../platform/files/common/files.js';
 
 interface PathValidatorOptions {
 	/**

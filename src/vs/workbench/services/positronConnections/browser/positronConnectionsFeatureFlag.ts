@@ -3,15 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from 'vs/nls';
+import { localize } from '../../../../nls.js';
 import {
 	ConfigurationScope,
 	Extensions,
 	IConfigurationRegistry,
-} from 'vs/platform/configuration/common/configurationRegistry';
-import { Registry } from 'vs/platform/registry/common/platform';
-import { positronConfigurationNodeBase } from 'vs/workbench/services/languageRuntime/common/languageRuntime';
-import { RawContextKey } from 'vs/platform/contextkey/common/contextkey';
+} from '../../../../platform/configuration/common/configurationRegistry.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
+import { positronConfigurationNodeBase } from '../../languageRuntime/common/languageRuntime.js';
+import { RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 
 export const POSITRON_CONNECTIONS_VIEW_ENABLED = new RawContextKey<boolean>(
 	'positronConnectionsViewEnabled',

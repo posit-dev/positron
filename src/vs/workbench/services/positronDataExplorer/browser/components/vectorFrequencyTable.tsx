@@ -4,14 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./vectorFrequencyTable';
+import './vectorFrequencyTable.css';
 
 // React.
-import * as React from 'react';
-import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useState } from 'react';
 
 // Other dependencies.
-import { ColumnFrequencyTable } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnFrequencyTable } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * VectorFrequencyTableProps interface.

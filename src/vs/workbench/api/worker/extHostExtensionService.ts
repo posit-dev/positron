@@ -3,16 +3,19 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createApiFactoryAndRegisterActors } from 'vs/workbench/api/common/extHost.api.impl';
-import { ExtensionActivationTimesBuilder } from 'vs/workbench/api/common/extHostExtensionActivator';
-import { AbstractExtHostExtensionService } from 'vs/workbench/api/common/extHostExtensionService';
-import { URI } from 'vs/base/common/uri';
-import { RequireInterceptor } from 'vs/workbench/api/common/extHostRequireInterceptor';
-import { IExtensionDescription } from 'vs/platform/extensions/common/extensions';
-import { ExtensionRuntime } from 'vs/workbench/api/common/extHostTypes';
-import { timeout } from 'vs/base/common/async';
-import { ExtHostConsoleForwarder } from 'vs/workbench/api/worker/extHostConsoleForwarder';
-import { createPositronApiFactoryAndRegisterActors } from 'vs/workbench/api/common/positron/extHost.positron.api.impl';
+import { createApiFactoryAndRegisterActors } from '../common/extHost.api.impl.js';
+import { ExtensionActivationTimesBuilder } from '../common/extHostExtensionActivator.js';
+import { AbstractExtHostExtensionService } from '../common/extHostExtensionService.js';
+import { URI } from '../../../base/common/uri.js';
+import { RequireInterceptor } from '../common/extHostRequireInterceptor.js';
+import { IExtensionDescription } from '../../../platform/extensions/common/extensions.js';
+import { ExtensionRuntime } from '../common/extHostTypes.js';
+import { timeout } from '../../../base/common/async.js';
+import { ExtHostConsoleForwarder } from './extHostConsoleForwarder.js';
+
+// --- Start Positron ---
+import { createPositronApiFactoryAndRegisterActors } from '../common/positron/extHost.positron.api.impl.js';
+// --- End Positron ---
 
 class WorkerRequireInterceptor extends RequireInterceptor {
 

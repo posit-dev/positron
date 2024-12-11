@@ -1,11 +1,13 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronPreviewServices, PositronPreviewState, usePositronPreviewState } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewState';
+// React.
+import React, { PropsWithChildren, createContext, useContext } from 'react';
+
+// Other dependencies.
+import { PositronPreviewServices, PositronPreviewState, usePositronPreviewState } from './positronPreviewState.js';
 
 /**
  * Create the Positron preview context.

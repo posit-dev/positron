@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
+import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
+import { IPositronDataExplorerInstance } from './positronDataExplorerInstance.js';
 
 // Create the decorator for the Positron data explorer service (used in dependency injection).
 export const IPositronDataExplorerService = createDecorator<IPositronDataExplorerService>('positronDataExplorerService');

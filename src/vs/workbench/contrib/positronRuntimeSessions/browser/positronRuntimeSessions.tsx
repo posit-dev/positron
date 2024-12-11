@@ -3,16 +3,20 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./positronRuntimeSessions';
-import * as React from 'react';
-import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { PositronSessionsServices } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessionsState';
-import { PositronSessionsContextProvider } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessionsContext';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { SessionsCore } from 'vs/workbench/contrib/positronRuntimeSessions/browser/components/sessionsCore';
+// CSS.
+import './positronRuntimeSessions.css';
+
+// React.
+import React, { PropsWithChildren, useEffect, useState } from 'react';
+
+// Other dependencies.
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
+import { PositronSessionsServices } from './positronRuntimeSessionsState.js';
+import { PositronSessionsContextProvider } from './positronRuntimeSessionsContext.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
+import { SessionsCore } from './components/sessionsCore.js';
 
 /**
  * PositronSessionsProps interface.

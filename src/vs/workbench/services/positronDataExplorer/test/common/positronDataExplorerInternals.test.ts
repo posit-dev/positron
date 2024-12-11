@@ -4,15 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
-import { TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { TableSchema } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import {
 	DataFetchRange,
 	SchemaFetchRange,
 	TableDataCache,
 	TableSchemaCache
-} from "vs/workbench/services/positronDataExplorer/common/positronDataExplorerCache";
-import * as mocks from "vs/workbench/services/positronDataExplorer/common/positronDataExplorerMocks";
+} from "../../../positronDataExplorer/common/positronDataExplorerCache.js";
+import * as mocks from "../../../positronDataExplorer/common/positronDataExplorerMocks.js";
 
 
 class MockDataCache extends TableDataCache {

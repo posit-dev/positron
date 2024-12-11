@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { generateUuid } from 'vs/base/common/uuid';
+import { generateUuid } from '../../../../../../../base/common/uuid.js';
 import {
 	ColumnSchema,
 	FilterBetween,
@@ -15,7 +15,7 @@ import {
 	RowFilterCondition,
 	RowFilterType,
 	TextSearchType
-} from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+} from '../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * RowFilterDescrType enumeration.

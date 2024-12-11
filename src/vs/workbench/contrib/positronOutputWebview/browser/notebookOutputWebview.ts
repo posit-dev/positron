@@ -3,22 +3,22 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { decodeBase64, VSBuffer } from 'vs/base/common/buffer';
-import { Emitter } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { getExtensionForMimeType } from 'vs/base/common/mime';
-import { localize } from 'vs/nls';
-import { joinPath } from 'vs/base/common/resources';
-import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
-import { IFileService } from 'vs/platform/files/common/files';
-import { ILogService } from 'vs/platform/log/common/log';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
-import { FromWebviewMessage, IClickedDataUrlMessage } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewMessages';
-import { IScopedRendererMessaging } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
-import { INotebookOutputWebview, WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { IOverlayWebview, IWebviewElement } from 'vs/workbench/contrib/webview/browser/webview';
-import { INotebookLoggingService } from 'vs/workbench/contrib/notebook/common/notebookLoggingService';
+import { decodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
+import { Emitter } from '../../../../base/common/event.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { getExtensionForMimeType } from '../../../../base/common/mime.js';
+import { localize } from '../../../../nls.js';
+import { joinPath } from '../../../../base/common/resources.js';
+import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { FromWebviewMessage, IClickedDataUrlMessage } from '../../notebook/browser/view/renderers/webviewMessages.js';
+import { IScopedRendererMessaging } from '../../notebook/common/notebookRendererMessagingService.js';
+import { INotebookOutputWebview, WebviewType } from './notebookOutputWebviewService.js';
+import { IOverlayWebview, IWebviewElement } from '../../webview/browser/webview.js';
+import { INotebookLoggingService } from '../../notebook/common/notebookLoggingService.js';
 
 interface NotebookOutputWebviewOptions {
 	readonly id: string;

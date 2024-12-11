@@ -7,21 +7,21 @@
 import * as React from 'react';
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import { Emitter } from 'vs/base/common/event';
-import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
-import { IAction, Separator, SubmenuAction } from 'vs/base/common/actions';
-import { IEditorGroupView } from 'vs/workbench/browser/parts/editor/editor';
-import { actionTooltip } from 'vs/platform/positronActionBar/common/helpers';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
-import { IMenu, IMenuService, MenuId, MenuItemAction } from 'vs/platform/actions/common/actions';
-import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
-import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
-import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
-import { ActionBarActionButton } from 'vs/platform/positronActionBar/browser/components/actionBarActionButton';
-import { ActionBarCommandButton } from 'vs/platform/positronActionBar/browser/components/actionBarCommandButton';
+import { localize } from '../../../../nls.js';
+import { Emitter } from '../../../../base/common/event.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { IAction, Separator, SubmenuAction } from '../../../../base/common/actions.js';
+import { IEditorGroupView } from './editor.js';
+import { actionTooltip } from '../../../../platform/positronActionBar/common/helpers.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { PositronActionBar } from '../../../../platform/positronActionBar/browser/positronActionBar.js';
+import { IMenu, IMenuService, MenuId, MenuItemAction } from '../../../../platform/actions/common/actions.js';
+import { ActionBarRegion } from '../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
+import { ActionBarSeparator } from '../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
+import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
+import { ActionBarActionButton } from '../../../../platform/positronActionBar/browser/components/actionBarActionButton.js';
+import { ActionBarCommandButton } from '../../../../platform/positronActionBar/browser/components/actionBarCommandButton.js';
 
 // Constants.
 const PADDING_LEFT = 8;

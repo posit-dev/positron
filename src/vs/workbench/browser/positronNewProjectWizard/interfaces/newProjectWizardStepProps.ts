@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
+import { NewProjectWizardStep } from './newProjectWizardEnums.js';
 
 /**
  * The NewProjectWizardStepProps interface provides the wizard navigation functions

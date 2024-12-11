@@ -43,20 +43,20 @@ suite('Terminal Activation Indicator Prompt', () => {
         shell = mock<IApplicationShell>();
         terminalManager = mock<ITerminalManager>();
         interpreterService = mock<IInterpreterService>();
-        when(interpreterService.getActiveInterpreter(anything())).thenResolve({
+        when(interpreterService.getActiveInterpreter(anything())).thenResolve(({
             envName,
             type,
-        } as unknown as PythonEnvironment);
+        } as unknown) as PythonEnvironment);
         experimentService = mock<IExperimentService>();
         activeResourceService = mock<IActiveResourceService>();
         persistentStateFactory = mock<IPersistentStateFactory>();
         terminalEnvVarCollectionService = mock<ITerminalEnvVarCollectionService>();
         configurationService = mock<IConfigurationService>();
-        when(configurationService.getSettings(anything())).thenReturn({
+        when(configurationService.getSettings(anything())).thenReturn(({
             terminal: {
                 activateEnvironment: true,
             },
-        } as unknown as IPythonSettings);
+        } as unknown) as IPythonSettings);
         notificationEnabled = mock<IPersistentState<boolean>>();
         terminalEventEmitter = new EventEmitter<Terminal>();
         when(persistentStateFactory.createGlobalPersistentState(anything(), true)).thenReturn(
@@ -79,11 +79,11 @@ suite('Terminal Activation Indicator Prompt', () => {
 
     test('Show notification when a new terminal is opened for which there is no prompt set', async () => {
         const resource = Uri.file('a');
-        const terminal = {
+        const terminal = ({
             creationOptions: {
                 cwd: resource,
             },
-        } as unknown as Terminal;
+        } as unknown) as Terminal;
         when(terminalEnvVarCollectionService.isTerminalPromptSetCorrectly(resource)).thenReturn(false);
         when(notificationEnabled.value).thenReturn(true);
         when(shell.showInformationMessage(expectedMessage, ...prompts)).thenResolve(undefined);
@@ -97,17 +97,17 @@ suite('Terminal Activation Indicator Prompt', () => {
 
     test('Do not show notification if automatic terminal activation is turned off', async () => {
         reset(configurationService);
-        when(configurationService.getSettings(anything())).thenReturn({
+        when(configurationService.getSettings(anything())).thenReturn(({
             terminal: {
                 activateEnvironment: false,
             },
-        } as unknown as IPythonSettings);
+        } as unknown) as IPythonSettings);
         const resource = Uri.file('a');
-        const terminal = {
+        const terminal = ({
             creationOptions: {
                 cwd: resource,
             },
-        } as unknown as Terminal;
+        } as unknown) as Terminal;
         when(terminalEnvVarCollectionService.isTerminalPromptSetCorrectly(resource)).thenReturn(false);
         when(notificationEnabled.value).thenReturn(true);
         when(shell.showInformationMessage(expectedMessage, ...prompts)).thenResolve(undefined);
@@ -127,11 +127,11 @@ suite('Terminal Activation Indicator Prompt', () => {
         // --- End Positron ---
 
         const resource = Uri.file('a');
-        const terminal = {
+        const terminal = ({
             creationOptions: {
                 cwd: resource,
             },
-        } as unknown as Terminal;
+        } as unknown) as Terminal;
         when(terminalEnvVarCollectionService.isTerminalPromptSetCorrectly(resource)).thenReturn(false);
         when(notificationEnabled.value).thenReturn(true);
         when(shell.showInformationMessage(expectedMessage, ...prompts)).thenResolve(undefined);
@@ -147,11 +147,11 @@ suite('Terminal Activation Indicator Prompt', () => {
 
     test('Do not show notification if notification is disabled', async () => {
         const resource = Uri.file('a');
-        const terminal = {
+        const terminal = ({
             creationOptions: {
                 cwd: resource,
             },
-        } as unknown as Terminal;
+        } as unknown) as Terminal;
         when(terminalEnvVarCollectionService.isTerminalPromptSetCorrectly(resource)).thenReturn(false);
         when(notificationEnabled.value).thenReturn(false);
         when(shell.showInformationMessage(expectedMessage, ...prompts)).thenResolve(undefined);
@@ -165,11 +165,11 @@ suite('Terminal Activation Indicator Prompt', () => {
 
     test('Do not show notification when a new terminal is opened for which there is prompt set', async () => {
         const resource = Uri.file('a');
-        const terminal = {
+        const terminal = ({
             creationOptions: {
                 cwd: resource,
             },
-        } as unknown as Terminal;
+        } as unknown) as Terminal;
         when(terminalEnvVarCollectionService.isTerminalPromptSetCorrectly(resource)).thenReturn(true);
         when(notificationEnabled.value).thenReturn(true);
         when(shell.showInformationMessage(expectedMessage, ...prompts)).thenResolve(undefined);
@@ -183,11 +183,11 @@ suite('Terminal Activation Indicator Prompt', () => {
 
     test("Disable notification if `Don't show again` is clicked", async () => {
         const resource = Uri.file('a');
-        const terminal = {
+        const terminal = ({
             creationOptions: {
                 cwd: resource,
             },
-        } as unknown as Terminal;
+        } as unknown) as Terminal;
         when(terminalEnvVarCollectionService.isTerminalPromptSetCorrectly(resource)).thenReturn(false);
         when(notificationEnabled.value).thenReturn(true);
         when(notificationEnabled.updateValue(false)).thenResolve();
@@ -204,11 +204,11 @@ suite('Terminal Activation Indicator Prompt', () => {
 
     test('Do not disable notification if prompt is closed', async () => {
         const resource = Uri.file('a');
-        const terminal = {
+        const terminal = ({
             creationOptions: {
                 cwd: resource,
             },
-        } as unknown as Terminal;
+        } as unknown) as Terminal;
         when(terminalEnvVarCollectionService.isTerminalPromptSetCorrectly(resource)).thenReturn(false);
         when(notificationEnabled.value).thenReturn(true);
         when(notificationEnabled.updateValue(false)).thenResolve();

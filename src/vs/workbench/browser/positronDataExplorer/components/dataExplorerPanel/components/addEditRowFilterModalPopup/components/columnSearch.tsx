@@ -4,15 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./columnSearch';
+import './columnSearch.css';
 
 // React.
-import * as React from 'react';
-import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { localize } from '../../../../../../../../nls.js';
+import { positronClassNames } from '../../../../../../../../base/common/positronUtilities.js';
 
 /**
  * ColumnSearchProps interface.

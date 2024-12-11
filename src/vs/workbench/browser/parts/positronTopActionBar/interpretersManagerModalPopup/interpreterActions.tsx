@@ -3,14 +3,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./interpreterActions';
-import * as React from 'react';
-import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { localize } from 'vs/nls';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
+// CSS.
+import './interpreterActions.css';
+
+// React.
+import React, { PropsWithChildren, useEffect, useState } from 'react';
+
+// Other dependencies.
+import { localize } from '../../../../../nls.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 
 /**
  * InterpreterActionsProps interface.

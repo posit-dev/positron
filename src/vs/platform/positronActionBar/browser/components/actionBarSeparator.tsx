@@ -1,11 +1,16 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./actionBarSeparator';
-import * as React from 'react';
-import { optionalBoolean, positronClassNames } from 'vs/base/common/positronUtilities';
+// CSS.
+import './actionBarSeparator.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { optionalBoolean, positronClassNames } from '../../../../base/common/positronUtilities.js';
 
 /**
  * ActionBarSeparatorProps interface.

@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useEffect, useState } from 'react';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IWorkspaceContextService, IWorkspaceFolder } from 'vs/platform/workspace/common/workspace';
-import { PositronTopActionBarServices } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBar';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { IWorkspaceContextService, IWorkspaceFolder } from '../../../../platform/workspace/common/workspace.js';
+import { PositronTopActionBarServices } from './positronTopActionBar.js';
 
 /**
  * The Positron top action bar state.

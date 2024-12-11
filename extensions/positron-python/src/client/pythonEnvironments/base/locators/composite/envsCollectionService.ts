@@ -497,21 +497,18 @@ export class EnvsCollectionService extends PythonEnvsWatcher<PythonEnvCollection
         const nativeMicrosoftStoreEnvs = nativeEnvs.filter(
             (e) => categoryToKind(e.kind) === PythonEnvKind.MicrosoftStore,
         ).length;
-        const nativeOtherGlobalEnvs = nativeEnvs.filter(
-            (e) => categoryToKind(e.kind) === PythonEnvKind.OtherGlobal,
-        ).length;
-        const nativeOtherVirtualEnvs = nativeEnvs.filter(
-            (e) => categoryToKind(e.kind) === PythonEnvKind.OtherVirtual,
-        ).length;
+        const nativeOtherGlobalEnvs = nativeEnvs.filter((e) => categoryToKind(e.kind) === PythonEnvKind.OtherGlobal)
+            .length;
+        const nativeOtherVirtualEnvs = nativeEnvs.filter((e) => categoryToKind(e.kind) === PythonEnvKind.OtherVirtual)
+            .length;
         const nativePipEnvEnvs = nativeEnvs.filter((e) => categoryToKind(e.kind) === PythonEnvKind.Pipenv).length;
         const nativePoetryEnvs = nativeEnvs.filter((e) => categoryToKind(e.kind) === PythonEnvKind.Poetry).length;
         const nativePyenvEnvs = nativeEnvs.filter((e) => categoryToKind(e.kind) === PythonEnvKind.Pyenv).length;
         const nativeSystemEnvs = nativeEnvs.filter((e) => categoryToKind(e.kind) === PythonEnvKind.System).length;
         const nativeUnknownEnvs = nativeEnvs.filter((e) => categoryToKind(e.kind) === PythonEnvKind.Unknown).length;
         const nativeVenvEnvs = nativeEnvs.filter((e) => categoryToKind(e.kind) === PythonEnvKind.Venv).length;
-        const nativeVirtualEnvEnvs = nativeEnvs.filter(
-            (e) => categoryToKind(e.kind) === PythonEnvKind.VirtualEnv,
-        ).length;
+        const nativeVirtualEnvEnvs = nativeEnvs.filter((e) => categoryToKind(e.kind) === PythonEnvKind.VirtualEnv)
+            .length;
         const nativeVirtualEnvWrapperEnvs = nativeEnvs.filter(
             (e) => categoryToKind(e.kind) === PythonEnvKind.VirtualEnvWrapper,
         ).length;

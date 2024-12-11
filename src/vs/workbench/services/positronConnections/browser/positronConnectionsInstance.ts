@@ -3,18 +3,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
-import { Emitter, Event } from 'vs/base/common/event';
-import { ConnectionsClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeConnectionsClient';
-import { ConnectionMetadata, IPositronConnectionInstance, IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
-import { ObjectSchema } from 'vs/workbench/services/languageRuntime/common/positronConnectionsComm';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { flatten_children, IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsUtils';
-import { Severity } from 'vs/platform/notification/common/notification';
-import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
-import { DeferredPromise } from 'vs/base/common/async';
-import { localize } from 'vs/nls';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
+import { ConnectionsClientInstance } from '../../languageRuntime/common/languageRuntimeConnectionsClient.js';
+import { ConnectionMetadata, IPositronConnectionInstance, IPositronConnectionItem } from './interfaces/positronConnectionsInstance.js';
+import { ObjectSchema } from '../../languageRuntime/common/positronConnectionsComm.js';
+import { IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
+import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../languageRuntime/common/languageRuntimeService.js';
+import { flatten_children, IPositronConnectionEntry } from './positronConnectionsUtils.js';
+import { Severity } from '../../../../platform/notification/common/notification.js';
+import { IPositronConnectionsService } from './interfaces/positronConnectionsService.js';
+import { DeferredPromise } from '../../../../base/common/async.js';
+import { localize } from '../../../../nls.js';
 
 interface PathSchema extends ObjectSchema {
 	dtype?: string;

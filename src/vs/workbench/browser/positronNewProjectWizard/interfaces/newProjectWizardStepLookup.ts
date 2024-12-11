@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
-import { ProjectNameLocationStep } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/projectNameLocationStep';
-import { PythonEnvironmentStep } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/pythonEnvironmentStep';
-import { ProjectTypeStep } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/projectTypeStep';
-import { RConfigurationStep } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/rConfigurationStep';
+import { NewProjectWizardStep } from './newProjectWizardEnums.js';
+import { ProjectNameLocationStep } from '../components/steps/projectNameLocationStep.js';
+import { PythonEnvironmentStep } from '../components/steps/pythonEnvironmentStep.js';
+import { ProjectTypeStep } from '../components/steps/projectTypeStep.js';
+import { RConfigurationStep } from '../components/steps/rConfigurationStep.js';
 
 /**
  * The NewProjectWizardStepLookup object is like a map of NewProjectWizardStep to the

@@ -1,10 +1,13 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
 
 /**
  * StaticPlotThumbnailProps interface.

@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ServerParsedArgs } from 'vs/server/node/serverEnvironmentService';
+import { ServerParsedArgs } from './serverEnvironmentService.js';
 import * as fs from 'fs';
-import * as path from 'vs/base/common/path';
+import * as path from '../../base/common/path.js';
 import * as crypto from 'crypto';
 
 /**

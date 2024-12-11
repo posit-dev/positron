@@ -4,26 +4,25 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataGridWaffle';
+import './dataGridWaffle.css';
 
 // React.
-import * as React from 'react';
-import { forwardRef, KeyboardEvent, useEffect, useImperativeHandle, useRef, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { forwardRef, JSX, KeyboardEvent, useEffect, useImperativeHandle, useRef, useState, WheelEvent } from 'react';
 
 // Other dependencies.
-import { generateUuid } from 'vs/base/common/uuid';
-import { isMacintosh } from 'vs/base/common/platform';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { pinToRange } from 'vs/base/common/positronUtilities';
-import { editorFontApplier } from 'vs/workbench/browser/editorFontApplier';
-import { DataGridRow } from 'vs/workbench/browser/positronDataGrid/components/dataGridRow';
-import { DataGridRowHeaders } from 'vs/workbench/browser/positronDataGrid/components/dataGridRowHeaders';
-import { usePositronDataGridContext } from 'vs/workbench/browser/positronDataGrid/positronDataGridContext';
-import { DataGridCornerTopLeft } from 'vs/workbench/browser/positronDataGrid/components/dataGridCornerTopLeft';
-import { DataGridColumnHeaders } from 'vs/workbench/browser/positronDataGrid/components/dataGridColumnHeaders';
-import { DataGridScrollbarCorner } from 'vs/workbench/browser/positronDataGrid/components/dataGridScrollbarCorner';
-import { DataGridScrollbar } from 'vs/workbench/browser/positronDataGrid/components/dataGridScrollbar';
-import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
+import { generateUuid } from '../../../../base/common/uuid.js';
+import { isMacintosh } from '../../../../base/common/platform.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { pinToRange } from '../../../../base/common/positronUtilities.js';
+import { editorFontApplier } from '../../editorFontApplier.js';
+import { DataGridRow } from './dataGridRow.js';
+import { DataGridRowHeaders } from './dataGridRowHeaders.js';
+import { usePositronDataGridContext } from '../positronDataGridContext.js';
+import { DataGridCornerTopLeft } from './dataGridCornerTopLeft.js';
+import { DataGridColumnHeaders } from './dataGridColumnHeaders.js';
+import { DataGridScrollbarCorner } from './dataGridScrollbarCorner.js';
+import { DataGridScrollbar } from './dataGridScrollbar.js';
+import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from '../classes/dataGridInstance.js';
 
 /**
  * DataGridWaffle component.

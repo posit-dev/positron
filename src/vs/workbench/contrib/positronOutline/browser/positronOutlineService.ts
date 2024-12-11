@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
-import { IPositronOutlineService } from 'vs/workbench/services/positronOutline/common/positronOutline';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { IPositronOutlineService } from '../../../services/positronOutline/common/positronOutline.js';
 
 export class PositronOutlineService extends Disposable implements IPositronOutlineService {
 

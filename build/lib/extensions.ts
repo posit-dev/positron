@@ -105,9 +105,15 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 		}
 	}
 
+	// TODO: add prune support based on packagedDependencies to vsce.PackageManager.Npm similar
+	// to vsce.PackageManager.Yarn.
+	// A static analysis showed there are no webpack externals that are dependencies of the current
+	// local extensions so we can use the vsce.PackageManager.None config to ignore dependencies list
+	// as a temporary workaround.
+
 	// --- Start Positron ---
 	// Replace vsce.listFiles with listExtensionFiles to queue the work
-	listExtensionFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.Yarn, packagedDependencies }).then(fileNames => {
+	listExtensionFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.None, packagedDependencies }).then(fileNames => {
 		const files = fileNames
 			.map(fileName => path.join(extensionPath, fileName))
 			.map(filePath => new File({
@@ -205,7 +211,7 @@ function fromLocalNormal(extensionPath: string): Stream {
 
 	// --- Start Positron ---
 	// Replace vsce.listFiles with listExtensionFiles to queue the work
-	listExtensionFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.Yarn })
+	listExtensionFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.Npm })
 		.then(fileNames => {
 			const files = fileNames
 				.map(fileName => path.join(extensionPath, fileName))
@@ -418,7 +424,7 @@ export function packageLocalExtensionsStream(forWeb: boolean, disableMangle: boo
 	} else {
 		// also include shared production node modules
 		const productionDependencies = getProductionDependencies('extensions/');
-		const dependenciesSrc = productionDependencies.map(d => path.relative(root, d.path)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat();
+		const dependenciesSrc = productionDependencies.map(d => path.relative(root, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat();
 
 		result = es.merge(
 			localExtensionsStream,

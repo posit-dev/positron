@@ -3,32 +3,32 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as DOM from 'vs/base/browser/dom';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
-import { Event, Emitter } from 'vs/base/common/event';
-import { IOverlayWebview, IWebviewService, WebviewExtensionDescription, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
-import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
-import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
-import { POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
-import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IPositronNotebookOutputWebviewService, WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { URI } from 'vs/base/common/uri';
-import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
-import { ShowHtmlFileEvent, ShowUrlEvent, UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
-import { ILogService } from 'vs/platform/log/common/log';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { isLocalhost } from 'vs/workbench/contrib/positronHelp/browser/utils';
-import { IShowHtmlUriEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
-import { PreviewOverlayWebview } from 'vs/workbench/contrib/positronPreview/browser/previewOverlayWebview';
-import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { basename } from 'vs/base/common/path';
-import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
-import { Schemas } from 'vs/base/common/network';
-import { assertIsOverlayPositronWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
+import * as DOM from '../../../../base/browser/dom.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { IPositronPreviewService } from './positronPreview.js';
+import { Event, Emitter } from '../../../../base/common/event.js';
+import { IOverlayWebview, IWebviewService, WebviewExtensionDescription, WebviewInitInfo } from '../../webview/browser/webview.js';
+import { PreviewWebview } from './previewWebview.js';
+import { IViewsService } from '../../../services/views/common/viewsService.js';
+import { POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from './positronPreviewSevice.js';
+import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IPositronNotebookOutputWebviewService, WebviewType } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { URI } from '../../../../base/common/uri.js';
+import { PreviewUrl } from './previewUrl.js';
+import { ShowHtmlFileEvent, ShowUrlEvent, UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { isLocalhost } from '../../positronHelp/browser/utils.js';
+import { IShowHtmlUriEvent } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
+import { PreviewOverlayWebview } from './previewOverlayWebview.js';
+import { PreviewHtml } from './previewHtml.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { basename } from '../../../../base/common/path.js';
+import { IExtensionService } from '../../../services/extensions/common/extensions.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { Schemas } from '../../../../base/common/network.js';
+import { assertIsOverlayPositronWebview } from '../../positronOutputWebview/browser/notebookOutputWebviewServiceImpl.js';
 
 /**
  * Positron preview service; keeps track of the set of active previews and

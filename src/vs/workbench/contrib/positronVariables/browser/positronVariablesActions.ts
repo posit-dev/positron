@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as nls from 'vs/nls';
-import { Action2 } from 'vs/platform/actions/common/actions';
-import { ILocalizedString } from 'vs/platform/action/common/action';
-import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
+import * as nls from '../../../../nls.js';
+import { Action2 } from '../../../../platform/actions/common/actions.js';
+import { ILocalizedString } from '../../../../platform/action/common/action.js';
+import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 
 export const POSITRON_VARIABLES_ACTION_CATEGORY = nls.localize('positronVariablesCategory', "Variables");
 const category: ILocalizedString = { value: POSITRON_VARIABLES_ACTION_CATEGORY, original: 'Variables' };

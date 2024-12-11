@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as DOM from 'vs/base/browser/dom';
-import { VSBuffer, encodeBase64 } from 'vs/base/common/buffer';
-import { Emitter, Event } from 'vs/base/common/event';
-import { Disposable, MutableDisposable } from 'vs/base/common/lifecycle';
-import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
-import { IPositronPlotMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import * as DOM from '../../../../base/browser/dom.js';
+import { VSBuffer, encodeBase64 } from '../../../../base/common/buffer.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
+import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { IOverlayWebview } from '../../webview/browser/webview.js';
+import { IPositronPlotMetadata } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { IPositronPlotClient } from '../../../services/positronPlots/common/positronPlots.js';
 
 /**
  * A Positron plot instance that is backed by a webview.

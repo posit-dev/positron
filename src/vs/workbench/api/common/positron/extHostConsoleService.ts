@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
-import { Emitter } from 'vs/base/common/event';
-import * as extHostProtocol from './extHost.positron.protocol';
-import { ExtHostConsole } from 'vs/workbench/api/common/positron/extHostConsole';
-import { ILogService } from 'vs/platform/log/common/log';
-import { dispose } from 'vs/base/common/lifecycle';
+import { Emitter } from '../../../../base/common/event.js';
+import * as extHostProtocol from './extHost.positron.protocol.js';
+import { ExtHostConsole } from './extHostConsole.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { dispose } from '../../../../base/common/lifecycle.js';
 
 export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServiceShape {
 

@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter } from 'vs/base/common/event';
-import { URI } from 'vs/base/common/uri';
-import { POSITRON_PREVIEW_URL_VIEW_TYPE } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
-import { PreviewOverlayWebview } from 'vs/workbench/contrib/positronPreview/browser/previewOverlayWebview';
-import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
+import { Emitter } from '../../../../base/common/event.js';
+import { URI } from '../../../../base/common/uri.js';
+import { POSITRON_PREVIEW_URL_VIEW_TYPE } from './positronPreviewSevice.js';
+import { PreviewOverlayWebview } from './previewOverlayWebview.js';
+import { PreviewWebview } from './previewWebview.js';
 
 export const QUERY_NONCE_PARAMETER = '_positronRender';
 

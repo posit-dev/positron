@@ -4,16 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./positronActionBar';
+import './positronActionBar.css';
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren, useEffect, KeyboardEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { KeyboardEvent, PropsWithChildren, useEffect } from 'react';
 
 // Other dependencies.
-import * as DOM from 'vs/base/browser/dom';
-import { optionalValue, positronClassNames } from 'vs/base/common/positronUtilities';
-import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import * as DOM from '../../../base/browser/dom.js';
+import { optionalValue, positronClassNames } from '../../../base/common/positronUtilities.js';
+import { usePositronActionBarContext } from './positronActionBarContext.js';
 
 /**
  * CommonPositronActionBarProps interface.

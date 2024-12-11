@@ -7,8 +7,8 @@
 import { MouseEvent } from 'react';
 
 // Other dependencies.
-import { isMacintosh } from 'vs/base/common/platform';
-import { MouseSelectionType } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
+import { isMacintosh } from '../../../../base/common/platform.js';
+import { MouseSelectionType } from '../classes/dataGridInstance.js';
 
 /**
  * Maps MouseEvent keys to a MouseSelectionType.

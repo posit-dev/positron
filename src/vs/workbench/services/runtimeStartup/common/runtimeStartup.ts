@@ -3,29 +3,29 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as nls from 'vs/nls';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageService } from 'vs/editor/common/languages/language';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { ILogService } from 'vs/platform/log/common/log';
-import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
-import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
-import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { Event } from 'vs/base/common/event';
-import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
-import { ExtensionsRegistry } from 'vs/workbench/services/extensions/common/extensionsRegistry';
-import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-import { ILifecycleService, ShutdownReason } from 'vs/workbench/services/lifecycle/common/lifecycle';
-import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
-import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { URI } from 'vs/base/common/uri';
-import { IWorkspaceContextService, WorkbenchState } from 'vs/platform/workspace/common/workspace';
-import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
+import * as nls from '../../../../nls.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { ILanguageService } from '../../../../editor/common/languages/language.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
+import { IExtensionService } from '../../extensions/common/extensions.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeStartupService, RuntimeStartupPhase } from './runtimeStartupService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
+import { Event } from '../../../../base/common/event.js';
+import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
+import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
+import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
+import { ILifecycleService, ShutdownReason } from '../../lifecycle/common/lifecycle.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { URI } from '../../../../base/common/uri.js';
+import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
+import { IPositronNewProjectService } from '../../positronNewProject/common/positronNewProject.js';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;

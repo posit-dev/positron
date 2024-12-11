@@ -4,12 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren, createContext, useContext, useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren, createContext, useContext, useEffect } from 'react';
 
 // Other dependencies.
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { PositronDataExplorerConfiguration } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorer';
+import { DisposableStore } from '../../../base/common/lifecycle.js';
+import { PositronDataExplorerConfiguration } from './positronDataExplorer.js';
 
 /**
  * PositronDataExplorerState interface.

@@ -2,20 +2,20 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import * as DOM from 'vs/base/browser/dom';
-import { disposableTimeout } from 'vs/base/common/async';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IHoverService } from 'vs/platform/hover/browser/hover';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { IThemeService } from 'vs/platform/theme/common/themeService';
-import { IViewPaneOptions, ViewPane } from 'vs/workbench/browser/parts/views/viewPane';
-import { IViewDescriptorService } from 'vs/workbench/common/views';
+import * as DOM from '../../../base/browser/dom.js';
+import { disposableTimeout } from '../../../base/common/async.js';
+import { DisposableStore } from '../../../base/common/lifecycle.js';
+import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../platform/contextkey/common/contextkey.js';
+import { IContextMenuService } from '../../../platform/contextview/browser/contextView.js';
+import { IHoverService } from '../../../platform/hover/browser/hover.js';
+import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
+import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
+import { IOpenerService } from '../../../platform/opener/common/opener.js';
+import { ITelemetryService } from '../../../platform/telemetry/common/telemetry.js';
+import { IThemeService } from '../../../platform/theme/common/themeService.js';
+import { IViewPaneOptions, ViewPane } from '../parts/views/viewPane.js';
+import { IViewDescriptorService } from '../../common/views.js';
 
 export interface PositronViewPaneOptions extends IViewPaneOptions {
 	openFromCollapsedSize?: number | `${number}%`;

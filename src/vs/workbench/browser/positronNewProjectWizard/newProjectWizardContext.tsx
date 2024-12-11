@@ -3,9 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { NewProjectWizardStateManager, NewProjectWizardStateConfig } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
+// React.
+import React, { PropsWithChildren, createContext, useContext } from 'react';
+
+// Other dependencies.
+import { NewProjectWizardStateManager, NewProjectWizardStateConfig } from './newProjectWizardState.js';
 
 /**
  * Create the New Project Wizard context.

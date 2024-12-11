@@ -3,24 +3,28 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./actionBar';
-import * as React from 'react';
-import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { localize } from 'vs/nls';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
-import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
-import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
-import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
-import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
-import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { ConsoleInstanceMenuButton } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstanceMenuButton';
+// CSS.
+import './actionBar.css';
+
+// React.
+import React, { useEffect, useState } from 'react';
+
+// Other dependencies.
+import { localize } from '../../../../../nls.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
+import { IsDevelopmentContext } from '../../../../../platform/contextkey/common/contextkeys.js';
+import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
+import { UiFrontendEvent } from '../../../../services/languageRuntime/common/positronUiComm.js';
+import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
+import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
+import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ConsoleInstanceMenuButton } from './consoleInstanceMenuButton.js';
 
 /**
  * Constants.

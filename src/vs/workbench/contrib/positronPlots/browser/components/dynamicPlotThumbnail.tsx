@@ -1,12 +1,14 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PlaceholderThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/placeholderThumbnail';
-import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+// React.
+import React, { useEffect, useState } from 'react';
+
+// Other dependencies.
+import { PlaceholderThumbnail } from './placeholderThumbnail.js';
+import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 
 /**
  * DynamicPlotThumbnailProps interface.

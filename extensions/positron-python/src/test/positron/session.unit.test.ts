@@ -35,9 +35,9 @@ suite('Python Runtime Session', () => {
     let notebookSession: positron.LanguageRuntimeSession;
 
     setup(() => {
-        interpreterPathService = {
+        interpreterPathService = ({
             update: () => Promise.resolve(),
-        } as Partial<IInterpreterPathService> as IInterpreterPathService;
+        } as Partial<IInterpreterPathService>) as IInterpreterPathService;
 
         interpreter = {
             id: 'pythonEnvironmentId',
@@ -52,28 +52,28 @@ suite('Python Runtime Session', () => {
             getInterpreters: () => [interpreter],
         } as IInterpreterService;
 
-        const installer = {
+        const installer = ({
             isInstalled: () => Promise.resolve(true),
             promptToInstall: () => Promise.resolve(InstallerResponse.Installed),
             isProductVersionCompatible: () => Promise.resolve(ProductInstallStatus.Installed),
-        } as Partial<IInstaller> as IInstaller;
+        } as Partial<IInstaller>) as IInstaller;
 
         const outputChannel = {} as ILanguageServerOutputChannel;
 
-        const workspaceService = {
+        const workspaceService = ({
             workspaceFolders: undefined,
             getWorkspaceFolder: () => undefined,
-        } as Partial<IWorkspaceService> as IWorkspaceService;
+        } as Partial<IWorkspaceService>) as IWorkspaceService;
 
-        const pythonSettings = { autoComplete: { extraPaths: [] } } as Partial<IPythonSettings> as IPythonSettings;
+        const pythonSettings = ({ autoComplete: { extraPaths: [] } } as Partial<IPythonSettings>) as IPythonSettings;
 
         const configService = {
             getSettings: () => pythonSettings,
         } as IConfigurationService;
 
-        const envVarsProvider = {
+        const envVarsProvider = ({
             onDidEnvironmentVariablesChange: () => ({ dispose() {} }),
-        } as Partial<IEnvironmentVariablesProvider> as IEnvironmentVariablesProvider;
+        } as Partial<IEnvironmentVariablesProvider>) as IEnvironmentVariablesProvider;
 
         serviceContainer = {
             get: (serviceIdentifier) => {
@@ -100,18 +100,18 @@ suite('Python Runtime Session', () => {
 
         kernelSpec = {} as JupyterKernelSpec;
 
-        const kernel = {
+        const kernel = ({
             onDidChangeRuntimeState: () => ({ dispose() {} }),
             onDidReceiveRuntimeMessage: () => ({ dispose() {} }),
             onDidEndSession: () => ({ dispose() {} }),
             start() {
                 return Promise.resolve({} as positron.LanguageRuntimeInfo);
             },
-        } as Partial<JupyterLanguageRuntimeSession> as JupyterLanguageRuntimeSession;
+        } as Partial<JupyterLanguageRuntimeSession>) as JupyterLanguageRuntimeSession;
 
-        const adapterApi = {
+        const adapterApi = ({
             createSession: sinon.stub().resolves(kernel),
-        } as Partial<JupyterAdapterApi> as JupyterAdapterApi;
+        } as Partial<JupyterAdapterApi>) as JupyterAdapterApi;
 
         sinon.stub(vscode.extensions, 'getExtension').callsFake((extensionId) => {
             if (extensionId === 'positron.positron-supervisor' || extensionId === 'positron.jupyter-adapter') {
@@ -129,9 +129,9 @@ suite('Python Runtime Session', () => {
             return undefined;
         });
 
-        const nullConfig = {
+        const nullConfig = ({
             get: () => undefined,
-        } as Partial<vscode.WorkspaceConfiguration> as vscode.WorkspaceConfiguration;
+        } as Partial<vscode.WorkspaceConfiguration>) as vscode.WorkspaceConfiguration;
         vscode.workspace.getConfiguration = () => nullConfig;
 
         const consoleMetadata = {

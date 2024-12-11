@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
-import { PythonEnvironmentProvider } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
-import { InterpreterInfo } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
+import { DropDownListBoxItem } from '../../positronComponents/dropDownListBox/dropDownListBoxItem.js';
+import { PythonEnvironmentProvider } from '../interfaces/newProjectWizardEnums.js';
+import { InterpreterInfo } from './interpreterDropDownUtils.js';
 
 /**
  * CondaPythonVersionInfo interface.

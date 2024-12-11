@@ -4,19 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./editorActionBar';
+import './editorActionBar.css';
 
 // React.
-import * as React from 'react';
-import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
-import * as DOM from 'vs/base/browser/dom';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { isAuxiliaryWindow } from 'vs/base/browser/window';
-import { EditorActionBarFactory } from 'vs/workbench/browser/parts/editor/editorActionBarFactory';
-import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
-import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import * as DOM from '../../../../base/browser/dom.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { isAuxiliaryWindow } from '../../../../base/browser/window.js';
+import { EditorActionBarFactory } from './editorActionBarFactory.js';
+import { PositronActionBarServices } from '../../../../platform/positronActionBar/browser/positronActionBarState.js';
+import { PositronActionBarContextProvider } from '../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 
 /**
  * EditorActionBarServices interface.

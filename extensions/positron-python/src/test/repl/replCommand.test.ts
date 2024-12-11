@@ -55,7 +55,7 @@ suite('REPL - register native repl command', () => {
     test('Ensure repl command is registered', async () => {
         interpreterService
             .setup((i) => i.getActiveInterpreter(TypeMoq.It.isAny()))
-            .returns(() => Promise.resolve({ path: 'ps' } as unknown as PythonEnvironment));
+            .returns(() => Promise.resolve(({ path: 'ps' } as unknown) as PythonEnvironment));
 
         await replCommands.registerReplCommands(
             disposableArray,
@@ -73,7 +73,7 @@ suite('REPL - register native repl command', () => {
     test('Ensure getSendToNativeREPLSetting is called', async () => {
         interpreterService
             .setup((i) => i.getActiveInterpreter(TypeMoq.It.isAny()))
-            .returns(() => Promise.resolve({ path: 'ps' } as unknown as PythonEnvironment));
+            .returns(() => Promise.resolve(({ path: 'ps' } as unknown) as PythonEnvironment));
 
         let commandHandler: undefined | (() => Promise<void>);
         commandManager
@@ -104,7 +104,7 @@ suite('REPL - register native repl command', () => {
     test('Ensure executeInTerminal is called when getSendToNativeREPLSetting returns false', async () => {
         interpreterService
             .setup((i) => i.getActiveInterpreter(TypeMoq.It.isAny()))
-            .returns(() => Promise.resolve({ path: 'ps' } as unknown as PythonEnvironment));
+            .returns(() => Promise.resolve(({ path: 'ps' } as unknown) as PythonEnvironment));
         getSendToNativeREPLSettingStub.returns(false);
 
         let commandHandler: undefined | (() => Promise<void>);
@@ -136,7 +136,7 @@ suite('REPL - register native repl command', () => {
     test('Ensure we call getNativeREPL() when interpreter exist', async () => {
         interpreterService
             .setup((i) => i.getActiveInterpreter(TypeMoq.It.isAny()))
-            .returns(() => Promise.resolve({ path: 'ps' } as unknown as PythonEnvironment));
+            .returns(() => Promise.resolve(({ path: 'ps' } as unknown) as PythonEnvironment));
         getSendToNativeREPLSettingStub.returns(true);
         getNativeReplStub = sinon.stub(nativeRepl, 'getNativeRepl');
 

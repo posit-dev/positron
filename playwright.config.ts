@@ -12,7 +12,7 @@ import { currentsReporter } from '@currents/playwright';
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig<CustomTestOptions>({
-	globalSetup: require.resolve('./test/e2e/features/_global.setup.ts'),
+	globalSetup: './test/e2e/features/_global.setup.ts',
 	testDir: './test/e2e',
 	testIgnore: '**/example.test.ts',
 	testMatch: '*.test.ts',

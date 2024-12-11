@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { MIME_TYPES } from 'vs/workbench/services/positronWebviewPreloads/browser/positronWebviewPreloadService';
+import { ILanguageRuntimeMessageOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { MIME_TYPES } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 
 const webviewReplayMimeTypes = new Set([
 	MIME_TYPES.HOLOVIEWS_LOAD,

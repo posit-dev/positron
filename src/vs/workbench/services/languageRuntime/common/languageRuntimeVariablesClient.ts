@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { ISettableObservable } from 'vs/base/common/observableInternal/base';
-import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { ClipboardFormatFormat, PositronVariablesComm, RefreshEvent, UpdateEvent, Variable } from 'vs/workbench/services/languageRuntime/common/positronVariablesComm';
+import { Emitter } from '../../../../base/common/event.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
+import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
+import { ClipboardFormatFormat, PositronVariablesComm, RefreshEvent, UpdateEvent, Variable } from './positronVariablesComm.js';
 
 /**
  * Represents a variable in a language runtime; wraps the raw data format with additional metadata

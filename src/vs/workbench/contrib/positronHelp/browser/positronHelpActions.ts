@@ -3,26 +3,26 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from 'vs/nls';
-import { Categories } from 'vs/platform/action/common/actionCommonCategories';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
-import { IEditor } from 'vs/editor/common/editorCommon';
-import { ITextModel } from 'vs/editor/common/model';
-import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeatures';
-import { CancellationToken } from 'vs/base/common/cancellation';
-import { Action2 } from 'vs/platform/actions/common/actions';
-import { KeyChord, KeyCode, KeyMod } from 'vs/base/common/keyCodes';
-import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
-import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { ILanguageService } from 'vs/editor/common/languages/language';
-import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
-import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
-import { PositronConsoleFocused } from 'vs/workbench/common/contextkeys';
-import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
-import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { localize } from '../../../../nls.js';
+import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditor } from '../../../../editor/common/editorCommon.js';
+import { ITextModel } from '../../../../editor/common/model.js';
+import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { Action2 } from '../../../../platform/actions/common/actions.js';
+import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
+import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IPositronHelpService } from './positronHelpService.js';
+import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { ILanguageService } from '../../../../editor/common/languages/language.js';
+import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
+import { PositronConsoleFocused } from '../../../common/contextkeys.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 export class ShowHelpAtCursor extends Action2 {
 	constructor() {

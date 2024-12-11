@@ -2,10 +2,15 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import 'vs/css!./ActionButton';
 
-import * as React from 'react';
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+// CSS.
+import './ActionButton.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
  * Plain classed button for actions in notebook with common styles.

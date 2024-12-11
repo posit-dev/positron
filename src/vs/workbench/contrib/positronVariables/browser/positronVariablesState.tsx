@@ -3,17 +3,20 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
-import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
-import { IPositronVariablesInstance } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
-import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
-import { INotificationService } from 'vs/platform/notification/common/notification';
+// React.
+import { useEffect, useState } from 'react';
+
+// Other dependencies.
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
+import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
+import { PositronActionBarServices } from '../../../../platform/positronActionBar/browser/positronActionBarState.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 
 /**
  * PositronVariablesServices interface.

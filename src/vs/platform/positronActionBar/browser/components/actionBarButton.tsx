@@ -4,16 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./actionBarButton';
+import './actionBarButton.css';
 
 // React.
-import * as React from 'react';
-import { forwardRef, PropsWithChildren, useImperativeHandle, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useRef, PropsWithChildren, useImperativeHandle, forwardRef } from 'react';
 
 // Other dependencies.
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
-import { optionalBoolean, optionalValue, positronClassNames } from 'vs/base/common/positronUtilities';
-import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
+import { optionalBoolean, optionalValue, positronClassNames } from '../../../../base/common/positronUtilities.js';
+import { usePositronActionBarContext } from '../positronActionBarContext.js';
 
 /**
  * ActionBarButtonProps interface.

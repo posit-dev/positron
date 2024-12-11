@@ -2,14 +2,19 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import 'vs/css!./PositronNotebookHeader';
 
-import * as React from 'react';
-import { AddCodeCellButton, AddMarkdownCellButton } from './AddCellButtons';
-import { localize } from 'vs/nls';
-import { KernelStatusBadge } from './KernelStatusBadge';
-import { IconedButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/IconedButton';
-import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
+// CSS.
+import './PositronNotebookHeader.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { AddCodeCellButton, AddMarkdownCellButton } from './AddCellButtons.js';
+import { localize } from '../../../../nls.js';
+import { KernelStatusBadge } from './KernelStatusBadge.js';
+import { IconedButton } from './utilityComponents/IconedButton.js';
+import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 
 export function PositronNotebookHeader({ notebookInstance }: { notebookInstance: PositronNotebookInstance }) {
 	return <div className='positron-notebook-header'>
