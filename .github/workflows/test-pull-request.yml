@@ -11,16 +11,43 @@ on:
       - edited  # Run only for PR body edits
 
 jobs:
+  # pr-tags:
+  #   if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target' && github.event.action == 'edited'
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     tags: ${{ steps.pr-tags.outputs.tags }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Parse Tags from PR Body
+  #       id: pr-tags
+  #       run: bash scripts/pr-tags-parse.sh "${{ github.event_path }}"
   pr-tags:
-    if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target' && github.event.action == 'edited'
     runs-on: ubuntu-latest
-    outputs:
-      tags: ${{ steps.pr-tags.outputs.tags }}
     steps:
       - uses: actions/checkout@v4
-      - name: Parse Tags from PR Body
-        id: pr-tags
-        run: bash scripts/pr-tags-parse.sh "${{ github.event_path }}"
+
+      - name: Fetch Tags from PR Comment
+        id: fetch-tags
+        run: |
+          # Define the comment marker
+          COMMENT_MARKER="<!-- PR Tags -->"
+
+          # Fetch all comments for the PR
+          COMMENTS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments)
+
+          # Find the comment containing the marker
+          COMMENT_BODY=$(echo "$COMMENTS" | jq -r ".[] | select(.body | contains(\"$COMMENT_MARKER\")) | .body")
+
+          if [ -z "$COMMENT_BODY" ]; then
+            echo "No PR Tags comment found. Exiting."
+            exit 1
+          fi
+
+          # Extract the tags from the comment body
+          TAGS=$(echo "$COMMENT_BODY" | grep -oP "(?<=Running E2E tests tagged with:\n).+" | tr -d '`')
+
+          echo "Extracted Tags: $TAGS"
+          echo "tags=$TAGS" >> $GITHUB_ENV
 
   e2e-electron:
     if: github.event_name == 'pull_request'
