@@ -52,7 +52,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				app,
 				buffer,
 				diffScreenshotName: 'pythonScatterplotDiff',
-				masterScreenshotName: 'pythonScatterplot',
+				masterScreenshotName: `pythonScatterplot-${process.platform}`,
 				testInfo: testInfo
 			});
 
@@ -91,7 +91,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				app,
 				buffer,
 				diffScreenshotName: 'graphvizDiff',
-				masterScreenshotName: 'graphviz',
+				masterScreenshotName: `graphviz-${process.platform}`,
 				testInfo
 			});
 
@@ -279,7 +279,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				app,
 				buffer,
 				diffScreenshotName: 'autosDiff',
-				masterScreenshotName: 'autos',
+				masterScreenshotName: `autos-${process.platform}`,
 				testInfo
 			});
 
