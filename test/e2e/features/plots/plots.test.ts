@@ -5,7 +5,7 @@
 
 import * as path from 'path';
 import { test, expect, tags } from '../_test.setup';
-const compareImages = require('resemblejs/compareImages');
+const resembleCompareImages = require('resemblejs/compareImages');
 import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
 import { fail } from 'assert';
@@ -16,7 +16,7 @@ test.use({
 });
 
 test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
-	// Some tests are not tagged @win because they woould require a new master image.
+	// Some tests are not tagged @win because they would require a new master image.
 	test.describe('Python Plots', () => {
 
 		test.beforeAll(async function ({ userSettings }) {
@@ -48,20 +48,13 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.positronPlots.waitForCurrentPlot();
 
 			const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
-			const data = await compareImages(fs.readFileSync(path.join(__dirname, 'pythonScatterplot.png')), buffer, options);
-
-			if (githubActions && !app.web && data.rawMisMatchPercentage > 2.0) {
-				if (data.getBuffer) {
-					// FIXME: Temporarily ignore compilation issue
-					// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
-					// @ts-ignore
-					fs.writeFileSync(path.join(logsPath, 'pythonScatterplotDiff.png'), data.getBuffer(true));
-				}
-				// capture a new master image in CI
-				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(logsPath, 'pythonScatterplot.png') });
-
-				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
-			}
+			await compareImages({
+				app,
+				logsPath,
+				buffer,
+				diffScreenshotName: 'pythonScatterplotDiff',
+				masterScreenshotName: 'pythonScatterplot',
+			});
 
 			if (!headless) {
 				await app.workbench.positronPlots.copyCurrentPlotToClipboard();
@@ -94,19 +87,13 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.positronPlots.waitForCurrentStaticPlot();
 
 			const buffer = await app.workbench.positronPlots.getCurrentStaticPlotAsBuffer();
-			const data = await compareImages(fs.readFileSync(path.join(__dirname, 'graphviz.png'),), buffer, options);
-
-			if (githubActions && !app.web && data.rawMisMatchPercentage > 2.0) {
-				if (data.getBuffer) {
-					// FIXME: Temporarily ignore compilation issue
-					// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
-					// @ts-ignore
-					fs.writeFileSync(path.join(logsPath, 'graphvizDiff.png'), data.getBuffer(true));
-				}
-				// capture a new master image in CI
-				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(logsPath, 'graphviz.png') });
-				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
-			}
+			await compareImages({
+				app,
+				logsPath,
+				buffer,
+				diffScreenshotName: 'graphVizDiff',
+				masterScreenshotName: 'graphViz',
+			});
 
 			await test.step('Verify plot can be opened in editor', async () => {
 				await app.workbench.positronPlots.openPlotInEditor();
@@ -258,7 +245,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			const bufferAfterZoom = await canvasLocator.screenshot();
 
 			// two plot captures should be different
-			const data = await compareImages(bufferAfterZoom, bufferBeforeZoom, options);
+			const data = await resembleCompareImages(bufferAfterZoom, bufferBeforeZoom, options);
 			expect(data.rawMisMatchPercentage).toBeGreaterThan(0.0);
 		});
 	});
@@ -286,21 +273,15 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('R', rBasicPlot, '>');
 			await app.workbench.positronPlots.waitForCurrentPlot();
+
 			const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
-			const data = await compareImages(fs.readFileSync(path.join(__dirname, 'autos.png'),), buffer, options);
-
-			if (githubActions && !app.web && data.rawMisMatchPercentage > 2.0) {
-				if (data.getBuffer) {
-					// FIXME: Temporarily ignore compilation issue
-					// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
-					// @ts-ignore
-					fs.writeFileSync(path.join(logsPath, 'autosDiff.png'), data.getBuffer(true));
-				}
-				// capture a new master image in CI
-				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(logsPath, 'autos.png') });
-
-				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
-			}
+			await compareImages({
+				app,
+				logsPath,
+				buffer,
+				diffScreenshotName: 'autosDiff',
+				masterScreenshotName: 'autos',
+			});
 
 			if (!headless) {
 				await app.workbench.positronPlots.copyCurrentPlotToClipboard();
@@ -380,6 +361,39 @@ async function runScriptAndValidatePlot(app: Application, script: string, locato
 	await app.workbench.positronConsole.sendEnterKey();
 	await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 	await app.workbench.positronPlots.waitForWebviewPlot(locator, 'visible', RWeb);
+}
+
+async function compareImages({
+	app,
+	logsPath,
+	buffer,
+	diffScreenshotName,
+	masterScreenshotName,
+}: {
+	app: any;
+	logsPath: string;
+	buffer: Buffer;
+	diffScreenshotName: string;
+	masterScreenshotName: string;
+}) {
+	const data = await resembleCompareImages(fs.readFileSync(path.join(__dirname, `${masterScreenshotName}.png`),), buffer, options);
+
+	if (githubActions && !app.web && data.rawMisMatchPercentage > 2.0) {
+		if (data.getBuffer) {
+			// Temporarily save the buffer to a file for screenshot purposes
+			const tempScreenshotPath = path.join(logsPath, 'tempDiffScreenshot.png');
+			fs.writeFileSync(tempScreenshotPath, data.getBuffer(true));
+
+			// Append it as a screenshot
+			app.code.driver.takeScreenshot(diffScreenshotName);
+		}
+
+		// Capture a new master image in CI
+		app.code.driver.takeScreenshot(masterScreenshotName);
+
+		// Fail the test with mismatch details
+		fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
+	}
 }
 
 const pythonDynamicPlot = `import pandas as pd
