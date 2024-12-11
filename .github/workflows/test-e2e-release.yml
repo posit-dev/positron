@@ -83,8 +83,8 @@ jobs:
         uses: ./.github/actions/gen-report-dir
         if: ${{ !cancelled() }}
 
-      - name: Get and set Playwright tags to $PW_TAGS
-        run: bash scripts/generate-playwright-tags.sh "e2e-electron" "${{ inputs.grep }}"
+      - name: Transform to Playwright Tags $PW_TAGS
+        run: bash scripts/pr-tags-transform "e2e-electron" "${{ inputs.grep }}"
         shell: bash
 
       - name: Run Tests (Electron)

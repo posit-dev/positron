@@ -73,8 +73,8 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Get and set Playwright tags to $PW_TAGS
-        run: bash scripts/generate-playwright-tags.sh ${{ inputs.project}} "${{ inputs.grep }}"
+      - name: Transform to Playwright tags $PW_TAGS
+        run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
 
       - name: Cache node_modules, build, extensions, and remote
