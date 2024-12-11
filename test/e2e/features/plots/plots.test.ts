@@ -354,7 +354,6 @@ const options: ComparisonOptions = {
 	scaleToSameSize: true,
 	ignore: 'antialiasing',
 };
-const githubActions = process.env.GITHUB_ACTIONS === "true";
 
 async function runScriptAndValidatePlot(app: Application, script: string, locator: string, RWeb = false) {
 	await app.workbench.positronConsole.pasteCodeToConsole(script);
@@ -376,24 +375,26 @@ async function compareImages({
 	diffScreenshotName: string;
 	masterScreenshotName: string;
 }) {
-	const data = await resembleCompareImages(fs.readFileSync(path.join(__dirname, `${masterScreenshotName}.png`),), buffer, options);
+	await test.step('compare images', async () => {
+		const data = await resembleCompareImages(fs.readFileSync(path.join(__dirname, `${masterScreenshotName}.png`),), buffer, options);
 
-	if (githubActions && !app.web && data.rawMisMatchPercentage > 2.0) {
-		if (data.getBuffer) {
-			// Temporarily save the buffer to a file for screenshot purposes
-			const tempScreenshotPath = path.join(logsPath, 'tempDiffScreenshot.png');
-			fs.writeFileSync(tempScreenshotPath, data.getBuffer(true));
+		if (process.env.GITHUB_ACTIONS && !app.web && data.rawMisMatchPercentage > 2.0) {
+			if (data.getBuffer) {
+				// Temporarily save the buffer to a file for screenshot purposes
+				const tempScreenshotPath = path.join(logsPath, 'tempDiffScreenshot.png');
+				fs.writeFileSync(tempScreenshotPath, data.getBuffer(true));
 
-			// Append it as a screenshot
-			app.code.driver.takeScreenshot(diffScreenshotName);
+				// Append it as a screenshot
+				app.code.driver.takeScreenshot(diffScreenshotName);
+			}
+
+			// Capture a new master image in CI
+			app.code.driver.takeScreenshot(masterScreenshotName);
+
+			// Fail the test with mismatch details
+			fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 		}
-
-		// Capture a new master image in CI
-		app.code.driver.takeScreenshot(masterScreenshotName);
-
-		// Fail the test with mismatch details
-		fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
-	}
+	});
 }
 
 const pythonDynamicPlot = `import pandas as pd
