@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { AsyncIterableObject } from 'vs/base/common/async';
-import { VSBuffer } from 'vs/base/common/buffer';
+import { decodeBase64, VSBuffer } from 'vs/base/common/buffer';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
@@ -22,8 +22,18 @@ import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/co
 import { INotebookKernel, INotebookKernelChangeEvent, INotebookKernelService, VariablesResult } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { INotebookRuntimeKernelService } from 'vs/workbench/contrib/notebookRuntimeKernel/browser/interfaces/notebookRuntimeKernelService';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+
+// TODO: Add from PR #5680.
+/** The type of a Jupyter notebook cell output. */
+enum JupyterNotebookCellOutputType {
+	/** One of possibly many outputs related to an execution. */
+	DisplayData = 'display_data',
+
+	/** The result of an execution. */
+	ExecuteResult = 'execute_result',
+}
 
 class NotebookRuntimeKernel implements INotebookKernel {
 	public readonly viewType = 'jupyter-notebook';
@@ -160,9 +170,6 @@ class NotebookRuntimeKernel implements INotebookKernel {
 				}
 
 				// Convert the runtime message into an output item data transfer object.
-				const encoder = new TextEncoder();
-				const bytes = encoder.encode(message.text);
-				const data = VSBuffer.wrap(bytes);
 				let mime: string;
 				if (message.name === 'stdout') {
 					mime = 'application/vnd.code.notebook.stdout';
@@ -172,7 +179,7 @@ class NotebookRuntimeKernel implements INotebookKernel {
 					this._logService.warn(`[NotebookRuntimeKernel] Ignoring runtime message with unknown stream name: ${message.name}`);
 					return;
 				}
-				const newOutputItem: IOutputItemDto = { data, mime };
+				const newOutputItem: IOutputItemDto = { data: VSBuffer.fromString(message.text), mime };
 
 				// If the last output has items of the same mime type (i.e. from the same stream: stdout/stderr),
 				// append the new item to the last output. Otherwise, create a new output.
@@ -197,6 +204,63 @@ class NotebookRuntimeKernel implements INotebookKernel {
 						}]
 					}]);
 				}
+			}));
+
+			const handleRuntimeMessageOutput = async (
+				message: ILanguageRuntimeMessageOutput,
+				outputType: JupyterNotebookCellOutputType,
+			) => {
+				const outputItems: IOutputItemDto[] = [];
+				for (const [mime, data] of Object.entries(message.data)) {
+					switch (mime) {
+						case 'image/png':
+						case 'image/jpeg':
+							outputItems.push({ data: decodeBase64(String(data)), mime });
+							break;
+						// This list is a subset of src/vs/workbench/contrib/notebook/browser/view/cellParts/cellOutput.JUPYTER_RENDERER_MIMETYPES
+						case 'application/geo+json':
+						case 'application/vdom.v1+json':
+						case 'application/vnd.dataresource+json':
+						case 'application/vnd.jupyter.widget-view+json':
+						case 'application/vnd.plotly.v1+json':
+						case 'application/vnd.r.htmlwidget':
+						case 'application/vnd.vega.v2+json':
+						case 'application/vnd.vega.v3+json':
+						case 'application/vnd.vega.v4+json':
+						case 'application/vnd.vega.v5+json':
+						case 'application/vnd.vegalite.v1+json':
+						case 'application/vnd.vegalite.v2+json':
+						case 'application/vnd.vegalite.v3+json':
+						case 'application/vnd.vegalite.v4+json':
+						case 'application/x-nteract-model-debug+json':
+							// The JSON cell output item will be rendered using the appropriate notebook renderer.
+							outputItems.push({ data: VSBuffer.fromString(JSON.stringify(data, undefined, '\t')), mime });
+							break;
+						default:
+							outputItems.push({ data: VSBuffer.fromString(String(data)), mime });
+					}
+				}
+				execution.update([{
+					editType: CellExecutionUpdateType.Output,
+					cellHandle,
+					append: true,
+					outputs: [{
+						outputId: message.id,
+						outputs: outputItems,
+						metadata: {
+							...message.metadata,
+							outputType,
+						}
+					}]
+				}]);
+			};
+
+			disposables.add(session.onDidReceiveRuntimeMessageOutput(async message => {
+				await handleRuntimeMessageOutput(message, JupyterNotebookCellOutputType.DisplayData);
+			}));
+
+			disposables.add(session.onDidReceiveRuntimeMessageResult(async message => {
+				await handleRuntimeMessageOutput(message, JupyterNotebookCellOutputType.ExecuteResult);
 			}));
 
 			disposables.add(session.onDidReceiveRuntimeMessageState(message => {
@@ -262,7 +326,7 @@ class NotebookRuntimeKernelService extends Disposable implements INotebookRuntim
 					// TODO: Shutdown the session.
 				} else if (e.newKernel === kernel.id) {
 					// This kernel was selected.
-					// TODO: Shutdown any existing session for the notebook first.
+					// TODO: Add selectNotebookRuntime to runtime session service?
 					await this._runtimeSessionService.startNewRuntimeSession(
 						runtime.runtimeId,
 						basename(e.notebook.fsPath),
