@@ -34,7 +34,7 @@ jobs:
           FORMATTED_TAGS=$(echo "${{ env.tags }}" | sed 's/,/` `/' | sed 's/^/`/' | sed 's/$/`/')
 
           # Build the new comment body with proper newlines
-          NEW_COMMENT=$(printf "${COMMENT_MARKER}\n\n**E2E Test Tags:**\n%s" "$FORMATTED_TAGS")
+          NEW_COMMENT=$(printf "${COMMENT_MARKER}\n\nRunning E2E tests tagged with:\n%s" "$FORMATTED_TAGS")
 
           if [ -n "$COMMENT_ID" ]; then
             # Update the existing comment
