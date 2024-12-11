@@ -17,10 +17,10 @@ import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { MenuItemAction } from 'vs/platform/actions/common/actions';
 import { IModifierKeyStatus, ModifierKeyEmitter } from 'vs/base/browser/dom';
 import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
+import { actionTooltip, toMenuActionItem } from 'vs/platform/positronActionBar/common/helpers';
 import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
 import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { ActionBarButton, ActionBarButtonProps } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-import { actionTooltip, toMenuActionItem } from 'vs/platform/positronActionBar/common/helpers';
 
 /**
  * Constants.
@@ -146,8 +146,13 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 			disabled: !action.enabled,
 			onMouseEnter: () => setMouseInside(true),
 			onMouseLeave: () => setMouseInside(false),
-			onPressed: () =>
-				action.run()
+			onPressed: async () => {
+				try {
+					await action.run();
+				} catch (error) {
+					console.log(error);
+				}
+			}
 		};
 	})();
 
