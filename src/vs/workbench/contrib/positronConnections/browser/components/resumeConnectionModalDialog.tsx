@@ -16,7 +16,6 @@ import { PositronModalDialog } from '../../../../browser/positronComponents/posi
 import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { PositronConnectionsServices } from '../positronConnectionsContext.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
-import 'vs/css!./resumeConnectionModalDialog';
 import Severity from '../../../../../base/common/severity.js';
 import { SimpleCodeEditor, SimpleCodeEditorWidget } from './simpleCodeEditor.js';
 

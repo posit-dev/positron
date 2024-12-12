@@ -3,17 +3,22 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import './createConnectionState.css';
+
+// React.
 import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
-import { localize } from 'vs/nls';
-import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
-import 'vs/css!./createConnectionState';
-import { SimpleCodeEditor, SimpleCodeEditorWidget } from 'vs/workbench/contrib/positronConnections/browser/components/simpleCodeEditor';
-import Severity from 'vs/base/common/severity';
-import { IDriver, Input, InputType } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsDriver';
-import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
-import { RadioGroup } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioGroup';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+
+// Other dependencies.
+import { PositronButton } from '../../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import { localize } from '../../../../../../nls.js';
+import { PositronConnectionsServices } from '../../positronConnectionsContext.js';
+import { SimpleCodeEditor, SimpleCodeEditorWidget } from '../simpleCodeEditor.js';
+import Severity from '../../../../../../base/common/severity.js';
+import { IDriver, Input, InputType } from '../../../../../services/positronConnections/browser/interfaces/positronConnectionsDriver.js';
+import { LabeledTextInput } from '../../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
+import { RadioGroup } from '../../../../../browser/positronComponents/positronModalDialog/components/radioGroup.js';
+import { PositronModalReactRenderer } from '../../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 
 interface CreateConnectionProps {
 	readonly services: PositronConnectionsServices;

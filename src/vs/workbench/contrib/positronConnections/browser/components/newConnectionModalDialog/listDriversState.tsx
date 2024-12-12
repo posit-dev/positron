@@ -3,15 +3,20 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import './listDriversState.css';
+
+// React.
 import React, { PropsWithChildren } from 'react';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
-import { localize } from 'vs/nls';
-import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
+
+// Other dependencies.
+import { PositronButton } from '../../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import { localize } from '../../../../../../nls.js';
+import { PositronConnectionsServices } from '../../positronConnectionsContext.js';
 import { LanguageRuntimeMetadata } from 'positron';
-import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
-import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
-import 'vs/css!./listDriversState';
-import { IDriver } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsDriver';
+import { DropDownListBox } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
+import { DropDownListBoxItem } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
+import { IDriver } from '../../../../../services/positronConnections/browser/interfaces/positronConnectionsDriver.js';
 
 interface ListDriversProps {
 	readonly services: PositronConnectionsServices;
