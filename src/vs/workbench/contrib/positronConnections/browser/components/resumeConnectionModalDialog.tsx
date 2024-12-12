@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { PropsWithChildren, useEffect, useRef } from 'react';
+import React, { PropsWithChildren, useRef } from 'react';
 import { localize } from 'vs/nls';
 import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
 import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
@@ -12,10 +12,7 @@ import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnec
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 import 'vs/css!./resumeConnectionModalDialog';
 import Severity from 'vs/base/common/severity';
-import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from 'vs/workbench/contrib/codeEditor/browser/simpleEditorOptions';
-import { Emitter } from 'vs/base/common/event';
+import { SimpleCodeEditor, SimpleCodeEditorWidget } from 'vs/workbench/contrib/positronConnections/browser/components/simpleCodeEditor';
 
 const RESUME_CONNECTION_MODAL_DIALOG_WIDTH = 700;
 const RESUME_CONNECTION_MODAL_DIALOG_HEIGHT = 430;
@@ -54,48 +51,10 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 	const { services, activeInstaceId } = props;
 	const activeInstance = services.connectionsService.getConnections().find(item => item.id === activeInstaceId);
 
-	const editorContainerRef = useRef<HTMLDivElement>(undefined!);
-	const editorRef = useRef<CodeEditorWidget>(undefined!);
+	const editorRef = useRef<SimpleCodeEditorWidget>(undefined!);
 
 	const code = activeInstance?.metadata.code;
 	const language_id = activeInstance?.metadata.language_id;
-
-	useEffect(() => {
-		const disposableStore = new DisposableStore();
-		const editor = disposableStore.add(services.instantiationService.createInstance(
-			CodeEditorWidget,
-			editorContainerRef.current,
-			{
-				...getSimpleEditorOptions(services.configurationService),
-				readOnly: true,
-				domReadOnly: true,
-				cursorBlinking: 'solid',
-			},
-			getSimpleCodeEditorWidgetOptions()
-		));
-
-		const emitter = disposableStore.add(new Emitter<string>);
-		const inputModel = disposableStore.add(services.modelService.createModel(
-			code || '',
-			{ languageId: language_id || '', onDidChange: emitter.event },
-			undefined,
-			true
-		));
-
-		editor.setModel(inputModel);
-		editorRef.current = editor;
-
-		return () => {
-			disposableStore.dispose();
-		};
-	},
-		[
-			code, language_id,
-			services.instantiationService,
-			services.configurationService,
-			editorContainerRef,
-			services.modelService,
-		]);
 
 	if (!activeInstance) {
 		// This should never happen.
@@ -174,7 +133,17 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 					<div className='content'>
 						<div className='title'>{localize('positron.resumeConnectionModalDialog.code', "Connection Code")}</div>
 						<div className='code'>
-							<div style={{ height: '100%' }} ref={editorContainerRef}></div>
+							<SimpleCodeEditor
+								ref={editorRef}
+								services={services}
+								code={code}
+								language={language_id}
+								editorOptions={{
+									readOnly: true,
+									domReadOnly: true,
+									cursorBlinking: 'solid',
+								}}
+							></SimpleCodeEditor>
 						</div>
 						<div className='buttons'>
 							<div className='top'>
