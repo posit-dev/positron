@@ -1,4 +1,4 @@
-name: Comment Tags
+name: "PR: Comment"
 
 on:
   pull_request:
@@ -8,7 +8,7 @@ on:
       - edited
 
 jobs:
-  pr-comment:
+  e2e-tags:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
