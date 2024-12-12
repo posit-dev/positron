@@ -186,8 +186,6 @@ import './contrib/emergencyAlert/electron-sandbox/emergencyAlert.contribution.js
 
 // --- Start Positron ---
 import './contrib/positronPreview/electron-sandbox/positronPreview.contribution.js';
-// Positron Variables
-import './services/positronVariables/common/positronVariables.contribution.js';
 // --- End Positron ---
 
 //#endregion
