@@ -41,7 +41,7 @@ COMMENT_ID=$(echo "$COMMENTS" | jq -r ".[] | select(.body | contains(\"$COMMENT_
 FORMATTED_TAGS=$(echo "$TAGS" | sed 's/,/` `/g' | sed 's/^/`/' | sed 's/$/`/')
 
 # Build the new comment body with proper newlines
-NEW_COMMENT=$(printf "${COMMENT_MARKER}\n\n**E2E Tests** 🚀 &nbsp;<sup>[?](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#running-tests-in-github-actions)</sup>\nThis PR will run tests tagged with: %s" "$FORMATTED_TAGS")
+NEW_COMMENT=$(printf "${COMMENT_MARKER}\n\n**E2E Tests** 🚀 &nbsp;<sup>[?](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#pull-requests-and-test-tags)</sup>\nThis PR will run tests tagged with: %s" "$FORMATTED_TAGS")
 
 if [ -n "$COMMENT_ID" ]; then
   # Update the existing comment

@@ -197,8 +197,8 @@ For R, add any package requirements to the "imports" section of the `DESCRIPTION
 
 When you create a pull request, the test runner automatically scans the PR description for test tags to determine which tests to run.
 
-- Always-on Tests: Tests tagged with `@critical` always run, and you can’t opt out of them.
-- Custom Tags: If your changes affect a specific feature, you can include additional tags in the PR description to trigger relevant tests.
+- **Always-on Tests:** Tests tagged with `@critical` always run, and you can’t opt out of them.
+- **Custom Tags:** If your changes affect a specific feature, you can include additional tags in the PR description to trigger relevant tests.
 
 To add a test tag:
 
