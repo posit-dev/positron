@@ -87,14 +87,14 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 	return <div className='connections-new-connection-create-connection'>
 		<div className='create-connection-title'>
 			<h1>
-				{`${name} ${localize('positron.newConnectionModalDialog.createConnection.title', "Connection")}`}
+				{(() => `${name} ${localize('positron.newConnectionModalDialog.createConnection.title', "Connection")}`)()}
 			</h1>
 		</div>
 
 		<Form inputs={props.selectedDriver.inputs} onInputsChange={setInputs}></Form>
 
 		<div className='create-connection-code-title'>
-			{localize('positron.newConnectionModalDialog.createConnection.code', "Connection Code")}
+			{(() => localize('positron.newConnectionModalDialog.createConnection.code', "Connection Code"))()}
 		</div>
 
 		<div className='create-connection-code-editor'>
@@ -195,7 +195,7 @@ const FormElement = (props: PropsWithChildren<FormElementProps>) => {
 							onSelectionChanged={(option) => props.onChange(option)}
 						/>
 						: <p>
-							{localize('positron.newConnectionModalDialog.createConnection.input.noOption', 'No options provided')}
+							{(() => localize('positron.newConnectionModalDialog.createConnection.input.noOption', 'No options provided'))()}
 						</p>
 				}
 			</label></div>;

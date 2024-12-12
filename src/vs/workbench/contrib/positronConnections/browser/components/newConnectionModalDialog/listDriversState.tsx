@@ -41,14 +41,14 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 	return <div className='connections-new-connection-list-drivers'>
 		<div className='title'>
 			<h1>
-				{localize('positron.newConnectionModalDialog.listDrivers.title', "Choose a Database Driver")}
+				{(() => localize('positron.newConnectionModalDialog.listDrivers.title', "Choose a Database Driver"))()}
 			</h1>
 		</div>
 		<div className='select-language'>
 			<DropDownListBox
 				keybindingService={props.services.keybindingService}
 				layoutService={props.services.layoutService}
-				title={localize('positron.newConnectionModalDialog.listDrivers.selectLanguage', "Select a language")}
+				title={(() => localize('positron.newConnectionModalDialog.listDrivers.selectLanguage', "Select a language"))()}
 				entries={getRegisteredLanguages(props.services).map((item) => {
 					return new DropDownListBoxItem({
 						identifier: item.languageId,
@@ -90,7 +90,7 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 						</div>;
 					}) :
 					<div className='no-drivers'>
-						{localize('positron.newConnectionModalDialog.listDrivers.noDrivers', "No drivers available")}
+						{(() => localize('positron.newConnectionModalDialog.listDrivers.noDrivers', "No drivers available"))()}
 					</div>
 			}
 		</div>
