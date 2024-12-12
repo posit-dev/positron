@@ -5,10 +5,10 @@
 
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 
-// Create the decorator for the notebook runtime kernel service (used in dependency injection).
-export const INotebookRuntimeKernelService = createDecorator<INotebookRuntimeKernelService>('notebookRuntimeKernelService');
+// Create the decorator for the service (used in dependency injection).
+export const IRuntimeNotebookKernelService = createDecorator<IRuntimeNotebookKernelService>('runtimeNotebookKernelService');
 
-export interface INotebookRuntimeKernelService {
+export interface IRuntimeNotebookKernelService {
 	/**
 	 * Needed for service branding in dependency injector.
 	 */

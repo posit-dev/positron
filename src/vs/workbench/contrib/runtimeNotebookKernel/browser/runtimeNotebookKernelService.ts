@@ -24,7 +24,7 @@ import { CellExecutionUpdateType } from 'vs/workbench/contrib/notebook/common/no
 import { INotebookCellExecution, INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookKernel, INotebookKernelChangeEvent, INotebookKernelService, VariablesResult } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
-import { INotebookRuntimeKernelService } from 'vs/workbench/contrib/notebookRuntimeKernel/browser/interfaces/notebookRuntimeKernelService';
+import { IRuntimeNotebookKernelService as IRuntimeNotebookKernelService } from 'vs/workbench/contrib/runtimeNotebookKernel/browser/interfaces/runtimeNotebookKernelService';
 import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
@@ -38,7 +38,58 @@ enum JupyterNotebookCellOutputType {
 	ExecuteResult = 'execute_result',
 }
 
-class NotebookRuntimeKernel implements INotebookKernel {
+class RuntimeNotebookKernelService extends Disposable implements IRuntimeNotebookKernelService {
+	constructor(
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@ILogService private readonly _logService: ILogService,
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+	) {
+		super();
+
+		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
+			const kernel = this._instantiationService.createInstance(RuntimeNotebookKernel, runtime);
+			// TODO: Dispose the kernel when the runtime is disposed/unregistered?
+			this._notebookKernelService.registerKernel(kernel);
+			this._logService.debug(`[RuntimeNotebookKernelService] Registered kernel for runtime: ${runtime.runtimeName}`);
+
+			// TODO: Dispose
+			this._notebookKernelService.onDidChangeSelectedNotebooks(async e => {
+				if (e.oldKernel === kernel.id) {
+					// This kernel was deselected.
+					// TODO: Shutdown the session.
+				} else if (e.newKernel === kernel.id) {
+					// This kernel was selected.
+					// TODO: Add selectNotebookRuntime to runtime session service?
+					await this._runtimeSessionService.startNewRuntimeSession(
+						runtime.runtimeId,
+						basename(e.notebook.fsPath),
+						LanguageRuntimeSessionMode.Notebook,
+						e.notebook,
+						// TODO: Is this a user action or can it be automatic?
+						`Runtime selected for notebook`,
+					);
+				}
+			});
+		}));
+
+		// TODO: Also register kernels for existing runtimes.
+	}
+
+	/**
+	 * Needed for service branding in dependency injector.
+	 */
+	declare readonly _serviceBrand: undefined;
+
+	/**
+	 * Placeholder that gets called to "initialize" the service.
+	 */
+	initialize(): void {
+	}
+}
+
+class RuntimeNotebookKernel implements INotebookKernel {
 	public readonly viewType = 'jupyter-notebook';
 
 	public readonly extension = new ExtensionIdentifier('positron-notebook-controllers');
@@ -58,7 +109,7 @@ class NotebookRuntimeKernel implements INotebookKernel {
 	private readonly _onDidChange = new Emitter<INotebookKernelChangeEvent>();
 	public readonly onDidChange: Event<INotebookKernelChangeEvent> = this._onDidChange.event;
 
-	private readonly _notebookRuntimeKernelSessionsByNotebookUri = new ResourceMap<NotebookRuntimeKernelSession>();
+	private readonly _notebookRuntimeKernelSessionsByNotebookUri = new ResourceMap<RuntimeNotebookKernelSession>();
 
 	constructor(
 		private readonly _runtime: ILanguageRuntimeMetadata,
@@ -90,7 +141,7 @@ class NotebookRuntimeKernel implements INotebookKernel {
 	}
 
 	async executeNotebookCellsRequest(notebookUri: URI, cellHandles: number[]): Promise<void> {
-		this._logService.debug(`[NotebookRuntimeKernel] Executing cells: ${cellHandles.join(', ')}`);
+		this._logService.debug(`[RuntimeNotebookKernel] Executing cells: ${cellHandles.join(', ')}`);
 
 		const notebook = this._notebookService.getNotebookTextModel(notebookUri);
 		if (!notebook) {
@@ -106,7 +157,7 @@ class NotebookRuntimeKernel implements INotebookKernel {
 		// TODO: Dispose?
 		let notebookRuntimeKernelSession = this._notebookRuntimeKernelSessionsByNotebookUri.get(notebookUri);
 		if (!notebookRuntimeKernelSession) {
-			notebookRuntimeKernelSession = this._instantiationService.createInstance(NotebookRuntimeKernelSession, session, notebook);
+			notebookRuntimeKernelSession = this._instantiationService.createInstance(RuntimeNotebookKernelSession, session, notebook);
 			this._notebookRuntimeKernelSessionsByNotebookUri.set(notebookUri, notebookRuntimeKernelSession);
 		}
 
@@ -114,7 +165,7 @@ class NotebookRuntimeKernel implements INotebookKernel {
 	}
 
 	async cancelNotebookCellExecution(uri: URI, _cellHandles: number[]): Promise<void> {
-		this._logService.debug(`[NotebookRuntimeKernel] Interrupting`);
+		this._logService.debug(`[RuntimeNotebookKernel] Interrupting`);
 
 		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(uri);
 		if (!session) {
@@ -129,7 +180,7 @@ class NotebookRuntimeKernel implements INotebookKernel {
 	}
 }
 
-class NotebookRuntimeKernelSession extends Disposable {
+class RuntimeNotebookKernelSession extends Disposable {
 	/**
 	 * A map of the last queued cell execution promise for each notebook, keyed by notebook URI.
 	 * Each queued cell execution promise is chained to the previous one for the notebook,
@@ -212,7 +263,7 @@ class NotebookRuntimeKernelSession extends Disposable {
 		//       Or get another id?
 
 		const runtimeExecution = this._register(this._instantiationService.createInstance(
-			NotebookRuntimeCellExecution, this._session, cellExecution, cell
+			RuntimeNotebookCellExecution, this._session, cellExecution, cell
 		));
 
 		try {
@@ -230,7 +281,7 @@ class NotebookRuntimeKernelSession extends Disposable {
 	}
 }
 
-class NotebookRuntimeCellExecution extends Disposable {
+class RuntimeNotebookCellExecution extends Disposable {
 	private _deferred = new DeferredPromise<void>();
 
 	// Create a promise tracking the current message for the cell. Each execution may
@@ -473,60 +524,9 @@ class NotebookRuntimeCellExecution extends Disposable {
 	}
 }
 
-class NotebookRuntimeKernelService extends Disposable implements INotebookRuntimeKernelService {
-	constructor(
-		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@ILogService private readonly _logService: ILogService,
-		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
-		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
-		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
-	) {
-		super();
-
-		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
-			const kernel = this._instantiationService.createInstance(NotebookRuntimeKernel, runtime);
-			// TODO: Dispose the kernel when the runtime is disposed/unregistered?
-			this._notebookKernelService.registerKernel(kernel);
-			this._logService.debug(`[NotebookRuntimeKernelService] Registered kernel for runtime: ${runtime.runtimeName}`);
-
-			// TODO: Dispose
-			this._notebookKernelService.onDidChangeSelectedNotebooks(async e => {
-				if (e.oldKernel === kernel.id) {
-					// This kernel was deselected.
-					// TODO: Shutdown the session.
-				} else if (e.newKernel === kernel.id) {
-					// This kernel was selected.
-					// TODO: Add selectNotebookRuntime to runtime session service?
-					await this._runtimeSessionService.startNewRuntimeSession(
-						runtime.runtimeId,
-						basename(e.notebook.fsPath),
-						LanguageRuntimeSessionMode.Notebook,
-						e.notebook,
-						// TODO: Is this a user action or can it be automatic?
-						`Runtime selected for notebook`,
-					);
-				}
-			});
-		}));
-
-		// TODO: Also register kernels for existing runtimes.
-	}
-
-	/**
-	 * Needed for service branding in dependency injector.
-	 */
-	declare readonly _serviceBrand: undefined;
-
-	/**
-	 * Placeholder that gets called to "initialize" the service.
-	 */
-	initialize(): void {
-	}
-}
-
 // Register the service.
 registerSingleton(
-	INotebookRuntimeKernelService,
-	NotebookRuntimeKernelService,
+	IRuntimeNotebookKernelService,
+	RuntimeNotebookKernelService,
 	InstantiationType.Delayed,
 );

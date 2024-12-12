@@ -41,7 +41,7 @@ import { SerializableObjectWithBuffers } from '../../../services/extensions/comm
 import { isWebviewReplayMessage } from '../../../contrib/positronWebviewPreloads/browser/utils.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
-import { INotebookRuntimeKernelService } from '../../../contrib/notebookRuntimeKernel/browser/interfaces/notebookRuntimeKernelService.js';
+import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/browser/interfaces/runtimeNotebookKernelService.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -1138,7 +1138,7 @@ export class MainThreadLanguageRuntime
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
-		@INotebookRuntimeKernelService private readonly _notebookRuntimeKernelService: INotebookRuntimeKernelService,
+		@IRuntimeNotebookKernelService private readonly _runtimeNotebookKernelService: IRuntimeNotebookKernelService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
@@ -1156,7 +1156,7 @@ export class MainThreadLanguageRuntime
 		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
 		// Positron services were up and running early in the application lifecycle. For now, this
 		// is where we're doing this.
-		this._notebookRuntimeKernelService.initialize();
+		this._runtimeNotebookKernelService.initialize();
 		this._positronHelpService.initialize();
 		this._positronConsoleService.initialize();
 		this._positronDataExplorerService.initialize();
