@@ -14,6 +14,7 @@ test.beforeEach(async function ({ app }) {
 	await app.workbench.positronConsole.waitForReadyOrNoInterpreter();
 });
 
+// Not running conda test on windows becuase conda reeks havoc on selecting the correct python interpreter
 test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () => {
 	const defaultProjectName = 'my-python-project';
 
