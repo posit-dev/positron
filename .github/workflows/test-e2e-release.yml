@@ -44,8 +44,6 @@ jobs:
 
       - name: Compile tests
         run: |
-          corepack enable
-          npm -i global node-gyp
           npm install
           npm --prefix test/automation install
           npm --prefix test/e2e install
