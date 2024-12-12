@@ -70,6 +70,11 @@ export class KCApi implements KallichoreAdapterApi {
 	private _logStreamer: LogStreamer | undefined;
 
 	/**
+	 * An array of disposables that need to be cleaned up when the API is disposed.
+	 */
+	private _disposables: vscode.Disposable[] = [];
+
+	/**
 	 * Create a new Kallichore API object.
 	 *
 	 * @param _context The extension context
@@ -202,12 +207,21 @@ export class KCApi implements KallichoreAdapterApi {
 		// Create a temporary file with a random name to use for logs
 		const logFile = path.join(os.tmpdir(), `kallichore-${sessionId}.log`);
 
+		// Create a second file to capture the server's stdout and stderr
+		const outFile = path.join(os.tmpdir(), `kallichore-${sessionId}.out.log`);
+
+		// Determine the path to the wrapper script.
+		const wrapperName = os.platform() === 'win32' ? 'supervisor-wrapper.bat' : 'supervisor-wrapper.sh';
+		const wrapperPath = path.join(this._context.extensionPath, 'resources', wrapperName);
+
 		// Start the server in a new terminal
 		this._log.appendLine(`Starting Kallichore server ${shellPath} on port ${port}`);
 		const terminal = vscode.window.createTerminal(<vscode.TerminalOptions>{
 			name: 'Kallichore',
-			shellPath: shellPath,
+			shellPath: wrapperPath,
 			shellArgs: [
+				outFile,
+				shellPath,
 				'--port', port.toString(),
 				'--token', tokenPath,
 				'--log-level', logLevel,
@@ -218,6 +232,60 @@ export class KCApi implements KallichoreAdapterApi {
 			hideFromUser: !showTerminal,
 			isTransient: false
 		});
+
+		// Flag to track if the terminal exited before the start barrier opened
+		let exited = false;
+
+		// Listen for the terminal to close. If it closes unexpectedly before
+		// the start barrier opens, provide some feedback.
+		const closeListener = vscode.window.onDidCloseTerminal(async (closedTerminal) => {
+			// Ignore closed terminals that aren't the one we started
+			if (closedTerminal !== terminal) {
+				return;
+			}
+
+			// Ignore if the start barrier is already open (that means the
+			// server started successfully), or if more than 5 minutes have elapsed
+			if (this._started.isOpen()) {
+				return;
+			}
+
+			// Ignore if it's been more than 5 minutes since the start time
+			if (Date.now() - startTime > 300000) {
+				return;
+			}
+
+			// Mark the terminal as exited
+			exited = true;
+
+			// Read the contents of the output file and log it
+			const contents = fs.readFileSync(outFile, 'utf8');
+			if (terminal.exitStatus && terminal.exitStatus.code) {
+				this._log.appendLine(`Supervisor terminal closed with exit code ${terminal.exitStatus.code}; output:\n${contents}`);
+			} else {
+				this._log.appendLine(`Supervisor terminal closed unexpectedly; output:\n${contents}`);
+			}
+
+			// Display a notification that directs users to open the log to get more information
+			const selection = await vscode.window.showInformationMessage(
+				vscode.l10n.t('There was an error starting the kernel supervisor. Check the log for more information.'), {
+				title: vscode.l10n.t('Open Log'),
+				execute: () => {
+					this._log.show(false);
+				}
+			});
+			if (selection) {
+				selection.execute();
+			}
+		});
+
+		// Ensure this listener is disposed when the API is disposed
+		this._disposables.push(closeListener);
+
+		// Ensure the output file is cleaned up when the API is disposed
+		this._disposables.push(new vscode.Disposable(() => {
+			fs.unlinkSync(outFile);
+		}));
 
 		// Wait for the terminal to start and get the PID
 		await terminal.processId;
@@ -236,6 +304,11 @@ export class KCApi implements KallichoreAdapterApi {
 				break;
 			} catch (err) {
 				const elapsed = Date.now() - startTime;
+
+				// Has the terminal exited? if it has, there's no point in continuing to retry.
+				if (exited) {
+					throw new Error(`The supervisor process exited before the server was ready.`);
+				}
 
 				// ECONNREFUSED is a normal condition during startup; the server
 				// isn't ready yet. Keep trying until we hit the retry limit,
@@ -284,6 +357,9 @@ export class KCApi implements KallichoreAdapterApi {
 		this._logStreamer.watch().then(() => {
 			this._log.appendLine(`Streaming Kallichore server logs from ${logFile} (log level: ${logLevel})`);
 		});
+
+		// Now that we're online, we can dispose of the close listener
+		closeListener.dispose();
 
 		// Open the started barrier and save the server state since we're online
 		this._started.open();
@@ -579,6 +655,9 @@ export class KCApi implements KallichoreAdapterApi {
 			this._logStreamer.dispose();
 			this._logStreamer = undefined;
 		}
+
+		// Dispose of any other disposables
+		this._disposables.forEach(disposable => disposable.dispose());
 	}
 
 	findAvailablePort(excluding: Array<number>, maxTries: number): Promise<number> {
