@@ -27,8 +27,7 @@ jobs:
           PR_BODY: ${{ steps.PR.outputs.pr_body }}
 
       - name: Update PR Comment with Tags
-        run: |
-          ./scripts/pr-e2e-comment.sh "<!-- PR Tags -->" "${{ needs.pr-tags.outputs.tags }}"
+        run: bash ./scripts/pr-e2e-comment.sh "<!-- PR Tags -->" "${{ needs.pr-tags.outputs.tags }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
