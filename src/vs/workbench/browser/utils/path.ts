@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { URI } from 'vs/base/common/uri';
-import { ILabelService } from 'vs/platform/label/common/label';
-import { IPathService } from 'vs/workbench/services/path/common/pathService';
+import { URI } from '../../../base/common/uri.js';
+import { ILabelService } from '../../../platform/label/common/label.js';
+import { IPathService } from '../../services/path/common/pathService.js';
 
 /**
  * Converts a URI path to a label, with awareness of the operating system that the positron server
