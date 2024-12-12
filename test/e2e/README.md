@@ -195,7 +195,7 @@ For R, add any package requirements to the "imports" section of the `DESCRIPTION
 
 ## Pull Requests and Test Tags
 
-When you create a pull request, the test runner automatically scans the PR description for test tags to determine which e2e tests to run.
+When you create a pull request, the test runner automatically scans the PR description for test tags to determine which E2E tests to run.
 
 - **Always-on Tests:** Tests tagged with `@critical` always run, and you can’t opt out of them.
 - **Custom Tags:** If your changes affect a specific feature, you can include additional tags in the PR description to trigger relevant tests.
@@ -205,7 +205,9 @@ To add a test tag:
 1. Use the format `@:tag` in your PR description (e.g., `@:help`, `@:console`).
 2. Once added, a comment will appear on your PR confirming that the tag was found and parsed correctly.
 
-From then on, all e2e tests associated with the specified tag(s) will run during in the test job. See [here](https://github.com/posit-dev/positron/blob/main/test/e2e/helpers/test-tags.ts) for a complete list of tags.
+From that point, all E2E tests linked to the specified tag(s) will run during the test job. For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/helpers/test-tags.ts).
+
+Note: You can update the tags in the PR description at any time. The PR comment will confirm the parsed tags, and the test job will use the tags present in the PR description at the time of execution.
 
 ## Running Tests in Github Actions
 
