@@ -3,10 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-runtime-state-idle {
-    background-color: green;
-}
+.status-icon {
+	height: 16px;
+	width: 16px;
+	align-self: center;
 
-.positron-runtime-state-busy {
-    background-color: red;
+	&.positron-runtime-state-idle {
+		background-image: url(status-idle.svg);
+	}
+	&.positron-runtime-state-busy {
+		background-image: url(status-active.svg);
+		animation: positronDataExplorerStatusBarActivityIndicator-rotate 1.5s linear infinite;
+	}
 }

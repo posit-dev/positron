@@ -179,8 +179,15 @@ export class NotebooKernelActionViewItem extends ActionViewItem {
 			const runtimeSession = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebook.uri);
 			if (!runtimeSession) { return; }
 
-			this._kernelLabel.classList.add(`positron-runtime-state-${runtimeSession.getRuntimeState()}`);
-			this._kernelLabel.innerText += runtimeSession.getRuntimeState();
+			// Check if status icon div already exists, if not create it
+			let statusIcon: HTMLSpanElement | null = this._kernelLabel.querySelector('.status-icon');
+			if (!statusIcon) {
+				statusIcon = document.createElement('span');
+				statusIcon.classList.add('status-icon');
+				this._kernelLabel.appendChild(statusIcon);
+			}
+			statusIcon.title = `Notebook Kernel State: ${runtimeSession.getRuntimeState()}`;
+			statusIcon.classList.add(`positron-runtime-state-${runtimeSession.getRuntimeState()}`);
 			// --- End Positron ---
 		}
 	}
