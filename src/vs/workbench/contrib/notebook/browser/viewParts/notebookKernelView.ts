@@ -177,8 +177,9 @@ export class NotebooKernelActionViewItem extends ActionViewItem {
 			// --- Begin Positron ---
 			const notebook = this._editor.textModel;
 			if (!notebook) { return; }
+
 			const runtimeSession = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebook.uri);
-			if (!runtimeSession) { return; }
+			const runtimeStatus = runtimeSession?.getRuntimeState() ?? 'disconnected';
 
 			// Check if status icon div already exists, if not create it
 			let statusIcon: HTMLSpanElement | null = this._kernelLabel.querySelector('.status-icon');
@@ -187,8 +188,8 @@ export class NotebooKernelActionViewItem extends ActionViewItem {
 				statusIcon.classList.add('status-icon');
 				this._kernelLabel.appendChild(statusIcon);
 			}
-			statusIcon.title = `Notebook Kernel State: ${runtimeSession.getRuntimeState()}`;
-			statusIcon.classList.add(`positron-runtime-state-${runtimeSession.getRuntimeState()}`);
+			statusIcon.title = `Notebook Kernel State: ${runtimeStatus}`;
+			statusIcon.classList.add(`positron-runtime-state-${runtimeStatus}`);
 			// --- End Positron ---
 		}
 	}

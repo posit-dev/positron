@@ -15,4 +15,7 @@
 		background-image: url(status-active.svg);
 		animation: positronDataExplorerStatusBarActivityIndicator-rotate 1.5s linear infinite;
 	}
+	&.positron-runtime-state-disconnected {
+		background-image: url(status-disconnected.svg);
+	}
 }
