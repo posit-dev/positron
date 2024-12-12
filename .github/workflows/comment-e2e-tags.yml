@@ -1,3 +1,5 @@
+name: Comment Tags
+
 on:
   pull_request:
     types:
@@ -26,6 +28,9 @@ jobs:
 
       - name: Update PR Comment with Tags
         run: |
+          # Echo tags
+          echo "tags=${{ needs.pr-tags.outputs.tags }}"
+
           # Define the comment marker
           COMMENT_MARKER="<!-- PR Tags -->"
 
@@ -39,7 +44,7 @@ jobs:
           FORMATTED_TAGS=$(echo "${{ env.tags }}" | sed 's/,/` `/' | sed 's/^/`/' | sed 's/$/`/')
 
           # Build the new comment body with proper newlines
-          NEW_COMMENT=$(printf "${COMMENT_MARKER}\n\nE2E Tests 🚀\nThis PR will run tests tagged with:\n%s" "$FORMATTED_TAGS")
+          NEW_COMMENT=$(printf "${COMMENT_MARKER}\n\n**E2E Tests** 🚀\nThis PR will run tests tagged with:\n%s" "$FORMATTED_TAGS")
 
           if [ -n "$COMMENT_ID" ]; then
             # Update the existing comment
