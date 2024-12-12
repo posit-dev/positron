@@ -1,0 +1,57 @@
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - edited
+
+jobs:
+  update-pr-tags-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: 8BitJonny/gh-get-current-pr@3.0.0
+        id: PR
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          sha: ${{ github.event.pull_request.head.sha }}
+          filterOutClosed: true
+
+      - name: Parse Tags from PR Body
+        id: pr-tags
+        run: bash scripts/pr-tags-parse.sh "${{ env.PR_BODY }}"
+        env:
+          PR_BODY: ${{ steps.PR.outputs.pr_body }}
+
+      - name: Update PR Comment with Tags
+        run: |
+          # Define the comment marker
+          COMMENT_MARKER="<!-- PR Tags -->"
+
+          # Fetch existing comments on the PR
+          COMMENTS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments)
+
+          # Check if a comment with the marker already exists
+          COMMENT_ID=$(echo "$COMMENTS" | jq -r ".[] | select(.body | contains(\"$COMMENT_MARKER\")) | .id")
+
+          # Format the tags with individual backticks
+          FORMATTED_TAGS=$(echo "${{ env.tags }}" | sed 's/,/` `/' | sed 's/^/`/' | sed 's/$/`/')
+
+          # Build the new comment body with proper newlines
+          NEW_COMMENT=$(printf "${COMMENT_MARKER}\n\nE2E Tests 🚀\nThis PR will run tests tagged with:\n%s" "$FORMATTED_TAGS")
+
+          if [ -n "$COMMENT_ID" ]; then
+            # Update the existing comment
+            echo "Updating existing comment (ID: $COMMENT_ID)..."
+            gh api repos/${{ github.repository }}/issues/comments/$COMMENT_ID \
+              -X PATCH \
+              -F body="$NEW_COMMENT"
+          else
+            # Create a new comment
+            echo "Creating a new comment..."
+            gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+              -F body="$NEW_COMMENT"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
