@@ -1,14 +1,32 @@
 #!/bin/bash
-# Usage:
-# bash parse-pr-tags.sh "<GITHUB_EVENT_PATH>"
-# Example:
-# bash parse-pr-tags.sh "/path/to/event.json"
+# Script to parse tags from a GitHub Pull Request body
+# Usage: bash parse-pr-tags.sh
 
-# Input: Path to the GitHub event JSON file
-PULL_REQUEST_BODY="$1"
+set -e
 
-# Extract the PR body from the event JSON
-echo "Extracting PR body..."
+# Fetch GitHub repository and PR number from the environment
+REPO="${GITHUB_REPOSITORY}"  # Automatically set by GitHub Actions
+PR_NUMBER="${GITHUB_PR_NUMBER:-${GITHUB_EVENT_PULL_REQUEST_NUMBER}}"  # Use the correct PR number env variable
+GITHUB_TOKEN="${GITHUB_TOKEN}"  # GitHub token for authentication
+
+# Validate required environment variables
+if [[ -z "$REPO" || -z "$PR_NUMBER" || -z "$GITHUB_TOKEN" ]]; then
+  echo "Error: Missing required environment variables."
+  echo "Ensure the following are set: GITHUB_REPOSITORY, GITHUB_PR_NUMBER or GITHUB_EVENT_PULL_REQUEST_NUMBER, GITHUB_TOKEN."
+  exit 1
+fi
+
+# Fetch the PR body using the GitHub CLI
+echo "Fetching PR body for ${REPO} #${PR_NUMBER}..."
+PULL_REQUEST_BODY=$(gh api repos/${REPO}/pulls/${PR_NUMBER} --header "Authorization: token $GITHUB_TOKEN" --jq '.body')
+
+# Handle empty PR body
+if [[ -z "$PULL_REQUEST_BODY" ]]; then
+  echo "Error: PR body is empty or could not be fetched."
+  exit 1
+fi
+
+# Sanitize the PR BODY by removing newlines and escaping double quotes
 PR_BODY=$(echo "$PULL_REQUEST_BODY" | tr '\n' ' ' | sed 's/"/\\"/g')
 
 echo "Parsing tags from PR body..."
