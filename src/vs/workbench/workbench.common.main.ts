@@ -53,6 +53,8 @@ import 'vs/workbench/browser/parts/statusbar/statusbarPart';
 
 // --- Start Positron ---
 import 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarPart';
+// Positron Variables
+import 'vs/workbench/services/positronVariables/common/positronVariables.contribution';
 // --- End Positron ---
 
 //#endregion
