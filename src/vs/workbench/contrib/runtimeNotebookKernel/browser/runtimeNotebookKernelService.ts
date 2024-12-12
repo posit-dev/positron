@@ -9,7 +9,6 @@ import { CancellationToken } from 'vs/base/common/cancellation';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ResourceMap } from 'vs/base/common/map';
-import { basename } from 'vs/base/common/path';
 import { URI } from 'vs/base/common/uri';
 import { generateUuid } from 'vs/base/common/uuid';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
@@ -25,7 +24,7 @@ import { INotebookCellExecution, INotebookExecutionStateService } from 'vs/workb
 import { INotebookKernel, INotebookKernelChangeEvent, INotebookKernelService, VariablesResult } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IRuntimeNotebookKernelService as IRuntimeNotebookKernelService } from 'vs/workbench/contrib/runtimeNotebookKernel/browser/interfaces/runtimeNotebookKernelService';
-import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 // TODO: Add from PR #5680.
@@ -60,23 +59,16 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 			this._registerKernel(runtime);
 		}
 
-		// Start/shutdown runtime sessions when a kernel is selected/unselected for a notebook.
+		// When one of our kernels is selected for a notebook, select the corresponding session
+		// via the runtime session service.
 		this._register(this._notebookKernelService.onDidChangeSelectedNotebooks(async e => {
-			// TODO: Could create a _runtimeSessionService.selectRuntimeSessionForNotebook method.
-			const oldKernel = e.oldKernel && this._kernels.get(e.oldKernel);
-			if (oldKernel) {
-				// TODO: Shutdown the old kernel.
-			}
-
 			const newKernel = e.newKernel && this._kernels.get(e.newKernel);
 			if (newKernel) {
-				await this._runtimeSessionService.startNewRuntimeSession(
+				await this._runtimeSessionService.selectRuntime(
 					newKernel.runtime.runtimeId,
-					basename(e.notebook.fsPath),
-					LanguageRuntimeSessionMode.Notebook,
-					e.notebook,
 					// TODO: Is this a user action or can it be automatic?
 					`Runtime selected for notebook`,
+					e.notebook,
 				);
 			}
 		}));
