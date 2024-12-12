@@ -1,4 +1,4 @@
-name: "Setup Unit Teste Environment"
+name: "Setup Unit Test Environment"
 description: "Installs necessary system dependencies."
 runs:
   using: "composite"
