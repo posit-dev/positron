@@ -22,6 +22,7 @@ import { IExtensionService } from '../../extensions/common/extensions.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
+import { basename } from '../../../../base/common/resources.js';
 
 /**
  * Get a map key corresponding to a session.
@@ -280,41 +281,60 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	/**
 	 * Selects and starts a new runtime session, after shutting down any currently active
-	 * sessions for the language.
+	 * sessions for the console or notebook.
 	 *
 	 * @param runtimeId The ID of the runtime to select
 	 * @param source The source of the selection
+	 * @param notebookUri The URI of the notebook selecting the runtime, if any
 	 *
 	 * @returns A promise that resolves to the session ID when the runtime is started
 	 */
-	async selectRuntime(runtimeId: string, source: string): Promise<void> {
+	async selectRuntime(runtimeId: string, source: string, notebookUri?: URI): Promise<void> {
 		const runtime = this._languageRuntimeService.getRegisteredRuntime(runtimeId);
 		if (!runtime) {
 			throw new Error(`No language runtime with id '${runtimeId}' was found.`);
 		}
 
-		// Shut down any other runtime consoles for the language.
-		const activeSession =
-			this.getConsoleSessionForLanguage(runtime.languageId);
-		if (activeSession) {
-			// Is this, by chance, the runtime that's already running?
-			if (activeSession.runtimeMetadata.runtimeId === runtime.runtimeId) {
-				// Set it as the foreground session and return.
-				this.foregroundSession = activeSession;
-				return;
+		if (notebookUri) {
+			// Shut down any other sessions for the notebook.
+			const activeSession =
+				this.getNotebookSessionForNotebookUri(notebookUri);
+			if (activeSession) {
+				if (activeSession.runtimeMetadata.runtimeId === runtime.runtimeId) {
+					return;
+				}
+
+				await this.shutdownRuntimeSession(activeSession, RuntimeExitReason.SwitchRuntime);
 			}
 
-			await this.shutdownRuntimeSession(activeSession, RuntimeExitReason.SwitchRuntime);
-		}
+			await this.startNewRuntimeSession(runtime.runtimeId,
+				basename(notebookUri),
+				LanguageRuntimeSessionMode.Notebook,
+				notebookUri,
+				source);
+		} else {
+			// Shut down any other runtime consoles for the language.
+			const activeSession =
+				this.getConsoleSessionForLanguage(runtime.languageId);
+			if (activeSession) {
+				// Is this, by chance, the runtime that's already running?
+				if (activeSession.runtimeMetadata.runtimeId === runtime.runtimeId) {
+					// Set it as the foreground session and return.
+					this.foregroundSession = activeSession;
+					return;
+				}
 
-		// Wait for the selected runtime to start.
-		await this.startNewRuntimeSession(runtime.runtimeId,
-			runtime.runtimeName,
-			LanguageRuntimeSessionMode.Console,
-			undefined, // No notebook URI (console session)
-			source,
-			RuntimeStartMode.Switching);
-	}
+				await this.shutdownRuntimeSession(activeSession, RuntimeExitReason.SwitchRuntime);
+			}
+
+			// Wait for the selected runtime to start.
+			await this.startNewRuntimeSession(runtime.runtimeId,
+				runtime.runtimeName,
+				LanguageRuntimeSessionMode.Console,
+				undefined, // No notebook URI (console session)
+				source,
+				RuntimeStartMode.Switching);
+		}
 
 	/**
 	 * Shutdown a runtime session.
@@ -324,7 +344,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @returns Promise that resolves when the session has been shutdown.
 	 */
 	private async shutdownRuntimeSession(
-		session: ILanguageRuntimeSession, exitReason: RuntimeExitReason): Promise<void> {
+			session: ILanguageRuntimeSession, exitReason: RuntimeExitReason): Promise<void> {
 		// See if we are already shutting down this session. If we
 		// are, return the promise that resolves when the runtime is shut down.
 		// This makes it possible for multiple requests to shut down the same

@@ -378,8 +378,9 @@ export interface IRuntimeSessionService {
 	 *
 	 * @param runtimeId The identifier of the runtime to select.
 	 * @param source The source of the request to select the runtime, for debugging purposes.
+	 * @param notebookUri The URI of the notebook selecting the runtime, if any.
 	 */
-	selectRuntime(runtimeId: string, source: string): Promise<void>;
+	selectRuntime(runtimeId: string, source: string, notebookUri?: URI): Promise<void>;
 
 	/**
 	 * Restart a runtime session.
