@@ -22,46 +22,12 @@ jobs:
           sha: ${{ github.event.pull_request.head.sha }}
           filterOutClosed: true
 
-      # - run: echo "PR ${prNumber} ${prTitle} at ${prUrl} is ${prJSON}"
-      #   if: steps.PR.outputs.pr_found == 'true'
-      #   env:
-      #     # JSON object with the full PR object
-      #     # toJSON(fromJSON(...pr)) parses it into memory and then format is with pretty-print.
-      #     github-token: ${{ secrets.GITHUB_TOKEN }}
-      #     prJSON: ${{ toJSON(fromJSON(steps.PR.outputs.pr)) }}
-      #     # Direct access to common PR properties
-      #     prNumber: ${{ steps.PR.outputs.number }}
-      #     prUrl: ${{ steps.PR.outputs.pr_url }}
-      #     prTitle: ${{ steps.PR.outputs.pr_title }}
-      #     prBody: ${{ steps.PR.outputs.pr_body }}
-      #     prCreatedAt: ${{ steps.PR.outputs.pr_created_at }}
-      #     prMergedAt: ${{ steps.PR.outputs.pr_merged_at }}
-      #     prClosedAt: ${{ steps.PR.outputs.pr_closed_at }}
-      #     prLabel: ${{ steps.PR.outputs.pr_labels }}
-
-      # - run: echo "${prBody}"
-      #   if: steps.PR.outputs.pr_found == 'true'
-      #   env:
-      #     # JSON object with the full PR object
-      #     # toJSON(fromJSON(...pr)) parses it into memory and then format is with pretty-print.
-      #     prJSON: ${{ toJSON(fromJSON(steps.PR.outputs.pr)) }}
-      #     # Direct access to common PR properties
-      #     prNumber: ${{ steps.PR.outputs.number }}
-      #     prUrl: ${{ steps.PR.outputs.pr_url }}
-      #     prTitle: ${{ steps.PR.outputs.pr_title }}
-      #     prBody: ${{ steps.PR.outputs.pr_body }}
-      #     prCreatedAt: ${{ steps.PR.outputs.pr_created_at }}
-      #     prMergedAt: ${{ steps.PR.outputs.pr_merged_at }}
-      #     prClosedAt: ${{ steps.PR.outputs.pr_closed_at }}
-      #     prLabel: ${{ steps.PR.outputs.pr_labels }}
-      #     github-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Parse Tags from PR Body
         id: pr-tags
         run: bash scripts/pr-tags-parse.sh "${{ env.PR_BODY }}"
         env:
           PR_BODY: ${{ steps.PR.outputs.pr_body }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # github-token: ${{ secrets.GITHUB_TOKEN }}
 
   e2e-electron:
     name: e2e
