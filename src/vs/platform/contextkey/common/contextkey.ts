@@ -25,6 +25,9 @@ CONSTANT_VALUES.set('isEdge', isEdge);
 CONSTANT_VALUES.set('isFirefox', isFirefox);
 CONSTANT_VALUES.set('isChrome', isChrome);
 CONSTANT_VALUES.set('isSafari', isSafari);
+// --- Start Positron ---
+CONSTANT_VALUES.set('isPositron', true);
+// --- End Positron ---
 
 /** allow register constant context keys that are known only after startup; requires running `substituteConstants` on the context key - https://github.com/microsoft/vscode/issues/174218#issuecomment-1437972127 */
 export function setConstant(key: string, value: boolean) {

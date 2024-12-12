@@ -38,6 +38,8 @@ import { IBrowserWorkbenchEnvironmentService } from '../services/environment/bro
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { PositronTopActionBarVisibleContext } from '../common/contextkeys.js';
+// eslint-disable-next-line no-duplicate-imports
+import { IsPositronContext } from '../../platform/contextkey/common/contextkeys.js';
 // --- End Positron ---
 
 export class WorkbenchContextKeysHandler extends Disposable {
@@ -117,6 +119,7 @@ export class WorkbenchContextKeysHandler extends Disposable {
 		this.virtualWorkspaceContext = VirtualWorkspaceContext.bindTo(this.contextKeyService);
 		// --- Start Positron ---
 		this.temporaryWorkspaceContext = TemporaryWorkspaceContext.bindTo(this.contextKeyService);
+		IsPositronContext.bindTo(this.contextKeyService);
 		// --- End Positron ---
 		this.updateWorkspaceContextKeys();
 
