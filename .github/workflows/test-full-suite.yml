@@ -43,7 +43,7 @@ on:
 jobs:
   e2e-electron:
     name: e2e
-    if: ${{ inputs.run_e2e_linux }}
+    if: github.event_name == 'schedule' || ${{ inputs.run_e2e_linux }}
     uses: ./.github/workflows/test-e2e-linux.yml
     with:
       grep: ""
@@ -54,7 +54,7 @@ jobs:
 
   e2e-windows:
     name: e2e
-    if: ${{ inputs.run_e2e_windows }}
+    if: github.event_name == 'schedule' || ${{ inputs.run_e2e_windows }}
     uses: ./.github/workflows/test-e2e-windows.yml
     with:
       grep: ""
@@ -64,7 +64,7 @@ jobs:
 
   e2e-browser:
     name: e2e
-    if: ${{ inputs.run_e2e_browser }}
+    if: github.event_name == 'schedule' || ${{ inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-linux.yml
     with:
       grep: ""
@@ -75,13 +75,13 @@ jobs:
 
   unit-tests:
     name: test
-    if: ${{ inputs.run_unit_tests }}
+    if: github.event_name == 'schedule' || ${{ inputs.run_unit_tests }}
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
 
   integration-tests:
     name: test
-    if: ${{ inputs.run_integration_tests }}
+    if: github.event_name == 'schedule' || ${{ inputs.run_integration_tests }}
     uses: ./.github/workflows/test-integration.yml
     secrets: inherit
 
