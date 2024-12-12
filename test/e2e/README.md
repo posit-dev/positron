@@ -193,9 +193,25 @@ For Python, add any package requirements to the `requirements.txt` file in the r
 
 For R, add any package requirements to the "imports" section of the `DESCRIPTION` file in the root of the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo.
 
+## Pull Requests and Test Tags
+
+When you create a pull request, the test runner automatically scans the PR description for test tags to determine which E2E tests to run.
+
+- **Always-on Tests:** Tests tagged with `@critical` always run, and you can’t opt out of them.
+- **Custom Tags:** If your changes affect a specific feature, you can include additional tags in the PR description to trigger relevant tests.
+
+To add a test tag:
+
+1. Use the format `@:tag` in your PR description (e.g., `@:help`, `@:console`).
+2. Once added, a comment will appear on your PR confirming that the tag was found and parsed correctly.
+
+From that point, all E2E tests linked to the specified tag(s) will run during the test job. For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/helpers/test-tags.ts).
+
+Note: You can update the tags in the PR description at any time. The PR comment will confirm the parsed tags, and the test job will use the tags present in the PR description at the time of execution.
+
 ## Running Tests in Github Actions
 
-New tests are not complete until they run successfully across operating systems (Mac, Windows, & Ubuntu) and in [Github Actions](https://github.com/posit-dev/positron/actions/workflows/positron-full-test.yml). In Github Actions we use an Ubuntu instance to run the tests, so if you are developing your tests using a Mac or on Windows, this is an opportunity to test a different operating system. Also, you can easily run your new tests against a branch to verify them before merge. Simply pick the branch after you click on "Run Workflow". Note that you can also temporarily modify the workflow itself to get your new tests executed more quickly. To do this, skip the runs of the unit and integration tests.
+New tests are not complete until they run successfully across operating systems (Mac, Windows, & Ubuntu) and in [Github Actions](https://github.com/posit-dev/positron/actions/workflows/test-full-suite.yml). In Github Actions we use an Ubuntu instance to run the tests, so if you are developing your tests using a Mac or on Windows, this is an opportunity to test a different operating system. Also, you can easily run your new tests against a branch to verify them before merge. Simply pick the branch after you click on "Run Workflow". Note that you can also temporarily modify the workflow itself to get your new tests executed more quickly. To do this, skip the runs of the unit and integration tests.
 
 ### Github Actions Test Artifacts
 

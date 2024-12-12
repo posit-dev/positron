@@ -3,7 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// React.
 import React, { PropsWithChildren, createContext, useContext } from 'react';
+
+// Other dependencies.
 import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
@@ -18,7 +21,10 @@ import { IKeybindingService } from '../../../../platform/keybinding/common/keybi
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronConnectionsService } from '../../../services/positronConnections/browser/interfaces/positronConnectionsService.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 
 export interface PositronConnectionsServices {
 	readonly accessibilityService: IAccessibilityService;
@@ -36,6 +42,9 @@ export interface PositronConnectionsServices {
 	readonly editorService: IEditorService;
 	readonly instantiationService: IInstantiationService;
 	readonly modelService: IModelService;
+	readonly languageRuntimeService: ILanguageRuntimeService;
+	readonly runtimeAffiliationService: IRuntimeStartupService;
+	readonly runtimeSessionService: IRuntimeSessionService;
 }
 
 const PositronConnectionsContext = createContext<PositronConnectionsServices>(undefined!);

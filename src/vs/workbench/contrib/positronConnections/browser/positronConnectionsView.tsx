@@ -28,6 +28,9 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
+import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 export class PositronConnectionsView
 	extends PositronViewPane
@@ -87,7 +90,10 @@ export class PositronConnectionsView
 		@IClipboardService private readonly clipboardService: IClipboardService,
 		@INotificationService private readonly notificationService: INotificationService,
 		@IEditorService private readonly editorService: IEditorService,
-		@IModelService private readonly modelService: IModelService
+		@IModelService private readonly modelService: IModelService,
+		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeStartupService private readonly runtimeStartupService: IRuntimeStartupService,
+		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService
 	) {
 		super(
 			options,
@@ -148,6 +154,9 @@ export class PositronConnectionsView
 				editorService={this.editorService}
 				instantiationService={this.instantiationService}
 				modelService={this.modelService}
+				languageRuntimeService={this.languageRuntimeService}
+				runtimeAffiliationService={this.runtimeStartupService}
+				runtimeSessionService={this.runtimeSessionService}
 			/>
 		);
 	}

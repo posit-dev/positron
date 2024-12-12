@@ -20,6 +20,7 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { ISecretStorageService } from '../../../../platform/secrets/common/secrets.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
+import { PositronConnectionsDriverManager } from './positronConnectionsDrivers.js';
 
 class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
@@ -32,6 +33,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 	public onDidFocus = this.onDidFocusEmitter.event;
 
 	private readonly connections: IPositronConnectionInstance[] = [];
+	public readonly driverManager: PositronConnectionsDriverManager;
 	private readonly viewEnabled: IContextKey<boolean>;
 
 	constructor(
@@ -45,6 +47,9 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		@INotificationService private readonly notificationService: INotificationService,
 	) {
 		super();
+
+		this.driverManager = new PositronConnectionsDriverManager(this);
+
 		this.viewEnabled = POSITRON_CONNECTIONS_VIEW_ENABLED.bindTo(this.contextKeyService);
 		const enabled = this.configurationService.getValue<boolean>(USE_POSITRON_CONNECTIONS_KEY);
 		this.viewEnabled.set(enabled);

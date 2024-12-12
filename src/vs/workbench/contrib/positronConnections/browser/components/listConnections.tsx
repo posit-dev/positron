@@ -3,7 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import './listConnections.css';
+
+// React.
 import React, { useState, useEffect, useRef, CSSProperties } from 'react';
+
+// Other dependencies.
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
@@ -13,13 +19,13 @@ import { PositronActionBarContextProvider } from '../../../../../platform/positr
 import { ViewsProps } from '../positronConnections.js';
 import { PositronConnectionsServices, usePositronConnectionsContext } from '../positronConnectionsContext.js';
 import { FixedSizeList as List } from 'react-window';
-import './listConnections.css';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { languageIdToName } from './schemaNavigation.js';
 import { IPositronConnectionInstance } from '../../../../services/positronConnections/browser/interfaces/positronConnectionsInstance.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { showResumeConnectionModalDialog } from './resumeConnectionModalDialog.js';
 import { localize } from '../../../../../nls.js';
+import { showNewConnectionModalDialog } from './newConnectionModalDialog.js';
 
 export interface ListConnnectionsProps extends ViewsProps { }
 
@@ -121,6 +127,9 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 						} :
 						undefined
 				}
+				onNewConnection={() => {
+					showNewConnectionModalDialog(context);
+				}}
 			>
 			</ActionBar>
 			<div className='connections-list-container'>
@@ -171,6 +180,7 @@ const ACTION_BAR_HEIGHT = 32;
 
 interface ActionBarProps extends PositronConnectionsServices {
 	onDeleteConnection?: () => void;
+	onNewConnection: () => void;
 }
 
 const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
@@ -190,7 +200,9 @@ const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 							align='left'
 							iconId='positron-new-connection'
 							text={localize('positron.listConnections.newConnection', 'New Connection')}
-							disabled={true}
+							onPressed={() => {
+								props.onNewConnection();
+							}}
 						/>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>

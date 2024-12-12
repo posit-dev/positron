@@ -6,12 +6,11 @@
 /**
  * Use the tags listed below to selectively run e2e tests against your PR.
  *
- * - To run all e2e tests, include `@:all` in your PR description.
- * - Avoid using `@:web` and `@:win` tags, as these are reserved for web and Windows platform-specific tests,
- *   which are not currently configured to run in PR workflows.
- *
  * Each tag corresponds to a specific feature, functionality, or area of the application. Use them
  * thoughtfully to ensure your tests align with the intended scope.
+ *
+ * Avoid using `@:web` and `@:win` tags, as these are reserved for web and Windows platform-specific tests,
+ * which are not currently configured to run in PR workflows.
  */
 export enum TestTags {
 	APPS = '@apps',
