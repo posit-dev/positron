@@ -23,7 +23,10 @@ jobs:
       - name: Parse Tags from PR Body
         id: pr-tags
         run: bash scripts/pr-tags-parse.sh
-        # env:
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
         #   PR_BODY: ${{ steps.PR.outputs.pr_body }}
 
       - name: Update PR Comment with Tags
