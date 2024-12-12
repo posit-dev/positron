@@ -39,6 +39,8 @@ enum JupyterNotebookCellOutputType {
 }
 
 class RuntimeNotebookKernelService extends Disposable implements IRuntimeNotebookKernelService {
+	private readonly _kernels = new Map<string, RuntimeNotebookKernel>();
+
 	constructor(
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
@@ -48,33 +50,45 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 	) {
 		super();
 
+		// Register a kernel when a runtime is registered.
 		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
-			const kernel = this._instantiationService.createInstance(RuntimeNotebookKernel, runtime);
-			// TODO: Dispose the kernel when the runtime is disposed/unregistered?
-			this._notebookKernelService.registerKernel(kernel);
-			this._logService.debug(`[RuntimeNotebookKernelService] Registered kernel for runtime: ${runtime.runtimeName}`);
-
-			// TODO: Dispose
-			this._notebookKernelService.onDidChangeSelectedNotebooks(async e => {
-				if (e.oldKernel === kernel.id) {
-					// This kernel was deselected.
-					// TODO: Shutdown the session.
-				} else if (e.newKernel === kernel.id) {
-					// This kernel was selected.
-					// TODO: Add selectNotebookRuntime to runtime session service?
-					await this._runtimeSessionService.startNewRuntimeSession(
-						runtime.runtimeId,
-						basename(e.notebook.fsPath),
-						LanguageRuntimeSessionMode.Notebook,
-						e.notebook,
-						// TODO: Is this a user action or can it be automatic?
-						`Runtime selected for notebook`,
-					);
-				}
-			});
+			this._registerKernel(runtime);
 		}));
 
-		// TODO: Also register kernels for existing runtimes.
+		// Register a kernel for each existing runtime.
+		for (const runtime of this._languageRuntimeService.registeredRuntimes) {
+			this._registerKernel(runtime);
+		}
+
+		// Start/shutdown runtime sessions when a kernel is selected/unselected for a notebook.
+		this._register(this._notebookKernelService.onDidChangeSelectedNotebooks(async e => {
+			// TODO: Could create a _runtimeSessionService.selectRuntimeSessionForNotebook method.
+			const oldKernel = e.oldKernel && this._kernels.get(e.oldKernel);
+			if (oldKernel) {
+				// TODO: Shutdown the old kernel.
+			}
+
+			const newKernel = e.newKernel && this._kernels.get(e.newKernel);
+			if (newKernel) {
+				await this._runtimeSessionService.startNewRuntimeSession(
+					newKernel.runtime.runtimeId,
+					basename(e.notebook.fsPath),
+					LanguageRuntimeSessionMode.Notebook,
+					e.notebook,
+					// TODO: Is this a user action or can it be automatic?
+					`Runtime selected for notebook`,
+				);
+			}
+		}));
+	}
+
+	private _registerKernel(runtime: ILanguageRuntimeMetadata): void {
+		// TODO: Dispose the kernel when the runtime is disposed/unregistered?
+		const kernel = this._instantiationService.createInstance(RuntimeNotebookKernel, runtime);
+		// TODO: Error if a kernel is already registered for the ID.
+		this._kernels.set(kernel.id, kernel);
+		this._notebookKernelService.registerKernel(kernel);
+		this._logService.debug(`[RuntimeNotebookKernelService] Registered kernel for runtime: ${runtime.runtimeName}`);
 	}
 
 	/**
@@ -112,7 +126,7 @@ class RuntimeNotebookKernel implements INotebookKernel {
 	private readonly _notebookRuntimeKernelSessionsByNotebookUri = new ResourceMap<RuntimeNotebookKernelSession>();
 
 	constructor(
-		private readonly _runtime: ILanguageRuntimeMetadata,
+		public readonly runtime: ILanguageRuntimeMetadata,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
 		@INotebookService private readonly _notebookService: INotebookService,
@@ -121,15 +135,15 @@ class RuntimeNotebookKernel implements INotebookKernel {
 
 	get id(): string {
 		// TODO: Is it ok if the ID doesn't match {publisher}.{extension}.{runtimeId}?
-		return `positron.${this._runtime.runtimeId}`;
+		return `positron.${this.runtime.runtimeId}`;
 	}
 
 	get label(): string {
-		return this._runtime.runtimeName;
+		return this.runtime.runtimeName;
 	}
 
 	get description(): string {
-		return this._runtime.runtimePath;
+		return this.runtime.runtimePath;
 	}
 
 	get detail(): string | undefined {
@@ -137,7 +151,7 @@ class RuntimeNotebookKernel implements INotebookKernel {
 	}
 
 	get supportedLanguages(): string[] {
-		return [this._runtime.languageId, 'raw'];
+		return [this.runtime.languageId, 'raw'];
 	}
 
 	async executeNotebookCellsRequest(notebookUri: URI, cellHandles: number[]): Promise<void> {
