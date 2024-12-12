@@ -18,6 +18,7 @@ import { IInstantiationService } from 'vs/platform/instantiation/common/instanti
 import { ILogService } from 'vs/platform/log/common/log';
 import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
+import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { IOutputItemDto } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { CellExecutionUpdateType } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
@@ -57,22 +58,15 @@ class NotebookRuntimeKernel implements INotebookKernel {
 	private readonly _onDidChange = new Emitter<INotebookKernelChangeEvent>();
 	public readonly onDidChange: Event<INotebookKernelChangeEvent> = this._onDidChange.event;
 
-	/**
-	 * A map of the last queued cell execution promise for each notebook, keyed by notebook URI.
-	 * Each queued cell execution promise is chained to the previous one for the notebook,
-	 * so that cells are executed in order.
-	 */
-	private readonly _pendingCellExecutionsByNotebookUri = new ResourceMap<Promise<void>>();
+	private readonly _notebookRuntimeKernelSessionsByNotebookUri = new ResourceMap<NotebookRuntimeKernelSession>();
 
 	constructor(
 		private readonly _runtime: ILanguageRuntimeMetadata,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
 		@INotebookService private readonly _notebookService: INotebookService,
-		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
-		@IQuickInputService private readonly _quickInputService: IQuickInputService,
-	) {
-	}
+	) { }
 
 	get id(): string {
 		// TODO: Is it ok if the ID doesn't match {publisher}.{extension}.{runtimeId}?
@@ -98,8 +92,8 @@ class NotebookRuntimeKernel implements INotebookKernel {
 	async executeNotebookCellsRequest(notebookUri: URI, cellHandles: number[]): Promise<void> {
 		this._logService.debug(`[NotebookRuntimeKernel] Executing cells: ${cellHandles.join(', ')}`);
 
-		const notebookModel = this._notebookService.getNotebookTextModel(notebookUri);
-		if (!notebookModel) {
+		const notebook = this._notebookService.getNotebookTextModel(notebookUri);
+		if (!notebook) {
 			// Copying ExtHostNotebookController.getNotebookDocument for now.
 			throw new Error(`NO notebook document for '${notebookUri}'`);
 		}
@@ -109,15 +103,59 @@ class NotebookRuntimeKernel implements INotebookKernel {
 			throw new Error(`NO runtime session for notebook '${notebookUri}'`);
 		}
 
+		// TODO: Dispose?
+		let notebookRuntimeKernelSession = this._notebookRuntimeKernelSessionsByNotebookUri.get(notebookUri);
+		if (!notebookRuntimeKernelSession) {
+			notebookRuntimeKernelSession = this._instantiationService.createInstance(NotebookRuntimeKernelSession, session, notebook);
+			this._notebookRuntimeKernelSessionsByNotebookUri.set(notebookUri, notebookRuntimeKernelSession);
+		}
+
+		await notebookRuntimeKernelSession.executeCells(cellHandles);
+	}
+
+	async cancelNotebookCellExecution(uri: URI, _cellHandles: number[]): Promise<void> {
+		this._logService.debug(`[NotebookRuntimeKernel] Interrupting`);
+
+		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(uri);
+		if (!session) {
+			throw new Error(`NO runtime session for notebook '${uri}'`);
+		}
+
+		session.interrupt();
+	}
+
+	provideVariables(notebookUri: URI, parentId: number | undefined, kind: 'named' | 'indexed', start: number, token: CancellationToken): AsyncIterableObject<VariablesResult> {
+		throw new Error('Method not implemented.');
+	}
+}
+
+class NotebookRuntimeKernelSession {
+	/**
+	 * A map of the last queued cell execution promise for each notebook, keyed by notebook URI.
+	 * Each queued cell execution promise is chained to the previous one for the notebook,
+	 * so that cells are executed in order.
+	 */
+	private readonly _pendingCellExecutionsByNotebookUri = new ResourceMap<Promise<void>>();
+
+	constructor(
+		private readonly _session: ILanguageRuntimeSession,
+		private readonly _notebook: NotebookTextModel,
+		@ILogService private readonly _logService: ILogService,
+		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
+		@IQuickInputService private readonly _quickInputService: IQuickInputService,
+	) {
+	}
+
+	async executeCells(cellHandles: number[]): Promise<void> {
 		const executionPromises: Promise<void>[] = [];
 		for (const cellHandle of cellHandles) {
-			const cell = notebookModel.cells.find(cell => cell.handle === cellHandle);
+			const cell = this._notebook.cells.find(cell => cell.handle === cellHandle);
 			// TODO: When does this happen?
 			if (!cell) {
 				continue;
 			}
 
-			executionPromises.push(this._queueCellExecution(cell, session, notebookUri));
+			executionPromises.push(this._queueCellExecution(cell));
 		}
 
 		try {
@@ -127,32 +165,28 @@ class NotebookRuntimeKernel implements INotebookKernel {
 		}
 	}
 
-	private async _queueCellExecution(
-		cell: NotebookCellTextModel,
-		session: ILanguageRuntimeSession,
-		notebookUri: URI,
-	): Promise<void> {
+	private async _queueCellExecution(cell: NotebookCellTextModel): Promise<void> {
 		// Get the pending execution for this notebook, if one exists.
-		const pendingExecution = this._pendingCellExecutionsByNotebookUri.get(notebookUri);
+		const pendingExecution = this._pendingCellExecutionsByNotebookUri.get(this._notebook.uri);
 
 		// Chain this execution after the pending one.
 		const currentExecution = Promise.resolve(pendingExecution)
-			.then(() => this._executeCell(cell, session))
+			.then(() => this._executeCell(cell))
 			.finally(() => {
 				// If this was the last execution in the chain, remove it from the map,
 				// starting a new chain.
-				if (this._pendingCellExecutionsByNotebookUri.get(notebookUri) === currentExecution) {
-					this._pendingCellExecutionsByNotebookUri.delete(notebookUri);
+				if (this._pendingCellExecutionsByNotebookUri.get(this._notebook.uri) === currentExecution) {
+					this._pendingCellExecutionsByNotebookUri.delete(this._notebook.uri);
 				}
 			});
 
 		// Update the pending execution for this notebook.
-		this._pendingCellExecutionsByNotebookUri.set(notebookUri, currentExecution);
+		this._pendingCellExecutionsByNotebookUri.set(this._notebook.uri, currentExecution);
 
 		return currentExecution;
 	}
 
-	private async _executeCell(cell: NotebookCellTextModel, session: ILanguageRuntimeSession): Promise<void> {
+	private async _executeCell(cell: NotebookCellTextModel): Promise<void> {
 		// Don't try to execute raw cells; they're often used to define metadata e.g in Quarto notebooks.
 		if (cell.language === 'raw') {
 			return;
@@ -185,6 +219,8 @@ class NotebookRuntimeKernel implements INotebookKernel {
 		// Create a promise tracking the current message for the cell. Each execution may
 		// receive multiple messages, which we want to handle in sequence.
 		let currentMessagePromise = Promise.resolve();
+
+		const session = this._session;
 
 		// TODO: We could register all of these when the session is attached and route them to
 		//       the right place. Not sure which is better.
@@ -441,30 +477,7 @@ class NotebookRuntimeKernel implements INotebookKernel {
 		return deferred.p;
 	}
 
-	async cancelNotebookCellExecution(uri: URI, _cellHandles: number[]): Promise<void> {
-		this._logService.debug(`[NotebookRuntimeKernel] Interrupting`);
-
-		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(uri);
-		if (!session) {
-			throw new Error(`NO runtime session for notebook '${uri}'`);
-		}
-
-		session.interrupt();
-	}
-
-	provideVariables(notebookUri: URI, parentId: number | undefined, kind: 'named' | 'indexed', start: number, token: CancellationToken): AsyncIterableObject<VariablesResult> {
-		throw new Error('Method not implemented.');
-	}
 }
-
-// class NotebookRuntimeKernelSession {
-// 	constructor(
-// 		private readonly _kernel: NotebookRuntimeKernel,
-// 		private readonly _session: ILanguageRuntimeSession,
-// 		private readonly _notebookUri: URI,
-// 	) {
-// 	}
-// }
 
 class NotebookRuntimeKernelService extends Disposable implements INotebookRuntimeKernelService {
 	constructor(
