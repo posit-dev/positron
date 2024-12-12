@@ -19,6 +19,8 @@ const NOTIFICATION_TOAST = '.notification-toast';
  */
 export class PositronPopups {
 
+	toastLocator = this.code.driver.getLocator(NOTIFICATION_TOAST);
+
 	constructor(private code: Code) { }
 
 	async popupCurrentlyOpen() {
@@ -78,14 +80,36 @@ export class PositronPopups {
 	}
 	async waitForToastToDisappear() {
 		this.code.logger.log('Waiting for toast to be detacted');
-		const toastLocator = this.code.driver.getLocator(NOTIFICATION_TOAST);
-		await toastLocator.waitFor({ state: 'detached', timeout: 20000 });
+		await this.toastLocator.waitFor({ state: 'detached', timeout: 20000 });
 	}
 
 	async waitForToastToAppear() {
 		this.code.logger.log('Waiting for toast to be attached');
-		const toastLocator = this.code.driver.getLocator(NOTIFICATION_TOAST);
-		await toastLocator.waitFor({ state: 'attached', timeout: 20000 });
+		await this.toastLocator.waitFor({ state: 'attached', timeout: 20000 });
+	}
+
+	async verifyToastDoesNotAppear(timeoutMs: number = 3000): Promise<void> {
+		const startTime = Date.now();
+
+		while (Date.now() - startTime < timeoutMs) {
+			const count = await this.toastLocator.count();
+			if (count > 0) {
+				throw new Error('Toast appeared unexpectedly');
+			}
+
+			this.code.wait(1000);
+		}
+
+		this.code.logger.log('Verified: Toast did not appear');
+	}
+
+	async closeAllToasts() {
+		const count = await this.toastLocator.count();
+		this.code.logger.log(`Closing ${count} toasts`);
+		for (let i = 0; i < count; i++) {
+			await this.toastLocator.nth(i).hover();
+			await this.code.driver.page.locator(`${NOTIFICATION_TOAST} .codicon-notifications-clear`).click();
+		}
 	}
 
 	async waitForModalDialogBox() {

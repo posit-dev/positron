@@ -179,5 +179,64 @@ df2 = pd.DataFrame(data)`;
 		}).toPass({ timeout: 60000 });
 
 		await app.workbench.positronLayouts.enterLayout('stacked');
+		await app.workbench.positronDataExplorer.closeDataExplorer();
+	});
+
+	test('Python - Open Data Explorer for the second time brings focus back [C1078833]', async function ({ app, python }) {
+
+		const script = `import pandas as pd
+from pydataset import data
+Data_Frame = data('mtcars')`;
+		await app.workbench.positronConsole.executeCode('Python', script, '>>>');
+		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+
+		if (app.web) {
+			await app.workbench.positronVariables.selectVariablesGroup(`${process.env.POSITRON_PY_VER_SEL!}`);
+		}
+
+		await expect(async () => {
+			await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
+			await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
+		}).toPass();
+
+		// Now move focus out of the the data explorer pane
+		await app.workbench.editors.newUntitledFile();
+		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
+
+		await expect(async () => {
+			await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
+		}).toPass();
+
+		await app.workbench.positronDataExplorer.closeDataExplorer();
+		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+	});
+
+	test('Python - Check blank spaces in data explorer [C1078835]', async function ({ app, python }) {
+
+		const script = `import pandas as pd
+df = pd.DataFrame({'x': ["a ", "a", "   ", ""]})`;
+		await app.workbench.positronConsole.executeCode('Python', script, '>>>');
+
+		if (app.web) {
+			await app.workbench.positronVariables.selectVariablesGroup(`${process.env.POSITRON_PY_VER_SEL!}`);
+		}
+
+		await expect(async () => {
+			await app.workbench.positronVariables.doubleClickVariableRow('df');
+			await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
+		}).toPass();
+
+		await expect(async () => {
+			const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+
+			expect(tableData[0]).toStrictEqual({ 'x': 'a·' });
+			expect(tableData[1]).toStrictEqual({ 'x': 'a' });
+			expect(tableData[2]).toStrictEqual({ 'x': '···' });
+			expect(tableData[3]).toStrictEqual({ 'x': '<empty>' });
+			expect(tableData.length).toBe(4);
+		}).toPass({ timeout: 60000 });
+
+		await app.workbench.positronDataExplorer.closeDataExplorer();
 	});
 });
