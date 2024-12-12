@@ -11,7 +11,7 @@ import { PositronVariablesInstance } from './positronVariablesInstance.js';
 import { IPositronVariablesService } from './interfaces/positronVariablesService.js';
 import { IPositronVariablesInstance } from './interfaces/positronVariablesInstance.js';
 import { LanguageRuntimeSessionMode, RuntimeState, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { RuntimeClientState } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { isEqual } from '../../../../base/common/resources.js';
