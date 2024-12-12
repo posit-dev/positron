@@ -3,11 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { AsyncIterableObject } from 'vs/base/common/async';
+import { AsyncIterableObject, DeferredPromise } from 'vs/base/common/async';
 import { decodeBase64, VSBuffer } from 'vs/base/common/buffer';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
+import { ResourceMap } from 'vs/base/common/map';
 import { basename } from 'vs/base/common/path';
 import { URI } from 'vs/base/common/uri';
 import { generateUuid } from 'vs/base/common/uuid';
@@ -16,6 +17,7 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
+import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { IOutputItemDto } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { CellExecutionUpdateType } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
@@ -23,7 +25,7 @@ import { INotebookKernel, INotebookKernelChangeEvent, INotebookKernelService, Va
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { INotebookRuntimeKernelService } from 'vs/workbench/contrib/notebookRuntimeKernel/browser/interfaces/notebookRuntimeKernelService';
 import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 // TODO: Add from PR #5680.
 /** The type of a Jupyter notebook cell output. */
@@ -54,6 +56,13 @@ class NotebookRuntimeKernel implements INotebookKernel {
 
 	private readonly _onDidChange = new Emitter<INotebookKernelChangeEvent>();
 	public readonly onDidChange: Event<INotebookKernelChangeEvent> = this._onDidChange.event;
+
+	/**
+	 * A map of the last queued cell execution promise for each notebook, keyed by notebook URI.
+	 * Each queued cell execution promise is chained to the previous one for the notebook,
+	 * so that cells are executed in order.
+	 */
+	private readonly _pendingCellExecutionsByNotebookUri = new ResourceMap<Promise<void>>();
 
 	constructor(
 		private readonly _runtime: ILanguageRuntimeMetadata,
@@ -86,20 +95,21 @@ class NotebookRuntimeKernel implements INotebookKernel {
 		return [this._runtime.languageId, 'raw'];
 	}
 
-	async executeNotebookCellsRequest(uri: URI, cellHandles: number[]): Promise<void> {
+	async executeNotebookCellsRequest(notebookUri: URI, cellHandles: number[]): Promise<void> {
 		this._logService.debug(`[NotebookRuntimeKernel] Executing cells: ${cellHandles.join(', ')}`);
 
-		const notebookModel = this._notebookService.getNotebookTextModel(uri);
+		const notebookModel = this._notebookService.getNotebookTextModel(notebookUri);
 		if (!notebookModel) {
 			// Copying ExtHostNotebookController.getNotebookDocument for now.
-			throw new Error(`NO notebook document for '${uri}'`);
+			throw new Error(`NO notebook document for '${notebookUri}'`);
 		}
 
-		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(uri);
+		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 		if (!session) {
-			throw new Error(`NO runtime session for notebook '${uri}'`);
+			throw new Error(`NO runtime session for notebook '${notebookUri}'`);
 		}
 
+		const executionPromises: Promise<void>[] = [];
 		for (const cellHandle of cellHandles) {
 			const cell = notebookModel.cells.find(cell => cell.handle === cellHandle);
 			// TODO: When does this happen?
@@ -107,247 +117,292 @@ class NotebookRuntimeKernel implements INotebookKernel {
 				continue;
 			}
 
-			// Don't try to execute raw cells; they're often used to define metadata e.g in Quarto notebooks.
-			if (cell.language === 'raw') {
+			executionPromises.push(this._queueCellExecution(cell, session, notebookUri));
+		}
+
+		try {
+			await Promise.all(executionPromises);
+		} catch (err) {
+			this._logService.debug(`Error executing cells: ${err.stack ?? err}`);
+		}
+	}
+
+	private async _queueCellExecution(
+		cell: NotebookCellTextModel,
+		session: ILanguageRuntimeSession,
+		notebookUri: URI,
+	): Promise<void> {
+		// Get the pending execution for this notebook, if one exists.
+		const pendingExecution = this._pendingCellExecutionsByNotebookUri.get(notebookUri);
+
+		// Chain this execution after the pending one.
+		const currentExecution = Promise.resolve(pendingExecution)
+			.then(() => this._executeCell(cell, session))
+			.finally(() => {
+				// If this was the last execution in the chain, remove it from the map,
+				// starting a new chain.
+				if (this._pendingCellExecutionsByNotebookUri.get(notebookUri) === currentExecution) {
+					this._pendingCellExecutionsByNotebookUri.delete(notebookUri);
+				}
+			});
+
+		// Update the pending execution for this notebook.
+		this._pendingCellExecutionsByNotebookUri.set(notebookUri, currentExecution);
+
+		return currentExecution;
+	}
+
+	private async _executeCell(cell: NotebookCellTextModel, session: ILanguageRuntimeSession): Promise<void> {
+		// Don't try to execute raw cells; they're often used to define metadata e.g in Quarto notebooks.
+		if (cell.language === 'raw') {
+			return;
+		}
+
+		const code = cell.getValue();
+
+		// If the cell is empty, skip it.
+		if (!code.trim()) {
+			return;
+		}
+
+		const execution = this._notebookExecutionStateService.getCellExecution(cell.uri);
+		if (!execution) {
+			throw new Error(`NO execution for cell '${cell.uri}'`);
+		}
+
+		// Clear any existing outputs.
+		execution.update([{
+			editType: CellExecutionUpdateType.Output,
+			cellHandle: cell.handle,
+			outputs: [],
+		}]);
+
+		// TODO: This can be a simple counter for the session.
+		const id = generateUuid();
+
+		const disposables = new DisposableStore();
+
+		// TODO: We could register all of these when the session is attached and route them to
+		//       the right place. Not sure which is better.
+		disposables.add(session.onDidReceiveRuntimeMessageInput(message => {
+			// Only handle replies to this execution.
+			if (message.parent_id !== id) {
 				return;
 			}
 
-			const code = cell.getValue();
-
-			// If the cell is empty, skip it.
-			if (!code.trim()) {
-				continue;
-			}
-
-			const execution = this._notebookExecutionStateService.getCellExecution(cell.uri);
-			if (!execution) {
-				throw new Error(`NO execution for cell '${cell.uri}'`);
-			}
-
-			// Clear any existing outputs.
-			execution.update([{
-				editType: CellExecutionUpdateType.Output,
-				cellHandle,
-				outputs: [],
-			}]);
-
-			// TODO: This can be a simple counter for the session.
-			const id = generateUuid();
-
-			const disposables = new DisposableStore();
-
-			// TODO: We could register all of these when the session is attached and route them to
-			//       the right place. Not sure which is better.
-			disposables.add(session.onDidReceiveRuntimeMessageInput(message => {
-				// Only handle replies to this execution.
-				if (message.parent_id !== id) {
-					return;
-				}
-
-				// Update the cell's execution order (usually displayed in notebook UIs).
-				// TODO: Which of these should we prefer?
-				// cell.internalMetadata.executionOrder = message.execution_count;
-				execution.update([{
-					editType: CellExecutionUpdateType.ExecutionState,
-					executionOrder: message.execution_count,
-				}]);
-			}));
-
-			disposables.add(session.onDidReceiveRuntimeMessagePrompt(async message => {
-				// Only handle replies to this execution.
-				if (message.parent_id !== id) {
-					return;
-				}
-
-				// Let the user input a reply.
-				const reply = await this._quickInputService.input({
-					password: message.password,
-					prompt: message.prompt,
-				});
-
-				// Reply to the prompt.
-				session.replyToPrompt(message.id, reply ?? '');
-			}));
-
-			const handleRuntimeMessageOutput = async (
-				message: ILanguageRuntimeMessageOutput,
-				outputType: JupyterNotebookCellOutputType,
-			) => {
-				const outputItems: IOutputItemDto[] = [];
-				for (const [mime, data] of Object.entries(message.data)) {
-					switch (mime) {
-						case 'image/png':
-						case 'image/jpeg':
-							outputItems.push({ data: decodeBase64(String(data)), mime });
-							break;
-						// This list is a subset of src/vs/workbench/contrib/notebook/browser/view/cellParts/cellOutput.JUPYTER_RENDERER_MIMETYPES
-						case 'application/geo+json':
-						case 'application/vdom.v1+json':
-						case 'application/vnd.dataresource+json':
-						case 'application/vnd.jupyter.widget-view+json':
-						case 'application/vnd.plotly.v1+json':
-						case 'application/vnd.r.htmlwidget':
-						case 'application/vnd.vega.v2+json':
-						case 'application/vnd.vega.v3+json':
-						case 'application/vnd.vega.v4+json':
-						case 'application/vnd.vega.v5+json':
-						case 'application/vnd.vegalite.v1+json':
-						case 'application/vnd.vegalite.v2+json':
-						case 'application/vnd.vegalite.v3+json':
-						case 'application/vnd.vegalite.v4+json':
-						case 'application/x-nteract-model-debug+json':
-							// The JSON cell output item will be rendered using the appropriate notebook renderer.
-							outputItems.push({ data: VSBuffer.fromString(JSON.stringify(data, undefined, '\t')), mime });
-							break;
-						default:
-							outputItems.push({ data: VSBuffer.fromString(String(data)), mime });
-					}
-				}
-				execution.update([{
-					editType: CellExecutionUpdateType.Output,
-					cellHandle,
-					append: true,
-					outputs: [{
-						outputId: message.id,
-						outputs: outputItems,
-						metadata: {
-							...message.metadata,
-							outputType,
-						}
-					}]
-				}]);
-			};
-
-			disposables.add(session.onDidReceiveRuntimeMessageOutput(async message => {
-				await handleRuntimeMessageOutput(message, JupyterNotebookCellOutputType.DisplayData);
-			}));
-
-			disposables.add(session.onDidReceiveRuntimeMessageResult(async message => {
-				await handleRuntimeMessageOutput(message, JupyterNotebookCellOutputType.ExecuteResult);
-			}));
-
-			disposables.add(session.onDidReceiveRuntimeMessageStream(async message => {
-				// Only handle replies to this execution.
-				if (message.parent_id !== id) {
-					return;
-				}
-
-				// Convert the runtime message into an output item data transfer object.
-				let mime: string;
-				if (message.name === 'stdout') {
-					mime = 'application/vnd.code.notebook.stdout';
-				} else if (message.name === 'stderr') {
-					mime = 'application/vnd.code.notebook.stderr';
-				} else {
-					this._logService.warn(`[NotebookRuntimeKernel] Ignoring runtime message with unknown stream name: ${message.name}`);
-					return;
-				}
-				const newOutputItem: IOutputItemDto = { data: VSBuffer.fromString(message.text), mime };
-
-				// If the last output has items of the same mime type (i.e. from the same stream: stdout/stderr),
-				// append the new item to the last output. Otherwise, create a new output.
-				const lastOutput = cell.outputs.at(-1);
-				const lastOutputItems = lastOutput?.outputs;
-				if (lastOutputItems && lastOutputItems.every(item => item.mime === mime)) {
-					execution.update([{
-						editType: CellExecutionUpdateType.OutputItems,
-						append: true,
-						outputId: lastOutput.outputId,
-						items: [newOutputItem],
-					}]);
-				} else {
-					execution.update([{
-						editType: CellExecutionUpdateType.Output,
-						cellHandle,
-						append: true,
-						outputs: [{
-							outputId: message.id,
-							outputs: [newOutputItem],
-							metadata: message.metadata,
-						}]
-					}]);
-				}
-			}));
-
-			disposables.add(session.onDidReceiveRuntimeMessageError(message => {
-				execution.update([{
-					editType: CellExecutionUpdateType.Output,
-					cellHandle,
-					append: true,
-					outputs: [{
-						outputId: message.id,
-						outputs: [{
-							data: VSBuffer.fromString(JSON.stringify({
-								name: message.name,
-								message: message.message,
-								stack: message.traceback.join('\n'),
-							}, undefined, '\t')),
-							mime: 'application/vnd.code.notebook.error',
-						}]
-					}]
-				}]);
-				execution.complete({
-					runEndTime: Date.now(),
-					lastRunSuccess: false,
-					error: {
-						message: message.message,
-						stack: message.traceback.join('\n'),
-						uri: cell.uri,
-						location: undefined,
-					},
-				});
-
-				// The execution is finished - stop listening for replies.
-				disposables.dispose();
-			}));
-
-			disposables.add(session.onDidReceiveRuntimeMessageState(message => {
-				// Only handle replies to this execution.
-				if (message.parent_id !== id) {
-					return;
-				}
-
-				if (message.state === RuntimeOnlineState.Idle) {
-					execution.complete({
-						runEndTime: Date.now(),
-						lastRunSuccess: true,
-					});
-
-					// The execution is finished - stop listening for replies.
-					disposables.dispose();
-				}
-			}));
-
+			// Update the cell's execution order (usually displayed in notebook UIs).
+			// TODO: Which of these should we prefer?
+			// cell.internalMetadata.executionOrder = message.execution_count;
 			execution.update([{
 				editType: CellExecutionUpdateType.ExecutionState,
-				runStartTime: Date.now(),
+				executionOrder: message.execution_count,
 			}]);
+		}));
 
-			try {
-				session.execute(
-					code,
-					id,
-					RuntimeCodeExecutionMode.Interactive,
-					RuntimeErrorBehavior.Stop,
-				);
-			} catch (err) {
+		disposables.add(session.onDidReceiveRuntimeMessagePrompt(async message => {
+			// Only handle replies to this execution.
+			if (message.parent_id !== id) {
+				return;
+			}
+
+			// Let the user input a reply.
+			const reply = await this._quickInputService.input({
+				password: message.password,
+				prompt: message.prompt,
+			});
+
+			// Reply to the prompt.
+			session.replyToPrompt(message.id, reply ?? '');
+		}));
+
+		const handleRuntimeMessageOutput = async (
+			message: ILanguageRuntimeMessageOutput,
+			outputType: JupyterNotebookCellOutputType,
+		) => {
+			const outputItems: IOutputItemDto[] = [];
+			for (const [mime, data] of Object.entries(message.data)) {
+				switch (mime) {
+					case 'image/png':
+					case 'image/jpeg':
+						outputItems.push({ data: decodeBase64(String(data)), mime });
+						break;
+					// This list is a subset of src/vs/workbench/contrib/notebook/browser/view/cellParts/cellOutput.JUPYTER_RENDERER_MIMETYPES
+					case 'application/geo+json':
+					case 'application/vdom.v1+json':
+					case 'application/vnd.dataresource+json':
+					case 'application/vnd.jupyter.widget-view+json':
+					case 'application/vnd.plotly.v1+json':
+					case 'application/vnd.r.htmlwidget':
+					case 'application/vnd.vega.v2+json':
+					case 'application/vnd.vega.v3+json':
+					case 'application/vnd.vega.v4+json':
+					case 'application/vnd.vega.v5+json':
+					case 'application/vnd.vegalite.v1+json':
+					case 'application/vnd.vegalite.v2+json':
+					case 'application/vnd.vegalite.v3+json':
+					case 'application/vnd.vegalite.v4+json':
+					case 'application/x-nteract-model-debug+json':
+						// The JSON cell output item will be rendered using the appropriate notebook renderer.
+						outputItems.push({ data: VSBuffer.fromString(JSON.stringify(data, undefined, '\t')), mime });
+						break;
+					default:
+						outputItems.push({ data: VSBuffer.fromString(String(data)), mime });
+				}
+			}
+			execution.update([{
+				editType: CellExecutionUpdateType.Output,
+				cellHandle: cell.handle,
+				append: true,
+				outputs: [{
+					outputId: message.id,
+					outputs: outputItems,
+					metadata: {
+						...message.metadata,
+						outputType,
+					}
+				}]
+			}]);
+		};
+
+		disposables.add(session.onDidReceiveRuntimeMessageOutput(async message => {
+			await handleRuntimeMessageOutput(message, JupyterNotebookCellOutputType.DisplayData);
+		}));
+
+		disposables.add(session.onDidReceiveRuntimeMessageResult(async message => {
+			await handleRuntimeMessageOutput(message, JupyterNotebookCellOutputType.ExecuteResult);
+		}));
+
+		disposables.add(session.onDidReceiveRuntimeMessageStream(async message => {
+			// Only handle replies to this execution.
+			if (message.parent_id !== id) {
+				return;
+			}
+
+			// Convert the runtime message into an output item data transfer object.
+			let mime: string;
+			if (message.name === 'stdout') {
+				mime = 'application/vnd.code.notebook.stdout';
+			} else if (message.name === 'stderr') {
+				mime = 'application/vnd.code.notebook.stderr';
+			} else {
+				this._logService.warn(`[NotebookRuntimeKernel] Ignoring runtime message with unknown stream name: ${message.name}`);
+				return;
+			}
+			const newOutputItem: IOutputItemDto = { data: VSBuffer.fromString(message.text), mime };
+
+			// If the last output has items of the same mime type (i.e. from the same stream: stdout/stderr),
+			// append the new item to the last output. Otherwise, create a new output.
+			const lastOutput = cell.outputs.at(-1);
+			const lastOutputItems = lastOutput?.outputs;
+			if (lastOutputItems && lastOutputItems.every(item => item.mime === mime)) {
+				execution.update([{
+					editType: CellExecutionUpdateType.OutputItems,
+					append: true,
+					outputId: lastOutput.outputId,
+					items: [newOutputItem],
+				}]);
+			} else {
+				execution.update([{
+					editType: CellExecutionUpdateType.Output,
+					cellHandle: cell.handle,
+					append: true,
+					outputs: [{
+						outputId: message.id,
+						outputs: [newOutputItem],
+						metadata: message.metadata,
+					}]
+				}]);
+			}
+		}));
+
+		disposables.add(session.onDidReceiveRuntimeMessageError(message => {
+			execution.update([{
+				editType: CellExecutionUpdateType.Output,
+				cellHandle: cell.handle,
+				append: true,
+				outputs: [{
+					outputId: message.id,
+					outputs: [{
+						data: VSBuffer.fromString(JSON.stringify({
+							name: message.name,
+							message: message.message,
+							stack: message.traceback.join('\n'),
+						}, undefined, '\t')),
+						mime: 'application/vnd.code.notebook.error',
+					}]
+				}]
+			}]);
+			execution.complete({
+				runEndTime: Date.now(),
+				lastRunSuccess: false,
+				error: {
+					message: message.message,
+					stack: message.traceback.join('\n'),
+					uri: cell.uri,
+					location: undefined,
+				},
+			});
+
+			// The execution is finished - stop listening for replies.
+			disposables.dispose();
+
+			deferred.error(new Error(
+				`Received language runtime error message: ${JSON.stringify(message)}`
+			));
+		}));
+
+		disposables.add(session.onDidReceiveRuntimeMessageState(message => {
+			// Only handle replies to this execution.
+			if (message.parent_id !== id) {
+				return;
+			}
+
+			if (message.state === RuntimeOnlineState.Idle) {
 				execution.complete({
 					runEndTime: Date.now(),
-					lastRunSuccess: false,
-					error: {
-						message: err.message,
-						stack: err.stack,
-						uri: cell.uri,
-						location: undefined,
-					},
+					lastRunSuccess: true,
 				});
 
 				// The execution is finished - stop listening for replies.
 				disposables.dispose();
 
-				throw err;
+				deferred.complete();
 			}
+		}));
+
+		execution.update([{
+			editType: CellExecutionUpdateType.ExecutionState,
+			runStartTime: Date.now(),
+		}]);
+
+		const deferred = new DeferredPromise<void>();
+
+		try {
+			session.execute(
+				code,
+				id,
+				RuntimeCodeExecutionMode.Interactive,
+				RuntimeErrorBehavior.Stop,
+			);
+		} catch (err) {
+			execution.complete({
+				runEndTime: Date.now(),
+				lastRunSuccess: false,
+				error: {
+					message: err.message,
+					stack: err.stack,
+					uri: cell.uri,
+					location: undefined,
+				},
+			});
+
+			// The execution is finished - stop listening for replies.
+			disposables.dispose();
+
+			deferred.error(err);
 		}
+
+		return deferred.p;
 	}
 
 	async cancelNotebookCellExecution(uri: URI, _cellHandles: number[]): Promise<void> {
