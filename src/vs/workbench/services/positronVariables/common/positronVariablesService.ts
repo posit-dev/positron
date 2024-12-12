@@ -300,9 +300,9 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			});
 
 		if (existingInstance) {
-			// Clean up the old session ID mapping
-			this._positronVariablesInstancesBySessionId.deleteAndDispose(existingInstance.session.sessionId);
-
+			// Clean up the old session ID mapping. Don't dispose of the instance because it's
+			// managed by other parts of the system.
+			this._positronVariablesInstancesBySessionId.deleteAndLeak(existingInstance.session.sessionId);
 			// Update the map of Positron variables instances by session ID.
 			this._positronVariablesInstancesBySessionId.set(
 				session.sessionId,
