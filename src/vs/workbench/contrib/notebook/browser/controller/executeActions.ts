@@ -639,6 +639,7 @@ registerAction2(class ShowNoKernelIndicatorAction extends NotebookAction {
 		super({
 			id: ShowNoKernelIndicatorAction.ID,
 			title: ShowNoKernelIndicatorAction.LABEL,
+			tooltip: ShowNoKernelIndicatorAction.LABEL,
 			f1: false,
 			menu: [{
 				id: MenuId.NotebookToolbar,
@@ -670,6 +671,7 @@ registerAction2(class ShowIdleIndicatorAction extends NotebookAction {
 			id: ShowIdleIndicatorAction.ID,
 			title: ShowIdleIndicatorAction.LABEL,
 			f1: false,
+			tooltip: ShowIdleIndicatorAction.LABEL,
 			menu: [{
 				id: MenuId.NotebookToolbar,
 				group: 'navigation/execute',
@@ -699,6 +701,7 @@ registerAction2(class ShowRunningIndicatorAction extends NotebookAction {
 		super({
 			id: ShowRunningIndicatorAction.ID,
 			title: ShowRunningIndicatorAction.LABEL,
+			tooltip: ShowRunningIndicatorAction.LABEL,
 			f1: false,
 			menu: [{
 				id: MenuId.NotebookToolbar,
