@@ -38,8 +38,7 @@ import {
 	TableSchema,
 	TableSelection
 } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-
+import { ICommandService, CommandsRegistry } from 'vs/platform/commands/common/commands';
 
 /**
  * Descriptor for backend method invocation in via extension command.
@@ -115,9 +114,26 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 
 	private async _execRpc<Type>(rpc: DataExplorerRpc): Promise<Type> {
 		await this.initialSetup;
-		const response = await this._commandService.executeCommand(
-			'positron-duckdb.dataExplorerRpc', rpc
-		);
+
+		const commandName = 'positron-duckdb.dataExplorerRpc';
+		if (CommandsRegistry.getCommand(commandName) === undefined) {
+			await (new Promise<void>((resolve, reject) => {
+				// Reject if command not registered within 30 seconds
+				const timeoutId = setTimeout(() => {
+					reject(new Error(`${commandName} not registered within 30 seconds`));
+				}, 30000);
+
+				CommandsRegistry.onDidRegisterCommand((id: string) => {
+					if (id === commandName) {
+						clearTimeout(timeoutId);
+						resolve();
+					}
+				});
+			}));
+		}
+
+		const response = await this._commandService.executeCommand(commandName, rpc);
+
 		if (response === undefined) {
 			return Promise.reject(
 				new Error('Sending request to positron-duckdb failed for unknown reason')

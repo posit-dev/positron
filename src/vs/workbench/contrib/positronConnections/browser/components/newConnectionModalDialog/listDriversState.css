@@ -1,0 +1,110 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.connections-new-connection-list-drivers {
+	display: grid;
+	gap: 10px;
+	grid-template-rows: 36px 24px 1fr 28px;
+	height: 100%;
+}
+
+.connections-new-connection-list-drivers > .title {
+	grid-row: 1;
+	display: flex;
+	align-items: center;
+}
+
+.connections-new-connection-list-drivers > .select-language {
+	grid-row: 2;
+	display: flex;
+	align-items: center;
+}
+
+.connections-new-connection-list-drivers > .select-language > .drop-down-list-box {
+	width: 150px;
+}
+
+.connections-new-connection-list-drivers > .driver-list {
+	grid-row: 3;
+	border-radius: 4px;
+	border: 1px solid var(--vscode-positronVariables-border);
+	overflow-y: auto;
+	height: 100%;
+}
+
+.connections-new-connection-list-drivers > .footer {
+	grid-row: 4;
+	display: flex;
+	justify-content: flex-end;
+}
+
+.connections-new-connection-list-drivers > .footer > .button {
+	margin-left: auto;
+	padding: 0 15px;
+}
+
+.language-dropdown-entry {
+	display: grid;
+	grid-template-columns: [icon] min-content [left] max-content [middle] 1fr [right] max-content [end];
+	align-items: center;
+}
+
+.language-dropdown-entry > .dropdown-entry-icon {
+	grid-column: icon / left;
+	margin-right: 0.2em;
+	height: 16px;
+	width: 16px;
+}
+
+.language-dropdown-entry > .dropdown-entry-title {
+	grid-column: left / middle;
+}
+
+.driver-list > .no-drivers {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 100%;
+}
+
+.driver-list-item {
+	display: grid;
+	grid-template-columns: 24px auto;
+	gap: 2px;
+	align-items: center;
+	padding: 0px 5px;
+}
+
+.driver-list-item > .driver-icon {
+	grid-column: 1;
+	padding: 2px 0px;
+	align-items: center;
+	height: 24px;
+	width: 24px;
+}
+
+.driver-list-item > .driver-info {
+	grid-column: 2;
+	display: grid;
+	grid-template-columns: 1fr 26px;
+	gap: 2px;
+	align-items: center;
+}
+
+.driver-list-item:not(:last-child) > .driver-info {
+	border-bottom: 1px solid var(--vscode-positronVariables-border);
+}
+
+.driver-info > .driver-name {
+	grid-column: 1;
+	height: 40px;
+	padding-left: 6px;
+	display: flex;
+	align-items: center;
+}
+
+.driver-info > .driver-button {
+	grid-column: 2;
+}

@@ -1,25 +1,28 @@
-name: "Latest Release: E2E Electron Tests"
+name: "Test: E2E (Latest Release)"
 
 on:
   workflow_dispatch:
     inputs:
-      e2e_grep:
+      grep:
         required: false
-        description: "Grep filter to apply to the e2e tests: @critical, @win, etc."
+        description: "Grep filter to apply to the e2e tests: @critical, @console, etc. Leave blank to run all tests."
         default: ""
         type: string
+      notify_on:
+        description: "Slack notification on:"
+        required: false
+        default: "failure"
+        type: choice
+        options:
+          - failure
+          - always
 
 permissions:
   id-token: write
   contents: read
 
-env:
-  E2E_GREP: ${{ inputs.e2e_grep || '' }}
-  REPORT_DIR: playwright-report-${{ github.run_id }}
-
 jobs:
-  linux:
-    name: e2e-electron-tests
+  e2e-electron:
     runs-on: ubuntu-latest-8x
     timeout-minutes: 45
     steps:
@@ -76,12 +79,13 @@ jobs:
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
 
-      - name: Send HTML report URL to GitHub Summary
+      - name: Send Results to GH Summary
+        uses: ./.github/actions/gen-report-dir
         if: ${{ !cancelled() }}
-        run: |
-          REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
-          echo "Report URL: $REPORT_URL"
-          echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
+
+      - name: Transform to Playwright Tags $PW_TAGS
+        run: bash scripts/pr-tags-transform.sh "e2e-electron" "${{ inputs.grep }}"
+        shell: bash
 
       - name: Run Tests (Electron)
         if: ${{ !cancelled() }}
@@ -92,15 +96,27 @@ jobs:
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: "electron,release,${{ inputs.e2e_grep }}"
+          CURRENTS_TAG: "release,electron/linux"
         id: electron-e2e-tests
         run: |
           export DISPLAY=:10
-          BUILD=/usr/share/positron npx playwright test --project e2e-electron --workers 3 --grep=${{ env.E2E_GREP }}
+          BUILD=/usr/share/positron npx playwright test --project e2e-electron --workers 2 --grep "${{ env.PW_TAGS }}"
 
       - name: Upload Playwright Report to S3
         if: ${{ !cancelled() }}
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
 
+  slack-notify:
+    needs: [e2e-electron]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Notify Slack
+        uses: midleman/slack-workflow-status@master
+        with:
+          repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL }}
+          notify_on: ${{ inputs.notify_on }}

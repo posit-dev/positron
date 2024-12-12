@@ -1,0 +1,47 @@
+name: "Test: PR"
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+      - 'prerelease/**'
+
+jobs:
+  pr-tags:
+    runs-on: ubuntu-latest
+    outputs:
+      tags: ${{ steps.pr-tags.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse Tags from PR Body
+        id: pr-tags
+        run: bash scripts/pr-tags-parse.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+
+  e2e-electron:
+    name: e2e
+    uses: ./.github/workflows/test-e2e-linux.yml
+    needs: pr-tags
+    with:
+      grep: ${{ needs.pr-tags.outputs.tags }}
+      display_name: "electron (linux)"
+      currents_tags: "pull-request,electron/linux,${{ needs.pr-tags.outputs.tags }}"
+    secrets: inherit
+
+  unit-tests:
+    name: test
+    uses: ./.github/workflows/test-unit.yml
+    secrets: inherit
+
+  integration-tests:
+    name: test
+    uses: ./.github/workflows/test-integration.yml
+    secrets: inherit
+
+
+

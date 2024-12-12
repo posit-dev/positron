@@ -36,7 +36,7 @@ const reload = localize('positron.preview.reload', "Reload the current URL");
 const clear = localize('positron.preview.clear', "Clear the current URL");
 const openInBrowser = localize('positron.preview.openInBrowser', "Open the current URL in the default browser");
 const currentUrl = localize('positron.preview.currentUrl', "The current URL");
-const openInEditor = localize('positron.preview.html.openInEditor', "Open the content in an editor tab.");
+const openInEditor = localize('positron.preview.html.openInEditor', "Open the content in an editor tab");
 
 /**
  * UrlActionBars component.
