@@ -11,7 +11,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Console - Clipboard', { tag: [tags.CONSOLE] }, () => {
+test.describe('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN] }, () => {
 	test('Python - Copy from console & paste to console [C608100]', async function ({ app, python }) {
 		await testBody(app);
 	});
