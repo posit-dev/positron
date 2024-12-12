@@ -142,7 +142,9 @@ export class NotebooKernelActionViewItem extends ActionViewItem {
 		private readonly _editor: { onDidChangeModel: Event<void>; textModel: NotebookTextModel | undefined; scopedContextKeyService?: IContextKeyService } | INotebookEditor,
 		options: IActionViewItemOptions,
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
+		// --- Begin Positron ---
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		// --- End Positron ---
 		@INotebookKernelHistoryService private readonly _notebookKernelHistoryService: INotebookKernelHistoryService,
 	) {
 		super(
@@ -172,7 +174,6 @@ export class NotebooKernelActionViewItem extends ActionViewItem {
 		if (this._kernelLabel) {
 			this._kernelLabel.classList.add('kernel-label');
 			this._kernelLabel.innerText = this._action.label;
-
 			// --- Begin Positron ---
 			const notebook = this._editor.textModel;
 			if (!notebook) { return; }
@@ -200,12 +201,6 @@ export class NotebooKernelActionViewItem extends ActionViewItem {
 			return;
 		}
 
-		// --- Begin Positron ---
-		const runtimeSession = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebook.uri);
-		if (runtimeSession) {
-			console.log("This is a notebook session");
-		}
-		// --- End Positron ---
 
 		KernelPickerMRUStrategy.updateKernelStatusAction(notebook, this._action, this._notebookKernelService, this._notebookKernelHistoryService);
 
