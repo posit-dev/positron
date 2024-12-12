@@ -5,11 +5,13 @@
 # bash parse-pr-tags.sh "/path/to/event.json"
 
 # Input: Path to the GitHub event JSON file
-GITHUB_EVENT_PATH="$1"
+# GITHUB_EVENT_PATH="$1"
+PULL_REQUEST_BODY="$1"
 
 # Extract the PR body from the event JSON
 echo "Extracting PR body..."
-PR_BODY=$(jq -r '.pull_request.body' "$GITHUB_EVENT_PATH" | tr '\n' ' ' | sed 's/"/\\"/g')
+# PR_BODY=$(jq -r '.pull_request.body' "$GITHUB_EVENT_PATH" | tr '\n' ' ' | sed 's/"/\\"/g')
+PR_BODY=$(echo "$PULL_REQUEST_BODY" | tr '\n' ' ' | sed 's/"/\\"/g')
 
 echo "Parsing tags from PR body..."
 
