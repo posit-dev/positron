@@ -1,14 +1,13 @@
 #!/bin/bash
 # Usage:
-# bash parse-pr-tags.sh "<GITHUB_EVENT_PATH>"
+# bash parse-pr-tags.sh "<PULL_REQUEST_BODY>"
 # Example:
-# bash parse-pr-tags.sh "/path/to/event.json"
+# bash parse-pr-tags.sh "This is a PR..."
 
-# Input: Path to the GitHub event JSON file
+# Input: PULL_REQUEST_BODY
 PULL_REQUEST_BODY="$1"
 
-# Extract the PR body from the event JSON
-echo "Extracting PR body..."
+# Sanitize the PR BODY by removing newlines and escaping double quotes
 PR_BODY=$(echo "$PULL_REQUEST_BODY" | tr '\n' ' ' | sed 's/"/\\"/g')
 
 echo "Parsing tags from PR body..."

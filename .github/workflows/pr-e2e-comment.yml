@@ -13,18 +13,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: 8BitJonny/gh-get-current-pr@3.0.0
-        id: PR
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          sha: ${{ github.event.pull_request.head.sha }}
-          filterOutClosed: true
+      # - uses: 8BitJonny/gh-get-current-pr@3.0.0
+      #   id: PR
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     sha: ${{ github.event.pull_request.head.sha }}
+      #     filterOutClosed: true
 
       - name: Parse Tags from PR Body
         id: pr-tags
-        run: bash scripts/pr-tags-parse.sh "${{ env.PR_BODY }}"
+        run: bash scripts/pr-tags-parse.sh
         env:
-          PR_BODY: ${{ steps.PR.outputs.pr_body }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
 
       - name: Update PR Comment with Tags
         run: bash ./scripts/pr-e2e-comment.sh "<!-- PR Tags -->" "${{ env.tags }}"
