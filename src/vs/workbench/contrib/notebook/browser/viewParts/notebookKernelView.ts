@@ -201,7 +201,6 @@ export class NotebooKernelActionViewItem extends ActionViewItem {
 			return;
 		}
 
-
 		KernelPickerMRUStrategy.updateKernelStatusAction(notebook, this._action, this._notebookKernelService, this._notebookKernelHistoryService);
 
 		this.updateClass();
