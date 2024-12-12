@@ -48,7 +48,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	private _onDidChangeActivePreviewWebview = new Emitter<string>;
 
-	private _editors: Map<string, { uri: URI; webview: PreviewWebview; title?: string }> = new Map();
+	private _editors: Map<string, { uri: URI; title?: string }> = new Map();
 
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
@@ -515,7 +515,6 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		const previewId = `editorPreview.${uri.toString()}`;
 		this._editors.set(previewId, {
 			uri: uri,
-			webview: this.createPreviewUrl(previewId, undefined, uri),
 			title: title || uri.authority || uri.path
 		});
 
@@ -528,7 +527,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	}
 
 	public editorWebview(editorId: string): PreviewWebview | undefined {
-		return this._editors.get(editorId)?.webview;
+		const uri = this._editors.get(editorId)?.uri;
+		if (!uri) { return undefined; }
+		return this.createPreviewUrl(editorId, undefined, uri);
 	}
 
 	public editorTitle(previewId: string): string | undefined {
@@ -536,7 +537,6 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	}
 
 	public disposeEditor(previewId: string): void {
-		this._editors.get(previewId)?.webview.dispose();
 		// Remove the preview
 		this._editors.delete(previewId);
 	}

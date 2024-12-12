@@ -10,6 +10,7 @@ import { RuntimeItem } from '../classes/runtimeItem.js';
 import { ILanguageRuntimeSession } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { ActivityItemPrompt } from '../classes/activityItemPrompt.js';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { IDisposable } from '../../../../../base/common/lifecycle.js';
 
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
@@ -175,6 +176,12 @@ export interface IPositronConsoleInstance {
 	 * Last saved scroll top.
 	 */
 	lastScrollTop: number;
+
+	/**
+	 * Adds disposables that should be cleaned up when this instance is disposed.
+	 * @param disposables The disposables to add.
+	 */
+	addDisposables(disposables: IDisposable): void;
 
 	/**
 	 * The onFocusInput event.

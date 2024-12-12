@@ -8,7 +8,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IEditor } from '../../../../editor/common/editorCommon.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
 import { IViewsService } from '../../views/common/viewsService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -37,7 +37,7 @@ import { ActivityItemInput, ActivityItemInputState } from './classes/activityIte
 import { ActivityItemErrorStream, ActivityItemOutputStream } from './classes/activityItemStream.js';
 import { ILanguageRuntimeCodeExecutedEvent, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
 import { IRuntimeStartupService } from '../../runtimeStartup/common/runtimeStartupService.js';
 
@@ -129,7 +129,7 @@ const formatTraceback = (traceback: string[]) => {
 /**
  * PositronConsoleService class.
  */
-class PositronConsoleService extends Disposable implements IPositronConsoleService {
+export class PositronConsoleService extends Disposable implements IPositronConsoleService {
 	//#region Private Properties
 
 	/**
@@ -434,11 +434,11 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		attachMode: SessionAttachMode
 	): IPositronConsoleInstance {
 		// Create the new Positron console instance.
-		const positronConsoleInstance = this._instantiationService.createInstance(
+		const positronConsoleInstance = this._register(this._instantiationService.createInstance(
 			PositronConsoleInstance,
 			session,
 			attachMode
-		);
+		));
 
 		// Add the Positron console instance.
 		this._positronConsoleInstancesByLanguageId.set(
@@ -522,7 +522,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Gets or sets the disposable store. This contains things that are disposed when a runtime is
 	 * detached.
 	 */
-	private _runtimeDisposableStore = new DisposableStore();
+	private _runtimeDisposableStore = this._register(new DisposableStore());
 
 	/**
 	 * Gets or sets the runtime state.
@@ -764,6 +764,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Dispose of the runtime event handlers.
 		this._runtimeDisposableStore.dispose();
+	}
+
+	/**
+	 * Adds disposables that should be cleaned up when this instance is disposed.
+	 * @param disposables The disposables to add.
+	 */
+	addDisposables(disposables: IDisposable): void {
+		this._register(disposables);
 	}
 
 	//#endregion Constructor & Dispose

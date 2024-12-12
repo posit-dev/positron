@@ -81,7 +81,7 @@ const extensions = [
 	{
 		label: 'positron-notebook-controllers',
 		workspaceFolder: 'extensions/positron-notebook-controllers/test-workspace',
-		mocha: { timeout: 60_000 }
+		mocha: { timeout: 5_000 }
 	},
 	{
 		label: 'positron-supervisor',

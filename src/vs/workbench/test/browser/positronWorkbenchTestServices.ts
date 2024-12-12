@@ -26,8 +26,16 @@ import { IPositronWebviewPreloadService } from '../../services/positronWebviewPr
 import { createRuntimeServices } from '../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { IWorkbenchThemeService } from '../../services/themes/common/workbenchThemeService.js';
 import { IViewsService } from '../../services/views/common/viewsService.js';
-import { workbenchInstantiationService as baseWorkbenchInstantiationService, TestViewsService } from './workbenchTestServices.js';
+import { workbenchInstantiationService as baseWorkbenchInstantiationService, TestEditorService, TestViewsService } from './workbenchTestServices.js';
 import { TestNotebookService } from '../common/positronWorkbenchTestServices.js';
+import { IPositronVariablesService } from '../../services/positronVariables/common/interfaces/positronVariablesService.js';
+import { PositronVariablesService } from '../../services/positronVariables/common/positronVariablesService.js';
+import { IEditorService } from '../../services/editor/common/editorService.js';
+import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { IRuntimeSessionService } from '../../services/runtimeSession/common/runtimeSessionService.js';
+import { TestConfigurationService } from '../../../platform/configuration/test/common/testConfigurationService.js';
+import { IPositronConsoleService } from '../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { PositronConsoleService } from '../../services/positronConsole/browser/positronConsoleService.js';
 
 export function positronWorkbenchInstantiationService(
 	disposables: Pick<DisposableStore, 'add'> = new DisposableStore(),
@@ -48,6 +56,10 @@ export function positronWorkbenchInstantiationService(
 	instantiationService.stub(IPositronIPyWidgetsService, disposables.add(instantiationService.createInstance(PositronIPyWidgetsService)));
 	instantiationService.stub(IViewsService, new TestViewsService());
 	instantiationService.stub(IPositronPlotsService, disposables.add(instantiationService.createInstance(PositronPlotsService)));
+	instantiationService.stub(IEditorService, disposables.add(new TestEditorService()));
+	instantiationService.stub(IConfigurationService, new TestConfigurationService());
+	instantiationService.stub(IPositronConsoleService, disposables.add(instantiationService.createInstance(PositronConsoleService)));
+	instantiationService.stub(IPositronVariablesService, disposables.add(instantiationService.createInstance(PositronVariablesService)));
 
 	return instantiationService;
 }
@@ -59,5 +71,9 @@ export class PositronTestServiceAccessor {
 		@IPositronIPyWidgetsService public positronIPyWidgetsService: PositronIPyWidgetsService,
 		@IPositronPlotsService public positronPlotsService: IPositronPlotsService,
 		@IPositronWebviewPreloadService public positronWebviewPreloadService: PositronWebviewPreloadService,
+		@IPositronVariablesService public positronVariablesService: IPositronVariablesService,
+		@IEditorService public editorService: IEditorService,
+		@IConfigurationService public configurationService: IConfigurationService,
+		@IRuntimeSessionService public runtimeSessionService: IRuntimeSessionService,
 	) { }
 }
