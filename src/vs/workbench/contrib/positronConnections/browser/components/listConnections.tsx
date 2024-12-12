@@ -20,6 +20,7 @@ import { IPositronConnectionInstance } from 'vs/workbench/services/positronConne
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { showResumeConnectionModalDialog } from 'vs/workbench/contrib/positronConnections/browser/components/resumeConnectionModalDialog';
 import { localize } from 'vs/nls';
+import { showNewConnectionModalDialog } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog';
 
 export interface ListConnnectionsProps extends ViewsProps { }
 
@@ -121,6 +122,9 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 						} :
 						undefined
 				}
+				onNewConnection={() => {
+					showNewConnectionModalDialog(context);
+				}}
 			>
 			</ActionBar>
 			<div className='connections-list-container'>
@@ -171,6 +175,7 @@ const ACTION_BAR_HEIGHT = 32;
 
 interface ActionBarProps extends PositronConnectionsServices {
 	onDeleteConnection?: () => void;
+	onNewConnection: () => void;
 }
 
 const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
@@ -190,7 +195,9 @@ const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 							align='left'
 							iconId='positron-new-connection'
 							text={localize('positron.listConnections.newConnection', 'New Connection')}
-							disabled={true}
+							onPressed={() => {
+								props.onNewConnection();
+							}}
 						/>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>

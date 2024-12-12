@@ -14,9 +14,14 @@ jobs:
       tags: ${{ steps.pr-tags.outputs.tags }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Parse Tags from PR Body
         id: pr-tags
-        run: bash scripts/pr-tags-parse.sh "${{ github.event_path }}"
+        run: bash scripts/pr-tags-parse.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
 
   e2e-electron:
     name: e2e
