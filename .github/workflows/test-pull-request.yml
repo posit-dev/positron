@@ -27,7 +27,6 @@ jobs:
         run: bash scripts/pr-tags-parse.sh "${{ env.PR_BODY }}"
         env:
           PR_BODY: ${{ steps.PR.outputs.pr_body }}
-          # github-token: ${{ secrets.GITHUB_TOKEN }}
 
   e2e-electron:
     name: e2e
