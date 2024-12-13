@@ -21,7 +21,7 @@ test.describe('Editor Action Bar', {
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 	});
 
-	test('Quarto Document', {
+	test('Quarto Document [C1080700]', {
 		tag: [tags.QUARTO]
 	}, async function ({ app, page }) {
 		await openFile(app, 'workspaces/quarto_basic/quarto_basic.qmd');
@@ -36,7 +36,7 @@ test.describe('Editor Action Bar', {
 		await verifyOpenInNewWindow(page, 'Diamond sizes');
 	});
 
-	test.skip('HTML Document', { tag: [tags.HTML] }, async function ({ app, page }) {
+	test.skip('HTML Document [C1080701]', { tag: [tags.HTML] }, async function ({ app, page }) {
 		await openFile(app, 'workspaces/dash-py-example/data/OilandGasMetadata.html');
 
 		await test.step('verify \'open in viewer\' button renders html', async () => {
@@ -54,7 +54,7 @@ test.describe('Editor Action Bar', {
 
 	});
 
-	test('Jupyter Notebook', {
+	test('Jupyter Notebook [C1080702]', {
 		tag: [tags.NOTEBOOK],
 		annotation: [{ type: 'info', description: 'electron test unable to interact with dropdown native menu' }],
 	}, async function ({ app, page }) {
@@ -84,7 +84,7 @@ test.describe('Editor Action Bar', {
 		await verifySplitEditor(page, 'spotify.ipynb');
 	});
 
-	test('R Markdown Document', {
+	test('R Markdown Document [C1080703]', {
 		tag: [tags.R_MARKDOWN]
 	}, async function ({ app, page }) {
 		await openFile(app, 'workspaces/basic-rmd-file/basicRmd.rmd');
