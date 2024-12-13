@@ -59,6 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - run: npm run precommit # fail fast
 
       - name: Set screen resolution
         shell: pwsh
