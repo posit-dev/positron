@@ -3,31 +3,31 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { AsyncIterableObject, DeferredPromise, Sequencer } from 'vs/base/common/async';
-import { decodeBase64, VSBuffer } from 'vs/base/common/buffer';
-import { CancellationToken } from 'vs/base/common/cancellation';
-import { Emitter, Event } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { ResourceMap } from 'vs/base/common/map';
-import { URI } from 'vs/base/common/uri';
-import { generateUuid } from 'vs/base/common/uuid';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { ILogService } from 'vs/platform/log/common/log';
-import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
-import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
-import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
-import { IOutputItemDto } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { CellExecutionUpdateType } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
-import { INotebookCellExecution, INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
-import { INotebookKernel, INotebookKernelChangeEvent, INotebookKernelService, VariablesResult } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
-import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
-import { IRuntimeNotebookKernelService as IRuntimeNotebookKernelService } from 'vs/workbench/contrib/runtimeNotebookKernel/browser/interfaces/runtimeNotebookKernelService';
-import { isRuntimeNotebookKernelEnabled } from 'vs/workbench/contrib/runtimeNotebookKernel/common/runtimeNotebookKernelServiceConfig';
-import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { Emitter } from '../../../../base/common/event.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { ResourceMap } from '../../../../base/common/map.js';
+import { URI } from '../../../../base/common/uri.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
+import { INotebookCellExecution, INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
+import { INotebookKernel, INotebookKernelChangeEvent, INotebookKernelService, VariablesResult } from '../../notebook/common/notebookKernelService.js';
+import { INotebookService } from '../../notebook/common/notebookService.js';
+import { isRuntimeNotebookKernelEnabled } from '../common/runtimeNotebookKernelServiceConfig.js';
+import { IRuntimeNotebookKernelService } from './interfaces/runtimeNotebookKernelService.js';
+import { AsyncIterableObject, DeferredPromise, Sequencer } from '../../../../base/common/async.js';
+import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
+import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { CellExecutionUpdateType } from '../../notebook/common/notebookExecutionService.js';
+import { IOutputItemDto } from '../../notebook/common/notebookCommon.js';
+import { decodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 
 // TODO: Add from PR #5680.
 /** The type of a Jupyter notebook cell output. */
@@ -111,6 +111,7 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 class RuntimeNotebookKernel implements INotebookKernel {
 	public readonly viewType = 'jupyter-notebook';
 
+	// TODO: Is this ok?
 	public readonly extension = new ExtensionIdentifier('positron-notebook-controllers');
 
 	public readonly preloadUris: URI[] = [];
@@ -126,7 +127,7 @@ class RuntimeNotebookKernel implements INotebookKernel {
 	public readonly localResourceRoot: URI = URI.parse('');
 
 	private readonly _onDidChange = new Emitter<INotebookKernelChangeEvent>();
-	public readonly onDidChange: Event<INotebookKernelChangeEvent> = this._onDidChange.event;
+	public readonly onDidChange = this._onDidChange.event;
 
 	private readonly _notebookRuntimeKernelSessionsByNotebookUri = new ResourceMap<RuntimeNotebookKernelSession>();
 
@@ -195,7 +196,7 @@ class RuntimeNotebookKernel implements INotebookKernel {
 	}
 
 	provideVariables(notebookUri: URI, parentId: number | undefined, kind: 'named' | 'indexed', start: number, token: CancellationToken): AsyncIterableObject<VariablesResult> {
-		throw new Error('Method not implemented.');
+		throw new Error('provideVariables not implemented.');
 	}
 }
 
