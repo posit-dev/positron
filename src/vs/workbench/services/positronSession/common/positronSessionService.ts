@@ -5,6 +5,7 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
@@ -62,7 +63,7 @@ export class PositronSessionService extends Disposable implements IPositronSessi
 				if (Array.isArray(sessions) && sessions.length > 0) {
 					// Create a new session metadata object
 					this._sessionMetadata = {
-						ordinal: sessions[sessions.length - 1].ordinal,
+						ordinal: sessions[sessions.length - 1].ordinal + 1,
 						created: Date.now()
 					};
 					// Add it to durable storage
@@ -97,3 +98,5 @@ export class PositronSessionService extends Disposable implements IPositronSessi
 		};
 	}
 }
+
+registerSingleton(IPositronSessionService, PositronSessionService, InstantiationType.Delayed);

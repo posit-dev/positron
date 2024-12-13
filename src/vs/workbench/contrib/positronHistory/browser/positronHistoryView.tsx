@@ -20,6 +20,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { ViewPane, IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
 import { TestContent } from './components/testContent.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { IPositronSessionMetadata, IPositronSessionService } from '../../../services/positronSession/common/positronSession.js';
 
 /**
  * PositronHistoryViewPane class.
@@ -29,6 +30,8 @@ export class PositronHistoryViewPane extends ViewPane {
 
 	// The PositronReactRenderer.
 	private positronReactRenderer?: PositronReactRenderer;
+
+	private _sessionMetadata: IPositronSessionMetadata | undefined;
 
 	//#endregion Private Properties
 
@@ -46,6 +49,7 @@ export class PositronHistoryViewPane extends ViewPane {
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
+		@IPositronSessionService private readonly _positronSessionService: IPositronSessionService
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService, hoverService);
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
@@ -68,10 +72,23 @@ export class PositronHistoryViewPane extends ViewPane {
 		// Call the base class's method.
 		super.renderBody(container);
 
+		if (this._sessionMetadata) {
+			this.renderMeta(this._sessionMetadata);
+		} else {
+			this._positronSessionService.getSessionMetadata().then(metadata => {
+				this._sessionMetadata = metadata;
+				this.renderMeta(metadata);
+			});
+		}
+	}
+
+	private renderMeta(metadata: IPositronSessionMetadata): void {
+		const testContent = `History React - Session: ${metadata.ordinal} (${metadata.created})`;
+
 		// Render the component.
 		this.positronReactRenderer = new PositronReactRenderer(this.element);
 		this.positronReactRenderer.render(
-			<TestContent message='History React' />
+			<TestContent message={testContent} />
 		);
 	}
 
