@@ -79,6 +79,13 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 				);
 			}
 		}));
+
+		// When a notebook is closed, shut down the corresponding session.
+		this._register(this._notebookService.onWillRemoveNotebookDocument(async _notebook => {
+			// TODO: Add a shutdownNotebookSession to the runtime session service and call it here.
+			//       We need a dedicated method so that the runtime session service can manage
+			//       concurrent attempts to start/shutdown/restart while the shutdown is in progress.
+		}));
 	}
 
 	private _registerKernel(runtime: ILanguageRuntimeMetadata): void {
