@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { Dimension, getWindow } from '../../../../../../base/browser/dom.js';
+import { getWindow } from '../../../../../../base/browser/dom.js';
 import { INotebookOutputWebview } from '../../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { isHTMLOutputWebviewMessage } from '../../../../positronWebviewPreloads/browser/notebookOutputUtils.js';
 import { useNotebookInstance } from '../../NotebookInstanceProvider.js';
@@ -23,6 +23,18 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 	React.useEffect(() => {
 		const controller = new AbortController();
 		let webviewElement: IOverlayWebview | undefined;
+
+		/**
+		 * Updates the layout of the webview element if both the webview and container are available
+		 */
+		function updateWebviewLayout() {
+			if (!webviewElement || !containerRef.current) { return; }
+			webviewElement.layoutWebviewOverElement(
+				containerRef.current,
+				undefined,
+				clipContainerRef.current || undefined
+			);
+		}
 
 		async function mountWebview() {
 			const emptyDisposable = toDisposable(() => { });
@@ -44,22 +56,10 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 				);
 
 				// Initial layout
-				if (containerRef.current) {
-					webviewElement.layoutWebviewOverElement(
-						containerRef.current,
-						new Dimension(400, 400)
-					);
-				}
+				updateWebviewLayout();
 
-				// Update layout on scroll
-				const scrollDisposable = notebookInstance.onDidScrollCellsContainer(() => {
-					if (webviewElement && containerRef.current) {
-						webviewElement.layoutWebviewOverElement(
-							containerRef.current,
-							// new Dimension(400, 400)
-						);
-					}
-				});
+				// Update layout on scroll and visibility changes
+				const scrollDisposable = notebookInstance.onDidScrollCellsContainer(updateWebviewLayout);
 
 				webviewElement.onMessage((x) => {
 					const { message } = x;
