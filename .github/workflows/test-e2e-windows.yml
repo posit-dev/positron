@@ -22,6 +22,11 @@ on:
         description: "The tags to use for Currents recording."
         default: ""
         type: string
+      report_testrail:
+          required: false
+          description: "Whether or not to report results to Test Rail."
+          default: false
+          type: boolean
 
   workflow_dispatch:
     inputs:
@@ -164,10 +169,12 @@ jobs:
           report-dir: ${{ env.REPORT_DIR }}
 
       - name: Install trcli
+        if: ${{ inputs.report_testrail }}
         shell: bash
         run: apt-get update && apt-get install -y python3-pip && pip3 install trcli
 
       - name: Upload Test Results to TestRail
+        if: ${{ inputs.report_testrail }}
         shell: bash
         run: |
           TESTRAIL_TITLE="$(date +'%Y-%m-%d') ${{ inputs.testrail-title }} - $GITHUB_REF_NAME"
