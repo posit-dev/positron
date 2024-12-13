@@ -4,11 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { getWindow } from '../../../../../../base/browser/dom.js';
+import { Dimension, getWindow } from '../../../../../../base/browser/dom.js';
 import { INotebookOutputWebview } from '../../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
-import { IWebviewElement } from '../../../../webview/browser/webview.js';
-import { assertIsStandardPositronWebview } from '../../../../positronOutputWebview/browser/notebookOutputWebviewServiceImpl.js';
 import { isHTMLOutputWebviewMessage } from '../../../../positronWebviewPreloads/browser/notebookOutputUtils.js';
+import { useNotebookInstance } from '../../NotebookInstanceProvider.js';
+import { IOverlayWebview } from '../../../../webview/browser/webview.js';
+import { toDisposable } from '../../../../../../base/common/lifecycle.js';
+import { assertIsOverlayPositronWebview } from '../../../../positronOutputWebview/browser/notebookOutputWebviewServiceImpl.js';
 
 
 export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
