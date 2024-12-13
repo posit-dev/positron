@@ -67,7 +67,6 @@ export class PositronVariables {
 		const modifier = isMac ? 'Meta' : 'Control';
 
 		await this.code.driver.getKeyboard().press(`${modifier}+Alt+B`);
-		await this.code.waitForElement(VARIABLES_SECTION);
 	}
 
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
