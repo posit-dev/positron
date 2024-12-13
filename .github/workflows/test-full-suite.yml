@@ -56,7 +56,7 @@ jobs:
 
   e2e-electron:
     name: e2e
-    if: github.event_name == 'schedule' || ${{ inputs.run_e2e_linux == true }}
+    if: github.event_name == 'schedule' || ${{ inputs.run_e2e_linux == 'true' }}
     uses: ./.github/workflows/test-e2e-linux.yml
     with:
       grep: ""
@@ -64,11 +64,10 @@ jobs:
       display_name: "electron (linux)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/linux' || 'electron/linux' }}
       report_testrail: true
-    secrets: inherit
 
   e2e-windows:
     name: e2e
-    if: github.event_name == 'schedule' || ${{ inputs.run_e2e_windows == true }}
+    if: github.event_name == 'schedule' || ${{ inputs.run_e2e_windows == 'true' }}
     uses: ./.github/workflows/test-e2e-windows.yml
     with:
       grep: ""
@@ -79,7 +78,7 @@ jobs:
 
   e2e-browser:
     name: e2e
-    if: github.event_name == 'schedule' || ${{ inputs.run_e2e_browser == true }}
+    if: github.event_name == 'schedule' || ${{ inputs.run_e2e_browser == 'true' }}
     uses: ./.github/workflows/test-e2e-linux.yml
     with:
       grep: ""
@@ -91,13 +90,13 @@ jobs:
 
   unit-tests:
     name: test
-    if: github.event_name == 'schedule' || ${{ inputs.run_unit_tests == true }}
+    if: github.event_name == 'schedule' || ${{ inputs.run_unit_tests == 'true' }}
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
 
   integration-tests:
     name: test
-    if: github.event_name == 'schedule' || ${{ inputs.run_integration_tests == true }}
+    if: github.event_name == 'schedule' || ${{ inputs.run_integration_tests == 'true' }}
     uses: ./.github/workflows/test-integration.yml
     secrets: inherit
 
