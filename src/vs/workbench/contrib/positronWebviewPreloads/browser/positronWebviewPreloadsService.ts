@@ -269,7 +269,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			preReqMessages: storedMessages,
 			displayMessage: displayMessage,
 			viewType: 'jupyter-notebook',
-			webviewType: WebviewType.Standard
+			webviewType: WebviewType.Overlay
 		});
 
 		// Assert that we have a webview

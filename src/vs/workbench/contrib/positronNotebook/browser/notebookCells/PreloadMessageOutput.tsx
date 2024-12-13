@@ -42,7 +42,7 @@ export function PreloadMessageOutput({ preloadMessageResult }: PreloadMessageOut
 }
 
 function DisplayedPreloadMessage({ webview }: DisplayedPreloadMessageProps) {
-	const { containerRef, isLoading, error } = useWebviewMount(webview);
+	const { containerRef, clipContainerRef, isLoading, error } = useWebviewMount(webview);
 
 	if (error) {
 		return <div>{error.message}</div>;
@@ -51,7 +51,13 @@ function DisplayedPreloadMessage({ webview }: DisplayedPreloadMessageProps) {
 	return (
 		<>
 			{isLoading && <div>{MESSAGES.LOADING}</div>}
-			<div ref={containerRef} />
+			<div
+				ref={clipContainerRef}
+				className='positron-webview-output-clip-container'
+				style={{ position: 'relative' }}
+			>
+				<div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} ref={containerRef} />
+			</div>
 		</>
 	);
 }

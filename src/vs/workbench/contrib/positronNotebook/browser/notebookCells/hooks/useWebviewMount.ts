@@ -15,26 +15,49 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 	const [isLoading, setIsLoading] = React.useState(true);
 	const [error, setError] = React.useState<Error | null>(null);
 	const containerRef = React.useRef<HTMLDivElement>(null);
+	const clipContainerRef = React.useRef<HTMLDivElement>(null);
+	const notebookInstance = useNotebookInstance();
 
 	React.useEffect(() => {
 		const controller = new AbortController();
-		let webviewElement: IWebviewElement | undefined;
+		let webviewElement: IOverlayWebview | undefined;
 
 		async function mountWebview() {
+			const emptyDisposable = toDisposable(() => { });
 			try {
 				const resolvedWebview = await webview;
 
 				if (controller.signal.aborted || !containerRef.current) {
-					return;
+					return emptyDisposable;
 				}
 
 				setIsLoading(false);
-				assertIsStandardPositronWebview(resolvedWebview);
+				assertIsOverlayPositronWebview(resolvedWebview);
 				webviewElement = resolvedWebview.webview;
-				webviewElement.mountTo(
-					containerRef.current,
-					getWindow(containerRef.current)
+
+				webviewElement.claim(
+					containerRef,
+					getWindow(containerRef.current),
+					undefined
 				);
+
+				// Initial layout
+				if (containerRef.current) {
+					webviewElement.layoutWebviewOverElement(
+						containerRef.current,
+						new Dimension(400, 400)
+					);
+				}
+
+				// Update layout on scroll
+				const scrollDisposable = notebookInstance.onDidScrollCellsContainer(() => {
+					if (webviewElement && containerRef.current) {
+						webviewElement.layoutWebviewOverElement(
+							containerRef.current,
+							// new Dimension(400, 400)
+						);
+					}
+				});
 
 				webviewElement.onMessage((x) => {
 					const { message } = x;
@@ -48,12 +71,18 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 						// empty outputs that are 150px tall
 						boundedHeight = 0;
 					}
-					containerRef.current.style.height = `${boundedHeight}px`;
+					if (clipContainerRef.current) {
+						console.log("ClipContainerRef", clipContainerRef.current);
+						clipContainerRef.current.style.height = `${boundedHeight}px`;
+					}
 				});
+
+				return scrollDisposable;
 
 			} catch (err) {
 				setError(err instanceof Error ? err : new Error('Failed to mount webview'));
 				setIsLoading(false);
+				return emptyDisposable;
 			}
 		}
 
@@ -63,7 +92,7 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 			controller.abort();
 			webviewElement?.dispose();
 		};
-	}, [webview]);
+	}, [webview, notebookInstance]);
 
-	return { containerRef, isLoading, error };
+	return { containerRef, clipContainerRef, isLoading, error };
 }

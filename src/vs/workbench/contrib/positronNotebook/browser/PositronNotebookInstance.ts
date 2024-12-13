@@ -159,6 +159,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private readonly _onDidChangeContent = this._register(new Emitter<void>());
 	readonly onDidChangeContent = this._onDidChangeContent.event;
 
+	/**
+	 * Event emitter for when the cells container is scrolled
+	 */
+	private readonly _onDidScrollCellsContainer = this._register(new Emitter<void>());
+	readonly onDidScrollCellsContainer = this._onDidScrollCellsContainer.event;
+
 	// =============================================================================================
 	// #region Public Properties
 
@@ -489,6 +495,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._setupKeyboardNavigation(container);
 		this._logService.info(this.id, 'attachView');
+	}
+
+	/**
+	 * Manually fires the scroll event for the cells container.
+	 * This can be called from React components after the container is mounted.
+	 */
+	fireOnDidScrollCellsContainer(): void {
+		this._onDidScrollCellsContainer.fire();
 	}
 
 	/**
