@@ -299,6 +299,34 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
+	 * Gets all the runtimes affiliated with this workspace.
+	 *
+	 * @returns An array of affiliated runtimes.
+	 */
+	getAffliatedRuntimes(): ILanguageRuntimeMetadata[] {
+		const keys = this._storageService.keys(this.affiliationStorageScope(),
+			StorageTarget.MACHINE);
+		const runtimes: ILanguageRuntimeMetadata[] = [];
+		for (const key of keys) {
+			if (key.startsWith(this.storageKey)) {
+				const val = this._storageService.get(key, this.affiliationStorageScope());
+				if (!val) {
+					continue;
+				}
+				try {
+					const metadata = JSON.parse(val) as ILanguageRuntimeMetadata;
+					if (metadata) {
+						runtimes.push(metadata);
+					}
+				} catch (e) {
+					this._logService.warn(`Error parsing JSON for ${this.storageKey}: ${e}`);
+				}
+			}
+		}
+		return runtimes;
+	}
+
+	/**
 	 * The main entry point for the runtime startup service.
 	 */
 	private async startupSequence() {
