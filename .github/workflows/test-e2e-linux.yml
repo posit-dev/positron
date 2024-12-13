@@ -131,12 +131,12 @@ jobs:
           report-dir: ${{ env.REPORT_DIR }}
 
       - name: Install trcli
-        # if: ${{ inputs.report_testrail == 'true' }}
+        if: ${{ inputs.report_testrail }}
         shell: bash
         run: sudo apt-get update && sudo apt-get install -y python3-pip && pip3 install trcli
 
       - name: Upload Test Results to TestRail
-        # if: ${{ inputs.report_testrail == 'true' }}
+        if: ${{ inputs.report_testrail }}
         shell: bash
         run: |
           TESTRAIL_TITLE="$(date +'%Y-%m-%d') ${{ env.TESTRAIL_TITLE }} - $GITHUB_REF_NAME"
