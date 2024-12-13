@@ -47,7 +47,7 @@ jobs:
     steps:
       - name: Log Input Details to GH Summary
         run: |
-          echo "### Test Suite Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "#### Workflow Inputs:" >> $GITHUB_STEP_SUMMARY
           echo "- **E2E Tests / Electron (Linux)**: ${{ inputs.run_e2e_linux }}" >> $GITHUB_STEP_SUMMARY
           echo "- **E2E Tests / Electron (Windows)**: ${{ inputs.run_e2e_windows }}" >> $GITHUB_STEP_SUMMARY
           echo "- **E2E Tests / Chromium (Linux)**: ${{ inputs.run_e2e_browser }}" >> $GITHUB_STEP_SUMMARY
