@@ -179,7 +179,7 @@ jobs:
         run: |
           TESTRAIL_TITLE="$(date +'%Y-%m-%d') ${{ env.TESTRAIL_TITLE }} - $GITHUB_REF_NAME"
           echo "TESTRAIL_TITLE=$TESTRAIL_TITLE" >> $GITHUB_ENV
-          trcli --host "https://posit.testrail.io/" --project "${{ env.TESTRAIL_PROJECT }}" --username testrailautomation@posit.co --key "${{ env.TESTRAIL_API_KEY }}" parse_junit --file "./junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+          trcli --host "https://posit.testrail.io/" --project "${{ env.TESTRAIL_PROJECT }}" --username testrailautomation@posit.co --key "${{ env.TESTRAIL_API_KEY }}" parse_junit --file "./test-results/junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
         env:
           TESTRAIL_TITLE: "e2e-windows"
           TESTRAIL_PROJECT: "Positron"
