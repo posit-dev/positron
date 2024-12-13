@@ -9,7 +9,7 @@ import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput, Langua
 import { IPositronWebviewPreloadService, NotebookPreloadOutputResults } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { IPositronNotebookOutputWebviewService, WebviewType, INotebookOutputWebview } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { IPositronNotebookOutputWebviewService, INotebookOutputWebview } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { NotebookMultiMessagePlotClient } from '../../positronPlots/browser/notebookMultiMessagePlotClient.js';
 import { UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
@@ -240,8 +240,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			html: buildWebviewHTML({
 				content: htmlOutput.data.toString(),
 				script: webviewMessageCodeString,
-			}),
-			webviewType: WebviewType.Standard
+			})
 		});
 
 		return notebookWebview;
@@ -268,8 +267,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			runtimeId: instance.id,
 			preReqMessages: storedMessages,
 			displayMessage: displayMessage,
-			viewType: 'jupyter-notebook',
-			webviewType: WebviewType.Overlay
+			viewType: 'jupyter-notebook'
 		});
 
 		// Assert that we have a webview

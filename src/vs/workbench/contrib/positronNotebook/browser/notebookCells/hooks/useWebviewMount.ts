@@ -10,7 +10,6 @@ import { isHTMLOutputWebviewMessage } from '../../../../positronWebviewPreloads/
 import { useNotebookInstance } from '../../NotebookInstanceProvider.js';
 import { IOverlayWebview } from '../../../../webview/browser/webview.js';
 import { toDisposable } from '../../../../../../base/common/lifecycle.js';
-import { assertIsOverlayPositronWebview } from '../../../../positronOutputWebview/browser/notebookOutputWebviewServiceImpl.js';
 
 
 export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
@@ -45,7 +44,6 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 				}
 
 				setIsLoading(false);
-				assertIsOverlayPositronWebview(resolvedWebview);
 				webviewElement = resolvedWebview.webview;
 
 				webviewElement.claim(
