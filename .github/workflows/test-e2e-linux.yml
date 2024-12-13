@@ -78,6 +78,7 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - run: sudo apt-get update && apt-get install -y python3-pip && pip3 install trcli
       - run: |
           sudo apt-get update
           sudo apt-get install -y python3-pip
