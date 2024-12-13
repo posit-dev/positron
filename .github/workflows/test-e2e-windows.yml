@@ -162,3 +162,18 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
+
+      - name: Install trcli
+        shell: bash
+        run: apt-get update && apt-get install -y python3-pip && pip3 install trcli
+
+      - name: Upload Test Results to TestRail
+        shell: bash
+        run: |
+          TESTRAIL_TITLE="$(date +'%Y-%m-%d') ${{ inputs.testrail-title }} - $GITHUB_REF_NAME"
+          echo "TESTRAIL_TITLE=$TESTRAIL_TITLE" >> $GITHUB_ENV
+          trcli --host "https://posit.testrail.io/" --project "${{ inputs.testrail-project }}" --username testrailautomation@posit.co --key "${{ inputs.testrail-api-key }}" parse_junit --file "./junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+        env:
+          TESTRAIL_TITLE: "e2e-windows"
+          TESTRAIL_PROJECT: "Positron"
+          TESTRAIL_API_KEY: ${{ secrets.TESTRAIL_API_KEY }}
