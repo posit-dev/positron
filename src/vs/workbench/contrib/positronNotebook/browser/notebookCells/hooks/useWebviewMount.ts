@@ -17,7 +17,6 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 	const [isLoading, setIsLoading] = React.useState(true);
 	const [error, setError] = React.useState<Error | null>(null);
 	const containerRef = React.useRef<HTMLDivElement>(null);
-	const clipContainerRef = React.useRef<HTMLDivElement>(null);
 	const notebookInstance = useNotebookInstance();
 
 	React.useEffect(() => {
@@ -32,7 +31,7 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 			webviewElement.layoutWebviewOverElement(
 				containerRef.current,
 				undefined,
-				clipContainerRef.current || undefined
+				notebookInstance.cellsContainer
 			);
 		}
 
@@ -73,10 +72,7 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 						// empty outputs that are 150px tall
 						boundedHeight = 0;
 					}
-					if (clipContainerRef.current) {
-						console.log("ClipContainerRef", clipContainerRef.current);
-						clipContainerRef.current.style.height = `${boundedHeight}px`;
-					}
+					containerRef.current.style.height = `${boundedHeight}px`;
 				});
 
 				return scrollDisposable;
@@ -96,5 +92,5 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 		};
 	}, [webview, notebookInstance]);
 
-	return { containerRef, clipContainerRef, isLoading, error };
+	return { containerRef, isLoading, error };
 }
