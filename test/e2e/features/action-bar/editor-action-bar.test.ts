@@ -10,7 +10,9 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Editor Action Bar', { tag: [tags.WEB, tags.ACTION_BAR, tags.EDITOR] }, () => {
+test.describe('Editor Action Bar', {
+	tag: [tags.WEB, tags.ACTION_BAR, tags.EDITOR]
+}, () => {
 	test.beforeAll(async function ({ userSettings }) {
 		await userSettings.set([['editor.actionBar.enabled', 'true']], false);
 	});
@@ -19,7 +21,9 @@ test.describe('Editor Action Bar', { tag: [tags.WEB, tags.ACTION_BAR, tags.EDITO
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 	});
 
-	test('Quarto Document', { tag: [tags.QUARTO] }, async function ({ app, page }) {
+	test('Quarto Document', {
+		tag: [tags.QUARTO]
+	}, async function ({ app, page }) {
 		await openFile(app, 'workspaces/quarto_basic/quarto_basic.qmd');
 
 		await test.step('verify \'preview\' button renders html', async () => {
