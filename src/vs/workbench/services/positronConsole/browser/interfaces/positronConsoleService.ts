@@ -135,7 +135,7 @@ export interface IPositronConsoleInstance {
 	/**
 	 * Gets the runtime session for the Positron console instance.
 	 */
-	readonly session: ILanguageRuntimeSession;
+	readonly session: ILanguageRuntimeSession | undefined;
 
 	/**
 	 * Gets the state.
