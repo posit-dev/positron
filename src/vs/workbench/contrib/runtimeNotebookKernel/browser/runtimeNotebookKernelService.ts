@@ -11,6 +11,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { ResourceMap } from 'vs/base/common/map';
 import { URI } from 'vs/base/common/uri';
 import { generateUuid } from 'vs/base/common/uuid';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
@@ -24,6 +25,7 @@ import { INotebookCellExecution, INotebookExecutionStateService } from 'vs/workb
 import { INotebookKernel, INotebookKernelChangeEvent, INotebookKernelService, VariablesResult } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IRuntimeNotebookKernelService as IRuntimeNotebookKernelService } from 'vs/workbench/contrib/runtimeNotebookKernel/browser/interfaces/runtimeNotebookKernelService';
+import { isRuntimeNotebookKernelEnabled } from 'vs/workbench/contrib/runtimeNotebookKernel/common/runtimeNotebookKernelServiceConfig';
 import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
@@ -41,13 +43,18 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 	private readonly _kernels = new Map<string, RuntimeNotebookKernel>();
 
 	constructor(
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@ILogService private readonly _logService: ILogService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
+		@INotebookService private readonly _notebookService: INotebookService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 	) {
 		super();
+
+		if (!isRuntimeNotebookKernelEnabled(this._configurationService)) {
+			return;
+		}
 
 		// Register a kernel when a runtime is registered.
 		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
@@ -80,7 +87,6 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 		// TODO: Error if a kernel is already registered for the ID.
 		this._kernels.set(kernel.id, kernel);
 		this._notebookKernelService.registerKernel(kernel);
-		this._logService.debug(`[RuntimeNotebookKernelService] Registered kernel for runtime: ${runtime.runtimeName}`);
 	}
 
 	/**
