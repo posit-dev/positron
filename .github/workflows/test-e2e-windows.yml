@@ -24,7 +24,7 @@ on:
         type: string
       report_testrail:
           required: false
-          description: "Whether or not to report results to Test Rail."
+          description: "Whether or not to report results to TestRail."
           default: false
           type: boolean
 
@@ -169,17 +169,17 @@ jobs:
           report-dir: ${{ env.REPORT_DIR }}
 
       - name: Install trcli
-        if: ${{ inputs.report_testrail }}
+        # if: ${{ inputs.report_testrail == 'true' }}
         shell: bash
         run: sudo apt-get update && sudo apt-get install -y python3-pip && pip3 install trcli
 
       - name: Upload Test Results to TestRail
-        if: ${{ inputs.report_testrail }}
+        # if: ${{ inputs.report_testrail == 'true' }}
         shell: bash
         run: |
-          TESTRAIL_TITLE="$(date +'%Y-%m-%d') ${{ inputs.testrail-title }} - $GITHUB_REF_NAME"
+          TESTRAIL_TITLE="$(date +'%Y-%m-%d') ${{ env.TESTRAIL_TITLE }} - $GITHUB_REF_NAME"
           echo "TESTRAIL_TITLE=$TESTRAIL_TITLE" >> $GITHUB_ENV
-          trcli --host "https://posit.testrail.io/" --project "${{ inputs.testrail-project }}" --username testrailautomation@posit.co --key "${{ inputs.testrail-api-key }}" parse_junit --file "./junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+          trcli --host "https://posit.testrail.io/" --project "${{ env.TESTRAIL_PROJECT }}" --username testrailautomation@posit.co --key "${{ env.TESTRAIL_API_KEY }}" parse_junit --file "./junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
         env:
           TESTRAIL_TITLE: "e2e-windows"
           TESTRAIL_PROJECT: "Positron"
