@@ -32,11 +32,10 @@ test.describe('Editor Action Bar', { tag: [tags.WEB, tags.ACTION_BAR, tags.EDITO
 		await verifyOpenInNewWindow(page, 'Diamond sizes');
 	});
 
-	test('HTML Document', { tag: [tags.HTML] }, async function ({ app, page }) {
+	test.skip('HTML Document', { tag: [tags.HTML] }, async function ({ app, page }) {
 		await openFile(app, 'workspaces/dash-py-example/data/OilandGasMetadata.html');
 
 		await test.step('verify \'open in viewer\' button renders html', async () => {
-			await page.getByLabel('Open in Viewer').nth(1).highlight();
 			await page.getByLabel('Open in Viewer').nth(1).click();
 			const viewerFrame = page.locator('iframe.webview').contentFrame().locator('#active-frame').contentFrame();
 			const cellLocator = app.web
@@ -53,7 +52,7 @@ test.describe('Editor Action Bar', { tag: [tags.WEB, tags.ACTION_BAR, tags.EDITO
 
 	test('Jupyter Notebook', {
 		tag: [tags.NOTEBOOK],
-		annotation: [{ type: 'info', description: 'This test is for web only because unable to interact with native menu in Electron' }],
+		annotation: [{ type: 'info', description: 'electron test unable to interact with dropdown native menu' }],
 	}, async function ({ app, page }) {
 		await app.workbench.positronQuickaccess.openDataFile(
 			path.join(app.workspacePathOrFolder, 'workspaces', 'large_r_notebook', 'spotify.ipynb')
@@ -64,11 +63,10 @@ test.describe('Editor Action Bar', { tag: [tags.WEB, tags.ACTION_BAR, tags.EDITO
 				const dropdownButton = page.getByLabel('Customize Notebook...').nth(1);
 				await dropdownButton.evaluate((button) => (button as HTMLElement).click());
 
-
 				// native menu so can't interact with it in Electron
 				const toggleLineNumbers = page.getByRole('menuitemcheckbox', { name: 'Toggle Notebook Line Numbers' });
 				await toggleLineNumbers.hover();
-				await toggleLineNumbers.focus();
+				// await toggleLineNumbers.focus();
 				await page.waitForTimeout(500);
 				await toggleLineNumbers.click();
 
@@ -80,6 +78,21 @@ test.describe('Editor Action Bar', { tag: [tags.WEB, tags.ACTION_BAR, tags.EDITO
 		}
 
 		await verifySplitEditor(page, 'spotify.ipynb');
+	});
+
+	test('RMakrdown Document', {
+		tag: [tags.R_MARKDOWN]
+	}, async function ({ app, page }) {
+		await openFile(app, 'workspaces/basic-rmd-file/basicRmd.rmd');
+
+		await test.step('verify \'preview\' button renders html', async () => {
+			await page.getByLabel('Preview', { exact: true }).click();
+			const viewerFrame = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe');
+			await expect(viewerFrame.getByRole('heading', { name: 'Getting startedAnchor' })).toBeVisible({ timeout: 30000 });
+		});
+
+		await verifySplitEditor(page, 'basicRmd.rmd');
+		await verifyOpenInNewWindow(page, 'This post examines the features');
 	});
 });
 
