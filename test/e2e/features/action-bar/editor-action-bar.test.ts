@@ -84,7 +84,7 @@ test.describe('Editor Action Bar', {
 		await verifySplitEditor(page, 'spotify.ipynb');
 	});
 
-	test('RMakrdown Document', {
+	test('R Markdown Document', {
 		tag: [tags.R_MARKDOWN]
 	}, async function ({ app, page }) {
 		await openFile(app, 'workspaces/basic-rmd-file/basicRmd.rmd');
