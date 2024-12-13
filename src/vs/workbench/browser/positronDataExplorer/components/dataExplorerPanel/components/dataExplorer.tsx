@@ -4,25 +4,24 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataExplorer';
+import './dataExplorer.css';
 
 // React.
-import * as React from 'react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
-import * as DOM from 'vs/base/browser/dom';
-import { PixelRatio } from 'vs/base/browser/pixelRatio';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
-import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
-import { PositronDataGrid } from 'vs/workbench/browser/positronDataGrid/positronDataGrid';
-import { SORTING_BUTTON_WIDTH } from 'vs/workbench/browser/positronDataGrid/components/dataGridColumnHeader';
-import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
-import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
-import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
+import * as DOM from '../../../../../../base/browser/dom.js';
+import { PixelRatio } from '../../../../../../base/browser/pixelRatio.js';
+import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
+import { BareFontInfo } from '../../../../../../editor/common/config/fontInfo.js';
+import { positronClassNames } from '../../../../../../base/common/positronUtilities.js';
+import { IEditorOptions } from '../../../../../../editor/common/config/editorOptions.js';
+import { FontMeasurements } from '../../../../../../editor/browser/config/fontMeasurements.js';
+import { PositronDataGrid } from '../../../../positronDataGrid/positronDataGrid.js';
+import { SORTING_BUTTON_WIDTH } from '../../../../positronDataGrid/components/dataGridColumnHeader.js';
+import { usePositronDataExplorerContext } from '../../../positronDataExplorerContext.js';
+import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
+import { PositronDataExplorerLayout } from '../../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 
 /**
  * Constants.

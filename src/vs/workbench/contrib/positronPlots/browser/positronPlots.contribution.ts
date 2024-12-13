@@ -3,23 +3,23 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as nls from 'vs/nls';
-import { Codicon } from 'vs/base/common/codicons';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { Registry } from 'vs/platform/registry/common/platform';
-import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
-import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
-import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { PositronPlotsViewPane } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsView';
-import { PositronPlotsService } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsService';
-import { IPositronPlotsService, POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
-import { Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
-import { registerAction2 } from 'vs/platform/actions/common/actions';
-import { PlotsActiveEditorCopyAction, PlotsClearAction, PlotsCopyAction, PlotsEditorAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsRefreshAction, PlotsSaveAction } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsActions';
-import { POSITRON_SESSION_CONTAINER } from 'vs/workbench/contrib/positronSession/browser/positronSessionContainer';
+import * as nls from '../../../../nls.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
+import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
+import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
+import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { PositronPlotsViewPane } from './positronPlotsView.js';
+import { PositronPlotsService } from './positronPlotsService.js';
+import { IPositronPlotsService, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
+import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
+import { Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
+import { registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { PlotsActiveEditorCopyAction, PlotsClearAction, PlotsCopyAction, PlotsEditorAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsRefreshAction, PlotsSaveAction } from './positronPlotsActions.js';
+import { POSITRON_SESSION_CONTAINER } from '../../positronSession/browser/positronSessionContainer.js';
 
 // Register the Positron plots service.
 registerSingleton(IPositronPlotsService, PositronPlotsService, InstantiationType.Delayed);

@@ -45,7 +45,7 @@ jobs:
             version: "4.4.0"
 
       - name: Compile Integration Tests
-        run: yarn --cwd test/integration/browser compile
+        run: npm run --prefix test/integration/browser compile
 
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests

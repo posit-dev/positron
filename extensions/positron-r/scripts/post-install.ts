@@ -6,6 +6,6 @@
 import { execSync } from 'child_process';
 
 // Compile the R kernel
-execSync('yarn run install-kernel', {
+execSync('npm run install-kernel', {
 	stdio: 'inherit'
 });

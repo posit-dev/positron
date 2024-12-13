@@ -4,22 +4,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import * as React from 'react';
+import React, { JSX } from 'react';
 
 // Other dependencies.
-import { Emitter } from 'vs/base/common/event';
-import { IHoverService } from 'vs/platform/hover/browser/hover';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
-import { TableSummaryCache } from 'vs/workbench/services/positronDataExplorer/common/tableSummaryCache';
-import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
-import { BackendState, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { COLUMN_PROFILE_DATE_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileDate';
-import { COLUMN_PROFILE_NUMBER_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileNumber';
-import { COLUMN_PROFILE_STRING_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileString';
-import { COLUMN_PROFILE_BOOLEAN_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileBoolean';
-import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileDatetime';
+import { Emitter } from '../../../../base/common/event.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { DataGridInstance } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
+import { TableSummaryCache } from '../common/tableSummaryCache.js';
+import { ColumnSummaryCell } from './components/columnSummaryCell.js';
+import { BackendState, ColumnDisplayType } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
+import { COLUMN_PROFILE_DATE_LINE_COUNT } from './components/columnProfileDate.js';
+import { COLUMN_PROFILE_NUMBER_LINE_COUNT } from './components/columnProfileNumber.js';
+import { COLUMN_PROFILE_STRING_LINE_COUNT } from './components/columnProfileString.js';
+import { COLUMN_PROFILE_BOOLEAN_LINE_COUNT } from './components/columnProfileBoolean.js';
+import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from './components/columnProfileDatetime.js';
 
 /**
  * Constants.

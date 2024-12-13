@@ -3,9 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { Scrollable } from 'vs/base/browser/ui/positronComponents/scrollable/Scrollable';
-import { ZoomLevel } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { Scrollable } from '../../../../../base/browser/ui/positronComponents/scrollable/Scrollable.js';
+import { ZoomLevel } from './zoomPlotMenuButton.js';
 
 interface PanZoomImageProps {
 	width: number;

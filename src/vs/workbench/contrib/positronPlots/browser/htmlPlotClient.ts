@@ -3,15 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { DisposableStore, MutableDisposable } from 'vs/base/common/lifecycle';
-import { URI } from 'vs/base/common/uri';
-import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
-import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
-import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
-import { WebviewExtensionDescription } from 'vs/workbench/contrib/webview/browser/webview';
-import { IShowHtmlUriEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { URI } from '../../../../base/common/uri.js';
+import { WebviewPlotClient } from './webviewPlotClient.js';
+import { IPositronPreviewService } from '../../positronPreview/browser/positronPreviewSevice.js';
+import { PreviewHtml } from '../../positronPreview/browser/previewHtml.js';
+import { WebviewExtensionDescription } from '../../webview/browser/webview.js';
+import { IShowHtmlUriEvent } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
+import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 /**
  * A Positron plot instance that contains content from an HTML file.

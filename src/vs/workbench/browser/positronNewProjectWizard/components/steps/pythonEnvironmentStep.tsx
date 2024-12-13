@@ -4,27 +4,26 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren, useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren, useEffect, useState } from 'react';
 
 // Other dependencies.
-import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
-import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepProps';
-import { localize } from 'vs/nls';
-import { envProviderInfoToDropDownItems, envProviderNameForId, locationForNewEnv } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
-import { PositronWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardStep';
-import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardSubStep';
-import { RadioButtonItem } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioButton';
-import { RadioGroup } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioGroup';
-import { EnvironmentSetupType } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
-import { InterpreterEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/interpreterEntry';
-import { DropdownEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/dropdownEntry';
-import { WizardFormattedText, WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
-import { interpretersToDropdownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
-import { condaInterpretersToDropdownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/condaUtils';
-import { PathDisplay } from 'vs/workbench/browser/positronNewProjectWizard/components/pathDisplay';
+import { useNewProjectWizardContext } from '../../newProjectWizardContext.js';
+import { NewProjectWizardStepProps } from '../../interfaces/newProjectWizardStepProps.js';
+import { localize } from '../../../../../nls.js';
+import { envProviderInfoToDropDownItems, envProviderNameForId, locationForNewEnv } from '../../utilities/pythonEnvironmentStepUtils.js';
+import { PositronWizardStep } from '../wizardStep.js';
+import { PositronWizardSubStep } from '../wizardSubStep.js';
+import { RadioButtonItem } from '../../../positronComponents/positronModalDialog/components/radioButton.js';
+import { RadioGroup } from '../../../positronComponents/positronModalDialog/components/radioGroup.js';
+import { EnvironmentSetupType } from '../../interfaces/newProjectWizardEnums.js';
+import { InterpreterEntry } from './interpreterEntry.js';
+import { DropdownEntry } from './dropdownEntry.js';
+import { WizardFormattedText, WizardFormattedTextType } from '../wizardFormattedText.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { DropDownListBox } from '../../../positronComponents/dropDownListBox/dropDownListBox.js';
+import { interpretersToDropdownItems } from '../../utilities/interpreterDropDownUtils.js';
+import { condaInterpretersToDropdownItems } from '../../utilities/condaUtils.js';
+import { PathDisplay } from '../pathDisplay.js';
 
 // NOTE: If you are making changes to this file, the equivalent R component may benefit from similar
 // changes. See src/vs/workbench/browser/positronNewProjectWizard/components/steps/rConfigurationStep.tsx

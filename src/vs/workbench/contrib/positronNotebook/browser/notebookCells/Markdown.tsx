@@ -2,15 +2,20 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import 'vs/css!./Markdown';
 
-import * as React from 'react';
-import { renderHtml } from 'vs/base/browser/positron/renderHtml';
-import { DeferredImage } from './DeferredImage';
-import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
-import { localize } from 'vs/nls';
-import { createCancelablePromise, raceTimeout } from 'vs/base/common/async';
+// CSS.
+import './Markdown.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
+import { DeferredImage } from './DeferredImage.js';
+import { useServices } from '../ServicesProvider.js';
+import { ExternalLink } from '../../../../../base/browser/ui/ExternalLink/ExternalLink.js';
+import { localize } from '../../../../../nls.js';
+import { createCancelablePromise, raceTimeout } from '../../../../../base/common/async.js';
 
 /**
  * Component that render markdown content from a string.

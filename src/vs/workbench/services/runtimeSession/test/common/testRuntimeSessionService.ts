@@ -2,31 +2,32 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { URI } from 'vs/base/common/uri';
-import { generateUuid } from 'vs/base/common/uuid';
-import { ILanguageService } from 'vs/editor/common/languages/language';
-import { LanguageService } from 'vs/editor/common/services/languageService';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { TestConfigurationService } from 'vs/platform/configuration/test/common/testConfigurationService';
-import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-import { TestInstantiationService } from 'vs/platform/instantiation/test/common/instantiationServiceMock';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { MockKeybindingService } from 'vs/platform/keybinding/test/common/mockKeybindingService';
-import { ILogService, NullLogService } from 'vs/platform/log/common/log';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { IStorageService } from 'vs/platform/storage/common/storage';
-import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
-import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { LanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntime';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
-import { RuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSession';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { TestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testLanguageRuntimeSession';
-import { TestOpenerService, TestPositronModalDialogService, TestCommandService, TestRuntimeSessionManager } from 'vs/workbench/test/common/positronWorkbenchTestServices';
-import { TestExtensionService, TestStorageService, TestWorkspaceTrustManagementService } from 'vs/workbench/test/common/workbenchTestServices';
+
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { generateUuid } from '../../../../../base/common/uuid.js';
+import { ILanguageService } from '../../../../../editor/common/languages/language.js';
+import { LanguageService } from '../../../../../editor/common/services/languageService.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
+import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
+import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
+import { MockKeybindingService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
+import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
+import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
+import { IStorageService } from '../../../../../platform/storage/common/storage.js';
+import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
+import { IExtensionService } from '../../../extensions/common/extensions.js';
+import { LanguageRuntimeService } from '../../../languageRuntime/common/languageRuntime.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { IPositronModalDialogsService } from '../../../positronModalDialogs/common/positronModalDialogs.js';
+import { RuntimeSessionService } from '../../common/runtimeSession.js';
+import { IRuntimeSessionService } from '../../common/runtimeSessionService.js';
+import { TestLanguageRuntimeSession } from './testLanguageRuntimeSession.js';
+import { TestOpenerService, TestPositronModalDialogService, TestCommandService, TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
+import { TestExtensionService, TestStorageService, TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
 
 export function createRuntimeServices(
 	instantiationService: TestInstantiationService,

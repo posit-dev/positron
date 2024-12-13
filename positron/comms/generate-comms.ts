@@ -1170,10 +1170,10 @@ function* createTypescriptComm(name: string, frontend: any, backend: any): Gener
 `;
 	// If there are frontend events, import the Event class
 	if (frontend) {
-		yield `import { Event } from 'vs/base/common/event';\n`;
+		yield `import { Event } from '../../../../base/common/event.js';\n`;
 	}
-	yield `import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
-import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+	yield `import { PositronBaseComm, PositronCommOptions } from './positronBaseComm.js';
+import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
 
 `;
 	const contracts = [backend, frontend];

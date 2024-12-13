@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { IPositronConnectionInstance } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
-import { Emitter, Event } from 'vs/base/common/event';
-import Severity from 'vs/base/common/severity';
-import { INotificationHandle } from 'vs/platform/notification/common/notification';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { PositronConnectionsDriverManager } from 'vs/workbench/services/positronConnections/browser/positronConnectionsDrivers';
+import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
+import { IPositronConnectionInstance } from './positronConnectionsInstance.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
+import Severity from '../../../../../base/common/severity.js';
+import { INotificationHandle } from '../../../../../platform/notification/common/notification.js';
+import { IRuntimeSessionService } from '../../../runtimeSession/common/runtimeSessionService.js';
+import { PositronConnectionsDriverManager } from '../positronConnectionsDrivers.js';
 
 export const IPositronConnectionsService = createDecorator<IPositronConnectionsService>('positronConnectionsService');
 export const POSITRON_CONNECTIONS_VIEW_ID = 'workbench.panel.positronConnections';

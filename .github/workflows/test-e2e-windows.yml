@@ -73,7 +73,7 @@ jobs:
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
-      - name: Install node dependencies with yarn
+      - name: Install node dependencies
         env:
           npm_config_arch: x64
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
@@ -89,17 +89,17 @@ jobs:
         # see https://github.com/posit-dev/positron/issues/3481
         run: |
           corepack enable
-          .\scripts\run-with-retry.ps1 -maxAttempts 3 -command "yarn --network-timeout 120000"
-          yarn --cwd test/automation install --frozen-lockfile
-          yarn --cwd test/e2e install --frozen-lockfile
+          .\scripts\run-with-retry.ps1 -maxAttempts 3 -command "npm install --fetch-timeout 120000"
+          npm --prefix test/automation ci
+          npm --prefix test/e2e ci
 
       - name: Compile and Download
-        run: yarn npm-run-all --max-old-space-size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+        run: npm exec -- npm-run-all --max-old-space-size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
       - name: Compile E2E Tests
         run: |
-          yarn --cwd test/automation compile
-          yarn --cwd test/e2e compile
+          npm --prefix test/automation run compile
+          npm --prefix test/e2e run compile
 
       - name: Install python dependencies
         run: |

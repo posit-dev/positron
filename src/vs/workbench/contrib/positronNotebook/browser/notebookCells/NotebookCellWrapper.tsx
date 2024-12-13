@@ -2,15 +2,20 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import 'vs/css!./NotebookCellWrapper';
 
-import * as React from 'react';
-import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { CellSelectionStatus, IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
-import { CellSelectionType } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
-import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
-import { useSelectionStatus } from './useSelectionStatus';
-import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
+// CSS.
+import './NotebookCellWrapper.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { CellKind } from '../../../notebook/common/notebookCommon.js';
+import { CellSelectionStatus, IPositronNotebookCell } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
+import { useNotebookInstance } from '../NotebookInstanceProvider.js';
+import { useSelectionStatus } from './useSelectionStatus.js';
+import { useObservedValue } from '../useObservedValue.js';
 
 export function NotebookCellWrapper({ cell, children }: { cell: IPositronNotebookCell; children: React.ReactNode }) {
 	const cellRef = React.useRef<HTMLDivElement>(null);

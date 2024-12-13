@@ -1,12 +1,15 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { PanZoomImage } from 'vs/workbench/contrib/positronPlots/browser/components/panZoomImage';
-import { ZoomLevel } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
-import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
+// React.
+import React, { useEffect, useRef, useState } from 'react';
+
+// Other dependencies.
+import { PanZoomImage } from './panZoomImage.js';
+import { ZoomLevel } from './zoomPlotMenuButton.js';
+import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
 
 /**
  * StaticPlotInstanceProps interface.
@@ -27,12 +30,12 @@ interface StaticPlotInstanceProps {
  * @returns The rendered component.
  */
 export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
-	const ref = React.useRef<HTMLDivElement>(null);
-	const [width, setWidth] = React.useState<number>(1);
-	const [height, setHeight] = React.useState<number>(1);
-	const resizeObserver = React.useRef<ResizeObserver>();
+	const ref = useRef<HTMLDivElement>(null);
+	const [width, setWidth] = useState<number>(1);
+	const [height, setHeight] = useState<number>(1);
+	const resizeObserver = useRef<ResizeObserver>(null!);
 
-	React.useEffect(() => {
+	useEffect(() => {
 		resizeObserver.current = new ResizeObserver((entries: ResizeObserverEntry[]) => {
 			if (entries.length > 0) {
 				const entry = entries[0];

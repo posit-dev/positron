@@ -4,16 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./tableDataCell';
+import './tableDataCell.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { DataCell, DataCellKind } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
-import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
+import { localize } from '../../../../../nls.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { DataCell, DataCellKind } from '../../common/tableDataCache.js';
+import { PositronDataExplorerColumn } from '../positronDataExplorerColumn.js';
 
 /**
  * TableDataCellProps interface.

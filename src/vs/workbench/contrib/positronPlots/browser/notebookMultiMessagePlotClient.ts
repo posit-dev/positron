@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DisposableStore, MutableDisposable } from 'vs/base/common/lifecycle';
-import { INotebookOutputWebview, IPositronNotebookOutputWebviewService, WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { assertIsOverlayPositronWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
-import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
-import { ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { INotebookOutputWebview, IPositronNotebookOutputWebviewService, WebviewType } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { assertIsOverlayPositronWebview } from '../../positronOutputWebview/browser/notebookOutputWebviewServiceImpl.js';
+import { WebviewPlotClient } from './webviewPlotClient.js';
+import { ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 /**
  * A Positron plot instance created from multiple notebook output messages rendered into a

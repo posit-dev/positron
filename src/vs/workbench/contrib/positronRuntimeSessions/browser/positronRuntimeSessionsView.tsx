@@ -3,28 +3,33 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./positronRuntimeSessionsView';
-import * as React from 'react';
-import * as DOM from 'vs/base/browser/dom';
-import { Event, Emitter } from 'vs/base/common/event';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { IViewDescriptorService } from 'vs/workbench/common/views';
-import { IThemeService } from 'vs/platform/theme/common/themeService';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
-import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { PositronSessions } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessions';
-import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
-import { IHoverService } from 'vs/platform/hover/browser/hover';
-import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
+// CSS.
+import './positronRuntimeSessionsView.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import * as DOM from '../../../../base/browser/dom.js';
+import { Event, Emitter } from '../../../../base/common/event.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { IViewDescriptorService } from '../../../common/views.js';
+import { IThemeService } from '../../../../platform/theme/common/themeService.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
+import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { PositronSessions } from './positronRuntimeSessions.js';
+import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
+import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 
 /**
  * PositronSessionsViewPane class.

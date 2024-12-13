@@ -1,12 +1,17 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./activityOutputHtml';
-import * as React from 'react';
-import { ActivityItemOutputHtml } from 'vs/workbench/services/positronConsole/browser/classes/activityItemOutputHtml';
-import { renderHtml } from 'vs/base/browser/positron/renderHtml';
+// CSS.
+import './activityOutputHtml.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { ActivityItemOutputHtml } from '../../../../services/positronConsole/browser/classes/activityItemOutputHtml.js';
+import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 
 // ActivityOutputHtml interface.
 export interface ActivityOutputHtmlProps {

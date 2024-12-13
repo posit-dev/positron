@@ -3,30 +3,31 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ViewContainerLocation, IViewDescriptorService, ViewContainer, IViewsRegistry, IViewContainersRegistry, IViewDescriptor, Extensions as ViewExtensions, ViewVisibilityState, defaultViewIcon, ViewContainerLocationToString, VIEWS_LOG_ID, VIEWS_LOG_NAME } from 'vs/workbench/common/views';
-import { IContextKey, RawContextKey, IContextKeyService, ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
-import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
-import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { Registry } from 'vs/platform/registry/common/platform';
-import { toDisposable, DisposableStore, Disposable, IDisposable, DisposableMap } from 'vs/base/common/lifecycle';
-import { ViewPaneContainer, ViewPaneContainerAction, ViewsSubMenu } from 'vs/workbench/browser/parts/views/viewPaneContainer';
-import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { Event, Emitter } from 'vs/base/common/event';
-import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { generateUuid } from 'vs/base/common/uuid';
-import { IInstantiationService, ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { getViewsStateStorageId, ViewContainerModel } from 'vs/workbench/services/views/common/viewContainerModel';
-import { registerAction2, Action2, MenuId } from 'vs/platform/actions/common/actions';
-import { localize, localize2 } from 'vs/nls';
-import { IStringDictionary } from 'vs/base/common/collections';
-import { ILogger, ILoggerService } from 'vs/platform/log/common/log';
-import { Lazy } from 'vs/base/common/lazy';
+import { ViewContainerLocation, IViewDescriptorService, ViewContainer, IViewsRegistry, IViewContainersRegistry, IViewDescriptor, Extensions as ViewExtensions, ViewVisibilityState, defaultViewIcon, ViewContainerLocationToString, VIEWS_LOG_ID, VIEWS_LOG_NAME } from '../../../common/views.js';
+import { IContextKey, RawContextKey, IContextKeyService, ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { IExtensionService } from '../../extensions/common/extensions.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
+import { toDisposable, DisposableStore, Disposable, IDisposable, DisposableMap } from '../../../../base/common/lifecycle.js';
+import { ViewPaneContainer, ViewPaneContainerAction, ViewsSubMenu } from '../../../browser/parts/views/viewPaneContainer.js';
+import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { Event, Emitter } from '../../../../base/common/event.js';
+import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
+import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { getViewsStateStorageId, ViewContainerModel } from '../common/viewContainerModel.js';
+import { registerAction2, Action2, MenuId } from '../../../../platform/actions/common/actions.js';
+import { localize, localize2 } from '../../../../nls.js';
+import { IStringDictionary } from '../../../../base/common/collections.js';
+import { ILogger, ILoggerService } from '../../../../platform/log/common/log.js';
+import { Lazy } from '../../../../base/common/lazy.js';
+
 // --- Start Positron ---
-import { layoutDescriptionToViewInfo } from 'vs/workbench/services/positronLayout/browser/utils/layoutDescriptionToViewInfo';
-import { IPaneCompositePartService } from 'vs/workbench/services/panecomposite/browser/panecomposite';
-import { PaneCompositeBar } from 'vs/workbench/browser/parts/paneCompositeBar';
-import { CustomPositronLayoutDescription } from 'vs/workbench/services/positronLayout/common/positronCustomViews';
+import { layoutDescriptionToViewInfo } from '../../positronLayout/browser/utils/layoutDescriptionToViewInfo.js';
+import { IPaneCompositePartService } from '../../panecomposite/browser/panecomposite.js';
+import { PaneCompositeBar } from '../../../browser/parts/paneCompositeBar.js';
+import { CustomPositronLayoutDescription } from '../../positronLayout/common/positronCustomViews.js';
 
 // A list of views we don't want shown in the UI. This will be for situations where we reimplement
 // the logic that the view would show in our own custom views or other parts of the UI. The matching
@@ -939,6 +940,9 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 							precondition: viewDescriptor.canToggleVisibility && (!viewContainerModel.isVisible(viewDescriptor.id) || viewContainerModel.visibleViewDescriptors.length > 1) ? ContextKeyExpr.true() : ContextKeyExpr.false(),
 							toggled: ContextKeyExpr.has(`${viewDescriptor.id}.visible`),
 							title: viewDescriptor.name,
+							metadata: {
+								description: localize2('toggleVisibilityDescription', 'Toggles the visibility of the {0} view if the view container it is located in is visible', viewDescriptor.name.value)
+							},
 							menu: [{
 								id: ViewsSubMenu,
 								when: ContextKeyExpr.equals('viewContainer', viewContainerModel.viewContainer.id),
@@ -970,6 +974,9 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 							id: `${viewDescriptor.id}.removeView`,
 							viewPaneContainerId: viewContainerModel.viewContainer.id,
 							title: localize('hideView', "Hide '{0}'", viewDescriptor.name.value),
+							metadata: {
+								description: localize2('hideViewDescription', 'Hides the {0} view if it is visible and the view container it is located in is visible', viewDescriptor.name.value)
+							},
 							precondition: viewDescriptor.canToggleVisibility && (!viewContainerModel.isVisible(viewDescriptor.id) || viewContainerModel.visibleViewDescriptors.length > 1) ? ContextKeyExpr.true() : ContextKeyExpr.false(),
 							menu: [{
 								id: MenuId.ViewTitleContext,
@@ -983,7 +990,9 @@ export class ViewDescriptorService extends Disposable implements IViewDescriptor
 						});
 					}
 					async runInViewPaneContainer(serviceAccessor: ServicesAccessor, viewPaneContainer: ViewPaneContainer): Promise<void> {
-						viewPaneContainer.toggleViewVisibility(viewDescriptor.id);
+						if (viewPaneContainer.getView(viewDescriptor.id)?.isVisible()) {
+							viewPaneContainer.toggleViewVisibility(viewDescriptor.id);
+						}
 					}
 				}));
 			}

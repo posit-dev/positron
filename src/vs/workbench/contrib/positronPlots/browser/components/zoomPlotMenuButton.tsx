@@ -3,10 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import * as nls from 'vs/nls';
-import { IAction } from 'vs/base/common/actions';
-import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
+// React.
+import React from 'react';
+
+// Other dependencies.
+import * as nls from '../../../../../nls.js';
+import { IAction } from '../../../../../base/common/actions.js';
+import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 
 export enum ZoomLevel {
 	Fit = 0,

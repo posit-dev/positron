@@ -4,16 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./statusBar';
+import './statusBar.css';
 
 // React.
-import * as React from 'react';
-import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
-import { StatusBarActivityIndicator } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/statusBarActivityIndicator';
+import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
+import { usePositronDataExplorerContext } from '../../../positronDataExplorerContext.js';
+import { StatusBarActivityIndicator } from './statusBarActivityIndicator.js';
 
 /**
  * StatusBar component.

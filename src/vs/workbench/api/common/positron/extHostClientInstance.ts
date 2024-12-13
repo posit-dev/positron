@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
-import { DeferredPromise } from 'vs/base/common/async';
-import { Event, Emitter } from 'vs/base/common/event';
-import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { DeferredPromise } from '../../../../base/common/async.js';
+import { Event, Emitter } from '../../../../base/common/event.js';
+import { RuntimeClientState } from '../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
+import { ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 
 /**
  * A function that sends a message to the back end of a client instance.

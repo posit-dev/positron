@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataGridRow';
+import './dataGridRow.css';
 
 // React.
-import * as React from 'react';
-import { DataGridRowCell } from 'vs/workbench/browser/positronDataGrid/components/dataGridRowCell';
-import { usePositronDataGridContext } from 'vs/workbench/browser/positronDataGrid/positronDataGridContext';
+import React, { JSX } from 'react';
 
 // Other dependencies.
+import { DataGridRowCell } from './dataGridRowCell.js';
+import { usePositronDataGridContext } from '../positronDataGridContext.js';
 
 /**
  * DataGridRowProps interface.

@@ -1,12 +1,17 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./runtimeStartupFailure';
-import * as React from 'react';
-import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
-import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemStartupFailure';
+// CSS.
+import './runtimeStartupFailure.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { OutputLines } from './outputLines.js';
+import { RuntimeItemStartupFailure } from '../../../../services/positronConsole/browser/classes/runtimeItemStartupFailure.js';
 
 // RuntimeStartupFailureProps interface.
 export interface RuntimeStartupFailureProps {

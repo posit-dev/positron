@@ -4,15 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataGridScrollbar';
+import './dataGridScrollbar.css';
 
 // React.
-import * as React from 'react';
-import { CSSProperties, MouseEvent, useLayoutEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { CSSProperties, MouseEvent, useLayoutEffect, useState } from 'react';
 
 // Other dependencies.
-import * as DOM from 'vs/base/browser/dom';
-import { pinToRange } from 'vs/base/common/positronUtilities';
+import * as DOM from '../../../../base/browser/dom.js';
+import { pinToRange } from '../../../../base/common/positronUtilities.js';
 
 /**
  * Constants.

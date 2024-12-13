@@ -210,7 +210,7 @@
 		}
 	},
 	{
-		"c": " .\\scripts\\npm.bat install",
+		"c": " npm i",
 		"t": "source.batchfile",
 		"r": {
 			"hc_black": "default: #FFFFFF",

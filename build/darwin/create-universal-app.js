@@ -8,8 +8,6 @@ const path = require("path");
 const fs = require("fs");
 const minimatch = require("minimatch");
 const vscode_universal_bundler_1 = require("vscode-universal-bundler");
-const cross_spawn_promise_1 = require("@malept/cross-spawn-promise");
-const esm_1 = require("../lib/esm");
 const root = path.dirname(path.dirname(__dirname));
 // --- Start Positron ---
 const os = require("os");
@@ -51,6 +49,9 @@ const stashPatterns = [
     '**/kcserver', // Compiled Jupyter supervisor
     // Exclusions from Quarto
     '**/quarto/bin/tools/**',
+    // Exclusions from Node Addon API
+    '**/@vscode/node-addon-api/**',
+    '**/@parcel/node-addon-api/**',
 ];
 // Some generated files may end up being different in both distributions.
 // `reconciliationFiles` contains relative paths of files that should be copied
@@ -61,18 +62,16 @@ const reconciliationFiles = [
     'Contents/Resources/app/out/nls.messages.json',
     'Contents/Resources/app/out/nls.keys.json',
     // Consumers of localised strings, found by grepping for `nls_1.localize`
-    'Contents/Resources/app/out/vs/platform/profiling/electron-sandbox/profileAnalysisWorker.js',
+    'Contents/Resources/app/out/vs/platform/profiling/electron-sandbox/profileAnalysisWorkerMain.js',
     'Contents/Resources/app/out/vs/platform/files/node/watcher/watcherMain.js',
     'Contents/Resources/app/out/vs/platform/terminal/node/ptyHostMain.js',
-    'Contents/Resources/app/out/vs/code/node/cli.js',
+    'Contents/Resources/app/out/cli.js',
     'Contents/Resources/app/out/vs/code/node/cliProcessMain.js',
     'Contents/Resources/app/out/vs/code/electron-sandbox/processExplorer/processExplorerMain.js',
-    'Contents/Resources/app/out/vs/code/node/sharedProcess/sharedProcessMain.js',
-    'Contents/Resources/app/out/vs/code/electron-main/main.js',
-    'Contents/Resources/app/out/vs/workbench/contrib/notebook/common/services/notebookSimpleWorker.js',
+    'Contents/Resources/app/out/vs/code/electron-utility/sharedProcess/sharedProcessMain.js',
+    'Contents/Resources/app/out/vs/workbench/contrib/notebook/common/services/notebookSimpleWorkerMain.js',
     'Contents/Resources/app/out/vs/workbench/contrib/issue/electron-sandbox/issueReporterMain.js',
-    'Contents/Resources/app/out/vs/base/worker/workerMain.js',
-    'Contents/Resources/app/out/vs/workbench/api/worker/extensionHostWorker.js',
+    'Contents/Resources/app/out/vs/workbench/api/worker/extensionHostWorkerMain.js',
     'Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js',
     'Contents/Resources/app/out/vs/workbench/workbench.desktop.main.js',
 ];
@@ -169,14 +168,13 @@ async function main(buildDir) {
 }
 async function origMain(x64AppPath, arm64AppPath, asarRelativePath, outAppPath, filesToSkip, productJsonPath) {
     // --- End Positron ---
-    const canAsar = !(0, esm_1.isESM)('ASAR disabled in universal build'); // TODO@esm ASAR disabled in ESM
     await (0, vscode_universal_bundler_1.makeUniversalApp)({
         x64AppPath,
         arm64AppPath,
-        asarPath: canAsar ? asarRelativePath : undefined,
+        asarPath: asarRelativePath,
         outAppPath,
         force: true,
-        mergeASARs: canAsar,
+        mergeASARs: true,
         x64ArchFiles: '*/kerberos.node',
         filesToSkipComparison: (file) => {
             for (const expected of filesToSkip) {
@@ -192,12 +190,6 @@ async function origMain(x64AppPath, arm64AppPath, asarRelativePath, outAppPath, 
         darwinUniversalAssetId: 'darwin-universal'
     });
     fs.writeFileSync(productJsonPath, JSON.stringify(productJson, null, '\t'));
-    // Verify if native module architecture is correct
-    const findOutput = await (0, cross_spawn_promise_1.spawn)('find', [outAppPath, '-name', 'kerberos.node']);
-    const lipoOutput = await (0, cross_spawn_promise_1.spawn)('lipo', ['-archs', findOutput.replace(/\n$/, '')]);
-    if (lipoOutput.replace(/\n$/, '') !== 'x86_64 arm64') {
-        throw new Error(`Invalid arch, got : ${lipoOutput}`);
-    }
 }
 if (require.main === module) {
     main(process.argv[2]).catch(err => {

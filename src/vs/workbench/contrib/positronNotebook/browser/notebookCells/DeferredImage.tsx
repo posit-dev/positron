@@ -2,16 +2,21 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import 'vs/css!./DeferredImage';
 
-import * as React from 'react';
-import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
-import { URI } from 'vs/base/common/uri';
-import { Schemas } from 'vs/base/common/network';
-import { dirname } from 'vs/base/common/resources';
-import { localize } from 'vs/nls';
-import { createCancelablePromise, raceTimeout } from 'vs/base/common/async';
+// CSS.
+import './DeferredImage.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { useServices } from '../ServicesProvider.js';
+import { useNotebookInstance } from '../NotebookInstanceProvider.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { Schemas } from '../../../../../base/common/network.js';
+import { dirname } from '../../../../../base/common/resources.js';
+import { localize } from '../../../../../nls.js';
+import { createCancelablePromise, raceTimeout } from '../../../../../base/common/async.js';
 
 /**
  * This should match the error message defined in the command definition

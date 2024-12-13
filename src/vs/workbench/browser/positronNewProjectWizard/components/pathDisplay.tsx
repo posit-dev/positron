@@ -4,13 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./pathDisplay';
+import './pathDisplay.css';
 
-import * as React from 'react';
-import { useState } from 'react';
-import { IPathService } from 'vs/workbench/services/path/common/pathService';
-import { truncateMiddle } from 'vs/base/common/strings';
+// React.
+import React, { useState } from 'react';
 
+// Other dependencies.
+import { IPathService } from '../../../services/path/common/pathService.js';
+import { truncateMiddle } from '../../../../base/common/strings.js';
 
 interface NewEnvironmentLocationDisplayProps {
 	pathService: IPathService;

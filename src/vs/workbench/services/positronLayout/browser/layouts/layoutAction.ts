@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ILocalizedString } from 'vs/nls';
-import { Categories } from 'vs/platform/action/common/actionCommonCategories';
-import { Action2 } from 'vs/platform/actions/common/actions';
-import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { IPositronLayoutService } from 'vs/workbench/services/positronLayout/browser/interfaces/positronLayoutService';
-import { CustomPositronLayoutDescription } from 'vs/workbench/services/positronLayout/common/positronCustomViews';
+import { ILocalizedString } from '../../../../../nls.js';
+import { Categories } from '../../../../../platform/action/common/actionCommonCategories.js';
+import { Action2 } from '../../../../../platform/actions/common/actions.js';
+import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
+import { IPositronLayoutService } from '../interfaces/positronLayoutService.js';
+import { CustomPositronLayoutDescription } from '../../common/positronCustomViews.js';
 
 
 export type PositronLayoutInfo = {

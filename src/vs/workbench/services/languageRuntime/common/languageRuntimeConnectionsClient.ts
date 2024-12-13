@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { ObjectSchema, PositronConnectionsComm } from 'vs/workbench/services/languageRuntime/common/positronConnectionsComm';
-import { Disposable } from 'vs/base/common/lifecycle';
+import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
+import { ObjectSchema, PositronConnectionsComm } from './positronConnectionsComm.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 
 export class ConnectionsClientInstance extends Disposable {
 	private readonly _positronConnectionsComm: PositronConnectionsComm;

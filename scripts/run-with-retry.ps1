@@ -33,6 +33,9 @@ while ($attempt -lt $maxAttempts -and -not $success) {
             Write-Host "Command '$command' succeeded"
         } else {
             Write-Host "Command '$command' had exit code $LASTEXITCODE on attempt $attempt of $maxAttempts"
+
+            # Wait 30 seconds before retrying to allow file locks to release
+            Start-Sleep -Seconds 30
         }
     }
     catch {

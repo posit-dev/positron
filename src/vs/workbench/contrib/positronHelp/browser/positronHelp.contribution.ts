@@ -3,24 +3,24 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as nls from 'vs/nls';
-import { Codicon } from 'vs/base/common/codicons';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { KeyMod, KeyCode } from 'vs/base/common/keyCodes';
-import { Registry } from 'vs/platform/registry/common/platform';
-import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
-import { PositronHelpFocused } from 'vs/workbench/common/contextkeys';
-import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneContainer';
-import { PositronHelpView } from 'vs/workbench/contrib/positronHelp/browser/positronHelpView';
-import { POSITRON_HELP_VIEW_ID } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
-import { POSITRON_HELP_COPY } from 'vs/workbench/contrib/positronHelp/browser/positronHelpIdentifiers';
-import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from 'vs/platform/keybinding/common/keybindingsRegistry';
-import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from 'vs/workbench/common/contributions';
-import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
-import { registerAction2 } from 'vs/platform/actions/common/actions';
-import { LookupHelpTopic, ShowHelpAtCursor } from 'vs/workbench/contrib/positronHelp/browser/positronHelpActions';
+import * as nls from '../../../../nls.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { KeyMod, KeyCode } from '../../../../base/common/keyCodes.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
+import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
+import { PositronHelpFocused } from '../../../common/contextkeys.js';
+import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
+import { PositronHelpView } from './positronHelpView.js';
+import { POSITRON_HELP_VIEW_ID } from './positronHelpService.js';
+import { POSITRON_HELP_COPY } from './positronHelpIdentifiers.js';
+import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
+import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
+import { registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { LookupHelpTopic, ShowHelpAtCursor } from './positronHelpActions.js';
 
 // The Positron help view icon.
 const positronHelpViewIcon = registerIcon('positron-help-view-icon', Codicon.positronHelpView, nls.localize('positronHelpViewIcon', 'View icon of the Positron help view.'));

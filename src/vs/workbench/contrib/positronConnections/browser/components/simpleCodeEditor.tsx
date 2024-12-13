@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { forwardRef, PropsWithChildren, useEffect, useImperativeHandle, useRef } from 'react';
-import { Emitter } from 'vs/base/common/event';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
-import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
-import { IIdentifiedSingleEditOperation, ITextModel } from 'vs/editor/common/model';
-import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from 'vs/workbench/contrib/codeEditor/browser/simpleEditorOptions';
-import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
+import { Emitter } from '../../../../../base/common/event.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
+import { IEditorOptions } from '../../../../../editor/common/config/editorOptions.js';
+import { IIdentifiedSingleEditOperation, ITextModel } from '../../../../../editor/common/model.js';
+import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from '../../../codeEditor/browser/simpleEditorOptions.js';
+import { PositronConnectionsServices } from '../positronConnectionsContext.js';
 
 export interface SimpleCodeEditorProps {
 	readonly services: PositronConnectionsServices;

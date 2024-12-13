@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
-import { IPositronPlotMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { IPositronPlotMetadata } from '../../languageRuntime/common/languageRuntimePlotClient.js';
+import { ILanguageRuntimeMessageOutput } from '../../languageRuntime/common/languageRuntimeService.js';
+import { IPositronPlotClient } from './positronPlots.js';
 
 /**
  * Creates a static plot client from a language runtime message.

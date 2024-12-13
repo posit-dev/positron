@@ -3,9 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { ISettableObservable } from 'vs/base/common/observableInternal/base';
-import { Event } from 'vs/base/common/event';
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
+import { Event } from '../../../../base/common/event.js';
 
 /**
  * Automatically updates the component when the observable changes.

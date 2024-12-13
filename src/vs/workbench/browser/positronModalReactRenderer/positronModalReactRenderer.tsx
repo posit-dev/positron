@@ -4,20 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./positronModalReactRenderer';
+import './positronModalReactRenderer.css';
 
 // React.
 import type { ReactElement } from 'react';
+import { createRoot, Root } from 'react-dom/client';
 
 // Other dependencies.
-import * as DOM from 'vs/base/browser/dom';
-import { Emitter } from 'vs/base/common/event';
-import { createRoot, Root } from 'react-dom/client';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { StandardKeyboardEvent } from 'vs/base/browser/keyboardEvent';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { ResultKind } from 'vs/platform/keybinding/common/keybindingResolver';
+import * as DOM from '../../../base/browser/dom.js';
+import { Emitter } from '../../../base/common/event.js';
+import { Disposable } from '../../../base/common/lifecycle.js';
+import { StandardKeyboardEvent } from '../../../base/browser/keyboardEvent.js';
+import { ILayoutService } from '../../../platform/layout/browser/layoutService.js';
+import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
+import { ResultKind } from '../../../platform/keybinding/common/keybindingResolver.js';
 
 /**
  * Commands that are allowed through.

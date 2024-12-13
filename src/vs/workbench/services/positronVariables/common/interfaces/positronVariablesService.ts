@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from 'vs/base/common/event';
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { IPositronVariablesInstance } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
+import { Event } from '../../../../../base/common/event.js';
+import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
+import { IPositronVariablesInstance } from './positronVariablesInstance.js';
 
 // Create the decorator for the Positron variables service (used in dependency injection).
 export const IPositronVariablesService = createDecorator<IPositronVariablesService>('positronVariablesService');

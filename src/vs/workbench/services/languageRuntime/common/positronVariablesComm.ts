@@ -7,9 +7,9 @@
 // AUTO-GENERATED from variables.json; do not edit.
 //
 
-import { Event } from 'vs/base/common/event';
-import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
-import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { Event } from '../../../../base/common/event.js';
+import { PositronBaseComm, PositronCommOptions } from './positronBaseComm.js';
+import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
 
 /**
  * A view containing a list of variables in the session.

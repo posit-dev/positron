@@ -3,13 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { DynamicPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/dynamicPlotInstance';
-import { StaticPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/staticPlotInstance';
-import { ZoomLevel } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
-import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { DynamicPlotInstance } from '../../positronPlots/browser/components/dynamicPlotInstance.js';
+import { StaticPlotInstance } from '../../positronPlots/browser/components/staticPlotInstance.js';
+import { ZoomLevel } from '../../positronPlots/browser/components/zoomPlotMenuButton.js';
+import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { IPositronPlotClient } from '../../../services/positronPlots/common/positronPlots.js';
+import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 
 interface EditorPlotsContainerProps {
 	plotClient: IPositronPlotClient;

@@ -3,14 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as nls from 'vs/nls';
-import { Emitter } from 'vs/base/common/event';
-import { ILogService } from 'vs/platform/log/common/log';
-import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { Registry } from 'vs/platform/registry/common/platform';
-import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationNode, } from 'vs/platform/configuration/common/configurationRegistry';
+import * as nls from '../../../../nls.js';
+import { Emitter } from '../../../../base/common/event.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, formatLanguageRuntimeMetadata } from './languageRuntimeService.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
+import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationNode, } from '../../../../platform/configuration/common/configurationRegistry.js';
 
 /**
  * The implementation of ILanguageRuntimeService

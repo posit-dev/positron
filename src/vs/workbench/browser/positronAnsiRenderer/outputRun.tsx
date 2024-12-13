@@ -3,16 +3,20 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./outputRun';
-import * as React from 'react';
-import * as platform from 'vs/base/common/platform';
-import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
-import { localize } from 'vs/nls';
-import { ANSIColor, ANSIOutputRun, ANSIStyle } from 'vs/base/common/ansiOutput';
-import { Schemas } from 'vs/base/common/network';
-import { OutputRunWithLinks } from 'vs/workbench/contrib/positronConsole/browser/components/outputRunWithLinks';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { INotificationService } from 'vs/platform/notification/common/notification';
+// CSS.
+import './outputRun.css';
+
+// React.
+import React, { CSSProperties, MouseEvent } from 'react';
+
+// Other dependencies.
+import * as platform from '../../../base/common/platform.js';
+import { localize } from '../../../nls.js';
+import { ANSIColor, ANSIOutputRun, ANSIStyle } from '../../../base/common/ansiOutput.js';
+import { Schemas } from '../../../base/common/network.js';
+import { OutputRunWithLinks } from '../../contrib/positronConsole/browser/components/outputRunWithLinks.js';
+import { IOpenerService } from '../../../platform/opener/common/opener.js';
+import { INotificationService } from '../../../platform/notification/common/notification.js';
 
 /**
  * Constants.

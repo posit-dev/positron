@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./radioButton';
+import './radioButton.css';
 
 // React.
-import React = require('react');
+import React from 'react';
 
 /**
  * RadioButtonItemOptions interface.

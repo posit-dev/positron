@@ -12,8 +12,8 @@
   ],
   "main": "./out/extension.js",
   "scripts": {
-    "vscode:prepublish": "yarn run compile",
-    "pretest": "yarn run compile && yarn run lint",
+    "vscode:prepublish": "npm run compile",
+    "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts"
   },
   "contributes": {},

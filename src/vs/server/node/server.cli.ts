@@ -7,21 +7,23 @@ import * as fs from 'fs';
 import * as url from 'url';
 import * as cp from 'child_process';
 import * as http from 'http';
-import { cwd } from 'vs/base/common/process';
-import { dirname, extname, resolve, join } from 'vs/base/common/path';
+import { cwd } from '../../base/common/process.js';
+import { dirname, extname, resolve, join } from '../../base/common/path.js';
 // --- Start Positron ---
 // @ts-ignore - unused import buildVersionMessage is preserved to avoid upstream merge conflicts.
 // --- End Positron ---
-import { parseArgs, buildHelpMessage, buildVersionMessage, OPTIONS, OptionDescriptions, ErrorReporter } from 'vs/platform/environment/node/argv';
-import { NativeParsedArgs } from 'vs/platform/environment/common/argv';
-import { createWaitMarkerFileSync } from 'vs/platform/environment/node/wait';
-import { PipeCommand } from 'vs/workbench/api/node/extHostCLIServer';
-import { hasStdinWithoutTty, getStdinFilePath, readFromStdin } from 'vs/platform/environment/node/stdin';
-import { DeferredPromise } from 'vs/base/common/async';
+import { parseArgs, buildHelpMessage, buildVersionMessage, OPTIONS, OptionDescriptions, ErrorReporter } from '../../platform/environment/node/argv.js';
+import { NativeParsedArgs } from '../../platform/environment/common/argv.js';
+import { createWaitMarkerFileSync } from '../../platform/environment/node/wait.js';
+import { PipeCommand } from '../../workbench/api/node/extHostCLIServer.js';
+import { hasStdinWithoutTty, getStdinFilePath, readFromStdin } from '../../platform/environment/node/stdin.js';
+import { DeferredPromise } from '../../base/common/async.js';
+
+const __dirname = dirname(url.fileURLToPath(import.meta.url));
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { buildPositronVersionMessage } from 'vs/platform/environment/node/argv';
+import { buildPositronVersionMessage } from '../../platform/environment/node/argv.js';
 // --- End Positron ---
 
 /*
@@ -409,7 +411,7 @@ function openInBrowser(args: string[], verbose: boolean) {
 	}
 }
 
-function sendToPipe(args: PipeCommand, verbose: boolean): Promise<any> {
+function sendToPipe(args: PipeCommand, verbose: boolean): Promise<string> {
 	if (verbose) {
 		console.log(JSON.stringify(args, null, '  '));
 	}

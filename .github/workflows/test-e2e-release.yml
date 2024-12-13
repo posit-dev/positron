@@ -44,13 +44,11 @@ jobs:
 
       - name: Compile tests
         run: |
-          corepack enable
-          yarn global add node-gyp
-          yarn install
-          yarn --cwd test/automation install
-          yarn --cwd test/e2e install
-          yarn --cwd test/automation compile
-          yarn --cwd test/e2e compile
+          npm install
+          npm --prefix test/automation install
+          npm --prefix test/e2e install
+          npm --prefix test/automation run compile
+          npm --prefix test/e2e run compile
 
       - name: Get & install latest release
         id: get_latest_release

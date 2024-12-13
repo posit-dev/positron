@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
-import { LayoutManager } from 'vs/workbench/services/positronDataExplorer/common/layoutManager';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../base/test/common/utils.js';
+import { LayoutManager } from '../../services/positronDataExplorer/common/layoutManager.js';
 
 /**
  * Tests the LayoutManager class.

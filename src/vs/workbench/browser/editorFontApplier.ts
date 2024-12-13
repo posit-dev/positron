@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as DOM from 'vs/base/browser/dom';
-import { PixelRatio } from 'vs/base/browser/pixelRatio';
-import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
-import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
-import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
-import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import * as DOM from '../../base/browser/dom.js';
+import { PixelRatio } from '../../base/browser/pixelRatio.js';
+import { BareFontInfo } from '../../editor/common/config/fontInfo.js';
+import { applyFontInfo } from '../../editor/browser/config/domFontInfo.js';
+import { IEditorOptions } from '../../editor/common/config/editorOptions.js';
+import { FontMeasurements } from '../../editor/browser/config/fontMeasurements.js';
+import { IConfigurationService } from '../../platform/configuration/common/configuration.js';
 
 /**
  * Applies the editor font info to the specified element.

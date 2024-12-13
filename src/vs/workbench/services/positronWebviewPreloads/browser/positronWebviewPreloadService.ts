@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { VSBuffer } from 'vs/base/common/buffer';
-import { Event } from 'vs/base/common/event';
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { IPositronNotebookInstance } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookInstance';
+import { VSBuffer } from '../../../../base/common/buffer.js';
+import { Event } from '../../../../base/common/event.js';
+import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { IPositronPlotClient } from '../../positronPlots/common/positronPlots.js';
+import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 
 export const POSITRON_HOLOVIEWS_ID = 'positronWebviewPreloadService';
 export const MIME_TYPE_HOLOVIEWS_LOAD = 'application/vnd.holoviews_load.v0+json';

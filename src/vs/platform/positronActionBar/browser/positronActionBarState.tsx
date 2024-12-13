@@ -7,19 +7,19 @@
 import { useEffect, useState } from 'react';
 
 // Other dependencies.
-import { unmnemonicLabel } from 'vs/base/common/labels';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IHoverService } from 'vs/platform/hover/browser/hover';
-import { Action, IAction, Separator } from 'vs/base/common/actions';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IHoverManager } from 'vs/platform/hover/browser/hoverManager';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
-import { ContextKeyExpression, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { PositronActionBarHoverManager } from 'vs/platform/positronActionBar/browser/positronActionBarHoverManager';
+import { unmnemonicLabel } from '../../../base/common/labels.js';
+import { DisposableStore } from '../../../base/common/lifecycle.js';
+import { IHoverService } from '../../hover/browser/hover.js';
+import { Action, IAction, Separator } from '../../../base/common/actions.js';
+import { ICommandService } from '../../commands/common/commands.js';
+import { IHoverManager } from '../../hover/browser/hoverManager.js';
+import { IKeybindingService } from '../../keybinding/common/keybinding.js';
+import { CommandCenter } from '../../commandCenter/common/commandCenter.js';
+import { IContextMenuService } from '../../contextview/browser/contextView.js';
+import { IConfigurationService } from '../../configuration/common/configuration.js';
+import { IAccessibilityService } from '../../accessibility/common/accessibility.js';
+import { ContextKeyExpression, IContextKeyService } from '../../contextkey/common/contextkey.js';
+import { PositronActionBarHoverManager } from './positronActionBarHoverManager.js';
 
 /**
  * PositronActionBarServices interface. Defines the set of services that are required by a Positron

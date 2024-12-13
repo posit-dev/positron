@@ -7,7 +7,7 @@
 
 const cp = require('child_process');
 const path = require('path');
-const opn = require('opn');
+const open = require('open');
 const minimist = require('minimist');
 
 // --- Start Positron ---
@@ -62,7 +62,7 @@ async function main() {
 
 	const addr = await startServer(serverArgs);
 	if (args['launch']) {
-		opn(addr);
+		open(addr);
 	}
 }
 

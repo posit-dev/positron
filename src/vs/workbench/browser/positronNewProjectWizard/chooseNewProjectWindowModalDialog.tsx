@@ -4,22 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 // // CSS.
-import 'vs/css!./chooseNewProjectWindowModalDialog';
+import './chooseNewProjectWindowModalDialog.css';
 
 // React.
-import * as React from 'react';
-import { useRef } from 'react';  // eslint-disable-line no-duplicate-imports
+import React, { useRef } from 'react';
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { URI } from 'vs/base/common/uri';
+import { localize } from '../../../nls.js';
+import { VerticalStack } from '../positronComponents/positronModalDialog/components/verticalStack.js';
+import { PositronModalReactRenderer } from '../positronModalReactRenderer/positronModalReactRenderer.js';
+import { PositronModalDialog } from '../positronComponents/positronModalDialog/positronModalDialog.js';
+import { Button } from '../../../base/browser/ui/positronComponents/button/button.js';
+import { ICommandService } from '../../../platform/commands/common/commands.js';
+import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
+import { IWorkbenchLayoutService } from '../../services/layout/browser/layoutService.js';
+import { URI } from '../../../base/common/uri.js';
 
 export const showChooseNewProjectWindowModalDialog = (
 	commandService: ICommandService,

@@ -4,49 +4,48 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./consoleInput';
+import './consoleInput.css';
 
 // React.
-import * as React from 'react';
-import { FocusEvent, useEffect, useLayoutEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { FocusEvent, useEffect, useLayoutEffect, useRef } from 'react';
 
 // Other dependencies.
-import * as DOM from 'vs/base/browser/dom';
-import { URI } from 'vs/base/common/uri';
-import { Schemas } from 'vs/base/common/network';
-import { KeyCode } from 'vs/base/common/keyCodes';
-import { generateUuid } from 'vs/base/common/uuid';
-import { isMacintosh } from 'vs/base/common/platform';
-import { HistoryNavigator2 } from 'vs/base/common/history';
-import { ISelection } from 'vs/editor/common/core/selection';
-import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
-import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
-import { CursorChangeReason } from 'vs/editor/common/cursorEvents';
-import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
-import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
-import { InQuickPickContextKey } from 'vs/workbench/browser/quickaccess';
-import { FormatOnType } from 'vs/editor/contrib/format/browser/formatActions';
-import { EditorExtensionsRegistry } from 'vs/editor/browser/editorExtensions';
-import { MarkerController } from 'vs/editor/contrib/gotoError/browser/gotoError';
-import { IEditorOptions, LineNumbersType } from 'vs/editor/common/config/editorOptions';
-import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
-import { SuggestController } from 'vs/editor/contrib/suggest/browser/suggestController';
-import { SnippetController2 } from 'vs/editor/contrib/snippet/browser/snippetController2';
-import { ContextMenuController } from 'vs/editor/contrib/contextmenu/browser/contextmenu';
-import { EditOperation, ISingleEditOperation } from 'vs/editor/common/core/editOperation';
-import { TabCompletionController } from 'vs/workbench/contrib/snippets/browser/tabCompletion';
-import { TerminalContextKeys } from 'vs/workbench/contrib/terminal/common/terminalContextKey';
-import { ParameterHintsController } from 'vs/editor/contrib/parameterHints/browser/parameterHints';
-import { IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
-import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { HistoryBrowserPopup } from 'vs/workbench/contrib/positronConsole/browser/components/historyBrowserPopup';
-import { HistoryInfixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyInfixMatchStrategy';
-import { HistoryPrefixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyPrefixMatchStrategy';
-import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyMatchStrategy';
-import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { ContentHoverController } from 'vs/editor/contrib/hover/browser/contentHoverController2';
+import * as DOM from '../../../../../base/browser/dom.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { Schemas } from '../../../../../base/common/network.js';
+import { KeyCode } from '../../../../../base/common/keyCodes.js';
+import { generateUuid } from '../../../../../base/common/uuid.js';
+import { isMacintosh } from '../../../../../base/common/platform.js';
+import { HistoryNavigator2 } from '../../../../../base/common/history.js';
+import { ISelection } from '../../../../../editor/common/core/selection.js';
+import { IKeyboardEvent } from '../../../../../base/browser/keyboardEvent.js';
+import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
+import { CursorChangeReason } from '../../../../../editor/common/cursorEvents.js';
+import { EditorContextKeys } from '../../../../../editor/common/editorContextKeys.js';
+import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
+import { InQuickPickContextKey } from '../../../../browser/quickaccess.js';
+import { FormatOnType } from '../../../../../editor/contrib/format/browser/formatActions.js';
+import { EditorExtensionsRegistry } from '../../../../../editor/browser/editorExtensions.js';
+import { MarkerController } from '../../../../../editor/contrib/gotoError/browser/gotoError.js';
+import { IEditorOptions, LineNumbersType } from '../../../../../editor/common/config/editorOptions.js';
+import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
+import { SuggestController } from '../../../../../editor/contrib/suggest/browser/suggestController.js';
+import { SnippetController2 } from '../../../../../editor/contrib/snippet/browser/snippetController2.js';
+import { ContextMenuController } from '../../../../../editor/contrib/contextmenu/browser/contextmenu.js';
+import { EditOperation, ISingleEditOperation } from '../../../../../editor/common/core/editOperation.js';
+import { TabCompletionController } from '../../../snippets/browser/tabCompletion.js';
+import { TerminalContextKeys } from '../../../terminal/common/terminalContextKey.js';
+import { ParameterHintsController } from '../../../../../editor/contrib/parameterHints/browser/parameterHints.js';
+import { IInputHistoryEntry } from '../../../executionHistory/common/executionHistoryService.js';
+import { SelectionClipboardContributionID } from '../../../codeEditor/browser/selectionClipboard.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
+import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { HistoryBrowserPopup } from './historyBrowserPopup.js';
+import { HistoryInfixMatchStrategy } from '../../common/historyInfixMatchStrategy.js';
+import { HistoryPrefixMatchStrategy } from '../../common/historyPrefixMatchStrategy.js';
+import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from '../../common/historyMatchStrategy.js';
+import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { ContentHoverController } from '../../../../../editor/contrib/hover/browser/contentHoverController.js';
 
 // Position enumeration.
 const enum Position {

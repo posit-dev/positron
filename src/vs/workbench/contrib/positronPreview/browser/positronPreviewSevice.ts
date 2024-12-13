@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from 'vs/base/common/event';
-import { URI } from 'vs/base/common/uri';
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
-import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
-import { WebviewExtensionDescription, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
-import { IShowHtmlUriEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
+import { Event } from '../../../../base/common/event.js';
+import { URI } from '../../../../base/common/uri.js';
+import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { PreviewHtml } from './previewHtml.js';
+import { PreviewWebview } from './previewWebview.js';
+import { WebviewExtensionDescription, WebviewInitInfo } from '../../webview/browser/webview.js';
+import { IShowHtmlUriEvent } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 
 export const POSITRON_PREVIEW_VIEW_ID = 'workbench.panel.positronPreview';
 

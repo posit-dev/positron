@@ -4,15 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./positronDataExplorerClosed';
+import './positronDataExplorerClosed.css';
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren } from 'react';
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { localize } from '../../../../../nls.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
  * PositronDataExplorerClosedStatus enum.

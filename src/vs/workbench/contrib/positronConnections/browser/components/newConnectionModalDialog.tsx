@@ -4,16 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+// CSS.
+import './newConnectionModelDialog.css';
+
+// React.
 import React, { PropsWithChildren, useState } from 'react';
-import { localize } from 'vs/nls';
-import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
-import 'vs/css!./newConnectionModelDialog';
-import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
-import { CreateConnection } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog/createConnectionState';
-import { ListDrivers } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog/listDriversState';
-import { IDriver } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsDriver';
+
+// Other dependendencies.
+import { localize } from '../../../../../nls.js';
+import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
+import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
+import { PositronConnectionsServices } from '../positronConnectionsContext.js';
+import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
+import { CreateConnection } from './newConnectionModalDialog/createConnectionState.js';
+import { ListDrivers } from './newConnectionModalDialog/listDriversState.js';
+import { IDriver } from '../../../../services/positronConnections/browser/interfaces/positronConnectionsDriver.js';
 
 const NEW_CONNECTION_MODAL_DIALOG_WIDTH = 700;
 const NEW_CONNECTION_MODAL_DIALOG_HEIGHT = 630;

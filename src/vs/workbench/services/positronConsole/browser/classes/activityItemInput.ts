@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter } from 'vs/base/common/event';
-import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansiOutput';
+import { Emitter } from '../../../../../base/common/event.js';
+import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
 /**
  * ActivityItemInputState enumeration.

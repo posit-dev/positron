@@ -22,13 +22,10 @@ if ($confirmation -eq 'n') {
 # Kill any running deemons.
 if (Test-Path node_modules\deemon) {
 	Write-Host "Killing build daemons..."
-	yarn run kill-watchd
-	yarn run kill-watch-webd
-	yarn run kill-watch-clientd
-	yarn run kill-watch-extensionsd
-
-	# Disabled for now because it hangs. This needs to be investigated, but it's not worth doing right at the moment.
-	#yarn run kill-watch-build-toolsd
+	npm run kill-watchd
+	npm run kill-watch-webd
+	npm run kill-watch-clientd
+	npm run kill-watch-extensionsd
 }
 
 Write-Host "Cleaning up build artifacts..."
@@ -37,8 +34,8 @@ if (Test-Path .build) {
 	Remove-Item -Recurse -Force .build
 }
 
-# Run yarn to rebuild 'node_modules'.
+# Run `npm install` to rebuild 'node_modules'.
 Write-Host "Installing..."
-yarn
+npm install
 
 Write-Host "Done"

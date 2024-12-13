@@ -2,17 +2,22 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import 'vs/css!./NotebookMarkdownCell';
-import * as React from 'react';
 
-import { CellEditorMonacoWidget } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/CellEditorMonacoWidget';
-import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
-import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
-import { Markdown } from './Markdown';
-import { localize } from 'vs/nls';
-import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
-import { NotebookCellWrapper } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellWrapper';
-import { PositronNotebookMarkdownCell } from '../PositronNotebookCells/PositronNotebookMarkdownCell';
+// CSS.
+import './NotebookMarkdownCell.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
+import { NotebookCellActionBar } from './NotebookCellActionBar.js';
+import { useObservedValue } from '../useObservedValue.js';
+import { Markdown } from './Markdown.js';
+import { localize } from '../../../../../nls.js';
+import { ActionButton } from '../utilityComponents/ActionButton.js';
+import { NotebookCellWrapper } from './NotebookCellWrapper.js';
+import { PositronNotebookMarkdownCell } from '../PositronNotebookCells/PositronNotebookMarkdownCell.js';
 
 export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownCell }) {
 

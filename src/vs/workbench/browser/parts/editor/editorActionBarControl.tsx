@@ -4,28 +4,28 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./editorActionBarControl';
+import './editorActionBarControl.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
-import { Emitter } from 'vs/base/common/event';
-import { IHoverService } from 'vs/platform/hover/browser/hover';
-import { IMenuService } from 'vs/platform/actions/common/actions';
-import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { IEditorGroupView } from 'vs/workbench/browser/parts/editor/editor';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { EditorActionBar } from 'vs/workbench/browser/parts/editor/editorActionBar';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { EditorActionBarFactory } from 'vs/workbench/browser/parts/editor/editorActionBarFactory';
-import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
+import { Emitter } from '../../../../base/common/event.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { IMenuService } from '../../../../platform/actions/common/actions.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
+import { IEditorGroupView } from './editor.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
+import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { EditorActionBar } from './editorActionBar.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { EditorActionBarFactory } from './editorActionBarFactory.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 
 /**
  * Constants.

@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { pinToRange } from 'vs/base/common/positronUtilities';
-import { arrayFromIndexRange } from 'vs/workbench/services/positronDataExplorer/common/utils';
-import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ArraySelection, ColumnSchema, ColumnSelection, DataSelectionIndices, DataSelectionRange } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { Emitter } from '../../../../base/common/event.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { pinToRange } from '../../../../base/common/positronUtilities.js';
+import { arrayFromIndexRange } from './utils.js';
+import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
+import { ArraySelection, ColumnSchema, ColumnSelection, DataSelectionIndices, DataSelectionRange } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Constants.

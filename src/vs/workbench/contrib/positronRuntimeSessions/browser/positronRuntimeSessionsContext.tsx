@@ -3,9 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronSessionsServices, PositronRuntimeSessionsState, usePositronRuntimeSessionsState } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessionsState';
+// React.
+import React, { PropsWithChildren, createContext, useContext } from 'react';
+
+// Other dependencies.
+import { PositronSessionsServices, PositronRuntimeSessionsState, usePositronRuntimeSessionsState } from './positronRuntimeSessionsState.js';
 
 /**
  * Create the Positron sessions context.

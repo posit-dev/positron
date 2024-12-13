@@ -15,8 +15,6 @@ import * as fancyLog from 'fancy-log';
 import * as ansiColors from 'ansi-colors';
 import { Stream } from 'stream';
 
-const mkdirp = require('mkdirp');
-
 export interface IExtensionDefinition {
 	name: string;
 	version: string;
@@ -162,7 +160,7 @@ function readControlFile(): IControlFile {
 }
 
 function writeControlFile(control: IControlFile): void {
-	mkdirp.sync(path.dirname(controlFilePath));
+	fs.mkdirSync(path.dirname(controlFilePath), { recursive: true });
 	fs.writeFileSync(controlFilePath, JSON.stringify(control, null, 2));
 }
 

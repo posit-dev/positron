@@ -3,12 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from 'vs/nls';
-import { MenuId } from 'vs/platform/actions/common/actions';
-import { Extensions, IConfigurationRegistry } from 'vs/platform/configuration/common/configurationRegistry';
-import { RawContextKey } from 'vs/platform/contextkey/common/contextkey';
-import { Registry } from 'vs/platform/registry/common/platform';
-import { diffInserted, diffRemoved, editorWidgetBackground, editorWidgetBorder, editorWidgetForeground, focusBorder, inputBackground, inputPlaceholderForeground, registerColor, transparent, widgetShadow } from 'vs/platform/theme/common/colorRegistry';
+import { localize } from '../../../../nls.js';
+import { MenuId } from '../../../../platform/actions/common/actions.js';
+import { Extensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
+import { diffInserted, diffRemoved, editorWidgetBackground, editorWidgetBorder, editorWidgetForeground, focusBorder, inputBackground, inputPlaceholderForeground, registerColor, transparent, widgetShadow } from '../../../../platform/theme/common/colorRegistry.js';
 
 // settings
 
@@ -17,7 +17,6 @@ export const enum InlineChatConfigKeys {
 	FinishOnType = 'inlineChat.finishOnType',
 	AcceptedOrDiscardBeforeSave = 'inlineChat.acceptedOrDiscardBeforeSave',
 	StartWithOverlayWidget = 'inlineChat.startWithOverlayWidget',
-	ZoneToolbar = 'inlineChat.experimental.enableZoneToolbar',
 	HoldToSpeech = 'inlineChat.holdToSpeech',
 	AccessibleDiffView = 'inlineChat.accessibleDiffView'
 }
@@ -38,17 +37,11 @@ Registry.as<IConfigurationRegistry>(Extensions.Configuration).registerConfigurat
 			markdownEnumDescriptions: [
 				localize('mode.live', "Changes are applied directly to the document, can be highlighted via inline diffs, and accepted/discarded by hunks. Ending a session will keep the changes."),
 				localize('mode.preview', "Changes are previewed only and need to be accepted via the apply button. Ending a session will discard the changes."),
-			],
-			tags: ['experimental']
+			]
 		},
 		[InlineChatConfigKeys.FinishOnType]: {
 			description: localize('finishOnType', "Whether to finish an inline chat session when typing outside of changed regions."),
 			default: false,
-			type: 'boolean'
-		},
-		[InlineChatConfigKeys.AcceptedOrDiscardBeforeSave]: {
-			description: localize('acceptedOrDiscardBeforeSave', "Whether pending inline chat sessions prevent saving."),
-			default: true,
 			type: 'boolean'
 		},
 		[InlineChatConfigKeys.HoldToSpeech]: {
@@ -62,21 +55,10 @@ Registry.as<IConfigurationRegistry>(Extensions.Configuration).registerConfigurat
 			type: 'string',
 			enum: ['auto', 'on', 'off'],
 			markdownEnumDescriptions: [
-				localize('accessibleDiffView.auto', "The accessible diff viewer is based screen reader mode being enabled."),
+				localize('accessibleDiffView.auto', "The accessible diff viewer is based on screen reader mode being enabled."),
 				localize('accessibleDiffView.on', "The accessible diff viewer is always enabled."),
 				localize('accessibleDiffView.off', "The accessible diff viewer is never enabled."),
 			],
-		},
-		[InlineChatConfigKeys.StartWithOverlayWidget]: {
-			description: localize('onlyZone', "Whether inline chat opens directly as zone widget, between the lines, or as overlay widget which turns into a zone."),
-			default: false,
-			type: 'boolean',
-		},
-		[InlineChatConfigKeys.ZoneToolbar]: {
-			description: localize('zoneToolbar', "Whether to show a toolbar to accept or reject changes in the inline chat changes view."),
-			default: false,
-			type: 'boolean',
-			tags: ['experimental']
 		},
 	}
 });
@@ -93,6 +75,7 @@ export const enum InlineChatResponseType {
 	MessagesAndEdits = 'messagesAndEdits'
 }
 
+export const CTX_INLINE_CHAT_POSSIBLE = new RawContextKey<boolean>('inlineChatPossible', false, localize('inlineChatHasPossible', "Whether a provider for inline chat exists and whether an editor for inline chat is open"));
 export const CTX_INLINE_CHAT_HAS_AGENT = new RawContextKey<boolean>('inlineChatHasProvider', false, localize('inlineChatHasProvider', "Whether a provider for interactive editors exists"));
 export const CTX_INLINE_CHAT_VISIBLE = new RawContextKey<boolean>('inlineChatVisible', false, localize('inlineChatVisible', "Whether the interactive editor input is visible"));
 export const CTX_INLINE_CHAT_FOCUSED = new RawContextKey<boolean>('inlineChatFocused', false, localize('inlineChatFocused', "Whether the interactive editor input is focused"));
@@ -124,7 +107,6 @@ export const ACTION_REPORT_ISSUE = 'inlineChat.reportIssue';
 
 // --- menus
 
-export const MENU_INLINE_CHAT_CONTENT_STATUS = MenuId.for('inlineChat.content.status');
 export const MENU_INLINE_CHAT_WIDGET_STATUS = MenuId.for('inlineChatWidget.status');
 export const MENU_INLINE_CHAT_WIDGET_SECONDARY = MenuId.for('inlineChatWidget.secondary');
 export const MENU_INLINE_CHAT_ZONE = MenuId.for('inlineChatWidget.changesZone');

@@ -1,15 +1,20 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./variablesCore';
-import * as React from 'react';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { ActionBars } from 'vs/workbench/contrib/positronVariables/browser/components/actionBars';
-import { PositronVariablesProps } from 'vs/workbench/contrib/positronVariables/browser/positronVariables';
-import { VariablesInstance } from 'vs/workbench/contrib/positronVariables/browser/components/variablesInstance';
-import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
+// CSS.
+import './variablesCore.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
+import { ActionBars } from './actionBars.js';
+import { PositronVariablesProps } from '../positronVariables.js';
+import { VariablesInstance } from './variablesInstance.js';
+import { usePositronVariablesContext } from '../positronVariablesContext.js';
 
 // VariablesCoreProps interface.
 interface VariablesCoreProps extends PositronVariablesProps {

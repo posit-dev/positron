@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useEffect, useState } from 'react';
-import 'vs/css!./positronConnections';
-import { SchemaNavigation } from 'vs/workbench/contrib/positronConnections/browser/components/schemaNavigation';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { PositronConnectionsContextProvider, PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
-import { ListConnections } from 'vs/workbench/contrib/positronConnections/browser/components/listConnections';
+import './positronConnections.css';
+import { SchemaNavigation } from './components/schemaNavigation.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { PositronConnectionsContextProvider, PositronConnectionsServices } from './positronConnectionsContext.js';
+import { ListConnections } from './components/listConnections.js';
 
 export interface PositronConnectionsProps extends PositronConnectionsServices { }
 export interface ViewsProps {

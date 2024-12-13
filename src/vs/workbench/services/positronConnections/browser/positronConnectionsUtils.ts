@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
-import { IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { IPositronConnectionItem } from './interfaces/positronConnectionsInstance.js';
 
 export interface IPositronConnectionEntry extends IPositronConnectionItem {
 	/***

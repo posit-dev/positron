@@ -4,34 +4,33 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./consoleInstance';
+import './consoleInstance.css';
 
 // React.
-import * as React from 'react';
-import { KeyboardEvent, MouseEvent, UIEvent, useCallback, useEffect, useLayoutEffect, useRef, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { KeyboardEvent, MouseEvent, UIEvent, useCallback, useEffect, useLayoutEffect, useRef, useState, WheelEvent } from 'react';
 
 // Other dependencies.
-import * as nls from 'vs/nls';
-import * as DOM from 'vs/base/browser/dom';
-import { generateUuid } from 'vs/base/common/uuid';
-import { isMacintosh, isWeb } from 'vs/base/common/platform';
-import { PixelRatio } from 'vs/base/browser/pixelRatio';
-import { disposableTimeout } from 'vs/base/common/async';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IAction, Separator } from 'vs/base/common/actions';
-import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
-import { applyFontInfo } from 'vs/editor/browser/config/domFontInfo';
-import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
-import { BareFontInfo, FontInfo } from 'vs/editor/common/config/fontInfo';
-import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
-import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { ConsoleInstanceItems } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstanceItems';
-import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleIdentifiers';
+import * as nls from '../../../../../nls.js';
+import * as DOM from '../../../../../base/browser/dom.js';
+import { generateUuid } from '../../../../../base/common/uuid.js';
+import { isMacintosh, isWeb } from '../../../../../base/common/platform.js';
+import { PixelRatio } from '../../../../../base/browser/pixelRatio.js';
+import { disposableTimeout } from '../../../../../base/common/async.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { IAction, Separator } from '../../../../../base/common/actions.js';
+import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
+import { applyFontInfo } from '../../../../../editor/browser/config/domFontInfo.js';
+import { IEditorOptions } from '../../../../../editor/common/config/editorOptions.js';
+import { BareFontInfo, FontInfo } from '../../../../../editor/common/config/fontInfo.js';
+import { FontMeasurements } from '../../../../../editor/browser/config/fontMeasurements.js';
+import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { POSITRON_PLOTS_VIEW_ID } from '../../../../services/positronPlots/common/positronPlots.js';
+import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
+import { ConsoleInstanceItems } from './consoleInstanceItems.js';
+import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from '../positronConsoleIdentifiers.js';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {

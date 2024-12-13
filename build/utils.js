@@ -15,5 +15,5 @@ const REPO_ROOT = path.dirname(__dirname);
  */
 const positronBuildNumber =
 	process.env.POSITRON_BUILD_NUMBER ??
-	child_process.execSync(`node ${REPO_ROOT}/versions/show-version.js --build`).toString().trim();
+	child_process.execSync(`node ${REPO_ROOT}/versions/show-version.cjs --build`).toString().trim();
 exports.positronBuildNumber = positronBuildNumber;

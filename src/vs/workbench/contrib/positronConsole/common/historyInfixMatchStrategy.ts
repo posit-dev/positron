@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { HistoryNavigator2 } from 'vs/base/common/history';
-import { IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { HistoryMatch, HistoryMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyMatchStrategy';
+import { HistoryNavigator2 } from '../../../../base/common/history.js';
+import { IInputHistoryEntry } from '../../executionHistory/common/executionHistoryService.js';
+import { HistoryMatch, HistoryMatchStrategy } from './historyMatchStrategy.js';
 
 /**
  * A history match strategy that matches the input anywhere in the string. It

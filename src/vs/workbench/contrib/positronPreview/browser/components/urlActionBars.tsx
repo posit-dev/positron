@@ -3,19 +3,23 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./actionBars';
-import * as React from 'react';
-import { PropsWithChildren, useEffect, } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
-import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
-import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-import { localize } from 'vs/nls';
-import { PreviewUrl, QUERY_NONCE_PARAMETER } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
-import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
-import { URI } from 'vs/base/common/uri';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { kPaddingLeft, kPaddingRight, PreviewActionBarsProps } from 'vs/workbench/contrib/positronPreview/browser/components/actionBars';
+// CSS.
+import './actionBars.css';
+
+// React.
+import React, { PropsWithChildren, useEffect } from 'react';
+
+// Other dependencies.
+import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
+import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
+import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { localize } from '../../../../../nls.js';
+import { PreviewUrl, QUERY_NONCE_PARAMETER } from '../previewUrl.js';
+import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { kPaddingLeft, kPaddingRight, PreviewActionBarsProps } from './actionBars.js';
 
 // Constants.
 const kUrlBarInputName = 'url-bar';

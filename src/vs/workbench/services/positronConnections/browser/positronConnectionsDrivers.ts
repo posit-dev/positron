@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IDriver, Input, InputType } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsDriver';
-import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../languageRuntime/common/languageRuntimeService.js';
+import { IDriver, Input, InputType } from './interfaces/positronConnectionsDriver.js';
+import { IPositronConnectionsService } from './interfaces/positronConnectionsService.js';
+import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
 
 export class PositronConnectionsDriverManager {
 	private readonly drivers: IDriver[] = [];

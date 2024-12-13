@@ -4,25 +4,24 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./rConfigurationStep';
+import './rConfigurationStep.css';
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren, useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren, useEffect, useState } from 'react';
 
 // Other dependencies.
-import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
-import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepProps';
-import { localize } from 'vs/nls';
-import { PositronWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardStep';
-import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardSubStep';
-import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
-import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
-import { InterpreterEntry } from 'vs/workbench/browser/positronNewProjectWizard/components/steps/interpreterEntry';
-import { interpretersToDropdownItems } from 'vs/workbench/browser/positronNewProjectWizard/utilities/interpreterDropDownUtils';
-import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { WizardFormattedText, WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
+import { useNewProjectWizardContext } from '../../newProjectWizardContext.js';
+import { NewProjectWizardStepProps } from '../../interfaces/newProjectWizardStepProps.js';
+import { localize } from '../../../../../nls.js';
+import { PositronWizardStep } from '../wizardStep.js';
+import { PositronWizardSubStep } from '../wizardSubStep.js';
+import { DropDownListBox } from '../../../positronComponents/dropDownListBox/dropDownListBox.js';
+import { Checkbox } from '../../../positronComponents/positronModalDialog/components/checkbox.js';
+import { InterpreterEntry } from './interpreterEntry.js';
+import { interpretersToDropdownItems } from '../../utilities/interpreterDropDownUtils.js';
+import { ExternalLink } from '../../../../../base/browser/ui/ExternalLink/ExternalLink.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { WizardFormattedText, WizardFormattedTextType } from '../wizardFormattedText.js';
 
 // NOTE: If you are making changes to this file, the equivalent Python component may benefit from
 // similar changes. See src/vs/workbench/browser/positronNewProjectWizard/components/steps/pythonEnvironmentStep.tsx

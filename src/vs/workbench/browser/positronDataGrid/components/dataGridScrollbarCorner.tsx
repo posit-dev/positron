@@ -4,11 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataGridScrollbarCorner';
+import './dataGridScrollbarCorner.css';
 
 // React.
-import * as React from 'react';
-import { usePositronDataGridContext } from 'vs/workbench/browser/positronDataGrid/positronDataGridContext';
+import React from 'react';
+
+// Other dependencies.
+import { usePositronDataGridContext } from '../positronDataGridContext.js';
 
 /**
  * DataGridScrollbarCornerProps interface.

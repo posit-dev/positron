@@ -1,7 +1,7 @@
 [
 	{
 		"c": "#",
-		"t": "source.yaml meta.stream.yaml comment.line.number-sign.yaml punctuation.definition.comment.yaml",
+		"t": "source.yaml comment.line.number-sign.yaml punctuation.definition.comment.yaml",
 		"r": {
 			"hc_black": "comment: #7CA668",
 			"positron_dark": "comment: #6A9955",
@@ -11,7 +11,7 @@
 	},
 	{
 		"c": " sequencer protocols for Laser eye surgery",
-		"t": "source.yaml meta.stream.yaml comment.line.number-sign.yaml",
+		"t": "source.yaml comment.line.number-sign.yaml",
 		"r": {
 			"hc_black": "comment: #7CA668",
 			"positron_dark": "comment: #6A9955",
@@ -21,7 +21,7 @@
 	},
 	{
 		"c": "---",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml entity.other.document.begin.yaml",
+		"t": "source.yaml entity.other.document.begin.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -31,7 +31,7 @@
 	},
 	{
 		"c": "-",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml punctuation.definition.block.sequence.item.yaml",
+		"t": "source.yaml punctuation.definition.block.sequence.item.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -41,7 +41,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -51,7 +51,7 @@
 	},
 	{
 		"c": "step",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"positron_dark": "entity.name.tag: #569CD6",
@@ -61,7 +61,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -71,7 +71,7 @@
 	},
 	{
 		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -81,7 +81,7 @@
 	},
 	{
 		"c": "&",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml keyword.control.flow.anchor.yaml punctuation.definition.anchor.yaml",
+		"t": "source.yaml meta.property.yaml keyword.control.property.anchor.yaml punctuation.definition.anchor.yaml",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
@@ -91,17 +91,17 @@
 	},
 	{
 		"c": "id001",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml keyword.control.flow.anchor.yaml variable.other.anchor.yaml",
+		"t": "source.yaml meta.property.yaml entity.name.type.anchor.yaml",
 		"r": {
-			"hc_black": "variable: #9CDCFE",
-			"positron_dark": "variable: #9CDCFE",
-			"positron_light": "variable: #001080",
-			"hc_light": "variable: #001080"
+			"hc_black": "entity.name.type: #4EC9B0",
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
 		}
 	},
 	{
 		"c": "                  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -111,7 +111,7 @@
 	},
 	{
 		"c": "#",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml comment.line.number-sign.yaml punctuation.definition.comment.yaml",
+		"t": "source.yaml comment.line.number-sign.yaml punctuation.definition.comment.yaml",
 		"r": {
 			"hc_black": "comment: #7CA668",
 			"positron_dark": "comment: #6A9955",
@@ -121,7 +121,7 @@
 	},
 	{
 		"c": " defines anchor label &id001",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml comment.line.number-sign.yaml",
+		"t": "source.yaml comment.line.number-sign.yaml",
 		"r": {
 			"hc_black": "comment: #7CA668",
 			"positron_dark": "comment: #6A9955",
@@ -130,18 +130,8 @@
 		}
 	},
 	{
-		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
-		"r": {
-			"hc_black": "default: #FFFFFF",
-			"positron_dark": "default: #CCCCCC",
-			"positron_light": "default: #3B3B3B",
-			"hc_light": "default: #292929"
-		}
-	},
-	{
-		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
+		"c": "    ",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -151,7 +141,7 @@
 	},
 	{
 		"c": "instrument",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"positron_dark": "entity.name.tag: #569CD6",
@@ -161,7 +151,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -171,7 +161,7 @@
 	},
 	{
 		"c": "      ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -181,7 +171,7 @@
 	},
 	{
 		"c": "Lasik 2000",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -190,18 +180,8 @@
 		}
 	},
 	{
-		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
-		"r": {
-			"hc_black": "default: #FFFFFF",
-			"positron_dark": "default: #CCCCCC",
-			"positron_light": "default: #3B3B3B",
-			"hc_light": "default: #292929"
-		}
-	},
-	{
-		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
+		"c": "    ",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -211,7 +191,7 @@
 	},
 	{
 		"c": "pulseEnergy",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"positron_dark": "entity.name.tag: #569CD6",
@@ -221,7 +201,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -231,7 +211,7 @@
 	},
 	{
 		"c": "     ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -241,7 +221,7 @@
 	},
 	{
 		"c": "5.4",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml constant.numeric.float.yaml",
+		"t": "source.yaml constant.numeric.float.yaml",
 		"r": {
 			"hc_black": "constant.numeric: #B5CEA8",
 			"positron_dark": "constant.numeric: #B5CEA8",
@@ -250,18 +230,8 @@
 		}
 	},
 	{
-		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
-		"r": {
-			"hc_black": "default: #FFFFFF",
-			"positron_dark": "default: #CCCCCC",
-			"positron_light": "default: #3B3B3B",
-			"hc_light": "default: #292929"
-		}
-	},
-	{
-		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
+		"c": "    ",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -271,7 +241,7 @@
 	},
 	{
 		"c": "spotSize",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"positron_dark": "entity.name.tag: #569CD6",
@@ -281,7 +251,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -291,7 +261,7 @@
 	},
 	{
 		"c": "        ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -301,7 +271,7 @@
 	},
 	{
 		"c": "1mm",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -311,7 +281,7 @@
 	},
 	{
 		"c": "-",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml punctuation.definition.block.sequence.item.yaml",
+		"t": "source.yaml punctuation.definition.block.sequence.item.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -321,7 +291,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -331,7 +301,7 @@
 	},
 	{
 		"c": "step",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"positron_dark": "entity.name.tag: #569CD6",
@@ -341,7 +311,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -351,7 +321,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -361,7 +331,7 @@
 	},
 	{
 		"c": "*",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml keyword.control.flow.alias.yaml punctuation.definition.alias.yaml",
+		"t": "source.yaml keyword.control.flow.alias.yaml punctuation.definition.alias.yaml",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
@@ -371,7 +341,7 @@
 	},
 	{
 		"c": "id001",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml keyword.control.flow.alias.yaml variable.other.alias.yaml",
+		"t": "source.yaml variable.other.alias.yaml",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -381,7 +351,7 @@
 	},
 	{
 		"c": "                   ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -391,7 +361,7 @@
 	},
 	{
 		"c": "#",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml comment.line.number-sign.yaml punctuation.definition.comment.yaml",
+		"t": "source.yaml comment.line.number-sign.yaml punctuation.definition.comment.yaml",
 		"r": {
 			"hc_black": "comment: #7CA668",
 			"positron_dark": "comment: #6A9955",
@@ -401,7 +371,7 @@
 	},
 	{
 		"c": " refers to the first step (with anchor &id001)",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml comment.line.number-sign.yaml",
+		"t": "source.yaml comment.line.number-sign.yaml",
 		"r": {
 			"hc_black": "comment: #7CA668",
 			"positron_dark": "comment: #6A9955",
@@ -411,7 +381,7 @@
 	},
 	{
 		"c": "-",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml punctuation.definition.block.sequence.item.yaml",
+		"t": "source.yaml punctuation.definition.block.sequence.item.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -421,7 +391,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -431,7 +401,7 @@
 	},
 	{
 		"c": "step",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"positron_dark": "entity.name.tag: #569CD6",
@@ -441,7 +411,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -451,7 +421,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -461,7 +431,7 @@
 	},
 	{
 		"c": "*",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml keyword.control.flow.alias.yaml punctuation.definition.alias.yaml",
+		"t": "source.yaml keyword.control.flow.alias.yaml punctuation.definition.alias.yaml",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
@@ -471,7 +441,7 @@
 	},
 	{
 		"c": "id001",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml keyword.control.flow.alias.yaml variable.other.alias.yaml",
+		"t": "source.yaml variable.other.alias.yaml",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -480,8 +450,8 @@
 		}
 	},
 	{
-		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
+		"c": "    ",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -490,28 +460,28 @@
 		}
 	},
 	{
-		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"c": "spotSize",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
+		"r": {
+			"hc_black": "entity.name.tag: #569CD6",
+			"positron_dark": "entity.name.tag: #569CD6",
+			"positron_light": "entity.name.tag: #800000",
+			"hc_light": "entity.name.tag: #0F4A85"
+		}
+	},
+	{
+		"c": ":",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
 			"positron_light": "default: #3B3B3B",
 			"hc_light": "default: #292929"
-		}
-	},
-	{
-		"c": "spotSize:",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml invalid.illegal.unrecognized.yaml",
-		"r": {
-			"hc_black": "invalid: #F44747",
-			"positron_dark": "invalid: #F44747",
-			"positron_light": "invalid: #CD3131",
-			"hc_light": "invalid: #B5200D"
 		}
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -521,7 +491,7 @@
 	},
 	{
 		"c": "2mm",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -531,17 +501,17 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
-			"hc_black": "string: #CE9178",
-			"positron_dark": "string: #CE9178",
-			"positron_light": "string.unquoted.plain.out.yaml: #0000FF",
-			"hc_light": "string.unquoted.plain.out.yaml: #0F4A85"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
 		"c": "-",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml punctuation.definition.block.sequence.item.yaml",
+		"t": "source.yaml punctuation.definition.block.sequence.item.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -551,7 +521,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -561,7 +531,7 @@
 	},
 	{
 		"c": "step",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"positron_dark": "entity.name.tag: #569CD6",
@@ -571,7 +541,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -581,7 +551,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -591,7 +561,7 @@
 	},
 	{
 		"c": "*",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml keyword.control.flow.alias.yaml punctuation.definition.alias.yaml",
+		"t": "source.yaml keyword.control.flow.alias.yaml punctuation.definition.alias.yaml",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
@@ -601,7 +571,7 @@
 	},
 	{
 		"c": "id002",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml keyword.control.flow.alias.yaml variable.other.alias.yaml",
+		"t": "source.yaml variable.other.alias.yaml",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -611,7 +581,7 @@
 	},
 	{
 		"c": "-",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml punctuation.definition.block.sequence.item.yaml",
+		"t": "source.yaml punctuation.definition.block.sequence.item.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -621,7 +591,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -631,7 +601,7 @@
 	},
 	{
 		"c": "{",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.flow.mapping.yaml punctuation.definition.mapping.begin.yaml",
+		"t": "source.yaml meta.flow-mapping.yaml punctuation.definition.mapping.begin.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -641,7 +611,7 @@
 	},
 	{
 		"c": "name",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.flow.mapping.yaml meta.flow.map.implicit.yaml meta.flow.map.key.yaml string.unquoted.plain.in.yaml entity.name.tag.yaml",
+		"t": "source.yaml meta.flow-mapping.yaml meta.flow-pair.key.yaml string.unquoted.plain.in.yaml entity.name.tag.yaml",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"positron_dark": "entity.name.tag: #569CD6",
@@ -651,7 +621,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.flow.mapping.yaml meta.flow.map.implicit.yaml meta.flow.pair.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml meta.flow-mapping.yaml meta.flow-pair.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -661,7 +631,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.flow.mapping.yaml meta.flow.map.implicit.yaml meta.flow.pair.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml meta.flow-mapping.yaml meta.flow-pair.yaml meta.flow-pair.value.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -671,7 +641,7 @@
 	},
 	{
 		"c": "John Smith",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.flow.mapping.yaml meta.flow.map.implicit.yaml meta.flow.pair.value.yaml string.unquoted.plain.in.yaml",
+		"t": "source.yaml meta.flow-mapping.yaml meta.flow-pair.yaml meta.flow-pair.value.yaml string.unquoted.plain.in.yaml",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -681,7 +651,7 @@
 	},
 	{
 		"c": ",",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.flow.mapping.yaml punctuation.separator.mapping.yaml",
+		"t": "source.yaml meta.flow-mapping.yaml punctuation.separator.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -691,7 +661,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.flow.mapping.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml meta.flow-mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -701,7 +671,7 @@
 	},
 	{
 		"c": "age",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.flow.mapping.yaml meta.flow.map.implicit.yaml meta.flow.map.key.yaml string.unquoted.plain.in.yaml entity.name.tag.yaml",
+		"t": "source.yaml meta.flow-mapping.yaml meta.flow-pair.key.yaml string.unquoted.plain.in.yaml entity.name.tag.yaml",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"positron_dark": "entity.name.tag: #569CD6",
@@ -711,7 +681,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.flow.mapping.yaml meta.flow.map.implicit.yaml meta.flow.pair.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml meta.flow-mapping.yaml meta.flow-pair.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -721,7 +691,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.flow.mapping.yaml meta.flow.map.implicit.yaml meta.flow.pair.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml meta.flow-mapping.yaml meta.flow-pair.yaml meta.flow-pair.value.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -731,7 +701,7 @@
 	},
 	{
 		"c": "33",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.flow.mapping.yaml meta.flow.map.implicit.yaml meta.flow.pair.value.yaml string.unquoted.plain.in.yaml constant.numeric.integer.decimal.yaml",
+		"t": "source.yaml meta.flow-mapping.yaml meta.flow-pair.yaml meta.flow-pair.value.yaml constant.numeric.integer.yaml",
 		"r": {
 			"hc_black": "constant.numeric: #B5CEA8",
 			"positron_dark": "constant.numeric: #B5CEA8",
@@ -741,7 +711,7 @@
 	},
 	{
 		"c": "}",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.flow.mapping.yaml punctuation.definition.mapping.end.yaml",
+		"t": "source.yaml meta.flow-mapping.yaml punctuation.definition.mapping.end.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -751,7 +721,7 @@
 	},
 	{
 		"c": "-",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml punctuation.definition.block.sequence.item.yaml",
+		"t": "source.yaml punctuation.definition.block.sequence.item.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -761,7 +731,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -771,7 +741,7 @@
 	},
 	{
 		"c": "name",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"positron_dark": "entity.name.tag: #569CD6",
@@ -781,7 +751,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -791,7 +761,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -801,7 +771,7 @@
 	},
 	{
 		"c": "Mary Smith",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -811,7 +781,7 @@
 	},
 	{
 		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -821,7 +791,7 @@
 	},
 	{
 		"c": "age",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"positron_dark": "entity.name.tag: #569CD6",
@@ -831,7 +801,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -841,7 +811,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -851,7 +821,7 @@
 	},
 	{
 		"c": "27",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml constant.numeric.integer.decimal.yaml",
+		"t": "source.yaml constant.numeric.integer.yaml",
 		"r": {
 			"hc_black": "constant.numeric: #B5CEA8",
 			"positron_dark": "constant.numeric: #B5CEA8",
@@ -861,7 +831,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -870,18 +840,8 @@
 		}
 	},
 	{
-		"c": "m",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml invalid.illegal.expected-indentation.yaml",
-		"r": {
-			"hc_black": "invalid: #F44747",
-			"positron_dark": "invalid: #F44747",
-			"positron_light": "invalid: #CD3131",
-			"hc_light": "invalid: #B5200D"
-		}
-	},
-	{
-		"c": "en",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"c": "men",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"positron_dark": "entity.name.tag: #569CD6",
@@ -891,7 +851,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -901,7 +861,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -911,7 +871,7 @@
 	},
 	{
 		"c": "[",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.flow.sequence.yaml punctuation.definition.sequence.begin.yaml",
+		"t": "source.yaml meta.flow-sequence.yaml punctuation.definition.sequence.begin.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -921,7 +881,7 @@
 	},
 	{
 		"c": "John Smith",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.flow.sequence.yaml string.unquoted.plain.in.yaml",
+		"t": "source.yaml meta.flow-sequence.yaml string.unquoted.plain.in.yaml",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -931,7 +891,7 @@
 	},
 	{
 		"c": ",",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.flow.sequence.yaml punctuation.separator.sequence.yaml",
+		"t": "source.yaml meta.flow-sequence.yaml punctuation.separator.sequence.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -941,7 +901,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.flow.sequence.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml meta.flow-sequence.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -951,7 +911,7 @@
 	},
 	{
 		"c": "Bill Jones",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.flow.sequence.yaml string.unquoted.plain.in.yaml",
+		"t": "source.yaml meta.flow-sequence.yaml string.unquoted.plain.in.yaml",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -961,7 +921,7 @@
 	},
 	{
 		"c": "]",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.flow.sequence.yaml punctuation.definition.sequence.end.yaml",
+		"t": "source.yaml meta.flow-sequence.yaml punctuation.definition.sequence.end.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -970,28 +930,8 @@
 		}
 	},
 	{
-		"c": "w",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml invalid.illegal.expected-indentation.yaml",
-		"r": {
-			"hc_black": "invalid: #F44747",
-			"positron_dark": "invalid: #F44747",
-			"positron_light": "invalid: #CD3131",
-			"hc_light": "invalid: #B5200D"
-		}
-	},
-	{
-		"c": "o",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml invalid.illegal.expected-indentation.yaml",
-		"r": {
-			"hc_black": "invalid: #F44747",
-			"positron_dark": "invalid: #F44747",
-			"positron_light": "invalid: #CD3131",
-			"hc_light": "invalid: #B5200D"
-		}
-	},
-	{
-		"c": "men",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"c": "women",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"positron_dark": "entity.name.tag: #569CD6",
@@ -1001,7 +941,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -1011,7 +951,7 @@
 	},
 	{
 		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -1021,7 +961,7 @@
 	},
 	{
 		"c": "-",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.block.sequence.yaml punctuation.definition.block.sequence.item.yaml",
+		"t": "source.yaml punctuation.definition.block.sequence.item.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -1031,7 +971,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.block.sequence.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -1041,7 +981,7 @@
 	},
 	{
 		"c": "Mary Smith",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.block.sequence.yaml string.unquoted.plain.out.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -1051,7 +991,7 @@
 	},
 	{
 		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -1061,7 +1001,7 @@
 	},
 	{
 		"c": "-",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.block.sequence.yaml punctuation.definition.block.sequence.item.yaml",
+		"t": "source.yaml punctuation.definition.block.sequence.item.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -1071,7 +1011,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.block.sequence.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -1081,7 +1021,7 @@
 	},
 	{
 		"c": "Susan Williams",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml meta.block.sequence.yaml string.unquoted.plain.out.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",

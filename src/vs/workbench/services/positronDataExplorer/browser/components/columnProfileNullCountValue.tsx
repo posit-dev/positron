@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./columnProfileNullCountValue';
+import './columnProfileNullCountValue.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
-import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
+import { TableSummaryDataGridInstance } from '../tableSummaryDataGridInstance.js';
 
 /**
  * ColumnProfileNullCountValueProps interface.

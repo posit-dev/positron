@@ -4,15 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataExplorerPanel';
+import './dataExplorerPanel.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
-import { StatusBar } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/statusBar';
-import { DataExplorer } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/dataExplorer';
-import { RowFilterBar } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/rowFilterBar/rowFilterBar';
+import { StatusBar } from './components/statusBar.js';
+import { DataExplorer } from './components/dataExplorer.js';
+import { RowFilterBar } from './components/rowFilterBar/rowFilterBar.js';
 
 /**
  * DataExplorerPanel component.

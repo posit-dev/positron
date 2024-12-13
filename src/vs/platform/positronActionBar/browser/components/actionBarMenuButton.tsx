@@ -4,19 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./actionBarMenuButton';
+import './actionBarMenuButton.css';
 
 // React.
-import * as React from 'react';
-import { useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useEffect, useRef } from 'react';
 
 // Other dependencies.
-import { IAction } from 'vs/base/common/actions';
-import { IContextMenuEvent } from 'vs/base/browser/contextmenu';
-import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
-import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
-import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { IAction } from '../../../../base/common/actions.js';
+import { IContextMenuEvent } from '../../../../base/browser/contextmenu.js';
+import { AnchorAlignment, AnchorAxisAlignment } from '../../../../base/browser/ui/contextview/contextview.js';
+import { ActionBarButton } from './actionBarButton.js';
+import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
+import { usePositronActionBarContext } from '../positronActionBarContext.js';
 
 /**
  * ActionBarMenuButtonProps interface.

@@ -3,16 +3,21 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import './resumeConnectionModalDialog.css';
+
+// React.
 import React, { PropsWithChildren, useRef } from 'react';
-import { localize } from 'vs/nls';
-import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
-import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
-import 'vs/css!./resumeConnectionModalDialog';
-import Severity from 'vs/base/common/severity';
-import { SimpleCodeEditor, SimpleCodeEditorWidget } from 'vs/workbench/contrib/positronConnections/browser/components/simpleCodeEditor';
+
+// Other dependencies.
+import { localize } from '../../../../../nls.js';
+import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
+import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
+import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
+import { PositronConnectionsServices } from '../positronConnectionsContext.js';
+import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import Severity from '../../../../../base/common/severity.js';
+import { SimpleCodeEditor, SimpleCodeEditorWidget } from './simpleCodeEditor.js';
 
 const RESUME_CONNECTION_MODAL_DIALOG_WIDTH = 700;
 const RESUME_CONNECTION_MODAL_DIALOG_HEIGHT = 430;

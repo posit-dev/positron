@@ -3,14 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from 'vs/base/common/event';
-import { IEditor } from 'vs/editor/common/editorCommon';
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { ActivityItemPrompt } from 'vs/workbench/services/positronConsole/browser/classes/activityItemPrompt';
-import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IDisposable } from 'vs/base/common/lifecycle';
+import { Event } from '../../../../../base/common/event.js';
+import { IEditor } from '../../../../../editor/common/editorCommon.js';
+import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
+import { RuntimeItem } from '../classes/runtimeItem.js';
+import { ILanguageRuntimeSession } from '../../../runtimeSession/common/runtimeSessionService.js';
+import { ActivityItemPrompt } from '../classes/activityItemPrompt.js';
+import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { IDisposable } from '../../../../../base/common/lifecycle.js';
 
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');

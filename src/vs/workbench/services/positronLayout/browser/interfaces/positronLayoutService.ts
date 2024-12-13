@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CustomPositronLayoutDescription } from 'vs/workbench/services/positronLayout/common/positronCustomViews';
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { ISerializableView, IViewSize } from 'vs/base/browser/ui/grid/gridview';
-import { PanelAlignment } from 'vs/workbench/services/layout/browser/layoutService';
+import { CustomPositronLayoutDescription } from '../../common/positronCustomViews.js';
+import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
+import { ISerializableView, IViewSize } from '../../../../../base/browser/ui/grid/gridview.js';
+import { PanelAlignment } from '../../../layout/browser/layoutService.js';
 
 export const IPositronLayoutService = createDecorator<IPositronLayoutService>('positronLayoutService');
 

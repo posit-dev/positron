@@ -1,11 +1,13 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronConsoleServices, PositronConsoleState, usePositronConsoleState } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleState';
+// React.
+import React, { PropsWithChildren, createContext, useContext } from 'react';
+
+// Other dependencies.
+import { PositronConsoleServices, PositronConsoleState, usePositronConsoleState } from './positronConsoleState.js';
 
 /**
  * Create the Positron console context.

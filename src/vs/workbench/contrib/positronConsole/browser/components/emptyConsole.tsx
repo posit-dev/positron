@@ -1,14 +1,19 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./emptyConsole';
-import * as React from 'react';
-import { localize } from 'vs/nls';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
-import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { PositronShowStartInterpreterAction } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarActions';
+// CSS.
+import './emptyConsole.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { localize } from '../../../../../nls.js';
+import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
+import { PositronShowStartInterpreterAction } from '../../../../browser/parts/positronTopActionBar/positronTopActionBarActions.js';
 
 // Load localized copy for control.
 const noInterpreterRunning = localize('positron.noInterpreterRunning', "There is no interpreter running.");

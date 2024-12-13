@@ -4,31 +4,30 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./newFolderFromGitModalDialog';
+import './newFolderFromGitModalDialog.css';
 
 // React.
-import * as React from 'react';
-import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useRef, useState } from 'react';
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import { URI } from 'vs/base/common/uri';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
-import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
-import { VerticalSpacer } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalSpacer';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
-import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
-import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
-import { isInputEmpty } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
-import { ILabelService } from 'vs/platform/label/common/label';
-import { combineLabelWithPathUri, pathUriToLabel } from 'vs/workbench/browser/utils/path';
-import { IPathService } from 'vs/workbench/services/path/common/pathService';
+import { localize } from '../../../nls.js';
+import { URI } from '../../../base/common/uri.js';
+import { ICommandService } from '../../../platform/commands/common/commands.js';
+import { IFileDialogService } from '../../../platform/dialogs/common/dialogs.js';
+import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
+import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { IWorkbenchLayoutService } from '../../services/layout/browser/layoutService.js';
+import { Checkbox } from '../positronComponents/positronModalDialog/components/checkbox.js';
+import { VerticalStack } from '../positronComponents/positronModalDialog/components/verticalStack.js';
+import { VerticalSpacer } from '../positronComponents/positronModalDialog/components/verticalSpacer.js';
+import { PositronModalReactRenderer } from '../positronModalReactRenderer/positronModalReactRenderer.js';
+import { LabeledTextInput } from '../positronComponents/positronModalDialog/components/labeledTextInput.js';
+import { OKCancelModalDialog } from '../positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
+import { LabeledFolderInput } from '../positronComponents/positronModalDialog/components/labeledFolderInput.js';
+import { isInputEmpty } from '../positronComponents/positronModalDialog/components/fileInputValidators.js';
+import { ILabelService } from '../../../platform/label/common/label.js';
+import { combineLabelWithPathUri, pathUriToLabel } from '../utils/path.js';
+import { IPathService } from '../../services/path/common/pathService.js';
 
 /**
  * Shows the new folder from Git modal dialog.

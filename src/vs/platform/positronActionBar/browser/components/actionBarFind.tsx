@@ -3,12 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./actionBarFind';
-import * as React from 'react';
-import { ChangeEvent, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { localize } from 'vs/nls';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
+// CSS.
+import './actionBarFind.css';
+
+// React.
+import React, { ChangeEvent, useRef, useState } from 'react';
+
+// Other dependencies.
+import { localize } from '../../../../nls.js';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
+import { ActionBarButton } from './actionBarButton.js';
 
 /**
  * ActionBarFindProps interface.

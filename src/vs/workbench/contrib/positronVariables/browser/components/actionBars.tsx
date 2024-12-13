@@ -4,28 +4,27 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./actionBars';
+import './actionBars.css';
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren, useEffect, useState } from 'react';
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
-import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-import { ActionBarFilter } from 'vs/platform/positronActionBar/browser/components/actionBarFilter';
-import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
-import { SortingMenuButton } from 'vs/workbench/contrib/positronVariables/browser/components/sortingMenuButton';
-import { GroupingMenuButton } from 'vs/workbench/contrib/positronVariables/browser/components/groupingMenuButton';
-import { PositronVariablesServices } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesState';
-import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { VariablesInstanceMenuButton } from 'vs/workbench/contrib/positronVariables/browser/components/variablesInstanceMenuButton';
-import { DeleteAllVariablesModalDialog } from 'vs/workbench/contrib/positronVariables/browser/modalDialogs/deleteAllVariablesModalDialog';
+import { localize } from '../../../../../nls.js';
+import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
+import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
+import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
+import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { ActionBarFilter } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
+import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
+import { SortingMenuButton } from './sortingMenuButton.js';
+import { GroupingMenuButton } from './groupingMenuButton.js';
+import { PositronVariablesServices } from '../positronVariablesState.js';
+import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { usePositronVariablesContext } from '../positronVariablesContext.js';
+import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
+import { VariablesInstanceMenuButton } from './variablesInstanceMenuButton.js';
+import { DeleteAllVariablesModalDialog } from '../modalDialogs/deleteAllVariablesModalDialog.js';
 
 // Constants.
 const kSecondaryActionBarGap = 4;

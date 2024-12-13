@@ -1,11 +1,16 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./customFolderRecentlyUsedMenuItem';
-import * as React from 'react';
-import { KeyboardModifiers, Button } from 'vs/base/browser/ui/positronComponents/button/button';
+// CSS.
+import './customFolderRecentlyUsedMenuItem.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { KeyboardModifiers, Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
  * CustomFolderRecentlyUsedMenuItemProps interface.

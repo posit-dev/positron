@@ -1,15 +1,19 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./topActionBarCommandCenter';
-import * as React from 'react';
-import { localize } from 'vs/nls';
-import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
-import { AnythingQuickAccessProviderRunOptions } from 'vs/platform/quickinput/common/quickAccess';
-import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
-import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
+// CSS.
+import './topActionBarCommandCenter.css';
+
+// React.
+import React, { MouseEvent } from 'react';
+
+// Other dependencies.
+import { localize } from '../../../../../nls.js';
+import { AnythingQuickAccessProviderRunOptions } from '../../../../../platform/quickinput/common/quickAccess.js';
+import { usePositronTopActionBarContext } from '../positronTopActionBarContext.js';
+import { useRegisterWithActionBar } from '../../../../../platform/positronActionBar/browser/useRegisterWithActionBar.js';
 
 /**
  * Localized strings.

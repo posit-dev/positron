@@ -40,11 +40,8 @@ jobs:
       - name: Install Node ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v3
         with:
+          cache: 'npm'
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'yarn'
-
-      - name: Install Yarn
-        run: npm install -g yarn
 
       - name: Install Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
@@ -53,19 +50,19 @@ jobs:
           cache: 'pip'
 
       - name: Install Node dependencies
-        run: yarn --immutable --network-timeout 120000
+        run: npm ci --fetch-timeout 120000
 
       - name: Run `gulp prePublishNonBundle`
-        run: yarn prePublish
+        run: npm run prePublish
 
       - name: Check dependencies
-        run: yarn checkDependencies
+        run: npm run checkDependencies
 
       - name: Lint TypeScript code
-        run: yarn lint
+        run: npm run lint
 
       - name: Check TypeScript format
-        run: yarn format-check
+        run: npm run format-check
 
       - name: Lint and Check Formatting with Ruff
         run: |
@@ -207,7 +204,7 @@ jobs:
           python -m pip install nox
 
       - name: Run tests
-        run: yarn positron:testMinimumPythonReqs
+        run: npm run positron:testMinimumPythonReqs
 
   typescript-tests:
     name: Test TypeScript
@@ -250,11 +247,8 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'yarn'
-          cache-dependency-path: ${{ env.special-working-directory-relative }}/${{ env.PROJECT_DIR }}/yarn.lock
-
-      - name: Install Yarn
-        run: npm install -g yarn
+          cache: 'npm'
+          cache-dependency-path: ${{ env.special-working-directory-relative }}/${{ env.PROJECT_DIR }}/package-lock.json
 
       - name: Use Python ${{ matrix.python }}
         uses: actions/setup-python@v5
@@ -263,10 +257,10 @@ jobs:
           cache: 'pip'
 
       - name: Install Node dependencies
-        run: yarn --immutable --network-timeout 120000
+        run: npm ci --fetch-timeout 120000
 
       - name: Run `gulp prePublishNonBundle`
-        run: yarn prePublish
+        run: npm run prePublish
 
       - name: Localization
         run: npx @vscode/l10n-dev@latest export ./src
@@ -353,7 +347,7 @@ jobs:
           & $condaExecPath init --all
 
       - name: Prepare VSIX for smoke tests
-        run: yarn package --allow-star-activation
+        run: npm run package --allow-star-activation
         if: matrix.test-suite == 'smoke'
 
       - name: Set CI_PYTHON_PATH and CI_DISABLE_AUTO_SELECTION
@@ -365,7 +359,7 @@ jobs:
 
       # Run TypeScript unit tests only for Python 3.X.
       - name: Run TypeScript unit tests
-        run: yarn test:unittests
+        run: npm run test:unittests
         if: matrix.test-suite == 'ts-unit' && startsWith(matrix.python, 3.)
 
       # The virtual environment based tests use the `testSingleWorkspace` set of tests
@@ -381,7 +375,7 @@ jobs:
           POSITRON_GITHUB_PAT: ${{ github.token }}
         uses: GabrielBB/xvfb-action@v1.6
         with:
-          run: yarn testSingleWorkspace
+          run: npm run testSingleWorkspace
           working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR }}
         if: matrix.test-suite == 'venv'
 
@@ -391,7 +385,7 @@ jobs:
           POSITRON_GITHUB_PAT: ${{ github.token }}
         uses: GabrielBB/xvfb-action@v1.6
         with:
-          run: yarn testSingleWorkspace
+          run: npm run testSingleWorkspace
           working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR }}
         if: matrix.test-suite == 'single-workspace'
 
@@ -401,16 +395,16 @@ jobs:
           POSITRON_GITHUB_PAT: ${{ github.token }}
         uses: GabrielBB/xvfb-action@v1.6
         with:
-          run: yarn testDebugger
+          run: npm run testDebugger
           working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR }}
         if: matrix.test-suite == 'debugger'
 
       - name: Run TypeScript functional tests
-        run: yarn test:functional
+        run: npm run test:functional
         if: matrix.test-suite == 'functional'
 
       - name: Run smoke tests
         env:
           POSITRON_GITHUB_PAT: ${{ github.token }}
-        run: yarn tsc && node ./out/test/smokeTest.js
+        run: npx tsc && node ./out/test/smokeTest.js
         if: matrix.test-suite == 'smoke'

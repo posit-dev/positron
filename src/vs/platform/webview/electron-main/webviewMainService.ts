@@ -4,23 +4,23 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { WebContents, webContents, WebFrameMain } from 'electron';
-import { Emitter } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { FindInFrameOptions, FoundInFrameResult, IWebviewManagerService, WebviewWebContentsId, WebviewWindowId } from 'vs/platform/webview/common/webviewManagerService';
-import { WebviewProtocolProvider } from 'vs/platform/webview/electron-main/webviewProtocolProvider';
-import { IWindowsMainService } from 'vs/platform/windows/electron-main/windows';
+import { Emitter } from '../../../base/common/event.js';
+import { Disposable } from '../../../base/common/lifecycle.js';
+import { FindInFrameOptions, FoundInFrameResult, IWebviewManagerService, WebviewWebContentsId, WebviewWindowId } from '../common/webviewManagerService.js';
+import { WebviewProtocolProvider } from './webviewProtocolProvider.js';
+import { IWindowsMainService } from '../../windows/electron-main/windows.js';
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { Rectangle, webFrameMain } from 'electron';
-import { VSBuffer } from 'vs/base/common/buffer';
+import { VSBuffer } from '../../../base/common/buffer.js';
 
 // eslint-disable-next-line no-duplicate-imports
-import { IDisposable } from 'vs/base/common/lifecycle';
+import { IDisposable } from '../../../base/common/lifecycle.js';
 
 // eslint-disable-next-line no-duplicate-imports
-import { WebviewFrameId, FrameNavigationEvent } from 'vs/platform/webview/common/webviewManagerService';
-import { DeferredPromise } from 'vs/base/common/async';
+import { WebviewFrameId, FrameNavigationEvent } from '../common/webviewManagerService.js';
+import { DeferredPromise } from '../../../base/common/async.js';
 // --- End Positron ---
 
 export class WebviewMainService extends Disposable implements IWebviewManagerService {

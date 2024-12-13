@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
-import { URI } from 'vs/base/common/uri';
-import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { URI } from '../../../../base/common/uri.js';
+import { IOverlayWebview } from '../../webview/browser/webview.js';
 
 export class PreviewOverlayWebview extends Disposable {
 

@@ -5,7 +5,7 @@
 
 declare module 'positron' {
 
-	import * as vscode from 'vscode'; // eslint-disable-line
+	import * as vscode from 'vscode';
 
 	/**
 	 * The current Positron version. This is the Positron calendar version, e.g. "2028.10.2"
@@ -1335,7 +1335,7 @@ declare module 'positron' {
 	// * Reduce the manual proliferation of these generated types.
 	// * Ideally a file is meant to edited by humans or by robots, but not both.
 	// Related to https://github.com/posit-dev/positron/issues/12
-	type EC = import('./ui-comm').EditorContext;
+	type EC = import('./ui-comm.js').EditorContext;
 	export type EditorContext = EC;
 
 	/**

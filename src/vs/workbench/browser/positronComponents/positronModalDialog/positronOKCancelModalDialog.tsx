@@ -1,20 +1,19 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./positronModalDialog';
+import './positronModalDialog.css';
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren } from 'react';
 
 // Other dependencies.
-import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
-import { OKCancelActionBar } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okCancelActionBar';
-import { PositronModalDialog, PositronModalDialogProps } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
-import { VerticalSpacer } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalSpacer';
+import { ContentArea } from './components/contentArea.js';
+import { OKCancelActionBar } from './components/okCancelActionBar.js';
+import { PositronModalDialog, PositronModalDialogProps } from './positronModalDialog.js';
+import { VerticalSpacer } from './components/verticalSpacer.js';
 
 /**
  * OKCancelModalDialogProps interface.

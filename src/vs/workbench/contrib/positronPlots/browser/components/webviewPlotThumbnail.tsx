@@ -3,10 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PlaceholderThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/placeholderThumbnail';
-import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
+// React.
+import React, { useEffect, useState } from 'react';
+
+// Other dependencies.
+import { PlaceholderThumbnail } from './placeholderThumbnail.js';
+import { WebviewPlotClient } from '../webviewPlotClient.js';
 
 /**
  * WebviewPlotThumbnailProps interface.

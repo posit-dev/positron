@@ -1,0 +1,2262 @@
+[
+	{
+		"c": "let",
+		"t": "storage.type",
+		"r": {
+			"hc_black": "storage.type: #569CD6",
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
+		}
+	},
+	{
+		"c": "keyCode",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "=",
+		"t": "keyword.operator.assignment",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "0",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "if",
+		"t": "keyword.control",
+		"r": {
+			"hc_black": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #C586C0",
+			"positron_light": "keyword.control: #AF00DB",
+			"hc_light": "keyword.control: #B5200D"
+		}
+	},
+	{
+		"c": "(",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "!",
+		"t": "keyword.operator.logical",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "(",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "keyCode",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "===",
+		"t": "keyword.operator.logical",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "8",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": "||",
+		"t": "keyword.operator.logical",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "(",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "keyCode",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": ">=",
+		"t": "keyword.operator.relational",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "48",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": "&&",
+		"t": "keyword.operator.logical",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "keyCode",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "<=",
+		"t": "keyword.operator.relational",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "57",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ")",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": ")",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": ")",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "{",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "}",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "for",
+		"t": "keyword.control",
+		"r": {
+			"hc_black": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #C586C0",
+			"positron_light": "keyword.control: #AF00DB",
+			"hc_light": "keyword.control: #B5200D"
+		}
+	},
+	{
+		"c": "(",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "let",
+		"t": "storage.type",
+		"r": {
+			"hc_black": "storage.type: #569CD6",
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
+		}
+	},
+	{
+		"c": "i",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "=",
+		"t": "keyword.operator.assignment",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "0",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "i",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "<",
+		"t": "keyword.operator.relational",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "5",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "i",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "++",
+		"t": "keyword.operator.increment",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": ")",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "{",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "}",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "for",
+		"t": "keyword.control",
+		"r": {
+			"hc_black": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #C586C0",
+			"positron_light": "keyword.control: #AF00DB",
+			"hc_light": "keyword.control: #B5200D"
+		}
+	},
+	{
+		"c": "(",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "var",
+		"t": "storage.type",
+		"r": {
+			"hc_black": "storage.type: #569CD6",
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
+		}
+	},
+	{
+		"c": "i",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "=",
+		"t": "keyword.operator.assignment",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "0",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "i",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "<",
+		"t": "keyword.operator.relational",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "5",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "i",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "++",
+		"t": "keyword.operator.increment",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": ")",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "{",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "}",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "for",
+		"t": "keyword.control",
+		"r": {
+			"hc_black": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #C586C0",
+			"positron_light": "keyword.control: #AF00DB",
+			"hc_light": "keyword.control: #B5200D"
+		}
+	},
+	{
+		"c": "(",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "let",
+		"t": "storage.type",
+		"r": {
+			"hc_black": "storage.type: #569CD6",
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
+		}
+	},
+	{
+		"c": "i",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "=",
+		"t": "keyword.operator.assignment",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "0",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "i",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "<",
+		"t": "keyword.operator.relational",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "5",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "i",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "++",
+		"t": "keyword.operator.increment",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": ")",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "{",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "}",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "for",
+		"t": "keyword.control",
+		"r": {
+			"hc_black": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #C586C0",
+			"positron_light": "keyword.control: #AF00DB",
+			"hc_light": "keyword.control: #B5200D"
+		}
+	},
+	{
+		"c": "(",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "i",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "<",
+		"t": "keyword.operator.relational",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "5",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": ")",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "{",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "}",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "for",
+		"t": "keyword.control",
+		"r": {
+			"hc_black": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #C586C0",
+			"positron_light": "keyword.control: #AF00DB",
+			"hc_light": "keyword.control: #B5200D"
+		}
+	},
+	{
+		"c": "(",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "let",
+		"t": "storage.type",
+		"r": {
+			"hc_black": "storage.type: #569CD6",
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
+		}
+	},
+	{
+		"c": "i",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "=",
+		"t": "keyword.operator.assignment",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "0",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "1",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": "+",
+		"t": "keyword.operator.arithmetic",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "(",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "i",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "<<",
+		"t": "keyword.operator",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "5",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ")",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "<",
+		"t": "keyword.operator.relational",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "5",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "i",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "++",
+		"t": "keyword.operator.increment",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": ")",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "{",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "}",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "var",
+		"t": "storage.type",
+		"r": {
+			"hc_black": "storage.type: #569CD6",
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
+		}
+	},
+	{
+		"c": "p",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "=",
+		"t": "keyword.operator.assignment",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "1",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": "?",
+		"t": "punctuation.delimiter keyword.operator.optional keyword.operator.ternary",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "2",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ":",
+		"t": "punctuation.delimiter keyword.operator.optional keyword.operator.ternary",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "(",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "3",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": "<",
+		"t": "keyword.operator.relational",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "4",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": "?",
+		"t": "punctuation.delimiter keyword.operator.optional keyword.operator.ternary",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "5",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ":",
+		"t": "punctuation.delimiter keyword.operator.optional keyword.operator.ternary",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "6",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ")",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "class",
+		"t": "storage.type",
+		"r": {
+			"hc_black": "storage.type: #569CD6",
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
+		}
+	},
+	{
+		"c": "A",
+		"t": "entity.name.type",
+		"r": {
+			"hc_black": "entity.name.type: #4EC9B0",
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
+		}
+	},
+	{
+		"c": "<",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "X",
+		"t": "entity.name.type",
+		"r": {
+			"hc_black": "entity.name.type: #4EC9B0",
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
+		}
+	},
+	{
+		"c": ",",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "Y",
+		"t": "entity.name.type",
+		"r": {
+			"hc_black": "entity.name.type: #4EC9B0",
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
+		}
+	},
+	{
+		"c": ">",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "{",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "}",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "class",
+		"t": "storage.type",
+		"r": {
+			"hc_black": "storage.type: #569CD6",
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
+		}
+	},
+	{
+		"c": "A1",
+		"t": "entity.name.type",
+		"r": {
+			"hc_black": "entity.name.type: #4EC9B0",
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
+		}
+	},
+	{
+		"c": "<",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "T",
+		"t": "entity.name.type",
+		"r": {
+			"hc_black": "entity.name.type: #4EC9B0",
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
+		}
+	},
+	{
+		"c": "extends",
+		"t": "storage.modifier",
+		"r": {
+			"hc_black": "storage.modifier: #569CD6",
+			"positron_dark": "storage.modifier: #569CD6",
+			"positron_light": "storage.modifier: #0000FF",
+			"hc_light": "storage.modifier: #0F4A85"
+		}
+	},
+	{
+		"c": "{",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "a",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": ":",
+		"t": "punctuation.delimiter keyword.operator.optional",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "(",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": ")",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "=>",
+		"t": "storage.type",
+		"r": {
+			"hc_black": "storage.type: #569CD6",
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
+		}
+	},
+	{
+		"c": "string",
+		"t": "support.type support.type.primitive",
+		"r": {
+			"hc_black": "support.type: #4EC9B0",
+			"positron_dark": "support.type: #4EC9B0",
+			"positron_light": "support.type: #267F99",
+			"hc_light": "support.type: #185E73"
+		}
+	},
+	{
+		"c": "}",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": ">",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "{",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "}",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "class",
+		"t": "storage.type",
+		"r": {
+			"hc_black": "storage.type: #569CD6",
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
+		}
+	},
+	{
+		"c": "B",
+		"t": "entity.name.type",
+		"r": {
+			"hc_black": "entity.name.type: #4EC9B0",
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
+		}
+	},
+	{
+		"c": "{",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "}",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "class",
+		"t": "storage.type",
+		"r": {
+			"hc_black": "storage.type: #569CD6",
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
+		}
+	},
+	{
+		"c": "C",
+		"t": "entity.name.type",
+		"r": {
+			"hc_black": "entity.name.type: #4EC9B0",
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
+		}
+	},
+	{
+		"c": "{",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "}",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "function",
+		"t": "storage.type",
+		"r": {
+			"hc_black": "storage.type: #569CD6",
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
+		}
+	},
+	{
+		"c": "foo",
+		"t": "variable entity.name.function",
+		"r": {
+			"hc_black": "entity.name.function: #DCDCAA",
+			"positron_dark": "entity.name.function: #DCDCAA",
+			"positron_light": "entity.name.function: #795E26",
+			"hc_light": "entity.name.function: #5E2CBC"
+		}
+	},
+	{
+		"c": "<",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "T",
+		"t": "entity.name.type",
+		"r": {
+			"hc_black": "entity.name.type: #4EC9B0",
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
+		}
+	},
+	{
+		"c": ">",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "(",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": ")",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "{",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "return",
+		"t": "keyword.control",
+		"r": {
+			"hc_black": "keyword.control: #C586C0",
+			"positron_dark": "keyword.control: #C586C0",
+			"positron_light": "keyword.control: #AF00DB",
+			"hc_light": "keyword.control: #B5200D"
+		}
+	},
+	{
+		"c": "1",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "}",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "let",
+		"t": "storage.type",
+		"r": {
+			"hc_black": "storage.type: #569CD6",
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
+		}
+	},
+	{
+		"c": "x1",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": ":",
+		"t": "punctuation.delimiter keyword.operator.optional",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "A",
+		"t": "entity.name.type",
+		"r": {
+			"hc_black": "entity.name.type: #4EC9B0",
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
+		}
+	},
+	{
+		"c": "<",
+		"t": "punctuation.bracket",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "(",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "param",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "?",
+		"t": "punctuation.delimiter keyword.operator.optional",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": ":",
+		"t": "punctuation.delimiter keyword.operator.optional",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "number",
+		"t": "support.type support.type.primitive",
+		"r": {
+			"hc_black": "support.type: #4EC9B0",
+			"positron_dark": "support.type: #4EC9B0",
+			"positron_light": "support.type: #267F99",
+			"hc_light": "support.type: #185E73"
+		}
+	},
+	{
+		"c": ")",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "=>",
+		"t": "storage.type",
+		"r": {
+			"hc_black": "storage.type: #569CD6",
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
+		}
+	},
+	{
+		"c": "void",
+		"t": "support.type support.type.primitive",
+		"r": {
+			"hc_black": "support.type: #4EC9B0",
+			"positron_dark": "support.type: #4EC9B0",
+			"positron_light": "support.type: #267F99",
+			"hc_light": "support.type: #185E73"
+		}
+	},
+	{
+		"c": ",",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "B",
+		"t": "entity.name.type",
+		"r": {
+			"hc_black": "entity.name.type: #4EC9B0",
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
+		}
+	},
+	{
+		"c": ">",
+		"t": "punctuation.bracket",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "let",
+		"t": "storage.type",
+		"r": {
+			"hc_black": "storage.type: #569CD6",
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
+		}
+	},
+	{
+		"c": "x2",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": ":",
+		"t": "punctuation.delimiter keyword.operator.optional",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "A",
+		"t": "entity.name.type",
+		"r": {
+			"hc_black": "entity.name.type: #4EC9B0",
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
+		}
+	},
+	{
+		"c": "<",
+		"t": "punctuation.bracket",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "C",
+		"t": "entity.name.type",
+		"r": {
+			"hc_black": "entity.name.type: #4EC9B0",
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
+		}
+	},
+	{
+		"c": "|",
+		"t": "keyword.operator",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "B",
+		"t": "entity.name.type",
+		"r": {
+			"hc_black": "entity.name.type: #4EC9B0",
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
+		}
+	},
+	{
+		"c": ",",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "C",
+		"t": "entity.name.type",
+		"r": {
+			"hc_black": "entity.name.type: #4EC9B0",
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
+		}
+	},
+	{
+		"c": "&",
+		"t": "keyword.operator",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "B",
+		"t": "entity.name.type",
+		"r": {
+			"hc_black": "entity.name.type: #4EC9B0",
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
+		}
+	},
+	{
+		"c": ">",
+		"t": "punctuation.bracket",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "const",
+		"t": "storage.type",
+		"r": {
+			"hc_black": "storage.type: #569CD6",
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
+		}
+	},
+	{
+		"c": "t",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "=",
+		"t": "keyword.operator.assignment",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "1",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": "<",
+		"t": "keyword.operator.relational",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "(",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "5",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ">",
+		"t": "keyword.operator.relational",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "10",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": "?",
+		"t": "punctuation.delimiter keyword.operator.optional keyword.operator.ternary",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "1",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ":",
+		"t": "punctuation.delimiter keyword.operator.optional keyword.operator.ternary",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "2",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": ")",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "var",
+		"t": "storage.type",
+		"r": {
+			"hc_black": "storage.type: #569CD6",
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
+		}
+	},
+	{
+		"c": "f6",
+		"t": "variable",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "=",
+		"t": "keyword.operator.assignment",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "1",
+		"t": "constant.numeric",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": "<",
+		"t": "keyword.operator.relational",
+		"r": {
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
+		}
+	},
+	{
+		"c": "foo",
+		"t": "variable entity.name.function",
+		"r": {
+			"hc_black": "entity.name.function: #DCDCAA",
+			"positron_dark": "entity.name.function: #DCDCAA",
+			"positron_light": "entity.name.function: #795E26",
+			"hc_light": "entity.name.function: #5E2CBC"
+		}
+	},
+	{
+		"c": "<",
+		"t": "punctuation.bracket",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "string",
+		"t": "support.type support.type.primitive",
+		"r": {
+			"hc_black": "support.type: #4EC9B0",
+			"positron_dark": "support.type: #4EC9B0",
+			"positron_light": "support.type: #267F99",
+			"hc_light": "support.type: #185E73"
+		}
+	},
+	{
+		"c": ">",
+		"t": "punctuation.bracket",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "(",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": ")",
+		"t": "",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": ";",
+		"t": "punctuation.delimiter",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	}
+]

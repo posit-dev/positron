@@ -3,25 +3,25 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter } from 'vs/base/common/event';
-import { Disposable, DisposableMap } from 'vs/base/common/lifecycle';
-import { ILogService } from 'vs/platform/log/common/log';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { PositronVariablesInstance } from 'vs/workbench/services/positronVariables/common/positronVariablesInstance';
-import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
-import { IPositronVariablesInstance } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
-import { LanguageRuntimeSessionMode, RuntimeState, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { isEqual } from 'vs/base/common/resources';
-import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
-import { NotebookEditorInput } from 'vs/workbench/contrib/notebook/common/notebookEditorInput';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { Emitter } from '../../../../base/common/event.js';
+import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { PositronVariablesInstance } from './positronVariablesInstance.js';
+import { IPositronVariablesService } from './interfaces/positronVariablesService.js';
+import { IPositronVariablesInstance } from './interfaces/positronVariablesInstance.js';
+import { LanguageRuntimeSessionMode, RuntimeState, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { RuntimeClientState } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
+import { isEqual } from '../../../../base/common/resources.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
+import { IEditorService } from '../../editor/common/editorService.js';
+import { NotebookEditorInput } from '../../../contrib/notebook/common/notebookEditorInput.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IPositronConsoleService } from '../../positronConsole/browser/interfaces/positronConsoleService.js';
+import { PositronNotebookEditorInput } from '../../../contrib/positronNotebook/browser/PositronNotebookEditorInput.js';
+import { IPositronConsoleInstance } from '../../positronConsole/browser/interfaces/positronConsoleService.js';
 
 /**
  * PositronVariablesService class.

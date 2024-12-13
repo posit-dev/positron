@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./statsValue';
+import './statsValue.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
-import { positronNA } from 'vs/workbench/services/positronDataExplorer/common/constants';
+import { positronNA } from '../../common/constants.js';
 
 /**
  * StatsValueProps interface.

@@ -100,7 +100,7 @@ jobs:
       # any parallel processes start, preventing runtime conflicts
       - name: Preload Node.js Binary
         if: ${{ inputs.project == 'e2e-browser' }}
-        run: yarn gulp node
+        run: npm run gulp node
 
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir

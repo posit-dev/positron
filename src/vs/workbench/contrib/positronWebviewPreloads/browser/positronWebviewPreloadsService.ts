@@ -2,19 +2,20 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
-import { Emitter } from 'vs/base/common/event';
-import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronWebviewPreloadService, NotebookPreloadOutputResults } from 'vs/workbench/services/positronWebviewPreloads/browser/positronWebviewPreloadService';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { IPositronNotebookOutputWebviewService, WebviewType, INotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { NotebookMultiMessagePlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookMultiMessagePlotClient';
-import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
-import { VSBuffer } from 'vs/base/common/buffer';
-import { isWebviewDisplayMessage, isWebviewReplayMessage } from 'vs/workbench/contrib/positronWebviewPreloads/browser/utils';
-import { IPositronNotebookInstance } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookInstance';
-import { buildWebviewHTML, webviewMessageCodeString } from 'vs/workbench/contrib/positronWebviewPreloads/browser/notebookOutputUtils';
+
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Emitter } from '../../../../base/common/event.js';
+import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IPositronWebviewPreloadService, NotebookPreloadOutputResults } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { IPositronNotebookOutputWebviewService, WebviewType, INotebookOutputWebview } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { NotebookMultiMessagePlotClient } from '../../positronPlots/browser/notebookMultiMessagePlotClient.js';
+import { UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { VSBuffer } from '../../../../base/common/buffer.js';
+import { isWebviewDisplayMessage, isWebviewReplayMessage } from './utils.js';
+import { IPositronNotebookInstance } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
+import { buildWebviewHTML, webviewMessageCodeString } from './notebookOutputUtils.js';
 
 /**
  * Format of output from a notebook cell

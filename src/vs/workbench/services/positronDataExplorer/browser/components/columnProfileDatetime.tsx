@@ -4,16 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./columnProfileDatetime';
+import './columnProfileDatetime.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
-import { StatsValue } from 'vs/workbench/services/positronDataExplorer/browser/components/statsValue';
-import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
-import { ColumnProfileNullCountValue } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileNullCountValue';
-import { positronMax, positronMedian, positronMin, positronMissing, positronTimezone } from 'vs/workbench/services/positronDataExplorer/common/constants';
+import { StatsValue } from './statsValue.js';
+import { TableSummaryDataGridInstance } from '../tableSummaryDataGridInstance.js';
+import { ColumnProfileNullCountValue } from './columnProfileNullCountValue.js';
+import { positronMax, positronMedian, positronMin, positronMissing, positronTimezone } from '../../common/constants.js';
 
 /**
  * Constants.

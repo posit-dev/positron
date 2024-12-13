@@ -3,14 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as nls from 'vs/nls';
-import { Action2 } from 'vs/platform/actions/common/actions';
-import { ILocalizedString } from 'vs/platform/action/common/action';
-import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
-import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
-import { URI } from 'vs/base/common/uri';
-import { INotificationService } from 'vs/platform/notification/common/notification';
+import * as nls from '../../../../nls.js';
+import { Action2 } from '../../../../platform/actions/common/actions.js';
+import { ILocalizedString } from '../../../../platform/action/common/action.js';
+import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IPositronPreviewService } from './positronPreviewSevice.js';
+import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
+import { URI } from '../../../../base/common/uri.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 
 export const POSITRON_PREVIEW_ACTION_CATEGORY = nls.localize('positronViewerCategory', "Viewer");
 const category: ILocalizedString = { value: POSITRON_PREVIEW_ACTION_CATEGORY, original: 'Viewer' };

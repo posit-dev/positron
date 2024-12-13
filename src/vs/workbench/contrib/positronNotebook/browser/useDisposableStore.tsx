@@ -3,8 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { DisposableStore } from 'vs/base/common/lifecycle';
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
 
 /**
  * Create a disposable store for the component.

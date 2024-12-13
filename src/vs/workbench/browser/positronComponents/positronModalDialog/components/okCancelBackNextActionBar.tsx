@@ -3,10 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./okCancelBackNextActionBar';
-import * as React from 'react';
-import { localize } from 'vs/nls';
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+// CSS.
+import './okCancelBackNextActionBar.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { localize } from '../../../../../nls.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
  * OKCancelBackNextActionBarProps interface.

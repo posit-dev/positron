@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
-import { ANSIColor, ANSIFormat, ANSIOutput, ANSIStyle } from 'vs/base/common/ansiOutput';
+import { ensureNoDisposablesAreLeakedInTestSuite } from './utils.js';
+import { ANSIColor, ANSIFormat, ANSIOutput, ANSIStyle } from '../../common/ansiOutput.js';
 
 //#region Test Helpers
 

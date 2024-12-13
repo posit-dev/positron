@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/variableOverflow';
+import { IVariableOverflow } from '../interfaces/variableOverflow.js';
 
 /**
  * VariableOverflow class.

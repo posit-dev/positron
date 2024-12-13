@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { MutableRefObject, useEffect } from 'react';
-import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { usePositronActionBarContext } from './positronActionBarContext.js';
 
 /**
  * Custom hook to register a component with the Positron Action Bar; this is to enable

@@ -4,21 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./columnSelectorModalPopup';
+import './columnSelectorModalPopup.css';
 
 // React.
-import * as React from 'react';
-import { useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useEffect, useRef } from 'react';
 
 // Other dependencies.
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { PositronDataGrid } from 'vs/workbench/browser/positronDataGrid/positronDataGrid';
-import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { ColumnSearch } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/columnSearch';
-import { ColumnSelectorDataGridInstance } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/columnSelectorDataGridInstance';
+import { DisposableStore } from '../../../../../../../../base/common/lifecycle.js';
+import { IConfigurationService } from '../../../../../../../../platform/configuration/common/configuration.js';
+import { PositronDataGrid } from '../../../../../../positronDataGrid/positronDataGrid.js';
+import { ColumnSchema } from '../../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
+import { PositronModalPopup } from '../../../../../../positronComponents/positronModalPopup/positronModalPopup.js';
+import { PositronModalReactRenderer } from '../../../../../../positronModalReactRenderer/positronModalReactRenderer.js';
+import { ColumnSearch } from './columnSearch.js';
+import { ColumnSelectorDataGridInstance } from './columnSelectorDataGridInstance.js';
 
 /**
  * ColumnSelectorModalPopupProps interface.

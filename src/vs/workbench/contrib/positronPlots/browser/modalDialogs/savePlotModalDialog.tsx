@@ -3,37 +3,42 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./savePlotModalDialog';
-import * as React from 'react';
-import { localize } from 'vs/nls';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
-import { URI } from 'vs/base/common/uri';
-import { ProgressBar } from 'vs/base/browser/ui/positronComponents/progressBar';
-import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
-import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
-import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
-import { OKCancelActionBar } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okCancelActionBar';
-import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+// CSS.
+import './savePlotModalDialog.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { localize } from '../../../../../nls.js';
+import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
+import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { IFileDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { ProgressBar } from '../../../../../base/browser/ui/positronComponents/progressBar.js';
+import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
+import { LabeledFolderInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledFolderInput.js';
+import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
+import { OKCancelActionBar } from '../../../../browser/positronComponents/positronModalDialog/components/okCancelActionBar.js';
+import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
+import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
+import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { FileFilter } from 'electron';
-import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
-import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
-import { IFileService } from 'vs/platform/files/common/files';
-import { IntrinsicSize, RenderFormat } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
-import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
-import { IPlotSize, IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
-import { ILogService } from 'vs/platform/log/common/log';
-import { formatPlotUnit, PlotSizingPolicyIntrinsic } from 'vs/workbench/services/positronPlots/common/sizingPolicyIntrinsic';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { IRenderedPlot } from 'vs/workbench/services/languageRuntime/common/positronPlotCommProxy';
-import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
-import { ILabelService } from 'vs/platform/label/common/label';
-import { combineLabelWithPathUri, pathUriToLabel } from 'vs/workbench/browser/utils/path';
-import { IPathService } from 'vs/workbench/services/path/common/pathService';
+import { DropDownListBox } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
+import { DropDownListBoxItem } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
+import { IFileService } from '../../../../../platform/files/common/files.js';
+import { IntrinsicSize, RenderFormat } from '../../../../services/languageRuntime/common/positronPlotComm.js';
+import { Checkbox } from '../../../../browser/positronComponents/positronModalDialog/components/checkbox.js';
+import { IPlotSize, IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
+import { ILogService } from '../../../../../platform/log/common/log.js';
+import { formatPlotUnit, PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
+import { IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotCommProxy.js';
+import { IPositronModalDialogsService } from '../../../../services/positronModalDialogs/common/positronModalDialogs.js';
+import { ILabelService } from '../../../../../platform/label/common/label.js';
+import { combineLabelWithPathUri, pathUriToLabel } from '../../../../browser/utils/path.js';
+import { IPathService } from '../../../../services/path/common/pathService.js';
 
 export interface SavePlotOptions {
 	uri: string;
@@ -139,7 +144,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const [dpi, setDpi] = React.useState({ value: 100, valid: true });
 	const [uri, setUri] = React.useState('');
 	const [rendering, setRendering] = React.useState(false);
-	const inputRef = React.useRef<HTMLInputElement>(null);
+	const inputRef = React.useRef<HTMLInputElement>(null!);
 
 	const filterEntries: FileFilter[] = [];
 	for (const filter in RenderFormat) {

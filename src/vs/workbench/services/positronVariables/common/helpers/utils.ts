@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { VariableItem } from 'vs/workbench/services/positronVariables/common/classes/variableItem';
+import { VariableItem } from '../classes/variableItem.js';
 
 /**
  * Sorts an array of variable items by name.

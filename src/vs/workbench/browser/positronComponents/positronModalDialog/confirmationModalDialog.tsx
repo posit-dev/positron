@@ -4,18 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./positronModalDialog';
-import 'vs/css!./confirmationModalDialog';
+import './positronModalDialog.css';
+import './confirmationModalDialog.css';
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren } from 'react';
 
 // Other dependencies.
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
-import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
-import { PositronModalDialog, PositronModalDialogProps } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
+import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
+import { ContentArea } from './components/contentArea.js';
+import { PositronModalDialog, PositronModalDialogProps } from './positronModalDialog.js';
 
 /**
  * ConfirmationModalDialogProps interface.

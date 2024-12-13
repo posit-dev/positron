@@ -4,18 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./actionBarCommandButton';
+import './actionBarCommandButton.css';
 
 // React.
-import * as React from 'react';
-import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
-import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
-import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { ActionBarButton, ActionBarButtonProps } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { CommandCenter } from '../../../commandCenter/common/commandCenter.js';
+import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
+import { usePositronActionBarContext } from '../positronActionBarContext.js';
+import { ActionBarButton, ActionBarButtonProps } from './actionBarButton.js';
 
 /**
  * ActionBarCommandButtonProps interface.

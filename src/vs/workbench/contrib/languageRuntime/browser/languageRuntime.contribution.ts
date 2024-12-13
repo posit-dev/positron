@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { registerLanguageRuntimeActions } from 'vs/workbench/contrib/languageRuntime/browser/languageRuntimeActions';
+import { registerLanguageRuntimeActions } from './languageRuntimeActions.js';
 
 // Register commands
 registerLanguageRuntimeActions();

@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import assert from 'assert';
-import { detectHyperlinks } from 'vs/workbench/contrib/positronConsole/common/linkDetector';
+import { detectHyperlinks } from '../../common/linkDetector.js';
 
 /**
  * Suite of tests for link detector

@@ -5,16 +5,16 @@
 
 import { deepStrictEqual, ok, strictEqual } from 'assert';
 import { homedir, userInfo } from 'os';
-import { isWindows } from 'vs/base/common/platform';
-import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
-import { NullLogService } from 'vs/platform/log/common/log';
-import { IProductService } from 'vs/platform/product/common/productService';
-import { ITerminalProcessOptions } from 'vs/platform/terminal/common/terminal';
-import { getShellIntegrationInjection, getWindowsBuildNumber, IShellIntegrationConfigInjection } from 'vs/platform/terminal/node/terminalEnvironment';
+import { isWindows } from '../../../../base/common/platform.js';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
+import { NullLogService } from '../../../log/common/log.js';
+import { IProductService } from '../../../product/common/productService.js';
+import { ITerminalProcessOptions } from '../../common/terminal.js';
+import { getShellIntegrationInjection, getWindowsBuildNumber, IShellIntegrationConfigInjection } from '../../node/terminalEnvironment.js';
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { isWeb } from 'vs/base/common/platform';
+import { isWeb } from '../../../../base/common/platform.js';
 // --- End Positron ---
 
 const enabledProcessOptions: ITerminalProcessOptions = { shellIntegration: { enabled: true, suggestEnabled: false, nonce: '' }, windowsEnableConpty: true, windowsUseConptyDll: false, environmentVariableCollections: undefined, workspaceFolder: undefined };
@@ -25,6 +25,13 @@ const repoRoot = process.platform === 'win32' ? process.cwd()[0].toLowerCase() +
 const logService = new NullLogService();
 const productService = { applicationName: 'vscode' } as IProductService;
 const defaultEnvironment = {};
+
+function deepStrictEqualIgnoreStableVar(actual: IShellIntegrationConfigInjection | undefined, expected: IShellIntegrationConfigInjection) {
+	if (actual?.envMixin) {
+		delete actual.envMixin['VSCODE_STABLE'];
+	}
+	deepStrictEqual(actual, expected);
+}
 
 suite('platform - terminalEnvironment', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
@@ -45,8 +52,8 @@ suite('platform - terminalEnvironment', () => {
 		// These tests are only expected to work on Windows 10 build 18309 and above
 		(getWindowsBuildNumber() < 18309 ? suite.skip : suite)('pwsh', () => {
 			const expectedPs1 = process.platform === 'win32'
-				? `try { . "${repoRoot}\\out\\vs\\workbench\\contrib\\terminal\\browser\\media\\shellIntegration.ps1" } catch {}`
-				: `. "${repoRoot}/out/vs/workbench/contrib/terminal/browser/media/shellIntegration.ps1"`;
+				? `try { . "${repoRoot}\\out\\vs\\workbench\\contrib\\terminal\\common\\scripts\\shellIntegration.ps1" } catch {}`
+				: `. "${repoRoot}/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration.ps1"`;
 			suite('should override args', () => {
 				const enabledExpectedResult = Object.freeze<IShellIntegrationConfigInjection>({
 					newArgs: [
@@ -65,21 +72,21 @@ suite('platform - terminalEnvironment', () => {
 					}
 				});
 				test('when undefined, []', () => {
-					deepStrictEqual(getShellIntegrationInjection({ executable: pwshExe, args: [] }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
-					deepStrictEqual(getShellIntegrationInjection({ executable: pwshExe, args: undefined }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
+					deepStrictEqualIgnoreStableVar(getShellIntegrationInjection({ executable: pwshExe, args: [] }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
+					deepStrictEqualIgnoreStableVar(getShellIntegrationInjection({ executable: pwshExe, args: undefined }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
 				});
 				suite('when no logo', () => {
 					test('array - case insensitive', () => {
-						deepStrictEqual(getShellIntegrationInjection({ executable: pwshExe, args: ['-NoLogo'] }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
-						deepStrictEqual(getShellIntegrationInjection({ executable: pwshExe, args: ['-NOLOGO'] }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
-						deepStrictEqual(getShellIntegrationInjection({ executable: pwshExe, args: ['-nol'] }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
-						deepStrictEqual(getShellIntegrationInjection({ executable: pwshExe, args: ['-NOL'] }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
+						deepStrictEqualIgnoreStableVar(getShellIntegrationInjection({ executable: pwshExe, args: ['-NoLogo'] }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
+						deepStrictEqualIgnoreStableVar(getShellIntegrationInjection({ executable: pwshExe, args: ['-NOLOGO'] }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
+						deepStrictEqualIgnoreStableVar(getShellIntegrationInjection({ executable: pwshExe, args: ['-nol'] }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
+						deepStrictEqualIgnoreStableVar(getShellIntegrationInjection({ executable: pwshExe, args: ['-NOL'] }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
 					});
 					test('string - case insensitive', () => {
-						deepStrictEqual(getShellIntegrationInjection({ executable: pwshExe, args: '-NoLogo' }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
-						deepStrictEqual(getShellIntegrationInjection({ executable: pwshExe, args: '-NOLOGO' }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
-						deepStrictEqual(getShellIntegrationInjection({ executable: pwshExe, args: '-nol' }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
-						deepStrictEqual(getShellIntegrationInjection({ executable: pwshExe, args: '-NOL' }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
+						deepStrictEqualIgnoreStableVar(getShellIntegrationInjection({ executable: pwshExe, args: '-NoLogo' }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
+						deepStrictEqualIgnoreStableVar(getShellIntegrationInjection({ executable: pwshExe, args: '-NOLOGO' }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
+						deepStrictEqualIgnoreStableVar(getShellIntegrationInjection({ executable: pwshExe, args: '-nol' }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
+						deepStrictEqualIgnoreStableVar(getShellIntegrationInjection({ executable: pwshExe, args: '-NOL' }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
 					});
 				});
 			});
@@ -102,10 +109,10 @@ suite('platform - terminalEnvironment', () => {
 					}
 				});
 				test('when array contains no logo and login', () => {
-					deepStrictEqual(getShellIntegrationInjection({ executable: pwshExe, args: ['-l', '-NoLogo'] }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
+					deepStrictEqualIgnoreStableVar(getShellIntegrationInjection({ executable: pwshExe, args: ['-l', '-NoLogo'] }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
 				});
 				test('when string', () => {
-					deepStrictEqual(getShellIntegrationInjection({ executable: pwshExe, args: '-l' }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
+					deepStrictEqualIgnoreStableVar(getShellIntegrationInjection({ executable: pwshExe, args: '-l' }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
 				});
 			});
 			suite('should not modify args', () => {
@@ -136,10 +143,10 @@ suite('platform - terminalEnvironment', () => {
 						new RegExp(`.+\\/${username}-vscode-zsh\\/\\.zlogin`)
 					];
 					const expectedSources = [
-						/.+\/out\/vs\/workbench\/contrib\/terminal\/browser\/media\/shellIntegration-rc.zsh/,
-						/.+\/out\/vs\/workbench\/contrib\/terminal\/browser\/media\/shellIntegration-profile.zsh/,
-						/.+\/out\/vs\/workbench\/contrib\/terminal\/browser\/media\/shellIntegration-env.zsh/,
-						/.+\/out\/vs\/workbench\/contrib\/terminal\/browser\/media\/shellIntegration-login.zsh/
+						/.+\/out\/vs\/workbench\/contrib\/terminal\/common\/scripts\/shellIntegration-rc.zsh/,
+						/.+\/out\/vs\/workbench\/contrib\/terminal\/common\/scripts\/shellIntegration-profile.zsh/,
+						/.+\/out\/vs\/workbench\/contrib\/terminal\/common\/scripts\/shellIntegration-env.zsh/,
+						/.+\/out\/vs\/workbench\/contrib\/terminal\/common\/scripts\/shellIntegration-login.zsh/
 					];
 					function assertIsEnabled(result: IShellIntegrationConfigInjection, globalZdotdir = homedir()) {
 						// --- Start Positron ---
@@ -206,7 +213,7 @@ suite('platform - terminalEnvironment', () => {
 						const enabledExpectedResult = Object.freeze<IShellIntegrationConfigInjection>({
 							newArgs: [
 								'--init-file',
-								`${repoRoot}/out/vs/workbench/contrib/terminal/browser/media/shellIntegration-bash.sh`
+								`${repoRoot}/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh`
 							],
 							envMixin: {
 								// --- Start Positron ---
@@ -215,19 +222,18 @@ suite('platform - terminalEnvironment', () => {
 								POSITRON_LONG_VERSION: `${productService.positronVersion}+${productService.positronBuildNumber}`,
 								POSITRON_MODE: isWeb ? 'server' : 'desktop',
 								// --- End Positron ---
-								VSCODE_INJECTION: '1',
-								VSCODE_STABLE: '0'
+								VSCODE_INJECTION: '1'
 							}
 						});
-						deepStrictEqual(getShellIntegrationInjection({ executable: 'bash', args: [] }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
-						deepStrictEqual(getShellIntegrationInjection({ executable: 'bash', args: '' }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
-						deepStrictEqual(getShellIntegrationInjection({ executable: 'bash', args: undefined }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
+						deepStrictEqualIgnoreStableVar(getShellIntegrationInjection({ executable: 'bash', args: [] }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
+						deepStrictEqualIgnoreStableVar(getShellIntegrationInjection({ executable: 'bash', args: '' }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
+						deepStrictEqualIgnoreStableVar(getShellIntegrationInjection({ executable: 'bash', args: undefined }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
 					});
 					suite('should set login env variable and not modify args', () => {
 						const enabledExpectedResult = Object.freeze<IShellIntegrationConfigInjection>({
 							newArgs: [
 								'--init-file',
-								`${repoRoot}/out/vs/workbench/contrib/terminal/browser/media/shellIntegration-bash.sh`
+								`${repoRoot}/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh`
 							],
 							envMixin: {
 								// --- Start Positron ---
@@ -237,12 +243,11 @@ suite('platform - terminalEnvironment', () => {
 								POSITRON_MODE: isWeb ? 'server' : 'desktop',
 								// --- End Positron ---
 								VSCODE_INJECTION: '1',
-								VSCODE_SHELL_LOGIN: '1',
-								VSCODE_STABLE: '0'
+								VSCODE_SHELL_LOGIN: '1'
 							}
 						});
 						test('when array', () => {
-							deepStrictEqual(getShellIntegrationInjection({ executable: 'bash', args: ['-l'] }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
+							deepStrictEqualIgnoreStableVar(getShellIntegrationInjection({ executable: 'bash', args: ['-l'] }, enabledProcessOptions, defaultEnvironment, logService, productService), enabledExpectedResult);
 						});
 					});
 					suite('should not modify args', () => {

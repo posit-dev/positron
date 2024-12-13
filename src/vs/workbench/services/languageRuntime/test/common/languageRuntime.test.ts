@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { raceTimeout } from 'vs/base/common/async';
-import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
-import { TestInstantiationService } from 'vs/platform/instantiation/test/common/instantiationServiceMock';
-import { ILogService, NullLogger } from 'vs/platform/log/common/log';
-import { LanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntime';
-import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { raceTimeout } from '../../../../../base/common/async.js';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
+import { ILogService, NullLogger } from '../../../../../platform/log/common/log.js';
+import { LanguageRuntimeService } from '../../common/languageRuntime.js';
+import { ILanguageRuntimeMetadata } from '../../common/languageRuntimeService.js';
 
 suite('Positron - LanguageRuntimeService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();

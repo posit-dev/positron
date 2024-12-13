@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { localize } from 'vs/nls';
-import { useWebviewMount } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/hooks/useWebviewMount';
-import { INotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { NotebookPreloadOutputResults } from 'vs/workbench/services/positronWebviewPreloads/browser/positronWebviewPreloadService';
+import { localize } from '../../../../../nls.js';
+import { useWebviewMount } from './hooks/useWebviewMount.js';
+import { INotebookOutputWebview } from '../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { NotebookPreloadOutputResults } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 
 type PreloadMessageOutputProps = {
 	preloadMessageResult?: NotebookPreloadOutputResults;

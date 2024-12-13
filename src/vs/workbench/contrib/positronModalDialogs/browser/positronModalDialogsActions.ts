@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from 'vs/nls';
-import { ILocalizedString } from 'vs/platform/action/common/action';
-import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
-import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
-import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-// import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
+import { localize } from '../../../../nls.js';
+import { ILocalizedString } from '../../../../platform/action/common/action.js';
+import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
+import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+// import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 
 /**
  * Positron modal dialogs command ID's.

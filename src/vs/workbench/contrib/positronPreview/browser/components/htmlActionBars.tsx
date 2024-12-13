@@ -3,18 +3,22 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./actionBars';
-import * as React from 'react';
-import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { localize } from 'vs/nls';
-import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
-import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { kPaddingLeft, kPaddingRight, PreviewActionBarsProps } from 'vs/workbench/contrib/positronPreview/browser/components/actionBars';
-import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
-import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
-import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
-import { DisposableStore } from 'vs/base/common/lifecycle';
+// CSS.
+import './actionBars.css';
+
+// React.
+import React, { PropsWithChildren, useEffect, useState } from 'react';
+
+// Other dependencies.
+import { localize } from '../../../../../nls.js';
+import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
+import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { kPaddingLeft, kPaddingRight, PreviewActionBarsProps } from './actionBars.js';
+import { PreviewHtml } from '../previewHtml.js';
+import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
+import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 
 const reload = localize('positron.preview.html.reload', "Reload the content");
 const clear = localize('positron.preview.html.clear', "Clear the content");

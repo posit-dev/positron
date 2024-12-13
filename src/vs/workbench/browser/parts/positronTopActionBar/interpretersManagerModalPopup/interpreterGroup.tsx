@@ -3,15 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./interpreterGroup';
-import * as React from 'react';
-import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IInterpreterGroup } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroups';
-import { PrimaryInterpreter } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/primaryInterpreter';
-import { SecondaryInterpreter } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/secondaryInterpreter';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+// CSS.
+import './interpreterGroup.css';
+
+// React.
+import React, { useEffect, useState } from 'react';
+
+// Other dependencies.
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { IInterpreterGroup } from './interpreterGroups.js';
+import { PrimaryInterpreter } from './primaryInterpreter.js';
+import { SecondaryInterpreter } from './secondaryInterpreter.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 
 /**
  * InterpreterGroupProps interface.

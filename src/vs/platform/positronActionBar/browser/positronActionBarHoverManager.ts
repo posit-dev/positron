@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IHoverWidget } from 'vs/base/browser/ui/hover/hover';
-import { IHoverService } from 'vs/platform/hover/browser/hover';
-import { Disposable, toDisposable } from 'vs/base/common/lifecycle';
-import { HoverPosition } from 'vs/base/browser/ui/hover/hoverWidget';
-import { IHoverManager } from 'vs/platform/hover/browser/hoverManager';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IHoverWidget } from '../../../base/browser/ui/hover/hover.js';
+import { IHoverService } from '../../hover/browser/hover.js';
+import { Disposable, toDisposable } from '../../../base/common/lifecycle.js';
+import { HoverPosition } from '../../../base/browser/ui/hover/hoverWidget.js';
+import { IHoverManager } from '../../hover/browser/hoverManager.js';
+import { IConfigurationService } from '../../configuration/common/configuration.js';
 
 /**
  * Constants.

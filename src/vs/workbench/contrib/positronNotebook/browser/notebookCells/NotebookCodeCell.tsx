@@ -2,20 +2,25 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import 'vs/css!./NotebookCodeCell';
 
-import * as React from 'react';
-import { NotebookCellOutputs } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
-import { isParsedTextOutput } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
-import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
-import { CellEditorMonacoWidget } from './CellEditorMonacoWidget';
-import { localize } from 'vs/nls';
-import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
-import { CellTextOutput } from './CellTextOutput';
-import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
-import { NotebookCellWrapper } from './NotebookCellWrapper';
-import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell';
-import { PreloadMessageOutput } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/PreloadMessageOutput';
+// CSS.
+import './NotebookCodeCell.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { NotebookCellOutputs } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { isParsedTextOutput } from '../getOutputContents.js';
+import { useObservedValue } from '../useObservedValue.js';
+import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
+import { localize } from '../../../../../nls.js';
+import { NotebookCellActionBar } from './NotebookCellActionBar.js';
+import { CellTextOutput } from './CellTextOutput.js';
+import { ActionButton } from '../utilityComponents/ActionButton.js';
+import { NotebookCellWrapper } from './NotebookCellWrapper.js';
+import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
+import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 
 interface CellExecutionControlsProps {
 	isRunning: boolean;

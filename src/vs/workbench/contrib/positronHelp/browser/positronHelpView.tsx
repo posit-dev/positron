@@ -4,32 +4,32 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./positronHelpView';
+import './positronHelpView.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
-import * as DOM from 'vs/base/browser/dom';
-import { Event, Emitter } from 'vs/base/common/event';
-import { IHoverService } from 'vs/platform/hover/browser/hover';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { IViewDescriptorService } from 'vs/workbench/common/views';
-import { IThemeService } from 'vs/platform/theme/common/themeService';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IHelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
-import { ActionBars } from 'vs/workbench/contrib/positronHelp/browser/components/actionBars';
-import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
-import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
+import * as DOM from '../../../../base/browser/dom.js';
+import { Event, Emitter } from '../../../../base/common/event.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { IViewDescriptorService } from '../../../common/views.js';
+import { IThemeService } from '../../../../platform/theme/common/themeService.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
+import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { IHelpEntry } from './helpEntry.js';
+import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
+import { ActionBars } from './components/actionBars.js';
+import { IPositronHelpService } from './positronHelpService.js';
+import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 
 /**
  * PositronHelpView class.

@@ -4,19 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./variableOverflow';
+import './variableOverflow.css';
 
 // React.
-import * as React from 'react';
-import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { CSSProperties, MouseEvent } from 'react';
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import * as platform from 'vs/base/common/platform';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
-import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
-import { IVariableOverflow as IVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/variableOverflow';
+import { localize } from '../../../../../nls.js';
+import * as platform from '../../../../../base/common/platform.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { usePositronVariablesContext } from '../positronVariablesContext.js';
+import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
+import { IVariableOverflow as IVariableOverflow } from '../../../../services/positronVariables/common/interfaces/variableOverflow.js';
 
 /**
  * VariableOverflowProps interface.

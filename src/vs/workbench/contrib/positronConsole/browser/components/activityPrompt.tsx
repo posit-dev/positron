@@ -1,18 +1,22 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./activityPrompt';
-import * as React from 'react';
-import { KeyboardEvent, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { OutputRun } from 'vs/workbench/browser/positronAnsiRenderer/outputRun';
-import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { ActivityItemPrompt, ActivityItemPromptState } from 'vs/workbench/services/positronConsole/browser/classes/activityItemPrompt';
-import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { isMacintosh } from 'vs/base/common/platform';
+// CSS.
+import './activityPrompt.css';
+
+// React.
+import React, { KeyboardEvent, useEffect, useRef } from 'react';
+
+// Other dependencies.
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { OutputRun } from '../../../../browser/positronAnsiRenderer/outputRun.js';
+import { OutputLines } from './outputLines.js';
+import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { ActivityItemPrompt, ActivityItemPromptState } from '../../../../services/positronConsole/browser/classes/activityItemPrompt.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
+import { isMacintosh } from '../../../../../base/common/platform.js';
 
 // ActivityPromptProps interface.
 export interface ActivityPromptProps {

@@ -1,26 +1,26 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies
-import * as nls from 'vs/nls';
-import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
-import { IAction, Separator } from 'vs/base/common/actions';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { PlotSizingPolicyCustom } from 'vs/workbench/services/positronPlots/common/sizingPolicyCustom';
-import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
-import { showSetPlotSizeModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/setPlotSizeModalDialog';
-import { IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
-import { PlotSizingPolicyIntrinsic } from 'vs/workbench/services/positronPlots/common/sizingPolicyIntrinsic';
-import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { disposableTimeout } from 'vs/base/common/async';
+import * as nls from '../../../../../nls.js';
+import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
+import { IAction, Separator } from '../../../../../base/common/actions.js';
+import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
+import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
+import { PlotSizingPolicyCustom } from '../../../../services/positronPlots/common/sizingPolicyCustom.js';
+import { IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
+import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
+import { showSetPlotSizeModalDialog } from '../modalDialogs/setPlotSizeModalDialog.js';
+import { IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
+import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
+import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { disposableTimeout } from '../../../../../base/common/async.js';
 
 interface SizingPolicyMenuButtonProps {
 	readonly keybindingService: IKeybindingService;

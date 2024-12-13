@@ -28,6 +28,7 @@
 					'self'
 					'unsafe-eval'
 					blob:
+					'nonce-0c6a828f1297'
 				;
 				style-src
 					'self'
@@ -48,6 +49,7 @@
 					'script'
 				;
 				trusted-types
+					vscode-bootstrapImportMap
 					amdLoader
 					cellRendererEditorText
 					defaultWorkerFactory
@@ -63,11 +65,18 @@
 					tokenizeToString
 				;
 		"/>
+
+		<!-- Workbench CSS -->
+		<link rel="stylesheet" href="../../../workbench/workbench.desktop.main.css">
 	</head>
 
 	<body aria-label="">
 	</body>
 
 	<!-- Startup (do not modify order of script tags!) -->
-	<script src="workbench.js"></script>
+	<!-- Start Positron --->
+	<!-- This script loads external ESM resources, such as React. -->
+	<script src="../../../../bootstrap-external.js"></script>
+	<!-- End Positron --->
+	<script src="./workbench.js" type="module"></script>
 </html>

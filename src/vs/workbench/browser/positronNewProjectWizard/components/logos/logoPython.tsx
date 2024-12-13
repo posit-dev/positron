@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./projectTypeLogo';
+import './projectTypeLogo.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 export const PythonLogo = () => (
 	// The below SVG React code was generated using https://github.com/gregberge/svgr on the

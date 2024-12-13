@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { KeyboardModifiers } from 'vs/base/browser/ui/positronComponents/button/positronButton';
+import { KeyboardModifiers } from '../../../../base/browser/ui/positronComponents/button/positronButton.js';
 
 /**
  * CustomContextMenuItemOptions interface.

@@ -4,20 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataGridColumnHeader';
+import './dataGridColumnHeader.css';
 
 // React.
-import * as React from 'react';
-import { MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { MouseEvent, useRef } from 'react';
 
 // Other dependencies.
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { IDataColumn } from 'vs/workbench/browser/positronDataGrid/interfaces/dataColumn';
-import { Button, MouseTrigger } from 'vs/base/browser/ui/positronComponents/button/button';
-import { selectionType } from 'vs/workbench/browser/positronDataGrid/utilities/mouseUtilities';
-import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
-import { ColumnSelectionState } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
-import { usePositronDataGridContext } from 'vs/workbench/browser/positronDataGrid/positronDataGridContext';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
+import { IDataColumn } from '../interfaces/dataColumn.js';
+import { Button, MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
+import { selectionType } from '../utilities/mouseUtilities.js';
+import { VerticalSplitter } from '../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
+import { ColumnSelectionState } from '../classes/dataGridInstance.js';
+import { usePositronDataGridContext } from '../positronDataGridContext.js';
 
 /**
  * Constants.

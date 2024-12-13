@@ -33,7 +33,6 @@ const minimist = require('minimist');
 const { compileBuildTask } = require('./gulpfile.compile');
 const { compileExtensionsBuildTask, compileExtensionMediaBuildTask } = require('./gulpfile.extensions');
 const { promisify } = require('util');
-const { isESM } = require('./lib/esm');
 const glob = promisify(require('glob'));
 const rcedit = promisify(require('rcedit'));
 
@@ -44,8 +43,8 @@ const { positronBuildNumber } = require('./utils');
 // --- End Positron ---
 
 // Build
-const vscodeEntryPoints = isESM() ? [
-	buildfile.base,
+const vscodeEntryPoints = [
+	buildfile.workerEditor,
 	buildfile.workerExtensionHost,
 	buildfile.workerNotebook,
 	buildfile.workerLanguageDetection,
@@ -53,31 +52,17 @@ const vscodeEntryPoints = isESM() ? [
 	buildfile.workerProfileAnalysis,
 	buildfile.workerOutputLinks,
 	buildfile.workerBackgroundTokenization,
-	buildfile.workbenchDesktop(),
-	buildfile.code
-].flat() : [
-	buildfile.entrypoint('vs/workbench/workbench.desktop.main'),
-	buildfile.base,
-	buildfile.workerExtensionHost,
-	buildfile.workerNotebook,
-	buildfile.workerLanguageDetection,
-	buildfile.workerLocalFileSearch,
-	buildfile.workerProfileAnalysis,
-	buildfile.workbenchDesktop(),
+	buildfile.workbenchDesktop,
 	buildfile.code
 ].flat();
 
-const vscodeResourceIncludes = isESM() ? [
-	// --- Start Positron ---
-	'out-build/react-dom/client.js',
-	// --- End Positron ---
-
+const vscodeResourceIncludes = [
 	// NLS
 	'out-build/nls.messages.json',
 	'out-build/nls.keys.json',
 
 	// Workbench
-	'out-build/vs/code/electron-sandbox/workbench/workbench.esm.html',
+	'out-build/vs/code/electron-sandbox/workbench/workbench.html',
 
 	// Electron Preload
 	'out-build/vs/base/parts/sandbox/electron-sandbox/preload.js',
@@ -94,11 +79,11 @@ const vscodeResourceIncludes = isESM() ? [
 	'out-build/vs/workbench/contrib/externalTerminal/**/*.scpt',
 
 	// Terminal shell integration
-	'out-build/vs/workbench/contrib/terminal/browser/media/fish_xdg_data/fish/vendor_conf.d/*.fish',
-	'out-build/vs/workbench/contrib/terminal/browser/media/*.ps1',
-	'out-build/vs/workbench/contrib/terminal/browser/media/*.psm1',
-	'out-build/vs/workbench/contrib/terminal/browser/media/*.sh',
-	'out-build/vs/workbench/contrib/terminal/browser/media/*.zsh',
+	'out-build/vs/workbench/contrib/terminal/common/scripts/fish_xdg_data/fish/vendor_conf.d/*.fish',
+	'out-build/vs/workbench/contrib/terminal/common/scripts/*.ps1',
+	'out-build/vs/workbench/contrib/terminal/common/scripts/*.psm1',
+	'out-build/vs/workbench/contrib/terminal/common/scripts/*.sh',
+	'out-build/vs/workbench/contrib/terminal/common/scripts/*.zsh',
 
 	// Accessibility Signals
 	'out-build/vs/platform/accessibilitySignal/browser/media/*.mp3',
@@ -114,47 +99,16 @@ const vscodeResourceIncludes = isESM() ? [
 	'out-build/vs/workbench/contrib/webview/browser/pre/*.{js,html}',
 
 	// Extension Host Worker
-	'out-build/vs/workbench/services/extensions/worker/webWorkerExtensionHostIframe.esm.html',
+	'out-build/vs/workbench/services/extensions/worker/webWorkerExtensionHostIframe.html',
 
 	// Process Explorer
-	'out-build/vs/code/electron-sandbox/processExplorer/processExplorer.esm.html',
+	'out-build/vs/code/electron-sandbox/processExplorer/processExplorer.html',
 
 	// Tree Sitter highlights
 	'out-build/vs/editor/common/languages/highlights/*.scm',
 
 	// Issue Reporter
-	'out-build/vs/workbench/contrib/issue/electron-sandbox/issueReporter.esm.html'
-] : [
-	// --- Start Positron ---
-	'out-build/react-dom/client.js',
-	// --- End Positron ---
-
-	'out-build/nls.messages.json',
-	'out-build/nls.keys.json',
-	'out-build/vs/**/*.{svg,png,html,jpg,mp3}',
-	'!out-build/vs/code/browser/**/*.html',
-	'!out-build/vs/code/**/*-dev.html',
-	'!out-build/vs/code/**/*-dev.esm.html',
-	'!out-build/vs/editor/standalone/**/*.svg',
-	'out-build/vs/base/node/{stdForkStart.js,terminateProcess.sh,cpuUsage.sh,ps.sh}',
-	'out-build/vs/base/browser/ui/codicons/codicon/**',
-	'out-build/vs/base/parts/sandbox/electron-sandbox/preload.js',
-	'out-build/vs/base/parts/sandbox/electron-sandbox/preload-aux.js',
-	'out-build/vs/workbench/browser/media/*-theme.css',
-	'out-build/vs/workbench/contrib/debug/**/*.json',
-	'out-build/vs/workbench/contrib/externalTerminal/**/*.scpt',
-	'out-build/vs/workbench/contrib/terminal/browser/media/fish_xdg_data/fish/vendor_conf.d/*.fish',
-	'out-build/vs/workbench/contrib/terminal/browser/media/*.ps1',
-	'out-build/vs/workbench/contrib/terminal/browser/media/*.psm1',
-	'out-build/vs/workbench/contrib/terminal/browser/media/*.sh',
-	'out-build/vs/workbench/contrib/terminal/browser/media/*.zsh',
-	'out-build/vs/workbench/contrib/webview/browser/pre/*.js',
-	'!out-build/vs/workbench/contrib/issue/**/*-dev.html',
-	'!out-build/vs/workbench/contrib/issue/**/*-dev.esm.html',
-	'out-build/vs/editor/common/languages/highlights/*.scm',
-	'out-build/vs/**/markdown.css',
-	'out-build/vs/workbench/contrib/tasks/**/*.json',
-	'!**/test/**'
+	'out-build/vs/workbench/contrib/issue/electron-sandbox/issueReporter.html'
 ];
 
 const vscodeResources = [
@@ -166,73 +120,67 @@ const vscodeResources = [
 	'!out-build/vs/code/browser/**',
 	'!out-build/vs/editor/standalone/**',
 	'!out-build/vs/code/**/*-dev.html',
-	'!out-build/vs/code/**/*-dev.esm.html',
 	'!out-build/vs/workbench/contrib/issue/**/*-dev.html',
-	'!out-build/vs/workbench/contrib/issue/**/*-dev.esm.html',
 	'!**/test/**'
 ];
 
-// Do not change the order of these files! They will
-// be inlined into the target window file in this order
-// and they depend on each other in this way.
-const windowBootstrapFiles = [];
-if (!isESM('Skipping loader.js in window bootstrap files')) {
-	windowBootstrapFiles.push('out-build/vs/loader.js');
-}
-windowBootstrapFiles.push('out-build/bootstrap-window.js');
-
-const commonJSEntryPoints = [
+const bootstrapEntryPoints = [
 	'out-build/main.js',
 	'out-build/cli.js',
 	'out-build/bootstrap-fork.js'
 ];
 
-const optimizeVSCodeTask = task.define('optimize-vscode', task.series(
+const bundleVSCodeTask = task.define('bundle-vscode', task.series(
 	util.rimraf('out-vscode'),
 	// Optimize: bundles source files automatically based on
-	// AMD and CommonJS import statements based on the passed
-	// in entry points. In addition, concat window related
-	// bootstrap files into a single file.
-	optimize.optimizeTask(
+	// import statements based on the passed in entry points.
+	// In addition, concat window related bootstrap files into
+	// a single file.
+	optimize.bundleTask(
 		{
 			out: 'out-vscode',
-			amd: {
+			esm: {
 				src: 'out-build',
-				entryPoints: vscodeEntryPoints,
+				entryPoints: [
+					...vscodeEntryPoints,
+					...bootstrapEntryPoints
+				],
 				resources: vscodeResources,
-				loaderConfig: optimize.loaderConfig(),
-				bundleInfo: undefined
-			},
-			commonJS: {
-				src: 'out-build',
-				entryPoints: commonJSEntryPoints,
-				platform: 'node',
-				external: [
-					'electron',
-					'minimist',
-					'original-fs',
-					// We cannot inline `product.json` from here because
-					// it is being changed during build time at a later
-					// point in time (such as `checksums`)
-					// We have a manual step to inline these later.
-					'../product.json',
-					'../package.json',
-				]
-			},
-			manual: [
-				{ src: [...windowBootstrapFiles, 'out-build/vs/code/electron-sandbox/workbench/workbench.js'], out: 'vs/code/electron-sandbox/workbench/workbench.js' },
-				// TODO: @justchen https://github.com/microsoft/vscode/issues/213332 make sure to remove when we use window.open on desktop.
-				{ src: [...windowBootstrapFiles, 'out-build/vs/workbench/contrib/issue/electron-sandbox/issueReporter.js'], out: 'vs/workbench/contrib/issue/electron-sandbox/issueReporter.js' },
-				{ src: [...windowBootstrapFiles, 'out-build/vs/code/electron-sandbox/processExplorer/processExplorer.js'], out: 'vs/code/electron-sandbox/processExplorer/processExplorer.js' }
-			]
+				fileContentMapper: filePath => {
+					// --- Start Positron ---
+					// We have modified these `endsWith` statements to use
+					// `path.join` instead of hardcoded `/` path separators;
+					// without this change, no content would be prepended on
+					// Windows. (Presumably, the upstream build process is
+					// running on a Unix-like system or the path separators are
+					// being normalized somewhere else.)
+					if (
+						filePath.endsWith(path.join('vs', 'code', 'electron-sandbox', 'workbench', 'workbench.js')) ||
+						// TODO: @justchen https://github.com/microsoft/vscode/issues/213332 make sure to remove when we use window.open on desktop
+						filePath.endsWith(path.join('vs', 'workbench', 'contrib', 'issue', 'electron-sandbox', 'issueReporter.js')) ||
+						filePath.endsWith(path.join('vs', 'code', 'electron-sandbox', 'processExplorer', 'processExplorer.js'))) {
+						return async (content) => {
+							const bootstrapWindowContent = await fs.promises.readFile(path.join(root, 'out-build', 'bootstrap-window.js'), 'utf-8');
+							return `${bootstrapWindowContent}\n${content}`; // prepend bootstrap-window.js content to entry points that are Electron windows
+						};
+					}
+					// --- End Positron ---
+					return undefined;
+				},
+				skipTSBoilerplateRemoval: entryPoint =>
+					entryPoint === 'vs/code/electron-sandbox/workbench/workbench' ||
+					// TODO: @justchen https://github.com/microsoft/vscode/issues/213332 make sure to remove when we use window.open on desktop
+					entryPoint === 'vs/workbench/contrib/issue/electron-sandbox/issueReporter' ||
+					entryPoint === 'vs/code/electron-sandbox/processExplorer/processExplorer',
+			}
 		}
 	)
 ));
-gulp.task(optimizeVSCodeTask);
+gulp.task(bundleVSCodeTask);
 
 const sourceMappingURLBase = `https://main.vscode-cdn.net/sourcemaps/${commit}`;
 const minifyVSCodeTask = task.define('minify-vscode', task.series(
-	optimizeVSCodeTask,
+	bundleVSCodeTask,
 	util.rimraf('out-vscode-min'),
 	optimize.minifyTask('out-vscode', `${sourceMappingURLBase}/core`)
 ));
@@ -309,7 +257,7 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			'vs/workbench/workbench.desktop.main.js',
 			'vs/workbench/workbench.desktop.main.css',
 			'vs/workbench/api/node/extensionHostProcess.js',
-			isESM() ? 'vs/code/electron-sandbox/workbench/workbench.esm.html' : 'vs/code/electron-sandbox/workbench/workbench.html',
+			'vs/code/electron-sandbox/workbench/workbench.html',
 			'vs/code/electron-sandbox/workbench/workbench.js'
 		]);
 
@@ -350,17 +298,11 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			version += '-' + quality;
 		}
 
-		if (isESM() && typeof quality === 'string' && quality !== 'exploration') {
-			// TODO@esm remove this safeguard
-			throw new Error('Refuse to build ESM on quality other than exploration');
-		}
-
 		const name = product.nameShort;
-		const packageJsonUpdates = { name, version, ...(isESM(`Setting 'type: module' and 'main: out/main.js' in top level package.json`) ? { type: 'module', main: 'out/main.js' } : {}) }; // TODO@esm this should be configured in the top level package.json
+		const packageJsonUpdates = { name, version };
 
-		// for linux url handling
 		if (platform === 'linux') {
-			packageJsonUpdates.desktopName = `${product.applicationName}-url-handler.desktop`;
+			packageJsonUpdates.desktopName = `${product.applicationName}.desktop`;
 		}
 
 		let packageJsonContents;
@@ -387,6 +329,10 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		const api = gulp.src('src/vscode-dts/vscode.d.ts').pipe(rename('out/vscode-dts/vscode.d.ts'));
 
 		// --- Start Positron ---
+
+		// External modules (React, etc.)
+		const externalModules = gulp.src('out-build/bootstrap-external.js').pipe(rename('out/bootstrap-external.js'));
+		const moduleSources = gulp.src('src/esm-package-dependencies/**').pipe(rename(function (p) { p.dirname = path.join('out', 'esm-package-dependencies', p.dirname) }));
 
 		// Positron API
 		const positronApi = gulp.src('src/positron-dts/positron.d.ts')
@@ -424,18 +370,16 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 		const root = path.resolve(path.join(__dirname, '..'));
 		const productionDependencies = getProductionDependencies(root);
-		const dependenciesSrc = productionDependencies.map(d => path.relative(root, d.path)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`, `!**/*.mk`]).flat();
+		const dependenciesSrc = productionDependencies.map(d => path.relative(root, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`, `!**/*.mk`]).flat();
 
-		let deps = gulp.src(dependenciesSrc, { base: '.', dot: true })
+		const deps = gulp.src(dependenciesSrc, { base: '.', dot: true })
 			.pipe(filter(['**', `!**/${config.version}/**`, '!**/bin/darwin-arm64-87/**', '!**/package-lock.json', '!**/yarn.lock', '!**/*.js.map']))
 			.pipe(util.cleanNodeModules(path.join(__dirname, '.moduleignore')))
 			.pipe(util.cleanNodeModules(path.join(__dirname, `.moduleignore.${process.platform}`)))
 			.pipe(jsFilter)
 			.pipe(util.rewriteSourceMappingURL(sourceMappingURLBase))
-			.pipe(jsFilter.restore);
-
-		if (!isESM('ASAR disabled in VS Code builds')) { // TODO@esm: ASAR disabled in ESM
-			deps = deps.pipe(createAsar(path.join(process.cwd(), 'node_modules'), [
+			.pipe(jsFilter.restore)
+			.pipe(createAsar(path.join(process.cwd(), 'node_modules'), [
 				'**/*.node',
 				'**/@vscode/ripgrep/bin/*',
 				'**/node-pty/build/Release/*',
@@ -446,8 +390,10 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 				'**/@vscode/vsce-sign/bin/*',
 			], [
 				'**/*.mk',
+				'!node_modules/vsda/**' // stay compatible with extensions that depend on us shipping `vsda` into ASAR
+			], [
+				'node_modules/vsda/**' // retain copy of `vsda` in node_modules for internal use
 			], 'node_modules.asar'));
-		}
 
 		let all = es.merge(
 			packageJsonStream,
@@ -457,6 +403,8 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			// --- Start Positron ---
 			positronApi,
 			quarto,
+			externalModules,
+			moduleSources,
 			// --- End Positron ---
 			telemetry,
 			sources,
@@ -568,7 +516,7 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		}
 
 		result = inlineMeta(result, {
-			targetPaths: commonJSEntryPoints,
+			targetPaths: bootstrapEntryPoints,
 			packageJsonFn: () => packageJsonContents,
 			productJsonFn: () => productJsonContents
 		});
@@ -587,7 +535,7 @@ function updateIcon(cwd, executablePath, icon) {
 function patchWin32DependenciesTask(cwd) {
 	// --- End Positron ---
 	return async () => {
-		const deps = await glob('**/*.node', { cwd });
+		const deps = await glob('**/*.node', { cwd, ignore: 'extensions/node_modules/@parcel/watcher/**' });
 		const packageJson = JSON.parse(await fs.promises.readFile(path.join(cwd, 'resources', 'app', 'package.json'), 'utf8'));
 		const product = JSON.parse(await fs.promises.readFile(path.join(cwd, 'resources', 'app', 'product.json'), 'utf8'));
 		const baseVersion = packageJson.version.replace(/-.*$/, '');
@@ -667,7 +615,7 @@ BUILD_TARGETS.forEach(buildTarget => {
 			compileBuildTask,
 			compileExtensionsBuildTask,
 			compileExtensionMediaBuildTask,
-			minified ? minifyVSCodeTask : optimizeVSCodeTask,
+			minified ? minifyVSCodeTask : bundleVSCodeTask,
 			vscodeTaskCI
 		));
 		gulp.task(vscodeTask);

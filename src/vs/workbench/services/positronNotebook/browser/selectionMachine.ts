@@ -2,12 +2,12 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { ISettableObservable, observableValue } from 'vs/base/common/observable';
-import { IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
-import { Event } from 'vs/base/common/event';
-import { ILogService } from 'vs/platform/log/common/log';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { disposableTimeout } from 'vs/base/common/async';
+import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
+import { IPositronNotebookCell } from './IPositronNotebookCell.js';
+import { Event } from '../../../../base/common/event.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { disposableTimeout } from '../../../../base/common/async.js';
 
 export enum SelectionState {
 	NoSelection = 'NoSelection',

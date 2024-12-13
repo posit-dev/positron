@@ -3,38 +3,34 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import {
-	IReactComponentContainer,
-	ISize,
-	PositronReactRenderer,
-} from 'vs/base/browser/positronReactRenderer';
-import { Emitter, Event } from 'vs/base/common/event';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IHoverService } from 'vs/platform/hover/browser/hover';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { IThemeService } from 'vs/platform/theme/common/themeService';
-import { IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
-import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
-import { IViewDescriptorService } from 'vs/workbench/common/views';
-import * as DOM from 'vs/base/browser/dom';
-import { PositronConnections } from 'vs/workbench/contrib/positronConnections/browser/positronConnections';
+import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
+import { IThemeService } from '../../../../platform/theme/common/themeService.js';
+import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
+import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
+import { IViewDescriptorService } from '../../../common/views.js';
+import * as DOM from '../../../../base/browser/dom.js';
+import { PositronConnections } from './positronConnections.js';
 import * as React from 'react';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
-import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
-import { IModelService } from 'vs/editor/common/services/model';
-import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IPositronConnectionsService } from '../../../services/positronConnections/browser/interfaces/positronConnectionsService.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
+import { IModelService } from '../../../../editor/common/services/model.js';
+import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 export class PositronConnectionsView
 	extends PositronViewPane

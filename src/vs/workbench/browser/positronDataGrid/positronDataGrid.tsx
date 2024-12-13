@@ -4,15 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./positronDataGrid';
+import './positronDataGrid.css';
 
 // React.
-import * as React from 'react';
-import { forwardRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { forwardRef } from 'react';
 
 // Other dependencies.
-import { DataGridWaffle } from 'vs/workbench/browser/positronDataGrid/components/dataGridWaffle';
-import { PositronDataGridConfiguration, PositronDataGridContextProvider } from 'vs/workbench/browser/positronDataGrid/positronDataGridContext';
+import { DataGridWaffle } from './components/dataGridWaffle.js';
+import { PositronDataGridConfiguration, PositronDataGridContextProvider } from './positronDataGridContext.js';
 
 /**
  * PositronDataGridProps interface.

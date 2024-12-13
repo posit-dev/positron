@@ -1,13 +1,18 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./activityOutputPlot';
-import * as React from 'react';
-import * as nls from 'vs/nls';
-import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
-import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/browser/classes/activityItemOutputPlot';
+// CSS.
+import './activityOutputPlot.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import * as nls from '../../../../../nls.js';
+import { OutputLines } from './outputLines.js';
+import { ActivityItemOutputPlot } from '../../../../services/positronConsole/browser/classes/activityItemOutputPlot.js';
 
 // ActivityOutputPlot interface.
 export interface ActivityOutputPlotProps {

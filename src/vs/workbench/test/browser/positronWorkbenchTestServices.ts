@@ -3,39 +3,39 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { TestInstantiationService } from 'vs/platform/instantiation/test/common/instantiationServiceMock';
-import { ILogService } from 'vs/platform/log/common/log';
-import { TestThemeService } from 'vs/platform/theme/test/common/testThemeService';
-import { INotebookEditorService } from 'vs/workbench/contrib/notebook/browser/services/notebookEditorService';
-import { NotebookEditorWidgetService } from 'vs/workbench/contrib/notebook/browser/services/notebookEditorServiceImpl';
-import { NotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/browser/services/notebookRendererMessagingServiceImpl';
-import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
-import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
-import { PositronIPyWidgetsService } from 'vs/workbench/contrib/positronIPyWidgets/browser/positronIPyWidgetsService';
-import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { PositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
-import { PositronPlotsService } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsService';
-import { PositronWebviewPreloadService } from 'vs/workbench/contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService';
-import { IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
-import { WebviewService } from 'vs/workbench/contrib/webview/browser/webviewService';
-import { INotebookDocumentService, NotebookDocumentWorkbenchService } from 'vs/workbench/services/notebook/common/notebookDocumentService';
-import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
-import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { IPositronWebviewPreloadService } from 'vs/workbench/services/positronWebviewPreloads/browser/positronWebviewPreloadService';
-import { createRuntimeServices } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
-import { IWorkbenchThemeService } from 'vs/workbench/services/themes/common/workbenchThemeService';
-import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
-import { workbenchInstantiationService as baseWorkbenchInstantiationService, TestEditorService, TestViewsService } from 'vs/workbench/test/browser/workbenchTestServices';
-import { TestNotebookService } from 'vs/workbench/test/common/positronWorkbenchTestServices';
-import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
-import { PositronVariablesService } from 'vs/workbench/services/positronVariables/common/positronVariablesService';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { TestConfigurationService } from 'vs/platform/configuration/test/common/testConfigurationService';
-import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { PositronConsoleService } from 'vs/workbench/services/positronConsole/browser/positronConsoleService';
+import { DisposableStore } from '../../../base/common/lifecycle.js';
+import { TestInstantiationService } from '../../../platform/instantiation/test/common/instantiationServiceMock.js';
+import { ILogService } from '../../../platform/log/common/log.js';
+import { TestThemeService } from '../../../platform/theme/test/common/testThemeService.js';
+import { INotebookEditorService } from '../../contrib/notebook/browser/services/notebookEditorService.js';
+import { NotebookEditorWidgetService } from '../../contrib/notebook/browser/services/notebookEditorServiceImpl.js';
+import { NotebookRendererMessagingService } from '../../contrib/notebook/browser/services/notebookRendererMessagingServiceImpl.js';
+import { INotebookRendererMessagingService } from '../../contrib/notebook/common/notebookRendererMessagingService.js';
+import { INotebookService } from '../../contrib/notebook/common/notebookService.js';
+import { PositronIPyWidgetsService } from '../../contrib/positronIPyWidgets/browser/positronIPyWidgetsService.js';
+import { IPositronNotebookOutputWebviewService } from '../../contrib/positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { PositronNotebookOutputWebviewService } from '../../contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl.js';
+import { PositronPlotsService } from '../../contrib/positronPlots/browser/positronPlotsService.js';
+import { PositronWebviewPreloadService } from '../../contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService.js';
+import { IWebviewService } from '../../contrib/webview/browser/webview.js';
+import { WebviewService } from '../../contrib/webview/browser/webviewService.js';
+import { INotebookDocumentService, NotebookDocumentWorkbenchService } from '../../services/notebook/common/notebookDocumentService.js';
+import { IPositronIPyWidgetsService } from '../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
+import { IPositronPlotsService } from '../../services/positronPlots/common/positronPlots.js';
+import { IPositronWebviewPreloadService } from '../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
+import { createRuntimeServices } from '../../services/runtimeSession/test/common/testRuntimeSessionService.js';
+import { IWorkbenchThemeService } from '../../services/themes/common/workbenchThemeService.js';
+import { IViewsService } from '../../services/views/common/viewsService.js';
+import { workbenchInstantiationService as baseWorkbenchInstantiationService, TestEditorService, TestViewsService } from './workbenchTestServices.js';
+import { TestNotebookService } from '../common/positronWorkbenchTestServices.js';
+import { IPositronVariablesService } from '../../services/positronVariables/common/interfaces/positronVariablesService.js';
+import { PositronVariablesService } from '../../services/positronVariables/common/positronVariablesService.js';
+import { IEditorService } from '../../services/editor/common/editorService.js';
+import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { IRuntimeSessionService } from '../../services/runtimeSession/common/runtimeSessionService.js';
+import { TestConfigurationService } from '../../../platform/configuration/test/common/testConfigurationService.js';
+import { IPositronConsoleService } from '../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { PositronConsoleService } from '../../services/positronConsole/browser/positronConsoleService.js';
 
 export function positronWorkbenchInstantiationService(
 	disposables: Pick<DisposableStore, 'add'> = new DisposableStore(),
