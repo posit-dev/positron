@@ -11,7 +11,7 @@ test.use({
 
 test.describe('Help', { tag: [tags.HELP] }, () => {
 
-	test('Python - Verifies basic help functionality [C633814]', async function ({ app, python }) {
+	test('Python - Verifies basic help functionality [C633814]', { tag: [tags.WIN] }, async function ({ app, python }) {
 		await app.workbench.positronConsole.executeCode('Python', `?load`, '>>>');
 
 		await expect(async () => {
@@ -21,7 +21,7 @@ test.describe('Help', { tag: [tags.HELP] }, () => {
 
 	});
 
-	test('R - Verifies basic help functionality [C633813]', async function ({ app, r }) {
+	test('R - Verifies basic help functionality [C633813]', { tag: [tags.WIN] }, async function ({ app, r }) {
 		await app.workbench.positronConsole.executeCode('R', `?load()`, '>');
 
 		await expect(async () => {
@@ -32,7 +32,7 @@ test.describe('Help', { tag: [tags.HELP] }, () => {
 	});
 
 	test('Verifies help panel can be opened when empty and also can be resized smaller and remember resize height [C640934]', async function ({ app, logger }) {
-
+		// Not running on windows as the size calculation is off for the resolution in CI
 		const positronHelp = app.workbench.positronHelp;
 		const helpContainerLocator = positronHelp.getHelpContainer();
 		const helpPanelHeaderLocator = positronHelp.getHelpHeader();

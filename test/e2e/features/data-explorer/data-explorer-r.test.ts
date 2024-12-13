@@ -76,8 +76,11 @@ test.describe('Data Explorer - R ', {
 
 	});
 
-	test('R - Open Data Explorer for the second time brings focus back [C701143]', async function ({ app, r }) {
+	test.skip('R - Open Data Explorer for the second time brings focus back [C701143]', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5714' }]
+	}, async function ({ app, r }) {
 		// Regression test for https://github.com/posit-dev/positron/issues/4197
+		// and https://github.com/posit-dev/positron/issues/5714
 		const script = `Data_Frame <- mtcars`;
 		await app.workbench.positronConsole.executeCode('R', script, '>');
 		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
@@ -98,5 +101,25 @@ test.describe('Data Explorer - R ', {
 
 		await app.workbench.positronDataExplorer.closeDataExplorer();
 		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+	});
+
+	test('R - Check blank spaces in data explorer [C1078834]', async function ({ app, r }) {
+		const script = `df = data.frame(x = c("a ", "a", "   ", ""))`;
+		await app.workbench.positronConsole.executeCode('R', script, '>');
+
+		await expect(async () => {
+			await app.workbench.positronVariables.doubleClickVariableRow('df');
+			await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
+		}).toPass();
+
+		await expect(async () => {
+			const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+
+			expect(tableData[0]).toStrictEqual({ 'x': 'a·' });
+			expect(tableData[1]).toStrictEqual({ 'x': 'a' });
+			expect(tableData[2]).toStrictEqual({ 'x': '···' });
+			expect(tableData[3]).toStrictEqual({ 'x': '<empty>' });
+			expect(tableData.length).toBe(4);
+		}).toPass({ timeout: 60000 });
 	});
 });

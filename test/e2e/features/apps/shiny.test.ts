@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Shiny Application', { tag: [tags.APPS, tags.VIEWER] }, () => {
+test.describe('Shiny Application', { tag: [tags.APPS, tags.VIEWER, tags.WIN] }, () => {
 	test.beforeAll(async function ({ app }) {
 		try {
 			await app.workbench.extensions.installExtension('posit.shiny', true);

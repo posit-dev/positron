@@ -10,18 +10,43 @@ test.use({
 });
 
 test.describe('Variables - Expanded View', { tag: [tags.WEB, tags.VARIABLES] }, () => {
-	test.beforeEach(async function ({ app, python }) {
-		await app.workbench.positronConsole.executeCode('Python', script, '>>>');
-		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+
+	test.afterEach(async function ({ app }) {
+		await app.workbench.positronLayouts.enterLayout('stacked');
+		await app.workbench.positronConsole.barRestartButton.click();
 	});
 
-	test('Python - should display children values and types when variable is expanded', async function ({ app }) {
+	test('Python - should display children values and types when variable is expanded [C1078836]', async function ({ app, python }) {
 		const variables = app.workbench.positronVariables;
+
+		await app.workbench.positronConsole.executeCode('Python', script, '>>>');
+		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 
 		await variables.expandVariable('df');
 		for (const variable of Object.keys(expectedData)) {
 			const actualData = await variables.getVariableChildren(variable);
 			expect(actualData).toEqual(expectedData[variable]);
+		}
+	});
+
+	test('R - getting large dataframe children should not cause problems [C1078837]', async function ({ app, r }) {
+		const variables = app.workbench.positronVariables;
+
+		// workaround for https://github.com/posit-dev/positron/issues/5718
+		await app.workbench.positronPopups.closeAllToasts();
+
+		await app.workbench.positronConsole.executeCode('R', 'df2 <- data.frame(b=rep(1:1000000))', '>');
+		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+
+		await variables.expandVariable('df2');
+		const children = await variables.getVariableChildren('b', false);
+
+		await app.workbench.positronPopups.verifyToastDoesNotAppear();
+
+		const childrenArray = Object.values(children);
+
+		for (let i = 0; i < 10; i++) {
+			expect(childrenArray[i]).toEqual({ type: '', value: (i + 1).toString() });
 		}
 	});
 });
