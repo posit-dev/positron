@@ -78,8 +78,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - run: npm run precommit # fail fast
-
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
