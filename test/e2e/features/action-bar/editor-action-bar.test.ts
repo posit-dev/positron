@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Editor Action Bar', {
-	tag: [tags.WEB, tags.ACTION_BAR, tags.EDITOR, tags.WIN]
+	tag: [tags.WEB, tags.ACTION_BAR, tags.EDITOR]
 }, () => {
 	test.beforeAll(async function ({ userSettings }) {
 		await userSettings.set([['editor.actionBar.enabled', 'true']], false);
