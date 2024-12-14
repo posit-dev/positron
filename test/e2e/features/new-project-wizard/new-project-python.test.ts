@@ -61,7 +61,11 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
-	test('With ipykernel already installed [C609619]', { tag: [tags.WIN] }, async function ({ app, page, python }) {
+	// Skip test due to https://github.com/posit-dev/positron/issues/5730. Both have to skipped as they depend o
+	test.skip('With ipykernel already installed [C609619]', {
+		tag: [tags.WIN],
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5730' }],
+		}, async function ({ app, page, python }) {
 		const projSuffix = addRandomNumSuffix('_ipykernelInstalled');
 		const pw = app.workbench.positronNewProjectWizard;
 		const pythonFixtures = new PositronPythonFixtures(app);
@@ -96,7 +100,10 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await expect(app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 90000 });
 	});
 
-	test('With ipykernel not already installed [C609617]', { tag: [tags.WIN] }, async function ({ app, page }) {
+	test.skip('With ipykernel not already installed [C609617]', {
+		tag: [tags.WIN],
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5730' }],
+		}, async function ({ app, page }) {
 		const projSuffix = addRandomNumSuffix('_noIpykernel');
 		const pw = app.workbench.positronNewProjectWizard;
 		const pythonFixtures = new PositronPythonFixtures(app);
