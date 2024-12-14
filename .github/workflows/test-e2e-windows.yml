@@ -168,11 +168,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
 
-      - name: Install trcli
-        if: ${{ inputs.report_testrail }}
-        shell: bash
-        run: apt-get update && apt-get install -y python3-pip && pip3 install trcli
-
       - name: Upload Test Results to TestRail
         if: ${{ inputs.report_testrail }}
         shell: bash
