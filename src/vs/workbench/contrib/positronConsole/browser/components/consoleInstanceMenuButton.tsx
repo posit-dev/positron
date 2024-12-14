@@ -59,6 +59,9 @@ export const ConsoleInstanceMenuButton = (props: ConsoleInstanceMenuButtonProps)
 		// Build the actions for the available console repl instances.
 		const actions: IAction[] = [];
 		positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance => {
+			if (!positronConsoleInstance.session) {
+				return;
+			}
 			actions.push({
 				id: positronConsoleInstance.session.sessionId,
 				label: positronConsoleInstance.session.metadata.sessionName,

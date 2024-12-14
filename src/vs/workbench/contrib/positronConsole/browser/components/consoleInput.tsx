@@ -156,6 +156,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Get the code from the code editor widget.
 		const code = codeEditorWidgetRef.current.getValue();
 
+		// Cannot execute if no session
+		if (!props.positronConsoleInstance.session) {
+			return false;
+		}
 		// Check on whether the code is complete and can be executed.
 		switch (await props.positronConsoleInstance.session.isCodeFragmentComplete(code)) {
 			// If the code fragment is complete, execute it.
@@ -596,7 +600,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Build the history entries, if there is input history.
 		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(
-			props.positronConsoleInstance.session.runtimeMetadata.languageId
+			props.positronConsoleInstance.languageId
 		);
 		if (inputHistoryEntries.length) {
 			// console.log(`There are input history entries for ${props.positronConsoleInstance.runtime.metadata.languageId}`);
@@ -614,6 +618,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		 */
 		const createLineNumbersOptions = (): ILineNumbersOptions => ({
 			lineNumbers: ((): LineNumbersType => {
+
+				if (!props.positronConsoleInstance.session) {
+					return ((_lineNumber: number) => '');
+				}
+
 				switch (props.positronConsoleInstance.state) {
 					// When uninitialized, starting, or ready, use the show prompt line numbers
 					// function.
@@ -621,18 +630,18 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					case PositronConsoleState.Starting:
 					case PositronConsoleState.Ready:
 						return (lineNumber: number) => lineNumber < 2 ?
-							props.positronConsoleInstance.session.dynState.inputPrompt :
-							props.positronConsoleInstance.session.dynState.continuationPrompt;
+							props.positronConsoleInstance.session!.dynState.inputPrompt :
+							props.positronConsoleInstance.session!.dynState.continuationPrompt;
 
 					// In any other state, use the hide prompt line numbers function.
 					default:
 						return (_lineNumber: number) => '';
 				}
 			})(),
-			lineNumbersMinChars: Math.max(
+			lineNumbersMinChars: props.positronConsoleInstance.session ? Math.max(
 				props.positronConsoleInstance.session.dynState.inputPrompt.length,
 				props.positronConsoleInstance.session.dynState.continuationPrompt.length
-			)
+			) : 0,
 		});
 
 		/**
@@ -709,11 +718,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		codeEditorWidget.setModel(positronConsoleContext.modelService.createModel(
 			'',
 			positronConsoleContext.languageService.createById(
-				props.positronConsoleInstance.session.runtimeMetadata.languageId
+				props.positronConsoleInstance.languageId
 			),
 			URI.from({
 				scheme: Schemas.inMemory,
-				path: `/repl-${props.positronConsoleInstance.session.runtimeMetadata.languageId}-${generateUuid()}`
+				path: `/repl-${props.positronConsoleInstance.languageId}-${generateUuid()}`
 			}),
 			false
 		));
@@ -892,15 +901,17 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		}));
 
 		// Add the onDidReceiveRuntimeMessagePromptConfig event handler.
-		disposableStore.add(
-			props.positronConsoleInstance.session.onDidReceiveRuntimeMessagePromptConfig(() => {
-				// Update just the line number options.
-				codeEditorWidget.updateOptions(createLineNumbersOptions());
+		if (props.positronConsoleInstance.session) {
+			disposableStore.add(
+				props.positronConsoleInstance.session.onDidReceiveRuntimeMessagePromptConfig(() => {
+					// Update just the line number options.
+					codeEditorWidget.updateOptions(createLineNumbersOptions());
 
-				// Render the code editor widget.
-				codeEditorWidget.render(true);
-			})
-		);
+					// Render the code editor widget.
+					codeEditorWidget.render(true);
+				})
+			);
+		}
 
 		// If it's OK to take focus, drive focus into the code editor widget.
 		if (okToTakeFocus()) {

@@ -440,6 +440,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Create the new Positron console instance.
 		const positronConsoleInstance = this._register(this._instantiationService.createInstance(
 			PositronConsoleInstance,
+			runtime.languageId
 		));
 
 		this._positronConsoleInstancesByLanguageId.set(
@@ -468,6 +469,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Create the new Positron console instance.
 		const positronConsoleInstance = this._register(this._instantiationService.createInstance(
 			PositronConsoleInstance,
+			session.runtimeMetadata.languageId
 		));
 		positronConsoleInstance.setRuntimeSession(session, attachMode);
 
@@ -572,6 +574,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Whether or not we are currently attached to the runtime.
 	 */
 	private _runtimeAttached = false;
+
+	/**
+	 * The language ID.
+	 */
+	private readonly _languageId: string;
 
 	/**
 	 * Gets or sets the state.
@@ -725,16 +732,20 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * Constructor.
 	 *
-	 * @param runtimeSession The language runtime session.
-	 * @param attachMode The mode in which to attach to the session.
+	 * @param languageId The language ID.
 	 * @param _notificationService The notification service.
+	 * @param _configurationService The configuration service.
 	 */
 	constructor(
+		languageId: string,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
 		// Call the base class's constructor.
 		super();
+
+		// Save the language ID.
+		this._languageId = languageId;
 
 		// Initialize the width in characters.
 		this._widthInChars = observableValue<number>('console-width', 80);
@@ -746,6 +757,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	get inputTextEditor(): IEditor | undefined {
 		return this._inputTextEditor;
+	}
+
+	/**
+	 * Gets the language ID.
+	 */
+	get languageId(): string {
+		return this._languageId;
 	}
 
 	/**

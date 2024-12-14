@@ -141,6 +141,11 @@ export interface IPositronConsoleInstance {
 	readonly session: ILanguageRuntimeSession | undefined;
 
 	/**
+	 * Gets the language ID.
+	 */
+	readonly languageId: string;
+
+	/**
 	 * Gets the state.
 	 */
 	readonly state: PositronConsoleState;

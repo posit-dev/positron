@@ -65,7 +65,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 			<div className='console-instances-container' style={{ width: props.width, height: adjustedHeight }}>
 				{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
 					<ConsoleInstance
-						key={positronConsoleInstance.session.runtimeMetadata.languageId}
+						key={positronConsoleInstance.languageId}
 						active={positronConsoleInstance === positronConsoleContext.activePositronConsoleInstance}
 						width={props.width}
 						height={adjustedHeight}

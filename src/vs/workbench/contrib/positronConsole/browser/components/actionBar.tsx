@@ -120,8 +120,8 @@ export const ActionBar = (props: ActionBarProps) => {
 				setActivePositronConsoleInstance(activePositronConsoleInstance);
 				setInterruptible(activePositronConsoleInstance?.state === PositronConsoleState.Busy);
 				setInterrupting(false);
-				setCanShutdown(activePositronConsoleInstance?.session.getRuntimeState() !== RuntimeState.Exited);
-				setCanStart(activePositronConsoleInstance?.session.getRuntimeState() === RuntimeState.Exited);
+				setCanShutdown(activePositronConsoleInstance?.session?.getRuntimeState() !== RuntimeState.Exited);
+				setCanStart(activePositronConsoleInstance?.session?.getRuntimeState() === RuntimeState.Exited);
 			}
 		);
 	}, [positronConsoleContext.positronConsoleService]);
@@ -263,7 +263,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		setInterrupting(true);
 
 		// Interrupt the active Positron console instance.
-		activePositronConsoleInstance?.session.interrupt();
+		activePositronConsoleInstance?.session?.interrupt();
 	};
 
 	// Toggle trace event handler.
@@ -312,7 +312,7 @@ export const ActionBar = (props: ActionBarProps) => {
 
 	// Restart console event handler.
 	const restartConsoleHandler = async () => {
-		positronConsoleContext.activePositronConsoleInstance?.session.restart();
+		positronConsoleContext.activePositronConsoleInstance?.session?.restart();
 	};
 
 	// Render.

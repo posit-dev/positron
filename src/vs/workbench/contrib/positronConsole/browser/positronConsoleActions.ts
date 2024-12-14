@@ -188,7 +188,7 @@ export function registerPositronConsoleActions() {
 			// the active console, so if there isn't an active Positron console instance, we can't
 			// proceed.
 			const activePositronConsoleInstance = positronConsoleService.activePositronConsoleInstance;
-			if (!activePositronConsoleInstance) {
+			if (!activePositronConsoleInstance || !activePositronConsoleInstance.session) {
 				notificationService.notify({
 					severity: Severity.Info,
 					message: localize('positron.inputHistory.noActiveConsole', "Cannot clear input history. A console is not active."),
@@ -213,7 +213,7 @@ export function registerPositronConsoleActions() {
 					// execution history service.
 					activePositronConsoleInstance.clearInputHistory();
 					executionHistoryService.clearInputEntries(
-						activePositronConsoleInstance.session.runtimeMetadata.languageId
+						activePositronConsoleInstance.session!.runtimeMetadata.languageId
 					);
 
 					// Let the user know that the history was cleared.

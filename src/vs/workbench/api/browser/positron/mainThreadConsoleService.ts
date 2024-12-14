@@ -41,7 +41,7 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		// in the main thread too
 		this._disposables.add(
 			this._positronConsoleService.onDidStartPositronConsoleInstance((console) => {
-				const id = console.session.runtimeMetadata.languageId;
+				const id = console.languageId;
 
 				// First update ext host
 				this._proxy.$addConsole(id);
