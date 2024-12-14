@@ -36,7 +36,7 @@ import { EditOperation, ISingleEditOperation } from '../../../../../editor/commo
 import { TabCompletionController } from '../../../snippets/browser/tabCompletion.js';
 import { TerminalContextKeys } from '../../../terminal/common/terminalContextKey.js';
 import { ParameterHintsController } from '../../../../../editor/contrib/parameterHints/browser/parameterHints.js';
-import { IInputHistoryEntry } from '../../../executionHistory/common/executionHistoryService.js';
+import { IInputHistoryEntry } from '../../../../services/executionHistory/common/executionHistoryService.js';
 import { SelectionClipboardContributionID } from '../../../codeEditor/browser/selectionClipboard.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus } from '../../../../services/languageRuntime/common/languageRuntimeService.js';

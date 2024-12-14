@@ -27,7 +27,7 @@ import { ILanguageFeaturesService } from '../../../../editor/common/services/lan
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { NOTEBOOK_EDITOR_FOCUSED } from '../../notebook/common/notebookContextKeys.js';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IExecutionHistoryService } from '../../executionHistory/common/executionHistoryService.js';
+import { IExecutionHistoryService } from '../../../services/executionHistory/common/executionHistoryService.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 

@@ -39,7 +39,7 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
-import { IExecutionHistoryService } from '../../executionHistory/common/executionHistoryService.js';
+import { IExecutionHistoryService } from '../../../services/executionHistory/common/executionHistoryService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 

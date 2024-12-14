@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { HistoryNavigator2 } from '../../../../base/common/history.js';
-import { IInputHistoryEntry } from '../../executionHistory/common/executionHistoryService.js';
+import { IInputHistoryEntry } from '../../../services/executionHistory/common/executionHistoryService.js';
 import { HistoryMatch, HistoryMatchStrategy } from './historyMatchStrategy.js';
 
 /**
