@@ -45,15 +45,15 @@ jobs:
   trigger:
     runs-on: ubuntu-latest
     steps:
-      - name: Log Input Details to GH Summary
+      - name: Echo Input Details
         run: |
-          echo "#### Workflow Inputs:" >> $GITHUB_STEP_SUMMARY
-          echo "- **E2E Tests / Electron (Linux)**: ${{ inputs.run_e2e_linux }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **E2E Tests / Electron (Windows)**: ${{ inputs.run_e2e_windows }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **E2E Tests / Chromium (Linux)**: ${{ inputs.run_e2e_browser }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Unit Tests**: ${{ inputs.run_unit_tests }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Integration Tests**: ${{ inputs.run_integration_tests }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Slack Notification On**: ${{ inputs.notify_on }}" >> $GITHUB_STEP_SUMMARY
+          echo "Workflow Inputs:"
+          echo "- E2E Electron (Linux): `${{ inputs.run_e2e_linux }}`"
+          echo "- E2E Electron (Windows): `${{ inputs.run_e2e_windows }}`"
+          echo "- E2E Chromium (Linux): `${{ inputs.run_e2e_browser }}`"
+          echo "- Unit Tests: `${{ inputs.run_unit_tests }}`"
+          echo "- Integration Tests: `${{ inputs.run_integration_tests }}`"
+          echo "- Slack Notification On: `${{ inputs.notify_on }}`"
 
   e2e-electron:
     name: e2e
