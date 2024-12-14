@@ -61,44 +61,49 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
-	// Skip test due to https://github.com/posit-dev/positron/issues/5730. Both have to skipped as they depend on each other
-	test.skip('With ipykernel already installed [C609619]', { tag: [tags.WIN] },
-		async function ({ app, page, python }) {
-			const projSuffix = addRandomNumSuffix('_ipykernelInstalled');
-			const pw = app.workbench.positronNewProjectWizard;
-			const pythonFixtures = new PositronPythonFixtures(app);
-			// Start the Python interpreter and ensure ipykernel is installed
-			await pythonFixtures.startAndGetPythonInterpreter(true);
+	// Skip test due to https://github.com/posit-dev/positron/issues/5730. Both have to skipped as they depend o
+	test.skip('With ipykernel already installed [C609619]', {
+		tag: [tags.WIN],
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5730' }],
+		}, async function ({ app, page, python }) {
+		const projSuffix = addRandomNumSuffix('_ipykernelInstalled');
+		const pw = app.workbench.positronNewProjectWizard;
+		const pythonFixtures = new PositronPythonFixtures(app);
+		// Start the Python interpreter and ensure ipykernel is installed
+		await pythonFixtures.startAndGetPythonInterpreter(true);
 
-			const interpreterInfo =
-				await app.workbench.positronInterpreterDropdown.getSelectedInterpreterInfo();
-			expect(interpreterInfo?.path).toBeDefined();
-			await app.workbench.positronInterpreterDropdown.closeInterpreterDropdown();
-			// Create a new Python project and use the selected python interpreter
-			await pw.startNewProject(ProjectType.PYTHON_PROJECT);
-			await pw.navigate(ProjectWizardNavigateAction.NEXT);
-			await pw.projectNameLocationStep.appendToProjectName(projSuffix);
-			await pw.navigate(ProjectWizardNavigateAction.NEXT);
-			await pw.pythonConfigurationStep.existingEnvRadioButton.click();
-			// Select the interpreter that was started above. It's possible that this needs
-			// to be attempted a few times to ensure the interpreters are properly loaded.
-			await expect(
-				async () =>
-					await pw.pythonConfigurationStep.selectInterpreterByPath(
-						interpreterInfo!.path
-					)
-			).toPass({
-				intervals: [1_000, 2_000, 10_000],
-				timeout: 50_000
-			});
-			await expect(pw.pythonConfigurationStep.interpreterFeedback).not.toBeVisible();
-			await pw.navigate(ProjectWizardNavigateAction.CREATE);
-			await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-			await expect(page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 20000 });
-			await expect(app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 90000 });
+		const interpreterInfo =
+			await app.workbench.positronInterpreterDropdown.getSelectedInterpreterInfo();
+		expect(interpreterInfo?.path).toBeDefined();
+		await app.workbench.positronInterpreterDropdown.closeInterpreterDropdown();
+		// Create a new Python project and use the selected python interpreter
+		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
+		await pw.navigate(ProjectWizardNavigateAction.NEXT);
+		await pw.projectNameLocationStep.appendToProjectName(projSuffix);
+		await pw.navigate(ProjectWizardNavigateAction.NEXT);
+		await pw.pythonConfigurationStep.existingEnvRadioButton.click();
+		// Select the interpreter that was started above. It's possible that this needs
+		// to be attempted a few times to ensure the interpreters are properly loaded.
+		await expect(
+			async () =>
+				await pw.pythonConfigurationStep.selectInterpreterByPath(
+					interpreterInfo!.path
+				)
+		).toPass({
+			intervals: [1_000, 2_000, 10_000],
+			timeout: 50_000
 		});
+		await expect(pw.pythonConfigurationStep.interpreterFeedback).not.toBeVisible();
+		await pw.navigate(ProjectWizardNavigateAction.CREATE);
+		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
+		await expect(page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 20000 });
+		await expect(app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 90000 });
+	});
 
-	test.skip('With ipykernel not already installed [C609617]', { tag: [tags.WIN] }, async function ({ app, page }) {
+	test.skip('With ipykernel not already installed [C609617]', {
+		tag: [tags.WIN],
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5730' }],
+		}, async function ({ app, page }) {
 		const projSuffix = addRandomNumSuffix('_noIpykernel');
 		const pw = app.workbench.positronNewProjectWizard;
 		const pythonFixtures = new PositronPythonFixtures(app);
