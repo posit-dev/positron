@@ -35,7 +35,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 		// here, but it's timing out in CI, so it is not included for now.
 	});
 
-	test('R - Accept Renv install [C633084]', async function ({ app, r }) {
+	test('R - Accept Renv install [C633084]', { tag: [tags.WIN] }, async function ({ app, r }) {
 		const projSuffix = addRandomNumSuffix('_installRenv');
 		const pw = app.workbench.positronNewProjectWizard;
 		// Create a new R project - select Renv and install
@@ -78,7 +78,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 		);
 	});
 
-	test('R - Renv already installed [C656251]', async function ({ app }) {
+	test('R - Renv already installed [C656251]', { tag: [tags.WIN] }, async function ({ app }) {
 		// Renv will already be installed from the previous test - which is why tests are marked as "serial"
 		const projSuffix = addRandomNumSuffix('_renvAlreadyInstalled');
 		const pw = app.workbench.positronNewProjectWizard;
@@ -104,7 +104,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 		);
 	});
 
-	test('R - Cancel Renv install [C656252]', async function ({ app }) {
+	test('R - Cancel Renv install [C656252]', { tag: [tags.WIN] }, async function ({ app }) {
 		const projSuffix = addRandomNumSuffix('_cancelRenvInstall');
 		const pw = app.workbench.positronNewProjectWizard;
 		// Remove renv package so we are prompted to install it again
@@ -138,7 +138,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 test.describe('Jupyter - New Project Wizard', () => {
 	const defaultProjectName = 'my-jupyter-notebook';
 
-	test('Jupyter Project Defaults [C629352]', { tag: [tags.CRITICAL] }, async function ({ app }) {
+	test('Jupyter Project Defaults [C629352]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
 		const projSuffix = addRandomNumSuffix('_defaults');
 		const pw = app.workbench.positronNewProjectWizard;
 		await pw.startNewProject(ProjectType.JUPYTER_NOTEBOOK);

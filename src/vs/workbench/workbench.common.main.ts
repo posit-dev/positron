@@ -443,6 +443,7 @@ import './contrib/positronIPyWidgets/browser/positronIPyWidgets.contribution.js'
 import './contrib/positronNewProject/browser/positronNewProject.contribution.js';
 
 // Workbench services
+<<<<<<< HEAD
 import './services/languageRuntime/common/languageRuntime.js';
 import './services/runtimeSession/common/runtimeSession.js';
 import './services/runtimeStartup/common/runtimeStartup.js';
@@ -454,4 +455,26 @@ import './services/positronVariables/common/positronVariables.contribution.js';
 import './services/positronDataExplorer/browser/positronDataExplorerService.js';
 import './services/positronConnections/browser/positronConnectionsService.js';
 import './contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService.js';
+||||||| 6f5ea7e5fce
+import 'vs/workbench/services/languageRuntime/common/languageRuntime';
+import 'vs/workbench/services/runtimeSession/common/runtimeSession';
+import 'vs/workbench/services/runtimeStartup/common/runtimeStartup';
+import 'vs/workbench/services/positronConsole/browser/positronConsoleService';
+import 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
+import 'vs/workbench/services/positronVariables/common/positronVariablesService';
+import 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerService';
+import 'vs/workbench/services/positronConnections/browser/positronConnectionsService';
+import 'vs/workbench/contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService';
+=======
+import './services/languageRuntime/common/languageRuntime.js';
+import './services/runtimeSession/common/runtimeSession.js';
+import './services/runtimeStartup/common/runtimeStartup.js';
+import './services/positronConsole/browser/positronConsoleService.js';
+import './contrib/positronHelp/browser/positronHelpService.js';
+import './services/positronVariables/common/positronVariablesService.js';
+import './services/positronVariables/common/positronVariables.contribution.js';
+import './services/positronDataExplorer/browser/positronDataExplorerService.js';
+import './services/positronConnections/browser/positronConnectionsService.js';
+import './contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService.js';
+>>>>>>> origin/main
 // --- End Positron ---

@@ -13,6 +13,7 @@
  * which are not currently configured to run in PR workflows.
  */
 export enum TestTags {
+	ACTION_BAR = '@action-bar',
 	APPS = '@apps',
 	CONNECTIONS = '@connections',
 	CONSOLE = '@console',
@@ -20,6 +21,7 @@ export enum TestTags {
 	DATA_EXPLORER = '@data-explorer',
 	DUCK_DB = '@duck-db',
 	HELP = '@help',
+	HTML = '@html',
 	LAYOUTS = '@layouts',
 	VIEWER = '@viewer',
 	EDITOR = '@editor',

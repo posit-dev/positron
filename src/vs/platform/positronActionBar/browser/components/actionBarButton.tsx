@@ -125,6 +125,7 @@ export const ActionBarButton = forwardRef<
 				onPressed={props.onPressed}
 			>
 				<ActionBarButtonFace />
+				{props.children}
 			</Button>
 		);
 	} else {
