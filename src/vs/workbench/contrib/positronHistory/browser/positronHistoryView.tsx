@@ -20,6 +20,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { ViewPane, IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
 import { TestContent } from './components/testContent.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { IPositronSessionMetadata, IPositronSessionService } from '../../../services/positronSession/common/positronSession.js';
 
 /**
  * PositronHistoryViewPane class.
