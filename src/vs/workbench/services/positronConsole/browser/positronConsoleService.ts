@@ -207,6 +207,18 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			}
 		}
 
+		// Get the affiliated runtimes for this workspace.
+		const affiliatedRuntimes = this._runtimeStartupService.getAffliatedRuntimes();
+		for (const languageRuntime of affiliatedRuntimes) {
+			// Is there already a console instance for this language?
+			if (this._positronConsoleInstancesByLanguageId.has(languageRuntime.languageId)) {
+				continue;
+			}
+
+			// There is not. Let's make one.
+			this.createPositronConsoleInstance(languageRuntime);
+		}
+
 		// Register the onWillStartSessiopn event handler so we start a new
 		// Positron console instance before a runtime starts up.
 		this._register(this._runtimeSessionService.onWillStartSession(e => {
@@ -422,6 +434,24 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 	//#region Private Methods
 
+	private createPositronConsoleInstance(
+		runtime: ILanguageRuntimeMetadata): PositronConsoleInstance {
+
+		// Create the new Positron console instance.
+		const positronConsoleInstance = this._register(this._instantiationService.createInstance(
+			PositronConsoleInstance,
+		));
+
+		this._positronConsoleInstancesByLanguageId.set(
+			runtime.languageId,
+			positronConsoleInstance
+		);
+
+		// Register and return the instance
+		this.registerNewConsoleInstance(positronConsoleInstance);
+		return positronConsoleInstance;
+	}
+
 	/**
 	 * Starts a Positron console instance for the specified runtime session.
 	 *
@@ -451,7 +481,15 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			positronConsoleInstance
 		);
 
-		// Fire the onDidStartPositronConsoleInstance event.
+		// Register the new console instance
+		this.registerNewConsoleInstance(positronConsoleInstance);
+
+		// Return the instance.
+		return positronConsoleInstance;
+	}
+
+	private registerNewConsoleInstance(positronConsoleInstance: PositronConsoleInstance) {
+
 		this._onDidStartPositronConsoleInstanceEmitter.fire(positronConsoleInstance);
 
 		// Set the active positron console instance.
