@@ -199,6 +199,7 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 			this._tunnelService
 		));
 
+		console.log('######## WebviewElement#constructor', initInfo);
 		this._element = this._createElement(initInfo.options, initInfo.contentOptions);
 
 		this._register(this.on('no-csp-found', () => {
@@ -206,6 +207,7 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		}));
 
 		this._register(this.on('did-click-link', ({ uri }) => {
+			console.log('######## WebviewElement#onDidClickLink', uri);
 			this._onDidClickLink.fire(uri);
 		}));
 
@@ -344,6 +346,7 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 			}
 			if (evt.frameId.processId === this._frameId.processId &&
 				evt.frameId.routingId === this._frameId.routingId) {
+				console.log('######## WebviewElement#onFrameNavigated', evt);
 				// Insert the `webview-events.js` script into the frame
 				await this.injectJavaScript();
 
@@ -356,6 +359,7 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 			}
 		}));
 		this._register(this.on('did-load-window', (data) => {
+			console.log('######## WebviewElement#onDidLoadWindow', data);
 			this._onDidLoad.fire(data.title);
 		}));
 		// --- End Positron ---
