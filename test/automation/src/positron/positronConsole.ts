@@ -20,6 +20,7 @@ const HISTORY_COMPLETION_ITEM = '.history-completion-item';
 const EMPTY_CONSOLE = '.positron-console .empty-console';
 const INTERRUPT_RUNTIME = 'div.action-bar-button-face .codicon-positron-interrupt-runtime';
 const SUGGESTION_LIST = '.suggest-widget .monaco-list-row';
+const CONSOLE_LINES = `${ACTIVE_CONSOLE_INSTANCE} div span`;
 
 /*
  *  Reuseable Positron console functionality for tests to leverage.  Includes the ability to select an interpreter and execute code which
@@ -130,7 +131,7 @@ export class PositronConsole {
 		this.code.logger.log('------------------');
 		this.code.logger.log('Console contents:');
 		this.code.logger.log('------------------');
-		const contents = await this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} div span`).allTextContents();
+		const contents = await this.code.driver.page.locator(CONSOLE_LINES).allTextContents();
 		contents.forEach(line => this.code.logger.log(line));
 	}
 
@@ -145,10 +146,10 @@ export class PositronConsole {
 		await this.code.driver.page.keyboard.press('Enter');
 	}
 
-	async waitForReady(prompt: string, timeout: number = 30000): Promise<void> {
-		const promptLocator = this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`);
+	async waitForReady(prompt: string, timeout = 30000): Promise<void> {
+		const activeLine = this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`);
 
-		await expect(promptLocator).toHaveText(prompt, { timeout });
+		await expect(activeLine).toHaveText(prompt, { timeout });
 		await this.waitForConsoleContents('started', { timeout });
 	}
 
@@ -200,7 +201,7 @@ export class PositronConsole {
 	}
 
 	async doubleClickConsoleText(text: string) {
-		await this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} div span`).getByText(text).dblclick();
+		await this.code.driver.page.locator(CONSOLE_LINES).getByText(text).dblclick();
 	}
 
 
@@ -211,12 +212,11 @@ export class PositronConsole {
 		} = {}
 	): Promise<string[]> {
 		const { timeout = 30000 } = options;
-		const locator = this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} div span`);
 
-		// Wait for specific text to appear in the console contents
-		await expect(locator.filter({ hasText: expectedText })).toBeVisible({ timeout });
-		// Fetch and return all text contents
-		return await locator.allTextContents();
+		const consoleLines = this.code.driver.page.locator(CONSOLE_LINES);
+		await expect(consoleLines.filter({ hasText: expectedText })).toBeVisible({ timeout });
+
+		return await consoleLines.allTextContents();
 	}
 
 	async waitForCurrentConsoleLineContents(expectedText: string, timeout = 30000): Promise<string> {
@@ -226,9 +226,9 @@ export class PositronConsole {
 	}
 
 	async waitForHistoryContents(expectedText: string, count = 1, timeout = 30000): Promise<string[]> {
-		const locator = this.code.driver.page.locator(`${HISTORY_COMPLETION_ITEM}`);
-		await expect(locator.filter({ hasText: expectedText })).toHaveCount(count, { timeout });
-		return await locator.allTextContents();
+		const historyItem = this.code.driver.page.locator(HISTORY_COMPLETION_ITEM);
+		await expect(historyItem.filter({ hasText: expectedText })).toHaveCount(count, { timeout });
+		return await historyItem.allTextContents();
 	}
 
 	async maximizeConsole() {
@@ -259,11 +259,11 @@ export class PositronConsole {
 		return this.activeConsole.locator('.output-run-hyperlink').last();
 	}
 
-	async waitForExecutionStarted(timeout: number = 30000): Promise<void> {
+	async waitForExecutionStarted(timeout = 30000): Promise<void> {
 		await expect(this.code.driver.page.locator(INTERRUPT_RUNTIME)).toBeVisible({ timeout });
 	}
 
-	async waitForExecutionComplete(timeout: number = 30000): Promise<void> {
+	async waitForExecutionComplete(timeout = 30000): Promise<void> {
 		await expect(this.code.driver.page.locator(INTERRUPT_RUNTIME)).toBeHidden({ timeout });
 	}
 
