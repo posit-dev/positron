@@ -24,7 +24,7 @@ permissions:
 jobs:
   e2e-electron:
     runs-on: ubuntu-latest-8x
-    timeout-minutes: 45
+    timeout-minutes: 80
     steps:
       - uses: actions/checkout@v4
 
