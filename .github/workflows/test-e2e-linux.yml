@@ -82,8 +82,6 @@ jobs:
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
 
-      - run: npm --prefix test/automation run compile && npm --prefix test/e2e run compile # fail fast
-
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
