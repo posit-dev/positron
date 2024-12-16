@@ -9,7 +9,7 @@ const resembleCompareImages = require('resemblejs/compareImages');
 import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
 import { fail } from 'assert';
-import { Application } from '../../../automation';
+import { Application } from '../../../automation/out';
 
 test.use({
 	suiteId: __filename

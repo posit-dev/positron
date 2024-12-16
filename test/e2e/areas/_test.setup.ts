@@ -11,26 +11,26 @@ const { test: base, expect: playwrightExpect } = playwright;
 import { join } from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
-
 import path = require('path');
-// eslint-disable-next-line local/code-import-patterns
 import { rename, rm, access, mkdir } from 'fs/promises';
 import { constants } from 'fs';
+import { randomUUID } from 'crypto';
 
 // Third-party packages
-import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
 import { createLogger, createApp, TestTags } from '../helpers';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures, PositronUserSettingsFixtures, UserSetting } from '../../automation';
 
+// Constants
 const TEMP_DIR = `temp-${randomUUID()}`;
 const ROOT_PATH = process.cwd();
 const LOGS_ROOT_PATH = join(ROOT_PATH, 'test-logs');
 let SPEC_NAME = '';
 let fixtureScreenshot: Buffer;
 
+// Test fixtures
 export const test = base.extend<TestFixtures, WorkerFixtures>({
 	suiteId: ['', { scope: 'worker', option: true }],
 

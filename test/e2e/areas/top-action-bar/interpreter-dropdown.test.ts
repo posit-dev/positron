@@ -6,7 +6,7 @@
 import {
 	PositronConsole,
 	PositronInterpreterDropdown,
-} from '../../../automation';
+} from '../../../automation/out';
 
 import { test, expect, tags } from '../_test.setup';
 

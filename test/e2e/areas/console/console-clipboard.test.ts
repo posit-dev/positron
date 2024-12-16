@@ -5,7 +5,7 @@
 
 import * as os from 'os';
 import { test, expect, tags } from '../_test.setup';
-import { Application } from '../../../automation';
+import { Application } from '../../../automation/out';
 
 test.use({
 	suiteId: __filename
