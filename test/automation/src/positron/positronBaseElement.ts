@@ -18,7 +18,7 @@ export class PositronBaseElement {
 	}
 
 	async click(): Promise<void> {
-		await this.code.waitAndClick(this.myselector);
+		await this.code.driver.page.locator(this.myselector).click();
 	}
 
 	async isNotVisible(retryCount: number = 200): Promise<void> {

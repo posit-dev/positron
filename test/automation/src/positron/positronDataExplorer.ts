@@ -93,15 +93,15 @@ export class PositronDataExplorer {
 	}
 
 	async closeDataExplorer() {
-		await this.code.waitAndClick(CLOSE_DATA_EXPLORER);
+		await this.code.driver.page.locator(CLOSE_DATA_EXPLORER).first().click();
 	}
 
 	async clickLowerRightCorner() {
-		await this.code.waitAndClick(SCROLLBAR_LOWER_RIGHT_CORNER);
+		await this.code.driver.page.locator(SCROLLBAR_LOWER_RIGHT_CORNER).click();
 	}
 
 	async clickUpperLeftCorner() {
-		await this.code.waitAndClick(DATA_GRID_TOP_LEFT);
+		await this.code.driver.page.locator(DATA_GRID_TOP_LEFT).click();
 	}
 
 	/*
@@ -109,15 +109,15 @@ export class PositronDataExplorer {
 	 */
 	async addFilter(columnName: string, functionText: string, filterValue: string) {
 
-		await this.code.waitAndClick(ADD_FILTER_BUTTON);
+		await this.code.driver.page.locator(ADD_FILTER_BUTTON).click();
 
 		// worakaround for column being set incorrectly
 		await expect(async () => {
 			try {
-				await this.code.waitAndClick(COLUMN_SELECTOR);
+				await this.code.driver.page.locator(COLUMN_SELECTOR).click();
 				const columnText = `${columnName}\n`;
 				await this.code.waitForSetValue(COLUMN_INPUT, columnText);
-				await this.code.waitAndClick(COLUMN_SELECTOR_CELL);
+				await this.code.driver.page.locator(COLUMN_SELECTOR_CELL).click();
 				const checkValue = (await this.code.waitForElement(COLUMN_SELECTOR)).textContent;
 				expect(checkValue).toBe(columnName);
 			} catch (e) {
@@ -127,7 +127,7 @@ export class PositronDataExplorer {
 		}).toPass({ timeout: 30000 });
 
 
-		await this.code.waitAndClick(FUNCTION_SELECTOR);
+		await this.code.driver.page.locator(FUNCTION_SELECTOR).click();
 
 		// note that base Microsoft funtionality does not work with "has text" type selection
 		const equalTo = this.code.driver.getLocator(`${OVERLAY_BUTTON} div:has-text("${functionText}")`);
@@ -136,7 +136,7 @@ export class PositronDataExplorer {
 		const filterValueText = `${filterValue}\n`;
 		await this.code.waitForSetValue(FILTER_SELECTOR, filterValueText);
 
-		await this.code.waitAndClick(APPLY_FILTER);
+		await this.code.driver.page.locator(APPLY_FILTER).click();
 	}
 
 	async getDataExplorerStatusBar() {
@@ -145,7 +145,7 @@ export class PositronDataExplorer {
 
 	async selectColumnMenuItem(columnIndex: number, menuItem: string) {
 
-		await this.code.waitAndClick(`.data-grid-column-header:nth-child(${columnIndex}) .sort-button`);
+		await this.code.driver.page.locator(`.data-grid-column-header:nth-child(${columnIndex}) .sort-button`).click();
 
 		await this.code.driver.getLocator(`.positron-modal-overlay div.title:has-text("${menuItem}")`).click();
 
