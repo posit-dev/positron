@@ -5,7 +5,7 @@
 
 import { fail } from 'assert';
 import { join } from 'path';
-import { downloadFileFromS3, S3FileDownloadOptions } from '../../../automation/out';
+import { downloadFileFromS3, S3FileDownloadOptions } from '../../../automation';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({

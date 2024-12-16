@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Application } from '../../../automation/out';
+import { Application } from '../../../automation';
 import { test, expect, tags } from '../_test.setup';
 const path = require('path');
 const fs = require('fs-extra');

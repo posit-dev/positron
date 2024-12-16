@@ -5,7 +5,7 @@
 
 import { join } from 'path';
 import { test, expect, tags } from '../_test.setup';
-import { Application, Logger } from '../../../automation/out';
+import { Application, Logger } from '../../../automation';
 
 test.use({
 	suiteId: __filename
