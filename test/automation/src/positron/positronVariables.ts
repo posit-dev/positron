@@ -17,7 +17,6 @@ const VARIABLE_ITEMS = '.variable-item';
 const VARIABLE_NAMES = 'name-column';
 const VARIABLE_DETAILS = 'details-column';
 const VARIABLES_NAME_COLUMN = '.variables-instance[style*="z-index: 1"] .variable-item .name-column';
-const VARIABLES_SECTION = '[aria-label="Variables Section"]';
 const VARIABLES_INTERPRETER = '.positron-variables-container .action-bar-button-text';
 const VARIABLE_CHEVRON_ICON = '.gutter .expand-collapse-icon';
 const VARIABLE_INDENTED = '.name-column-indenter[style*="margin-left: 40px"]';
@@ -67,7 +66,6 @@ export class PositronVariables {
 		const modifier = isMac ? 'Meta' : 'Control';
 
 		await this.code.driver.getKeyboard().press(`${modifier}+Alt+B`);
-		await this.code.waitForElement(VARIABLES_SECTION);
 	}
 
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {

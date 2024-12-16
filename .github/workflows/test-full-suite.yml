@@ -39,56 +39,60 @@ on:
             options:
               - failure
               - always
+              - never
 
 jobs:
   e2e-electron:
     name: e2e
-    if: github.event_name == 'schedule' || ${{ inputs.run_e2e_linux }}
+    if: ${{ github.event_name == 'schedule' || inputs.run_e2e_linux  }}
     uses: ./.github/workflows/test-e2e-linux.yml
+    secrets: inherit
     with:
       grep: ""
       project: "e2e-electron"
       display_name: "electron (linux)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/linux' || 'electron/linux' }}
-    secrets: inherit
+      report_testrail: true
 
   e2e-windows:
     name: e2e
-    if: github.event_name == 'schedule' || ${{ inputs.run_e2e_windows }}
+    if: ${{ github.event_name == 'schedule' || inputs.run_e2e_windows }}
     uses: ./.github/workflows/test-e2e-windows.yml
+    secrets: inherit
     with:
       grep: ""
       display_name: "electron (win)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/win' || 'electron/win' }}
-    secrets: inherit
+      report_testrail: true
 
   e2e-browser:
     name: e2e
-    if: github.event_name == 'schedule' || ${{ inputs.run_e2e_browser }}
+    if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-linux.yml
+    secrets: inherit
     with:
       grep: ""
       project: "e2e-browser"
       display_name: "browser (linux)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,browser/linux' || 'browser/linux' }}
-    secrets: inherit
+      report_testrail: true
 
   unit-tests:
     name: test
-    if: github.event_name == 'schedule' || ${{ inputs.run_unit_tests }}
+    if: ${{ github.event_name == 'schedule' || inputs.run_unit_tests }}
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
 
   integration-tests:
     name: test
-    if: github.event_name == 'schedule' || ${{ inputs.run_integration_tests }}
+    if: ${{ github.event_name == 'schedule' ||  inputs.run_integration_tests }}
     uses: ./.github/workflows/test-integration.yml
     secrets: inherit
 
   slack-notify:
     needs: [e2e-electron, e2e-windows, e2e-browser, unit-tests, integration-tests]
     runs-on: ubuntu-latest
-    if: always()
+    if: ${{ inputs.notify_on != 'never' }}
     steps:
       - name: Notify Slack
         uses: midleman/slack-workflow-status@master

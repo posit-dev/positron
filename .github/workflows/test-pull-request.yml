@@ -31,6 +31,7 @@ jobs:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron (linux)"
       currents_tags: "pull-request,electron/linux,${{ needs.pr-tags.outputs.tags }}"
+      report_testrail: false
     secrets: inherit
 
   unit-tests:
