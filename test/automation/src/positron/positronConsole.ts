@@ -205,25 +205,20 @@ export class PositronConsole {
 		expectedText?: string,
 		options: {
 			timeout?: number;
-			expectEmpty?: boolean; // whether to expect the console to be empty
 		} = {}
 	): Promise<string[]> {
-		const { timeout = 30000, expectEmpty = false } = options;
+		const { timeout = 30000 } = options;
 		const locator = this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} div span`);
-
-		if (expectEmpty) {
-			// Check that no elements exist in the console
-			await expect(locator).toHaveCount(0, { timeout });
-			return [];
-		}
 
 		if (expectedText) {
 			// Wait for specific text to appear in the console contents
 			await expect(locator.filter({ hasText: expectedText })).toBeVisible({ timeout });
+			return await locator.allTextContents();
 		}
+		// Wait for console contents to be empty
+		await expect(locator).toHaveCount(0, { timeout });
+		return [];
 
-		// Fetch and return all text contents
-		return await locator.allTextContents();
 	}
 
 	async waitForCurrentConsoleLineContents(expectedText: string, timeout = 30000): Promise<string> {
