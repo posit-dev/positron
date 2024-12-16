@@ -159,7 +159,7 @@ export class PositronDataExplorer {
 		if (process.platform === 'darwin') {
 			await this.code.driver.page.keyboard.press('Meta+Home');
 		} else {
-			await this.code.driver.page.keyboard.press('Contol+Home');
+			await this.code.driver.page.keyboard.press('Control+Home');
 		}
 	}
 
