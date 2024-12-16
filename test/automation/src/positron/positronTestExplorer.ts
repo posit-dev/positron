@@ -10,7 +10,6 @@ const TEST_RESULT_ITEM = '.monaco-list-row[aria-level="2"] .test-peek-item';
 const NAME = '.name';
 const COMPUTED_STATE = '.computed-state';
 const TEST_EXPLORER_ICON = '.composite-bar .codicon-test-view-icon';
-const RUN_ALL = '.codicon-testing-run-all-icon';
 
 /*
  *  Reuseable Positron test explorer functionality for tests to leverage.
