@@ -31,6 +31,7 @@ export class PositronConsole {
 	barClearButton: Locator;
 	consoleRestartButton: Locator;
 	activeConsole: Locator;
+	suggestionList: Locator;
 
 	get emptyConsole() {
 		return this.code.driver.getLocator(EMPTY_CONSOLE).getByText('There is no interpreter running');
@@ -42,6 +43,7 @@ export class PositronConsole {
 		this.barClearButton = this.code.driver.page.getByLabel('Clear console');
 		this.consoleRestartButton = this.code.driver.page.locator(CONSOLE_RESTART_BUTTON);
 		this.activeConsole = this.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE);
+		this.suggestionList = this.code.driver.page.locator(SUGGESTION_LIST);
 	}
 
 	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string, skipWait: boolean = false): Promise<IElement | undefined> {
@@ -270,10 +272,6 @@ export class PositronConsole {
 
 	async waitForExecutionComplete(timeout: number = 30000): Promise<void> {
 		await expect(this.code.driver.page.locator(INTERRUPT_RUNTIME)).toBeHidden({ timeout });
-	}
-
-	async getSuggestions(): Promise<string[]> {
-		return await this.code.driver.page.locator(SUGGESTION_LIST).allTextContents();
 	}
 
 	async clickConsoleTab() {
