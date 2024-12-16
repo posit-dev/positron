@@ -11,7 +11,6 @@ import { QuickInput } from '../quickinput';
 import { InterpreterInfo, InterpreterType } from './utils/positronInterpreterInfo';
 import { IElement } from '../driver';
 
-
 const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
 const MAXIMIZE_CONSOLE = '.bottom .codicon-positron-maximize-panel';
@@ -206,17 +205,24 @@ export class PositronConsole {
 
 
 	async waitForConsoleContents(
-		expectedText: string,
+		consoleText: string,
 		options: {
 			timeout?: number;
+			contain?: boolean;
 		} = {}
 	): Promise<string[]> {
-		const { timeout = 30000 } = options;
+		const { timeout = 15000, contain = true } = options;
 
 		const consoleLines = this.code.driver.page.locator(CONSOLE_LINES);
-		await expect(consoleLines.filter({ hasText: expectedText })).toBeVisible({ timeout });
+		const filteredLines = consoleLines.filter({ hasText: consoleText });
 
-		return await consoleLines.allTextContents();
+		if (contain) {
+			await expect(filteredLines).toBeVisible({ timeout });
+			return filteredLines.allTextContents();
+		} else {
+			await expect(consoleLines.filter({ hasText: consoleText })).toHaveCount(0, { timeout });
+			return [];
+		}
 	}
 
 	async waitForCurrentConsoleLineContents(expectedText: string, timeout = 30000): Promise<string> {

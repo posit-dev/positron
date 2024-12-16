@@ -42,9 +42,8 @@ async function toggleAuxiliaryBar(app: Application) {
 
 async function initializeConsole(console: any) {
 	await test.step('Initialize console', async () => {
-		await console.sendEnterKey(); // Clear current input
-		await console.barClearButton.click(); // Clear console history
-		await console.waitForConsoleContents(''); // Ensure console is empty
+		await console.sendEnterKey();
+		await console.barClearButton.click();
 	});
 }
 
@@ -66,7 +65,6 @@ async function executeCopyAndPaste(console: any, page: any, testLine: string) {
 
 		// Clear the console
 		await console.barClearButton.click();
-		await console.waitForConsoleContents('');
 
 		// Paste the copied line into the console
 		await page.keyboard.press(`${modifier}+V`);

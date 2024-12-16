@@ -59,6 +59,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Compile E2E Tests
+        run: |
+          npm --prefix test/automation run compile
+          npm --prefix test/e2e run compile
 
       - name: Set screen resolution
         shell: pwsh
@@ -100,11 +104,6 @@ jobs:
 
       - name: Compile and Download
         run: npm exec -- npm-run-all --max-old-space-size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
-
-      - name: Compile E2E Tests
-        run: |
-          npm --prefix test/automation run compile
-          npm --prefix test/e2e run compile
 
       - name: Install python dependencies
         run: |

@@ -205,8 +205,8 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.positronPlots.waitForWebviewPlot('.widget-output .jp-OutputArea-child');
 
 			// The printed statement should not be shown in the console.
-			const lines = await app.workbench.positronConsole.waitForConsoleContents();
-			expect(lines).not.toContain('Hello, world!');
+			await app.workbench.positronConsole.waitForConsoleContents('Hello World', { contain: false });
+
 		});
 
 		test('Python - Verifies bokeh Python widget [C730343]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
