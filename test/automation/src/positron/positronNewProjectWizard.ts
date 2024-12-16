@@ -110,8 +110,13 @@ export class PositronNewProjectWizard {
 class ProjectWizardProjectTypeStep {
 	constructor(private code: Code) { }
 
+	cssEscape(value: string): string {
+		return value.replace(/[\s!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g, '\\$&');
+	}
+
 	async selectProjectType(projectType: ProjectType) {
-		await this.code.waitAndClick(`input[id="${projectType}"]`);
+		const locator = this.code.driver.page.locator('label').filter({hasText: projectType});
+		await locator.click({ force: true });
 	}
 }
 

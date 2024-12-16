@@ -231,7 +231,7 @@ export class PositronConsole {
 	}
 
 	async maximizeConsole() {
-		await this.code.waitAndClick(MAXIMIZE_CONSOLE);
+		await this.code.driver.page.locator(MAXIMIZE_CONSOLE).click();
 	}
 
 	async pasteCodeToConsole(code: string) {
