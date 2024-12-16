@@ -209,18 +209,19 @@ export class PositronConsole {
 		options: {
 			timeout?: number;
 			contain?: boolean;
+			matchCount?: number;
 		} = {}
 	): Promise<string[]> {
-		const { timeout = 15000, contain = true } = options;
+		const { timeout = 15000, contain = true, matchCount = 1 } = options;
 
 		const consoleLines = this.code.driver.page.locator(CONSOLE_LINES);
-		const filteredLines = consoleLines.filter({ hasText: consoleText });
+		const matchingLines = consoleLines.filter({ hasText: consoleText });
 
 		if (contain) {
-			await expect(filteredLines).toBeVisible({ timeout });
-			return filteredLines.allTextContents();
+			await expect(matchingLines).toHaveCount(matchCount, { timeout });
+			return matchingLines.allTextContents();
 		} else {
-			await expect(consoleLines.filter({ hasText: consoleText })).toHaveCount(0, { timeout });
+			await expect(matchingLines).toHaveCount(0, { timeout });
 			return [];
 		}
 	}
