@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // This script can be run standalone from the root of the project to check for `.only` in staged
-// test files with `node build/eslint-mocha-only.js`.
+// test files with `node build/detect-dot-only.js`.
 // It is also run in the pre-commit/hygiene tasks to check for `.only` in staged test files.
 
 const child_process = require('child_process');
@@ -43,19 +43,18 @@ const getStagedTestFiles = () => {
 try {
 	const files = getStagedTestFiles();
 	if (!files) {
-		console.log('No staged test files found. Skipping eslint-mocha-only hook.'.cyan);
+		console.log('No staged test files found. Skipping .only checks.'.cyan);
 		process.exit(ExitCodes.SUCCESS);
 	}
-	// Non-ideal way to fail on `only` being used in mocha tests without triggering other linting rules.
+	// Detect test files with `.only` in the staged files, without running the tests
 	const result = child_process.execSync(
-		`npx eslint --no-eslintrc --parser "@typescript-eslint/parser" --plugin "mocha" --rule "mocha/no-exclusive-tests:error" ${files}`,
+		`npx playwright test --list --forbid-only ${files}`,
 		{ encoding: 'utf8' }
 	);
 	process.exit(ExitCodes.SUCCESS);
 } catch (error) {
 	console.error(
-		`It looks like you've included \`.only\` in your test(s):\n`.magenta +
-		`${error.stdout}`
+		`\nLooks like you may have included \`.only\` in your test(s)!\n`.magenta
 	);
 	process.exit(ExitCodes.ONLY_COMMITTED_FAIL_HOOK);
 }
