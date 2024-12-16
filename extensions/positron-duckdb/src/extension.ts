@@ -1221,7 +1221,7 @@ export class DataExplorerRpcHandler {
 				fs.watchFile(filePath, { interval: 1000 }, async () => {
 					const newTableName = `positron_${this._tableIndex++}`;
 
-					await this.createTableFromFilePath(filePath, newTableName, true);;
+					await this.createTableFromFilePath(filePath, newTableName, true);
 
 					const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
 					await tableView.onFileUpdated(newTableName, newSchema);
