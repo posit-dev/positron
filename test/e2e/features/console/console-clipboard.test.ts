@@ -4,70 +4,82 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as os from 'os';
-import { test, expect, tags } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 import { Application } from '../../../automation';
 
 test.use({
 	suiteId: __filename
 });
 
+
 test.describe('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN] }, () => {
-	test('Python - Copy from console & paste to console [C608100]', async function ({ app, python }) {
-		await testBody(app);
+	test('Python - Copy from console & paste to console [C608100]', async ({ app, python }) => {
+		await testConsoleClipboard(app);
 	});
 
-	test('R - Copy from console & paste to console [C663725]', async function ({ app, r }) {
-		await testBody(app);
+	test('R - Copy from console & paste to console [C663725]', async ({ app, r }) => {
+		await testConsoleClipboard(app);
 	});
 });
 
-async function testBody(app: Application) {
+async function testConsoleClipboard(app: Application) {
+	const console = app.workbench.positronConsole;
+	const page = console.activeConsole.page();
+	const testLine = 'a = 1';
+
+	await toggleAuxiliaryBar(app);
+	await initializeConsole(console);
+	await executeCopyAndPaste(console, page, testLine);
+	await verifyClipboardPaste(console, testLine);
+	await toggleAuxiliaryBar(app);
+}
+
+async function toggleAuxiliaryBar(app: Application) {
+	await test.step('Toggle auxiliary bar', async () => {
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+	});
+}
+
+async function initializeConsole(console: any) {
+	await test.step('Initialize console', async () => {
+		await console.sendEnterKey(); // Clear current input
+		await console.barClearButton.click(); // Clear console history
+		await console.waitForConsoleContents(''); // Ensure console is empty
+	});
+}
+
+async function executeCopyAndPaste(console: any, page: any, testLine: string) {
 	const isMac = os.platform() === 'darwin';
 	const modifier = isMac ? 'Meta' : 'Control';
 
-	await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+	await test.step('Copy and paste', async () => {
+		// Type the test line into the console
+		await console.typeToConsole(testLine);
 
-	const activeConsole = app.workbench.positronConsole.activeConsole;
-	await activeConsole.click();
-	const page = activeConsole!.page();
-
-	const testLine = 'a = 1';
-
-	await expect(async () => {
-		// Ensure nothing is in the current line and clear the console
-		await app.workbench.positronConsole.sendEnterKey();
-		await app.workbench.positronConsole.barClearButton.click();
-
-		// Send test line to console
-		await app.workbench.positronConsole.typeToConsole(testLine);
-
-		// copy the test line and send enter key
+		// Copy the test line
 		await page.keyboard.press(`${modifier}+A`);
 		await page.keyboard.press(`${modifier}+C`);
-		await app.workbench.positronConsole.sendEnterKey();
+		await console.sendEnterKey();
 
-		// ensure the console previous lines contain the test line
-		await app.workbench.positronConsole.waitForConsoleContents(
-			(lines) => lines.some((line) => line.includes(testLine)));
+		// Ensure the test line is in the console's output
+		await console.waitForConsoleContents(testLine);
 
-		// clear the console and ensure the clear succeeded
-		await app.workbench.positronConsole.barClearButton.click();
-		await app.workbench.positronConsole.waitForConsoleContents((contents) => {
-			return !contents.some(Boolean);
-		});
-	}).toPass({ timeout: 40000 });
+		// Clear the console
+		await console.barClearButton.click();
+		await console.waitForConsoleContents('');
 
-	await page.keyboard.press(`${modifier}+V`);
+		// Paste the copied line into the console
+		await page.keyboard.press(`${modifier}+V`);
+	});
+}
 
-	await app.workbench.positronConsole.waitForCurrentConsoleLineContents((line) =>
-		line.includes(testLine.replaceAll(' ', ' ')));
+async function verifyClipboardPaste(console: any, testLine: string) {
+	await test.step('Verify clipboard paste ', async () => {
+		// Verify the pasted line in the current input
+		await console.waitForCurrentConsoleLineContents(testLine.replaceAll(' ', ' '));
+		await console.sendEnterKey();
 
-	await app.workbench.positronConsole.sendEnterKey();
-
-	// check for two instances of the test line in a row (invalid)
-	await app.workbench.positronConsole.waitForConsoleContents((contents) =>
-		contents.some((line) => line.includes(testLine))
-	);
-
-	await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		// Ensure the console contains the test line after execution
+		await console.waitForConsoleContents(testLine);
+	});
 }

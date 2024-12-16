@@ -30,7 +30,7 @@ export class PositronRFixtures {
 		// We currently don't capture fixtures in the Playwright trace, so take a screenshot on failure
 		try {
 			await this.app.workbench.positronConsole.selectInterpreter(InterpreterType.R, desiredR, skipReadinessCheck);
-			await this.app.workbench.positronConsole.waitForReady('>', 2000);
+			await this.app.workbench.positronConsole.waitForReady('>', 20000);
 		} catch (e) {
 			this.app.code.driver.takeScreenshot('startRInterpreter');
 			throw e;

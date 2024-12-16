@@ -9,17 +9,13 @@ import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 import { QuickInput } from '../quickinput';
 import { InterpreterInfo, InterpreterType } from './utils/positronInterpreterInfo';
-import { PositronBaseElement } from './positronBaseElement';
 import { IElement } from '../driver';
 
 
 const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
 const MAXIMIZE_CONSOLE = '.bottom .codicon-positron-maximize-panel';
-const CONSOLE_BAR_POWER_BUTTON = 'div.action-bar-button-icon.codicon.codicon-positron-power-button-thin';
-const CONSOLE_BAR_RESTART_BUTTON = 'div.action-bar-button-icon.codicon.codicon-positron-restart-runtime-thin';
 const CONSOLE_RESTART_BUTTON = 'button.monaco-text-button.runtime-restart-button';
-const CONSOLE_BAR_CLEAR_BUTTON = 'div.action-bar-button-icon.codicon.codicon-clear-all';
 const HISTORY_COMPLETION_ITEM = '.history-completion-item';
 const EMPTY_CONSOLE = '.positron-console .empty-console';
 const INTERRUPT_RUNTIME = 'div.action-bar-button-face .codicon-positron-interrupt-runtime';
@@ -30,24 +26,22 @@ const SUGGESTION_LIST = '.suggest-widget .monaco-list-row';
  *  aren't directly console functions, but rather features needed to support console testing.
  */
 export class PositronConsole {
-	barPowerButton: PositronBaseElement;
-	barRestartButton: PositronBaseElement;
-	barClearButton: PositronBaseElement;
-	consoleRestartButton: PositronBaseElement;
-
-	get activeConsole() {
-		return this.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE);
-	}
+	barPowerButton: Locator;
+	barRestartButton: Locator;
+	barClearButton: Locator;
+	consoleRestartButton: Locator;
+	activeConsole: Locator;
 
 	get emptyConsole() {
 		return this.code.driver.getLocator(EMPTY_CONSOLE).getByText('There is no interpreter running');
 	}
 
 	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) {
-		this.barPowerButton = new PositronBaseElement(CONSOLE_BAR_POWER_BUTTON, this.code);
-		this.barRestartButton = new PositronBaseElement(CONSOLE_BAR_RESTART_BUTTON, this.code);
-		this.barClearButton = new PositronBaseElement(CONSOLE_BAR_CLEAR_BUTTON, this.code);
-		this.consoleRestartButton = new PositronBaseElement(CONSOLE_RESTART_BUTTON, this.code);
+		this.barPowerButton = this.code.driver.page.getByLabel('Shutdown console');
+		this.barRestartButton = this.code.driver.page.getByLabel('Restart console');
+		this.barClearButton = this.code.driver.page.getByLabel('Clear console');
+		this.consoleRestartButton = this.code.driver.page.locator(CONSOLE_RESTART_BUTTON);
+		this.activeConsole = this.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE);
 	}
 
 	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string, skipWait: boolean = false): Promise<IElement | undefined> {
@@ -136,25 +130,21 @@ export class PositronConsole {
 	}
 
 	async typeToConsole(text: string, delay = 30) {
+		await this.code.driver.page.waitForTimeout(500);
 		await this.activeConsole.click();
-		await this.activeConsole.pressSequentially(text, { delay: delay });
-	}
-
-	async sendKeyboardKey(key: string) {
-		await this.code.driver.getKeyboard().press(key);
+		await this.code.driver.page.keyboard.type(text, { delay });
 	}
 
 	async sendEnterKey() {
 		await this.activeConsole.click();
-		await this.code.driver.getKeyboard().press('Enter');
+		await this.code.driver.page.keyboard.press('Enter');
 	}
 
-	async waitForReady(prompt: string, retryCount: number = 500) {
-		// Wait for the prompt to show up.
-		await this.code.waitForTextContent(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`, prompt, undefined, retryCount);
+	async waitForReady(prompt: string, timeout: number = 30000): Promise<void> {
+		const promptLocator = this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`);
 
-		// Wait for the interpreter to start.
-		await this.waitForConsoleContents((contents) => contents.some((line) => line.includes('started')));
+		await expect(promptLocator).toHaveText(prompt, { timeout });
+		await this.waitForConsoleContents('started', { timeout });
 	}
 
 	/**
@@ -201,37 +191,53 @@ export class PositronConsole {
 	}
 
 	async waitForInterpreterShutdown() {
-		await this.waitForConsoleContents((contents) =>
-			contents.some((line) => line.includes('shut down successfully'))
-		);
+		await this.waitForConsoleContents('shut down successfully');
 	}
 
 	async doubleClickConsoleText(text: string) {
 		await this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} div span`).getByText(text).dblclick();
 	}
 
-	async waitForConsoleContents(accept?: (contents: string[]) => boolean) {
-		const elements = await this.code.waitForElements(`${ACTIVE_CONSOLE_INSTANCE} div span`,
-			false,
-			(elements) => accept ? (!!elements && accept(elements.map(e => e.textContent))) : true);
-		return elements.map(e => e.textContent);
+
+	async waitForConsoleContents(
+		expectedText?: string,
+		options: {
+			timeout?: number;
+			expectEmpty?: boolean; // whether to expect the console to be empty
+		} = {}
+	): Promise<string[]> {
+		const { timeout = 30000, expectEmpty = false } = options;
+		const locator = this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} div span`);
+
+		if (expectEmpty) {
+			// Check that no elements exist in the console
+			await expect(locator).toHaveCount(0, { timeout });
+			return [];
+		}
+
+		if (expectedText) {
+			// Wait for specific text to appear in the console contents
+			await expect(locator.filter({ hasText: expectedText })).toBeVisible({ timeout });
+		}
+
+		// Fetch and return all text contents
+		return await locator.allTextContents();
 	}
 
-	async waitForCurrentConsoleLineContents(accept?: (contents: string) => boolean) {
-		const element = await this.code.waitForElement(`${ACTIVE_CONSOLE_INSTANCE} .view-line`,
-			(e) => accept ? (!!e && accept(e.textContent)) : true);
-		return element.textContent;
+	async waitForCurrentConsoleLineContents(expectedText: string, timeout = 30000): Promise<string> {
+		const locator = this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} .view-line`);
+		await expect(locator).toContainText(expectedText, { timeout });
+		return await locator.textContent() ?? '';
 	}
 
-	async waitForHistoryContents(accept?: (contents: string[]) => boolean) {
-		const elements = await this.code.waitForElements(`${HISTORY_COMPLETION_ITEM}`,
-			false,
-			(elements) => accept ? (!!elements && accept(elements.map(e => e.textContent))) : true);
-		return elements.map(e => e.textContent);
+	async waitForHistoryContents(expectedText: string, count = 1, timeout = 30000): Promise<string[]> {
+		const locator = this.code.driver.page.locator(`${HISTORY_COMPLETION_ITEM}`);
+		await expect(locator.filter({ hasText: expectedText })).toHaveCount(count, { timeout });
+		return await locator.allTextContents();
 	}
 
 	async maximizeConsole() {
-		await this.code.waitAndClick(MAXIMIZE_CONSOLE);
+		await this.code.driver.page.locator(MAXIMIZE_CONSOLE).click();
 	}
 
 	async pasteCodeToConsole(code: string) {
@@ -258,25 +264,16 @@ export class PositronConsole {
 		return this.activeConsole.locator('.output-run-hyperlink').last();
 	}
 
-	async waitForExecutionStarted() {
-		await this.code.driver.getLocator(INTERRUPT_RUNTIME).waitFor({ state: 'attached' });
+	async waitForExecutionStarted(timeout: number = 30000): Promise<void> {
+		await expect(this.code.driver.page.locator(INTERRUPT_RUNTIME)).toBeVisible({ timeout });
 	}
 
-	async waitForExecutionComplete() {
-		await this.code.driver.getLocator(INTERRUPT_RUNTIME).waitFor({ state: 'detached' });
+	async waitForExecutionComplete(timeout: number = 30000): Promise<void> {
+		await expect(this.code.driver.page.locator(INTERRUPT_RUNTIME)).toBeHidden({ timeout });
 	}
 
 	async getSuggestions(): Promise<string[]> {
-
-		const suggestions = await this.code.waitForElements(SUGGESTION_LIST, false);
-
-		const suggestionList: string[] = [];
-		for (const suggestion of suggestions) {
-			const text = suggestion.textContent;
-			suggestionList.push(text);
-		}
-
-		return suggestionList;
+		return await this.code.driver.page.locator(SUGGESTION_LIST).allTextContents();
 	}
 
 	async clickConsoleTab() {

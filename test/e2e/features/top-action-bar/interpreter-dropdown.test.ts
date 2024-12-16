@@ -69,12 +69,8 @@ test.describe.skip('Interpreter Dropdown in Top Action Bar', { tag: [tags.WEB, t
 		await interpreterDropdown.closeInterpreterDropdown();
 
 		// The console should indicate that the interpreter is restarting
-		await positronConsole.waitForConsoleContents((contents) => {
-			return (
-				contents.some((line) => line.includes('preparing for restart')) &&
-				contents.some((line) => line.includes('restarted'))
-			);
-		});
+		await positronConsole.waitForConsoleContents('preparing for restart');
+		await positronConsole.waitForConsoleContents('restarted');
 
 		// Wait for the console to be ready
 		await positronConsole.waitForReady('>>>', 10_000);

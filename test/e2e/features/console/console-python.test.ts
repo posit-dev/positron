@@ -23,8 +23,8 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.WIN, tags.CONSOLE] 
 
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 			await app.workbench.positronConsole.waitForReady('>>>');
-			await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
-			await app.workbench.positronConsole.consoleRestartButton.isNotVisible();
+			await app.workbench.positronConsole.waitForConsoleContents('restarted');
+			await expect(app.workbench.positronConsole.consoleRestartButton).not.toBeVisible();
 		}).toPass();
 	});
 
@@ -40,6 +40,6 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.WIN, tags.CONSOLE] 
 
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.positronConsole.waitForReady('>>>');
-		await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
+		await app.workbench.positronConsole.waitForConsoleContents('restarted');
 	});
 });
