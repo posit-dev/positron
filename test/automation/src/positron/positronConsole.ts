@@ -208,18 +208,16 @@ export class PositronConsole {
 		consoleText: string,
 		options: {
 			timeout?: number;
-			contain?: boolean;
-			matchCount?: number;
+			expectedCount?: number;
 		} = {}
 	): Promise<string[]> {
-		const { timeout = 15000, contain = true, matchCount = 1 } = options;
+		const { timeout = 15000, expectedCount = 1 } = options;
 
 		const consoleLines = this.code.driver.page.locator(CONSOLE_LINES);
 		const matchingLines = consoleLines.filter({ hasText: consoleText });
 
-		const expectedCount = contain ? matchCount : 0;
 		await expect(matchingLines).toHaveCount(expectedCount, { timeout });
-		return contain ? matchingLines.allTextContents() : [];
+		return expectedCount ? matchingLines.allTextContents() : [];
 	}
 
 	async waitForCurrentConsoleLineContents(expectedText: string, timeout = 30000): Promise<string> {

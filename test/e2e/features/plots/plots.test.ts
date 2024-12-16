@@ -205,7 +205,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.positronPlots.waitForWebviewPlot('.widget-output .jp-OutputArea-child');
 
 			// The printed statement should not be shown in the console.
-			await app.workbench.positronConsole.waitForConsoleContents('Hello World', { contain: false });
+			await app.workbench.positronConsole.waitForConsoleContents('Hello World', { expectedCount: 0 });
 
 		});
 
