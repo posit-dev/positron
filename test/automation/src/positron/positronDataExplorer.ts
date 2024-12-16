@@ -152,31 +152,31 @@ export class PositronDataExplorer {
 	}
 
 	async home(): Promise<void> {
-		await this.code.dispatchKeybinding('home');
+		await this.code.driver.page.keyboard.press('Home');
 	}
 
 	async cmdCtrlHome(): Promise<void> {
 		if (process.platform === 'darwin') {
-			await this.code.dispatchKeybinding('cmd+home');
+			await this.code.driver.page.keyboard.press('Meta+Home');
 		} else {
-			await this.code.dispatchKeybinding('ctrl+home');
+			await this.code.driver.page.keyboard.press('Contol+Home');
 		}
 	}
 
 	async arrowDown(): Promise<void> {
-		await this.code.dispatchKeybinding('ArrowDown');
+		await this.code.driver.page.keyboard.press('ArrowDown');
 	}
 
 	async arrowRight(): Promise<void> {
-		await this.code.dispatchKeybinding('ArrowRight');
+		await this.code.driver.page.keyboard.press('ArrowRight');
 	}
 
 	async arrowUp(): Promise<void> {
-		await this.code.dispatchKeybinding('ArrowUp');
+		await this.code.driver.page.keyboard.press('ArrowUp');
 	}
 
 	async arrowLeft(): Promise<void> {
-		await this.code.dispatchKeybinding('ArrowLeft');
+		await this.code.driver.page.keyboard.press('ArrowLeft');
 	}
 
 	async getColumnMissingPercent(rowNumber: number): Promise<string> {

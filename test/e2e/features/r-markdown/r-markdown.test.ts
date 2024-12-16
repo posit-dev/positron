@@ -32,7 +32,7 @@ test.describe('R Markdown', { tag: [tags.WEB, tags.R_MARKDOWN] }, () => {
 	// test depends on the previous test
 	test('Preview R Markdown [C709147]', async function ({ app, r }) {
 		// Preview
-		await app.code.dispatchKeybinding(process.platform === 'darwin' ? 'cmd+shift+k' : 'ctrl+shift+k');
+		await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+K' : 'Control+Shift+K');
 
 		// inner most frame has no useful identifying features
 		// not factoring this locator because its not part of positron
