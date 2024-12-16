@@ -47,7 +47,7 @@ function hygiene(some, linting = true, secrets = true) {
 	const formatter = require('./lib/formatter');
 	// --- Start Positron ---
 	const detectSecretsHook = require('./detect-secrets-hook');
-	const eslintMochaOnlyHook = require('./eslint-mocha-only-hook');
+	const detectDotOnlyHook = require('./detect-dot-only-hook');
 	// --- End Positron ---
 
 	let errorCount = 0;
@@ -255,7 +255,7 @@ function hygiene(some, linting = true, secrets = true) {
 		);
 		// --- Start Positron ---
 		streams.push(
-			eslintMochaOnlyHook(((message, isError) => {
+			detectDotOnlyHook(((message, isError) => {
 				if (isError) {
 					console.error(message);
 					errorCount++;
