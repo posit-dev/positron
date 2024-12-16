@@ -25,7 +25,7 @@ const detectDotOnlyHook = (reporter) => {
 				message = 'If you want to skip the .only check, set SKIP_DOT_ONLY_CHECK in your environment.\n\te.g., `SKIP_DOT_ONLY_CHECK=1 git commit`';
 				break;
 			case 2:
-				message = 'detect-dot-only wrapper script encountered an error while running the hook.';
+				message = 'detect-dot-only.js encountered an error...';
 				break;
 			default:
 				message = 'Encountered an error while running the hook to detect .only in staged test files.';
