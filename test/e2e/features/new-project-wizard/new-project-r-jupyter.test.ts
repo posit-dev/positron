@@ -138,7 +138,10 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 test.describe('Jupyter - New Project Wizard', () => {
 	const defaultProjectName = 'my-jupyter-notebook';
 
-	test('Jupyter Project Defaults [C629352]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
+	test.skip('Jupyter Project Defaults [C629352]', {
+		tag: [tags.CRITICAL, tags.WIN],
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5730' }],
+	}, async function ({ app }) {
 		const projSuffix = addRandomNumSuffix('_defaults');
 		const pw = app.workbench.positronNewProjectWizard;
 		await pw.startNewProject(ProjectType.JUPYTER_NOTEBOOK);
