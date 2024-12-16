@@ -17,7 +17,7 @@ test.describe('Console Autocomplete', {
 		await app.workbench.positronConsole.sendEnterKey();
 
 		await app.workbench.positronConsole.typeToConsole('df = pd.Dat');
-		expect(await app.workbench.positronConsole.suggestionList.count()).toBeGreaterThan(3);
+		await expect(app.workbench.positronConsole.suggestionList).toHaveCount(8, { timeout: 15000 });
 	});
 
 	test('R - Verify Console Autocomplete [C947969]', async function ({ app, r }) {
@@ -26,6 +26,6 @@ test.describe('Console Autocomplete', {
 
 		// need to type to console slowly to see suggestions with R
 		await app.workbench.positronConsole.typeToConsole('df2 <- read_p', 250);
-		expect(await app.workbench.positronConsole.suggestionList.count()).toBeGreaterThan(3);
+		await expect(app.workbench.positronConsole.suggestionList).toHaveCount(4, { timeout: 15000 });
 	});
 });
