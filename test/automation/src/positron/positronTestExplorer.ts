@@ -9,8 +9,7 @@ import { PositronExplorer } from './positronExplorer';
 const TEST_RESULT_ITEM = '.monaco-list-row[aria-level="2"] .test-peek-item';
 const NAME = '.name';
 const COMPUTED_STATE = '.computed-state';
-const TEST_EXPLORER_ICON = '.codicon-test-view-icon';
-const RUN_ALL = '.codicon-testing-run-all-icon';
+const TEST_EXPLORER_ICON = '.composite-bar .codicon-test-view-icon';
 
 /*
  *  Reuseable Positron test explorer functionality for tests to leverage.
@@ -52,7 +51,7 @@ export class PositronTestExplorer extends PositronExplorer {
 	 * @returns Promise<void>
 	 */
 	async clickTestExplorerIcon(): Promise<void> {
-		await this.code.waitAndClick(TEST_EXPLORER_ICON);
+		await this.code.driver.page.locator(TEST_EXPLORER_ICON).click();
 	}
 
 	/**
@@ -68,6 +67,6 @@ export class PositronTestExplorer extends PositronExplorer {
 	 * @returns Promise<void>
 	 */
 	async runAllTests(): Promise<void> {
-		await this.code.waitAndClick(RUN_ALL);
+		await this.code.driver.page.getByLabel('Testing actions').getByLabel('Run Tests').click();
 	}
 }

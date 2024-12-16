@@ -376,19 +376,21 @@ async function compareImages({
 	testInfo: any;
 }) {
 	await test.step('compare images', async () => {
-		const data = await resembleCompareImages(fs.readFileSync(path.join(__dirname, `${masterScreenshotName}.png`),), buffer, options);
+		if (process.env.GITHUB_ACTIONS && !app.web) {
+			const data = await resembleCompareImages(fs.readFileSync(path.join(__dirname, `${masterScreenshotName}.png`),), buffer, options);
 
-		if (process.env.GITHUB_ACTIONS && !app.web && data.rawMisMatchPercentage > 2.0) {
-			if (data.getBuffer) {
-				await testInfo.attach(diffScreenshotName, { body: data.getBuffer(true), contentType: 'image/png' });
+			if (data.rawMisMatchPercentage > 2.0) {
+				if (data.getBuffer) {
+					await testInfo.attach(diffScreenshotName, { body: data.getBuffer(true), contentType: 'image/png' });
+				}
+
+				// Capture a new master image in CI
+				const newMaster = await app.workbench.positronPlots.currentPlot.screenshot();
+				await testInfo.attach(masterScreenshotName, { body: newMaster, contentType: 'image/png' });
+
+				// Fail the test with mismatch details
+				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 			}
-
-			// Capture a new master image in CI
-			const newMaster = await app.workbench.positronPlots.currentPlot.screenshot();
-			await testInfo.attach(masterScreenshotName, { body: newMaster, contentType: 'image/png' });
-
-			// Fail the test with mismatch details
-			fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 		}
 	});
 }

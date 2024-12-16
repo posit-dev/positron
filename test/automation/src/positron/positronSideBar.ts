@@ -17,6 +17,6 @@ export class PositronSideBar {
 
 	async closeSecondarySideBar() {
 		this.code.logger.log('Hiding secondary side bar');
-		await this.code.waitAndClick(HIDE_SECONDARY_SIDE_BAR);
+		await this.code.driver.page.locator(HIDE_SECONDARY_SIDE_BAR).click();
 	}
 }

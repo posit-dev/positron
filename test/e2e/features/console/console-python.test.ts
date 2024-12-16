@@ -42,4 +42,16 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.WIN, tags.CONSOLE] 
 		await app.workbench.positronConsole.waitForReady('>>>');
 		await app.workbench.positronConsole.waitForConsoleContents('restarted');
 	});
+
+	test('Verify cancel button on console bar [C...]', {
+	}, async function ({ app, python }) {
+
+		await app.workbench.positronConsole.pasteCodeToConsole('import time; time.sleep(10)');
+		await app.workbench.positronConsole.sendEnterKey();
+
+		await app.workbench.positronConsole.interruptExecution();
+
+		await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('KeyboardInterrupt')));
+
+	});
 });

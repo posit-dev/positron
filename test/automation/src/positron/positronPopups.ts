@@ -38,7 +38,7 @@ export class PositronPopups {
 			this.code.logger.log('Checking for modal dialog box');
 			// fail fast if the modal is not present
 			await this.code.waitForElement(POSITRON_MODAL_DIALOG_BOX, undefined, 50);
-			await this.code.waitAndClick(POSITRON_MODAL_DIALOG_BOX_OK);
+			await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_OK).click();
 			this.code.logger.log('Installing ipykernel');
 			await this.waitForToastToAppear();
 			await this.waitForToastToDisappear();
@@ -68,11 +68,11 @@ export class PositronPopups {
 			);
 			if (install) {
 				this.code.logger.log('Installing Renv');
-				await this.code.waitAndClick(POSITRON_MODAL_DIALOG_BOX_OK);
+				await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_OK).click();
 				this.code.logger.log('Installed Renv');
 			} else {
 				this.code.logger.log('Skipping Renv installation');
-				await this.code.waitAndClick(POSITRON_MODAL_DIALOG_BOX_CANCEL);
+				await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_CANCEL).click();
 			}
 		} catch {
 			this.code.logger.log('Did not find install Renv modal dialog box');

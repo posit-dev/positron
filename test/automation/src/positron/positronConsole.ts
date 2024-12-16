@@ -277,4 +277,8 @@ export class PositronConsole {
 	async clickConsoleTab() {
 		await this.code.driver.page.locator('.basepanel').getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
 	}
+
+	async interruptExecution() {
+		await this.code.driver.page.getByLabel('Interrupt execution').click();
+	}
 }
