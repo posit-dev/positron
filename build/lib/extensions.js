@@ -108,8 +108,23 @@ function fromLocalWebpack(extensionPath, webpackConfigFileName, disableMangle) {
     // local extensions so we can use the vsce.PackageManager.None config to ignore dependencies list
     // as a temporary workaround.
     // --- Start Positron ---
+    // As noted above in the TODO, the upstream strategy is currently to ignore
+    // external dependencies, and some built-in extensions (e.g. git) do not
+    // package correctly with the Npm strategy. However, several Positron
+    // extensions have npm dependencies that need to be packaged. This list is
+    // used to determine which extensions should be packaged with the Npm
+    // strategy.
+    const extensionsWithNpmDeps = [
+        'positron-proxy',
+        'positron-duckdb'
+    ];
+    // If the extension has npm dependencies, use the Npm package manager
+    // dependency strategy.
+    const packageManger = extensionsWithNpmDeps.includes(packageJsonConfig.name) ?
+        vsce.PackageManager.Npm :
+        vsce.PackageManager.None;
     // Replace vsce.listFiles with listExtensionFiles to queue the work
-    listExtensionFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.None, packagedDependencies }).then(fileNames => {
+    listExtensionFiles({ cwd: extensionPath, packageManager: packageManger, packagedDependencies }).then(fileNames => {
         const files = fileNames
             .map(fileName => path.join(extensionPath, fileName))
             .map(filePath => new File({
