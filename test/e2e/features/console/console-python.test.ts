@@ -51,7 +51,6 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.WIN, tags.CONSOLE] 
 
 		await app.workbench.positronConsole.interruptExecution();
 
-		await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('KeyboardInterrupt')));
-
+		await app.workbench.positronConsole.waitForConsoleContents('KeyboardInterrupt');
 	});
 });

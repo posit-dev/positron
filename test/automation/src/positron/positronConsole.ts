@@ -127,7 +127,10 @@ export class PositronConsole {
 	}
 
 	async logConsoleContents() {
-		const contents = await this.waitForConsoleContents();
+		this.code.logger.log('------------------');
+		this.code.logger.log('Console contents:');
+		this.code.logger.log('------------------');
+		const contents = await this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} div span`).allTextContents();
 		contents.forEach(line => this.code.logger.log(line));
 	}
 
@@ -202,7 +205,7 @@ export class PositronConsole {
 
 
 	async waitForConsoleContents(
-		expectedText?: string,
+		expectedText: string,
 		options: {
 			timeout?: number;
 		} = {}
@@ -210,15 +213,10 @@ export class PositronConsole {
 		const { timeout = 30000 } = options;
 		const locator = this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} div span`);
 
-		if (expectedText) {
-			// Wait for specific text to appear in the console contents
-			await expect(locator.filter({ hasText: expectedText })).toBeVisible({ timeout });
-			return await locator.allTextContents();
-		}
-		// Wait for console contents to be empty
-		await expect(locator).toHaveCount(0, { timeout });
-		return [];
-
+		// Wait for specific text to appear in the console contents
+		await expect(locator.filter({ hasText: expectedText })).toBeVisible({ timeout });
+		// Fetch and return all text contents
+		return await locator.allTextContents();
 	}
 
 	async waitForCurrentConsoleLineContents(expectedText: string, timeout = 30000): Promise<string> {
