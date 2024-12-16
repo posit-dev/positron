@@ -36,5 +36,16 @@ test.describe('Console Pane: R', {
 			await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
 		}).toPass();
 	});
+
+	test('Verify cancel button on console bar [C...]', {
+	}, async function ({ app, r }) {
+
+		await app.workbench.positronConsole.pasteCodeToConsole('Sys.sleep(10)');
+		await app.workbench.positronConsole.sendEnterKey();
+
+		await app.workbench.positronConsole.interruptExecution();
+
+		// nothing appears in console after interrupting execution
+	});
 });
 
