@@ -104,6 +104,11 @@ const vscodeResourceIncludes = [
 	// Process Explorer
 	'out-build/vs/code/electron-sandbox/processExplorer/processExplorer.html',
 
+	// --- Start Positron ---
+	// Positron Help
+	'out-build/vs/workbench/contrib/positronHelp/browser/resources/help.html',
+	// --- End Positron ---
+
 	// Tree Sitter highlights
 	'out-build/vs/editor/common/languages/highlights/*.scm',
 
