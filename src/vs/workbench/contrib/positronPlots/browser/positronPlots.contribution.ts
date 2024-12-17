@@ -18,7 +18,7 @@ import { IPositronPlotsService, POSITRON_PLOTS_VIEW_ID } from '../../../services
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { PlotsActiveEditorCopyAction, PlotsClearAction, PlotsCopyAction, PlotsEditorAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsRefreshAction, PlotsSaveAction } from './positronPlotsActions.js';
+import { PlotsActiveEditorCopyAction, PlotsActiveEditorSaveAction, PlotsClearAction, PlotsCopyAction, PlotsEditorAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsRefreshAction, PlotsSaveAction } from './positronPlotsActions.js';
 import { POSITRON_SESSION_CONTAINER } from '../../positronSession/browser/positronSessionContainer.js';
 
 // Register the Positron plots service.
@@ -71,6 +71,7 @@ class PositronPlotsContribution extends Disposable implements IWorkbenchContribu
 		registerAction2(PlotsPopoutAction);
 		registerAction2(PlotsEditorAction);
 		registerAction2(PlotsActiveEditorCopyAction);
+		registerAction2(PlotsActiveEditorSaveAction);
 	}
 }
 

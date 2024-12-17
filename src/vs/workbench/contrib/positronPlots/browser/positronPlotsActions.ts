@@ -20,7 +20,7 @@ import { PositronPlotsEditorInput } from '../../positronPlotsEditor/browser/posi
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 
-export enum CopyPlotTarget {
+export enum PlotActionTarget {
 	VIEW = 'view',
 	ACTIVE_EDITOR = 'activeEditor',
 }
@@ -69,13 +69,23 @@ export class PlotsSaveAction extends Action2 {
 	 *
 	 * @param accessor The service accessor.
 	 */
-	async run(accessor: ServicesAccessor) {
+	async run(accessor: ServicesAccessor, target?: PlotActionTarget) {
 		const plotsService = accessor.get(IPositronPlotsService);
-		if (plotsService.selectedPlotId) {
-			try {
-				plotsService.savePlot();
-			} catch (error) {
-				accessor.get(INotificationService).error(localize('positronPlotsServiceSavePlotError', 'Failed to save plot: {0}', error.message));
+		if (target === PlotActionTarget.VIEW) {
+			plotsService.saveViewPlot();
+		} else if (target === PlotActionTarget.ACTIVE_EDITOR) {
+			const editorService = accessor.get(IEditorService);
+			if (editorService.activeEditorPane?.getId() === PositronPlotsEditorInput.EditorID) {
+				const plotId = editorService.activeEditorPane?.input?.resource?.path.toString();
+				try {
+					if (!plotId) {
+						accessor.get(INotificationService).error(localize('positronPlotsServicePlotNotFound', 'Plot {0} was not found', plotId));
+						return;
+					}
+					plotsService.saveEditorPlot(plotId);
+				} catch (error) {
+					accessor.get(INotificationService).error(localize('positronPlotsServiceSavePlotError', 'Failed to save plot: {0}', error.message));
+				}
 			}
 		} else {
 			accessor.get(INotificationService).info(localize('positronPlots.noPlotSelected', 'No plot selected.'));
@@ -103,7 +113,7 @@ export class PlotsCopyAction extends Action2 {
 		if (plotsService.selectedPlotId) {
 			items.push(
 				{
-					id: CopyPlotTarget.VIEW,
+					id: PlotActionTarget.VIEW,
 					label: localize('positronPlots.copyPlotsView', 'From Plots View'),
 					ariaLabel: localize('positronPlots.copyPlotsView', 'From Plots View'),
 				}
@@ -157,7 +167,7 @@ export class PlotsCopyAction extends Action2 {
 	 *
 	 * @param accessor The service accessor.
 	 */
-	async run(accessor: ServicesAccessor, target?: CopyPlotTarget) {
+	async run(accessor: ServicesAccessor, target?: PlotActionTarget) {
 		const plotsService = accessor.get(IPositronPlotsService);
 		const notificationService = accessor.get(INotificationService);
 		const editorService = accessor.get(IEditorService);
@@ -166,7 +176,7 @@ export class PlotsCopyAction extends Action2 {
 
 		const editorPlotsEnabled = Boolean(configurationService.getValue(POSITRON_EDITOR_PLOTS));
 		if (!editorPlotsEnabled) {
-			target = CopyPlotTarget.VIEW;
+			target = PlotActionTarget.VIEW;
 		}
 
 		const quickPickItems = this.getItems(plotsService, editorService);
@@ -181,9 +191,9 @@ export class PlotsCopyAction extends Action2 {
 			return;
 		}
 
-		if (target === CopyPlotTarget.VIEW) {
+		if (target === PlotActionTarget.VIEW) {
 			this.copyViewPlotToClipboard(plotsService, notificationService);
-		} else if (target === CopyPlotTarget.ACTIVE_EDITOR) {
+		} else if (target === PlotActionTarget.ACTIVE_EDITOR) {
 			if (editorService.activeEditorPane?.getId() === PositronPlotsEditorInput.EditorID) {
 				const plotId = editorService.activeEditorPane?.input?.resource?.path.toString();
 				if (plotId) {
@@ -224,7 +234,7 @@ export class PlotsCopyAction extends Action2 {
 
 	private executeCopyPlot(selectedItem: IQuickPickItem, plotsService: IPositronPlotsService, notificationService: INotificationService, editorService: IEditorService) {
 		if (selectedItem?.id) {
-			if (selectedItem.id === CopyPlotTarget.VIEW) {
+			if (selectedItem.id === PlotActionTarget.VIEW) {
 				this.copyViewPlotToClipboard(plotsService, notificationService);
 			} else {
 				this.copyEditorPlotToClipboard(plotsService, notificationService, editorService, selectedItem.id);
@@ -395,6 +405,43 @@ export class PlotsActiveEditorCopyAction extends Action2 {
 	 */
 	async run(accessor: ServicesAccessor) {
 		const commandService = accessor.get(ICommandService);
-		commandService.executeCommand(PlotsCopyAction.ID, CopyPlotTarget.ACTIVE_EDITOR);
+		commandService.executeCommand(PlotsCopyAction.ID, PlotActionTarget.ACTIVE_EDITOR);
+	}
+}
+
+/**
+ * Action to save the plot from the active editor.
+ * It is not invokable from the command palette.
+ */
+export class PlotsActiveEditorSaveAction extends Action2 {
+	static ID = 'workbench.action.positronPlots.saveActiveEditor';
+
+	constructor() {
+		super({
+			id: PlotsActiveEditorSaveAction.ID,
+			title: localize2('positronPlots.editorSavePlot', 'Save Plot From Active Editor'),
+			category,
+			f1: false, // do not show in the command palette
+			icon: Codicon.positronSave,
+			precondition: ContextKeyExpr.and(ContextKeyExpr.equals(`config.${POSITRON_EDITOR_PLOTS}`, true), PLOT_IS_ACTIVE_EDITOR),
+			menu: [
+				{
+					id: MenuId.EditorTitle,
+					when: ContextKeyExpr.and(ContextKeyExpr.equals(`config.${POSITRON_EDITOR_PLOTS}`, true), PLOT_IS_ACTIVE_EDITOR),
+					group: 'navigation',
+					order: 1,
+				}
+			]
+		});
+	}
+
+	/**
+	 * Runs the action and saves the plot from the active editor.
+	 *
+	 * @param accessor The service accessor.
+	 */
+	async run(accessor: ServicesAccessor) {
+		const commandService = accessor.get(ICommandService);
+		commandService.executeCommand(PlotsSaveAction.ID, PlotActionTarget.ACTIVE_EDITOR);
 	}
 }
