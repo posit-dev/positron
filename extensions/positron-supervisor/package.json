@@ -29,22 +29,22 @@
       "type": "object",
       "title": "Kernel Supervisor",
       "properties": {
-        "positronKernelSupervisor.enable": {
+        "kernelSupervisor.enable": {
           "type": "boolean",
           "default": true,
           "description": "%configuration.enable.description%"
         },
-        "positronKernelSupervisor.showTerminal": {
+        "kernelSupervisor.showTerminal": {
           "type": "boolean",
           "default": false,
           "description": "%configuration.showTerminal.description%"
         },
-        "positronKernelSupervisor.connectionTimeout": {
+        "kernelSupervisor.connectionTimeout": {
           "type": "integer",
           "default": 30,
           "description": "%configuration.connectionTimeout.description%"
         },
-        "positronKernelSupervisor.logLevel": {
+        "kernelSupervisor.logLevel": {
           "scope": "window",
           "type": "string",
           "enum": [
@@ -64,13 +64,13 @@
           "default": "debug",
           "description": "%configuration.logLevel.description%"
         },
-        "positronKernelSupervisor.attachOnStartup": {
+        "kernelSupervisor.attachOnStartup": {
           "scope": "window",
           "type": "boolean",
           "default": false,
           "description": "%configuration.attachOnStartup.description%"
         },
-        "positronKernelSupervisor.sleepOnStartup": {
+        "kernelSupervisor.sleepOnStartup": {
           "scope": "window",
           "type": "number",
           "description": "%configuration.sleepOnStartup.description%"
