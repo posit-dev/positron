@@ -151,11 +151,8 @@ export class PositronQuickAccess {
 	}
 
 	private async openQuickAccessWithRetry(kind: QuickAccessKind, value?: string): Promise<void> {
-		let retries = 0;
-
 		// Other parts of code might steal focus away from quickinput :(
-		while (retries < 5) {
-
+		await expect(async () => {
 			// Open via keybinding
 			switch (kind) {
 				case QuickAccessKind.Files:
@@ -174,16 +171,14 @@ export class PositronQuickAccess {
 			// Await for quick input widget opened
 			try {
 				await this.quickInput.waitForQuickInputOpened();
-				break;
 			} catch (err) {
-				if (++retries > 5) {
-					throw new Error(`QuickAccess.openQuickAccessWithRetry(kind: ${kind}) failed: ${err}`);
-				}
-
-				// Retry
 				await this.code.dispatchKeybinding('escape');
+				throw err;
 			}
-		}
+		}).toPass({
+			timeout: 15000,
+			intervals: [1000]
+		});
 
 		// Type value if any
 		if (value) {
@@ -191,30 +186,6 @@ export class PositronQuickAccess {
 		}
 	}
 
-	// private async openQuickAccessWithRetry(kind: QuickAccessKind, value?: string): Promise<void> {
-	// await expect(async () => {
-	// 	// await this.code.driver.page.keyboard.press('Escape');
-
-	// 	// Open via keybinding
-	// 	switch (kind) {
-	// 		case QuickAccessKind.Files:
-	// 			await this.code.dispatchKeybinding(process.platform === 'darwin' ? 'cmd+p' : 'ctrl+p');
-	// 			break;
-	// 		case QuickAccessKind.Symbols:
-	// 			await this.code.dispatchKeybinding(process.platform === 'darwin' ? 'cmd+shift+o' : 'ctrl+shift+o');
-	// 			break;
-	// 		case QuickAccessKind.Commands:
-	// 			await this.code.dispatchKeybinding(process.platform === 'darwin' ? 'cmd+shift+p' : 'ctrl+shift+p');
-	// 			break;
-	// 	}
-	// 	await this.quickInput.waitForQuickInputOpened({ timeout: 10000 });
-
-	// 	// Type value if any
-	// 	if (value) {
-	// 		await this.quickInput.type(value);
-	// 	}
-	// }).toPass({ timeout: 30000 });
-	// }
 
 	async runCommand(commandId: string, options?: { keepOpen?: boolean; exactLabelMatch?: boolean }): Promise<void> {
 		const keepOpen = options?.keepOpen;
@@ -224,10 +195,7 @@ export class PositronQuickAccess {
 			// open commands picker
 			await this.openQuickAccessWithRetry(QuickAccessKind.Commands, `>${commandId}`);
 
-			// // wait for best choice to be focused
-			// await this.quickInput.waitForQuickInputElementFocused();
-
-			// Retry for as long as the command not found
+			// wait for quick input element text
 			const text = await this.quickInput.waitForQuickInputElementText();
 
 			if (text === 'No matching commands' || (exactLabelMatch && text !== commandId)) {
@@ -237,29 +205,19 @@ export class PositronQuickAccess {
 			return true;
 		};
 
-		let hasCommandFound = await openCommandPalletteAndTypeCommand();
-
-		if (!hasCommandFound) {
-
-			this.code.logger.log(`QuickAccess: No matching commands, will retry...`);
-			await this.quickInput.closeQuickInput();
-
-			let retries = 0;
-			while (++retries < 5) {
-				hasCommandFound = await openCommandPalletteAndTypeCommand();
-				if (hasCommandFound) {
-					break;
-				} else {
-					this.code.logger.log(`QuickAccess: No matching commands, will retry...`);
-					await this.quickInput.closeQuickInput();
-					await this.code.wait(1000);
-				}
-			}
-
+		await expect(async () => {
+			const hasCommandFound = await openCommandPalletteAndTypeCommand();
 			if (!hasCommandFound) {
-				throw new Error(`QuickAccess.runCommand(commandId: ${commandId}) failed to find command.`);
+				this.code.logger.log(`QuickAccess: No matching commands, retrying...`);
+				await this.quickInput.closeQuickInput();
+				throw new Error('Command not found'); // Signal to retry
 			}
-		}
+		}).toPass({
+			timeout: 15000,
+			intervals: [1000],
+		});
+
+		this.code.logger.log('QuickAccess: Command found and successfully executed.');
 
 		// wait and click on best choice
 		await this.quickInput.selectQuickInputElement(0, keepOpen);

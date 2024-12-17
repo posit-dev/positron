@@ -30,6 +30,7 @@ export default defineConfig<CustomTestOptions>({
 	},
 	reporter: process.env.CI
 		? [
+			// eslint-disable-next-line local/code-no-dangerous-type-assertions
 			['@midleman/github-actions-reporter', <GitHubActionOptions>{
 				title: '',
 				useDetails: true,
