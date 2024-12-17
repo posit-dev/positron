@@ -43,66 +43,51 @@ on:
 
 jobs:
   e2e-electron:
-    runs-on: ubuntu-latest
-    steps:
-      - run: exit 0
-    # name: e2e
-    # if: ${{ github.event_name == 'schedule' || inputs.run_e2e_linux  }}
-    # uses: ./.github/workflows/test-e2e-linux.yml
-    # secrets: inherit
-    # with:
-    #   grep: ""
-    #   project: "e2e-electron"
-    #   display_name: "electron (linux)"
-    #   currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/linux' || 'electron/linux' }}
-    #   report_testrail: true
+    name: e2e
+    if: ${{ github.event_name == 'schedule' || inputs.run_e2e_linux  }}
+    uses: ./.github/workflows/test-e2e-linux.yml
+    secrets: inherit
+    with:
+      grep: ""
+      project: "e2e-electron"
+      display_name: "electron (linux)"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/linux' || 'electron/linux' }}
+      report_testrail: true
 
   e2e-windows:
-    runs-on: ubuntu-latest
-    steps:
-      - run: exit 0
-    # name: e2e
-    # if: ${{ github.event_name == 'schedule' || inputs.run_e2e_windows }}
-    # uses: ./.github/workflows/test-e2e-windows.yml
-    # secrets: inherit
-    # with:
-    #   grep: ""
-    #   display_name: "electron (win)"
-    #   currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/win' || 'electron/win' }}
-    #   report_testrail: true
+    name: e2e
+    if: ${{ github.event_name == 'schedule' || inputs.run_e2e_windows }}
+    uses: ./.github/workflows/test-e2e-windows.yml
+    secrets: inherit
+    with:
+      grep: ""
+      display_name: "electron (win)"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/win' || 'electron/win' }}
+      report_testrail: true
 
   e2e-browser:
-    runs-on: ubuntu-latest
-    steps:
-      - run: exit 0
-    # name: e2e
-    # if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser }}
-    # uses: ./.github/workflows/test-e2e-linux.yml
-    # secrets: inherit
-    # with:
-    #   grep: ""
-    #   project: "e2e-browser"
-    #   display_name: "browser (linux)"
-    #   currents_tags: ${{ github.event_name == 'schedule' && 'nightly,browser/linux' || 'browser/linux' }}
-    #   report_testrail: true
+    name: e2e
+    if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser }}
+    uses: ./.github/workflows/test-e2e-linux.yml
+    secrets: inherit
+    with:
+      grep: ""
+      project: "e2e-browser"
+      display_name: "browser (linux)"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,browser/linux' || 'browser/linux' }}
+      report_testrail: true
 
   unit-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - run: exit 0
-    # name: test
-    # if: ${{ github.event_name == 'schedule' || inputs.run_unit_tests }}
-    # uses: ./.github/workflows/test-unit.yml
-    # secrets: inherit
+    name: test
+    if: ${{ github.event_name == 'schedule' || inputs.run_unit_tests }}
+    uses: ./.github/workflows/test-unit.yml
+    secrets: inherit
 
   integration-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - run: exit 1
-    # name: test
-    # if: ${{ github.event_name == 'schedule' ||  inputs.run_integration_tests }}
-    # uses: ./.github/workflows/test-integration.yml
-    # secrets: inherit
+    name: test
+    if: ${{ github.event_name == 'schedule' ||  inputs.run_integration_tests }}
+    uses: ./.github/workflows/test-integration.yml
+    secrets: inherit
 
   slack-notify:
     if: always()
