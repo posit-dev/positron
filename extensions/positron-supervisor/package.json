@@ -27,7 +27,7 @@
   "contributes": {
     "configuration": {
       "type": "object",
-      "title": "Positron Kernel Supervisor Configuration",
+      "title": "Kernel Supervisor",
       "properties": {
         "positronKernelSupervisor.enable": {
           "type": "boolean",

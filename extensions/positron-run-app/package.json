@@ -14,6 +14,7 @@
   "main": "./out/extension.js",
   "contributes": {
     "configuration": {
+      "title": "App Launcher",
       "properties": {
         "positron.runApplication.showEnableShellIntegrationMessage": {
           "type": "boolean",
