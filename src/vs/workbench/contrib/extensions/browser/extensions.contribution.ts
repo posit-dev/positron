@@ -256,7 +256,12 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 			'extensions.verifySignature': {
 				type: 'boolean',
 				description: localize('extensions.verifySignature', "When enabled, extensions are verified to be signed before getting installed."),
-				default: true,
+				// --- Start Positron ---
+				// This default was changed from `true` to `false` because
+				// Positron does not ship the `vsce-sign` tool used to validate
+				// signatures.
+				default: false,
+				// --- End Positron ---
 				scope: ConfigurationScope.APPLICATION,
 				included: isNative && !isLinux
 			}

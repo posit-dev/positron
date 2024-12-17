@@ -346,11 +346,22 @@ export class ExtensionManagementService extends AbstractExtensionManagementServi
 	private async downloadExtension(extension: IGalleryExtension, operation: InstallOperation, verifySignature: boolean, clientTargetPlatform?: TargetPlatform): Promise<{ readonly location: URI; readonly verificationStatus: ExtensionSignatureVerificationCode | undefined }> {
 		if (verifySignature) {
 			const value = this.configurationService.getValue('extensions.verifySignature');
-			verifySignature = isBoolean(value) ? value : true;
+			// --- Start Positron ---
+			// Change default value to false
+			verifySignature = isBoolean(value) ? value : false;
+			// --- End Positron ---
 		}
 		const { location, verificationStatus } = await this.extensionsDownloader.download(extension, operation, verifySignature, clientTargetPlatform);
 
-		if (verificationStatus !== ExtensionSignatureVerificationCode.Success && verifySignature && this.environmentService.isBuilt && !isLinux) {
+		// --- Start Positron ---
+		// Skip verification in release mode; Positron does not ship the
+		// `vsce-sign` tool required for signature verification.
+		if (this.environmentService.isBuilt) {
+			return { location, verificationStatus: verificationStatus ?? ExtensionSignatureVerificationCode.NotSigned };
+		}
+		// --- End Positron ---
+
+		if (verificationStatus !== ExtensionSignatureVerificationCode.Success && verificationStatus !== ExtensionSignatureVerificationCode.NotSigned && verifySignature && this.environmentService.isBuilt && !isLinux) {
 			if (!extension.isSigned) {
 				throw new ExtensionManagementError(nls.localize('not signed', "Extension is not signed."), ExtensionManagementErrorCode.PackageNotSigned);
 			}

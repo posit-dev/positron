@@ -83,7 +83,7 @@ suite('ExtensionDownloader Tests', () => {
 
 		const actual = await testObject.download(aGalleryExtension('a', { isSigned: true }), InstallOperation.Install, false);
 
-		assert.strictEqual(actual.verificationStatus, undefined);
+		assert.strictEqual(actual.verificationStatus, ExtensionSignatureVerificationCode.NotSigned);
 	});
 
 	test('download completes successfully if verification is disabled because the module is not loaded', async () => {
@@ -91,7 +91,7 @@ suite('ExtensionDownloader Tests', () => {
 
 		const actual = await testObject.download(aGalleryExtension('a', { isSigned: true }), InstallOperation.Install, true);
 
-		assert.strictEqual(actual.verificationStatus, undefined);
+		assert.strictEqual(actual.verificationStatus, ExtensionSignatureVerificationCode.NotSigned);
 	});
 
 	test('download completes successfully if verification fails to execute', async () => {
