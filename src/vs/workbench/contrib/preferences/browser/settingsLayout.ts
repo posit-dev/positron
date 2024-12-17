@@ -315,7 +315,7 @@ export const tocData: ITOCEntry<string> = {
 		{
 			id: 'interpreters',
 			label: localize('interpreters', "Interpreters"),
-			settings: ['positron.interpreters.*']
+			settings: ['interpreters.*']
 		}
 		// --- End Positron ---
 	]

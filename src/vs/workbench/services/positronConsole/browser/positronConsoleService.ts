@@ -1725,7 +1725,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 			// Show restart button if crashed and user has disabled automatic restarts
 			const crashedAndNeedRestartButton = exit.reason === RuntimeExitReason.Error &&
-				!this._configurationService.getValue<boolean>('positron.interpreters.restartOnCrash');
+				!this._configurationService.getValue<boolean>('interpreters.restartOnCrash');
 
 			// In the case of a forced quit, normal shutdown, or unknown shutdown where the exit
 			// code was `0`, we don't attempt to automatically start the runtime again. In this
