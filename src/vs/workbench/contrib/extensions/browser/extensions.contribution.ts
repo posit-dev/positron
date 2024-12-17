@@ -258,7 +258,11 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 				description: localize('extensions.verifySignature', "When enabled, extensions are verified to be signed before getting installed."),
 				default: true,
 				scope: ConfigurationScope.APPLICATION,
-				included: isNative && !isLinux
+				// --- Start Positron ---
+				// Do not include this setting in Positron; it is not
+				// supported.
+				included: isNative && !isLinux && false
+				// --- End Positron ---
 			}
 		}
 	});
