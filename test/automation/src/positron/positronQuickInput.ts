@@ -32,8 +32,9 @@ export class PositronQuickInput {
 	}
 
 	async waitForQuickInputElementText(): Promise<string> {
-		await expect(this.code.driver.page.locator(PositronQuickInput.QUICK_INPUT_ENTRY_LABEL_SPAN)).not.toHaveText('');
-		return await this.code.driver.page.locator(PositronQuickInput.QUICK_INPUT_ENTRY_LABEL_SPAN).textContent() || '';
+		const quickInput = this.code.driver.page.locator(PositronQuickInput.QUICK_INPUT_ENTRY_LABEL_SPAN);
+		await expect(quickInput).not.toHaveText('');
+		return await quickInput.textContent() || '';
 	}
 
 	async closeQuickInput(): Promise<void> {
@@ -57,9 +58,9 @@ export class PositronQuickInput {
 	async selectQuickInputElement(index: number, keepOpen?: boolean): Promise<void> {
 		await this.waitForQuickInputOpened();
 		for (let from = 0; from < index; from++) {
-			await this.code.driver.page.keyboard.press('down');
+			await this.code.driver.page.keyboard.press('Down');
 		}
-		await this.code.driver.page.keyboard.press('enter');
+		await this.code.driver.page.keyboard.press('Enter');
 		if (!keepOpen) {
 			await this.waitForQuickInputClosed();
 		}
