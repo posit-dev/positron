@@ -6,9 +6,8 @@ runs:
     - name: Install Build Dependencies
       shell: bash
       run: |
-        sudo add-apt-repository "deb http://archive.ubuntu.com/ubuntu noble-proposed main universe"
+        cat /etc/os-release
         sudo apt-get update
-        sudo apt-get install libasound2
         sudo apt-get install -y \
           vim curl build-essential clang make cmake git \
           libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb \
