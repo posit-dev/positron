@@ -111,14 +111,14 @@ export class PositronConsole {
 		await this.quickinput.waitForQuickInputOpened();
 		await this.quickinput.type(languageName);
 		await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0] === languageName);
-		await this.code.dispatchKeybinding('enter');
+		await this.code.driver.page.keyboard.press('Enter');
 
 		await this.quickinput.waitForQuickInputOpened();
 		const unescapedCode = code
 			.replace(/\n/g, '\\n')
 			.replace(/\r/g, '\\r');
 		await this.quickinput.type(unescapedCode);
-		await this.code.dispatchKeybinding('enter');
+		await this.code.driver.page.keyboard.press('Enter');
 		await this.quickinput.waitForQuickInputClosed();
 
 		// The console will show the prompt after the code is done executing.
