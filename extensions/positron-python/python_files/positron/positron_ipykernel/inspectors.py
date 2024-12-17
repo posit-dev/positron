@@ -738,7 +738,7 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
             "edgeitems": ARRAY_EDGEITEMS,
             "linewidth": print_width,
         }
-        options_obj = torch._tensor_str.PRINT_OPTS
+        options_obj = torch._tensor_str.PRINT_OPTS  # type: ignore[reportGeneralTypeIssues]
         original_options = {k: getattr(options_obj, k) for k in new_options}
 
         torch.set_printoptions(**new_options)
