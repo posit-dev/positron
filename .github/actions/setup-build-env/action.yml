@@ -10,7 +10,7 @@ runs:
         sudo apt-get update
         sudo apt-get install libasound2
         sudo add-apt-repository --remove "deb http://archive.ubuntu.com/ubuntu jammy main universe"
-sudo apt-get update
+        sudo apt-get update
         sudo apt-get install -y \
           vim curl build-essential clang make cmake git \
           libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb \
