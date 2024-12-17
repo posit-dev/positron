@@ -92,12 +92,11 @@ jobs:
   slack-notify:
     needs: [e2e-electron, e2e-windows, e2e-browser, unit-tests, integration-tests]
     runs-on: ubuntu-latest
-    if: ${{ inputs.notify_on != 'never' }}
     steps:
       - name: Notify Slack
         uses: midleman/slack-workflow-status@master
         with:
           repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
           slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL }}
-          notify_on: ${{ inputs.notify_on }}
+          notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
 
