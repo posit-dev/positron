@@ -6,11 +6,24 @@ runs:
     - name: Install Build Dependencies
       shell: bash
       run: |
-        sudo apt-get update
+        # Detect Ubuntu version
+        UBUNTU_VERSION=$(lsb_release -rs)
+        echo "Running on Ubuntu version: $UBUNTU_VERSION"
+
+        # Install libasound2 or libasound2t64 based on version
+        if [[ "$UBUNTU_VERSION" == "24.04" ]]; then
+          echo "Installing libasound2t64 for Ubuntu 24.04"
+          sudo apt-get update
+          sudo apt-get install -y libasound2t64
+        else
+          echo "Installing libasound2 for older Ubuntu versions"
+          sudo apt-get update
+          sudo apt-get install -y libasound2
+        fi
         sudo apt-get install -y \
           vim curl build-essential clang make cmake git \
           libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb \
-          libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2t64 libkrb5-dev libcairo-dev \
+          libgtk-3-0 libgbm1 libnss3 libnspr4 libkrb5-dev libcairo-dev \
           libsdl-pango-dev libjpeg-dev libgif-dev pandoc
 
     - name: Install Node packages
