@@ -114,7 +114,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         # Run the tests on the oldest and most recent versions of Python.
-        python: ['3.8', '3.12']
+        python: ['3.8', '3.13-dev']
 
     steps:
       - name: Checkout
@@ -149,8 +149,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: 'ubuntu-latest'
-            python: '3.8'
           - os: 'macos-latest'
             python: '3.9'
           - os: 'windows-latest'
@@ -159,6 +157,8 @@ jobs:
             python: '3.11'
           - os: 'ubuntu-latest'
             python: '3.12'
+          - os: 'ubuntu-latest'
+            python: '3.13-dev'
 
     steps:
       - name: Checkout
