@@ -6,10 +6,11 @@ runs:
     - name: Install Build Dependencies
       shell: bash
       run: |
-        wget http://archive.ubuntu.com/ubuntu/pool/main/a/alsa-lib/libasound2_1.2.6.1-1ubuntu1_amd64.deb
-        sudo dpkg -i libasound2_1.2.6.1-1ubuntu1_amd64.deb
-        sudo apt-get install -f
+        sudo add-apt-repository "deb http://archive.ubuntu.com/ubuntu jammy main universe"
         sudo apt-get update
+        sudo apt-get install libasound2
+        sudo add-apt-repository --remove "deb http://archive.ubuntu.com/ubuntu jammy main universe"
+sudo apt-get update
         sudo apt-get install -y \
           vim curl build-essential clang make cmake git \
           libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb \
