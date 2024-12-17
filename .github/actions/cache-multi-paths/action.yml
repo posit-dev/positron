@@ -5,42 +5,42 @@ runs:
   steps:
     - name: Cache root
       id: cache-root
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ./node_modules
-        key: cache-root-v4-${{ runner.os }}-${{ hashFiles('./package-lock.json') }}
+        key: cache-root-v5-${{ runner.os }}-${{ hashFiles('./package-lock.json') }}
 
     - name: Cache build
       id: cache-build
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ./build/node_modules
-        key: cache-build-v4-${{ runner.os }}-${{ hashFiles('build/package-lock.json') }}
+        key: cache-build-v5-${{ runner.os }}-${{ hashFiles('build/package-lock.json') }}
 
     - name: Cache extensions
       id: cache-extensions
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ./extensions/node_modules
-        key: cache-extensions-v4-${{ runner.os }}-${{ hashFiles('extensions/package-lock.json') }}
+        key: cache-extensions-v5-${{ runner.os }}-${{ hashFiles('extensions/package-lock.json') }}
 
     - name: Cache nested extensions
       id: cache-nested-extensions
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ./extensions/**/node_modules
-        key: cache-nested-extensions-v4-${{ runner.os }}-${{ hashFiles('extensions/**/package-lock.json') }}
+        key: cache-nested-extensions-v5-${{ runner.os }}-${{ hashFiles('extensions/**/package-lock.json') }}
 
     - name: Cache remote
       id: cache-remote
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ./remote/node_modules
-        key: cache-remote-v4-${{ runner.os }}-${{ hashFiles('remote/package-lock.json') }}
+        key: cache-remote-v5-${{ runner.os }}-${{ hashFiles('remote/package-lock.json') }}
 
     - name: Cache nested remote
       id: cache-nested-remote
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ./remote/**/node_modules
-        key: cache-nested-remote-v4-${{ runner.os }}-${{ hashFiles('remote/**/package-lock.json') }}
+        key: cache-nested-remote-v5-${{ runner.os }}-${{ hashFiles('remote/**/package-lock.json') }}
