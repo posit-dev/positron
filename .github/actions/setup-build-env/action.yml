@@ -6,12 +6,16 @@ runs:
     - name: Install Build Dependencies
       shell: bash
       run: |
+        sudo add-apt-repository main
+        sudo add-apt-repository universe
+        sudo add-apt-repository restricted
+        sudo add-apt-repository multiverse
         sudo apt-get update
         sudo apt-get install -y \
           vim curl build-essential clang make cmake git \
           libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb \
           libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev \
-          libsdl-pango-dev libjpeg-dev libgif-dev pandoc liboss4-salsa-asound2
+          libsdl-pango-dev libjpeg-dev libgif-dev pandoc
 
     - name: Install Node packages
       shell: bash
