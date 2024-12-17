@@ -427,14 +427,34 @@ export function packageLocalExtensionsStream(forWeb: boolean, disableMangle: boo
 			.filter(({ name }) => builtInExtensions.every(b => b.name !== name))
 			.filter(({ manifestPath }) => (forWeb ? isWebExtension(require(manifestPath)) : true))
 	);
-	const localExtensionsStream = minifyExtensionResources(
-		es.merge(
-			...localExtensionsDescriptions.map(extension => {
-				return fromLocal(extension.path, forWeb, disableMangle)
-					.pipe(rename(p => p.dirname = `extensions/${extension.name}/${p.dirname}`));
-			})
-		)
-	);
+
+	// --- Start Positron ---
+
+	// Process the local extensions serially to avoid running out of file
+	// descriptors (EMFILE) when building.
+
+	const localExtensionsStream = es.through();
+	const queue = [...localExtensionsDescriptions];
+
+	function processNext() {
+		if (queue.length === 0) {
+			localExtensionsStream.end();
+			return;
+		}
+
+		const extension = queue.shift();
+		if (!extension) {
+			return;
+		}
+		const stream = fromLocal(extension.path, forWeb, disableMangle)
+			.pipe(rename(p => p.dirname = `extensions/${extension.name}/${p.dirname}`))
+			.pipe(es.through(undefined, processNext));
+
+		stream.pipe(localExtensionsStream, { end: false });
+	}
+
+	processNext();
+	// --- End Positron ---
 
 	let result: Stream;
 	if (forWeb) {
