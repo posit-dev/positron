@@ -690,17 +690,28 @@ export function registerLanguageRuntimeActions() {
 		async run(accessor: ServicesAccessor): Promise<void> {
 			const editorService = accessor.get(IEditorService);
 			const commandService = accessor.get(ICommandService);
+			const notificationService = accessor.get(INotificationService);
+			const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
-			// Get the active editor.
+			// First we should make sure we actually have an editor from which we can get code.
 			const codeEditor = editorService.activeEditorPane?.getControl() as ICodeEditor | undefined;
-			if (!codeEditor || !codeEditor.hasModel()) {
+			if (!codeEditor) {
+				notificationService.warn(nls.localize('positron.executeSelectedCode.noEditor',
+					"Cannot execute code: no active text editor"));
 				return;
 			}
 
+			// We need the model to get the code from the selection.
+			if (!codeEditor.hasModel()) {
+				notificationService.warn(nls.localize('positron.executeSelectedCode.noModel',
+					"Cannot execute code: editor has no document model"));
+				return;
+			}
 			const model = codeEditor.getModel();
+
 			const selection = codeEditor.getSelection();
 
-			// Determine the code to execute: selected text or current line.
+			// If no text is selected, default to the current line to maintain a fluid coding experience
 			let code: string;
 			if (selection && !selection.isEmpty()) {
 				code = model.getValueInRange(selection);
@@ -709,18 +720,36 @@ export function registerLanguageRuntimeActions() {
 				code = model.getLineContent(lineNumber);
 			}
 
-			// Get the language ID from the editor's model.
+			// Prevent execution of empty code to avoid confusing the interpreter
+			if (!code.trim()) {
+				notificationService.warn(nls.localize('positron.executeSelectedCode.noCode',
+					"Cannot execute code: no code selected or current line is empty"));
+				return;
+			}
+
 			const languageId = model.getLanguageId();
 
-			// Create the arguments for the ExecuteCodeInConsoleAction.
-			const args: ExecuteCodeArgs = {
-				langId: languageId,
-				code: code,
-				focus: true
-			};
+			// Ensure there's an active interpreter before attempting execution to prevent silent failures
+			const session = runtimeSessionService.getConsoleSessionForLanguage(languageId);
+			if (!session && !runtimeSessionService.foregroundSession) {
+				notificationService.warn(nls.localize('positron.executeSelectedCode.noSession',
+					"Cannot execute code: no active interpreter session for {0}. Please start an interpreter first.", languageId));
+				return;
+			}
 
-			// Execute the code in the console using the existing action.
-			await commandService.executeCommand('workbench.action.executeCode.console', args);
+			try {
+				// Send to the console execution action to execute the code.
+				const args: ExecuteCodeArgs = {
+					langId: languageId,
+					code: code,
+					focus: true
+				};
+
+				await commandService.executeCommand('workbench.action.executeCode.console', args);
+			} catch (error) {
+				notificationService.error(nls.localize('positron.executeSelectedCode.error',
+					"Failed to execute code: {0}", error instanceof Error ? error.message : 'Unknown error'));
+			}
 		}
 	});
 }
