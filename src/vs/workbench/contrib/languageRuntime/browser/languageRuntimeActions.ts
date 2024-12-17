@@ -680,10 +680,6 @@ export function registerLanguageRuntimeActions() {
 				title: nls.localize2('positron.command.executeSelectedCode', "Execute Selected Code in Console"),
 				f1: true,
 				category,
-				keybinding: {
-					weight: KeybindingWeight.WorkbenchContrib,
-					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
-				}
 			});
 		}
 
