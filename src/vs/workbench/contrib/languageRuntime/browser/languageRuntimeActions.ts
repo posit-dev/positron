@@ -676,7 +676,7 @@ export function registerLanguageRuntimeActions() {
 	registerAction2(class ExecuteSelectedCodeAction extends Action2 {
 		constructor() {
 			super({
-				id: '.selection',
+				id: 'workbench.action.executeSelectedCode',
 				title: nls.localize2('positron.command.executeSelectedCode', "Execute Selected Code in Console"),
 				f1: true,
 				category,
@@ -689,36 +689,38 @@ export function registerLanguageRuntimeActions() {
 
 		async run(accessor: ServicesAccessor): Promise<void> {
 			const editorService = accessor.get(IEditorService);
-			const consoleService = accessor.get(IPositronConsoleService);
+			const commandService = accessor.get(ICommandService);
 
-			// Get the active editor
+			// Get the active editor.
 			const codeEditor = editorService.activeEditorPane?.getControl() as ICodeEditor | undefined;
-			if (!codeEditor?.hasModel()) {
+			if (!codeEditor || !codeEditor.hasModel()) {
 				return;
 			}
 
-			// Get the selected text or current line if no selection
+			const model = codeEditor.getModel();
 			const selection = codeEditor.getSelection();
+
+			// Determine the code to execute: selected text or current line.
 			let code: string;
-			if (selection.isEmpty()) {
-				// If no text is selected, get the current line
-				const lineNumber = selection.startLineNumber;
-				code = codeEditor.getModel().getLineContent(lineNumber + 1);
+			if (selection && !selection.isEmpty()) {
+				code = model.getValueInRange(selection);
 			} else {
-				// Get the selected text
-				code = codeEditor.getModel().getValueInRange(selection);
+				const lineNumber = selection.startLineNumber;
+				code = model.getLineContent(lineNumber);
 			}
 
-			// Get the language ID from the editor
-			const languageId = codeEditor.getModel().getLanguageId();
+			// Get the language ID from the editor's model.
+			const languageId = model.getLanguageId();
 
-			// Execute the code in the console
-			consoleService.executeCode(
-				languageId,
-				code,
-				true, /* focus the console */
-				true  /* execute the code even if incomplete */
-			);
+			// Create the arguments for the ExecuteCodeInConsoleAction.
+			const args: ExecuteCodeArgs = {
+				langId: languageId,
+				code: code,
+				focus: true
+			};
+
+			// Execute the code in the console using the existing action.
+			await commandService.executeCommand('workbench.action.executeCode.console', args);
 		}
 	});
 }
