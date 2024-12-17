@@ -76,7 +76,7 @@ test.describe('Data Explorer - R ', {
 
 	});
 
-	test.skip('R - Open Data Explorer for the second time brings focus back [C701143]', {
+	test('R - Open Data Explorer for the second time brings focus back [C701143]', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5714' }]
 	}, async function ({ app, r }) {
 		// Regression test for https://github.com/posit-dev/positron/issues/4197
