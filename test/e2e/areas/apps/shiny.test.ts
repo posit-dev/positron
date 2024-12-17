@@ -11,15 +11,15 @@ test.use({
 });
 
 test.describe('Shiny Application', { tag: [tags.APPS, tags.VIEWER, tags.WIN] }, () => {
-	// test.beforeAll(async function ({ app }) {
-	// 	try {
-	// 		await app.workbench.extensions.installExtension('posit.shiny', true);
-	// 		await app.workbench.extensions.closeExtension('Shiny');
-	// 	} catch (e) {
-	// 		app.code.driver.takeScreenshot('shinySetup');
-	// 		throw e;
-	// 	}
-	// });
+	test.beforeAll(async function ({ app }) {
+		try {
+			await app.workbench.extensions.installExtension('posit.shiny', true);
+			await app.workbench.extensions.closeExtension('Shiny');
+		} catch (e) {
+			app.code.driver.takeScreenshot('shinySetup');
+			throw e;
+		}
+	});
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.positronTerminal.sendKeysToTerminal('Control+C');

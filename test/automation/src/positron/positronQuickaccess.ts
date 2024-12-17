@@ -35,97 +35,60 @@ export class PositronQuickAccess {
 		await this.quickInput.selectQuickInputElement(0);
 	}
 
-
-
-	async openFileQuickAccessAndWait(searchValue: string, expectedFirstElementNameOrExpectedResultCount: string | number): Promise<void> {
-
-		// make sure the file quick access is not "polluted"
-		// with entries from the editor history when opening
+	async openFileQuickAccessAndWait(
+		searchValue: string,
+		expectedFirstElementNameOrExpectedResultCount: string | number
+	): Promise<void> {
+		// Clear editor history to ensure Quick Access is not "polluted"
 		await this.runCommand('workbench.action.clearEditorHistory');
 
-		const PollingStrategy = {
-			Stop: true,
-			Continue: false
-		};
+		await expect(async () => {
+			// Open Quick Access and wait for the elements to appear
+			await this.openQuickAccessWithRetry(QuickAccessKind.Files, searchValue);
 
-		let retries = 0;
-		let success = false;
 
-		while (++retries < 10) {
-			let retry = false;
+			await this.quickInput.waitForQuickInputElements((elementNames) => {
+				this.code.logger.log('QuickAccess: resulting elements:', elementNames);
 
-			try {
-				await this.openQuickAccessWithRetry(QuickAccessKind.Files, searchValue);
-				await this.quickInput.waitForQuickInputElements(elementNames => {
-					this.code.logger.log('QuickAccess: resulting elements: ', elementNames);
+				if (elementNames.length === 0) {
+					this.code.logger.log('QuickAccess: No elements found, retrying...');
+					return false; // Retry polling
+				}
 
-					// Quick access seems to be still running -> retry
-					if (elementNames.length === 0) {
-						this.code.logger.log('QuickAccess: file search returned 0 elements, will continue polling...');
+				const firstElementName = elementNames[0];
 
-						return PollingStrategy.Continue;
+				// Check if "No matching results" appears
+				if (firstElementName === 'No matching results') {
+					this.code.logger.log(`QuickAccess: File search returned "No matching results", retrying...`);
+					return false; // Retry polling
+				}
+
+				// Handle expected result count
+				if (typeof expectedFirstElementNameOrExpectedResultCount === 'number') {
+					if (elementNames.length === expectedFirstElementNameOrExpectedResultCount) {
+						return true; // Condition met
 					}
+					this.code.logger.log(
+						`QuickAccess: Expected ${expectedFirstElementNameOrExpectedResultCount} results, got ${elementNames.length}, retrying...`
+					);
+					return false;
+				}
 
-					// Quick access does not seem healthy/ready -> retry
-					const firstElementName = elementNames[0];
-					if (firstElementName === 'No matching results') {
-						this.code.logger.log(`QuickAccess: file search returned "No matching results", will retry...`);
+				// Handle expected first element name
+				if (firstElementName === expectedFirstElementNameOrExpectedResultCount) {
+					return true; // Condition met
+				}
 
-						retry = true;
+				this.code.logger.log(
+					`QuickAccess: Expected first result '${expectedFirstElementNameOrExpectedResultCount}', got '${firstElementName}', retrying...`
+				);
+				return false;
+			});
+		}).toPass({
+			timeout: 15000,
+		});
 
-						return PollingStrategy.Stop;
-					}
-
-					// Expected: number of results
-					if (typeof expectedFirstElementNameOrExpectedResultCount === 'number') {
-						if (elementNames.length === expectedFirstElementNameOrExpectedResultCount) {
-							success = true;
-
-							return PollingStrategy.Stop;
-						}
-
-						this.code.logger.log(`QuickAccess: file search returned ${elementNames.length} results but was expecting ${expectedFirstElementNameOrExpectedResultCount}, will retry...`);
-
-						retry = true;
-
-						return PollingStrategy.Stop;
-					}
-
-					// Expected: string
-					else {
-						if (firstElementName === expectedFirstElementNameOrExpectedResultCount) {
-							success = true;
-
-							return PollingStrategy.Stop;
-						}
-
-						this.code.logger.log(`QuickAccess: file search returned ${firstElementName} as first result but was expecting ${expectedFirstElementNameOrExpectedResultCount}, will retry...`);
-
-						retry = true;
-
-						return PollingStrategy.Stop;
-					}
-				});
-			} catch (error) {
-				this.code.logger.log(`QuickAccess: file search waitForQuickInputElements threw an error ${error}, will retry...`);
-
-				retry = true;
-			}
-
-			if (!retry) {
-				break;
-			}
-
-			await this.quickInput.closeQuickInput();
-		}
-
-		if (!success) {
-			if (typeof expectedFirstElementNameOrExpectedResultCount === 'string') {
-				throw new Error(`Quick open file search was unable to find '${expectedFirstElementNameOrExpectedResultCount}' after 10 attempts, giving up.`);
-			} else {
-				throw new Error(`Quick open file search was unable to find ${expectedFirstElementNameOrExpectedResultCount} result items after 10 attempts, giving up.`);
-			}
-		}
+		this.code.logger.log('QuickAccess: File search succeeded.');
 	}
 
 	async openFile(path: string): Promise<void> {

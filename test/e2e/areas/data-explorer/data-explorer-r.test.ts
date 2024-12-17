@@ -27,7 +27,7 @@ test.describe('Data Explorer - R ', {
 		logger.log('Opening data grid');
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
-			await expect(app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")')).not.toHaveText('');
+			await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
 		}).toPass();
 
 		await app.workbench.positronDataExplorer.maximizeDataExplorer(true);
@@ -94,7 +94,10 @@ test.describe('Data Explorer - R ', {
 		await app.workbench.editors.newUntitledFile();
 		await app.workbench.positronQuickaccess.runCommand('workbench.panel.positronVariables.focus');
 		await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
-		await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
+
+		await expect(async () => {
+			await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
+		}).toPass();
 
 		await app.workbench.positronDataExplorer.closeDataExplorer();
 		await app.workbench.positronQuickaccess.runCommand('workbench.panel.positronVariables.focus');
@@ -106,7 +109,7 @@ test.describe('Data Explorer - R ', {
 
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('df');
-			await expect(app.code.driver.page.locator('.label-name:has-text("Data: df")')).not.toHaveText('');
+			await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
 		}).toPass();
 
 		await expect(async () => {
