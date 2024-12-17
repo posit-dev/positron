@@ -30,4 +30,4 @@ runs:
         curl -s https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
         # Install development dependencies using pak
         Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://cran.rstudio.com')"
-        Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+        Rscript -e "options(pak.install_binary = TRUE); pak::local_install_dev_deps(ask = FALSE)"
