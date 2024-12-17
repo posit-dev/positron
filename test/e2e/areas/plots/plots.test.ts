@@ -70,7 +70,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await test.step('Verify plot can be opened in editor', async () => {
 				await app.workbench.positronPlots.openPlotInEditor();
 				await app.workbench.positronPlots.waitForPlotInEditor();
-				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+				await app.workbench.positronQuickaccess.runCommand('workbench.action.closeAllEditors');
 			});
 
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
@@ -98,7 +98,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await test.step('Verify plot can be opened in editor', async () => {
 				await app.workbench.positronPlots.openPlotInEditor();
 				await app.workbench.positronPlots.waitForPlotInEditor();
-				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+				await app.workbench.positronQuickaccess.runCommand('workbench.action.closeAllEditors');
 			});
 
 		});
@@ -297,7 +297,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await test.step('Verify plot can be opened in editor', async () => {
 				await app.workbench.positronPlots.openPlotInEditor();
 				await app.workbench.positronPlots.waitForPlotInEditor();
-				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+				await app.workbench.positronQuickaccess.runCommand('workbench.action.closeAllEditors');
 			});
 
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');

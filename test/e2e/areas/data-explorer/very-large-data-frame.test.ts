@@ -42,8 +42,8 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 	test.describe('Python Data Explorer (Very Large Data Frame)', () => {
 		if (githubActions) {
 			test('Python - Verifies data explorer functionality with very large unique data dataframe [C804823]', async function ({ app, logger, python }) {
-				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.py'));
-				await app.workbench.quickaccess.runCommand('python.execInConsole');
+				await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.py'));
+				await app.workbench.positronQuickaccess.runCommand('python.execInConsole');
 				const startTime = performance.now();
 
 				logger.log('Opening data grid');
@@ -67,8 +67,8 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 		} else {
 
 			test('Python - Verifies data explorer functionality with very large duplicated data dataframe [C807824]', async function ({ app, logger, python }) {
-				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.py'));
-				await app.workbench.quickaccess.runCommand('python.execInConsole');
+				await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.py'));
+				await app.workbench.positronQuickaccess.runCommand('python.execInConsole');
 				const startTime = performance.now();
 
 				logger.log('Opening data grid');
@@ -96,8 +96,8 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 	test.describe('R Data Explorer (Very Large Data Frame)', () => {
 		if (githubActions) {
 			test('R - Verifies data explorer functionality with very large unique data dataframe [C804824]', async function ({ app, logger, r }) {
-				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.r'));
-				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
+				await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.r'));
+				await app.workbench.positronQuickaccess.runCommand('r.sourceCurrentFile');
 				const startTime = performance.now();
 
 				logger.log('Opening data grid');
@@ -122,8 +122,8 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 		} else {
 
 			test('R - Verifies data explorer functionality with very large duplicated data dataframe [C807825]', async function ({ app, logger, r }) {
-				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.r'));
-				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
+				await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.r'));
+				await app.workbench.positronQuickaccess.runCommand('r.sourceCurrentFile');
 				const startTime = performance.now();
 
 				logger.log('Opening data grid');

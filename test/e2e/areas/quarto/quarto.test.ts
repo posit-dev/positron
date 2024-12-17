@@ -16,7 +16,7 @@ test.use({
 
 test.describe('Quarto', { tag: [tags.WEB, tags.QUARTO] }, () => {
 	test.beforeAll(async function ({ app, browserName }) {
-		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
+		await app.workbench.positronQuickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 		isWeb = browserName === 'chromium';
 	});
 
@@ -45,7 +45,7 @@ test.describe('Quarto', { tag: [tags.WEB, tags.QUARTO] }, () => {
 	});
 
 	test('should be able to generate preview [C842891]', async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('quarto.preview', { keepOpen: true });
+		await app.workbench.positronQuickaccess.runCommand('quarto.preview', { keepOpen: true });
 		const viewerFrame = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe');
 
 		// verify preview displays
@@ -56,7 +56,7 @@ test.describe('Quarto', { tag: [tags.WEB, tags.QUARTO] }, () => {
 
 const renderQuartoDocument = async (app: Application, fileExtension: string) => {
 	await test.step(`render quarto document`, async () => {
-		await app.workbench.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
+		await app.workbench.positronQuickaccess.runCommand('quarto.render.document', { keepOpen: true });
 		await app.workbench.positronQuickInput.selectQuickInputElementContaining(fileExtension);
 	});
 };

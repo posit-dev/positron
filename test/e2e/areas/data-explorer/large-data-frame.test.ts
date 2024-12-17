@@ -26,8 +26,8 @@ test.describe('Data Explorer - Large Data Frame', {
 	});
 
 	test('Python - Verifies data explorer functionality with large data frame [C557555]', async function ({ app, python, logger }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
-		await app.workbench.quickaccess.runCommand('python.execInConsole');
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
+		await app.workbench.positronQuickaccess.runCommand('python.execInConsole');
 
 		logger.log('Opening data grid');
 		await expect(async () => {
@@ -60,8 +60,8 @@ test.describe('Data Explorer - Large Data Frame', {
 	test('R - Verifies data explorer functionality with large data frame [C557554]', {
 		tag: [tags.WEB, tags.CRITICAL]
 	}, async function ({ app, logger, r }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
-		await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
+		await app.workbench.positronQuickaccess.runCommand('r.sourceCurrentFile');
 
 		logger.log('Opening data grid');
 		await expect(async () => {

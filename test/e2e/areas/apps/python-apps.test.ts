@@ -14,9 +14,9 @@ test.describe('Python Applications', {
 	tag: [tags.CRITICAL, tags.APPS, tags.VIEWER, tags.EDITOR]
 }, () => {
 	test.afterEach(async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.closeAllEditors');
 
-		await app.workbench.quickaccess.runCommand('workbench.action.terminal.focus');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.terminal.focus');
 		await app.workbench.positronTerminal.sendKeysToTerminal('Control+C');
 		// unreliable on ubuntu:
 		// await this.app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('^C')));
@@ -27,7 +27,7 @@ test.describe('Python Applications', {
 	test('Python - Verify Basic Dash App [C903305]', { tag: [tags.WIN] }, async function ({ app, python }) {
 		const viewer = app.workbench.positronViewer;
 
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'dash_example', 'dash_example.py'));
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'dash_example', 'dash_example.py'));
 		await app.workbench.positronEditor.pressPlay();
 		await expect(viewer.getViewerFrame().getByText('Hello World')).toBeVisible({ timeout: 30000 });
 
@@ -44,7 +44,7 @@ test.describe('Python Applications', {
 	test('Python - Verify Basic FastAPI App [C903306]', async function ({ app, python }) {
 		const viewer = app.workbench.positronViewer;
 
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'fastapi_example', 'fastapi_example.py'));
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'fastapi_example', 'fastapi_example.py'));
 		await app.workbench.positronEditor.pressPlay();
 		await expect(viewer.getViewerFrame().getByText('FastAPI')).toBeVisible({ timeout: 30000 });
 
@@ -64,13 +64,13 @@ test.describe('Python Applications', {
 	}, async function ({ app, python }) {
 		const viewer = app.workbench.positronViewer;
 
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'gradio_example', 'gradio_example.py'));
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'gradio_example', 'gradio_example.py'));
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.positronEditor.pressPlay();
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await expect(viewer.getViewerFrame().getByRole('button', { name: 'Submit' })).toBeVisible({ timeout: 45000 });
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 	});
 
 	test('Python - Verify Basic Streamlit App [C903308]', {
@@ -78,7 +78,7 @@ test.describe('Python Applications', {
 	}, async function ({ app, python }) {
 		const viewer = app.workbench.positronViewer;
 
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'streamlit_example', 'streamlit_example.py'));
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'streamlit_example', 'streamlit_example.py'));
 		await app.workbench.positronEditor.pressPlay();
 
 		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
@@ -113,9 +113,9 @@ test.describe('Python Applications', {
 	}, async function ({ app, python, page }) {
 		const viewer = app.workbench.positronViewer;
 
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'flask_example', '__init__.py'));
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'flask_example', '__init__.py'));
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.positronEditor.pressPlay();
 		const viewerFrame = viewer.getViewerFrame();
 		const loginLocator = app.web
@@ -140,7 +140,7 @@ test.describe('Python Applications', {
 			await expect(loginLocator).toBeVisible({ timeout: 30000 });
 		});
 
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 	});
 });
 

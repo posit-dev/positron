@@ -12,12 +12,12 @@ test.use({
 
 test.describe('R Markdown', { tag: [tags.WEB, tags.R_MARKDOWN] }, () => {
 	test('Render R Markdown [C680618]', async function ({ app, r }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'basic-rmd-file', 'basicRmd.rmd'));
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'basic-rmd-file', 'basicRmd.rmd'));
 
 		// Sometimes running render too quickly fails, saying pandoc is not installed.
 		// Using expect.toPass allows it to retry.
 		await expect(async () => {
-			await app.workbench.quickaccess.runCommand('r.rmarkdownRender');
+			await app.workbench.positronQuickaccess.runCommand('r.rmarkdownRender');
 			await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('Output created: basicRmd.html')));
 		}).toPass({ timeout: 80000 });
 

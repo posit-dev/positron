@@ -11,11 +11,11 @@ test.use({
 
 test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
 	test.beforeEach(async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('Help: Welcome');
+		await app.workbench.positronQuickaccess.runCommand('Help: Welcome');
 	});
 
 	test.afterEach(async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('View: Close All Editors');
+		await app.workbench.positronQuickaccess.runCommand('View: Close All Editors');
 	});
 
 	test.describe('General', () => {
@@ -46,7 +46,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
 
 			await expect(app.workbench.positronWelcome.openButtons).toHaveText(OPEN_BUTTONS_LABELS);
 
-			await app.workbench.quickaccess.runCommand('File: Clear Recently Opened...');
+			await app.workbench.positronQuickaccess.runCommand('File: Clear Recently Opened...');
 
 			await expect(app.workbench.positronWelcome.recentTitle).toHaveText('Recent');
 
@@ -76,7 +76,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
 
 			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/python-lang-file-icon/);
 
-			await app.workbench.quickaccess.runCommand('View: Close Editor');
+			await app.workbench.positronQuickaccess.runCommand('View: Close Editor');
 		});
 
 		test('Create a new Python notebook from the Welcome page [C684753]', async function ({ app, python }) {

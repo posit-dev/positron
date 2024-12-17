@@ -16,15 +16,15 @@ test.describe('F1 Help', {
 }, () => {
 
 	test.afterEach(async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.closeAllEditors');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.positronConsole.barClearButton.click();
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
 	test('R - Verifies basic F1 console help functionality [C1018854]', async function ({ app, page, r }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
-		await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
+		await app.workbench.positronQuickaccess.runCommand('r.sourceCurrentFile');
 
 		await app.workbench.positronConsole.pasteCodeToConsole('colnames(df2)');
 		await app.workbench.positronConsole.doubleClickConsoleText('colnames');
@@ -38,16 +38,16 @@ test.describe('F1 Help', {
 	});
 
 	test('R - Verifies basic F1 editor help functionality [C1062994]', async function ({ app, page, r }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'generate-data-frames-r', 'generate-data-frames.r'));
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'generate-data-frames-r', 'generate-data-frames.r'));
 
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
-		await app.workbench.quickaccess.runCommand('workbench.action.togglePanel');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.togglePanel');
 		await app.code.driver.page.locator('span').filter({ hasText: 'colnames(df) <- paste0(\'col\', 1:num_cols)' }).locator('span').first().dblclick();
 		await page.keyboard.press('F1');
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
-		await app.workbench.quickaccess.runCommand('workbench.action.togglePanel');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.togglePanel');
 
 		await expect(async () => {
 			const helpFrame = await app.workbench.positronHelp.getHelpFrame(0);
@@ -76,8 +76,8 @@ test.describe('F1 Help', {
 	});
 
 	test('Python - Verifies basic F1 console help functionality [C1062993]', async function ({ app, page, python }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
-		await app.workbench.quickaccess.runCommand('python.execInConsole');
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
+		await app.workbench.positronQuickaccess.runCommand('python.execInConsole');
 
 		await app.workbench.positronConsole.pasteCodeToConsole('list(df.columns)');
 		await app.workbench.positronConsole.doubleClickConsoleText('list');
@@ -91,17 +91,17 @@ test.describe('F1 Help', {
 	});
 
 	test('Python - Verifies basic F1 editor help functionality [C1062995]', async function ({ app, page, python }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'generate-data-frames-py', 'generate-data-frames.py'));
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'generate-data-frames-py', 'generate-data-frames.py'));
 
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
-		await app.workbench.quickaccess.runCommand('workbench.action.togglePanel');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.togglePanel');
 		await app.code.driver.page.locator('span').filter({ hasText: 'df = pd.DataFrame(data)' }).locator('span').first().dblclick();
 
 		await page.keyboard.press('F1');
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
-		await app.workbench.quickaccess.runCommand('workbench.action.togglePanel');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.togglePanel');
 
 		await expect(async () => {
 			const helpFrame = await app.workbench.positronHelp.getHelpFrame(0);
@@ -113,9 +113,9 @@ test.describe('F1 Help', {
 	test('Python - Verifies basic F1 notebook help functionality [C1062997]', async function ({ app, page, python }) {
 		await app.workbench.positronQuickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
 
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
-		await app.workbench.quickaccess.runCommand('workbench.action.togglePanel');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.togglePanel');
 		await app.code.driver.page.locator('span').filter({ hasText: 'warnings.filterwarnings(\'ignore\')' }).locator('span').first().dblclick();
 
 		// need to wait for notebook to be ready and cannot put this in retry loop as we are also
@@ -124,9 +124,9 @@ test.describe('F1 Help', {
 
 		await page.keyboard.press('F1');
 
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
-		await app.workbench.quickaccess.runCommand('workbench.action.togglePanel');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.togglePanel');
 		await expect(async () => {
 
 			// Note that we are getting help frame 1 instead of 0 because the notbook structure matches the same locators as help

@@ -21,7 +21,7 @@ test.describe('Top Action Bar - Save Actions', {
 	});
 
 	test('Save and Save All both disabled when no unsaved editors are open [C656253]', async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 		await expect(async () => {
 			expect(await app.workbench.positronTopActionBar.saveButton.isDisabled()).toBeTruthy();
 			expect(await app.workbench.positronTopActionBar.saveAllButton.isDisabled()).toBeTruthy();
@@ -30,9 +30,9 @@ test.describe('Top Action Bar - Save Actions', {
 
 	test('Save enabled and Save All disabled when a single unsaved file is open [C656254]', async function ({ app }) {
 		const fileName = 'README.md';
-		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, fileName));
-		await app.workbench.quickaccess.runCommand('workbench.action.keepEditor', { keepOpen: false });
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, fileName));
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.keepEditor', { keepOpen: false });
 		await app.workbench.editors.selectTab(fileName);
 		await app.workbench.editor.waitForTypeInEditor(fileName, 'Puppies frolicking in a meadow of wildflowers');
 		// The file is now "dirty" and the save buttons should be enabled
@@ -57,11 +57,11 @@ test.describe('Top Action Bar - Save Actions', {
 		const fileName2 = 'DESCRIPTION';
 		const text = 'Kittens playing with yarn';
 		// Open two files and type in some text
-		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, fileName1));
-		await app.workbench.quickaccess.runCommand('workbench.action.keepEditor', { keepOpen: false });
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, fileName2));
-		await app.workbench.quickaccess.runCommand('workbench.action.keepEditor', { keepOpen: false });
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, fileName1));
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.keepEditor', { keepOpen: false });
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, fileName2));
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.keepEditor', { keepOpen: false });
 		await app.workbench.editors.selectTab(fileName1);
 		await app.workbench.editor.waitForTypeInEditor(fileName1, text);
 		await app.workbench.editors.selectTab(fileName2);
@@ -89,8 +89,8 @@ test.describe('Top Action Bar - Save Actions', {
 		const fileName = 'Untitled-1';
 		const text = 'Bunnies hopping through a field of clover';
 		// Open a new file and type in some text
-		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
-		await app.workbench.quickaccess.runCommand('workbench.action.files.newUntitledFile', { keepOpen: false });
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.files.newUntitledFile', { keepOpen: false });
 		await app.workbench.editors.selectTab(fileName);
 		await app.workbench.editor.waitForTypeInEditor(fileName, text);
 		// The file is now "dirty" and the save buttons should be enabled

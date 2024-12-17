@@ -39,9 +39,9 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		}).toPass({ timeout: 50000 });
 		// The console should initialize without any prompts to install ipykernel
 		await expect(app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 45000 });
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.positronConsole.barClearButton.click();
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
 	test('Create a new Venv environment [C627912]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app, page }) {
@@ -56,9 +56,9 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 		await expect(page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 20000 });
 		await expect(app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 100000 });
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.positronConsole.barClearButton.click();
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
 	// Skip test due to https://github.com/posit-dev/positron/issues/5730. Both have to skipped as they depend o
@@ -116,7 +116,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await app.workbench.positronInterpreterDropdown.closeInterpreterDropdown();
 		await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
 		await app.workbench.positronConsole.sendEnterKey();
-		await app.workbench.positronConsole.waitForConsoleContents('Successfully uninstalled ipykernel')
+		await app.workbench.positronConsole.waitForConsoleContents('Successfully uninstalled ipykernel');
 
 		// Create a new Python project and use the selected python interpreter
 		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
@@ -147,9 +147,9 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		// If ipykernel was successfully installed during the new project initialization,
 		// the console should be ready without any prompts to install ipykernel
 		await expect(app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 90000 });
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.positronConsole.barClearButton.click();
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
 	test('Default Python Project with git init [C674522]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app, page }) {

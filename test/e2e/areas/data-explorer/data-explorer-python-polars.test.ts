@@ -14,8 +14,8 @@ test.describe('Data Explorer - Python Polars', {
 	tag: [tags.WIN, tags.WEB, tags.CRITICAL, tags.DATA_EXPLORER]
 }, () => {
 	test('Python Polars - Verifies basic data explorer functionality [C644538]', async function ({ app, python, logger }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'polars-dataframe-py', 'polars_basic.py'));
-		await app.workbench.quickaccess.runCommand('python.execInConsole');
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'polars-dataframe-py', 'polars_basic.py'));
+		await app.workbench.positronQuickaccess.runCommand('python.execInConsole');
 
 		logger.log('Opening data grid');
 		await expect(async () => {

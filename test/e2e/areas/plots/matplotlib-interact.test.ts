@@ -25,7 +25,7 @@ test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.NOTEBOOK] }, () =>
 
 		await notebooks.runAllCells();
 
-		await app.workbench.quickaccess.runCommand('workbench.action.togglePanel');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.togglePanel');
 
 		const plotLocator = app.workbench.positronNotebooks.frameLocator.locator('.widget-output');
 

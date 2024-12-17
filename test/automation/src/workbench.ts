@@ -143,10 +143,10 @@ export class Workbench {
 		this.positronViewer = new PositronViewer(code);
 		this.positronEditor = new PositronEditor(code);
 		this.positronTestExplorer = new PositronTestExplorer(code);
-		this.positronQuickaccess = new PositronQuickAccess(this.quickinput, this.quickaccess);
+		this.positronQuickInput = new PositronQuickInput(code);
+		this.positronQuickaccess = new PositronQuickAccess(code, this.editors, this.positronQuickInput);
 		this.positronOutline = new PositronOutline(code, this.quickaccess);
 		this.positronClipboard = new PositronClipboard(code);
-		this.positronQuickInput = new PositronQuickInput(code);
 		// --- End Positron ---
 	}
 }

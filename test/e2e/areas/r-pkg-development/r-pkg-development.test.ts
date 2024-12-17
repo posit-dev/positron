@@ -15,9 +15,9 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 		try {
 			// don't use native file picker
 			await userSettings.set([['files.simpleDialog.enable', 'true']]);
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+			await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 			await app.workbench.positronConsole.barClearButton.click();
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+			await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		} catch (e) {
 			app.code.driver.takeScreenshot('rPackageSetup');
 			throw e;
@@ -30,7 +30,7 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 		await test.step('Open R Package', async () => {
 			// Navigate to https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
 			// This is an R package embedded in qa-example-content
-			await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
+			await app.workbench.positronQuickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
 			await app.workbench.positronQuickInput.waitForQuickInputOpened();
 			await app.workbench.positronQuickInput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
 			await app.workbench.positronQuickInput.clickOkOnQuickInput();
@@ -41,7 +41,7 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 
 		await test.step('Test R Package', async () => {
 			logger.log('Test R Package');
-			await app.workbench.quickaccess.runCommand('r.packageTest');
+			await app.workbench.positronQuickaccess.runCommand('r.packageTest');
 			await expect(async () => {
 				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('[ FAIL 1 | WARN 0 | SKIP 0 | PASS 16 ]')));
 				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Terminal will be reused by tasks')));
@@ -50,8 +50,8 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 
 		await test.step('Check R Package', async () => {
 			logger.log('Check R Package');
-			await app.workbench.quickaccess.runCommand('workbench.action.terminal.clear');
-			await app.workbench.quickaccess.runCommand('r.packageCheck');
+			await app.workbench.positronQuickaccess.runCommand('workbench.action.terminal.clear');
+			await app.workbench.positronQuickaccess.runCommand('r.packageCheck');
 			await expect(async () => {
 				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('Error: R CMD check found ERRORs')));
 				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Terminal will be reused by tasks')));
@@ -60,7 +60,7 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 
 		await test.step('Install R Package and Restart R', async () => {
 			logger.log('Install R Package and Restart R');
-			await app.workbench.quickaccess.runCommand('r.packageInstall');
+			await app.workbench.positronQuickaccess.runCommand('r.packageInstall');
 			await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('✔ Installed testfun 0.0.0.9000')));
 
 			await app.workbench.positronConsole.waitForConsoleContents('restarted', { timeout: 30000 });

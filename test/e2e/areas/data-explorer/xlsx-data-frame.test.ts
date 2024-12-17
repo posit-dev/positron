@@ -20,8 +20,8 @@ test.describe('Data Explorer - XLSX', {
 	});
 
 	test('Python - Verifies data explorer functionality with XLSX input [C632940]', async function ({ app, python, logger }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'read-xlsx-py', 'supermarket-sales.py'));
-		await app.workbench.quickaccess.runCommand('python.execInConsole');
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'read-xlsx-py', 'supermarket-sales.py'));
+		await app.workbench.positronQuickaccess.runCommand('python.execInConsole');
 
 		logger.log('Opening data grid');
 		await expect(async () => {
@@ -37,8 +37,8 @@ test.describe('Data Explorer - XLSX', {
 	});
 
 	test('R - Verifies data explorer functionality with XLSX input [C632941]', async function ({ app, r, logger }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'read-xlsx-r', 'supermarket-sales.r'));
-		await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'read-xlsx-r', 'supermarket-sales.r'));
+		await app.workbench.positronQuickaccess.runCommand('r.sourceCurrentFile');
 
 		logger.log('Opening data grid');
 		await expect(async () => {
