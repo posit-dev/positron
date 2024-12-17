@@ -44,7 +44,7 @@ jobs:
           - os: 'ubuntu-latest'
             python: '3.12'
           - os: 'ubuntu-latest'
-            python: '3.13-dev'
+            python: '3.13'
 
     steps:
       - name: Checkout
@@ -97,7 +97,7 @@ jobs:
           - os: 'ubuntu-latest'
             python: '3.12'
           - os: 'ubuntu-latest'
-            python: '3.13-dev'
+            python: '3.13'
 
     steps:
       - name: Checkout
