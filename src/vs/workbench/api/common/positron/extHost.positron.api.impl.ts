@@ -29,6 +29,7 @@ import { ExtHostConsoleService } from './extHostConsoleService.js';
 import { ExtHostMethods } from './extHostMethods.js';
 import { ExtHostEditors } from '../extHostTextEditors.js';
 import { UiFrontendRequest } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { ExtHostConnections } from './extHostConnections.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -71,6 +72,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods,
 		new ExtHostMethods(rpcProtocol, extHostEditors, extHostDocuments, extHostModalDialogs,
 			extHostLanguageRuntime, extHostWorkspace, extHostCommands, extHostContextKeyService));
+	const extHostConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostConnections, new ExtHostConnections(rpcProtocol));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 
@@ -192,6 +194,12 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 		};
 
+		const connections: typeof positron.connections = {
+			registerConnectionDriver(driver: positron.ConnectionsDriver): vscode.Disposable {
+				return extHostConnections.registerConnectionDriver(driver);
+			}
+		};
+
 		// --- End Positron ---
 
 		return <typeof positron>{
@@ -201,6 +209,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			window,
 			languages,
 			methods,
+			connections,
 			PositronOutputLocation: extHostTypes.PositronOutputLocation,
 			RuntimeClientType: extHostTypes.RuntimeClientType,
 			RuntimeClientState: extHostTypes.RuntimeClientState,
@@ -216,6 +225,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			RuntimeOnlineState: extHostTypes.RuntimeOnlineState,
 			RuntimeState: extHostTypes.RuntimeState,
 			RuntimeCodeFragmentStatus: extHostTypes.RuntimeCodeFragmentStatus,
+			ConnectionsInputType: extHostTypes.ConnectionsInputType,
 		};
 	};
 }

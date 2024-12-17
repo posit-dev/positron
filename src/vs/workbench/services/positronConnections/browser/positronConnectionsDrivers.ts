@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../languageRuntime/common/languageRuntimeService.js';
-import { IDriver, Input, InputType } from './interfaces/positronConnectionsDriver.js';
+import { IDriver, IDriverMetadata, Input, InputType } from './interfaces/positronConnectionsDriver.js';
 import { IPositronConnectionsService } from './interfaces/positronConnectionsService.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
 
@@ -25,6 +25,13 @@ export class PositronConnectionsDriverManager {
 		}
 	}
 
+	removeDriver(driverId: string): void {
+		const index = this.drivers.findIndex(d => d.driverId === driverId);
+		if (index > 0) {
+			this.drivers.splice(index, 1);
+		}
+	}
+
 	getDrivers(): IDriver[] {
 		return this.drivers;
 	}
@@ -38,55 +45,58 @@ export class PositronConnectionsDriverManager {
 class RPostgreSQLDriver implements IDriver {
 	constructor(readonly service: IPositronConnectionsService) { }
 
-	languageId: string = 'r';
 	driverId: string = 'postgres';
-	name: string = 'PostgresSQL';
-	inputs: Input[] = [
-		{
-			'id': 'dbname',
-			'label': 'Database Name',
-			'type': InputType.String,
-			'value': 'localhost'
-		},
-		{
-			'id': 'host',
-			'label': 'Host',
-			'type': InputType.String,
-			'value': 'localhost'
-		},
-		{
-			'id': 'port',
-			'label': 'Port',
-			'type': InputType.Number,
-			'value': '5432'
-		},
-		{
-			'id': 'user',
-			'label': 'User',
-			'type': InputType.String,
-			'value': 'postgres'
-		},
-		{
-			'id': 'password',
-			'label': 'Password',
-			'type': InputType.String,
-			'value': 'password'
-		},
-		{
-			'id': 'bigint',
-			'label': 'Integer representation',
-			'type': InputType.Option,
-			'options': [
-				{ 'identifier': 'integer64', 'title': 'integer64' },
-				{ 'identifier': 'integer', 'title': 'integer' },
-				{ 'identifier': 'numeric', 'title': 'numeric' },
-				{ 'identifier': 'character', 'title': 'character' }
-			],
-			'value': 'integer64'
-		}
-	];
 
-	generateCode(inputs: Array<Input>) {
+	metadata: IDriverMetadata = {
+		languageId: 'r',
+		name: 'PostgresSQL',
+		inputs: [
+			{
+				'id': 'dbname',
+				'label': 'Database Name',
+				'type': InputType.String,
+				'value': 'localhost'
+			},
+			{
+				'id': 'host',
+				'label': 'Host',
+				'type': InputType.String,
+				'value': 'localhost'
+			},
+			{
+				'id': 'port',
+				'label': 'Port',
+				'type': InputType.Number,
+				'value': '5432'
+			},
+			{
+				'id': 'user',
+				'label': 'User',
+				'type': InputType.String,
+				'value': 'postgres'
+			},
+			{
+				'id': 'password',
+				'label': 'Password',
+				'type': InputType.String,
+				'value': 'password'
+			},
+			{
+				'id': 'bigint',
+				'label': 'Integer representation',
+				'type': InputType.Option,
+				'options': [
+					{ 'identifier': 'integer64', 'title': 'integer64' },
+					{ 'identifier': 'integer', 'title': 'integer' },
+					{ 'identifier': 'numeric', 'title': 'numeric' },
+					{ 'identifier': 'character', 'title': 'character' }
+				],
+				'value': 'integer64'
+			}
+		]
+	}
+
+	async generateCode(inputs: Array<Input>) {
 		const dbname = inputs.find(input => input.id === 'dbname')?.value;
 		const host = inputs.find(input => input.id === 'host')?.value;
 		const port = inputs.find(input => input.id === 'port')?.value;

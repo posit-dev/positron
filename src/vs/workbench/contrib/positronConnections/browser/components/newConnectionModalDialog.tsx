@@ -56,7 +56,7 @@ const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDia
 
 	const backHandler = () => {
 		// When hitting back, reset the language ID to the previously selected language id
-		setLanguageId(selectedDriver?.languageId);
+		setLanguageId(selectedDriver?.metadata.languageId);
 		setSelectedDriver(undefined);
 	};
 

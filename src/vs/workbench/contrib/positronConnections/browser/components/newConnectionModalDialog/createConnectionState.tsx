@@ -30,18 +30,19 @@ interface CreateConnectionProps {
 
 export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>) => {
 
-	const { name, languageId, generateCode } = props.selectedDriver;
+	const { generateCode, metadata } = props.selectedDriver;
+	const { name, languageId } = metadata;
 	const { onBack, onCancel, services } = props;
 	const editorRef = useRef<SimpleCodeEditorWidget>(undefined!);
 
-	const [inputs, setInputs] = useState<Array<Input>>(props.selectedDriver.inputs);
-	const [code, setCode] = useState<string | undefined>(props.selectedDriver.generateCode?.(props.selectedDriver.inputs));
+	const [inputs, setInputs] = useState<Array<Input>>(metadata.inputs);
+	const [code, setCode] = useState<string | undefined>(undefined);
 
 	useEffect(() => {
 		// Debounce the code generation to avoid unnecessary re-renders
-		const timeoutId = setTimeout(() => {
+		const timeoutId = setTimeout(async () => {
 			if (generateCode) {
-				const code = generateCode(inputs);
+				const code = await generateCode(inputs);
 				setCode(code);
 			}
 		}, 200);
@@ -57,7 +58,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 			message: localize(
 				'positron.newConnectionModalDialog.createConnection.connecting',
 				"Connecting to data source ({0})...",
-				props.selectedDriver.name
+				name
 			),
 			severity: Severity.Info
 		});
@@ -96,7 +97,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 			</h1>
 		</div>
 
-		<Form inputs={props.selectedDriver.inputs} onInputsChange={setInputs}></Form>
+		<Form inputs={metadata.inputs} onInputsChange={setInputs}></Form>
 
 		<div className='create-connection-code-title'>
 			{(() => localize('positron.newConnectionModalDialog.createConnection.code', "Connection Code"))()}
