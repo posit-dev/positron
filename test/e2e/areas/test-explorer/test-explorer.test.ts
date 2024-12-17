@@ -33,10 +33,10 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER] }, () => {
 			// Navigate to https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
 			// This is an R package embedded in qa-example-content
 			await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
-			await app.workbench.quickinput.waitForQuickInputOpened();
-			await app.workbench.quickinput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
+			await app.workbench.positronQuickInput.waitForQuickInputOpened();
+			await app.workbench.positronQuickInput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
 			// Had to add a positron class, because Microsoft did not have this:
-			await app.workbench.quickinput.clickOkOnQuickInput();
+			await app.workbench.positronQuickInput.clickOkOnQuickInput();
 
 			// Wait for the console to be ready
 			await app.workbench.positronConsole.waitForReady('>', 10000);

@@ -72,7 +72,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
 
 			await app.workbench.positronWelcome.newFileButton.click();
 
-			await app.workbench.quickinput.selectQuickInputElementContaining('Python File');
+			await app.workbench.positronQuickInput.selectQuickInputElementContaining('Python File');
 
 			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/python-lang-file-icon/);
 
@@ -111,7 +111,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
 		test('Create a new R file from the Welcome page [C684755]', async function ({ app, r }) {
 			await app.workbench.positronWelcome.newFileButton.click();
 
-			await app.workbench.quickinput.selectQuickInputElementContaining('R File');
+			await app.workbench.positronQuickInput.selectQuickInputElementContaining('R File');
 
 			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/r-lang-file-icon/);
 		});
