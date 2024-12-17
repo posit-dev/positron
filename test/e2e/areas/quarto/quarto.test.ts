@@ -57,7 +57,7 @@ test.describe('Quarto', { tag: [tags.WEB, tags.QUARTO] }, () => {
 const renderQuartoDocument = async (app: Application, fileExtension: string) => {
 	await test.step(`render quarto document`, async () => {
 		await app.workbench.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
-		await app.workbench.quickinput.selectQuickInputElementContaining(fileExtension);
+		await app.workbench.positronQuickInput.selectQuickInputElementContaining(fileExtension);
 	});
 };
 
