@@ -1269,10 +1269,10 @@ export default tseslint.config(
 			'local/code-import-patterns': [
 				'warn',
 				{
-					'target': 'test/smoke/**',
+					'target': 'test/e2e/**',
 					'restrictions': [
 						'test/automation',
-						'test/smoke/**',
+						'test/e2e/**',
 						'@vscode/*',
 						'@parcel/*',
 						'@playwright/*',

@@ -20,16 +20,16 @@ This document provides guidelines and setup instructions for effectively running
 
 ### Test Code Location
 
-- `test/e2e/features`
+- `test/e2e/areas`
 
-For instance, the e2e tests for the help pane are at `test/e2e/features/help/help.test.ts`
+For instance, the e2e tests for the help pane are at `test/e2e/areas/help/help.test.ts`
 
 ### Test Helpers Location
 
 - General helpers dir: `test/automation/src`
 - Positron helpers dir: `test/automation/src/positron`
 
-For each area under test, there is typically a companion class that assists with locating and interacting with elements (similar to POM pattern). For instance, the e2e tests for the help pane are at `test/e2e/features/help/help.test.ts`
+For each area under test, there is typically a companion class that assists with locating and interacting with elements (similar to POM pattern). For instance, the e2e tests for the help pane are at `test/e2e/areas/help/help.test.ts`
 
 ### Test Template
 
