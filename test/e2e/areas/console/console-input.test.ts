@@ -13,103 +13,82 @@ test.describe('Console Input', {
 	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.CONSOLE]
 }, () => {
 
-	test.describe('Console Input - Python', () => {
-		test.beforeEach(async function ({ app, python }) {
-			await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
-		});
+	test.beforeEach(async function ({ app, r }) {
+		await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
+	});
 
-		test('Python - Get Input String Console [C667516]', async function ({ app }) {
-			const inputCode = `val = input("Enter your name: ")
+
+	test('Python - Get Input String Console [C667516]', async function ({ app, python }) {
+		const inputCode = `val = input("Enter your name: ")
 print(f'Hello {val}!')`;
 
-			await expect(async () => {
-				await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Enter your name:')));
+		await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
+		await app.workbench.positronConsole.sendEnterKey();
+		await expect(app.workbench.positronConsole.activeConsole.getByText('Enter your name:', { exact: true })).toBeVisible();
 
-				// slight wait before starting to type
-				await app.code.wait(200);
+		await app.workbench.positronConsole.typeToConsole('John Doe');
+		await app.workbench.positronConsole.sendEnterKey();
+		await app.workbench.positronConsole.waitForConsoleContents('Hello John Doe!');
 
-				await app.workbench.positronConsole.typeToConsole('John Doe');
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Hello John Doe!')));
-			}).toPass({ timeout: 60000 });
-		});
 	});
 
-	test.describe('Console Input - R', () => {
-		test.beforeEach(async function ({ app, r }) {
-			await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
-		});
 
-		test('R - Get Input String Console [C667517]', async function ({ app }) {
-			const inputCode = `val <- readline(prompt = "Enter your name: ")
+	test('R - Get Input String Console [C667517]', async function ({ app, r }) {
+		const inputCode = `val <- readline(prompt = "Enter your name: ")
 cat(sprintf('Hello %s!\n', val))`;
+		await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
+		await app.workbench.positronConsole.sendEnterKey();
+		await expect(app.workbench.positronConsole.activeConsole.getByText('Enter your name:', { exact: true })).toBeVisible();
 
-			await expect(async () => {
-				await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Enter your name:')));
+		// slight wait before starting to type
+		await app.code.wait(200);
+		await app.workbench.positronConsole.typeToConsole('John Doe');
+		await app.workbench.positronConsole.sendEnterKey();
+		await app.workbench.positronConsole.waitForConsoleContents('Hello John Doe!');
+	});
 
-				// slight wait before starting to type
-				await app.code.wait(200);
-				await app.workbench.positronConsole.typeToConsole('John Doe');
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Hello John Doe!')));
-			}).toPass({ timeout: 60000 });
+	test('R - Can use `menu` to select alternatives [C684749]', async function ({ app, r }) {
+		const inputCode = `x <- menu(letters)`;
 
-		});
+		await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
+		await app.workbench.positronConsole.sendEnterKey();
+		await app.workbench.positronConsole.waitForConsoleContents('Selection:');
 
-		test('R - Can use `menu` to select alternatives [C684749]', async function ({ app }) {
-			const inputCode = `x <- menu(letters)`;
+		await app.workbench.positronConsole.typeToConsole('1');
+		await app.workbench.positronConsole.sendEnterKey();
 
-			await expect(async () => {
-				await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Selection:')));
+		await app.workbench.positronConsole.typeToConsole('x');
+		await app.workbench.positronConsole.sendEnterKey();
 
-				// slight wait before starting to type
-				await app.code.wait(200);
-				await app.workbench.positronConsole.typeToConsole('1');
-				await app.workbench.positronConsole.sendEnterKey();
+		await app.workbench.positronConsole.waitForConsoleContents('[1] 1');
+	});
 
-				// slight wait before starting to type
-				await app.code.wait(200);
-				await app.workbench.positronConsole.typeToConsole('x');
-				await app.workbench.positronConsole.sendEnterKey();
+	test("R - Esc only dismisses autocomplete not full text typed into console [C685868]", async function ({ app, page, r }) {
+		// This is a regression test for https://github.com/posit-dev/positron/issues/1161
 
-				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('[1] 1')));
-			}).toPass({ timeout: 60000 });
-		});
+		const inputCode = `base::mea`;
 
-		test("R - Esc only dismisses autocomplete not full text typed into console [C685868]", async function ({ app }) {
-			// This is a regression test for https://github.com/posit-dev/positron/issues/1161
+		await app.workbench.positronConsole.typeToConsole(inputCode);
 
-			const inputCode = `base::mea`;
+		const activeConsole = app.workbench.positronConsole.activeConsole;
 
-			await expect(async () => {
-				await app.workbench.positronConsole.typeToConsole(inputCode);
-			}).toPass({ timeout: 60000 });
+		// Makes sure the code suggestions are activated
+		const suggestion = activeConsole.locator('.suggest-widget');
+		await expect(suggestion).toBeVisible();
 
-			const activeConsole = app.workbench.positronConsole.activeConsole;
+		// We now send `Esc` to dismiss the suggestion
+		await page.keyboard.press('Escape');
+		await expect(suggestion).toBeHidden();
 
-			// Makes sure the code suggestions are activated
-			const suggestion = activeConsole.locator('.suggest-widget');
-			await expect(suggestion).toBeVisible();
+		const inputLocator = activeConsole.locator(".console-input");
 
-			// We now send `Esc` to dismiss the suggestion
-			await app.workbench.positronConsole.sendKeyboardKey('Escape');
-			await expect(suggestion).toBeHidden();
+		// Send the next `Esc`, that shouldn't cleanup the typed text
+		await page.keyboard.press('Escape');
+		await expect(inputLocator).toContainText('base::mea');
 
-			const inputLocator = activeConsole.locator(".console-input");
-
-			// Send the next `Esc`, that shoukldn't cleanup the typed text
-			await app.workbench.positronConsole.sendKeyboardKey('Escape');
-			await expect(inputLocator).toContainText('base::mea');
-
-			// We can clear the console text with Ctrl + C
-			await app.workbench.positronConsole.sendKeyboardKey('Control+C');
-			await expect(inputLocator).not.toContainText("base::mea");
-		});
+		// We can clear the console text with Ctrl + C
+		await page.keyboard.press('Control+C');
+		await expect(inputLocator).not.toContainText("base::mea");
 	});
 });
+

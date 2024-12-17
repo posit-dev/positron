@@ -38,7 +38,7 @@ test.describe('Reticulate', {
 		await app.workbench.positronConsole.sendEnterKey();
 
 		try {
-			await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Yes/no/cancel')));
+			await app.workbench.positronConsole.waitForConsoleContents('Yes/no/cancel');
 			await app.workbench.positronConsole.typeToConsole('no');
 			await app.workbench.positronConsole.sendEnterKey();
 		} catch {

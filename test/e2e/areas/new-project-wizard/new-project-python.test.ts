@@ -116,9 +116,8 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await app.workbench.positronInterpreterDropdown.closeInterpreterDropdown();
 		await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
 		await app.workbench.positronConsole.sendEnterKey();
-		await app.workbench.positronConsole.waitForConsoleContents((contents) =>
-			contents.some((line) => line.includes('Successfully uninstalled ipykernel'))
-		);
+		await app.workbench.positronConsole.waitForConsoleContents('Successfully uninstalled ipykernel')
+
 		// Create a new Python project and use the selected python interpreter
 		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
 		await pw.navigate(ProjectWizardNavigateAction.NEXT);

@@ -130,7 +130,7 @@ df2 = pd.DataFrame(data)`;
 		await app.workbench.positronConsole.barClearButton.click();
 		await app.workbench.positronConsole.barRestartButton.click();
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await expect(app.workbench.positronConsole.activeConsole.getByText('restarted')).toBeVisible({ timeout: 40000 });
+		await expect(app.workbench.positronConsole.activeConsole.getByText('restarted')).toBeVisible({ timeout: 60000 });
 
 		const filename = 'pandas-update-dataframe.ipynb';
 		await app.workbench.positronNotebooks.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', filename));
