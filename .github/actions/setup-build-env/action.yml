@@ -6,8 +6,9 @@ runs:
     - name: Install Build Dependencies
       shell: bash
       run: |
-        cat /etc/apt/sources.list
-        apt-cache policy libasound2
+        wget http://archive.ubuntu.com/ubuntu/pool/main/a/alsa-lib/libasound2_1.2.8-1_amd64.deb
+        sudo dpkg -i libasound2_1.2.8-1_amd64.deb
+        sudo apt-get install -f
         sudo apt-get update
         sudo apt-get install -y \
           vim curl build-essential clang make cmake git \
