@@ -57,9 +57,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 
 		// You should either manually interact with the Console to proceed with the Renv
 		// install or temporarily uncomment the code below to automate the interaction.
-		// await app.workbench.positronConsole.waitForConsoleContents((contents) =>
-		// 	contents.some((line) => line.includes('Do you want to proceed?'))
-		// );
+		// await app.workbench.positronConsole.waitForConsoleContents('Do you want to proceed?')
 		// await app.workbench.positronConsole.typeToConsole('y');
 		// await app.workbench.positronConsole.sendEnterKey();
 
@@ -73,9 +71,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 			expect(projectFiles).toContain('renv.lock');
 		}).toPass({ timeout: 50000 });
 		// Verify that renv output in the console confirms no issues occurred
-		await app.workbench.positronConsole.waitForConsoleContents((contents) =>
-			contents.some((line) => line.includes('renv activated'))
-		);
+		await app.workbench.positronConsole.waitForConsoleContents('renv activated');
 	});
 
 	test('R - Renv already installed [C656251]', { tag: [tags.WIN] }, async function ({ app }) {
@@ -99,9 +95,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 			expect(projectFiles).toContain('renv.lock');
 		}).toPass({ timeout: 50000 });
 		// Verify that renv output in the console confirms no issues occurred
-		await app.workbench.positronConsole.waitForConsoleContents((contents) =>
-			contents.some((line) => line.includes('renv activated'))
-		);
+		await app.workbench.positronConsole.waitForConsoleContents('renv activated');
 	});
 
 	test('R - Cancel Renv install [C656252]', { tag: [tags.WIN] }, async function ({ app }) {
@@ -109,9 +103,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 		const pw = app.workbench.positronNewProjectWizard;
 		// Remove renv package so we are prompted to install it again
 		await app.workbench.positronConsole.executeCode('R', 'remove.packages("renv")', '>');
-		await app.workbench.positronConsole.waitForConsoleContents((contents) =>
-			contents.some((line) => line.includes(`Removing package`))
-		);
+		await app.workbench.positronConsole.waitForConsoleContents(`Removing package`);
 		// Create a new R project - select Renv but opt out of installing
 		await pw.startNewProject(ProjectType.R_PROJECT);
 		await pw.navigate(ProjectWizardNavigateAction.NEXT);

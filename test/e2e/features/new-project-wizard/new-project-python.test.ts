@@ -65,7 +65,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 	test.skip('With ipykernel already installed [C609619]', {
 		tag: [tags.WIN],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5730' }],
-		}, async function ({ app, page, python }) {
+	}, async function ({ app, page, python }) {
 		const projSuffix = addRandomNumSuffix('_ipykernelInstalled');
 		const pw = app.workbench.positronNewProjectWizard;
 		const pythonFixtures = new PositronPythonFixtures(app);
@@ -103,7 +103,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 	test.skip('With ipykernel not already installed [C609617]', {
 		tag: [tags.WIN],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5730' }],
-		}, async function ({ app, page }) {
+	}, async function ({ app, page }) {
 		const projSuffix = addRandomNumSuffix('_noIpykernel');
 		const pw = app.workbench.positronNewProjectWizard;
 		const pythonFixtures = new PositronPythonFixtures(app);
@@ -116,9 +116,8 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await app.workbench.positronInterpreterDropdown.closeInterpreterDropdown();
 		await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
 		await app.workbench.positronConsole.sendEnterKey();
-		await app.workbench.positronConsole.waitForConsoleContents((contents) =>
-			contents.some((line) => line.includes('Successfully uninstalled ipykernel'))
-		);
+		await app.workbench.positronConsole.waitForConsoleContents('Successfully uninstalled ipykernel')
+
 		// Create a new Python project and use the selected python interpreter
 		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
 		await pw.navigate(ProjectWizardNavigateAction.NEXT);

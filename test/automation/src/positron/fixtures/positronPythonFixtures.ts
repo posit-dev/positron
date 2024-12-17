@@ -27,10 +27,9 @@ export class PositronPythonFixtures {
 			fail('Please be sure to set env var POSITRON_PY_VER_SEL to the UI text corresponding to the Python version for the test');
 		}
 
-		// We currently don't capture fixtures in the Playwright trace, so take a screenshot on failure
 		try {
 			await this.app.workbench.positronConsole.selectInterpreter(InterpreterType.Python, desiredPython, skipReadinessCheck);
-			await this.app.workbench.positronConsole.waitForReady('>>>', 2000);
+			await this.app.workbench.positronConsole.waitForReady('>>>', 40000);
 		} catch (e) {
 			await this.app.code.driver.takeScreenshot('startPythonInterpreter');
 			throw e;

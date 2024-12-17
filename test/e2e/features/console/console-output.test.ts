@@ -13,8 +13,8 @@ test.describe('Console Output', { tag: [tags.WIN, tags.CONSOLE] }, () => {
 	test('R - Console output in a loop with short pauses [C885225]', async function ({ app, r }) {
 		await app.workbench.positronConsole.pasteCodeToConsole(rCode);
 		await app.workbench.positronConsole.sendEnterKey();
-		await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Why do programmers prefer dark mode')));
-		await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Because light attracts bugs!')));
+		await app.workbench.positronConsole.waitForConsoleContents('Why do programmers prefer dark mode');
+		await app.workbench.positronConsole.waitForConsoleContents('Because light attracts bugs!');
 	});
 });
 
