@@ -25,6 +25,8 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { ExplorerFolderContext } from '../../files/common/files.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
@@ -667,6 +669,56 @@ export function registerLanguageRuntimeActions() {
 				// Notify the user that there's no console for the language.
 				notificationService.warn(nls.localize('positron.executeSilent.noConsole.active', "Cannot execute '{0}'; no {1} console is active.", args.code, languageName));
 			}
+		}
+	});
+
+	// Registers the execute selected code action.
+	registerAction2(class ExecuteSelectedCodeAction extends Action2 {
+		constructor() {
+			super({
+				id: '.selection',
+				title: nls.localize2('positron.command.executeSelectedCode', "Execute Selected Code in Console"),
+				f1: true,
+				category,
+				keybinding: {
+					weight: KeybindingWeight.WorkbenchContrib,
+					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
+				}
+			});
+		}
+
+		async run(accessor: ServicesAccessor): Promise<void> {
+			const editorService = accessor.get(IEditorService);
+			const consoleService = accessor.get(IPositronConsoleService);
+
+			// Get the active editor
+			const codeEditor = editorService.activeEditorPane?.getControl() as ICodeEditor | undefined;
+			if (!codeEditor?.hasModel()) {
+				return;
+			}
+
+			// Get the selected text or current line if no selection
+			const selection = codeEditor.getSelection();
+			let code: string;
+			if (selection.isEmpty()) {
+				// If no text is selected, get the current line
+				const lineNumber = selection.startLineNumber;
+				code = codeEditor.getModel().getLineContent(lineNumber + 1);
+			} else {
+				// Get the selected text
+				code = codeEditor.getModel().getValueInRange(selection);
+			}
+
+			// Get the language ID from the editor
+			const languageId = codeEditor.getModel().getLanguageId();
+
+			// Execute the code in the console
+			consoleService.executeCode(
+				languageId,
+				code,
+				true, /* focus the console */
+				true  /* execute the code even if incomplete */
+			);
 		}
 	});
 }
