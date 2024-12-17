@@ -50,6 +50,7 @@
 		"out-vscode-reh/**": true,
 		"extensions/**/dist/**": true,
 		"extensions/**/out/**": true,
+		"test/e2e/out/**": true,
 		"test/smoke/out/**": true,
 		"test/automation/out/**": true,
 		"test/integration/browser/out/**": true

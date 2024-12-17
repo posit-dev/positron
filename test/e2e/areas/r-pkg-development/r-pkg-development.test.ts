@@ -28,17 +28,15 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 		test.slow();
 
 		await test.step('Open R Package', async () => {
-			await expect(async () => {
-				// Navigate to https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
-				// This is an R package embedded in qa-example-content
-				await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
-				await app.workbench.quickinput.waitForQuickInputOpened();
-				await app.workbench.quickinput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
-				await app.workbench.quickinput.clickOkOnQuickInput();
+			// Navigate to https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
+			// This is an R package embedded in qa-example-content
+			await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
+			await app.workbench.quickinput.waitForQuickInputOpened();
+			await app.workbench.quickinput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
+			await app.workbench.quickinput.clickOkOnQuickInput();
 
-				// Wait for the console to be ready
-				await app.workbench.positronConsole.waitForReady('>', 10000);
-			}).toPass({ timeout: 70000 });
+			// Wait for the console to be ready
+			await app.workbench.positronConsole.waitForReady('>', 45000);
 		});
 
 		await test.step('Test R Package', async () => {
@@ -64,15 +62,13 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 			logger.log('Install R Package and Restart R');
 			await app.workbench.quickaccess.runCommand('r.packageInstall');
 			await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('✔ Installed testfun 0.0.0.9000')));
-			await expect(async () => {
-				await app.workbench.positronConsole.waitForReady('>');
-				await expect(app.workbench.positronConsole.activeConsole.getByText('restarted')).toBeVisible({ timeout: 30000 });
-				await expect(app.workbench.positronConsole.activeConsole.getByText('library(testfun)')).toBeVisible();
-			}).toPass({ timeout: 70000 });
+
+			await app.workbench.positronConsole.waitForConsoleContents('restarted', { timeout: 30000 });
+			await app.workbench.positronConsole.waitForConsoleContents('library(testfun)');
 
 			await app.workbench.positronConsole.pasteCodeToConsole('(.packages())');
 			await app.workbench.positronConsole.sendEnterKey();
-			await expect(app.workbench.positronConsole.activeConsole.getByText('"testfun"')).toBeVisible();
+			await app.workbench.positronConsole.waitForConsoleContents('"testfun"');
 		});
 	});
 });

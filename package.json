@@ -38,7 +38,7 @@
     "7z": "7z",
     "update-grammars": "node build/npm/update-all-grammars.mjs",
     "update-localization-extension": "node build/npm/update-localization-extension.js",
-    "e2e": "yarn e2e-electron",
+    "e2e": "npm run e2e-electron",
     "e2e-electron": "npx playwright test --project e2e-electron",
     "e2e-browser": "npx playwright test --project e2e-browser",
     "e2e-pr": "npx playwright test --project e2e-electron --grep @critical",

@@ -3,8 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup';
-import { fail } from 'assert';
+import { test, tags, expect } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -16,12 +15,9 @@ test.describe('Console Autocomplete', {
 	test('Python - Verify Console Autocomplete [C947968]', async function ({ app, python }) {
 		await app.workbench.positronConsole.pasteCodeToConsole('import pandas as pd');
 		await app.workbench.positronConsole.sendEnterKey();
-		await app.workbench.positronConsole.typeToConsole('df = pd.Dat');
 
-		const suggestionList = await app.workbench.positronConsole.getSuggestions();
-		if (suggestionList.length < 3) {
-			fail('Less than 3 suggestions found');
-		}
+		await app.workbench.positronConsole.typeToConsole('df = pd.Dat');
+		await expect(app.workbench.positronConsole.suggestionList).toHaveCount(8, { timeout: 15000 });
 	});
 
 	test('R - Verify Console Autocomplete [C947969]', async function ({ app, r }) {
@@ -30,10 +26,6 @@ test.describe('Console Autocomplete', {
 
 		// need to type to console slowly to see suggestions with R
 		await app.workbench.positronConsole.typeToConsole('df2 <- read_p', 250);
-
-		const suggestionList = await app.workbench.positronConsole.getSuggestions();
-		if (suggestionList.length < 3) {
-			fail('Less than 3 suggestions found');
-		}
+		await expect(app.workbench.positronConsole.suggestionList).toHaveCount(4, { timeout: 15000 });
 	});
 });

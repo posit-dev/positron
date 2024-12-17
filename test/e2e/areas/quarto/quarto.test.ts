@@ -49,7 +49,7 @@ test.describe('Quarto', { tag: [tags.WEB, tags.QUARTO] }, () => {
 		const viewerFrame = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe');
 
 		// verify preview displays
-		expect(await viewerFrame.locator('h1').innerText()).toBe('Diamond sizes');
+		await expect(viewerFrame.locator('h1')).toHaveText('Diamond sizes', { timeout: 30000 });
 	});
 });
 

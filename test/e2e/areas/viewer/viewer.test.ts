@@ -17,7 +17,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 
 	test.skip('Python - Verify Viewer functionality with vetiver [C784887]', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5569' }]
-	}, async function ({ app, logger, python }) {
+	}, async function ({ app, page, logger, python }) {
 		logger.log('Sending code to console');
 		await app.workbench.positronConsole.pasteCodeToConsole(pythonScript);
 		await app.workbench.positronConsole.sendEnterKey();
@@ -28,8 +28,8 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 		//await app.workbench.positronConsole.activeConsole.click();
 
 		await app.workbench.positronConsole.clickConsoleTab();
-		await app.workbench.positronConsole.sendKeyboardKey('Control+C');
-		await app.workbench.positronConsole.waitForConsoleContents(buffer => buffer.some(line => line.includes('Application shutdown complete.')));
+		await page.keyboard.press('Control+C');
+		await app.workbench.positronConsole.waitForConsoleContents('Application shutdown complete.');
 	});
 
 	// This randomly fails only in CI
