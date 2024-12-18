@@ -29,6 +29,7 @@ import { decodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { NotebookExecutionStatus } from './notebookExecutionStatus.js';
 
 /**
  * The view type supported by Positron runtime notebook kernels. Currently only Jupyter notebooks are supported.
@@ -43,12 +44,27 @@ const viewType = 'jupyter-notebook';
  */
 export const RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID = 'positron.runtime-notebook-kernels';
 
+/** An event that fires when a notebook execution starts. */
+interface DidStartExecutionEvent {
+	/** The notebook cells being executed. */
+	cells: NotebookCellTextModel[];
+}
+
+/** An event that fires when a notebook execution ends. */
+interface DidEndExecutionEvent {
+	/** The notebook cells that were executed. */
+	cells: NotebookCellTextModel[];
+
+	/** The duration of the execution in milliseconds. */
+	duration: number;
+}
+
 /**
  * The affinity of a kernel for a notebook.
  *
  * NOTE: This should match vscode.NotebookControllerAffinity.
  */
-export enum NotebookKernelAffinity {
+enum NotebookKernelAffinity {
 	/** The default affinity. */
 	Default = 1,
 
@@ -73,6 +89,9 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 	/** Map of runtime notebook kernels keyed by runtime ID. */
 	private readonly _kernelsByRuntimeId = new Map<string, RuntimeNotebookKernel>();
 
+	/** A status bar entry that displays information about the current notebook execution. */
+	private _executionStatus: NotebookExecutionStatus;
+
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
@@ -85,6 +104,11 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 	) {
 		super();
 
+		// Create the execution info status.
+		this._executionStatus = this._register(this._instantiationService.createInstance(NotebookExecutionStatus));
+
+		// If runtime notebook kernels are disabled, do nothing.
+		// In that case, the positron-notebook-controllers extension will register notebook kernels.
 		if (!isRuntimeNotebookKernelEnabled(this._configurationService)) {
 			return;
 		}
@@ -168,6 +192,10 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 	private _createRuntimeNotebookKernel(runtime: ILanguageRuntimeMetadata): void {
 		// TODO: Dispose the kernel when the runtime is disposed/unregistered?
 		const kernel = this._instantiationService.createInstance(RuntimeNotebookKernel, runtime);
+
+		// TODO: Dispose
+		this._executionStatus.attachKernel(kernel);
+
 		// TODO: Error if a kernel is already registered for the ID.
 		this._kernels.set(kernel.id, kernel);
 		this._kernelsByRuntimeId.set(runtime.runtimeId, kernel);
@@ -246,7 +274,7 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 	}
 }
 
-class RuntimeNotebookKernel implements INotebookKernel {
+export class RuntimeNotebookKernel extends Disposable implements INotebookKernel {
 	public readonly viewType = viewType;
 
 	public readonly extension = new ExtensionIdentifier(RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID);
@@ -263,8 +291,18 @@ class RuntimeNotebookKernel implements INotebookKernel {
 
 	public readonly localResourceRoot: URI = URI.parse('');
 
-	private readonly _onDidChange = new Emitter<INotebookKernelChangeEvent>();
+	private readonly _onDidChange = this._register(new Emitter<INotebookKernelChangeEvent>());
+	private readonly _onDidStartExecution = this._register(new Emitter<DidStartExecutionEvent>());
+	private readonly _onDidEndExecution = this._register(new Emitter<DidEndExecutionEvent>());
+
+	/** An event that fires when the kernel's details change. */
 	public readonly onDidChange = this._onDidChange.event;
+
+	/** An event that fires when a notebook execution starts. */
+	public readonly onDidStartExecution = this._onDidStartExecution.event;
+
+	/** An event that fires when a notebook execution ends. */
+	public readonly onDidEndExecution = this._onDidEndExecution.event;
 
 	private readonly _notebookRuntimeKernelSessionsByNotebookUri = new ResourceMap<RuntimeNotebookKernelSession>();
 
@@ -274,7 +312,9 @@ class RuntimeNotebookKernel implements INotebookKernel {
 		@ILogService private readonly _logService: ILogService,
 		@INotebookService private readonly _notebookService: INotebookService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
-	) { }
+	) {
+		super();
+	}
 
 	get id(): string {
 		// TODO: Is it ok if the ID doesn't match {publisher}.{extension}.{runtimeId}?
@@ -318,7 +358,31 @@ class RuntimeNotebookKernel implements INotebookKernel {
 			this._notebookRuntimeKernelSessionsByNotebookUri.set(notebookUri, notebookRuntimeKernelSession);
 		}
 
-		await notebookRuntimeKernelSession.executeCells(cellHandles);
+		// Get the cells to execute from their handles.
+		const cells: NotebookCellTextModel[] = [];
+		for (const cellHandle of cellHandles) {
+			const cell = notebook.cells.find(cell => cell.handle === cellHandle);
+			// TODO: When does this happen?
+			if (!cell) {
+				continue;
+			}
+			cells.push(cell);
+		}
+
+		// Fire the start execution event.
+		const startTime = Date.now();
+		this._onDidStartExecution.fire({ cells });
+
+		// Execute the cells.
+		try {
+			await notebookRuntimeKernelSession.executeCells(cells);
+		} catch (err) {
+			this._logService.debug(`Error executing cells: ${err.stack ?? err}`);
+		}
+
+		// Fire the end execution event.
+		const duration = Date.now() - startTime;
+		this._onDidEndExecution.fire({ cells, duration });
 	}
 
 	async cancelNotebookCellExecution(uri: URI, _cellHandles: number[]): Promise<void> {
@@ -348,30 +412,15 @@ class RuntimeNotebookKernelSession extends Disposable {
 	constructor(
 		private readonly _session: ILanguageRuntimeSession,
 		private readonly _notebook: NotebookTextModel,
-		@ILogService private readonly _logService: ILogService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
 	) {
 		super();
 	}
 
-	async executeCells(cellHandles: number[]): Promise<void> {
-		const executionPromises: Promise<void>[] = [];
-		for (const cellHandle of cellHandles) {
-			const cell = this._notebook.cells.find(cell => cell.handle === cellHandle);
-			// TODO: When does this happen?
-			if (!cell) {
-				continue;
-			}
-
-			executionPromises.push(this._queueCellExecution(cell));
-		}
-
-		try {
-			await Promise.all(executionPromises);
-		} catch (err) {
-			this._logService.debug(`Error executing cells: ${err.stack ?? err}`);
-		}
+	async executeCells(cells: NotebookCellTextModel[]): Promise<void> {
+		const executionPromises = cells.map(cell => this._queueCellExecution(cell));
+		await Promise.all(executionPromises);
 	}
 
 	private async _queueCellExecution(cell: NotebookCellTextModel): Promise<void> {
