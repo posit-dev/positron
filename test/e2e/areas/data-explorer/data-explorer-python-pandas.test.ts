@@ -138,12 +138,6 @@ df2 = pd.DataFrame(data)`;
 		await app.workbench.notebook.focusFirstCell();
 		await app.workbench.notebook.executeActiveCell();
 
-		// temporary workaround for fact that variables group
-		// not properly autoselected on web
-		if (app.web) {
-			await app.workbench.positronVariables.selectVariablesGroup(filename);
-		}
-
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('df');
 			await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
@@ -190,10 +184,6 @@ Data_Frame = data('mtcars')`;
 		await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
 
-		if (app.web) {
-			await app.workbench.positronVariables.selectVariablesGroup(`${process.env.POSITRON_PY_VER_SEL!}`);
-		}
-
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
 			await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
@@ -217,10 +207,6 @@ Data_Frame = data('mtcars')`;
 		const script = `import pandas as pd
 df = pd.DataFrame({'x': ["a ", "a", "   ", ""]})`;
 		await app.workbench.positronConsole.executeCode('Python', script, '>>>');
-
-		if (app.web) {
-			await app.workbench.positronVariables.selectVariablesGroup(`${process.env.POSITRON_PY_VER_SEL!}`);
-		}
 
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('df');

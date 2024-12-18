@@ -29,12 +29,6 @@ test.describe('Variables Pane - Notebook', {
 
 		const filename = 'Untitled-1.ipynb';
 
-		// temporary workaround for fact that variables group
-		// not properly autoselected on web
-		if (app.web) {
-			await app.workbench.positronVariables.selectVariablesGroup(filename);
-		}
-
 		const interpreter = app.workbench.positronVariables.interpreterLocator;
 		await expect(interpreter).toBeVisible();
 		await expect(interpreter).toHaveText(filename);
