@@ -18,7 +18,7 @@ test.describe('Editor Action Bar', {
 	});
 
 	test.afterEach(async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.closeAllEditors');
 	});
 
 	test('R Markdown Document [C1080703]', {
@@ -103,7 +103,7 @@ test.describe('Editor Action Bar', {
 async function openFile(app, filePath: string) {
 	const fileName = path.basename(filePath);
 	await test.step(`open file: ${fileName}`, async () => {
-		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath));
+		await app.workbench.positronQuickaccess.openFile(path.join(app.workspacePathOrFolder, filePath));
 	});
 }
 

@@ -3,10 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
 import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
-import { QuickAccess } from '../quickaccess';
+import { PositronQuickAccess } from './positronQuickaccess';
 
 const CONNECTIONS_CONTAINER = '.connections-items-container';
 const CONNECTIONS_ITEM = '.connections-item';
@@ -22,7 +21,7 @@ export class PositronConnections {
 	connectionItems: Locator;
 	resumeConnectionButton: Locator;
 
-	constructor(private code: Code, private quickaccess: QuickAccess) {
+	constructor(private code: Code, private quickaccess: PositronQuickAccess) {
 		this.deleteConnectionButton = code.driver.page.getByLabel('Delete Connection');
 		this.disconnectButton = code.driver.page.getByLabel('Disconnect');
 		this.connectIcon = code.driver.page.locator('.codicon-arrow-circle-right');

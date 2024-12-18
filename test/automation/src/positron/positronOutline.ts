@@ -6,7 +6,7 @@
 
 import { fail } from 'assert';
 import { Code } from '../code';
-import { QuickAccess } from '../quickaccess';
+import { PositronQuickAccess } from './positronQuickaccess';
 
 const HORIZONTAL_SASH = '.explorer-viewlet .monaco-sash.horizontal';
 const FOCUS_OUTLINE_COMMAND = 'outline.focus';
@@ -17,7 +17,7 @@ const OUTLINE_ELEMENT = '.outline-element';
  */
 export class PositronOutline {
 
-	constructor(private code: Code, private quickaccess: QuickAccess) { }
+	constructor(private code: Code, private quickaccess: PositronQuickAccess) { }
 
 	async getOutlineData(): Promise<string[]> {
 

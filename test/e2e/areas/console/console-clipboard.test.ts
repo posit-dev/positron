@@ -36,7 +36,7 @@ async function testConsoleClipboard(app: Application) {
 
 async function toggleAuxiliaryBar(app: Application) {
 	await test.step('Toggle auxiliary bar', async () => {
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 }
 

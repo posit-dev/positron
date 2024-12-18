@@ -125,28 +125,28 @@ export class Workbench {
 		// --- Start Positron ---
 		this.positronPopups = new PositronPopups(code);
 		this.positronInterpreterDropdown = new PositronInterpreterDropdown(code);
-		this.positronConsole = new PositronConsole(code, this.quickaccess, this.quickinput);
 		this.positronVariables = new PositronVariables(code);
 		this.positronDataExplorer = new PositronDataExplorer(code, this);
 		this.positronSideBar = new PositronSideBar(code);
 		this.positronPlots = new PositronPlots(code);
-		this.positronNotebooks = new PositronNotebooks(code, this.quickinput, this.quickaccess, this.notebook);
-		this.positronNewProjectWizard = new PositronNewProjectWizard(code, this.quickaccess);
 		this.positronExplorer = new PositronExplorer(code);
-		this.positronConnections = new PositronConnections(code, this.quickaccess);
 		this.positronHelp = new PositronHelp(code);
 		this.positronTopActionBar = new PositronTopActionBar(code);
 		this.positronLayouts = new PositronLayouts(code, this);
-		this.positronOutput = new PositronOutput(code, this.quickaccess, this.quickinput);
+		this.positronQuickInput = new PositronQuickInput(code);
+		this.positronQuickaccess = new PositronQuickAccess(code, this.editors, this.positronQuickInput);
+		this.positronConnections = new PositronConnections(code, this.positronQuickaccess);
+		this.positronNewProjectWizard = new PositronNewProjectWizard(code, this.positronQuickaccess);
+		this.positronOutput = new PositronOutput(code, this.positronQuickaccess, this.positronQuickInput);
+		this.positronConsole = new PositronConsole(code, this.positronQuickaccess, this.positronQuickInput);
+		this.positronNotebooks = new PositronNotebooks(code, this.positronQuickInput, this.positronQuickaccess, this.notebook);
 		this.positronWelcome = new PositronWelcome(code);
 		this.positronTerminal = new PositronTerminal(code);
 		this.positronViewer = new PositronViewer(code);
 		this.positronEditor = new PositronEditor(code);
 		this.positronTestExplorer = new PositronTestExplorer(code);
-		this.positronQuickaccess = new PositronQuickAccess(this.quickinput, this.quickaccess);
-		this.positronOutline = new PositronOutline(code, this.quickaccess);
+		this.positronOutline = new PositronOutline(code, this.positronQuickaccess);
 		this.positronClipboard = new PositronClipboard(code);
-		this.positronQuickInput = new PositronQuickInput(code);
 		// --- End Positron ---
 	}
 }

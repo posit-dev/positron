@@ -12,6 +12,7 @@ import { join } from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import path = require('path');
+// eslint-disable-next-line local/code-import-patterns
 import { rename, rm, access, mkdir } from 'fs/promises';
 import { constants } from 'fs';
 import { randomUUID } from 'crypto';
@@ -139,7 +140,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		{ scope: 'test' }],
 
 	devTools: [async ({ app }, use) => {
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleDevTools');
 		await use();
 	},
 

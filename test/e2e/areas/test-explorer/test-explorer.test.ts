@@ -19,9 +19,9 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER] }, () => {
 				'true',
 			]]);
 
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+			await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 			await app.workbench.positronConsole.barClearButton.click();
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+			await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		} catch (e) {
 			app.code.driver.takeScreenshot('testExplorerSetup');
 			throw e;
@@ -32,7 +32,7 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER] }, () => {
 		await expect(async () => {
 			// Navigate to https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
 			// This is an R package embedded in qa-example-content
-			await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
+			await app.workbench.positronQuickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
 			await app.workbench.positronQuickInput.waitForQuickInputOpened();
 			await app.workbench.positronQuickInput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
 			// Had to add a positron class, because Microsoft did not have this:

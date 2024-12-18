@@ -14,7 +14,7 @@ const FILENAME = 'fast-execution.r';
 
 test.describe('R Fast Execution', { tag: [tags.WEB, tags.EDITOR, tags.WIN] }, () => {
 	test('Verify fast execution is not out of order [C712539]', async function ({ app, r }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'fast-statement-execution', FILENAME));
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'fast-statement-execution', FILENAME));
 
 		let previousTop = -1;
 

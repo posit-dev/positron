@@ -125,11 +125,11 @@ df2 = pd.DataFrame(data)`;
 	// This test is not dependent on the previous test, so it refreshes the python environment
 	test('Python Pandas - Verifies data explorer test.afterAll modification [C557574]', async function ({ app, python }) {
 		// Restart python for clean environment & open the file
-		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.positronConsole.barClearButton.click();
 		await app.workbench.positronConsole.barRestartButton.click();
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await expect(app.workbench.positronConsole.activeConsole.getByText('restarted')).toBeVisible({ timeout: 60000 });
 
 		const filename = 'pandas-update-dataframe.ipynb';
@@ -182,7 +182,7 @@ df2 = pd.DataFrame(data)`;
 from pydataset import data
 Data_Frame = data('mtcars')`;
 		await app.workbench.positronConsole.executeCode('Python', script, '>>>');
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.positronQuickaccess.runCommand('workbench.panel.positronVariables.focus');
 
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
@@ -191,7 +191,7 @@ Data_Frame = data('mtcars')`;
 
 		// Now move focus out of the the data explorer pane
 		await app.workbench.editors.newUntitledFile();
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.positronQuickaccess.runCommand('workbench.panel.positronVariables.focus');
 		await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
 
 		await expect(async () => {
@@ -199,7 +199,7 @@ Data_Frame = data('mtcars')`;
 		}).toPass();
 
 		await app.workbench.positronDataExplorer.closeDataExplorer();
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.positronQuickaccess.runCommand('workbench.panel.positronVariables.focus');
 	});
 
 	test('Python - Check blank spaces in data explorer [C1078835]', async function ({ app, python }) {

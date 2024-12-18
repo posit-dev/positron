@@ -27,8 +27,8 @@ test.describe('SQLite DB Connection', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5692' }]
 	}, async function ({ app, python }) {
 		await test.step('Open a Python file and run it', async () => {
-			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
-			await app.workbench.quickaccess.runCommand('python.execInConsole');
+			await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
+			await app.workbench.positronQuickaccess.runCommand('python.execInConsole');
 		});
 
 		await test.step('Open connections pane', async () => {
@@ -57,8 +57,8 @@ test.describe('SQLite DB Connection', {
 
 	test('R - SQLite DB Connection [C628637]', async function ({ app, r }) {
 		await test.step('Open an R file and run it', async () => {
-			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
-			await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
+			await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
+			await app.workbench.positronQuickaccess.runCommand('r.sourceCurrentFile');
 		});
 
 		await test.step('Open connections pane', async () => {

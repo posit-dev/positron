@@ -72,7 +72,7 @@ test.describe('Data Explorer - R ', {
 		await app.workbench.positronSideBar.closeSecondarySideBar();
 
 		await app.workbench.positronDataExplorer.closeDataExplorer();
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.positronQuickaccess.runCommand('workbench.panel.positronVariables.focus');
 
 	});
 
@@ -83,7 +83,7 @@ test.describe('Data Explorer - R ', {
 		// and https://github.com/posit-dev/positron/issues/5714
 		const script = `Data_Frame <- mtcars`;
 		await app.workbench.positronConsole.executeCode('R', script, '>');
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.positronQuickaccess.runCommand('workbench.panel.positronVariables.focus');
 
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
@@ -92,7 +92,7 @@ test.describe('Data Explorer - R ', {
 
 		// Now move focus out of the the data explorer pane
 		await app.workbench.editors.newUntitledFile();
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.positronQuickaccess.runCommand('workbench.panel.positronVariables.focus');
 		await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
 
 		await expect(async () => {
@@ -100,7 +100,7 @@ test.describe('Data Explorer - R ', {
 		}).toPass();
 
 		await app.workbench.positronDataExplorer.closeDataExplorer();
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.positronQuickaccess.runCommand('workbench.panel.positronVariables.focus');
 	});
 
 	test('R - Check blank spaces in data explorer [C1078834]', async function ({ app, r }) {

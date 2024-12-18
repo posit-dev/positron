@@ -27,8 +27,8 @@ test.describe('Shiny Application', { tag: [tags.APPS, tags.VIEWER, tags.WIN] }, 
 	});
 
 	test('Python - Verify Basic Shiny App [C699099]', async function ({ app, python }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'shiny-py-example', 'app.py'));
-		await app.workbench.quickaccess.runCommand('shiny.python.runApp');
+		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'shiny-py-example', 'app.py'));
+		await app.workbench.positronQuickaccess.runCommand('shiny.python.runApp');
 		const headerLocator = app.workbench.positronViewer.getViewerLocator('h1');
 		await expect(async () => {
 			await expect(headerLocator).toHaveText('Restaurant tipping', { timeout: 20000 });

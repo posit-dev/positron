@@ -60,8 +60,8 @@ async function enterLines(app: Application, lines: string[]) {
 
 async function clearConsole(app: Application) {
 	await test.step('Clear the console', async () => {
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 		await app.workbench.positronConsole.barClearButton.click();
 	});
 }
@@ -79,11 +79,11 @@ async function selectFirstHistoryResult(app: Application, expectedLine: string) 
 
 async function verifyFullHistory(app: Application, lines: string[]) {
 	await test.step('Verify the full history', async () => {
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.positronConsole.barClearButton.click();
 
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 		await app.code.driver.page.keyboard.press('Control+R');
 
 		await app.workbench.positronConsole.waitForHistoryContents(lines[0], 2);

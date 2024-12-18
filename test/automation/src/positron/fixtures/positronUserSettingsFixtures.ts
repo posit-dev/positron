@@ -43,7 +43,7 @@ export class PositronUserSettingsFixtures {
 		]);
 
 		// Close the settings editor
-		await this.app.workbench.quickaccess.runCommand('workbench.action.closeActiveEditor');
+		await this.app.workbench.positronQuickaccess.runCommand('workbench.action.closeActiveEditor');
 
 		// Restart the application if requested, to apply the settings
 		if (restartApp) {

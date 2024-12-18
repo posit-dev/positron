@@ -5,8 +5,8 @@
 
 
 import { Code } from '../code';
-import { QuickAccess } from '../quickaccess';
-import { QuickInput } from '../quickinput';
+import { PositronQuickAccess } from './positronQuickaccess';
+import { PositronQuickInput } from './positronQuickInput';
 
 const OUTPUT_LINE = '.view-line';
 
@@ -15,7 +15,7 @@ const OUTPUT_LINE = '.view-line';
  */
 export class PositronOutput {
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) { }
+	constructor(private code: Code, private quickaccess: PositronQuickAccess, private quickinput: PositronQuickInput) { }
 
 	async openOutputPane(outputPaneNameContains: string) {
 		await this.quickaccess.runCommand('workbench.action.showOutputChannels', { keepOpen: true });

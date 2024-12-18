@@ -19,7 +19,7 @@ test.describe('Data Explorer - Sparklines', {
 	});
 
 	test.afterEach(async ({ app }) => {
-		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 	});
 
 	test('Python Pandas - Verifies downward trending graph [C830552]', async ({ app, python }) => {
@@ -43,7 +43,7 @@ async function openDataExplorerColumnProfile(app: Application, variableName: str
 		await app.code.driver.getLocator(`.label-name:has-text("Data: ${variableName}")`).innerText();
 	}).toPass();
 
-	await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+	await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 	await app.workbench.positronSideBar.closeSecondarySideBar();
 	await app.workbench.positronDataExplorer.getDataExplorerTableData();
 	await app.workbench.positronDataExplorer.expandColumnProfile(0);

@@ -14,7 +14,7 @@ test.describe('Console Pane: R', {
 }, () => {
 	test.beforeAll(async function ({ app }) {
 		// Need to make console bigger to see all bar buttons
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
 	test('Verify restart button inside the console [C377917]', async function ({ app, r }) {

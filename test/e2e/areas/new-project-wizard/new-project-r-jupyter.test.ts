@@ -62,7 +62,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 		// await app.workbench.positronConsole.sendEnterKey();
 
 		await app.workbench.positronLayouts.enterLayout("fullSizedSidebar");
-		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 15000 });
+		await expect(app.code.driver.page.getByRole('button', { name: 'Explorer Section: my-r-' })).toHaveText(defaultProjectName + projSuffix, { timeout: 15000 });
 		// Verify renv files are present
 		await expect(async () => {
 			const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
@@ -86,7 +86,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 		await pw.rConfigurationStep.renvCheckbox.click();
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 15000 });
+		await expect(app.code.driver.page.getByRole('button', { name: 'Explorer Section: my-r-' })).toHaveText(defaultProjectName + projSuffix, { timeout: 15000 });
 		// Verify renv files are present
 		await expect(async () => {
 			const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
@@ -113,7 +113,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 		await pw.rConfigurationStep.renvCheckbox.click();
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 15000 });
+		await expect(app.code.driver.page.getByRole('button', { name: 'Explorer Section: my-r-' })).toHaveText(defaultProjectName + projSuffix, { timeout: 15000 });
 		// Interact with the modal to skip installing renv
 		await app.workbench.positronPopups.installRenv(false);
 		// Verify renv files are **not** present

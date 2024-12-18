@@ -5,10 +5,11 @@
 
 import { Code } from '../code';
 import { Notebook } from '../notebook';
-import { QuickAccess } from '../quickaccess';
-import { QuickInput } from '../quickinput';
+import { PositronQuickInput } from './positronQuickInput';
+import { PositronQuickAccess } from './positronQuickaccess';
 import { basename } from 'path';
 import { expect } from '@playwright/test';
+
 
 const KERNEL_LABEL = '.kernel-label';
 const KERNEL_ACTION = '.kernel-action-view-item';
@@ -34,7 +35,7 @@ export class PositronNotebooks {
 	notebookProgressBar = this.code.driver.page.locator('[id="workbench\\.parts\\.editor"]').getByRole('progressbar');
 
 
-	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private notebook: Notebook) { }
+	constructor(private code: Code, private quickinput: PositronQuickInput, private quickaccess: PositronQuickAccess, private notebook: Notebook) { }
 
 	async selectInterpreter(kernelGroup: string, desiredKernel: string) {
 		await expect(this.notebookProgressBar).not.toBeVisible({ timeout: 30000 });
