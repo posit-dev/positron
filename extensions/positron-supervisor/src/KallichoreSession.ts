@@ -171,7 +171,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		this._kernelChannel = positron.window.createRawLogOutputChannel(
 			`${runtimeMetadata.runtimeName}: Kernel`);
-
 		this._kernelChannel.appendLine(`** Begin kernel log for session ${metadata.sessionName} (${metadata.sessionId}) at ${new Date().toLocaleString()} **`);
 	}
 
@@ -1275,7 +1274,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		const msg = data as JupyterMessage;
 
 		// Log the message
-		this.log(`<<< RECV [${msg.channel}]: ${JSON.stringify(msg.content)}`, vscode.LogLevel.Debug);
+		this.log(`<<< RECV ${msg.header.msg_type} [${msg.channel}]: ${JSON.stringify(msg.content)}`, vscode.LogLevel.Debug);
 
 		// Check to see if the message is a reply to a request; if it is,
 		// resolve the associated promise and remove it from the pending
