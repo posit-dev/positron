@@ -134,8 +134,9 @@ export class PositronDataExplorer {
 		await this.code.driver.page.locator(APPLY_FILTER).click();
 	}
 
-	async getDataExplorerStatusBar() {
-		return await expect(this.code.driver.page.locator(STATUS_BAR)).not.toHaveText(/Showing/, { timeout: 60000 });
+	async getDataExplorerStatusBarText(): Promise<String> {
+		await expect(this.code.driver.page.locator(STATUS_BAR)).not.toHaveText(/Showing/, { timeout: 60000 });
+		return (await this.code.driver.page.locator(STATUS_BAR).textContent()) ?? '';
 	}
 
 	async selectColumnMenuItem(columnIndex: number, menuItem: string) {
