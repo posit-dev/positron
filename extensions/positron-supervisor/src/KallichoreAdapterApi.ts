@@ -102,7 +102,7 @@ export class KCApi implements KallichoreAdapterApi {
 	 *
 	 * @returns A promise that resolves when the Kallichore server is online.
 	 */
-	async ensureStarted(): Promise<void> {
+	public async ensureStarted(): Promise<void> {
 
 		// If the server is already started, we're done
 		if (this._started.isOpen()) {
