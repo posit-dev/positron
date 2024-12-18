@@ -62,27 +62,25 @@ export class PositronDataExplorer {
 		//await this.code.waitForElement(IDLE_STATUS);
 		await expect(this.code.driver.page.locator(IDLE_STATUS)).toBeVisible({ timeout: 60000 })
 
-		// we have seen intermittent failures where the data explorer is not fully loaded
-		// even though the status bar is idle. This wait is to ensure the data explorer is fully loaded
-		// chosing 1000ms as a safe wait time because waitForElement polls at 100ms
+		// need a brief additional wait
 		await this.code.wait(1000);
 
-		const headers = await this.code.waitForElements(`${COLUMN_HEADERS} ${HEADER_TITLES}`, false);
-		const rows = await this.code.waitForElements(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`, true);
-		const headerNames = headers.map((header) => header.textContent);
+		const headers = await this.code.driver.page.locator(`${COLUMN_HEADERS} ${HEADER_TITLES}`).all();
+		const rows = await this.code.driver.page.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`).all();
+		const headerNames = await Promise.all(headers.map(async (header) => await header.textContent()));
 
 		const tableData: object[] = [];
 		for (const row of rows) {
 			const rowData: CellData = {};
 			let columnIndex = 0;
-			for (const cell of row.children) {
-				const innerText = cell.textContent;
+			for (const cell of await row.locator('> *').all()) {
+				const innerText = await cell.textContent();
 				const headerName = headerNames[columnIndex];
 				// workaround for extra offscreen cells
 				if (!headerName) {
 					continue;
 				}
-				rowData[headerName] = innerText;
+				rowData[headerName] = innerText ?? '';
 				columnIndex++;
 			}
 			tableData.push(rowData);
@@ -115,12 +113,12 @@ export class PositronDataExplorer {
 			try {
 				await this.code.driver.page.locator(COLUMN_SELECTOR).click();
 				const columnText = `${columnName}\n`;
-				await this.code.waitForSetValue(COLUMN_INPUT, columnText);
+				await this.code.driver.page.locator(COLUMN_INPUT).fill(columnText);
 				await this.code.driver.page.locator(COLUMN_SELECTOR_CELL).click();
-				const checkValue = (await this.code.waitForElement(COLUMN_SELECTOR)).textContent;
+				const checkValue = await this.code.driver.page.locator(COLUMN_SELECTOR).textContent();
 				expect(checkValue).toBe(columnName);
 			} catch (e) {
-				await this.code.driver.getKeyboard().press('Escape');
+				await this.code.driver.page.keyboard.press('Escape');
 				throw e;
 			}
 		}).toPass({ timeout: 30000 });
@@ -129,17 +127,18 @@ export class PositronDataExplorer {
 		await this.code.driver.page.locator(FUNCTION_SELECTOR).click();
 
 		// note that base Microsoft funtionality does not work with "has text" type selection
-		const equalTo = this.code.driver.getLocator(`${OVERLAY_BUTTON} div:has-text("${functionText}")`);
+		const equalTo = this.code.driver.page.locator(`${OVERLAY_BUTTON} div:has-text("${functionText}")`);
 		await equalTo.click();
 
 		const filterValueText = `${filterValue}\n`;
-		await this.code.waitForSetValue(FILTER_SELECTOR, filterValueText);
+		await this.code.driver.page.locator(FILTER_SELECTOR).fill(filterValueText);
 
 		await this.code.driver.page.locator(APPLY_FILTER).click();
 	}
 
-	async getDataExplorerStatusBar() {
-		return await this.code.waitForElement(STATUS_BAR, (e) => e!.textContent.includes('Showing'));
+	async getDataExplorerStatusBarText(): Promise<String> {
+		await expect(this.code.driver.page.locator(STATUS_BAR)).toHaveText(/Showing/, { timeout: 60000 });
+		return (await this.code.driver.page.locator(STATUS_BAR).textContent()) ?? '';
 	}
 
 	async selectColumnMenuItem(columnIndex: number, menuItem: string) {
@@ -179,13 +178,13 @@ export class PositronDataExplorer {
 	}
 
 	async getColumnMissingPercent(rowNumber: number): Promise<string> {
-		const row = this.code.driver.getLocator(MISSING_PERCENT(rowNumber));
+		const row = this.code.driver.page.locator(MISSING_PERCENT(rowNumber));
 		return await row.innerText();
 	}
 
 	async getColumnProfileInfo(rowNumber: number): Promise<ColumnProfile> {
 
-		const expandCollapseLocator = this.code.driver.getLocator(EXPAND_COLLAPSE_PROFILE(rowNumber));
+		const expandCollapseLocator = this.code.driver.page.locator(EXPAND_COLLAPSE_PROFILE(rowNumber));
 
 		await expandCollapseLocator.scrollIntoViewIfNeeded();
 		await expandCollapseLocator.click();
@@ -194,19 +193,24 @@ export class PositronDataExplorer {
 
 		const profileData: { [key: string]: string } = {};
 
-		const labels = await this.code.waitForElements(PROFILE_LABELS(rowNumber), false, (elements) => elements.length > 2);
-		const values = await this.code.waitForElements(PROFILE_VALUES(rowNumber), false, (elements) => elements.length > 2);
+		const labelsLocator = this.code.driver.page.locator(PROFILE_LABELS(rowNumber));
+		await expect.poll(async () => (await labelsLocator.all()).length).toBeGreaterThan(2);
+		const labels = await labelsLocator.all();
+
+		const valuesLocator = this.code.driver.page.locator(PROFILE_VALUES(rowNumber));
+		await expect.poll(async () => (await valuesLocator.all()).length).toBeGreaterThan(2);
+		const values = await valuesLocator.all();
 
 		for (let i = 0; i < labels.length; i++) {
-			const label = labels[i].textContent;
-			const value = values[i].textContent;
+			const label = await labels[i].textContent();
+			const value = await values[i].textContent();
 			if (label && value) {
 				profileData[label] = value; // Assign label as key and value as value
 			}
 		}
 
 		// some rects have "count" class, some have "bin-count" class, some have "count other" class
-		const rects = await this.code.driver.getLocator('.column-profile-sparkline').locator('[class*="count"]').all();
+		const rects = await this.code.driver.page.locator('.column-profile-sparkline').locator('[class*="count"]').all();
 		const profileSparklineHeights: string[] = [];
 		for (let i = 0; i < rects.length; i++) {
 			const height = await rects[i].getAttribute('height');
@@ -231,7 +235,7 @@ export class PositronDataExplorer {
 	}
 
 	async expandColumnProfile(rowNumber = 0): Promise<void> {
-		await this.code.driver.getLocator(EXPAND_COLLASPE_ICON).nth(rowNumber).click();
+		await this.code.driver.page.locator(EXPAND_COLLASPE_ICON).nth(rowNumber).click();
 	}
 
 	async maximizeDataExplorer(collapseSummary: boolean = false): Promise<void> {
