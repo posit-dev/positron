@@ -17,7 +17,7 @@ import { selectionType } from '../utilities/mouseUtilities.js';
 import { VerticalSplitter } from '../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { ColumnSelectionState } from '../classes/dataGridInstance.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
-import { getDisplayedColumnName } from '../../../services/positronDataExplorer/common/utils.js';
+import { renderLeadingTrailingWhitespace } from '../../../services/positronDataExplorer/browser/components/tableDataCell.js';
 
 /**
  * Constants.
@@ -104,7 +104,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	// Determine whether the column is selected.
 	const selected = (columnSelectionState & ColumnSelectionState.Selected) !== 0;
 
-	const displayedColumnName = getDisplayedColumnName(props.column?.name);
+	const renderedColumn = renderLeadingTrailingWhitespace(props.column?.name);
 
 	// Render.
 	return (
@@ -140,7 +140,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				}}
 			>
 				<div className='title-description'>
-					<div className='title'>{displayedColumnName}</div>
+					<div className='title'>{renderedColumn}</div>
 					{props.column?.description &&
 						<div className='description'>{props.column.description}</div>
 					}
