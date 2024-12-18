@@ -192,11 +192,11 @@ export class PositronDataExplorer {
 		const profileData: { [key: string]: string } = {};
 
 		const labelsLocator = this.code.driver.page.locator(PROFILE_LABELS(rowNumber));
-		expect((await labelsLocator.all()).length).toBeGreaterThan(2);
+		await expect.poll(async () => (await labelsLocator.all()).length).toBeGreaterThan(2);
 		const labels = await labelsLocator.all();
 
 		const valuesLocator = this.code.driver.page.locator(PROFILE_VALUES(rowNumber));
-		expect((await valuesLocator.all()).length).toBeGreaterThan(2);
+		await expect.poll(async () => (await valuesLocator.all()).length).toBeGreaterThan(2);
 		const values = await valuesLocator.all();
 
 		for (let i = 0; i < labels.length; i++) {
