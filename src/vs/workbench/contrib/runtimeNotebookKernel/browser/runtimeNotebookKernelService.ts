@@ -3,33 +3,34 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { AsyncIterableObject, DeferredPromise, Sequencer } from '../../../../base/common/async.js';
+import { decodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { URI } from '../../../../base/common/uri.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
+import { IOutputItemDto } from '../../notebook/common/notebookCommon.js';
+import { CellExecutionUpdateType } from '../../notebook/common/notebookExecutionService.js';
 import { INotebookCellExecution, INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { INotebookKernel, INotebookKernelChangeEvent, INotebookKernelService, VariablesResult } from '../../notebook/common/notebookKernelService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { isRuntimeNotebookKernelEnabled } from '../common/runtimeNotebookKernelServiceConfig.js';
 import { IRuntimeNotebookKernelService } from './interfaces/runtimeNotebookKernelService.js';
-import { AsyncIterableObject, DeferredPromise, Sequencer } from '../../../../base/common/async.js';
-import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
-import { generateUuid } from '../../../../base/common/uuid.js';
-import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import { CellExecutionUpdateType } from '../../notebook/common/notebookExecutionService.js';
-import { IOutputItemDto } from '../../notebook/common/notebookCommon.js';
-import { decodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
-import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { NotebookExecutionStatus } from './notebookExecutionStatus.js';
+import { registerRuntimeNotebookKernelActions } from './runtimeNotebookKernelActions.js';
 
 /**
  * The view type supported by Positron runtime notebook kernels. Currently only Jupyter notebooks are supported.
@@ -764,3 +765,6 @@ registerSingleton(
 	RuntimeNotebookKernelService,
 	InstantiationType.Delayed,
 );
+
+// Register actions.
+registerRuntimeNotebookKernelActions();

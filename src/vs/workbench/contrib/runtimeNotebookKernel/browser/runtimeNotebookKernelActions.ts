@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Codicon } from '../../../../base/common/codicons.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
@@ -16,12 +17,18 @@ import { isNotebookEditorInput } from '../../notebook/common/notebookEditorInput
 
 const category = localize2('positron.runtimeNotebookKernelCategory', "Notebook");
 
-registerAction2(class extends Action2 {
+/** Restart the active runtime notebook kernel. */
+class RuntimeNotebookKernelRestartAction extends Action2 {
+	/** The action's ID. */
+	public static readonly ID = 'positron.runtimeNotebookKernel.restart';
+
 	constructor() {
 		super({
-			id: 'positron.runtimeNotebookInterpreter.restart',
-			// TODO: "Restart Kernel" is to match the Jupyter extension, which users might be expecting.
+			id: RuntimeNotebookKernelRestartAction.ID,
+			// TODO: "Restart Kernel" is to match the Jupyter extension, which users might be expecting,
+			//       but we use "interpreter" elsewhere.
 			title: localize2('positron.command.restartNotebookInterpreter', "Restart Kernel"),
+			icon: Codicon.debugRestart,
 			f1: true,
 			category,
 			menu: [
@@ -30,13 +37,13 @@ registerAction2(class extends Action2 {
 					// TODO: Group and order?
 					group: 'navigation/execute@5',
 					order: 5,
-					when: ContextKeyExpr.regex(NOTEBOOK_KERNEL.key, /^positron.positron-notebook-controllers\//),
+					when: ContextKeyExpr.regex(NOTEBOOK_KERNEL.key, /positron.runtimeNotebookKernels\/.*/),
 				}
 			]
 		});
 	}
 
-	override async run(accessor: ServicesAccessor, ...args: any[]): Promise<void> {
+	override async run(accessor: ServicesAccessor): Promise<void> {
 		const editorService = accessor.get(IEditorService);
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 		const progressService = accessor.get(IProgressService);
@@ -55,6 +62,7 @@ registerAction2(class extends Action2 {
 			throw new Error('No session found for active notebook. This command should only be available when a session is running.');
 		}
 
+		// TODO: implement hasRunningNotebookSession context.
 		// Disable the hasRunningNotebookSession context before restarting.
 		// if (isActiveNotebookEditorUri(notebook.uri)) {
 		// 	await setHasRunningNotebookSessionContext(false);
@@ -70,6 +78,7 @@ registerAction2(class extends Action2 {
 			}, () => runtimeSessionService.restartSession(session.metadata.sessionId,
 				`User ran restart notebook command`));
 
+			// TODO: implement hasRunningNotebookSession context.
 			// // Enable the hasRunningNotebookSession context.
 			// if (isActiveNotebookEditorUri(notebook.uri)) {
 			// 	await setHasRunningNotebookSessionContext(true);
@@ -80,4 +89,8 @@ registerAction2(class extends Action2 {
 					session.runtimeMetadata.runtimeName, notebookUri.fsPath, error.message));
 		}
 	}
-});
+}
+
+export function registerRuntimeNotebookKernelActions(): void {
+	registerAction2(RuntimeNotebookKernelRestartAction);
+}
