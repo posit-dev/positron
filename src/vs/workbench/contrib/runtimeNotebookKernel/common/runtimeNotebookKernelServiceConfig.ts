@@ -10,6 +10,7 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import { positronConfigurationNodeBase } from '../../../services/languageRuntime/common/languageRuntime.js';
 
 const POSITRON_RUNTIME_NOTEBOOK_KERNEL_ENABLED_KEY = 'positron.runtimeNotebookKernel.enable';
+export const NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY = 'notebook.experimental.showExecutionInfo';
 
 /**
  * Check whether runtime notebook kernels are enabled.
@@ -31,5 +32,13 @@ configurationRegistry.registerConfiguration({
 				'**CAUTION**: Enable experimental runtime notebook kernels which may result in unexpected behaviour. Requires a restart to take effect.'
 			),
 		},
+		[NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY]: {
+			type: 'boolean',
+			default: false,
+			description: localize(
+				'positron.notebook',
+				'Show notebook execution information in the status bar, such as the total duration and number of cells executed.',
+			),
+		}
 	},
 });
