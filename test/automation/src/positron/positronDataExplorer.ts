@@ -135,7 +135,7 @@ export class PositronDataExplorer {
 	}
 
 	async getDataExplorerStatusBarText(): Promise<String> {
-		await expect(this.code.driver.page.locator(STATUS_BAR)).not.toHaveText(/Showing/, { timeout: 60000 });
+		await expect(this.code.driver.page.locator(STATUS_BAR)).toHaveText(/Showing/, { timeout: 60000 });
 		return (await this.code.driver.page.locator(STATUS_BAR).textContent()) ?? '';
 	}
 
