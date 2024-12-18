@@ -13,6 +13,7 @@ test.describe('Variables - Expanded View', { tag: [tags.WEB, tags.VARIABLES] }, 
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.positronLayouts.enterLayout('stacked');
+		await app.workbench.positronConsole.barClearButton.click();
 		await app.workbench.positronConsole.barRestartButton.click();
 	});
 
