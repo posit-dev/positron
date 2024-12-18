@@ -19,10 +19,12 @@ export class SocketSession implements vscode.Disposable {
 	 *
 	 * @param uri The WebSocket URI to connect to
 	 * @param sessionId The session ID to use
+	 * @param outputChannel The output channel to write trace messages to
 	 */
 	constructor(
 		public readonly uri: string,
-		public readonly sessionId: string
+		public readonly sessionId: string,
+		public readonly channel: vscode.LogOutputChannel
 	) {
 		// Create a new WebSocket client
 		this.ws = new WebSocket(uri);
