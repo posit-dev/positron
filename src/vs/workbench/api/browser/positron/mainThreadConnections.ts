@@ -7,10 +7,12 @@ import { ExtHostConnectionsShape, ExtHostPositronContext, MainPositronContext, M
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IDriver, IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadConnections)
 export class MainThreadConnections implements MainThreadConnectionsShape {
 	private readonly _proxy: ExtHostConnectionsShape;
+	private readonly _disposables = new DisposableStore();
 	constructor(
 		extHostContext: IExtHostContext,
 		@IPositronConnectionsService private readonly _connectionsService: IPositronConnectionsService
@@ -29,7 +31,7 @@ export class MainThreadConnections implements MainThreadConnectionsShape {
 	}
 
 	dispose(): void {
-
+		this._disposables.dispose();
 	}
 }
 
