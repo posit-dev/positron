@@ -27,7 +27,7 @@ import { CellExecutionUpdateType } from '../../notebook/common/notebookExecution
 import { INotebookCellExecution, INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { INotebookKernel, INotebookKernelChangeEvent, INotebookKernelService, VariablesResult } from '../../notebook/common/notebookKernelService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
-import { isRuntimeNotebookKernelEnabled } from '../common/runtimeNotebookKernelServiceConfig.js';
+import { isRuntimeNotebookKernelEnabled } from '../common/runtimeNotebookKernelConfig.js';
 import { IRuntimeNotebookKernelService } from './interfaces/runtimeNotebookKernelService.js';
 import { NotebookExecutionStatus } from './notebookExecutionStatus.js';
 import { registerRuntimeNotebookKernelActions } from '../common/runtimeNotebookKernelActions.js';
