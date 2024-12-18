@@ -7,21 +7,44 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-            libwoff1 \
-            libvpx7 \
-            libevent-2.1-7 \
-            libgstreamer-plugins-base1.0-0 \
-            libgstreamer1.0-0 \
-            libflite1 \
-            libavif13 \
-            libhyphen0 \
-            libmanette-0.2-0 \
-            libgl1-mesa-glx \
-            libx264-dev \
-            libgstreamer-gl1.0-0 \
-            gstreamer1.0-plugins-base \
-            gstreamer1.0-plugins-good \
-            gstreamer1.0-plugins-bad \
-            libgles2-mesa
+        UBUNTU_VERSION=$(lsb_release -rs)
 
+        echo "Detected Ubuntu version: $UBUNTU_VERSION"
+
+        if [[ "$UBUNTU_VERSION" == "24.04" ]]; then
+          sudo apt-get install -y \
+              libwoff1 \
+              libvpx9 \
+              libevent-2.1-7 \
+              libgstreamer-plugins-base1.0-0 \
+              libgstreamer1.0-0 \
+              libflite1 \
+              libavif16 \
+              libhyphen0 \
+              libmanette-0.2-0 \
+              libgl1-mesa-dri \
+              libx264-dev \
+              libgstreamer-gl1.0-0 \
+              gstreamer1.0-plugins-base \
+              gstreamer1.0-plugins-good \
+              gstreamer1.0-plugins-bad \
+              libgles2
+        else
+          sudo apt-get install -y \
+              libwoff1 \
+              libvpx7 \
+              libevent-2.1-7 \
+              libgstreamer-plugins-base1.0-0 \
+              libgstreamer1.0-0 \
+              libflite1 \
+              libavif13 \
+              libhyphen0 \
+              libmanette-0.2-0 \
+              libgl1-mesa-glx \
+              libx264-dev \
+              libgstreamer-gl1.0-0 \
+              gstreamer1.0-plugins-base \
+              gstreamer1.0-plugins-good \
+              gstreamer1.0-plugins-bad \
+              libgles2-mesa
+        fi

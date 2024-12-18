@@ -4,9 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
-import { PositronBaseElement } from './positronBaseElement';
 import { Workbench } from '../workbench';
 
 const COLUMN_HEADERS = '.data-explorer-panel .right-column .data-grid-column-headers';
@@ -48,10 +47,10 @@ export interface ColumnProfile {
  */
 export class PositronDataExplorer {
 
-	clearSortingButton: PositronBaseElement;
+	clearSortingButton: Locator;
 
 	constructor(private code: Code, private workbench: Workbench) {
-		this.clearSortingButton = new PositronBaseElement(CLEAR_SORTING_BUTTON, this.code);
+		this.clearSortingButton = this.code.driver.page.locator(CLEAR_SORTING_BUTTON);
 	}
 
 	/*

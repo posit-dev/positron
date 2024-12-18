@@ -12,15 +12,15 @@ import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-d
 
 // Other dependencies.
 import { IAction } from '../../../../base/common/actions.js';
-import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { useStateRef } from '../../../../base/browser/ui/react/useStateRef.js';
 import { MenuItemAction } from '../../../actions/common/actions.js';
-import { IModifierKeyStatus, ModifierKeyEmitter } from '../../../../base/browser/dom.js';
-import { IAccessibilityService } from '../../../accessibility/common/accessibility.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { actionTooltip, toMenuActionItem } from '../../common/helpers.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { ActionBarButton, ActionBarButtonProps } from './actionBarButton.js';
-import { actionTooltip, toMenuActionItem } from '../../common/helpers.js';
+import { useStateRef } from '../../../../base/browser/ui/react/useStateRef.js';
+import { IAccessibilityService } from '../../../accessibility/common/accessibility.js';
+import { IModifierKeyStatus, ModifierKeyEmitter } from '../../../../base/browser/dom.js';
 
 /**
  * Constants.
@@ -146,8 +146,13 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 			disabled: !action.enabled,
 			onMouseEnter: () => setMouseInside(true),
 			onMouseLeave: () => setMouseInside(false),
-			onPressed: () =>
-				action.run()
+			onPressed: async () => {
+				try {
+					await action.run();
+				} catch (error) {
+					console.log(error);
+				}
+			}
 		};
 	})();
 

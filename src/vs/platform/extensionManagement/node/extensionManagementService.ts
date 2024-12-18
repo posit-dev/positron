@@ -348,6 +348,13 @@ export class ExtensionManagementService extends AbstractExtensionManagementServi
 			const value = this.configurationService.getValue('extensions.verifySignature');
 			verifySignature = isBoolean(value) ? value : true;
 		}
+
+		// --- Start Positron ---
+		// Disable signature verification for Positron; we don't ship the
+		// `vsce-sign` tool used to validate signatues.
+		verifySignature = false;
+		// --- End Positron ---
+
 		const { location, verificationStatus } = await this.extensionsDownloader.download(extension, operation, verifySignature, clientTargetPlatform);
 
 		if (verificationStatus !== ExtensionSignatureVerificationCode.Success && verifySignature && this.environmentService.isBuilt && !isLinux) {

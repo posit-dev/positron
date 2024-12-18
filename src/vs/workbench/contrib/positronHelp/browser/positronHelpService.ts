@@ -197,7 +197,14 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 
 		// Load the help HTML file.
 		this._fileService.readFile(FileAccess.asFileUri(HELP_HTML_FILE_PATH))
-			.then(fileContent => this._helpHTML = fileContent.value.toString());
+			.then(fileContent => {
+				// Set the help HTML to the file's contents.
+				this._helpHTML = fileContent.value.toString();
+			}).catch(error => {
+				// Set the help HTML to an error message. This will be
+				// displayed in the Help pane.
+				this._helpHTML = `<!DOCTYPE html><html><body><h1>Error Loading Help</h1><p>Cannot read ${HELP_HTML_FILE_PATH}:</p><p>${error}</body></html>`;
+			});
 
 		// Register onDidColorThemeChange handler.
 		this._register(this._themeService.onDidColorThemeChange(async _colorTheme => {
