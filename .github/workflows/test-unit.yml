@@ -29,8 +29,22 @@ jobs:
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
-      - name: Setup Build and Compile
+      - name: Attempt 1 - Setup Build and Compile
         uses: ./.github/actions/setup-build-env
+        continue-on-error: true
+
+      - name: Attempt 2 - Setup Build and Compile
+        if: ${{ failure() }}
+        uses: ./.github/actions/setup-build-env
+        continue-on-error: true
+
+      - name: Attempt 3 - Setup Build and Compile
+        if: ${{ failure() }}
+        uses: ./.github/actions/setup-build-env
+
+      - name: Fail if Retries Exhausted
+        if: ${{ failure() }}
+        run: exit 1
 
       - name: Install Positron License
         uses: ./.github/actions/install-license
