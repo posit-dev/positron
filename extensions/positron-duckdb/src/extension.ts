@@ -1221,7 +1221,7 @@ export class DataExplorerRpcHandler {
 				fs.watchFile(filePath, { interval: 1000 }, async () => {
 					const newTableName = `positron_${this._tableIndex++}`;
 
-					await this.createTableFromFilePath(filePath, newTableName);
+					await this.createTableFromFilePath(filePath, newTableName, true);
 
 					const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
 					await tableView.onFileUpdated(newTableName, newSchema);
@@ -1237,53 +1237,65 @@ export class DataExplorerRpcHandler {
 		return {};
 	}
 
-	async createTableFromFilePath(filePath: string, catalogName: string) {
-		// Depending on the size of the file, we use CREATE VIEW (less memory,
-		// but slower) vs CREATE TABLE (more memory but faster). We may tweak this threshold,
-		// and especially given that Parquet files may materialize much larger than that appear
-		// on disk.
-		const VIEW_THRESHOLD = 25_000_000;
-		const fileStats = fs.statSync(filePath);
+	/**
+	 * Import data file into DuckDB by creating table or view
+	 * @param filePath The file path on disk.
+	 * @param catalogName The table name to use in the DuckDB catalog.
+	 * @param forceRefresh If true, force an uncached read from disk to circumvent DuckDB's
+	 * file handle caching.
+	 */
+	async createTableFromFilePath(filePath: string, catalogName: string,
+		forceRefresh: boolean = false) {
 
-		const getCtasQuery = (filePath: string, catalogType: string = 'TABLE') => {
-			const fileExt = path.extname(filePath);
-			let scanOperation;
-			switch (fileExt) {
-				case '.parquet':
-				case '.parq':
-					scanOperation = `parquet_scan('${filePath}')`;
-					break;
-				// TODO: Will need to be able to pass CSV / TSV options from the
-				// UI at some point.
-				case '.csv':
-					scanOperation = `read_csv('${filePath}')`;
-					break;
-				case '.tsv':
-					scanOperation = `read_csv('${filePath}', delim='\t')`;
-					break;
-				default:
-					throw new Error(`Unsupported file extension: ${fileExt}`);
-			}
-			return `CREATE ${catalogType} ${catalogName} AS
-			SELECT * FROM ${scanOperation};`;
+		const getCsvImportQuery = (_filePath: string, options: Array<String>) => {
+			return `CREATE OR REPLACE TABLE ${catalogName} AS
+			SELECT * FROM read_csv_auto('${_filePath}'${options.length ? ', ' : ''}${options.join(' ,')});`;
 		};
 
-		if (fileStats.size < VIEW_THRESHOLD) {
-			// For smaller files, read the entire contents and register it as a temp file to avoid
-			// caching in duckdb-wasm
+		const importDelimited = async (filePath: string, catalogType: string = 'TABLE',
+			extraParams: string = '') => {
+			// TODO: Will need to be able to pass CSV / TSV options from the
+			// UI at some point.
+			const options: Array<string> = [];
+			if (fileExt === '.csv') {
+				options.push('delim=\',\'');
+			} else if (fileExt === '.tsv') {
+				options.push('delim=\'\t\'');
+			} else {
+				throw new Error(`Unsupported file extension: ${fileExt}`);
+			}
+
+			let query = getCsvImportQuery(filePath, options);
+			try {
+				await this.db.runQuery(query);
+			} catch (error) {
+				// Retry with sample_size=-1 to disable sampling if type inference fails
+				options.push('sample_size=-1');
+				query = getCsvImportQuery(filePath, options);
+				await this.db.runQuery(query);
+			}
+		};
+
+		const fileExt = path.extname(filePath);
+
+		if (fileExt === '.parquet' || fileExt === '.parq') {
+			// Always create a view for Parquet files
+			const query = `CREATE VIEW ${catalogName} AS
+			SELECT * FROM parquet_scan('${filePath}');`;
+			await this.db.runQuery(query);
+		} else if (forceRefresh) {
+			// For smaller text files, read the entire contents and register it as a temp file
+			// to avoid caching in duckdb-wasm
 			const fileContents = fs.readFileSync(filePath, { encoding: null });
 			const virtualPath = path.basename(filePath);
 			await this.db.db.registerFileBuffer(virtualPath, fileContents);
-
-			const ctasQuery = getCtasQuery(virtualPath);
 			try {
-				await this.db.runQuery(ctasQuery);
+				await importDelimited(virtualPath);
 			} finally {
 				await this.db.db.dropFile(virtualPath);
 			}
 		} else {
-			const ctasQuery = getCtasQuery(filePath);
-			await this.db.runQuery(ctasQuery);
+			await importDelimited(filePath);
 		}
 	}
 

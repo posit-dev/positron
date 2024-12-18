@@ -21,6 +21,22 @@ test.describe('Editor Action Bar', {
 		await app.workbench.positronQuickaccess.runCommand('workbench.action.closeAllEditors');
 	});
 
+	test('R Markdown Document [C1080703]', {
+		tag: [tags.R_MARKDOWN]
+	}, async function ({ app, page }) {
+		await openFile(app, 'workspaces/basic-rmd-file/basicRmd.rmd');
+
+		await test.step('verify \'preview\' button renders html', async () => {
+			await page.getByLabel('Preview', { exact: true }).click();
+			const viewerFrame = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe');
+			await expect(viewerFrame.getByRole('heading', { name: 'Getting startedAnchor' })).toBeVisible({ timeout: 30000 });
+		});
+
+		await verifySplitEditor(page, 'basicRmd.rmd');
+		await verifyOpenInNewWindow(page, 'This post examines the features');
+	});
+
+
 	test('Quarto Document [C1080700]', {
 		tag: [tags.QUARTO]
 	}, async function ({ app, page }) {
@@ -36,7 +52,7 @@ test.describe('Editor Action Bar', {
 		await verifyOpenInNewWindow(page, 'Diamond sizes');
 	});
 
-	test.skip('HTML Document [C1080701]', { tag: [tags.HTML] }, async function ({ app, page }) {
+	test('HTML Document [C1080701]', { tag: [tags.HTML] }, async function ({ app, page }) {
 		await openFile(app, 'workspaces/dash-py-example/data/OilandGasMetadata.html');
 
 		await test.step('verify \'open in viewer\' button renders html', async () => {
@@ -77,26 +93,10 @@ test.describe('Editor Action Bar', {
 				for (const lineNum of [1, 2, 3, 4, 5]) {
 					await expect(page.locator('.line-numbers').getByText(lineNum.toString(), { exact: true })).toBeVisible();
 				}
-
 			});
 		}
 
 		await verifySplitEditor(page, 'spotify.ipynb');
-	});
-
-	test('R Markdown Document [C1080703]', {
-		tag: [tags.R_MARKDOWN]
-	}, async function ({ app, page }) {
-		await openFile(app, 'workspaces/basic-rmd-file/basicRmd.rmd');
-
-		await test.step('verify \'preview\' button renders html', async () => {
-			await page.getByLabel('Preview', { exact: true }).click();
-			const viewerFrame = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe');
-			await expect(viewerFrame.getByRole('heading', { name: 'Getting startedAnchor' })).toBeVisible({ timeout: 30000 });
-		});
-
-		await verifySplitEditor(page, 'basicRmd.rmd');
-		await verifyOpenInNewWindow(page, 'This post examines the features');
 	});
 });
 
@@ -125,7 +125,7 @@ async function verifySplitEditor(page, tabName: string) {
 }
 
 async function verifyOpenInNewWindow(page, expectedText: string) {
-	await test.step(`verify \'open new window\' contains: '${expectedText}'`, async () => {
+	await test.step(`verify \'open new window\' contains: ${expectedText}`, async () => {
 		const [newPage] = await Promise.all([
 			page.context().waitForEvent('page'),
 			page.getByLabel('Move into new window').nth(1).click(),
