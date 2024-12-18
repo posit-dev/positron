@@ -13,8 +13,6 @@ test.describe('Variables - Expanded View', { tag: [tags.WEB, tags.VARIABLES] }, 
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.positronLayouts.enterLayout('stacked');
-		await app.workbench.positronConsole.barClearButton.click();
-		await app.workbench.positronConsole.barRestartButton.click();
 	});
 
 	test('Python - should display children values and types when variable is expanded [C1078836]', async function ({ app, python }) {
