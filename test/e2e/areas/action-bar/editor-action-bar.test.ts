@@ -36,7 +36,7 @@ test.describe('Editor Action Bar', {
 		await verifyOpenInNewWindow(page, 'Diamond sizes');
 	});
 
-	test.skip('HTML Document [C1080701]', { tag: [tags.HTML] }, async function ({ app, page }) {
+	test('HTML Document [C1080701]', { tag: [tags.HTML] }, async function ({ app, page }) {
 		await openFile(app, 'workspaces/dash-py-example/data/OilandGasMetadata.html');
 
 		await test.step('verify \'open in viewer\' button renders html', async () => {
@@ -77,7 +77,6 @@ test.describe('Editor Action Bar', {
 				for (const lineNum of [1, 2, 3, 4, 5]) {
 					await expect(page.locator('.line-numbers').getByText(lineNum.toString(), { exact: true })).toBeVisible();
 				}
-
 			});
 		}
 
@@ -125,7 +124,7 @@ async function verifySplitEditor(page, tabName: string) {
 }
 
 async function verifyOpenInNewWindow(page, expectedText: string) {
-	await test.step(`verify \'open new window\' contains: '${expectedText}'`, async () => {
+	await test.step(`verify \'open new window\' contains: ${expectedText}`, async () => {
 		const [newPage] = await Promise.all([
 			page.context().waitForEvent('page'),
 			page.getByLabel('Move into new window').nth(1).click(),
