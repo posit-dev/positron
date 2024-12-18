@@ -30,7 +30,7 @@ import { INotebookService } from '../../notebook/common/notebookService.js';
 import { isRuntimeNotebookKernelEnabled } from '../common/runtimeNotebookKernelServiceConfig.js';
 import { IRuntimeNotebookKernelService } from './interfaces/runtimeNotebookKernelService.js';
 import { NotebookExecutionStatus } from './notebookExecutionStatus.js';
-import { registerRuntimeNotebookKernelActions } from './runtimeNotebookKernelActions.js';
+import { registerRuntimeNotebookKernelActions } from '../common/runtimeNotebookKernelActions.js';
 
 /**
  * The view type supported by Positron runtime notebook kernels. Currently only Jupyter notebooks are supported.
