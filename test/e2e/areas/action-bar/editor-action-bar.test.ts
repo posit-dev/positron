@@ -21,6 +21,22 @@ test.describe('Editor Action Bar', {
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 	});
 
+	test('R Markdown Document [C1080703]', {
+		tag: [tags.R_MARKDOWN]
+	}, async function ({ app, page }) {
+		await openFile(app, 'workspaces/basic-rmd-file/basicRmd.rmd');
+
+		await test.step('verify \'preview\' button renders html', async () => {
+			await page.getByLabel('Preview', { exact: true }).click();
+			const viewerFrame = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe');
+			await expect(viewerFrame.getByRole('heading', { name: 'Getting startedAnchor' })).toBeVisible({ timeout: 30000 });
+		});
+
+		await verifySplitEditor(page, 'basicRmd.rmd');
+		await verifyOpenInNewWindow(page, 'This post examines the features');
+	});
+
+
 	test('Quarto Document [C1080700]', {
 		tag: [tags.QUARTO]
 	}, async function ({ app, page }) {
@@ -81,21 +97,6 @@ test.describe('Editor Action Bar', {
 		}
 
 		await verifySplitEditor(page, 'spotify.ipynb');
-	});
-
-	test('R Markdown Document [C1080703]', {
-		tag: [tags.R_MARKDOWN]
-	}, async function ({ app, page }) {
-		await openFile(app, 'workspaces/basic-rmd-file/basicRmd.rmd');
-
-		await test.step('verify \'preview\' button renders html', async () => {
-			await page.getByLabel('Preview', { exact: true }).click();
-			const viewerFrame = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe');
-			await expect(viewerFrame.getByRole('heading', { name: 'Getting startedAnchor' })).toBeVisible({ timeout: 30000 });
-		});
-
-		await verifySplitEditor(page, 'basicRmd.rmd');
-		await verifyOpenInNewWindow(page, 'This post examines the features');
 	});
 });
 
