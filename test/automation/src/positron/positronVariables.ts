@@ -16,7 +16,8 @@ interface FlatVariables {
 const VARIABLE_ITEMS = '.variable-item';
 const VARIABLE_NAMES = 'name-column';
 const VARIABLE_DETAILS = 'details-column';
-const VARIABLES_NAME_COLUMN = '.variables-instance[style*="z-index: 1"] .variable-item .name-column';
+const CURRENT_VARIABLES_GROUP = '.variables-instance[style*="z-index: 1"]';
+const VARIABLES_NAME_COLUMN = `${CURRENT_VARIABLES_GROUP} .variable-item .name-column`;
 const VARIABLES_INTERPRETER = '.positron-variables-container .action-bar-button-text';
 const VARIABLE_CHEVRON_ICON = '.gutter .expand-collapse-icon';
 const VARIABLE_INDENTED = '.name-column-indenter[style*="margin-left: 40px"]';
@@ -70,7 +71,7 @@ export class PositronVariables {
 
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
 		await this.waitForVariableRow(variableName);
-		const variable = this.code.driver.page.locator('.name-value', { hasText: variableName });
+		const variable = this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} .name-value`, { hasText: variableName });
 
 		const chevronIcon = variable.locator('..').locator(VARIABLE_CHEVRON_ICON);
 		const isExpanded = await chevronIcon.evaluate((el) => el.classList.contains('codicon-chevron-down'));
@@ -107,7 +108,7 @@ export class PositronVariables {
 	 */
 	async getVariableChildren(parentVariable: string, collapseParent = true): Promise<{ [key: string]: { value: string; type: string } }> {
 		await this.expandVariable(parentVariable);
-		const variable = this.code.driver.page.locator(`.name-value:text-is("${parentVariable}")`);
+		const variable = this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} .name-value:text-is("${parentVariable}")`);
 
 		// get the children of the parent variable, which are indented
 		const children = await variable.locator('..').locator('..').locator('..').locator('..').locator(VARIABLE_ITEMS)

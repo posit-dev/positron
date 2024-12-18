@@ -4,10 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
-// import { QuickAccess } from '../quickaccess';
-import { PositronTextElement } from './positronBaseElement';
 
 const POSITRON_EXPLORER_PROJECT_TITLE = 'div[id="workbench.view.explorer"] h3.title';
 const POSITRON_EXPLORER_PROJECT_FILES = 'div[id="workbench.view.explorer"] span[class="monaco-highlighted-label"]';
@@ -17,12 +15,10 @@ const POSITRON_EXPLORER_PROJECT_FILES = 'div[id="workbench.view.explorer"] span[
  *  Reuseable Positron explorer functionality for tests to leverage.
  */
 export class PositronExplorer {
-	explorerProjectTitle: PositronTextElement;
+	explorerProjectTitle: Locator = this.code.driver.page.locator(POSITRON_EXPLORER_PROJECT_TITLE);
 	explorerProjectTitleLocator = this.code.driver.page.locator(POSITRON_EXPLORER_PROJECT_TITLE);
 
-	constructor(protected code: Code) {
-		this.explorerProjectTitle = new PositronTextElement(POSITRON_EXPLORER_PROJECT_TITLE, this.code);
-	}
+	constructor(protected code: Code) { }
 
 	/**
 	 * Constructs a string array of the top-level project files/directories in the explorer.
