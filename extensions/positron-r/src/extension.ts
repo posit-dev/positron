@@ -13,7 +13,6 @@ import { setContexts } from './contexts';
 import { setupTestExplorer, refreshTestExplorer } from './testing/testing';
 import { RRuntimeManager } from './runtime-manager';
 import { registerUriHandler } from './uri-handler';
-import { registerConnectionDrivers } from './connections';
 
 export const LOGGER = vscode.window.createOutputChannel('Positron R Extension', { log: true });
 
@@ -48,7 +47,4 @@ export function activate(context: vscode.ExtensionContext) {
 			refreshTestExplorer(context);
 		}
 	});
-
-	// Register connection drivers.
-	registerConnectionDrivers(context);
 }
