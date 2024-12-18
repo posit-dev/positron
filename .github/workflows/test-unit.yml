@@ -31,7 +31,7 @@ jobs:
 
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
-        run: exit 1
+        uses: ./.github/actions/setup-build-env
         continue-on-error: true
 
       - name: Attempt 2 - Setup Build and Compile
