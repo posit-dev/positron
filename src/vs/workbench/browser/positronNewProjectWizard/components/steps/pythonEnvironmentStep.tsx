@@ -451,7 +451,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				description={(() =>
 					localize(
 						'pythonInterpreterSubStep.description',
-						"Select a Python installation for your project. You can modify this later if you change your mind."
+						"Select a Python installation for your project."
 					))()}
 				feedback={interpreterStepFeedback()}
 			>
