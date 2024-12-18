@@ -26,7 +26,7 @@ test.describe('Editor Action Bar', {
 	}, async function ({ app, page }) {
 		await openFile(app, 'workspaces/basic-rmd-file/basicRmd.rmd');
 
-		await test.step('verify \'preview\' button renders html', async () => {
+		await test.step('verify "preview" button renders html', async () => {
 			await page.getByLabel('Preview', { exact: true }).click();
 			const viewerFrame = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe');
 			await expect(viewerFrame.getByRole('heading', { name: 'Getting startedAnchor' })).toBeVisible({ timeout: 30000 });
@@ -42,7 +42,7 @@ test.describe('Editor Action Bar', {
 	}, async function ({ app, page }) {
 		await openFile(app, 'workspaces/quarto_basic/quarto_basic.qmd');
 
-		await test.step('verify \'preview\' button renders html', async () => {
+		await test.step('verify "preview" button renders html', async () => {
 			await page.getByLabel('Preview', { exact: true }).click();
 			const viewerFrame = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe');
 			await expect(viewerFrame.locator('h1')).toHaveText('Diamond sizes', { timeout: 30000 });
@@ -55,7 +55,7 @@ test.describe('Editor Action Bar', {
 	test('HTML Document [C1080701]', { tag: [tags.HTML] }, async function ({ app, page }) {
 		await openFile(app, 'workspaces/dash-py-example/data/OilandGasMetadata.html');
 
-		await test.step('verify \'open in viewer\' button renders html', async () => {
+		await test.step('verify "open in viewer" button renders html', async () => {
 			await page.getByLabel('Open in Viewer').nth(1).click();
 			const viewerFrame = page.locator('iframe.webview').contentFrame().locator('#active-frame').contentFrame();
 			const cellLocator = app.web
@@ -74,25 +74,25 @@ test.describe('Editor Action Bar', {
 		tag: [tags.NOTEBOOK],
 		annotation: [{ type: 'info', description: 'electron test unable to interact with dropdown native menu' }],
 	}, async function ({ app, page }) {
-		await app.workbench.positronQuickaccess.openDataFile(
-			path.join(app.workspacePathOrFolder, 'workspaces', 'large_r_notebook', 'spotify.ipynb')
-		);
+		await test.step('open jupyter notebook', async () => {
+			await app.workbench.positronQuickaccess.openDataFile(
+				path.join(app.workspacePathOrFolder, 'workspaces', 'large_r_notebook', 'spotify.ipynb')
+			);
+		});
 
 		if (app.web) {
-			await test.step('verify \'customize notebook\' button adjusts settings (web only)', async () => {
-				const dropdownButton = page.getByLabel('Customize Notebook...').nth(1);
-				await dropdownButton.evaluate((button) => (button as HTMLElement).click());
+			await test.step('verify "customize notebook: toggle line numbers" adjusts settings (web only)', async () => {
+				await verifyLineNumbersVisibility(page, false);
+				await clickCustomizeNotebookMenuItem(page, 'Toggle Notebook Line Numbers');
+				await verifyLineNumbersVisibility(page, true);
+			});
 
-				// native menu so can't interact with it in Electron
-				const toggleLineNumbers = page.getByRole('menuitemcheckbox', { name: 'Toggle Notebook Line Numbers' });
-				await toggleLineNumbers.hover();
-				// await toggleLineNumbers.focus();
-				await page.waitForTimeout(500);
-				await toggleLineNumbers.click();
+			await test.step('verify "customize notebook: toggle breadcrumbs" adjusts settings (web only)', async () => {
+				const breadcrumbs = page.locator('.monaco-breadcrumbs');
 
-				for (const lineNum of [1, 2, 3, 4, 5]) {
-					await expect(page.locator('.line-numbers').getByText(lineNum.toString(), { exact: true })).toBeVisible();
-				}
+				await expect(breadcrumbs).toBeVisible();
+				await clickCustomizeNotebookMenuItem(page, 'Toggle Breadcrumbs');
+				await expect(breadcrumbs).not.toBeVisible();
 			});
 		}
 
@@ -108,7 +108,7 @@ async function openFile(app, filePath: string) {
 }
 
 async function verifySplitEditor(page, tabName: string) {
-	await test.step(`verify \'split editor\' button opens another tab`, async () => {
+	await test.step(`verify "split editor" button opens another tab`, async () => {
 		// Split editor right
 		await page.getByLabel('Split Editor Right', { exact: true }).click();
 		await expect(page.getByRole('tab', { name: tabName })).toHaveCount(2);
@@ -125,7 +125,7 @@ async function verifySplitEditor(page, tabName: string) {
 }
 
 async function verifyOpenInNewWindow(page, expectedText: string) {
-	await test.step(`verify \'open new window\' contains: ${expectedText}`, async () => {
+	await test.step(`verify "open new window" contains: ${expectedText}`, async () => {
 		const [newPage] = await Promise.all([
 			page.context().waitForEvent('page'),
 			page.getByLabel('Move into new window').nth(1).click(),
@@ -133,4 +133,22 @@ async function verifyOpenInNewWindow(page, expectedText: string) {
 		await newPage.waitForLoadState();
 		await expect(newPage.getByText(expectedText)).toBeVisible();
 	});
+}
+
+async function clickCustomizeNotebookMenuItem(page, menuItem: string) {
+	const role = menuItem.includes('Line Numbers') ? 'menuitemcheckbox' : 'menuitem';
+	const dropdownButton = page.getByLabel('Customize Notebook...').nth(1);
+	await dropdownButton.evaluate((button) => (button as HTMLElement).click());
+
+	const toggleMenuItem = page.getByRole(role, { name: menuItem });
+	await toggleMenuItem.hover();
+	await page.waitForTimeout(500);
+	await toggleMenuItem.click();
+}
+
+async function verifyLineNumbersVisibility(page, isVisible: boolean) {
+	for (const lineNum of [1, 2, 3, 4, 5]) {
+		const lineNumbers = expect(page.locator('.line-numbers').getByText(lineNum.toString(), { exact: true }));
+		isVisible ? await lineNumbers.toBeVisible() : await lineNumbers.not.toBeVisible();
+	}
 }
