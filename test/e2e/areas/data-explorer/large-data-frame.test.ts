@@ -51,8 +51,8 @@ test.describe('Data Explorer - Large Data Frame', {
 			await app.workbench.positronDataExplorer.clickUpperLeftCorner();
 			await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
 
-			const statusBar = await app.workbench.positronDataExplorer.getDataExplorerStatusBar();
-			expect(statusBar.textContent).toBe(POST_FILTER_DATA_SUMMARY);
+			const statusBarText = await app.workbench.positronDataExplorer.getDataExplorerStatusBarText();
+			expect(statusBarText).toBe(POST_FILTER_DATA_SUMMARY);
 		}).toPass();
 
 	});
@@ -84,8 +84,8 @@ test.describe('Data Explorer - Large Data Frame', {
 			// Filter data set
 			await app.workbench.positronDataExplorer.clickUpperLeftCorner();
 			await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
-			const statusBar = await app.workbench.positronDataExplorer.getDataExplorerStatusBar();
-			expect(statusBar.textContent).toBe(POST_FILTER_DATA_SUMMARY);
+			const statusBarText = await app.workbench.positronDataExplorer.getDataExplorerStatusBarText();
+			expect(statusBarText).toBe(POST_FILTER_DATA_SUMMARY);
 		}).toPass();
 
 	});
