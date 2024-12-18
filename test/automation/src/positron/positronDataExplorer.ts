@@ -58,7 +58,7 @@ export class PositronDataExplorer {
 	 */
 	async getDataExplorerTableData(): Promise<object[]> {
 
-		await this.code.driver.page.locator(IDLE_STATUS).waitFor({ state: 'visible', timeout: 60000 });
+		await expect(this.code.driver.page.locator(IDLE_STATUS)).toBeVisible({ timeout: 60000 });
 
 		// need a brief additional wait
 		await this.code.wait(1000);
