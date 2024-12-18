@@ -23,6 +23,12 @@ const _onDidSetHasRunningNotebookSessionContext = new vscode.EventEmitter<boolea
 export const onDidSetHasRunningNotebookSessionContext = _onDidSetHasRunningNotebookSessionContext.event;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+	// If experimental runtime notebook kernels are enabled, exit early.
+	const enableRuntimeNotebookKernel = vscode.workspace.getConfiguration().get<boolean>('positron.runtimeNotebookKernel.enable');
+	if (enableRuntimeNotebookKernel) {
+		return;
+	}
+
 	context.subscriptions.push(_onDidSetHasRunningNotebookSessionContext);
 
 	const notebookSessionService = new NotebookSessionService();
