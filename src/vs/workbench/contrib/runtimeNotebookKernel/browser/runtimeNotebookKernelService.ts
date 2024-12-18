@@ -28,6 +28,20 @@ import { IOutputItemDto } from '../../notebook/common/notebookCommon.js';
 import { decodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+
+/**
+ * The affinity of a kernel for a notebook.
+ *
+ * NOTE: This should match vscode.NotebookControllerAffinity.
+ */
+export enum NotebookKernelAffinity {
+	/** The default affinity. */
+	Default = 1,
+
+	/** A kernel will be automatically started if it is a notebook's only preferred kernel. */
+	Preferred = 2
+}
 
 // TODO: Add from PR #5680.
 /** The type of a Jupyter notebook cell output. */
@@ -40,15 +54,21 @@ enum JupyterNotebookCellOutputType {
 }
 
 class RuntimeNotebookKernelService extends Disposable implements IRuntimeNotebookKernelService {
+	/** Map of runtime notebook kernels keyed by kernel ID. */
 	private readonly _kernels = new Map<string, RuntimeNotebookKernel>();
+
+	/** Map of runtime notebook kernels keyed by runtime ID. */
+	private readonly _kernelsByRuntimeId = new Map<string, RuntimeNotebookKernel>();
 
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@ILogService private readonly _logService: ILogService,
 		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
 		@INotebookService private readonly _notebookService: INotebookService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 	) {
 		super();
 
@@ -58,12 +78,12 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 
 		// Register a kernel when a runtime is registered.
 		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
-			this._registerKernel(runtime);
+			this._createRuntimeNotebookKernel(runtime);
 		}));
 
 		// Register a kernel for each existing runtime.
 		for (const runtime of this._languageRuntimeService.registeredRuntimes) {
-			this._registerKernel(runtime);
+			this._createRuntimeNotebookKernel(runtime);
 		}
 
 		// When one of our kernels is selected for a notebook, select the corresponding session
@@ -80,6 +100,17 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 			}
 		}));
 
+		// When a notebook is added, update its kernel affinity.
+		this._register(this._notebookService.onWillAddNotebookDocument(async notebook => {
+			await this._updateKernelNotebookAffinity(notebook);
+		}));
+
+		// Update the kernel affinity of all existing notebooks.
+		for (const notebook of this._notebookService.getNotebookTextModels()) {
+			this._updateKernelNotebookAffinity(notebook)
+				.catch(err => this._logService.error(`Error updating affinity for notebook ${notebook.uri.fsPath}: ${err}`));
+		}
+
 		// When a notebook is closed, shut down the corresponding session.
 		this._register(this._notebookService.onWillRemoveNotebookDocument(async _notebook => {
 			// TODO: Add a shutdownNotebookSession to the runtime session service and call it here.
@@ -88,12 +119,78 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 		}));
 	}
 
-	private _registerKernel(runtime: ILanguageRuntimeMetadata): void {
+	/**
+	 * Create and register a notebook kernel for a given language runtime.
+	 *
+	 * @param runtime The language runtime to create a notebook kernel for.
+	 */
+	private _createRuntimeNotebookKernel(runtime: ILanguageRuntimeMetadata): void {
 		// TODO: Dispose the kernel when the runtime is disposed/unregistered?
 		const kernel = this._instantiationService.createInstance(RuntimeNotebookKernel, runtime);
 		// TODO: Error if a kernel is already registered for the ID.
 		this._kernels.set(kernel.id, kernel);
+		this._kernelsByRuntimeId.set(runtime.runtimeId, kernel);
 		this._notebookKernelService.registerKernel(kernel);
+	}
+
+	/**
+	 * Update a notebook's affinity for all kernels.
+	 *
+	 * Positron automatically starts a kernel if it is the only 'preferred' kernel for the notebook.
+	 *
+	 * @param notebook The notebook whose affinity to update.
+	 * @returns Promise that resolves when the notebook's affinity has been updated for all kernels.
+	 */
+	private async _updateKernelNotebookAffinity(notebook: NotebookTextModel): Promise<void> {
+		const cells = notebook.cells;
+		if (cells.length === 0 ||
+			(cells.length === 1 && cells[0].getValue() === '')) {
+			// If its an empty notebook (i.e. it has a single empty cell, or no cells),
+			// wait for its data to be updated. This works around the  fact that `vscode.openNotebookDocument()`
+			// first creates a notebook (triggering `onDidOpenNotebookDocument`),
+			// and later updates its content (triggering `onDidChangeNotebookDocument`).
+			await new Promise<void>((resolve) => {
+				// Apply a short timeout to avoid waiting indefinitely.
+				const timeout = setTimeout(() => {
+					disposable.dispose();
+					resolve();
+				}, 50);
+				const disposable = notebook.onDidChangeContent(_e => {
+					clearTimeout(timeout);
+					disposable.dispose();
+					resolve();
+				});
+			});
+		}
+
+		// Get the notebook's language.
+		const languageId = _getNotebookLanguage(notebook);
+		if (!languageId) {
+			this._logService.debug(`Could not determine notebook ${notebook.uri.fsPath} language`);
+			return;
+		}
+
+		// Get the preferred kernel for the language.
+		let preferredRuntime: ILanguageRuntimeMetadata;
+		try {
+			preferredRuntime = this._runtimeStartupService.getPreferredRuntime(languageId);
+		} catch (err) {
+			// It may error if there are no registered runtimes for the language, so log and return.
+			this._logService.debug(`Failed to get preferred runtime for language ${languageId}: ${err}`);
+			return;
+		}
+		const preferredKernel = this._kernelsByRuntimeId.get(preferredRuntime.runtimeId);
+		this._logService.debug(`Preferred kernel for notebook ${notebook.uri.fsPath}: ${preferredKernel?.label}`);
+
+		// Set the affinity across all known kernels.
+		for (const kernel of this._kernels.values()) {
+			const affinity = kernel === preferredKernel
+				? NotebookKernelAffinity.Preferred
+				: NotebookKernelAffinity.Default;
+			this._notebookKernelService.updateKernelNotebookAffinity(kernel, notebook.uri, affinity);
+			this._logService.trace(`Updated notebook affinity for kernel: ${kernel.label}, ` +
+				`notebook: ${notebook.uri.fsPath}, affinity: ${affinity}`);
+		}
 	}
 
 	/**
@@ -112,7 +209,7 @@ class RuntimeNotebookKernel implements INotebookKernel {
 	public readonly viewType = 'jupyter-notebook';
 
 	// TODO: Is this ok?
-	public readonly extension = new ExtensionIdentifier('positron-notebook-controllers');
+	public readonly extension = new ExtensionIdentifier('Positron Runtime Notebook Kernels');
 
 	public readonly preloadUris: URI[] = [];
 
@@ -141,7 +238,7 @@ class RuntimeNotebookKernel implements INotebookKernel {
 
 	get id(): string {
 		// TODO: Is it ok if the ID doesn't match {publisher}.{extension}.{runtimeId}?
-		return `positron.${this.runtime.runtimeId}`;
+		return `positron.runtimeNotebookKernels/${this.runtime.runtimeId}`;
 	}
 
 	get label(): string {
@@ -542,6 +639,34 @@ class RuntimeNotebookCellExecution extends Disposable {
 	public get promise(): Promise<void> {
 		return this._deferred.p;
 	}
+}
+
+/**
+ * Try to determine a notebook's language.
+ *
+ * @param notebook The notebook to determine the language of.
+ * @returns The language ID of the notebook, or `undefined` if it could not be determined.
+ */
+function _getNotebookLanguage(notebook: NotebookTextModel): string | undefined {
+	// First try the notebook metadata.
+	const metadata = notebook.metadata?.metadata as any;
+	const languageId = metadata?.language_info?.name ?? metadata?.kernelspec?.language;
+	if (languageId) {
+		return languageId;
+	}
+
+	// Fall back to the first cell's language, if available.
+	for (const cell of notebook.cells) {
+		const language = cell.language;
+		if (language !== 'markdown' &&
+			language !== 'raw' &&
+			language !== 'text') {
+			return language;
+		}
+	}
+
+	// Could not determine the notebook's language.
+	return undefined;
 }
 
 // Register the service.
