@@ -50,5 +50,5 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	// Register connection drivers.
-	registerConnectionDrivers();
+	registerConnectionDrivers(context);
 }

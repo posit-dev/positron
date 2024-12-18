@@ -4,9 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
+import * as vscode from 'vscode';
 
-export function registerConnectionDrivers() {
-	positron.connections.registerConnectionDriver(new RPostgreSQLDriver());
+export function registerConnectionDrivers(context: vscode.ExtensionContext) {
+	context.subscriptions.push(
+		positron.connections.registerConnectionDriver(new RPostgreSQLDriver())
+	);
 }
 
 class RPostgreSQLDriver implements positron.ConnectionsDriver {

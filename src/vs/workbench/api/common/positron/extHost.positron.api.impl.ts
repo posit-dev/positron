@@ -195,6 +195,12 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		};
 
 		const connections: typeof positron.connections = {
+			/**
+			 * Register a connection driver that's used to generate code for connecting to a data source
+			 * using the 'New Connection' dialog.
+			 * @param driver The connection driver to register.
+			 * @returns A disposable that can be used to unregister the driver.
+			 */
 			registerConnectionDriver(driver: positron.ConnectionsDriver): vscode.Disposable {
 				return extHostConnections.registerConnectionDriver(driver);
 			}

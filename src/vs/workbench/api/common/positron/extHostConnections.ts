@@ -39,7 +39,12 @@ export class ExtHostConnections implements extHostProtocol.ExtHostConnectionsSha
 				installDependencies: driver.installDependencies ? true : false
 			}
 		);
-		return new Disposable(() => { });
+
+		// When the driver is disposed, remove it from the list and notify the main thread
+		return new Disposable(() => {
+			this._drivers = this._drivers.filter(d => d.driverId !== driver.driverId);
+			this._proxy.$removeConnectionDriver(driver.driverId);
+		});
 	}
 
 	public async $driverGenerateCode(driverId: string, inputs: Input[]) {
