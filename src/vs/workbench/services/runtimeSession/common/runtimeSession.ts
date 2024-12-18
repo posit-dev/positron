@@ -307,11 +307,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				await this.shutdownRuntimeSession(activeSession, RuntimeExitReason.SwitchRuntime);
 			}
 
+			// Wait for the selected runtime to start.
 			await this.startNewRuntimeSession(runtime.runtimeId,
 				basename(notebookUri),
 				LanguageRuntimeSessionMode.Notebook,
 				notebookUri,
-				source);
+				source,
+				RuntimeStartMode.Switching);
 		} else {
 			// Shut down any other runtime consoles for the language.
 			const activeSession =
@@ -335,6 +337,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				source,
 				RuntimeStartMode.Switching);
 		}
+	}
 
 	/**
 	 * Shutdown a runtime session.
@@ -344,7 +347,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @returns Promise that resolves when the session has been shutdown.
 	 */
 	private async shutdownRuntimeSession(
-			session: ILanguageRuntimeSession, exitReason: RuntimeExitReason): Promise<void> {
+		session: ILanguageRuntimeSession, exitReason: RuntimeExitReason): Promise<void> {
 		// See if we are already shutting down this session. If we
 		// are, return the promise that resolves when the runtime is shut down.
 		// This makes it possible for multiple requests to shut down the same
