@@ -3,19 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-export enum InputType {
-	String = 'string',
-	Number = 'number',
-	Option = 'option',
-}
-
 export interface Input {
 	// The unique identifier for the input.
 	id: string;
 	// A human-readable label for the input.
 	label: string;
 	// The type of the input.
-	type: InputType;
+	type: 'string' | 'number' | 'option';
 	// Options, if the input type is an option.
 	options?: { 'identifier': string; 'title': string }[];
 	// The default value for the input.

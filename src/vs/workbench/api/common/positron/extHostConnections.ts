@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vscode';
 import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
-import { Input, InputType } from '../../../services/positronConnections/browser/interfaces/positronConnectionsDriver.js';
+import { Input } from '../../../services/positronConnections/browser/interfaces/positronConnectionsDriver.js';
+import { Disposable } from '../extHostTypes.js';
 
 export class ExtHostConnections implements extHostProtocol.ExtHostConnectionsShape {
 
@@ -29,14 +29,9 @@ export class ExtHostConnections implements extHostProtocol.ExtHostConnectionsSha
 			this._drivers.push(driver);
 		}
 
-		const metadata = {
-			...driver.metadata,
-			inputs: driver.metadata.inputs.map(i => extHost2MainThreadInput(i))
-		}
-
 		this._proxy.$registerConnectionDriver(
 			driver.driverId,
-			metadata,
+			driver.metadata,
 			{
 				generateCode: driver.generateCode ? true : false,
 				connect: driver.connect ? true : false,
@@ -52,39 +47,30 @@ export class ExtHostConnections implements extHostProtocol.ExtHostConnectionsSha
 		if (!driver || !driver.generateCode) {
 			throw new Error(`Driver ${driverId} does not support code generation`);
 		}
-		return driver.generateCode(inputs.map(
-			i => ({ ...i, type: i.type as string as positron.ConnectionsInputType })
-		));
+		return driver.generateCode(inputs);
 	}
 
-	public $driverConnect(driverId: string, code: string): Promise<void> {
+	public async $driverConnect(driverId: string, code: string): Promise<void> {
 		const driver = this._drivers.find(d => d.driverId === driverId);
 		if (!driver || !driver.connect) {
 			throw new Error(`Driver ${driverId} does not support connecting`);
 		}
-		return driver.connect(code);
+		return await driver.connect(code);
 	}
 
-	public $driverCheckDependencies(driverId: string): Promise<boolean> {
+	public async $driverCheckDependencies(driverId: string): Promise<boolean> {
 		const driver = this._drivers.find(d => d.driverId === driverId);
 		if (!driver || !driver.checkDependencies) {
 			throw new Error(`Driver ${driverId} does not support checking dependencies`);
 		}
-		return driver.checkDependencies();
+		return await driver.checkDependencies();
 	}
 
-	public $driverInstallDependencies(driverId: string): Promise<boolean> {
+	public async $driverInstallDependencies(driverId: string): Promise<boolean> {
 		const driver = this._drivers.find(d => d.driverId === driverId);
 		if (!driver || !driver.installDependencies) {
 			throw new Error(`Driver ${driverId} does not support installing dependencies`);
 		}
-		return driver.installDependencies();
-	}
-}
-
-function extHost2MainThreadInput(input: positron.ConnectionsInput): Input {
-	return {
-		...input,
-		type: input.type as string as InputType
+		return await driver.installDependencies();
 	}
 }

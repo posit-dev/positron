@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../languageRuntime/common/languageRuntimeService.js';
-import { IDriver, IDriverMetadata, Input, InputType } from './interfaces/positronConnectionsDriver.js';
+import { IDriver, IDriverMetadata, Input } from './interfaces/positronConnectionsDriver.js';
 import { IPositronConnectionsService } from './interfaces/positronConnectionsService.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
 
@@ -54,37 +54,37 @@ class RPostgreSQLDriver implements IDriver {
 			{
 				'id': 'dbname',
 				'label': 'Database Name',
-				'type': InputType.String,
+				'type': 'string',
 				'value': 'localhost'
 			},
 			{
 				'id': 'host',
 				'label': 'Host',
-				'type': InputType.String,
+				'type': 'string',
 				'value': 'localhost'
 			},
 			{
 				'id': 'port',
 				'label': 'Port',
-				'type': InputType.Number,
+				'type': 'number',
 				'value': '5432'
 			},
 			{
 				'id': 'user',
 				'label': 'User',
-				'type': InputType.String,
+				'type': 'string',
 				'value': 'postgres'
 			},
 			{
 				'id': 'password',
 				'label': 'Password',
-				'type': InputType.String,
+				'type': 'string',
 				'value': 'password'
 			},
 			{
 				'id': 'bigint',
 				'label': 'Integer representation',
-				'type': InputType.Option,
+				'type': 'option',
 				'options': [
 					{ 'identifier': 'integer64', 'title': 'integer64' },
 					{ 'identifier': 'integer', 'title': 'integer' },

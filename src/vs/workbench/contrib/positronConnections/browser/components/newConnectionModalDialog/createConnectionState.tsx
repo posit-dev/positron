@@ -15,7 +15,7 @@ import { localize } from '../../../../../../nls.js';
 import { PositronConnectionsServices } from '../../positronConnectionsContext.js';
 import { SimpleCodeEditor, SimpleCodeEditorWidget } from '../simpleCodeEditor.js';
 import Severity from '../../../../../../base/common/severity.js';
-import { IDriver, Input, InputType } from '../../../../../services/positronConnections/browser/interfaces/positronConnectionsDriver.js';
+import { IDriver, Input } from '../../../../../services/positronConnections/browser/interfaces/positronConnectionsDriver.js';
 import { LabeledTextInput } from '../../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { RadioGroup } from '../../../../../browser/positronComponents/positronModalDialog/components/radioGroup.js';
 import { PositronModalReactRenderer } from '../../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
@@ -179,7 +179,7 @@ const FormElement = (props: PropsWithChildren<FormElementProps>) => {
 	const { label, value: defaultValue = '', type, options } = props.input;
 
 	switch (type) {
-		case InputType.Number:
+		case 'number':
 			return <div className='labeled-input'>
 				<LabeledTextInput
 					label={label}
@@ -188,7 +188,7 @@ const FormElement = (props: PropsWithChildren<FormElementProps>) => {
 					onChange={(e) => props.onChange(e.target.value)}
 				></LabeledTextInput>
 			</div>;
-		case InputType.Option:
+		case 'option':
 			return <div className='labeled-input'><label>
 				<span className='label-text'>{label}</span>
 				{
@@ -205,7 +205,7 @@ const FormElement = (props: PropsWithChildren<FormElementProps>) => {
 						</p>
 				}
 			</label></div>;
-		case InputType.String:
+		case 'string':
 		default:
 			return <div className='labeled-input'>
 				<LabeledTextInput

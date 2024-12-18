@@ -314,9 +314,3 @@ export enum LanguageRuntimeSessionLocation {
 	 */
 	Browser = 'browser',
 }
-
-export enum ConnectionsInputType {
-	String = 'string',
-	Number = 'number',
-	Option = 'option',
-}

@@ -1101,19 +1101,13 @@ declare module 'positron' {
 		pasteText(text: string): void;
 	}
 
-	export enum ConnectionsInputType {
-		String = 'string',
-		Number = 'number',
-		Option = 'option',
-	}
-
 	export interface ConnectionsInput {
 		// The unique identifier for the input.
 		id: string;
 		// A human-readable label for the input.
 		label: string;
 		// The type of the input.
-		type: ConnectionsInputType;
+		type: 'string' | 'number' | 'option';
 		// Options, if the input type is an option.
 		options?: { 'identifier': string; 'title': string }[];
 		// The default value for the input.
