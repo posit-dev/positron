@@ -56,6 +56,7 @@ import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
+import { NotebookVisibilityProvider } from './NotebookVisibilityContext.js';
 
 
 interface NotebookLayoutInfo {
@@ -219,9 +220,20 @@ export class PositronNotebookEditor extends EditorPane {
 	 */
 	private _size = observableValue<ISize>('size', { width: 0, height: 0 });
 
+	/**
+	 * Observable tracking if the editor is currently visible
+	 */
+	private readonly _isVisible = observableValue<boolean>('isVisible', false);
+
+
 	// Getter for notebook instance to avoid having to cast the input every time.
 	get notebookInstance() {
 		return (this.input as PositronNotebookEditorInput)?.notebookInstance;
+	}
+
+	protected override setEditorVisible(visible: boolean): void {
+		this._isVisible.set(visible, undefined);
+		super.setEditorVisible(visible);
 	}
 
 	protected override createEditor(parent: HTMLElement): void {
@@ -315,14 +327,19 @@ export class PositronNotebookEditor extends EditorPane {
 	override clearInput(): void {
 		this._logService.info(this._identifier, 'clearInput');
 
-
-		// Clear the input observable.
-		this._input = undefined;
+		if (this.notebookInstance && this._parentDiv) {
+			this.notebookInstance.detachView();
+			console.log('isVisible', this._isVisible.get());
+		}
 
 		if (this.notebookInstance) {
 			this._saveEditorViewState();
 			this.notebookInstance.detachView();
 		}
+
+		// Clear the input observable.
+		this._input = undefined;
+
 		this._disposeReactRenderer();
 
 		// Call the base class's method.
@@ -444,24 +461,26 @@ export class PositronNotebookEditor extends EditorPane {
 		const reactRenderer: PositronReactRenderer = this._positronReactRenderer ?? new PositronReactRenderer(this._parentDiv);
 
 		reactRenderer.render(
-			<NotebookInstanceProvider instance={notebookInstance}>
-				<ServicesProvider services={{
-					configurationService: this._configurationService,
-					instantiationService: this._instantiationService,
-					textModelResolverService: this._textModelResolverService,
-					webviewService: this._webviewService,
-					notebookWebviewService: this._notebookWebviewService,
-					webviewPreloadService: this._positronWebviewPreloadService,
-					commandService: this._commandService,
-					logService: this._logService,
-					openerService: this._openerService,
-					notificationService: this._notificationService,
-					sizeObservable: this._size,
-					scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container)
-				}}>
-					<PositronNotebookComponent />
-				</ServicesProvider>
-			</NotebookInstanceProvider>
+			<NotebookVisibilityProvider isVisible={this._isVisible}>
+				<NotebookInstanceProvider instance={notebookInstance}>
+					<ServicesProvider services={{
+						configurationService: this._configurationService,
+						instantiationService: this._instantiationService,
+						textModelResolverService: this._textModelResolverService,
+						webviewService: this._webviewService,
+						notebookWebviewService: this._notebookWebviewService,
+						webviewPreloadService: this._positronWebviewPreloadService,
+						commandService: this._commandService,
+						logService: this._logService,
+						openerService: this._openerService,
+						notificationService: this._notificationService,
+						sizeObservable: this._size,
+						scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container)
+					}}>
+						<PositronNotebookComponent />
+					</ServicesProvider>
+				</NotebookInstanceProvider>
+			</NotebookVisibilityProvider>
 		);
 	}
 
