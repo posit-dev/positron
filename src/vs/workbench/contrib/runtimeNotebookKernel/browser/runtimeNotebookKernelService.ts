@@ -31,6 +31,19 @@ import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 
 /**
+ * The view type supported by Positron runtime notebook kernels. Currently only Jupyter notebooks are supported.
+ */
+const viewType = 'jupyter-notebook';
+
+/**
+ * The extension ID used by Positron runtime notebook kernels.
+ *
+ * Although runtime notebook kernels live in the main thread, some notebook services still expect it
+ * to have an extension ID.
+ */
+export const RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID = 'positron.runtime-notebook-kernels';
+
+/**
  * The affinity of a kernel for a notebook.
  *
  * NOTE: This should match vscode.NotebookControllerAffinity.
@@ -116,6 +129,34 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 			// TODO: Add a shutdownNotebookSession to the runtime session service and call it here.
 			//       We need a dedicated method so that the runtime session service can manage
 			//       concurrent attempts to start/shutdown/restart while the shutdown is in progress.
+		}));
+
+		// Register kernel source action providers. This is a more customizable way to modify the
+		// kernel selection quickpick. Each command must return a valid kernel ID.
+		this._register(this._notebookKernelService.registerKernelSourceActionProvider(viewType, {
+			viewType,
+			async provideKernelSourceActions() {
+				return [
+					{
+						label: 'Python Environments...',
+						command: {
+							id: 'workbench.action.languageRuntime.pick',
+							title: 'Select Python Interpreter',
+							arguments: ['python'],
+						},
+					},
+					{
+						label: 'R Environments...',
+						command: {
+							id: 'workbench.action.languageRuntime.pick',
+							title: 'Select R Interpreter',
+							arguments: ['r'],
+						},
+					}
+				];
+			},
+			// Kernel source actions are currently fixed so we don't need this event.
+			onDidChangeSourceActions: undefined,
 		}));
 	}
 
@@ -206,10 +247,9 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 }
 
 class RuntimeNotebookKernel implements INotebookKernel {
-	public readonly viewType = 'jupyter-notebook';
+	public readonly viewType = viewType;
 
-	// TODO: Is this ok?
-	public readonly extension = new ExtensionIdentifier('Positron Runtime Notebook Kernels');
+	public readonly extension = new ExtensionIdentifier(RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID);
 
 	public readonly preloadUris: URI[] = [];
 
