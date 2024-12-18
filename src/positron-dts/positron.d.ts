@@ -1439,6 +1439,13 @@ declare module 'positron' {
 	 * Refers to methods related to the connections pane
 	 */
 	namespace connections {
+		/**
+		 * Registers a new connection driver with Positron allowing extensions to contribute
+		 * to the 'New Connection' dialog.
+		 *
+		 * @param driver The connection driver to register
+		 * @returns A disposable that unregisters the driver when disposed
+		 */
 		export function registerConnectionDriver(driver: ConnectionsDriver): vscode.Disposable;
 	}
 }
