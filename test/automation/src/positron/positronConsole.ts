@@ -6,8 +6,8 @@
 
 import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
-import { QuickAccess } from '../quickaccess';
-import { QuickInput } from '../quickinput';
+import { PositronQuickAccess } from './positronQuickaccess';
+import { PositronQuickInput } from './positronQuickInput';
 import { InterpreterInfo, InterpreterType } from './utils/positronInterpreterInfo';
 import { IElement } from '../driver';
 
@@ -37,7 +37,7 @@ export class PositronConsole {
 		return this.code.driver.getLocator(EMPTY_CONSOLE).getByText('There is no interpreter running');
 	}
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) {
+	constructor(private code: Code, private quickaccess: PositronQuickAccess, private quickinput: PositronQuickInput) {
 		this.barPowerButton = this.code.driver.page.getByLabel('Shutdown console');
 		this.barRestartButton = this.code.driver.page.getByLabel('Restart console');
 		this.barClearButton = this.code.driver.page.getByLabel('Clear console');

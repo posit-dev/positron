@@ -6,7 +6,7 @@
 import { fail } from 'assert';
 import { expect } from '@playwright/test';
 import { Code } from '../code';
-import { QuickAccess } from '../quickaccess';
+import { PositronQuickAccess } from './positronQuickaccess';
 
 // Selector for the pre-selected dropdown item in the project wizard
 const PROJECT_WIZARD_PRESELECTED_DROPDOWN_ITEM =
@@ -53,7 +53,7 @@ export class PositronNewProjectWizard {
 	private nextButton = this.code.driver.getLocator(PROJECT_WIZARD_DEFAULT_BUTTON).getByText('Next');
 	private createButton = this.code.driver.getLocator(PROJECT_WIZARD_DEFAULT_BUTTON).getByText('Create');
 
-	constructor(private code: Code, private quickaccess: QuickAccess) {
+	constructor(private code: Code, private quickaccess: PositronQuickAccess) {
 		this.projectTypeStep = new ProjectWizardProjectTypeStep(this.code);
 		this.projectNameLocationStep = new ProjectWizardProjectNameLocationStep(this.code);
 		this.rConfigurationStep = new ProjectWizardRConfigurationStep(this.code);
@@ -115,7 +115,7 @@ class ProjectWizardProjectTypeStep {
 	}
 
 	async selectProjectType(projectType: ProjectType) {
-		const locator = this.code.driver.page.locator('label').filter({hasText: projectType});
+		const locator = this.code.driver.page.locator('label').filter({ hasText: projectType });
 		await locator.click({ force: true });
 	}
 }

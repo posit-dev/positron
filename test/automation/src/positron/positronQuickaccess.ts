@@ -135,7 +135,7 @@ export class PositronQuickAccess {
 			try {
 				await this.quickInput.waitForQuickInputOpened();
 			} catch (err) {
-				await this.code.dispatchKeybinding('escape');
+				await this.code.driver.page.keyboard.press('Escape');
 				throw err;
 			}
 		}).toPass({

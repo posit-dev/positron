@@ -26,9 +26,9 @@ export class PositronQuickInput {
 		await this.code.driver.page.locator(PositronQuickInput.QUICK_INPUT_INPUT).fill(value);
 	}
 
-	async waitForQuickInputElementFocused(): Promise<void> {
-		await expect(this.code.driver.page.locator(PositronQuickInput.QUICK_INPUT_FOCUSED_ELEMENT)).not.toHaveText('');
-	}
+	// async waitForQuickInputElementFocused(): Promise<void> {
+	// 	await expect(this.code.driver.page.locator(PositronQuickInput.QUICK_INPUT_FOCUSED_ELEMENT)).not.toHaveText('');
+	// }
 
 	async waitForQuickInputElementText(): Promise<string> {
 		const quickInput = this.code.driver.page.locator(PositronQuickInput.QUICK_INPUT_FOCUSED_ELEMENT);
