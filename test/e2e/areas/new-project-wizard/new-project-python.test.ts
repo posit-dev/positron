@@ -61,8 +61,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
-	// Skip test due to https://github.com/posit-dev/positron/issues/5730. Both have to skipped as they depend o
-	test.skip('With ipykernel already installed [C609619]', {
+	test('With ipykernel already installed [C609619]', {
 		tag: [tags.WIN],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5730' }],
 	}, async function ({ app, page, python }) {
@@ -100,7 +99,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await expect(app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 90000 });
 	});
 
-	test.skip('With ipykernel not already installed [C609617]', {
+	test('With ipykernel not already installed [C609617]', {
 		tag: [tags.WIN],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5730' }],
 	}, async function ({ app, page }) {
@@ -116,7 +115,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await app.workbench.positronInterpreterDropdown.closeInterpreterDropdown();
 		await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
 		await app.workbench.positronConsole.sendEnterKey();
-		await app.workbench.positronConsole.waitForConsoleContents('Successfully uninstalled ipykernel')
+		await app.workbench.positronConsole.waitForConsoleContents('Successfully uninstalled ipykernel');
 
 		// Create a new Python project and use the selected python interpreter
 		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
