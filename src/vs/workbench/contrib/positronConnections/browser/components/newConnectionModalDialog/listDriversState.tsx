@@ -16,7 +16,7 @@ import { PositronConnectionsServices } from '../../positronConnectionsContext.js
 import { LanguageRuntimeMetadata } from 'positron';
 import { DropDownListBox } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
-import { IDriver } from '../../../../../services/positronConnections/browser/interfaces/positronConnectionsDriver.js';
+import { IDriver } from '../../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 
 interface ListDriversProps {
 	readonly services: PositronConnectionsServices;

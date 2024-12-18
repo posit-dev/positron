@@ -11,7 +11,7 @@ import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
 import { RuntimeClientType } from './extHostTypes.positron.js';
 import { LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
-import { IDriverMetadata, Input } from '../../../services/positronConnections/browser/interfaces/positronConnectionsDriver.js';
+import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler

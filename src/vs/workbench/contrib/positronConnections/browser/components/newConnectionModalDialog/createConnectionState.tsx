@@ -15,7 +15,7 @@ import { localize } from '../../../../../../nls.js';
 import { PositronConnectionsServices } from '../../positronConnectionsContext.js';
 import { SimpleCodeEditor, SimpleCodeEditorWidget } from '../simpleCodeEditor.js';
 import Severity from '../../../../../../base/common/severity.js';
-import { IDriver, Input } from '../../../../../services/positronConnections/browser/interfaces/positronConnectionsDriver.js';
+import { IDriver, Input } from '../../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { LabeledTextInput } from '../../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { RadioGroup } from '../../../../../browser/positronComponents/positronModalDialog/components/radioGroup.js';
 import { PositronModalReactRenderer } from '../../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';

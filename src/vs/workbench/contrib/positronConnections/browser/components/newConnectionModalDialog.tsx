@@ -18,7 +18,7 @@ import { PositronConnectionsServices } from '../positronConnectionsContext.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { CreateConnection } from './newConnectionModalDialog/createConnectionState.js';
 import { ListDrivers } from './newConnectionModalDialog/listDriversState.js';
-import { IDriver } from '../../../../services/positronConnections/browser/interfaces/positronConnectionsDriver.js';
+import { IDriver } from '../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 
 const NEW_CONNECTION_MODAL_DIALOG_WIDTH = 700;
 const NEW_CONNECTION_MODAL_DIALOG_HEIGHT = 630;

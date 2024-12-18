@@ -5,7 +5,7 @@
 
 import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
-import { Input } from '../../../services/positronConnections/browser/interfaces/positronConnectionsDriver.js';
+import { Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { Disposable } from '../extHostTypes.js';
 
 export class ExtHostConnections implements extHostProtocol.ExtHostConnectionsShape {

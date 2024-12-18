@@ -3,11 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
-import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers';
-import { IDriver, IDriverMetadata, Input } from '../../../services/positronConnections/browser/interfaces/positronConnectionsDriver';
-import { IPositronConnectionsService } from '../../../services/positronConnections/browser/interfaces/positronConnectionsService';
-import { ExtHostConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadConnectionsShape } from '../../common/positron/extHost.positron.protocol';
+import { ExtHostConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
+import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
+import { IDriver, IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
+import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadConnections)
 export class MainThreadConnections implements MainThreadConnectionsShape {
@@ -58,15 +57,18 @@ class MainThreadDriverAdapter implements IDriver {
 		if (!this.availableMethods.connect) {
 			return undefined;
 		}
+		return (code: string) => this._proxy.$driverConnect(this.driverId, code);
 	}
 	get checkDependencies() {
 		if (!this.availableMethods.checkDependencies) {
 			return undefined;
 		}
+		return () => this._proxy.$driverCheckDependencies(this.driverId);
 	}
 	get installDependencies() {
 		if (!this.availableMethods.installDependencies) {
 			return undefined;
 		}
+		return () => this._proxy.$driverInstallDependencies(this.driverId);
 	}
 }
