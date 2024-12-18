@@ -734,8 +734,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				await this.restoreWorkspaceSessions(sessions);
 			}
 		} catch (err) {
-			this._logService.error(`Could not restore workspace sessions: ${err} ` +
-				`(data: ${storedSessions})`);
+			this._logService.error(`Could not restore workspace sessions: ${err?.stack ?? err} ` +
+				`(data: ${JSON.stringify(storedSessions)})`);
 		}
 	}
 
