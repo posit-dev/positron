@@ -24,7 +24,7 @@ import { ColumnProfileDatetime } from './columnProfileDatetime.js';
 import { TableSummaryDataGridInstance } from '../tableSummaryDataGridInstance.js';
 import { ColumnDisplayType, ColumnProfileType, ColumnSchema } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { dataExplorerExperimentalFeatureEnabled } from '../../common/positronDataExplorerExperimentalConfig.js';
-import { getDisplayedColumnName } from '../../common/utils.js';
+import { renderLeadingTrailingWhitespace } from './tableDataCell.js';
 
 /**
  * Constants.
@@ -355,6 +355,8 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			break;
 	}
 
+	const renderedColumn = renderLeadingTrailingWhitespace(props.columnSchema.column_name);
+
 	// Determine whether this is the cursor.
 	const cursor = props.columnIndex === props.instance.cursorRowIndex;
 
@@ -414,7 +416,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 					onMouseLeave={() => props.hoverService.hideHover()}
 				/>
 				<div className='column-name'>
-					{getDisplayedColumnName(props.columnSchema.column_name)}
+					{renderedColumn}
 				</div>
 				{!expanded && <ColumnSparkline />}
 				<ColumnNullPercent />
