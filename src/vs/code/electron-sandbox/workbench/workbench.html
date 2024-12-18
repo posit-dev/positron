@@ -28,7 +28,7 @@
 					'self'
 					'unsafe-eval'
 					blob:
-					'nonce-0c6a828f1297'
+					'nonce-84405825-c9a7-4d5e-beac-4e5aaf0329f3'
 				;
 				style-src
 					'self'
@@ -66,6 +66,18 @@
 				;
 		"/>
 
+        <script type="importmap" nonce="84405825-c9a7-4d5e-beac-4e5aaf0329f3">
+            {
+                "imports": {
+                    "he": "../../../../esm-package-dependencies/he.js",
+                    "react": "../../../../esm-package-dependencies/react.js",
+                    "react-dom": "../../../../esm-package-dependencies/react-dom.js",
+                    "react-dom/client": "../../../../esm-package-dependencies/client.js",
+                    "react-window": "../../../../esm-package-dependencies/react-window.js"
+                }
+            }
+        </script>
+
 		<!-- Workbench CSS -->
 		<link rel="stylesheet" href="../../../workbench/workbench.desktop.main.css">
 	</head>
@@ -74,9 +86,5 @@
 	</body>
 
 	<!-- Startup (do not modify order of script tags!) -->
-	<!-- Start Positron --->
-	<!-- This script loads external ESM resources, such as React. -->
-	<script src="../../../../bootstrap-external.js"></script>
-	<!-- End Positron --->
 	<script src="./workbench.js" type="module"></script>
 </html>
