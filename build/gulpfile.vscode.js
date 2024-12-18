@@ -402,7 +402,6 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			// --- Start Positron ---
 			positronApi,
 			quarto,
-			externalModules,
 			moduleSources,
 			// --- End Positron ---
 			telemetry,
