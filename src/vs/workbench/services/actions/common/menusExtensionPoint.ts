@@ -63,6 +63,7 @@ const apiMenus: IAPIMenu[] = [
 		description: localize('menus.touchBar', "The touch bar (macOS only)"),
 		supportsSubmenus: false
 	},
+	// --- Start Positron ---
 	{
 		key: 'editor/actions/left',
 		id: MenuId.EditorActionsLeft,
@@ -78,6 +79,7 @@ const apiMenus: IAPIMenu[] = [
 		id: MenuId.EditorActionsRight,
 		description: localize('menus.editorActionsRight', "The editor actions right menu")
 	},
+	// --- End Positron ---
 	{
 		key: 'editor/title',
 		id: MenuId.EditorTitle,
