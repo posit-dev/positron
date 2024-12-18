@@ -171,6 +171,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		this._kernelChannel = positron.window.createRawLogOutputChannel(
 			`${runtimeMetadata.runtimeName}: Kernel`);
+
 		this._kernelChannel.appendLine(`** Begin kernel log for session ${metadata.sessionName} (${metadata.sessionId}) at ${new Date().toLocaleString()} **`);
 	}
 
@@ -900,7 +901,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			const uri = vscode.Uri.parse(this._api.basePath);
 			const wsUri = `ws://${uri.authority}/sessions/${this.metadata.sessionId}/channels`;
 			this.log(`Connecting to websocket: ${wsUri}`, vscode.LogLevel.Debug);
-			this._socket = new SocketSession(wsUri, this.metadata.sessionId);
+			this._socket = new SocketSession(wsUri, this.metadata.sessionId, this._consoleChannel);
 			this._disposables.push(this._socket);
 
 			// Handle websocket events
@@ -937,7 +938,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 			// Main handler for incoming messages
 			this._socket.ws.onmessage = (msg: any) => {
-				this.log(`RECV message: ${msg.data}`, vscode.LogLevel.Trace);
 				try {
 					const data = JSON.parse(msg.data.toString());
 					this.handleMessage(data);
@@ -1072,6 +1072,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @param data The message payload
 	 */
 	handleKernelMessage(data: any) {
+		this.log(`<<< RECV [kernel]: ${JSON.stringify(data)}`, vscode.LogLevel.Debug);
 		if (data.hasOwnProperty('status')) {
 			// Extract the new status
 			const status = data.status.status;
@@ -1272,6 +1273,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Cast the data to a Jupyter message
 		const msg = data as JupyterMessage;
+
+		// Log the message
+		this.log(`<<< RECV [${msg.channel}]: ${JSON.stringify(msg.content)}`, vscode.LogLevel.Debug);
 
 		// Check to see if the message is a reply to a request; if it is,
 		// resolve the associated promise and remove it from the pending
