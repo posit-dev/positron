@@ -103,8 +103,8 @@ Several tests use [QA Content Examples](https://github.com/posit-dev/qa-example-
 Before compiling the tests, make sure to install dependencies in the following directories:
 
 ```bash
-npm run --cwd test/automation install
-npm run --cwd test/e2e install
+npm --prefix test/automation install
+npm --prefix test/e2e install
 ```
 
 ### Build
@@ -112,7 +112,7 @@ npm run --cwd test/e2e install
 The tests are written in TypeScript, but unlike the main Positron code, these files aren’t automatically transpiled by the build daemons. To run the tests, you’ll need to start the build watcher:
 
 ```bash
-npm run --cwd test/e2e watch
+npm run --prefix test/e2e watch
 ```
 
 _You may see errors in test files before you run this builder step once, as it's looking for types in the not-yet-existing build artifacts._
