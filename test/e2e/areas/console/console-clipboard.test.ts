@@ -5,7 +5,7 @@
 
 import * as os from 'os';
 import { test, tags } from '../_test.setup';
-import { Application } from '../../../automation';
+import { Application, PositronConsole } from '../../../automation';
 
 test.use({
 	suiteId: __filename
@@ -47,7 +47,7 @@ async function initializeConsole(console: any) {
 	});
 }
 
-async function executeCopyAndPaste(console: any, page: any, testLine: string) {
+async function executeCopyAndPaste(console: PositronConsole, page: any, testLine: string) {
 	const isMac = os.platform() === 'darwin';
 	const modifier = isMac ? 'Meta' : 'Control';
 
@@ -59,6 +59,7 @@ async function executeCopyAndPaste(console: any, page: any, testLine: string) {
 		await page.keyboard.press(`${modifier}+A`);
 		await page.keyboard.press(`${modifier}+C`);
 		await console.sendEnterKey();
+		await console.waitForConsoleExecution();
 
 		// Ensure the test line is in the console's output
 		await console.waitForConsoleContents(testLine);
@@ -76,6 +77,7 @@ async function verifyClipboardPaste(console: any, testLine: string) {
 		// Verify the pasted line in the current input
 		await console.waitForCurrentConsoleLineContents(testLine.replaceAll(' ', ' '));
 		await console.sendEnterKey();
+		await console.waitForConsoleExecution();
 
 		// Ensure the console contains the test line after execution
 		await console.waitForConsoleContents(testLine);
