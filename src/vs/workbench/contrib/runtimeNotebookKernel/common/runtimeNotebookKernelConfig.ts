@@ -44,7 +44,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: false,
 			description: localize(
-				'positron.notebook',
+				'notebook.experimental.showExecutionInfo.description',
 				'Show notebook execution information in the status bar, such as the total duration and number of cells executed.',
 			),
 		}
