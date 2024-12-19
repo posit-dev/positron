@@ -47,7 +47,9 @@ export class PythonLspOutputChannelManager {
         let out = this._channels.get(key);
 
         if (!out) {
-            const name = `${sessionName}: ${LSP_OUTPUT_CHANNEL_DESCRIPTOR} (${sessionMode.charAt(0).toUpperCase() + sessionMode.slice(1)})`;
+            const name = `${sessionName}: ${LSP_OUTPUT_CHANNEL_DESCRIPTOR} (${
+                sessionMode.charAt(0).toUpperCase() + sessionMode.slice(1)
+            })`;
             out = vscode.window.createOutputChannel(name);
             this._channels.set(key, out);
         }
