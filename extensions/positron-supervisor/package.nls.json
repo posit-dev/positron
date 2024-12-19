@@ -13,5 +13,6 @@
 	"configuration.attachOnStartup.description": "Run <f5> before starting up Jupyter kernel (when supported)",
 	"configuration.sleepOnStartup.description": "Sleep for n seconds before starting up Jupyter kernel (when supported)",
 	"command.positron.supervisor.category": "Kernel Supervisor",
-	"command.showKernelSupervisorLog.title": "Show the Kernel Supervisor Log"
+	"command.showKernelSupervisorLog.title": "Show the Kernel Supervisor Log",
+	"command.reconnectSession.title": "Reconnect the current session"
 }

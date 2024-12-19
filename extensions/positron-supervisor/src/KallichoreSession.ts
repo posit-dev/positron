@@ -571,8 +571,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			type === positron.RuntimeClientType.IPyWidgetControl) {
 
 			const msg: JupyterCommOpen = {
-				target_name: type,  // eslint-disable-line
-				comm_id: id,  // eslint-disable-line
+				target_name: type,
+				comm_id: id,
 				data: params
 			};
 			const commOpen = new CommOpenCommand(msg, metadata);
@@ -1045,6 +1045,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
+	 * Disconnect the session
+	 */
+	public disconnect() {
+		this._socket?.ws.close();
+	}
+
+	/**
 	 * Main entry point for handling messages delivered over the websocket from
 	 * the Kallichore server.
 	 *
@@ -1163,6 +1170,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._exitReason = reason;
 		this.onStateChange(positron.RuntimeState.Exited, 'kernel exited with code ' + exitCode);
 		this.onExited(exitCode);
+	}
+
+	/**
+	 * Marks the kernel as offline.
+	 *
+	 * @param reason The reason for the kernel going offline
+	 */
+	markOffline(reason: string) {
+		this.onStateChange(positron.RuntimeState.Offline, reason);
 	}
 
 	private onExited(exitCode: number) {
