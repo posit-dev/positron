@@ -13,7 +13,7 @@
  * which are not currently configured to run in PR workflows.
  */
 export enum TestTags {
-	ACTION_BAR = '@action-bar',
+	EDITOR_ACTION_BAR = '@editor-action-bar',
 	APPS = '@apps',
 	CONNECTIONS = '@connections',
 	CONSOLE = '@console',
