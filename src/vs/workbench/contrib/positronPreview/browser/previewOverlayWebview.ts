@@ -66,25 +66,15 @@ export class PreviewOverlayWebview extends Disposable {
 
 					// Listen for messages
 					window.addEventListener('message', message => {
-						console.log('########preview iframe wrapper received message:', message);
-
-						// If a message is coming from the preview content window, forward it to the
-						// preview overlay webview.
 						if (message.source === previewContentWindow) {
-							console.log('########forwarding to preview overlay webview:', message.data);
-							// // Cannot read properties of undefined (reading 'postMessage')
-							// window.parent.postMessage({
-							// 	type: message.channel,
-							// 	data: message.data
-							// });
-							// // This doesn't work. Don't think this would send the message to the
-							// // correct layer anyways?
-							// vscode.postMessage({
-							// 	type: message.channel,
-							// 	data: message.data
-							// });
+							// If a message is coming from the preview content window, forward it to the
+							// preview overlay webview.
+							vscode.postMessage({
+								__positron_preview_message: true,
+								...message.data
+							});
 						} else {
-							console.log('########forwarding to iframe:', message.data);
+							// Forward messages from the preview overlay webview to the preview content window.
 							previewContentWindow.postMessage(message.data, '*');
 						}
 					});

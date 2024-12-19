@@ -341,7 +341,6 @@ window.addEventListener('contextmenu', (e) => {
 // Ask Positron to open a link instead of handling it internally
 function openLinkInHost(link) {
 	link.addEventListener('click', function (event) {
-		console.log('########openLinkInHost:', link);
 		hostMessaging.postMessage('did-click-link', { uri: link.href });
 		event.preventDefault();
 		return false;
@@ -362,7 +361,6 @@ window.addEventListener('load', () => {
 	}
 
 	// Notify the host that the webview has loaded its content
-	console.log('########did-load-window:', document.title);
 	hostMessaging.postMessage('did-load-window', {
 		title: document.title,
 	});
@@ -383,7 +381,6 @@ window.prompt = (message, _default) => {
 const oldOpen = window.open;
 window.open = (url, target, features) => {
 	const uri = url instanceof URL ? url.href : url;
-	console.log('########Opening link:', uri);
 	hostMessaging.postMessage('did-click-link', { uri });
 	return oldOpen(uri, target, features);
 };

@@ -4,16 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * This file is derived from the event handlers in the `index.html` file next
- * door. Its job is to absorb events from the inner iframe and forward them to
- * the host as window messages.
+ * This file is derived from the event handlers in the `index.html` file from
+ * src/vs/workbench/contrib/webview/browser/pre/index.html. Its job is to absorb
+ * vents from the inner iframe and forward them to the host as window messages.
  *
- * This allows the host to dispatach events that can't be handled natively in
- * the frame on Electron, such as copy/cut/paste commands and context menus.
+ * This allows the host to dispatch events such as copy/cut/paste commands and
+ * context menus to the webview.
  *
- * The other side of the communication is in `index-external.html`; it receives
+ * The other side of the communication is in `index.html`; it receives
  * messages sent from this file and forwards them to the webview host, where
  * they are processed and dispatched.
+ *
+ * The only difference between this file and the original is this comment block.
+ * Original: src/vs/workbench/contrib/webview/browser/pre/webview-events.js
  */
 
 /**
@@ -341,7 +344,6 @@ window.addEventListener('contextmenu', (e) => {
 // Ask Positron to open a link instead of handling it internally
 function openLinkInHost(link) {
 	link.addEventListener('click', function (event) {
-		console.log('########openLinkInHost:', link);
 		hostMessaging.postMessage('did-click-link', { uri: link.href });
 		event.preventDefault();
 		return false;
@@ -362,7 +364,6 @@ window.addEventListener('load', () => {
 	}
 
 	// Notify the host that the webview has loaded its content
-	console.log('########did-load-window:', document.title);
 	hostMessaging.postMessage('did-load-window', {
 		title: document.title,
 	});
@@ -383,7 +384,6 @@ window.prompt = (message, _default) => {
 const oldOpen = window.open;
 window.open = (url, target, features) => {
 	const uri = url instanceof URL ? url.href : url;
-	console.log('########Opening link:', uri);
 	hostMessaging.postMessage('did-click-link', { uri });
 	return oldOpen(uri, target, features);
 };

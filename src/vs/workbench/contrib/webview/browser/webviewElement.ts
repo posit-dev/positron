@@ -199,7 +199,6 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 			this._tunnelService
 		));
 
-		console.log('######## WebviewElement#constructor', initInfo);
 		this._element = this._createElement(initInfo.options, initInfo.contentOptions);
 
 		this._register(this.on('no-csp-found', () => {
@@ -207,11 +206,25 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 		}));
 
 		this._register(this.on('did-click-link', ({ uri }) => {
-			console.log('######## WebviewElement#onDidClickLink', uri);
 			this._onDidClickLink.fire(uri);
 		}));
 
 		this._register(this.on('onmessage', ({ message, transfer }) => {
+			// --- Start Positron ---
+			// If the message has the __positron_preview_message flag, we can unwrap it and send it
+			// directly to the webview instead of processing it as a generic message. This is similar
+			// to the onmessage handling in src/vs/workbench/contrib/positronHelp/browser/helpEntry.ts
+			if (message.__positron_preview_message) {
+				const handlers = this._messageHandlers.get(message.channel);
+				if (handlers) {
+					handlers?.forEach(handler => handler(message.data, message));
+					return;
+				} else {
+					console.log(`No handlers found for Positron Preview message: '${message.channel}'`);
+					// Fall through to fire the generic message event
+				}
+			}
+			// --- End Positron ---
 			this._onMessage.fire({ message, transfer });
 		}));
 
@@ -346,7 +359,6 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 			}
 			if (evt.frameId.processId === this._frameId.processId &&
 				evt.frameId.routingId === this._frameId.routingId) {
-				console.log('######## WebviewElement#onFrameNavigated', evt);
 				// Insert the `webview-events.js` script into the frame
 				await this.injectJavaScript();
 
@@ -359,7 +371,6 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 			}
 		}));
 		this._register(this.on('did-load-window', (data) => {
-			console.log('######## WebviewElement#onDidLoadWindow', data);
 			this._onDidLoad.fire(data.title);
 		}));
 		// --- End Positron ---
