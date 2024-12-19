@@ -48,6 +48,7 @@ import { NotebookInstanceProvider } from './NotebookInstanceProvider.js';
 import { PositronNotebookComponent } from './PositronNotebookComponent.js';
 import { ServicesProvider } from './ServicesProvider.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWebviewService } from '../../webview/browser/webview.js';
@@ -125,6 +126,7 @@ export class PositronNotebookEditor extends EditorPane {
 		@ICommandService private readonly _commandService: ICommandService,
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IEditorService private readonly _editorService: IEditorService,
 	) {
 		// Call the base class's constructor.
 		super(
@@ -475,7 +477,8 @@ export class PositronNotebookEditor extends EditorPane {
 						openerService: this._openerService,
 						notificationService: this._notificationService,
 						sizeObservable: this._size,
-						scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container)
+						scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container),
+						editorService: this._editorService
 					}}>
 						<PositronNotebookComponent />
 					</ServicesProvider>

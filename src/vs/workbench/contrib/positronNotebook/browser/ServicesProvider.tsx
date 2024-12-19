@@ -17,6 +17,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IWebviewService } from '../../webview/browser/webview.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
@@ -83,6 +84,11 @@ interface ServiceBundle {
 	 */
 	scopedContextKeyProviderCallback: (container: HTMLElement) => IScopedContextKeyService;
 
+	/**
+	 * Service for managing active editors and editor state
+	 */
+	editorService: IEditorService;
+
 }
 
 /**
@@ -110,5 +116,3 @@ export function useServices() {
 	}
 	return serviceBundle;
 }
-
-

@@ -4,10 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { getWindow } from '../../../../../../base/browser/dom.js';
+import { getWindow, addDisposableListener } from '../../../../../../base/browser/dom.js';
 import { INotebookOutputWebview } from '../../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { isHTMLOutputWebviewMessage } from '../../../../positronWebviewPreloads/browser/notebookOutputUtils.js';
 import { useNotebookInstance } from '../../NotebookInstanceProvider.js';
+import { useServices } from '../../ServicesProvider.js';
 import { IOverlayWebview } from '../../../../webview/browser/webview.js';
 import { IDisposable, toDisposable } from '../../../../../../base/common/lifecycle.js';
 import { useNotebookVisibility } from '../../NotebookVisibilityContext.js';
@@ -20,12 +21,15 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 	const containerRef = React.useRef<HTMLDivElement>(null);
 	const notebookInstance = useNotebookInstance();
 	const visibilityObservable = useNotebookVisibility();
+	const { editorService } = useServices();
 
 	React.useEffect(() => {
 		const controller = new AbortController();
 		let webviewElement: IOverlayWebview | undefined;
 		let scrollDisposable: IDisposable | undefined;
 		let visibilityObserver: IDisposable | undefined;
+		let containerBlurDisposable: IDisposable | undefined;
+		let editorChangeDisposable: IDisposable | undefined;
 
 		/**
 		 * Updates the layout of the webview element if both the webview and container are available
@@ -77,6 +81,16 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 				// Update layout on scroll and visibility changes
 				scrollDisposable = notebookInstance.onDidScrollCellsContainer(updateWebviewLayout);
 
+				// Update layout when focus leaves the notebook container
+				if (notebookInstance.cellsContainer) {
+					containerBlurDisposable = addDisposableListener(notebookInstance.cellsContainer, 'focusout', (e) => {
+						// Only update if focus is moving outside the notebook container
+						if (!notebookInstance.cellsContainer?.contains(e.relatedTarget as Node)) {
+							updateWebviewLayout();
+						}
+					});
+				}
+
 				webviewElement.onMessage((x) => {
 					const { message } = x;
 					if (!isHTMLOutputWebviewMessage(message) || !containerRef.current) { return; }
@@ -90,6 +104,11 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 						boundedHeight = 0;
 					}
 					containerRef.current.style.height = `${boundedHeight}px`;
+				});
+
+				// Listen for editor group changes and update layout
+				editorChangeDisposable = editorService.onDidActiveEditorChange(() => {
+					updateWebviewLayout();
 				});
 
 				return scrollDisposable;
@@ -116,7 +135,9 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 			controller.abort();
 			releaseWebview();
 			scrollDisposable?.dispose();
+			containerBlurDisposable?.dispose();
 			visibilityObserver?.dispose();
+			editorChangeDisposable?.dispose();
 		};
 	}, [webview, notebookInstance, visibilityObservable]);
 
