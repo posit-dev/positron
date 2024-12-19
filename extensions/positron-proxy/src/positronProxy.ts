@@ -7,13 +7,14 @@ import * as vscode from 'vscode';
 import fs = require('fs');
 import path = require('path');
 import express from 'express';
-import { AddressInfo, Server } from 'net';
+import { Server } from 'net';
 import { log, ProxyServerStyles } from './extension';
 // eslint-disable-next-line no-duplicate-imports
 import { Disposable, ExtensionContext } from 'vscode';
 import { createProxyMiddleware, responseInterceptor } from 'http-proxy-middleware';
 import { HtmlProxyServer } from './htmlProxy';
 import { htmlContentRewriter, rewriteUrlsWithProxyPath } from './util';
+import { ContentRewriter, isAddressInfo, MaybeAddressInfo, PendingProxyServer, ProxyServerHtmlConfig, ProxyServerType } from './types';
 
 /**
  * Constants.
@@ -43,43 +44,6 @@ const getStyleElement = (script: string, id: string) =>
  */
 const getScriptElement = (script: string, id: string) =>
 	script.match(new RegExp(`<script id="${id}" type="module">.*?<\/script>`, 'gs'))?.[0];
-
-/**
- * ContentRewriter type.
- */
-type ContentRewriter = (
-	serverOrigin: string,
-	proxyPath: string,
-	url: string,
-	contentType: string,
-	responseBuffer: Buffer
-) => Promise<Buffer | string>;
-
-/**
- * PendingProxyServer type.
- */
-type PendingProxyServer = {
-	externalUri: vscode.Uri;
-	proxyPath: string;
-	finishProxySetup: (targetOrigin: string) => Promise<void>;
-};
-
-/**
- * MaybeAddressInfo type.
- */
-type MaybeAddressInfo = AddressInfo | string | null | undefined;
-
-/**
- * Custom type guard for AddressInfo.
- * @param addressInfo The value to type guard.
- * @returns true if the value is an AddressInfo; otherwise, false.
- */
-export const isAddressInfo = (
-	addressInfo: MaybeAddressInfo
-): addressInfo is AddressInfo =>
-	(addressInfo as AddressInfo).address !== undefined &&
-	(addressInfo as AddressInfo).family !== undefined &&
-	(addressInfo as AddressInfo).port !== undefined;
 
 /**
  * ProxyServer class.
@@ -116,6 +80,11 @@ export class PositronProxy implements Disposable {
 	 * Gets or sets a value which indicates whether the resources/scripts_{TYPE}.html files have been loaded.
 	 */
 	private _scriptsFileLoaded = false;
+
+	/**
+	 * Stores the proxy server HTML configurations.
+	 */
+	private _proxyServerHtmlConfigs: ProxyServerHtmlConfig = {};
 
 	/**
 	 * Gets or sets the help styles.
@@ -278,7 +247,7 @@ export class PositronProxy implements Disposable {
 	}
 
 	/**
-	 * Starts a proxy server to server local HTML content.
+	 * Starts a proxy server to serve local HTML content.
 	 * @param targetPath The target path
 	 * @returns The server URL.
 	 */
@@ -288,7 +257,17 @@ export class PositronProxy implements Disposable {
 		if (!this._htmlProxyServer) {
 			this._htmlProxyServer = new HtmlProxyServer();
 		}
-		return this._htmlProxyServer.createHtmlProxy(targetPath);
+
+		// If we're running in a Web UI, load the preview resources to inject iframe communication
+		// scripts. Otherwise, we have Electron-specific handling for Desktop.
+		if (vscode.env.uiKind === vscode.UIKind.Web) {
+			this.loadPreviewResources();
+		}
+
+		return this._htmlProxyServer.createHtmlProxy(
+			targetPath,
+			this._proxyServerHtmlConfigs.preview
+		);
 	}
 
 	/**
@@ -329,6 +308,33 @@ export class PositronProxy implements Disposable {
 	//#endregion Public Methods
 
 	//#region Private Methods
+
+	private loadPreviewResources() {
+		// Load the scripts_preview.html file for the preview proxy server.
+		try {
+			// Load the resources/scripts_preview.html scripts file.
+			const scriptsPath = path.join(this.context.extensionPath, 'resources', 'scripts_preview.html');
+			const scripts = fs.readFileSync(scriptsPath).toString('utf8');
+
+			// Get the elements from the scripts file.
+			this._proxyServerHtmlConfigs.preview = {
+				styleDefaults: getStyleElement(scripts, 'preview-style-defaults'),
+				styleOverrides: getStyleElement(scripts, 'preview-style-overrides'),
+			};
+
+			// Inject the webview events script.
+			const scriptEl = getScriptElement(scripts, 'preview-script');
+			if (scriptEl) {
+				const webviewEventsScriptPath = path.join(this.context.extensionPath, 'resources', 'webview-events.js');
+				const webviewEventsScript = fs.readFileSync(webviewEventsScriptPath).toString('utf8');
+				this._proxyServerHtmlConfigs.preview.script = scriptEl.replace('// webviewEventsScript placeholder', webviewEventsScript);
+			}
+			return true;
+		} catch (error) {
+			log.error(`Failed to load the resources/scripts_preview.html file: ${JSON.stringify(error)}`);
+		}
+		return false;
+	}
 
 	/**
 	 * Starts a proxy server.
