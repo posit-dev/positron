@@ -11,6 +11,8 @@ import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
 import { RuntimeClientType } from './extHostTypes.positron.js';
 import { LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
+import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
+import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -107,6 +109,18 @@ export interface ExtHostMethodsShape {
 	showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Promise<boolean>;
 }
 
+export interface MainThreadConnectionsShape {
+	$registerConnectionDriver(driverId: string, metadata: IDriverMetadata, availableMethods: IAvailableDriverMethods): void;
+	$removeConnectionDriver(driverId: string): void;
+}
+
+export interface ExtHostConnectionsShape {
+	$driverGenerateCode(driverId: string, inputs: Input[]): Promise<string>;
+	$driverConnect(driverId: string, code: string): Promise<void>;
+	$driverCheckDependencies(driverId: string): Promise<boolean>;
+	$driverInstallDependencies(driverId: string): Promise<boolean>;
+}
+
 /**
  * The view state of a preview in the Preview panel. Only one preview can be
  * active at a time (the one currently loaded into the panel); the active
@@ -179,6 +193,7 @@ export const ExtHostPositronContext = {
 	ExtHostConsoleService: createProxyIdentifier<ExtHostConsoleServiceShape>('ExtHostConsoleService'),
 	ExtHostContextKeyService: createProxyIdentifier<ExtHostContextKeyServiceShape>('ExtHostContextKeyService'),
 	ExtHostMethods: createProxyIdentifier<ExtHostMethodsShape>('ExtHostMethods'),
+	ExtHostConnections: createProxyIdentifier<ExtHostConnectionsShape>('ExtHostConnections'),
 };
 
 export const MainPositronContext = {
@@ -188,4 +203,5 @@ export const MainPositronContext = {
 	MainThreadConsoleService: createProxyIdentifier<MainThreadConsoleServiceShape>('MainThreadConsoleService'),
 	MainThreadContextKeyService: createProxyIdentifier<MainThreadContextKeyServiceShape>('MainThreadContextKeyService'),
 	MainThreadMethods: createProxyIdentifier<MainThreadMethodsShape>('MainThreadMethods'),
+	MainThreadConnections: createProxyIdentifier<MainThreadConnectionsShape>('MainThreadConnections'),
 };

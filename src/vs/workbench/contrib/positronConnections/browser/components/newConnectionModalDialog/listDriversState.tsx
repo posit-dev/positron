@@ -16,7 +16,7 @@ import { PositronConnectionsServices } from '../../positronConnectionsContext.js
 import { LanguageRuntimeMetadata } from 'positron';
 import { DropDownListBox } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
-import { IDriver } from '../../../../../services/positronConnections/browser/interfaces/positronConnectionsDriver.js';
+import { IDriver } from '../../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 
 interface ListDriversProps {
 	readonly services: PositronConnectionsServices;
@@ -36,7 +36,7 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 	const driverManager = props.services.connectionsService.driverManager;
 
 	const drivers = languageId ?
-		driverManager.getDrivers().filter(driver => driver.languageId === languageId) :
+		driverManager.getDrivers().filter(driver => driver.metadata.languageId === languageId) :
 		[];
 
 	const onLanguageChangeHandler = (lang: string) => {
@@ -79,15 +79,15 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 			{
 				drivers.length > 0 ?
 					drivers.map(driver => {
-						const icon = driver.base64EncodedIconSvg ?
-							<img className='driver-icon' src={`data:image/svg+xml;base64,${driver.base64EncodedIconSvg}`} /> :
+						const icon = driver.metadata.base64EncodedIconSvg ?
+							<img className='driver-icon' src={`data:image/svg+xml;base64,${driver.metadata.base64EncodedIconSvg}`} /> :
 							<div className='driver-icon codicon codicon-database' style={{ opacity: 0.5, fontSize: '24px' }}></div>;
 
 						return <div key={driver.driverId} className='driver-list-item'>
 							{icon}
 							<div className='driver-info' onMouseDown={() => onDriverSelectedHandler(driver)}>
 								<div className='driver-name'>
-									{driver.name}
+									{driver.metadata.name}
 								</div>
 								<div className={`driver-button codicon codicon-chevron-right`}>
 								</div>

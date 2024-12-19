@@ -1101,6 +1101,92 @@ declare module 'positron' {
 		pasteText(text: string): void;
 	}
 
+	/**
+	 * ConnectionsInput interface defines the structure for connection inputs.
+	 */
+	export interface ConnectionsInput {
+		/**
+		 * The unique identifier for the input.
+		 */
+		id: string;
+		/**
+		 * A human-readable label for the input.
+		 */
+		label: string;
+		/**
+		 * The type of the input.
+		 */
+		type: 'string' | 'number' | 'option';
+		/**
+		 * Options, if the input type is an option.
+		 */
+		options?: { 'identifier': string; 'title': string }[];
+		/**
+		 * The default value for the input.
+		 */
+		value?: string;
+	}
+
+	/**
+	 * ConnectionsDriverMetadata interface defines the structure for connection driver metadata.
+	 */
+	export interface ConnectionsDriverMetadata {
+		/**
+		 * The language identifier for the driver.
+		 * Drivers are grouped by language, not by runtime.
+		 */
+		languageId: string;
+		/**
+		 * A human-readable name for the driver.
+		 */
+		name: string;
+		/**
+		 * The base64-encoded SVG icon for the driver.
+		 */
+		base64EncodedIconSvg?: string;
+		/**
+		 * The inputs required to create a connection.
+		 * For instance, a connection might require a username
+		 * and password.
+		 */
+		inputs: Array<ConnectionsInput>;
+	}
+
+	export interface ConnectionsDriver {
+		/**
+		 * The unique identifier for the driver.
+		 */
+		driverId: string;
+
+		/**
+		 * The metadata for the driver.
+		 */
+		metadata: ConnectionsDriverMetadata;
+
+		/**
+		 * Generates the connection code based on the inputs.
+		 */
+		generateCode?: (inputs: Array<ConnectionsInput>) => string;
+
+		/**
+		 * Connect session.
+		 */
+		connect?: (code: string) => Promise<void>;
+
+		/**
+		 * Checks if the dependencies for the driver are installed
+		 * and functioning.
+		 */
+		checkDependencies?: () => Promise<boolean>;
+
+		/**
+		 * Installs the dependencies for the driver.
+		 * For instance, R packages would install the required
+		 * R packages, and or other dependencies.
+		 */
+		installDependencies?: () => Promise<boolean>;
+	}
+
 	namespace languages {
 		/**
 		 * Register a statement range provider.
@@ -1386,5 +1472,19 @@ declare module 'positron' {
 		export function showDialog(title: string, message: string): Thenable<null>;
 
 
+	}
+
+	/**
+	 * Refers to methods related to the connections pane
+	 */
+	namespace connections {
+		/**
+		 * Registers a new connection driver with Positron allowing extensions to contribute
+		 * to the 'New Connection' dialog.
+		 *
+		 * @param driver The connection driver to register
+		 * @returns A disposable that unregisters the driver when disposed
+		 */
+		export function registerConnectionDriver(driver: ConnectionsDriver): vscode.Disposable;
 	}
 }

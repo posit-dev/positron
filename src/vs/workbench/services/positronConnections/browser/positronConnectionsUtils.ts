@@ -4,24 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { IPositronConnectionItem } from './interfaces/positronConnectionsInstance.js';
+import { IPositronConnectionItem, IPositronConnectionEntry } from '../common/interfaces/positronConnectionsInstance.js';
 
-export interface IPositronConnectionEntry extends IPositronConnectionItem {
-	/***
-	 * The list of connections entries is flat. Level allows us to find
-	 * how nested an entry is.
-	 */
-	level: number;
 
-	/***
-	 * If the entry is expanded or not. Undefined if the entry is not expandable.
-	 */
-	expanded?: boolean;
-
-	// If an error happens during some evaluation for that element
-	// we try to display some information .
-	error?: string;
-}
 
 class PositronConnectionEntry extends Disposable implements IPositronConnectionEntry {
 

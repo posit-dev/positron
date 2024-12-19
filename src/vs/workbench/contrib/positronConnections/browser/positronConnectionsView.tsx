@@ -21,7 +21,7 @@ import * as DOM from '../../../../base/browser/dom.js';
 import { PositronConnections } from './positronConnections.js';
 import * as React from 'react';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { IPositronConnectionsService } from '../../../services/positronConnections/browser/interfaces/positronConnectionsService.js';
+import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
