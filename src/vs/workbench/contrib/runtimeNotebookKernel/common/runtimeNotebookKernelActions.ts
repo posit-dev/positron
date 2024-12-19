@@ -4,17 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Codicon } from '../../../../base/common/codicons.js';
+import { isEqual } from '../../../../base/common/resources.js';
+import { URI } from '../../../../base/common/uri.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
-import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { NOTEBOOK_KERNEL } from '../../notebook/common/notebookContextKeys.js';
+import { NOTEBOOK_POSITRON_KERNEL_RUNNING, NOTEBOOK_POSITRON_KERNEL_SELECTED } from '../../notebook/common/notebookContextKeys.js';
 import { isNotebookEditorInput } from '../../notebook/common/notebookEditorInput.js';
-import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from './runtimeNotebookKernelConfig.js';
 
 const category = localize2('positron.runtimeNotebookKernel.category', "Notebook");
 
@@ -28,27 +29,30 @@ class RuntimeNotebookKernelRestartAction extends Action2 {
 			id: RuntimeNotebookKernelRestartAction.ID,
 			// TODO: "Restart Kernel" is to match the Jupyter extension, which users might be expecting,
 			//       but we use "interpreter" elsewhere.
-			title: localize2('positron.command.restartNotebookInterpreter', "Restart Kernel"),
+			title: localize2('positron.command.restartNotebookInterpreter', 'Restart Kernel'),
 			icon: Codicon.debugRestart,
 			f1: true,
 			category,
+			precondition: NOTEBOOK_POSITRON_KERNEL_RUNNING,
 			menu: [
 				{
 					id: MenuId.NotebookToolbar,
 					// TODO: Group and order?
 					group: 'navigation/execute@5',
 					order: 5,
-					when: ContextKeyExpr.regex(NOTEBOOK_KERNEL.key, new RegExp(`${POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID}\/.*`)),
+					when: NOTEBOOK_POSITRON_KERNEL_SELECTED,
 				}
 			]
 		});
 	}
 
 	override async run(accessor: ServicesAccessor): Promise<void> {
+		const contextKeyService = accessor.get(IContextKeyService);
 		const editorService = accessor.get(IEditorService);
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 		const progressService = accessor.get(IProgressService);
 		const notificationService = accessor.get(INotificationService);
+		const notebookPositronKernelRunning = NOTEBOOK_POSITRON_KERNEL_RUNNING.bindTo(contextKeyService);
 
 		const activeInput = editorService.activeEditorPane?.input;
 		if (!isNotebookEditorInput(activeInput)) {
@@ -63,11 +67,10 @@ class RuntimeNotebookKernelRestartAction extends Action2 {
 			throw new Error('No session found for active notebook. This command should only be available when a session is running.');
 		}
 
-		// TODO: implement hasRunningNotebookSession context.
-		// Disable the hasRunningNotebookSession context before restarting.
-		// if (isActiveNotebookEditorUri(notebook.uri)) {
-		// 	await setHasRunningNotebookSessionContext(false);
-		// }
+		// Disable the notebookPositronKernelRunning before restarting.
+		if (isActiveNotebookUri(editorService, notebookUri)) {
+			notebookPositronKernelRunning.set(false);
+		}
 
 		// Restart the session with a progress bar.
 		try {
@@ -79,11 +82,10 @@ class RuntimeNotebookKernelRestartAction extends Action2 {
 			}, () => runtimeSessionService.restartSession(session.metadata.sessionId,
 				`User ran restart notebook command`));
 
-			// TODO: implement hasRunningNotebookSession context.
-			// // Enable the hasRunningNotebookSession context.
-			// if (isActiveNotebookEditorUri(notebook.uri)) {
-			// 	await setHasRunningNotebookSessionContext(true);
-			// }
+			// Enable the notebookHasRunningPositronKernelContext.
+			if (isActiveNotebookUri(editorService, notebookUri)) {
+				notebookPositronKernelRunning.set(true);
+			}
 		} catch (error) {
 			notificationService.error(
 				localize("positron.notebook.restart.failed", "Restarting {0} interpreter for '{1}' failed. Reason: {2}",
@@ -94,4 +96,10 @@ class RuntimeNotebookKernelRestartAction extends Action2 {
 
 export function registerRuntimeNotebookKernelActions(): void {
 	registerAction2(RuntimeNotebookKernelRestartAction);
+}
+
+/** Check whether the active editor is a notebook with the given URI. */
+export function isActiveNotebookUri(editorService: IEditorService, notebookUri: URI): boolean {
+	const activeInput = editorService.activeEditorPane?.input;
+	return isNotebookEditorInput(activeInput) && isEqual(activeInput.resource, notebookUri);
 }
