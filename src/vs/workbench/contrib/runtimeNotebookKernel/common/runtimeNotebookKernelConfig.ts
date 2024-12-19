@@ -13,6 +13,14 @@ const POSITRON_RUNTIME_NOTEBOOK_KERNEL_ENABLED_KEY = 'positron.runtimeNotebookKe
 export const NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY = 'notebook.experimental.showExecutionInfo';
 
 /**
+ * The extension ID used by Positron runtime notebook kernels.
+ *
+ * Although runtime notebook kernels live in the main thread, some notebook services still expect it
+ * to have an extension ID.
+ */
+export const POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID = 'positron.runtime-notebook-kernels';
+
+/**
  * Check whether runtime notebook kernels are enabled.
  */
 export function isRuntimeNotebookKernelEnabled(configurationService: IConfigurationService) {

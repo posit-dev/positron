@@ -14,8 +14,9 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { NOTEBOOK_KERNEL } from '../../notebook/common/notebookContextKeys.js';
 import { isNotebookEditorInput } from '../../notebook/common/notebookEditorInput.js';
+import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from './runtimeNotebookKernelConfig.js';
 
-const category = localize2('positron.runtimeNotebookKernelCategory', "Notebook");
+const category = localize2('positron.runtimeNotebookKernel.category', "Notebook");
 
 /** Restart the active runtime notebook kernel. */
 class RuntimeNotebookKernelRestartAction extends Action2 {
@@ -37,7 +38,7 @@ class RuntimeNotebookKernelRestartAction extends Action2 {
 					// TODO: Group and order?
 					group: 'navigation/execute@5',
 					order: 5,
-					when: ContextKeyExpr.regex(NOTEBOOK_KERNEL.key, /positron.runtimeNotebookKernels\/.*/),
+					when: ContextKeyExpr.regex(NOTEBOOK_KERNEL.key, new RegExp(`${POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID}\/.*`)),
 				}
 			]
 		});

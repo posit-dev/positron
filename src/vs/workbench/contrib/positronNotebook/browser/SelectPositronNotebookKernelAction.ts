@@ -12,7 +12,7 @@ import { selectKernelIcon } from '../../notebook/browser/notebookIcons.js';
 import { INotebookKernelService, INotebookKernel } from '../../notebook/common/notebookKernelService.js';
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
-import { RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../runtimeNotebookKernel/browser/runtimeNotebookKernelService.js';
+import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../runtimeNotebookKernel/common/runtimeNotebookKernelConfig.js';
 
 export const SELECT_KERNEL_ID_POSITRON = 'positronNotebook.selectKernel';
 const NOTEBOOK_ACTIONS_CATEGORY_POSITRON = localize2('positronNotebookActions.category', 'Positron Notebook');
@@ -66,7 +66,7 @@ class SelectPositronNotebookKernelAction extends Action2 {
 			const kernelMatches = notebookKernelService.getMatchingKernel(notebook);
 			const positronKernels = kernelMatches.all.filter(k =>
 				k.extension.value === 'positron.positron-notebook-controllers' ||
-				k.extension.value === RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID);
+				k.extension.value === POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID);
 			if (positronKernels.length === 0) {
 				quickPick.busy = true;
 				quickPick.items = [{ label: localize('positronNotebookActions.selectKernel.noKernel', 'No Positron Notebook Kernel found'), picked: true }];

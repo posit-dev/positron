@@ -27,7 +27,7 @@ import { CellExecutionUpdateType } from '../../notebook/common/notebookExecution
 import { INotebookCellExecution, INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { INotebookKernel, INotebookKernelChangeEvent, INotebookKernelService, VariablesResult } from '../../notebook/common/notebookKernelService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
-import { isRuntimeNotebookKernelEnabled } from '../common/runtimeNotebookKernelConfig.js';
+import { isRuntimeNotebookKernelEnabled, POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../common/runtimeNotebookKernelConfig.js';
 import { IRuntimeNotebookKernelService } from './interfaces/runtimeNotebookKernelService.js';
 import { NotebookExecutionStatus } from './notebookExecutionStatus.js';
 import { registerRuntimeNotebookKernelActions } from '../common/runtimeNotebookKernelActions.js';
@@ -36,14 +36,6 @@ import { registerRuntimeNotebookKernelActions } from '../common/runtimeNotebookK
  * The view type supported by Positron runtime notebook kernels. Currently only Jupyter notebooks are supported.
  */
 const viewType = 'jupyter-notebook';
-
-/**
- * The extension ID used by Positron runtime notebook kernels.
- *
- * Although runtime notebook kernels live in the main thread, some notebook services still expect it
- * to have an extension ID.
- */
-export const RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID = 'positron.runtime-notebook-kernels';
 
 /** An event that fires when a notebook execution starts. */
 interface DidStartExecutionEvent {
@@ -278,7 +270,7 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 export class RuntimeNotebookKernel extends Disposable implements INotebookKernel {
 	public readonly viewType = viewType;
 
-	public readonly extension = new ExtensionIdentifier(RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID);
+	public readonly extension = new ExtensionIdentifier(POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID);
 
 	public readonly preloadUris: URI[] = [];
 
@@ -318,8 +310,8 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	}
 
 	get id(): string {
-		// TODO: Is it ok if the ID doesn't match {publisher}.{extension}.{runtimeId}?
-		return `positron.runtimeNotebookKernels/${this.runtime.runtimeId}`;
+		// The kernel ID format `${extensionId}/${runtimeId}` is assumed by a few services and should not be changed.
+		return `${POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID}/${this.runtime.runtimeId}`;
 	}
 
 	get label(): string {
