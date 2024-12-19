@@ -226,6 +226,10 @@ export class PositronConsole {
 		return await locator.textContent() ?? '';
 	}
 
+	async waitForConsoleExecution({ timeout = 20000 }: { timeout?: number } = {}): Promise<void> {
+		await expect(this.code.driver.page.getByLabel('Interrupt execution')).not.toBeVisible({ timeout });
+	}
+
 	async waitForHistoryContents(expectedText: string, count = 1, timeout = 30000): Promise<string[]> {
 		const historyItem = this.code.driver.page.locator(HISTORY_COMPLETION_ITEM);
 		await expect(historyItem.filter({ hasText: expectedText })).toHaveCount(count, { timeout });

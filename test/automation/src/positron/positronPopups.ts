@@ -89,15 +89,15 @@ export class PositronPopups {
 	}
 
 	async verifyToastDoesNotAppear(timeoutMs: number = 3000): Promise<void> {
-		const startTime = Date.now();
+		const endTime = Date.now() + timeoutMs;
 
-		while (Date.now() - startTime < timeoutMs) {
+		while (Date.now() < endTime) {
 			const count = await this.toastLocator.count();
 			if (count > 0) {
 				throw new Error('Toast appeared unexpectedly');
 			}
 
-			this.code.wait(1000);
+			await this.code.driver.page.waitForTimeout(1000);
 		}
 
 		this.code.logger.log('Verified: Toast did not appear');
