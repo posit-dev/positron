@@ -3,8 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Page } from '@playwright/test';
 import { test, expect, tags } from '../_test.setup';
 import path = require('path');
+import { Application } from '../../../automation';
 
 test.use({
 	suiteId: __filename
@@ -25,81 +27,45 @@ test.describe('Editor Action Bar', {
 		tag: [tags.R_MARKDOWN]
 	}, async function ({ app, page }) {
 		await openFile(app, 'workspaces/basic-rmd-file/basicRmd.rmd');
-
-		await test.step('verify "preview" button renders html', async () => {
-			await page.getByLabel('Preview', { exact: true }).click();
-			const viewerFrame = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe');
-			await expect(viewerFrame.getByRole('heading', { name: 'Getting startedAnchor' })).toBeVisible({ timeout: 30000 });
-		});
-
+		await verifyPreviewRendersHtml(app, 'Getting startedAnchor');
 		await verifySplitEditor(page, 'basicRmd.rmd');
 		await verifyOpenInNewWindow(page, 'This post examines the features');
 	});
-
 
 	test('Quarto Document [C1080700]', {
 		tag: [tags.QUARTO]
 	}, async function ({ app, page }) {
 		await openFile(app, 'workspaces/quarto_basic/quarto_basic.qmd');
-
-		await test.step('verify "preview" button renders html', async () => {
-			await page.getByLabel('Preview', { exact: true }).click();
-			const viewerFrame = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe');
-			await expect(viewerFrame.locator('h1')).toHaveText('Diamond sizes', { timeout: 30000 });
-		});
-
+		await verifyPreviewRendersHtml(app, 'Diamond sizes');
+		await verifyOpenChanges(page);
 		await verifySplitEditor(page, 'quarto_basic.qmd');
 		await verifyOpenInNewWindow(page, 'Diamond sizes');
 	});
 
 	test('HTML Document [C1080701]', { tag: [tags.HTML] }, async function ({ app, page }) {
 		await openFile(app, 'workspaces/dash-py-example/data/OilandGasMetadata.html');
-
-		await test.step('verify "open in viewer" button renders html', async () => {
-			await page.getByLabel('Open in Viewer').nth(1).click();
-			const viewerFrame = page.locator('iframe.webview').contentFrame().locator('#active-frame').contentFrame();
-			const cellLocator = app.web
-				? viewerFrame.frameLocator('iframe').getByRole('cell', { name: 'Oil, Gas, and Other Regulated' })
-				: viewerFrame.getByRole('cell', { name: 'Oil, Gas, and Other Regulated' });
-
-			await expect(cellLocator).toBeVisible({ timeout: 30000 });
-		});
-
+		await verifyOpenViewerRendersHtml(app);
 		await verifySplitEditor(page, 'OilandGasMetadata.html');
 		await verifyOpenInNewWindow(page, '<title> Oil &amp; Gas Wells - Metadata</title>');
-
 	});
 
 	test('Jupyter Notebook [C1080702]', {
 		tag: [tags.NOTEBOOK],
 		annotation: [{ type: 'info', description: 'electron test unable to interact with dropdown native menu' }],
 	}, async function ({ app, page }) {
-		await test.step('open jupyter notebook', async () => {
-			await app.workbench.positronQuickaccess.openDataFile(
-				path.join(app.workspacePathOrFolder, 'workspaces', 'large_r_notebook', 'spotify.ipynb')
-			);
-		});
-
-		if (app.web) {
-			await test.step('verify "customize notebook: toggle line numbers" adjusts settings (web only)', async () => {
-				await verifyLineNumbersVisibility(page, false);
-				await clickCustomizeNotebookMenuItem(page, 'Toggle Notebook Line Numbers');
-				await verifyLineNumbersVisibility(page, true);
-			});
-
-			await test.step('verify "customize notebook: toggle breadcrumbs" adjusts settings (web only)', async () => {
-				const breadcrumbs = page.locator('.monaco-breadcrumbs');
-
-				await expect(breadcrumbs).toBeVisible();
-				await clickCustomizeNotebookMenuItem(page, 'Toggle Breadcrumbs');
-				await expect(breadcrumbs).not.toBeVisible();
-			});
-		}
+		await openNotebook(app, 'workspaces/large_r_notebook/spotify.ipynb');
 
 		await verifySplitEditor(page, 'spotify.ipynb');
+
+		if (app.web) {
+			await verifyToggleLineNumbers(page);
+			await verifyToggleBreadcrumb(page);
+		}
 	});
 });
 
+
+// Helper functions
 async function openFile(app, filePath: string) {
 	const fileName = path.basename(filePath);
 	await test.step(`open file: ${fileName}`, async () => {
@@ -107,8 +73,16 @@ async function openFile(app, filePath: string) {
 	});
 }
 
+async function openNotebook(app: Application, filePath: string) {
+	await test.step('open jupyter notebook', async () => {
+		await app.workbench.positronQuickaccess.openDataFile(
+			path.join(app.workspacePathOrFolder, filePath)
+		);
+	});
+}
+
 async function verifySplitEditor(page, tabName: string) {
-	await test.step(`verify "split editor" button opens another tab`, async () => {
+	await test.step(`verify "split editor" opens another tab`, async () => {
 		// Split editor right
 		await page.getByLabel('Split Editor Right', { exact: true }).click();
 		await expect(page.getByRole('tab', { name: tabName })).toHaveCount(2);
@@ -151,4 +125,67 @@ async function verifyLineNumbersVisibility(page, isVisible: boolean) {
 		const lineNumbers = expect(page.locator('.line-numbers').getByText(lineNum.toString(), { exact: true }));
 		isVisible ? await lineNumbers.toBeVisible() : await lineNumbers.not.toBeVisible();
 	}
+}
+
+async function verifyOpenChanges(page: Page) {
+	await test.step('verify "open changes" shows diff', async () => {
+
+
+		// make change & save
+		await page.getByText('date', { exact: true }).click();
+		await page.keyboard.press('X');
+		await bindPlatformHotkey(page, 'S');
+
+		// click open changes & verify
+		await page.getByLabel('Open Changes').nth(1).click();
+		await expect(page.getByLabel('Revert Block')).toBeVisible();
+		await expect(page.getByLabel('Stage Block')).toBeVisible();
+		await page.getByRole('tab', { name: 'quarto_basic.qmd (Working' }).getByLabel('Close').click();
+
+		// undo changes & save
+		await bindPlatformHotkey(page, 'Z');
+		await bindPlatformHotkey(page, 'S');
+	});
+}
+
+async function bindPlatformHotkey(page: Page, key: string) {
+	await page.keyboard.press(process.platform === 'darwin' ? `Meta+${key}` : `Control+${key}`);
+}
+
+async function verifyOpenViewerRendersHtml(app: Application) {
+	await test.step('verify "open in viewer" renders html', async () => {
+		await app.code.driver.page.getByLabel('Open in Viewer').nth(1).click();
+		const viewerFrame = app.code.driver.page.locator('iframe.webview').contentFrame().locator('#active-frame').contentFrame();
+		const cellLocator = app.web
+			? viewerFrame.frameLocator('iframe').getByRole('cell', { name: 'Oil, Gas, and Other Regulated' })
+			: viewerFrame.getByRole('cell', { name: 'Oil, Gas, and Other Regulated' });
+
+		await expect(cellLocator).toBeVisible({ timeout: 30000 });
+	});
+}
+
+async function verifyPreviewRendersHtml(app: Application, heading: string) {
+	await test.step('verify "preview" renders html', async () => {
+		await app.code.driver.page.getByLabel('Preview', { exact: true }).click();
+		const viewerFrame = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe');
+		await expect(viewerFrame.getByRole('heading', { name: heading })).toBeVisible({ timeout: 30000 });
+	});
+}
+
+async function verifyToggleLineNumbers(page: Page) {
+	await test.step('verify "customize notebook > toggle line numbers" (web only)', async () => {
+		await verifyLineNumbersVisibility(page, false);
+		await clickCustomizeNotebookMenuItem(page, 'Toggle Notebook Line Numbers');
+		await verifyLineNumbersVisibility(page, true);
+	});
+}
+
+async function verifyToggleBreadcrumb(page: Page) {
+	await test.step('verify "customize notebook > toggle breadcrumbs" (web only)', async () => {
+		const breadcrumbs = page.locator('.monaco-breadcrumbs');
+
+		await expect(breadcrumbs).toBeVisible();
+		await clickCustomizeNotebookMenuItem(page, 'Toggle Breadcrumbs');
+		await expect(breadcrumbs).not.toBeVisible();
+	});
 }
