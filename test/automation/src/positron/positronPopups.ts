@@ -107,8 +107,12 @@ export class PositronPopups {
 		const count = await this.toastLocator.count();
 		this.code.logger.log(`Closing ${count} toasts`);
 		for (let i = 0; i < count; i++) {
-			await this.toastLocator.nth(i).hover();
-			await this.code.driver.page.locator(`${NOTIFICATION_TOAST} .codicon-notifications-clear`).nth(i).click();
+			try {
+				await this.toastLocator.nth(i).hover();
+				await this.code.driver.page.locator(`${NOTIFICATION_TOAST} .codicon-notifications-clear`).nth(i).click();
+			} catch (error) { // toasts can auto close before we get to them
+				this.code.logger.log(`Failed to close toast ${i}`);
+			}
 		}
 	}
 
