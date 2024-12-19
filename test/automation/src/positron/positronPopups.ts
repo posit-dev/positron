@@ -97,7 +97,6 @@ export class PositronPopups {
 				throw new Error('Toast appeared unexpectedly');
 			}
 
-			// Wait for 1 second between checks
 			await this.code.driver.page.waitForTimeout(1000);
 		}
 
