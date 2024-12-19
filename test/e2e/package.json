@@ -4,7 +4,7 @@
   "license": "MIT",
   "scripts": {
     "compile": "npm run --prefix ../automation compile && node ../../node_modules/typescript/bin/tsc",
-    "watch-automation": "yarn --cwd ../automation watch",
+    "watch-automation": "npm run --prefix ../automation watch",
     "watch-e2e": "node ../../node_modules/typescript/bin/tsc --watch --preserveWatchOutput",
     "watch": "npm-run-all -lp watch-automation watch-e2e"
   },

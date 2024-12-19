@@ -135,8 +135,8 @@ df2 = pd.DataFrame(data)`;
 		const filename = 'pandas-update-dataframe.ipynb';
 		await app.workbench.positronNotebooks.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', filename));
 		await app.workbench.positronNotebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
-		await app.workbench.notebook.focusFirstCell();
-		await app.workbench.notebook.executeActiveCell();
+		await app.workbench.positronNotebooks.focusFirstCell();
+		await app.workbench.positronNotebooks.executeActiveCell();
 
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('df');
@@ -151,8 +151,8 @@ df2 = pd.DataFrame(data)`;
 		}).toPass({ timeout: 60000 });
 
 		await app.code.driver.page.locator('.tabs .label-name:has-text("pandas-update-dataframe.ipynb")').click();
-		await app.workbench.notebook.focusNextCell();
-		await app.workbench.notebook.executeActiveCell();
+		await app.workbench.positronNotebooks.focusNextCell();
+		await app.workbench.positronNotebooks.executeActiveCell();
 		await app.code.driver.page.locator('.label-name:has-text("Data: df")').click();
 
 		await expect(async () => {
@@ -161,8 +161,8 @@ df2 = pd.DataFrame(data)`;
 		}).toPass({ timeout: 60000 });
 
 		await app.code.driver.page.locator('.tabs .label-name:has-text("pandas-update-dataframe.ipynb")').click();
-		await app.workbench.notebook.focusNextCell();
-		await app.workbench.notebook.executeActiveCell();
+		await app.workbench.positronNotebooks.focusNextCell();
+		await app.workbench.positronNotebooks.executeActiveCell();
 		await app.code.driver.page.locator('.label-name:has-text("Data: df")').click();
 		await app.workbench.positronDataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 

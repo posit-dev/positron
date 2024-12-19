@@ -32,9 +32,9 @@ test.describe('Notebooks', {
 		test('Python - Basic notebook creation and execution (markdown) [C628632]', async function ({ app }) {
 			const randomText = Math.random().toString(36).substring(7);
 
-			await app.workbench.notebook.insertNotebookCell('markdown');
-			await app.workbench.notebook.waitForTypeInEditor(`## ${randomText} `);
-			await app.workbench.notebook.stopEditingCell();
+			await app.workbench.positronNotebooks.insertNotebookCell('markdown');
+			await app.workbench.positronNotebooks.waitForTypeInEditor(`## ${randomText} `);
+			await app.workbench.positronNotebooks.stopEditingCell();
 			await app.workbench.positronNotebooks.assertMarkdownText('h2', randomText);
 		});
 	});
@@ -59,9 +59,9 @@ test.describe('Notebooks', {
 		test('R - Basic notebook creation and execution (markdown) [C628630]', async function ({ app }) {
 			const randomText = Math.random().toString(36).substring(7);
 
-			await app.workbench.notebook.insertNotebookCell('markdown');
-			await app.workbench.notebook.waitForTypeInEditor(`## ${randomText} `);
-			await app.workbench.notebook.stopEditingCell();
+			await app.workbench.positronNotebooks.insertNotebookCell('markdown');
+			await app.workbench.positronNotebooks.waitForTypeInEditor(`## ${randomText} `);
+			await app.workbench.positronNotebooks.stopEditingCell();
 			await app.workbench.positronNotebooks.assertMarkdownText('h2', randomText);
 		});
 	});
