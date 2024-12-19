@@ -29,4 +29,3 @@ export const arrayFromIndexRange = (startIndex: number, endIndex: number) =>
  */
 export const linearConversion = (value: number, from: Range, to: Range) =>
 	((value - from.min) / (from.max - from.min)) * (to.max - to.min) + to.min;
-
