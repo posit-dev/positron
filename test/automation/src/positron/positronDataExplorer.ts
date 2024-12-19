@@ -143,7 +143,7 @@ export class PositronDataExplorer {
 
 		await this.code.driver.page.locator(`.data-grid-column-header:nth-child(${columnIndex}) .sort-button`).click();
 
-		await this.code.driver.getLocator(`.positron-modal-overlay div.title:has-text("${menuItem}")`).click();
+		await this.code.driver.page.locator(`.positron-modal-overlay div.title:has-text("${menuItem}")`).click();
 
 	}
 

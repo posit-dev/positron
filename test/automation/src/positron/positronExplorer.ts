@@ -26,7 +26,7 @@ export class PositronExplorer {
 	 * @returns Promise<string[]> Array of strings representing the top-level project files/directories in the explorer.
 	 */
 	async getExplorerProjectFiles(locator: string = POSITRON_EXPLORER_PROJECT_FILES): Promise<string[]> {
-		const explorerProjectFiles = this.code.driver.getLocator(locator);
+		const explorerProjectFiles = this.code.driver.page.locator(locator);
 		const filesList = await explorerProjectFiles.all();
 		const fileNames = filesList.map(async file => {
 			const fileText = await file.textContent();

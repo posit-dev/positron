@@ -21,7 +21,7 @@ export class PositronTestExplorer extends PositronExplorer {
 	 * @returns Promise<object> Array of case names with fail/pass statuses.
 	 */
 	async getTestResults(): Promise<object> {
-		const cases = this.code.driver.getLocator(TEST_RESULT_ITEM);
+		const cases = this.code.driver.page.locator(TEST_RESULT_ITEM);
 		const caseList = await cases.all();
 		const caseStatuses = caseList.map(async aCase => {
 

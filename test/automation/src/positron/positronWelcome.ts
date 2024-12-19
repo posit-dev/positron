@@ -20,19 +20,19 @@ const LINK_ROLE = 'link';
 
 export class PositronWelcome {
 
-	logo = this.code.driver.getLocator(LOGO);
-	title = this.code.driver.getLocator(TITLE);
-	footer = this.code.driver.getLocator(FOOTER);
-	startSection = this.code.driver.getLocator(START_SECTION);
+	logo = this.code.driver.page.locator(LOGO);
+	title = this.code.driver.page.locator(TITLE);
+	footer = this.code.driver.page.locator(FOOTER);
+	startSection = this.code.driver.page.locator(START_SECTION);
 	startTitle = this.startSection.getByRole(HEADING_ROLE);
 	startButtons = this.startSection.getByRole(BUTTON_ROLE);
-	helpSection = this.code.driver.getLocator(HELP_TITLE);
+	helpSection = this.code.driver.page.locator(HELP_TITLE);
 	helpTitle = this.helpSection.getByRole(HEADING_ROLE);
 	helpLinks = this.helpSection.getByRole(LINK_ROLE);
-	openSection = this.code.driver.getLocator(OPEN_SECTION);
+	openSection = this.code.driver.page.locator(OPEN_SECTION);
 	openTitle = this.openSection.getByRole(HEADING_ROLE);
 	openButtons = this.openSection.getByRole(BUTTON_ROLE);
-	recentSection = this.code.driver.getLocator(RECENT_SECTION);
+	recentSection = this.code.driver.page.locator(RECENT_SECTION);
 	recentTitle = this.recentSection.getByRole(HEADING_ROLE);
 	newNotebookButton = this.startButtons.getByText('New Notebook');
 	newFileButton = this.startButtons.getByText('New File');

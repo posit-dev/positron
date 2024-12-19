@@ -38,7 +38,7 @@ export class PositronLayouts {
 	/**
 	 * Locator for the entire IDE. This is the "body" of the root page.
 	 */
-	fullApp = this.code.driver.getLocator(FULL_APP);
+	fullApp = this.code.driver.page.locator(FULL_APP);
 
 	/**
 	 * Button in upper right of IDE for customizing layout.
@@ -48,7 +48,7 @@ export class PositronLayouts {
 	/**
 	 * Locator for the panel part of the IDE.
 	 */
-	panel = this.code.driver.getLocator(PANEL);
+	panel = this.code.driver.page.locator(PANEL);
 
 	/**
 	 * Locator for the tabs in the panel used to navigate to different views.
@@ -70,7 +70,7 @@ export class PositronLayouts {
 	/**
 	 * Locator for the auxiliary bar part of the IDE.
 	 */
-	auxBar = this.code.driver.getLocator(AUX_BAR);
+	auxBar = this.code.driver.page.locator(AUX_BAR);
 
 	/**
 	 * Locator for the tabs in the auxiliary bar used to navigate to different views.
@@ -80,7 +80,7 @@ export class PositronLayouts {
 	/**
 	 * Locator for the sidebar part of the IDE.
 	 */
-	sidebar = this.code.driver.getLocator(SIDEBAR);
+	sidebar = this.code.driver.page.locator(SIDEBAR);
 
 	constructor(private code: Code, private workbench: Workbench) { }
 

@@ -19,7 +19,7 @@ const NOTIFICATION_TOAST = '.notification-toast';
  */
 export class PositronPopups {
 
-	toastLocator = this.code.driver.getLocator(NOTIFICATION_TOAST);
+	toastLocator = this.code.driver.page.locator(NOTIFICATION_TOAST);
 
 	constructor(private code: Code) { }
 
@@ -133,7 +133,7 @@ export class PositronPopups {
 	 * @param label The label of the option to select.
 	 */
 	async clickOnModalDialogPopupOption(label: string | RegExp) {
-		const el = this.code.driver.getLocator(POSITRON_MODAL_DIALOG_POPUP_OPTION).getByText(label);
+		const el = this.code.driver.page.locator(POSITRON_MODAL_DIALOG_POPUP_OPTION).getByText(label);
 		await el.click();
 	}
 

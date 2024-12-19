@@ -93,7 +93,7 @@ export class PositronPlots {
 	}
 
 	async getCurrentStaticPlotAsBuffer(): Promise<Buffer> {
-		return this.code.driver.getLocator(CURRENT_STATIC_PLOT).screenshot();
+		return this.code.driver.page.locator(CURRENT_STATIC_PLOT).screenshot();
 	}
 
 	async copyCurrentPlotToClipboard() {

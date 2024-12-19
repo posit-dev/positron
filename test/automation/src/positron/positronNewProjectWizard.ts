@@ -48,10 +48,10 @@ export class PositronNewProjectWizard {
 	pythonConfigurationStep: ProjectWizardPythonConfigurationStep;
 	currentOrNewWindowSelectionModal: CurrentOrNewWindowSelectionModal;
 
-	private backButton = this.code.driver.getLocator('div.left-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]');
-	private cancelButton = this.code.driver.getLocator('div.right-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]');
-	private nextButton = this.code.driver.getLocator(PROJECT_WIZARD_DEFAULT_BUTTON).getByText('Next');
-	private createButton = this.code.driver.getLocator(PROJECT_WIZARD_DEFAULT_BUTTON).getByText('Create');
+	private backButton = this.code.driver.page.locator('div.left-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]');
+	private cancelButton = this.code.driver.page.locator('div.right-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]');
+	private nextButton = this.code.driver.page.locator(PROJECT_WIZARD_DEFAULT_BUTTON).getByText('Next');
+	private createButton = this.code.driver.page.locator(PROJECT_WIZARD_DEFAULT_BUTTON).getByText('Create');
 
 	constructor(private code: Code, private quickaccess: PositronQuickAccess) {
 		this.projectTypeStep = new ProjectWizardProjectTypeStep(this.code);
@@ -121,10 +121,10 @@ class ProjectWizardProjectTypeStep {
 }
 
 class ProjectWizardProjectNameLocationStep {
-	projectNameInput = this.code.driver.getLocator(
+	projectNameInput = this.code.driver.page.locator(
 		'div[id="wizard-sub-step-project-name"] .wizard-sub-step-input input.text-input'
 	);
-	projectOptionCheckboxes = this.code.driver.getLocator(
+	projectOptionCheckboxes = this.code.driver.page.locator(
 		'div[id="wizard-sub-step-misc-proj-options"] div.checkbox'
 	);
 	gitInitCheckbox = this.projectOptionCheckboxes.getByText(
@@ -140,7 +140,7 @@ class ProjectWizardProjectNameLocationStep {
 }
 
 class ProjectWizardRConfigurationStep {
-	renvCheckbox = this.code.driver.getLocator(
+	renvCheckbox = this.code.driver.page.locator(
 		'div.renv-configuration > div.checkbox'
 	);
 
@@ -148,16 +148,16 @@ class ProjectWizardRConfigurationStep {
 }
 
 class ProjectWizardPythonConfigurationStep {
-	existingEnvRadioButton = this.code.driver.getLocator(
+	existingEnvRadioButton = this.code.driver.page.locator(
 		'div[id="wizard-step-set-up-python-environment"] div[id="wizard-sub-step-pythonenvironment-howtosetupenv"] .radio-button-input[id="existingEnvironment"]'
 	);
-	envProviderDropdown = this.code.driver.getLocator(
+	envProviderDropdown = this.code.driver.page.locator(
 		'div[id="wizard-sub-step-python-environment"] .wizard-sub-step-input button.drop-down-list-box'
 	);
-	interpreterFeedback = this.code.driver.getLocator(
+	interpreterFeedback = this.code.driver.page.locator(
 		'div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-feedback .wizard-formatted-text'
 	);
-	interpreterDropdown = this.code.driver.getLocator(
+	interpreterDropdown = this.code.driver.page.locator(
 		'div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-input button.drop-down-list-box'
 	);
 
@@ -189,7 +189,7 @@ class ProjectWizardPythonConfigurationStep {
 		try {
 			const preselected =
 				(await this.code.driver
-					.getLocator(
+					.page.locator(
 						`${PROJECT_WIZARD_PRESELECTED_DROPDOWN_ITEM} div.dropdown-entry-title`
 					)
 					.getByText(provider)
@@ -212,7 +212,7 @@ class ProjectWizardPythonConfigurationStep {
 		try {
 			await this.code.waitForElement(PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS);
 			await this.code.driver
-				.getLocator(
+				.page.locator(
 					`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-title`
 				)
 				.getByText(provider)
@@ -237,7 +237,7 @@ class ProjectWizardPythonConfigurationStep {
 		try {
 			const preselected =
 				(await this.code.driver
-					.getLocator(
+					.page.locator(
 						`${PROJECT_WIZARD_PRESELECTED_DROPDOWN_ITEM} div.dropdown-entry-subtitle`
 					)
 					.getByText(interpreterPath)
@@ -268,7 +268,7 @@ class ProjectWizardPythonConfigurationStep {
 		// Get all the dropdown entry subtitles and build a comma-separated string of them for
 		// logging purposes.
 		const dropdownEntrySubtitleLocators = await this.code.driver
-			.getLocator(
+			.page.locator(
 				`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`
 			).all();
 		const dropdownEntrySubtitles = dropdownEntrySubtitleLocators.map
@@ -277,7 +277,7 @@ class ProjectWizardPythonConfigurationStep {
 
 		// Find the dropdown item with the interpreterPath.
 		const dropdownItem = this.code.driver
-			.getLocator(`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`)
+			.page.locator(`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`)
 			.getByText(interpreterPath);
 
 		// There should be one dropdown item with the interpreterPath.
@@ -296,7 +296,7 @@ class ProjectWizardPythonConfigurationStep {
 
 class CurrentOrNewWindowSelectionModal {
 	currentWindowButton = this.code.driver
-		.getLocator(
+		.page.locator(
 			'button.positron-button.button.action-bar-button[tabindex="0"][role="button"]'
 		)
 		.getByText('Current Window');
