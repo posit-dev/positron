@@ -17,6 +17,7 @@ import { AbstractUpdateService, createUpdateURL, UpdateNotAvailableClassificatio
 
 export class LinuxUpdateService extends AbstractUpdateService {
 
+	// --- Start Positron ---
 	constructor(
 		@ILifecycleMainService lifecycleMainService: ILifecycleMainService,
 		@IConfigurationService configurationService: IConfigurationService,
@@ -24,11 +25,12 @@ export class LinuxUpdateService extends AbstractUpdateService {
 		@IEnvironmentMainService environmentMainService: IEnvironmentMainService,
 		@IRequestService requestService: IRequestService,
 		@ILogService logService: ILogService,
-		@INativeHostMainService private readonly nativeHostMainService: INativeHostMainService,
+		@INativeHostMainService nativeHostMainService: INativeHostMainService,
 		@IProductService productService: IProductService
 	) {
-		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, productService);
+		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, productService, nativeHostMainService);
 	}
+	// --- End Positron ---
 
 	protected buildUpdateFeedUrl(quality: string): string {
 		return createUpdateURL(`linux-${process.arch}`, quality, this.productService);
