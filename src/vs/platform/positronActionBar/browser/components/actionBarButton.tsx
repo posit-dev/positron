@@ -10,9 +10,9 @@ import './actionBarButton.css';
 import React, { useRef, PropsWithChildren, useImperativeHandle, forwardRef } from 'react';
 
 // Other dependencies.
-import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
-import { optionalBoolean, optionalValue, positronClassNames } from '../../../../base/common/positronUtilities.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
+import { Button, MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
+import { optionalBoolean, optionalValue, positronClassNames } from '../../../../base/common/positronUtilities.js';
 
 /**
  * ActionBarButtonProps interface.
@@ -120,6 +120,7 @@ export const ActionBarButton = forwardRef<
 				ariaLabel={ariaLabel}
 				tooltip={props.tooltip}
 				disabled={props.disabled}
+				mouseTrigger={MouseTrigger.MouseDown}
 				onMouseEnter={props.onMouseEnter}
 				onMouseLeave={props.onMouseLeave}
 				onPressed={props.onPressed}
@@ -141,6 +142,7 @@ export const ActionBarButton = forwardRef<
 					ariaLabel={ariaLabel}
 					tooltip={props.tooltip}
 					disabled={props.disabled}
+					mouseTrigger={MouseTrigger.MouseDown}
 					onMouseEnter={props.onMouseEnter}
 					onMouseLeave={props.onMouseLeave}
 					onPressed={props.onPressed}
@@ -153,6 +155,7 @@ export const ActionBarButton = forwardRef<
 					className='action-bar-button-drop-down-button'
 					ariaLabel={props.dropdownAriaLabel}
 					tooltip={props.dropdownTooltip}
+					mouseTrigger={MouseTrigger.MouseDown}
 					onPressed={props.onDropdownPressed}
 				>
 					<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
