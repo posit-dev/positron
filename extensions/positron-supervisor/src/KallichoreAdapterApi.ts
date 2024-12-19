@@ -88,7 +88,7 @@ export class KCApi implements KallichoreAdapterApi {
 
 		// If the Kallichore server is enabled in the configuration, start it
 		// eagerly so it's warm when we start trying to create or restore sessions.
-		if (vscode.workspace.getConfiguration('positronKernelSupervisor').get<boolean>('enable', true)) {
+		if (vscode.workspace.getConfiguration('kernelSupervisor').get<boolean>('enable', true)) {
 			this.ensureStarted().catch((err) => {
 				this._log.appendLine(`Failed to start Kallichore server: ${err}`);
 			});
@@ -169,7 +169,7 @@ export class KCApi implements KallichoreAdapterApi {
 
 
 		// Get the log level from the configuration
-		const config = vscode.workspace.getConfiguration('positronKernelSupervisor');
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
 		const logLevel = config.get<string>('logLevel') ?? 'warn';
 
 		// Export the Positron version as an environment variable

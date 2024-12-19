@@ -38,22 +38,22 @@
   "main": "./out/extension.js",
   "contributes": {
     "configuration": {
-      "title": "Remote - SSH",
+      "title": "Remote SSH",
       "properties": {
-        "remote.SSH.configFile": {
+        "remoteSSH.configFile": {
           "type": "string",
           "description": "The absolute file path to a custom SSH config file.",
           "default": "",
           "scope": "application"
         },
-        "remote.SSH.connectTimeout": {
+        "remoteSSH.connectTimeout": {
           "type": "number",
           "description": "Specifies the timeout in seconds used for the SSH command that connects to the remote.",
           "default": 60,
           "scope": "application",
           "minimum": 1
         },
-        "remote.SSH.defaultExtensions": {
+        "remoteSSH.defaultExtensions": {
           "type": "array",
           "items": {
             "type": "string"
@@ -61,25 +61,25 @@
           "description": "List of extensions that should be installed automatically on all SSH hosts.",
           "scope": "application"
         },
-        "remote.SSH.enableDynamicForwarding": {
+        "remoteSSH.enableDynamicForwarding": {
           "type": "boolean",
           "description": "Whether to use SSH dynamic forwarding to allow setting up new port tunnels over an existing SSH connection.",
           "scope": "application",
           "default": true
         },
-        "remote.SSH.enableAgentForwarding": {
+        "remoteSSH.enableAgentForwarding": {
           "type": "boolean",
           "markdownDescription": "Enable fixing the remote environment so that the SSH config option `ForwardAgent` will take effect as expected from VS Code's remote extension host.",
           "scope": "application",
           "default": true
         },
-        "remote.SSH.serverDownloadUrlTemplate": {
+        "remoteSSH.serverDownloadUrlTemplate": {
           "type": "string",
           "description": "The URL from where the Positron server will be downloaded. You can use the following variables and they will be replaced dynamically:\n- ${quality}: Positron server quality, e.g. stable or insiders\n- ${version}: Positron server version, e.g. 2024.10.0-123\n- ${commit}: Positron server release commit\n- ${arch}: Positron server arch, e.g. x64, armhf, arm64",
           "scope": "application",
           "default": "https://github.com/posit-dev/positron/releases/download/${version}/positron-reh-${os}-${arch}-${version}.tar.gz"
         },
-        "remote.SSH.remotePlatform": {
+        "remoteSSH.remotePlatform": {
           "type": "object",
           "description": "A map of the remote hostname to the platform for that remote. Valid values: linux, macos, windows.",
           "scope": "application",
@@ -93,12 +93,12 @@
             ]
           }
         },
-        "remote.SSH.remoteServerListenOnSocket": {
+        "remoteSSH.remoteServerListenOnSocket": {
           "type": "boolean",
           "description": "When true, the remote vscode server will listen on a socket path instead of opening a port. Only valid for Linux and macOS remotes. Requires `AllowStreamLocalForwarding` to be enabled for the SSH server.",
           "default": false
         },
-        "remote.SSH.experimental.serverBinaryName": {
+        "remoteSSH.experimental.serverBinaryName": {
           "type": "string",
           "description": "**Experimental:** The name of the server binary, use this **only if** you are using a client without a corresponding server release",
           "scope": "application",

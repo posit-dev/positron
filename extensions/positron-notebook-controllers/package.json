@@ -26,7 +26,7 @@
     ],
     "configuration": [
       {
-        "title": "Positron Notebook Controllers",
+        "title": "Notebook Controllers",
         "properties": {
           "notebook.experimental.showExecutionInfo": {
             "type": "boolean",

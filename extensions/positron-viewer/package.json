@@ -32,7 +32,7 @@
   "contributes": {
     "configuration": [
       {
-        "title": "Positron URL Viewer",
+        "title": "URL Viewer",
         "properties": {
           "positron.viewer.openLocalhostUrls": {
             "type": "boolean",

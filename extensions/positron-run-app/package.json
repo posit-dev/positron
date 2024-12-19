@@ -14,16 +14,17 @@
   "main": "./out/extension.js",
   "contributes": {
     "configuration": {
+      "title": "App Launcher",
       "properties": {
-        "positron.runApplication.showEnableShellIntegrationMessage": {
+        "positron.appLauncher.showEnableShellIntegrationMessage": {
           "type": "boolean",
           "default": true,
-          "description": "%configuration.positron.runApplication.showEnableShellIntegrationMessage%"
+          "description": "%configuration.appLauncher.showEnableShellIntegrationMessage%"
         },
-        "positron.runApplication.showShellIntegrationNotSupportedMessage": {
+        "positron.appLauncher.showShellIntegrationNotSupportedMessage": {
           "type": "boolean",
           "default": true,
-          "description": "%configuration.positron.runApplication.showShellIntegrationNotSupportedMessage%"
+          "description": "%configuration.appLauncher.showShellIntegrationNotSupportedMessage%"
         }
       }
     }

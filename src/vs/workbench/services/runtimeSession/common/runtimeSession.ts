@@ -616,7 +616,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	): Promise<string> {
 		// Check the setting to see if we should be auto-starting.
 		const autoStart = this._configurationService.getValue<boolean>(
-			'positron.interpreters.automaticStartup');
+			'interpreters.automaticStartup');
 		if (!autoStart) {
 			this._logService.info(`Language runtime ` +
 				`${formatLanguageRuntimeMetadata(metadata)} ` +

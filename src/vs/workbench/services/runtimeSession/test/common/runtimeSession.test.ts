@@ -60,7 +60,7 @@ suite('Positron - RuntimeSessionService', () => {
 		unregisteredRuntime = { runtimeId: 'unregistered-runtime-id' } as ILanguageRuntimeMetadata;
 
 		// Enable automatic startup.
-		configService.setUserConfiguration('positron.interpreters.automaticStartup', true);
+		configService.setUserConfiguration('interpreters.automaticStartup', true);
 
 		// Trust the workspace.
 		workspaceTrustManagementService.setWorkspaceTrust(true);
@@ -622,7 +622,7 @@ suite('Positron - RuntimeSessionService', () => {
 	});
 
 	test('auto start console does nothing if automatic startup is disabled', async () => {
-		configService.setUserConfiguration('positron.interpreters.automaticStartup', false);
+		configService.setUserConfiguration('interpreters.automaticStartup', false);
 
 		const sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason);
 

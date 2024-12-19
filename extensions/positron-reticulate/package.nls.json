@@ -1,6 +1,6 @@
 {
 	"displayName": "Positron Reticulate",
 	"description": "Provides reticulate support for positron",
-	"configurationTitle": "Reticulate settings",
+	"configurationTitle": "Reticulate",
 	"enabledDescription": "Enables reticulate console sessions"
 }
