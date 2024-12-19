@@ -8,7 +8,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { CellKind, IPositronNotebookCell } from './IPositronNotebookCell.js';
 import { SelectionStateMachine } from './selectionMachine.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
-
+import { Event } from '../../../../base/common/event.js';
 /**
  * Represents the possible states of a notebook's kernel connection
  */
@@ -57,6 +57,18 @@ export interface IPositronNotebookInstance {
 	readonly connectedToEditor: boolean;
 
 	/**
+	 * The DOM element that contains the cells for the notebook.
+	 * This is set when the cells container is mounted in the React component.
+	 */
+	readonly cellsContainer: HTMLElement | undefined;
+
+	/**
+	 * Sets the DOM element that contains the cells for the notebook.
+	 * @param container The container element to set, or undefined to clear
+	 */
+	setCellsContainer(container: HTMLElement | undefined): void;
+
+	/**
 	 * Observable array of cells that make up the notebook. Changes to this array
 	 * will trigger UI updates in connected views.
 	 */
@@ -85,6 +97,11 @@ export interface IPositronNotebookInstance {
 	 * Used to prevent operations on destroyed instances.
 	 */
 	isDisposed: boolean;
+
+	/**
+	 * Event that fires when the cells container is scrolled
+	 */
+	readonly onDidScrollCellsContainer: Event<void>;
 
 	// ===== Methods =====
 	/**

@@ -16,15 +16,14 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { FromWebviewMessage, IClickedDataUrlMessage } from '../../notebook/browser/view/renderers/webviewMessages.js';
 import { IScopedRendererMessaging } from '../../notebook/common/notebookRendererMessagingService.js';
-import { INotebookOutputWebview, WebviewType } from './notebookOutputWebviewService.js';
-import { IOverlayWebview, IWebviewElement } from '../../webview/browser/webview.js';
+import { INotebookOutputWebview } from './notebookOutputWebviewService.js';
+import { IOverlayWebview } from '../../webview/browser/webview.js';
 import { INotebookLoggingService } from '../../notebook/common/notebookLoggingService.js';
 
 interface NotebookOutputWebviewOptions {
 	readonly id: string;
 	readonly sessionId: string;
-	readonly webview: IOverlayWebview | IWebviewElement;
-	webviewType: WebviewType;
+	readonly webview: IOverlayWebview;
 	rendererMessaging?: IScopedRendererMessaging;
 }
 
@@ -40,8 +39,7 @@ export class NotebookOutputWebview extends Disposable implements INotebookOutput
 
 	readonly id: string;
 	readonly sessionId: string;
-	readonly webview: IOverlayWebview | IWebviewElement;
-	readonly webviewType: WebviewType;
+	readonly webview: IOverlayWebview;
 
 	/**
 	 * Fired when the webviewPreloads script is loaded.
@@ -68,7 +66,6 @@ export class NotebookOutputWebview extends Disposable implements INotebookOutput
 			sessionId,
 			webview,
 			rendererMessaging,
-			webviewType
 		}: NotebookOutputWebviewOptions,
 		@IFileDialogService private _fileDialogService: IFileDialogService,
 		@IFileService private _fileService: IFileService,
@@ -85,7 +82,6 @@ export class NotebookOutputWebview extends Disposable implements INotebookOutput
 		this.id = id;
 		this.sessionId = sessionId;
 		this.webview = webview;
-		this.webviewType = webviewType;
 
 		if (rendererMessaging) {
 			this._register(rendererMessaging);

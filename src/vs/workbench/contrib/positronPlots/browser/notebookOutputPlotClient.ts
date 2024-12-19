@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
-import { INotebookOutputWebview, IPositronNotebookOutputWebviewService, WebviewType } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
-import { assertIsOverlayPositronWebview } from '../../positronOutputWebview/browser/notebookOutputWebviewServiceImpl.js';
+import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { WebviewPlotClient } from './webviewPlotClient.js';
 import { ILanguageRuntimeMessageOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -53,14 +52,12 @@ export class NotebookOutputPlotClient extends WebviewPlotClient {
 			id: this.id,
 			runtime: this._session,
 			output: this._message,
-			viewType: 'jupyter-notebook',
-			webviewType: WebviewType.Overlay,
+			viewType: 'jupyter-notebook'
 		});
 		if (!output) {
 			throw new Error('Failed to create notebook output webview');
 		}
 
-		assertIsOverlayPositronWebview(output);
 		this._output.value = output;
 		// Wait for the webview to finish rendering. When it does, nudge the
 		// timer that renders the thumbnail.

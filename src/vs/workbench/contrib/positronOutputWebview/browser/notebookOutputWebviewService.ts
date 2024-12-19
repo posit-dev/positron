@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { IOverlayWebview, IWebviewElement } from '../../webview/browser/webview.js';
+import { IOverlayWebview } from '../../webview/browser/webview.js';
 import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Event } from '../../../../base/common/event.js';
@@ -24,28 +24,10 @@ export interface INotebookOutputWebview extends IDisposable {
 	sessionId: string;
 
 	/** The webview containing the output's content */
-	webview: IOverlayWebview | IWebviewElement;
-
-	/** The type of webview, used for later type assertions */
-	webviewType: WebviewType;
+	webview: IOverlayWebview;
 
 	/** Fired when the content completes rendering */
 	onDidRender: Event<void>;
-}
-
-export interface INotebookOutputOverlayWebview extends INotebookOutputWebview {
-	webview: IOverlayWebview;
-	webviewType: WebviewType.Overlay;
-}
-
-export interface INotebookOutputStandardWebview extends INotebookOutputWebview {
-	webview: IWebviewElement;
-	webviewType: WebviewType.Standard;
-}
-
-export enum WebviewType {
-	Overlay = 'overlay',
-	Standard = 'standard'
 }
 
 export interface IPositronNotebookOutputWebviewService {
@@ -71,7 +53,6 @@ export interface IPositronNotebookOutputWebviewService {
 			runtime: ILanguageRuntimeSession;
 			output: ILanguageRuntimeMessageOutput;
 			viewType?: string;
-			webviewType: WebviewType;
 		}
 	): Promise<INotebookOutputWebview | undefined>;
 
@@ -94,7 +75,6 @@ export interface IPositronNotebookOutputWebviewService {
 			preReqMessages: ILanguageRuntimeMessageWebOutput[];
 			displayMessage: ILanguageRuntimeMessageWebOutput;
 			viewType?: string;
-			webviewType: WebviewType;
 		}): Promise<INotebookOutputWebview | undefined>;
 
 	/**
@@ -111,7 +91,6 @@ export interface IPositronNotebookOutputWebviewService {
 		id: string;
 		html: string;
 		runtimeOrSessionId: ILanguageRuntimeSession | string;
-		webviewType: WebviewType;
 	}): Promise<INotebookOutputWebview>;
 }
 

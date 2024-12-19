@@ -6,35 +6,76 @@
 import * as React from 'react';
 import { getWindow } from '../../../../../../base/browser/dom.js';
 import { INotebookOutputWebview } from '../../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
-import { IWebviewElement } from '../../../../webview/browser/webview.js';
-import { assertIsStandardPositronWebview } from '../../../../positronOutputWebview/browser/notebookOutputWebviewServiceImpl.js';
 import { isHTMLOutputWebviewMessage } from '../../../../positronWebviewPreloads/browser/notebookOutputUtils.js';
+import { useNotebookInstance } from '../../NotebookInstanceProvider.js';
+import { IOverlayWebview } from '../../../../webview/browser/webview.js';
+import { IDisposable, toDisposable } from '../../../../../../base/common/lifecycle.js';
+import { useNotebookVisibility } from '../../NotebookVisibilityContext.js';
+import { Event } from '../../../../../../base/common/event.js';
 
 
 export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 	const [isLoading, setIsLoading] = React.useState(true);
 	const [error, setError] = React.useState<Error | null>(null);
 	const containerRef = React.useRef<HTMLDivElement>(null);
+	const notebookInstance = useNotebookInstance();
+	const visibilityObservable = useNotebookVisibility();
 
 	React.useEffect(() => {
 		const controller = new AbortController();
-		let webviewElement: IWebviewElement | undefined;
+		let webviewElement: IOverlayWebview | undefined;
+		let scrollDisposable: IDisposable | undefined;
+		let visibilityObserver: IDisposable | undefined;
+
+		/**
+		 * Updates the layout of the webview element if both the webview and container are available
+		 */
+		function updateWebviewLayout() {
+			if (!webviewElement || !containerRef.current) { return; }
+			webviewElement.layoutWebviewOverElement(
+				containerRef.current,
+				undefined,
+				notebookInstance.cellsContainer
+			);
+		}
+
+		function claimWebview() {
+			if (!webviewElement || !containerRef.current) { return; }
+			webviewElement.claim(
+				containerRef,
+				getWindow(containerRef.current),
+				undefined
+			);
+		}
+
+		function releaseWebview() {
+			webviewElement?.release(containerRef)
+		}
 
 		async function mountWebview() {
+			const emptyDisposable = toDisposable(() => { });
 			try {
+				// If not visible, don't mount the webview
+				if (!visibilityObservable) {
+					return emptyDisposable;
+				}
+
 				const resolvedWebview = await webview;
 
 				if (controller.signal.aborted || !containerRef.current) {
-					return;
+					return emptyDisposable;
 				}
 
 				setIsLoading(false);
-				assertIsStandardPositronWebview(resolvedWebview);
 				webviewElement = resolvedWebview.webview;
-				webviewElement.mountTo(
-					containerRef.current,
-					getWindow(containerRef.current)
-				);
+
+				claimWebview();
+
+				// Initial layout
+				updateWebviewLayout();
+
+				// Update layout on scroll and visibility changes
+				scrollDisposable = notebookInstance.onDidScrollCellsContainer(updateWebviewLayout);
 
 				webviewElement.onMessage((x) => {
 					const { message } = x;
@@ -51,19 +92,33 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 					containerRef.current.style.height = `${boundedHeight}px`;
 				});
 
+				return scrollDisposable;
+
 			} catch (err) {
 				setError(err instanceof Error ? err : new Error('Failed to mount webview'));
 				setIsLoading(false);
+				return emptyDisposable;
 			}
 		}
+
+
+		Event.fromObservable(visibilityObservable)((isVisible) => {
+			if (isVisible) {
+				claimWebview();
+			} else {
+				releaseWebview();
+			}
+		});
 
 		mountWebview();
 
 		return () => {
 			controller.abort();
-			webviewElement?.dispose();
+			releaseWebview();
+			scrollDisposable?.dispose();
+			visibilityObserver?.dispose();
 		};
-	}, [webview]);
+	}, [webview, notebookInstance, visibilityObservable]);
 
 	return { containerRef, isLoading, error };
 }
