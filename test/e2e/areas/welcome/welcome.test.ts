@@ -103,7 +103,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
 			await expect(app.workbench.editors.editorPart).not.toBeVisible();
 
 			// console is the active view in the bottom panel
-			await expect(app.workbench.positronLayouts.panelViewsTab.and(app.code.driver.getLocator('.checked'))).toHaveText('Console');
+			await expect(app.workbench.positronLayouts.panelViewsTab.and(app.code.driver.page.locator('.checked'))).toHaveText('Console');
 		});
 	});
 
@@ -127,7 +127,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
 			await expect(app.workbench.editors.editorPart).not.toBeVisible();
 
 			// console is the active view in the bottom panel
-			await expect(app.workbench.positronLayouts.panelViewsTab.and(app.code.driver.getLocator('.checked'))).toHaveText('Console');
+			await expect(app.workbench.positronLayouts.panelViewsTab.and(app.code.driver.page.locator('.checked'))).toHaveText('Console');
 		});
 
 		test('Create a new R notebook from the Welcome page [C684757]', async function ({ app, r }) {

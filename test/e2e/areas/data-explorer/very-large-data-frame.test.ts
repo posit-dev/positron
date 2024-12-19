@@ -49,7 +49,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 				logger.log('Opening data grid');
 				await expect(async () => {
 					await app.workbench.positronVariables.doubleClickVariableRow('df');
-					await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
+					await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
 				}).toPass();
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
@@ -74,7 +74,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 				logger.log('Opening data grid');
 				await expect(async () => {
 					await app.workbench.positronVariables.doubleClickVariableRow('df_large');
-					await app.code.driver.getLocator('.label-name:has-text("Data: df_large")').innerText();
+					await app.code.driver.page.locator('.label-name:has-text("Data: df_large")').innerText();
 				}).toPass();
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
@@ -103,7 +103,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 				logger.log('Opening data grid');
 				await expect(async () => {
 					await app.workbench.positronVariables.doubleClickVariableRow('df2');
-					await app.code.driver.getLocator('.label-name:has-text("Data: df2")').innerText();
+					await app.code.driver.page.locator('.label-name:has-text("Data: df2")').innerText();
 				}).toPass();
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
@@ -129,7 +129,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 				logger.log('Opening data grid');
 				await expect(async () => {
 					await app.workbench.positronVariables.doubleClickVariableRow('df3_large');
-					await app.code.driver.getLocator('.label-name:has-text("Data: df3_large")').innerText();
+					await app.code.driver.page.locator('.label-name:has-text("Data: df3_large")').innerText();
 				}).toPass();
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
