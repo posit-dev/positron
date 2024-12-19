@@ -102,7 +102,7 @@ export class KCApi implements KallichoreAdapterApi {
 	 *
 	 * @returns A promise that resolves when the Kallichore server is online.
 	 */
-	async ensureStarted(): Promise<void> {
+	public async ensureStarted(): Promise<void> {
 
 		// If the server is already started, we're done
 		if (this._started.isOpen()) {
@@ -289,6 +289,16 @@ export class KCApi implements KallichoreAdapterApi {
 
 		// Wait for the terminal to start and get the PID
 		await terminal.processId;
+
+		// If an HTTP proxy is set, exempt the supervisor from it; since this
+		// is a local server, we generally don't want to route it through a
+		// proxy
+		if (process.env.http_proxy) {
+			// Add the server's port to the no_proxy list, amending it if it
+			// already exists
+			process.env.no_proxy = (process.env.no_proxy ? process.env.no_proxy + ',' : '') + `localhost:${port}`;
+			this._log.appendLine(`HTTP proxy set to ${process.env.http_proxy}; setting no_proxy to ${process.env.no_proxy} to exempt supervisor`);
+		}
 
 		// Establish the API
 		this._api.basePath = `http://localhost:${port}`;
