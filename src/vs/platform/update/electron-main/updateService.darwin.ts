@@ -18,6 +18,10 @@ import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 import { IUpdate, State, StateType, UpdateType } from '../common/update.js';
 import { AbstractUpdateService, createUpdateURL, UpdateErrorClassification, UpdateNotAvailableClassification } from './abstractUpdateService.js';
 
+// --- Start Positron ---
+import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
+// --- End Positron ---
+
 export class DarwinUpdateService extends AbstractUpdateService implements IRelaunchHandler {
 
 	private readonly disposables = new DisposableStore();
@@ -27,6 +31,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 	@memoize private get onRawUpdateAvailable(): Event<void> { return Event.fromNodeEventEmitter(electron.autoUpdater, 'update-available'); }
 	@memoize private get onRawUpdateDownloaded(): Event<IUpdate> { return Event.fromNodeEventEmitter(electron.autoUpdater, 'update-downloaded', (_, releaseNotes, version, timestamp) => ({ version, productVersion: version, timestamp })); }
 
+	// --- Start Positron ---
 	constructor(
 		@ILifecycleMainService lifecycleMainService: ILifecycleMainService,
 		@IConfigurationService configurationService: IConfigurationService,
@@ -34,9 +39,11 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		@IEnvironmentMainService environmentMainService: IEnvironmentMainService,
 		@IRequestService requestService: IRequestService,
 		@ILogService logService: ILogService,
-		@IProductService productService: IProductService
+		@IProductService productService: IProductService,
+		@INativeHostMainService nativeHostMainService: INativeHostMainService
 	) {
-		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, productService);
+		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, productService, nativeHostMainService);
+		// --- End Positron ---
 
 		lifecycleMainService.setRelaunchHandler(this);
 	}
@@ -73,16 +80,12 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		this.setState(State.Idle(UpdateType.Archive, message));
 	}
 
-	protected buildUpdateFeedUrl(quality: string): string | undefined {
-		let assetID: string;
-		if (!this.productService.darwinUniversalAssetId) {
-			assetID = process.arch === 'x64' ? 'darwin' : 'darwin-arm64';
-		} else {
-			assetID = this.productService.darwinUniversalAssetId;
-		}
-		const url = createUpdateURL(assetID, quality, this.productService);
+	//--- START POSITRON
+	protected buildUpdateFeedUrl(channel: string): string | undefined {
+		const platform = `mac/universal`;
+		const url = createUpdateURL(platform, channel, this.productService) + '/releases.json';
 		try {
-			electron.autoUpdater.setFeedURL({ url });
+			electron.autoUpdater.setFeedURL({ url: url });
 		} catch (e) {
 			// application is very likely not signed
 			this.logService.error('Failed to set update feed URL', e);
@@ -91,10 +94,24 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		return url;
 	}
 
-	protected doCheckForUpdates(context: any): void {
-		this.setState(State.CheckingForUpdates(context));
-		electron.autoUpdater.checkForUpdates();
+	/**
+	 * Manually check for updates and call Electron to install the update if an update is available.
+	 */
+	protected override updateAvailable(update: IUpdate): void {
+		if (!update.url || !update.version) {
+			this.setState(State.Idle(UpdateType.Archive));
+			return;
+		}
+
+		if (!this.enableAutoUpdate) {
+			super.updateAvailable(update);
+		} else {
+			// We cannot avoid Electron checking the URL again with this call. Electron can only check against
+			// the app version, which is VS Code's version.
+			electron.autoUpdater.checkForUpdates();
+		}
 	}
+	//--- END POSITRON
 
 	private onUpdateAvailable(): void {
 		if (this.state.type !== StateType.CheckingForUpdates) {
