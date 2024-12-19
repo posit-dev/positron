@@ -8,7 +8,7 @@ import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js'
 import * as nls from '../../../../nls.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { Extensions, IViewContainersRegistry, IViewsRegistry, ViewContainerLocation } from '../../../common/views.js';
-import { POSITRON_CONNECTIONS_VIEW_ID } from '../../../services/positronConnections/browser/interfaces/positronConnectionsService.js';
+import { POSITRON_CONNECTIONS_VIEW_ID } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { PositronConnectionsView } from './positronConnectionsView.js';

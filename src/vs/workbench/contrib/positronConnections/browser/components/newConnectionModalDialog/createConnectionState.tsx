@@ -15,7 +15,7 @@ import { localize } from '../../../../../../nls.js';
 import { PositronConnectionsServices } from '../../positronConnectionsContext.js';
 import { SimpleCodeEditor, SimpleCodeEditorWidget } from '../simpleCodeEditor.js';
 import Severity from '../../../../../../base/common/severity.js';
-import { IDriver, Input, InputType } from '../../../../../services/positronConnections/browser/interfaces/positronConnectionsDriver.js';
+import { IDriver, Input } from '../../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { LabeledTextInput } from '../../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { RadioGroup } from '../../../../../browser/positronComponents/positronModalDialog/components/radioGroup.js';
 import { PositronModalReactRenderer } from '../../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
@@ -30,18 +30,19 @@ interface CreateConnectionProps {
 
 export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>) => {
 
-	const { name, languageId, generateCode } = props.selectedDriver;
+	const { generateCode, metadata } = props.selectedDriver;
+	const { name, languageId } = metadata;
 	const { onBack, onCancel, services } = props;
 	const editorRef = useRef<SimpleCodeEditorWidget>(undefined!);
 
-	const [inputs, setInputs] = useState<Array<Input>>(props.selectedDriver.inputs);
-	const [code, setCode] = useState<string | undefined>(props.selectedDriver.generateCode?.(props.selectedDriver.inputs));
+	const [inputs, setInputs] = useState<Array<Input>>(metadata.inputs);
+	const [code, setCode] = useState<string | undefined>(undefined);
 
 	useEffect(() => {
 		// Debounce the code generation to avoid unnecessary re-renders
-		const timeoutId = setTimeout(() => {
+		const timeoutId = setTimeout(async () => {
 			if (generateCode) {
-				const code = generateCode(inputs);
+				const code = await generateCode(inputs);
 				setCode(code);
 			}
 		}, 200);
@@ -57,7 +58,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 			message: localize(
 				'positron.newConnectionModalDialog.createConnection.connecting',
 				"Connecting to data source ({0})...",
-				props.selectedDriver.name
+				name
 			),
 			severity: Severity.Info
 		});
@@ -96,7 +97,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 			</h1>
 		</div>
 
-		<Form inputs={props.selectedDriver.inputs} onInputsChange={setInputs}></Form>
+		<Form inputs={metadata.inputs} onInputsChange={setInputs}></Form>
 
 		<div className='create-connection-code-title'>
 			{(() => localize('positron.newConnectionModalDialog.createConnection.code', "Connection Code"))()}
@@ -178,7 +179,7 @@ const FormElement = (props: PropsWithChildren<FormElementProps>) => {
 	const { label, value: defaultValue = '', type, options } = props.input;
 
 	switch (type) {
-		case InputType.Number:
+		case 'number':
 			return <div className='labeled-input'>
 				<LabeledTextInput
 					label={label}
@@ -187,7 +188,7 @@ const FormElement = (props: PropsWithChildren<FormElementProps>) => {
 					onChange={(e) => props.onChange(e.target.value)}
 				></LabeledTextInput>
 			</div>;
-		case InputType.Option:
+		case 'option':
 			return <div className='labeled-input'><label>
 				<span className='label-text'>{label}</span>
 				{
@@ -204,7 +205,7 @@ const FormElement = (props: PropsWithChildren<FormElementProps>) => {
 						</p>
 				}
 			</label></div>;
-		case InputType.String:
+		case 'string':
 		default:
 			return <div className='labeled-input'>
 				<LabeledTextInput

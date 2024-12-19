@@ -96,6 +96,7 @@ import './positron/mainThreadPreviewPanel.js';
 import './positron/mainThreadModalDialogs.js';
 import './positron/mainThreadConsoleService.js';
 import './positron/mainThreadContextKeyService.js';
+import './positron/mainThreadConnections.js';
 // --- End Positron ---
 
 export class ExtensionPoints implements IWorkbenchContribution {

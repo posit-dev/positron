@@ -6,8 +6,8 @@
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ConnectionsClientInstance } from '../../languageRuntime/common/languageRuntimeConnectionsClient.js';
-import { ConnectionMetadata, IConnectionMetadata, IPositronConnectionInstance } from './interfaces/positronConnectionsInstance.js';
-import { IPositronConnectionsService, POSITRON_CONNECTIONS_VIEW_ID } from './interfaces/positronConnectionsService.js';
+import { ConnectionMetadata, IConnectionMetadata, IPositronConnectionInstance } from '../common/interfaces/positronConnectionsInstance.js';
+import { IPositronConnectionsService, POSITRON_CONNECTIONS_VIEW_ID } from '../common/interfaces/positronConnectionsService.js';
 import { DisconnectedPositronConnectionsInstance, PositronConnectionsInstance } from './positronConnectionsInstance.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService.js';
 import { Event, Emitter } from '../../../../base/common/event.js';

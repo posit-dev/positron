@@ -21,7 +21,7 @@ import { PositronConnectionsServices, usePositronConnectionsContext } from '../p
 import { FixedSizeList as List } from 'react-window';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { languageIdToName } from './schemaNavigation.js';
-import { IPositronConnectionInstance } from '../../../../services/positronConnections/browser/interfaces/positronConnectionsInstance.js';
+import { IPositronConnectionInstance } from '../../../../services/positronConnections/common/interfaces/positronConnectionsInstance.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { showResumeConnectionModalDialog } from './resumeConnectionModalDialog.js';
 import { localize } from '../../../../../nls.js';
