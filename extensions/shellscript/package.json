@@ -13,6 +13,14 @@
   },
   "categories": ["Programming Languages"],
   "contributes": {
+    "keybindings": [
+      {
+        "command": "workbench.action.terminal.runSelectedText",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorTextFocus && editorLangId == shellscript"
+      }
+    ],
     "languages": [
       {
         "id": "shellscript",
