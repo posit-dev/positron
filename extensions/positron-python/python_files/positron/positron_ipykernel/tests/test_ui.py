@@ -110,8 +110,7 @@ def test_set_console_width(ui_comm: DummyComm) -> None:
     assert np.get_printoptions()["linewidth"] == width
     assert pd.get_option("display.width") is None
     assert pl.Config.state()["POLARS_TABLE_WIDTH"] == str(width)
-    if torch is not None:  # temporary workaround for Python 3.12
-        assert torch._tensor_str.PRINT_OPTS.linewidth == width
+    assert torch._tensor_str.PRINT_OPTS.linewidth == width  # type: ignore[reportGeneralTypeIssues]
 
 
 def test_open_editor(ui_service: UiService, ui_comm: DummyComm) -> None:
