@@ -502,7 +502,7 @@ export class KCApi implements KallichoreAdapterApi {
 					} catch (err) {
 						// The session could not be reconnected; mark it as
 						// offline and explain to the user what happened.
-						session.markOffline('Lost connection to the session WebSocket event stream');
+						session.markOffline('Lost connection to the session WebSocket event stream and could not restore it: ' + err);
 						vscode.window.showErrorMessage(vscode.l10n.t('Unable to re-establish connection to {0}: {1}', session.metadata.sessionName, err));
 					}
 				}
@@ -520,8 +520,9 @@ export class KCApi implements KallichoreAdapterApi {
 	 * handle the case where the server process is running but it's become
 	 * unresponsive.
 	 *
-	 * @returns A promise that resolves when the server has been confirmed to be
-	 * running or has been restarted. Resolves with `true` if the server did in fact exit, `false` otherwise.
+	 * @returns A promise that resolves when the server has been confirmed to
+	 * be running or has been restarted. Resolves with `true` if the server did
+	 * in fact exit, `false` otherwise.
 	 */
 	private async testServerExited(): Promise<boolean> {
 		// If we're currently starting, it doesn't make sense to test the
