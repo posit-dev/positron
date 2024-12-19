@@ -3,10 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Page } from '@playwright/test';
 import { test, expect, tags } from '../_test.setup';
-import path = require('path');
 import { Application } from '../../../automation';
+import { Page } from '@playwright/test';
+import path = require('path');
+
 
 test.use({
 	suiteId: __filename
@@ -15,6 +16,7 @@ test.use({
 test.describe('Editor Action Bar', {
 	tag: [tags.WEB, tags.EDITOR_ACTION_BAR, tags.EDITOR]
 }, () => {
+
 	test.beforeAll(async function ({ userSettings }) {
 		await userSettings.set([['editor.actionBar.enabled', 'true']], false);
 	});
