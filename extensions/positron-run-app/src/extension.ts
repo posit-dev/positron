@@ -8,7 +8,7 @@ import { PositronRunAppApiImpl } from './api';
 import { registerDebugAdapterTrackerFactory } from './debugAdapterTrackerFactory';
 import { PositronRunApp } from './positron-run-app';
 
-export const log = vscode.window.createOutputChannel('Positron Run App', { log: true });
+export const log = vscode.window.createOutputChannel('App Launcher', { log: true });
 
 export enum Config {
 	ShellIntegrationEnabled = 'terminal.integrated.shellIntegration.enabled',
