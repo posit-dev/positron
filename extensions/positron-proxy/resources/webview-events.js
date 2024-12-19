@@ -15,7 +15,11 @@
  * messages sent from this file and forwards them to the webview host, where
  * they are processed and dispatched.
  *
- * The only difference between this file and the original is this comment block.
+ * Differences between this file and the original are code-fenced with the comment format:
+ * // --- Start Positron Proxy Changes ---
+ * ...
+ * // --- End Positron Proxy Changes ---
+ *
  * Original: src/vs/workbench/contrib/webview/browser/pre/webview-events.js
  */
 
@@ -90,8 +94,9 @@ const handleInnerKeydown = (e) => {
 	// If the keypress would trigger a browser event, such as copy or paste,
 	// make sure we block the browser from dispatching it. Instead VS Code
 	// handles these events and will dispatch a copy/paste back to the webview
-	// if needed
-	if (isUndoRedo(e) || isPrint(e) || isFindEvent(e) || isSaveEvent(e) || isCopyPasteOrCut(e)) {
+	// --- Start Positron Proxy Changes ---
+	if (isUndoRedo(e) || isPrint(e) || isFindEvent(e) || isSaveEvent(e) /*|| isCopyPasteOrCut(e)*/) {
+	// --- End Positron Proxy Changes ---
 		e.preventDefault();
 	}
 	hostMessaging.postMessage('did-keydown', {
