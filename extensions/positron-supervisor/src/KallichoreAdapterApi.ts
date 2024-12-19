@@ -13,7 +13,7 @@ import { findAvailablePort } from './PortFinder';
 import { KallichoreAdapterApi } from './positron-supervisor';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
 import { KallichoreSession } from './KallichoreSession';
-import { Barrier, PromiseHandles } from './async';
+import { Barrier, PromiseHandles, withTimeout } from './async';
 import { LogStreamer } from './LogStreamer';
 import { createUniqueId, summarizeHttpError } from './util';
 
@@ -479,15 +479,31 @@ export class KCApi implements KallichoreAdapterApi {
 	 * @param session The session to add the disconnect handler to
 	 */
 	private addDisconnectHandler(session: KallichoreSession) {
-		session.disconnected.event(async (state: positron.RuntimeState) => {
+		this._disposables.push(session.disconnected.event(async (state: positron.RuntimeState) => {
 			if (state !== positron.RuntimeState.Exited) {
 				// The websocket disconnected while the session was still
 				// running. This could signal a problem with the supervisor; we
 				// should see if it's still running.
 				this._log.appendLine(`Session '${session.metadata.sessionName}' disconnected while in state '${state}'. This is unexpected; checking server status.`);
-				await this.testServerExited();
+
+				// If the server did not exit, and the session also appears to
+				// still be running, try to reconnect the websocket. It's
+				// possible the connection just got dropped or interrupted.
+				const exited = await this.testServerExited();
+				if (!exited) {
+					this._log.appendLine(`The server is still running; attempting to reconnect to session ${session.metadata.sessionId}`);
+					try {
+						await withTimeout(session.connect(), 2000, `Timed out reconnecting to session ${session.metadata.sessionId}`);
+						this._log.appendLine(`Successfully restored connection to  ${session.metadata.sessionId}`);
+					} catch (err) {
+						// The session could not be reconnected; mark it as
+						// offline and explain to the user what happened.
+						session.markOffline('Lost connection to the session WebSocket event stream');
+						vscode.window.showErrorMessage(vscode.l10n.t('Unable to re-establish connection to {0}: {1}', session.metadata.sessionName, err));
+					}
+				}
 			}
-		});
+		}));
 	}
 
 	/**
@@ -501,13 +517,14 @@ export class KCApi implements KallichoreAdapterApi {
 	 * unresponsive.
 	 *
 	 * @returns A promise that resolves when the server has been confirmed to be
-	 * running or has been restarted.
+	 * running or has been restarted. Resolves with `true` if the server did in fact exit, `false` otherwise.
 	 */
-	private async testServerExited() {
+	private async testServerExited(): Promise<boolean> {
 		// If we're currently starting, it doesn't make sense to test the
 		// server status since we're already in the process of starting it.
 		if (this._starting) {
-			return this._starting.promise;
+			await this._starting.promise;
+			return false;
 		}
 
 		// Load the server state so we can check the process ID
@@ -517,7 +534,7 @@ export class KCApi implements KallichoreAdapterApi {
 		// If there's no server state, return as we can't check its status
 		if (!serverState) {
 			this._log.appendLine(`No Kallichore server state found; cannot test server process`);
-			return;
+			return false;
 		}
 
 		// Test the process ID to see if the server is still running.
@@ -536,7 +553,7 @@ export class KCApi implements KallichoreAdapterApi {
 
 		// The server is still running; nothing to do
 		if (serverRunning) {
-			return;
+			return false;
 		}
 
 		// Clean up the state so we don't try to reconnect to a server that
@@ -568,6 +585,9 @@ export class KCApi implements KallichoreAdapterApi {
 			vscode.window.showInformationMessage(
 				vscode.l10n.t('The process supervising the interpreters has exited unexpectedly and could not automatically restarted: ' + err));
 		}
+
+		// The server did exit.
+		return true;
 	}
 
 	/**

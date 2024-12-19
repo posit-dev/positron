@@ -1165,6 +1165,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this.onExited(exitCode);
 	}
 
+	/**
+	 * Marks the kernel as offline.
+	 *
+	 * @param reason The reason for the kernel going offline
+	 */
+	markOffline(reason: string) {
+		this.onStateChange(positron.RuntimeState.Offline, reason);
+	}
+
 	private onExited(exitCode: number) {
 		if (this._restarting) {
 			// If we're restarting, wait for the kernel to start up again
