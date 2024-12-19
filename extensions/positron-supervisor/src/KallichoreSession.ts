@@ -571,8 +571,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			type === positron.RuntimeClientType.IPyWidgetControl) {
 
 			const msg: JupyterCommOpen = {
-				target_name: type,  // eslint-disable-line
-				comm_id: id,  // eslint-disable-line
+				target_name: type,
+				comm_id: id,
 				data: params
 			};
 			const commOpen = new CommOpenCommand(msg, metadata);

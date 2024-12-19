@@ -216,7 +216,7 @@ export class KCApi implements KallichoreAdapterApi {
 
 		// Start the server in a new terminal
 		this._log.appendLine(`Starting Kallichore server ${shellPath} on port ${port}`);
-		const terminal = vscode.window.createTerminal(<vscode.TerminalOptions>{
+		const terminal = vscode.window.createTerminal({
 			name: 'Kallichore',
 			shellPath: wrapperPath,
 			shellArgs: [
@@ -231,7 +231,7 @@ export class KCApi implements KallichoreAdapterApi {
 			message: `*** Kallichore Server (${shellPath}) ***`,
 			hideFromUser: !showTerminal,
 			isTransient: false
-		});
+		} satisfies vscode.TerminalOptions);
 
 		// Flag to track if the terminal exited before the start barrier opened
 		let exited = false;
