@@ -14,7 +14,7 @@ import { setupTestExplorer, refreshTestExplorer } from './testing/testing';
 import { RRuntimeManager } from './runtime-manager';
 import { registerUriHandler } from './uri-handler';
 
-export const LOGGER = vscode.window.createOutputChannel('Positron R Extension', { log: true });
+export const LOGGER = vscode.window.createOutputChannel('R Language Pack', { log: true });
 
 export function activate(context: vscode.ExtensionContext) {
 	const onDidChangeLogLevel = (logLevel: vscode.LogLevel) => {
