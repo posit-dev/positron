@@ -74,6 +74,11 @@ export class MenuId {
 	static readonly EditorContextCopy = new MenuId('EditorContextCopy');
 	static readonly EditorContextPeek = new MenuId('EditorContextPeek');
 	static readonly EditorContextShare = new MenuId('EditorContextShare');
+	// --- Start Positron ---
+	static readonly EditorActionsLeft = new MenuId('EditorActionsLeft');
+	static readonly EditorActionsCenter = new MenuId('EditorActionsCenter');
+	static readonly EditorActionsRight = new MenuId('EditorActionsRight');
+	// --- End Positron ---
 	static readonly EditorTitle = new MenuId('EditorTitle');
 	static readonly EditorTitleRun = new MenuId('EditorTitleRun');
 	static readonly EditorTitleContext = new MenuId('EditorTitleContext');

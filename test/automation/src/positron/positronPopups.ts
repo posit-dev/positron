@@ -108,7 +108,7 @@ export class PositronPopups {
 		this.code.logger.log(`Closing ${count} toasts`);
 		for (let i = 0; i < count; i++) {
 			await this.toastLocator.nth(i).hover();
-			await this.code.driver.page.locator(`${NOTIFICATION_TOAST} .codicon-notifications-clear`).click();
+			await this.code.driver.page.locator(`${NOTIFICATION_TOAST} .codicon-notifications-clear`).nth(i).click();
 		}
 	}
 

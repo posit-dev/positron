@@ -14,7 +14,6 @@
 		"vs/workbench/services/keybinding/test/node/keyboardMapperTestUtils.ts"
 	],
 	"ban-trustedtypes-createpolicy": [
-		"bootstrap-external.ts",
 		"bootstrap-window.ts",
 		"vs/amdX.ts",
 		"vs/base/browser/trustedTypes.ts",
@@ -42,7 +41,6 @@
 		"**/*.ts"
 	],
 	"ban-script-content-assignments": [
-		"bootstrap-external.ts",
 		"bootstrap-window.ts"
 	]
 }
