@@ -11,16 +11,18 @@ import { IStatusbarEntryAccessor, IStatusbarService, StatusbarAlignment } from '
 import { NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY } from '../common/runtimeNotebookKernelConfig.js';
 import { RuntimeNotebookKernel } from './runtimeNotebookKernelService.js';
 
+const CELL_STRING = localize('status.notebook.executionInfo.cell', 'cell');
+
 /**
  * A status bar entry that displays information about the current notebook execution,
  * such as the total duration and number of cells executed.
  */
 export class NotebookExecutionStatus extends Disposable {
 	/** The ID of the status bar entry. */
-	private static readonly _ID = 'status.notebooks.executionInfo';
+	private static readonly _ID = 'status.notebook.executionInfo';
 
 	/** The name of the status bar entry. */
-	private static readonly _NAME = localize('status.notebooks.executionInfo.name', 'Execution Info');
+	private static readonly _NAME = localize('status.notebook.executionInfo.name', 'Execution Info');
 
 	/** Accessor for the status bar entry. */
 	private readonly _entryAccessor: IStatusbarEntryAccessor;
@@ -60,7 +62,8 @@ export class NotebookExecutionStatus extends Disposable {
 
 		// Update the text when an execution starts.
 		disposables.add(kernel.onDidStartExecution(e => {
-			const text = `Executing ${formatCount(e.cells.length, 'cell')}`
+			const cellCountString = getCountString(e.cells.length, CELL_STRING);
+			const text = localize('status.notebook.executionInfo.startExecution', 'Executing {0}', cellCountString);
 			this._entryAccessor.update({
 				ariaLabel: text,
 				name: NotebookExecutionStatus._NAME,
@@ -70,8 +73,9 @@ export class NotebookExecutionStatus extends Disposable {
 
 		// Update the text when an execution ends.
 		disposables.add(kernel.onDidEndExecution(e => {
-			const text = `Executed ${formatCount(e.cells.length, 'cell')} ` +
-				`in ${getDurationString(e.duration, true)}`;
+			const cellCountString = getCountString(e.cells.length, CELL_STRING);
+			const durationString = getDurationString(e.duration, true);
+			const text = localize('status.notebook.executionInfo.endExecution', 'Executed {0} in {1}', cellCountString, durationString);
 			this._entryAccessor.update({
 				ariaLabel: text,
 				name: NotebookExecutionStatus._NAME,
@@ -98,7 +102,7 @@ export class NotebookExecutionStatus extends Disposable {
  * @param unit The unit to format e.g. 'cell'.
  * @returns The formatted count e.g. '1 cell' or '2 cells'.
  */
-function formatCount(count: number, unit: string): string {
+function getCountString(count: number, unit: string): string {
 	if (count === 1) {
 		return `${count} ${unit}`;
 	}
