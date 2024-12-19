@@ -172,9 +172,16 @@ export interface IPositronPlotsService {
 	openPlotInNewWindow(): void;
 
 	/**
-	 * Saves the plot.
+	 * Saves the plot from the Plots View.
 	 */
-	savePlot(): void;
+	saveViewPlot(): void;
+
+	/**
+	 * Saves the plot from the editor tab.
+	 *
+	 * @param plotId The id of the plot to save.
+	 */
+	saveEditorPlot(plotId: string): void;
 
 	/**
 	 * Opens the currently selected plot in an editor.
