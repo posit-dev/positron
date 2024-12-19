@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Code } from '../code';
-import { Notebook } from '../notebook';
 import { PositronQuickInput } from './positronQuickInput';
 import { PositronQuickAccess } from './positronQuickaccess';
 import { basename } from 'path';
@@ -35,7 +34,7 @@ export class PositronNotebooks {
 	notebookProgressBar = this.code.driver.page.locator('[id="workbench\\.parts\\.editor"]').getByRole('progressbar');
 
 
-	constructor(private code: Code, private quickinput: PositronQuickInput, private quickaccess: PositronQuickAccess, private notebook: Notebook) { }
+	constructor(private code: Code, private quickinput: PositronQuickInput, private quickaccess: PositronQuickAccess) { }
 
 	async selectInterpreter(kernelGroup: string, desiredKernel: string) {
 		await expect(this.notebookProgressBar).not.toBeVisible({ timeout: 30000 });
@@ -68,13 +67,13 @@ export class PositronNotebooks {
 		await this.quickinput.selectQuickInputElement(0);
 
 		await this.code.waitForElement(ACTIVE_ROW_SELECTOR);
-		await this.notebook.focusFirstCell();
+		await this.focusFirstCell();
 	}
 
 	async addCodeToFirstCell(code: string) {
 		await this.code.driver.page.locator(CELL_LINE).first().click();
-		await this.notebook.waitForTypeInEditor(code);
-		await this.notebook.waitForActiveCellEditorContents(code);
+		await this.waitForTypeInEditor(code);
+		await this.waitForActiveCellEditorContents(code);
 	}
 
 	async executeCodeInCell() {
@@ -101,5 +100,61 @@ export class PositronNotebooks {
 		const stopExecutionLocator = this.code.driver.page.locator('a').filter({ hasText: /Stop Execution|Interrupt/ });
 		await expect(stopExecutionLocator).toBeVisible();
 		await expect(stopExecutionLocator).not.toBeVisible({ timeout: timeout });
+	}
+
+	async focusFirstCell() {
+		await this.quickaccess.runCommand('notebook.focusTop');
+	}
+
+	async waitForTypeInEditor(text: string): Promise<any> {
+		const editor = `${ACTIVE_ROW_SELECTOR} .monaco-editor`;
+
+		await this.code.driver.page.locator(editor).isVisible();
+
+		const textarea = `${editor} textarea`;
+		await expect(this.code.driver.page.locator(textarea)).toBeFocused();
+
+		await this.code.driver.page.locator(textarea).fill(text);
+
+		await this._waitForActiveCellEditorContents(c => c.indexOf(text) > -1);
+	}
+
+	private async _waitForActiveCellEditorContents(accept: (contents: string) => boolean): Promise<string> {
+		const selector = `${ACTIVE_ROW_SELECTOR} .monaco-editor .view-lines`;
+		const locator = this.code.driver.page.locator(selector);
+
+		let content = '';
+		await expect(async () => {
+			content = (await locator.textContent())?.replace(/\u00a0/g, ' ') || '';
+			if (!accept(content)) {
+				throw new Error(`Content did not match condition: ${content}`);
+			}
+		}).toPass();
+
+		return content;
+	}
+
+	async waitForActiveCellEditorContents(contents: string): Promise<string> {
+		return this._waitForActiveCellEditorContents(content => content === contents);
+	}
+
+	async insertNotebookCell(kind: 'markdown' | 'code'): Promise<void> {
+		if (kind === 'markdown') {
+			await this.quickaccess.runCommand('notebook.cell.insertMarkdownCellBelow');
+		} else {
+			await this.quickaccess.runCommand('notebook.cell.insertCodeCellBelow');
+		}
+	}
+
+	async stopEditingCell() {
+		await this.quickaccess.runCommand('notebook.cell.quitEdit');
+	}
+
+	async executeActiveCell(): Promise<void> {
+		await this.quickaccess.runCommand('notebook.cell.execute');
+	}
+
+	async focusNextCell() {
+		await this.code.driver.page.keyboard.press('ArrowDown');
 	}
 }
