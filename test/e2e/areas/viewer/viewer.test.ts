@@ -15,21 +15,12 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 		await app.workbench.positronViewer.clearViewer();
 	});
 
-	test.skip('Python - Verify Viewer functionality with vetiver [C784887]', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5569' }]
-	}, async function ({ app, page, logger, python }) {
+	test('Python - Verify Viewer functionality with webbrowser [C784887]', async function ({ app, page, logger, python }) {
 		logger.log('Sending code to console');
 		await app.workbench.positronConsole.pasteCodeToConsole(pythonScript);
 		await app.workbench.positronConsole.sendEnterKey();
-		const theDoc = app.workbench.positronViewer.getViewerLocator('#thedoc');
-		await theDoc.waitFor({ state: 'attached', timeout: 60000 });
-
-		// This is bad because it can end up clicking a link inside the console:
-		//await app.workbench.positronConsole.activeConsole.click();
-
-		await app.workbench.positronConsole.clickConsoleTab();
-		await page.keyboard.press('Control+C');
-		await app.workbench.positronConsole.waitForConsoleContents('Application shutdown complete.');
+		const theDoc = app.workbench.positronViewer.getViewerLocator('head');
+		await theDoc.waitFor({ state: 'attached' });
 	});
 
 	// This randomly fails only in CI
@@ -83,12 +74,10 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 
 });
 
-const pythonScript = `from vetiver import VetiverModel, VetiverAPI
-from vetiver.data import mtcars
-from sklearn.linear_model import LinearRegression
-model = LinearRegression().fit(mtcars.drop(columns="mpg"), mtcars["mpg"])
-v = VetiverModel(model, model_name = "cars_linear", prototype_data = mtcars.drop(columns="mpg"))
-VetiverAPI(v).run()`;
+const pythonScript = `import webbrowser
+# will not have any content, but we just want to make sure
+# the viewer will open when webbrowser calls are make
+webbrowser.open('http://127.0.0.1:8000')`;
 
 const pythonGreatTablesScript = `from great_tables import GT, exibble
 GT(exibble)`;
