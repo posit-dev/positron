@@ -13,7 +13,7 @@ test.use({
 });
 
 test.describe('Editor Action Bar', {
-	tag: [tags.WEB, tags.ACTION_BAR, tags.EDITOR]
+	tag: [tags.WEB, tags.EDITOR_ACTION_BAR, tags.EDITOR]
 }, () => {
 	test.beforeAll(async function ({ userSettings }) {
 		await userSettings.set([['editor.actionBar.enabled', 'true']], false);
@@ -54,7 +54,6 @@ test.describe('Editor Action Bar', {
 		annotation: [{ type: 'info', description: 'electron test unable to interact with dropdown native menu' }],
 	}, async function ({ app, page }) {
 		await openNotebook(app, 'workspaces/large_r_notebook/spotify.ipynb');
-
 		await verifySplitEditor(page, 'spotify.ipynb');
 
 		if (app.web) {
