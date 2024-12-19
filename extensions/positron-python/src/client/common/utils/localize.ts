@@ -266,7 +266,7 @@ export namespace InterpreterQuickPickList {
 
 export namespace OutputChannelNames {
     export const languageServer = l10n.t('Python Language Server');
-    export const python = l10n.t('Python');
+    export const python = l10n.t('Python Language Pack');
     export const pythonTest = l10n.t('Python Test Log');
 }
 
