@@ -93,6 +93,10 @@ export class KCApi implements KallichoreAdapterApi {
 				this._log.appendLine(`Failed to start Kallichore server: ${err}`);
 			});
 		}
+
+		_context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.reconnectSession', () => {
+			this.reconnectActiveSession();
+		}));
 	}
 
 	/**
@@ -724,5 +728,36 @@ export class KCApi implements KallichoreAdapterApi {
 		}
 
 		throw new Error(`Kallichore server not found (expected at ${embeddedBinary})`);
+	}
+
+	/**
+	 * Reconnects to the active session, if one exists. Primarily useful as a
+	 * troubleshooting tool.
+	 */
+	async reconnectActiveSession() {
+		// Get the foreground session from the Positron API
+		const session = await positron.runtime.getForegroundSession();
+		if (!session) {
+			vscode.window.showInformationMessage(vscode.l10n.t('No active session to reconnect to'));
+			return;
+		}
+
+		// Find the session in our list
+		const kallichoreSession = this._sessions.find(s => s.metadata.sessionId === session.metadata.sessionId);
+		if (!kallichoreSession) {
+			vscode.window.showInformationMessage(vscode.l10n.t('Active session {0} not managed by the kernel supervisor', session.metadata.sessionName));
+			return;
+		}
+
+		// Ensure the session is still active
+		if (kallichoreSession.runtimeState === positron.RuntimeState.Exited) {
+			vscode.window.showInformationMessage(vscode.l10n.t('Session {0} is not running', session.metadata.sessionName));
+			return;
+		}
+
+		// Disconnect the session; since the session is active, this should
+		// trigger a reconnect.
+		kallichoreSession.log('Disconnecting by user request', vscode.LogLevel.Info);
+		kallichoreSession.disconnect();
 	}
 }

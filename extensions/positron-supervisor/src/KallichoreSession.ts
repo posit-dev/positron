@@ -1045,6 +1045,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
+	 * Disconnect the session
+	 */
+	public disconnect() {
+		this._socket?.ws.close();
+	}
+
+	/**
 	 * Main entry point for handling messages delivered over the websocket from
 	 * the Kallichore server.
 	 *
