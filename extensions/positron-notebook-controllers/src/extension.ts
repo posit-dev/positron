@@ -12,7 +12,7 @@ import { JUPYTER_NOTEBOOK_TYPE } from './constants';
 import { registerExecutionInfoStatusBar } from './statusBar';
 import { getNotebookSession, isActiveNotebookEditorUri } from './utils';
 
-export const log = vscode.window.createOutputChannel('Positron Notebook Controllers', { log: true });
+export const log = vscode.window.createOutputChannel('Notebook Controllers', { log: true });
 
 const _onDidSetHasRunningNotebookSessionContext = new vscode.EventEmitter<boolean>();
 

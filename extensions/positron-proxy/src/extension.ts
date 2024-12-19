@@ -15,7 +15,7 @@ export type ProxyServerStyles = { readonly [key: string]: string | number };
 /**
  * Positron Proxy log output channel.
  */
-export const log = vscode.window.createOutputChannel('Positron Proxy', { log: true });
+export const log = vscode.window.createOutputChannel('HTML Proxy Server', { log: true });
 
 /**
  * Activates the extension.

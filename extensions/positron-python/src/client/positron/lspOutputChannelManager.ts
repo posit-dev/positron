@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 
-const LSP_OUTPUT_CHANNEL_PREFIX = 'Positron Language Server: ';
+const LSP_OUTPUT_CHANNEL_DESCRIPTOR = 'Language Server';
 
 /**
  * Manages all the Python LSP output channels
@@ -47,7 +47,9 @@ export class PythonLspOutputChannelManager {
         let out = this._channels.get(key);
 
         if (!out) {
-            const name = `${LSP_OUTPUT_CHANNEL_PREFIX}${sessionName} (${sessionMode})`;
+            const name = `${sessionName}: ${LSP_OUTPUT_CHANNEL_DESCRIPTOR} (${
+                sessionMode.charAt(0).toUpperCase() + sessionMode.slice(1)
+            })`;
             out = vscode.window.createOutputChannel(name);
             this._channels.set(key, out);
         }
