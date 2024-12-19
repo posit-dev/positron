@@ -27,7 +27,7 @@ test.describe('Data Explorer - R ', {
 		logger.log('Opening data grid');
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
-			await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
+			await app.code.driver.page.locator('.label-name:has-text("Data: Data_Frame")').innerText();
 		}).toPass();
 
 		await app.workbench.positronDataExplorer.maximizeDataExplorer(true);
@@ -87,7 +87,7 @@ test.describe('Data Explorer - R ', {
 
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
-			await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
+			await app.code.driver.page.locator('.label-name:has-text("Data: Data_Frame")').innerText();
 		}).toPass();
 
 		// Now move focus out of the the data explorer pane
@@ -96,7 +96,7 @@ test.describe('Data Explorer - R ', {
 		await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
 
 		await expect(async () => {
-			await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
+			await app.code.driver.page.locator('.label-name:has-text("Data: Data_Frame")').innerText();
 		}).toPass();
 
 		await app.workbench.positronDataExplorer.closeDataExplorer();
@@ -109,7 +109,7 @@ test.describe('Data Explorer - R ', {
 
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('df');
-			await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
+			await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
 		}).toPass();
 
 		await expect(async () => {

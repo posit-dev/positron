@@ -34,7 +34,7 @@ export class PositronConsole {
 	suggestionList: Locator;
 
 	get emptyConsole() {
-		return this.code.driver.getLocator(EMPTY_CONSOLE).getByText('There is no interpreter running');
+		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
 	}
 
 	constructor(private code: Code, private quickaccess: PositronQuickAccess, private quickinput: PositronQuickInput) {

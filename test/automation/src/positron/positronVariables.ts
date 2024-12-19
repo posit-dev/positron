@@ -52,7 +52,7 @@ export class PositronVariables {
 	}
 
 	async waitForVariableRow(variableName: string): Promise<Locator> {
-		const desiredRow = this.code.driver.getLocator(`${VARIABLES_NAME_COLUMN} .name-value:text("${variableName}")`);
+		const desiredRow = this.code.driver.page.locator(`${VARIABLES_NAME_COLUMN} .name-value:text("${variableName}")`);
 		await desiredRow.waitFor({ state: 'attached' });
 		return desiredRow;
 	}

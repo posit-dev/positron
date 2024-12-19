@@ -27,7 +27,7 @@ df = pd.DataFrame(data)`;
 		logger.log('Opening data grid');
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('df');
-			await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
+			await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
 		}).toPass();
 
 		await app.workbench.positronSideBar.closeSecondarySideBar();
@@ -67,7 +67,7 @@ df2 = pd.DataFrame(data)`;
 		logger.log('Opening data grid');
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('df2');
-			await app.code.driver.getLocator('.label-name:has-text("Data: df2")').innerText();
+			await app.code.driver.page.locator('.label-name:has-text("Data: df2")').innerText();
 		}).toPass();
 
 		// Need to make sure the data explorer is visible test.beforeAll we can interact with it
@@ -140,7 +140,7 @@ df2 = pd.DataFrame(data)`;
 
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('df');
-			await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
+			await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
 		}).toPass({ timeout: 50000 });
 
 		await app.workbench.positronLayouts.enterLayout('notebook');
@@ -150,20 +150,20 @@ df2 = pd.DataFrame(data)`;
 			expect(tableData.length).toBe(11);
 		}).toPass({ timeout: 60000 });
 
-		await app.code.driver.getLocator('.tabs .label-name:has-text("pandas-update-dataframe.ipynb")').click();
+		await app.code.driver.page.locator('.tabs .label-name:has-text("pandas-update-dataframe.ipynb")').click();
 		await app.workbench.notebook.focusNextCell();
 		await app.workbench.notebook.executeActiveCell();
-		await app.code.driver.getLocator('.label-name:has-text("Data: df")').click();
+		await app.code.driver.page.locator('.label-name:has-text("Data: df")').click();
 
 		await expect(async () => {
 			const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 			expect(tableData.length).toBe(12);
 		}).toPass({ timeout: 60000 });
 
-		await app.code.driver.getLocator('.tabs .label-name:has-text("pandas-update-dataframe.ipynb")').click();
+		await app.code.driver.page.locator('.tabs .label-name:has-text("pandas-update-dataframe.ipynb")').click();
 		await app.workbench.notebook.focusNextCell();
 		await app.workbench.notebook.executeActiveCell();
-		await app.code.driver.getLocator('.label-name:has-text("Data: df")').click();
+		await app.code.driver.page.locator('.label-name:has-text("Data: df")').click();
 		await app.workbench.positronDataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 
 		await expect(async () => {
@@ -186,7 +186,7 @@ Data_Frame = data('mtcars')`;
 
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
-			await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
+			await app.code.driver.page.locator('.label-name:has-text("Data: Data_Frame")').innerText();
 		}).toPass();
 
 		// Now move focus out of the the data explorer pane
@@ -195,7 +195,7 @@ Data_Frame = data('mtcars')`;
 		await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
 
 		await expect(async () => {
-			await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
+			await app.code.driver.page.locator('.label-name:has-text("Data: Data_Frame")').innerText();
 		}).toPass();
 
 		await app.workbench.positronDataExplorer.closeDataExplorer();
@@ -210,7 +210,7 @@ df = pd.DataFrame({'x': ["a ", "a", "   ", ""]})`;
 
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('df');
-			await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
+			await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
 		}).toPass();
 
 		await expect(async () => {

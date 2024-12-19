@@ -32,7 +32,7 @@ test.describe('Data Explorer - Large Data Frame', {
 		logger.log('Opening data grid');
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('df');
-			expect(await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText() === 'Data: df');
+			expect(await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText() === 'Data: df');
 		}).toPass();
 
 		await app.workbench.positronSideBar.closeSecondarySideBar();
@@ -66,7 +66,7 @@ test.describe('Data Explorer - Large Data Frame', {
 		logger.log('Opening data grid');
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('df2');
-			expect(await app.code.driver.getLocator('.label-name:has-text("Data: df2")').innerText() === 'Data: df2');
+			expect(await app.code.driver.page.locator('.label-name:has-text("Data: df2")').innerText() === 'Data: df2');
 		}).toPass();
 
 		await app.workbench.positronSideBar.closeSecondarySideBar();

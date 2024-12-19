@@ -20,7 +20,7 @@ test.describe('Data Explorer - Python Polars', {
 		logger.log('Opening data grid');
 		await expect(async () => {
 			await app.workbench.positronVariables.doubleClickVariableRow('df');
-			await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
+			await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
 		}).toPass();
 
 		await app.workbench.positronDataExplorer.maximizeDataExplorer(true);

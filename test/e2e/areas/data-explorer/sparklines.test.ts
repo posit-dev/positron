@@ -40,7 +40,7 @@ async function openDataExplorerColumnProfile(app: Application, variableName: str
 
 	await expect(async () => {
 		await app.workbench.positronVariables.doubleClickVariableRow(variableName);
-		await app.code.driver.getLocator(`.label-name:has-text("Data: ${variableName}")`).innerText();
+		await app.code.driver.page.locator(`.label-name:has-text("Data: ${variableName}")`).innerText();
 	}).toPass();
 
 	await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
@@ -52,7 +52,7 @@ async function openDataExplorerColumnProfile(app: Application, variableName: str
 async function verifyGraphBarHeights(app: Application) {
 	// Get all graph graph bars/rectangles
 	await expect(async () => {
-		const rects = app.code.driver.getLocator('rect.count');
+		const rects = app.code.driver.page.locator('rect.count');
 
 		// Iterate over each rect and verify the height
 		const expectedHeights = ['50', '40', '30', '20', '10'];

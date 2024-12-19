@@ -28,7 +28,7 @@ export const testDataExplorer = async (
 	// Open the data frame.
 	await expect(async () => {
 		await app.workbench.positronVariables.doubleClickVariableRow(dataFrameName);
-		await app.code.driver.getLocator(`.label-name:has-text("Data: ${dataFrameName}")`).innerText();
+		await app.code.driver.page.locator(`.label-name:has-text("Data: ${dataFrameName}")`).innerText();
 	}).toPass();
 
 	// Maximize the data explorer.

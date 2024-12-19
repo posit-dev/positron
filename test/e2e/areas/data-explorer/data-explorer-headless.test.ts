@@ -38,7 +38,7 @@ async function testBody(app: Application, logger: Logger, fileName: string) {
 
 	logger.log('Opening data grid');
 	await expect(async () => {
-		expect(await app.code.driver.getLocator(`.label-name:has-text("Data: ${fileName}")`).innerText() === `Data: ${fileName}`);
+		expect(await app.code.driver.page.locator(`.label-name:has-text("Data: ${fileName}")`).innerText() === `Data: ${fileName}`);
 	}).toPass();
 
 	await app.workbench.positronSideBar.closeSecondarySideBar();

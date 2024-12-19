@@ -15,10 +15,10 @@ const INTERPRETER_ACTIONS_SELECTOR = `.interpreter-actions .action-button`;
  *  Reuseable Positron interpreter selection functionality for tests to leverage.
  */
 export class PositronInterpreterDropdown {
-	private interpreterGroups = this.code.driver.getLocator(
+	private interpreterGroups = this.code.driver.page.locator(
 		'.positron-modal-popup .interpreter-groups'
 	);
-	private interpreterDropdown = this.code.driver.getLocator(
+	private interpreterDropdown = this.code.driver.page.locator(
 		'.top-action-bar-interpreters-manager .left'
 	);
 
@@ -398,7 +398,7 @@ export class PositronInterpreterDropdown {
 	async getSelectedInterpreterInfo(): Promise<InterpreterInfo | undefined> {
 		// Get the label for the selected interpreter, e.g. Python 3.10.4 (Pyenv)
 		const selectedInterpreterLabel = await this.code.driver
-			.getLocator('.top-action-bar-interpreters-manager')
+			.page.locator('.top-action-bar-interpreters-manager')
 			.getAttribute('aria-label');
 		if (!selectedInterpreterLabel) {
 			throw new Error('There is no selected interpreter');
