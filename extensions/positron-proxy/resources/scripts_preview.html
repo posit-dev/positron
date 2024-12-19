@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<!--
+		Style elements must be in the form:
+		<style id="identifier">
+		...
+		</style>
+		-->
+		<style id="preview-style-defaults">
+			body {
+				/* Set the background to white like the default in a web browser */
+				background: white;
+			}
+		</style>
+		<style id="preview-style-overrides">
+			::-webkit-scrollbar {
+				background: transparent;
+				width: 14px;
+				height: 14px;
+				cursor: default !important;
+			}
+
+			::-webkit-scrollbar-track {
+				opacity: 0;
+			}
+
+			::-webkit-scrollbar-thumb {
+				min-height: 20px;
+				background-color: var(--vscode-scrollbarSlider-background);
+			}
+
+			::-webkit-scrollbar-thumb:hover {
+				cursor: pointer !important;
+				background-color: var(--vscode-scrollbarSlider-hoverBackground);
+			}
+		</style>
+		<!--
+		Script elements must be in the form:
+		<script id="identifier" type="module">
+		...
+		</script>
+		-->
+		<script id="preview-script" type="module">// webviewEventsScript placeholder</script>
+	</head>
+
+	<body></body>
+</html>

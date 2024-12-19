@@ -35,6 +35,8 @@ export class PreviewOverlayWebview extends Disposable {
 	 * @param uri The URI to load
 	 */
 	public loadUri(uri: URI): void {
+		// This Preview pane HTML is roughly equivalent to src/vs/workbench/contrib/positronHelp/browser/resources/help.html
+		// for the Help pane.
 		this.webview.setHtml(`
 		<html>
 			<head>
@@ -52,52 +54,41 @@ export class PreviewOverlayWebview extends Disposable {
 						display: block;
 					}
 				</style>
-				<script>
+			</head>
+			<body>
+				<iframe id="preview-iframe" title="Preview Content" src="${uri.toString()}"></iframe>
+				<script async type="module">
 					// Get a reference to the VS Code API
 					const vscode = acquireVsCodeApi();
 
-					// Listen for messages from the parent window
-					window.addEventListener('message', e => {
-						// Ignore non-command messages
-						if (!e.data.channel === 'execCommand') {
-							return;
-						}
+					// Get the preview iframe content window
+					const previewContentWindow = document.getElementById("preview-iframe").contentWindow;
 
-						// Get the IFrame element hosting the preview URL
-						const iframe = document.querySelector('iframe');
+					// Listen for messages
+					window.addEventListener('message', message => {
+						console.log('########preview iframe wrapper received message:', message);
 
-						// Dispatch the command
-						switch (e.data.data) {
-							case 'reload-window': {
-								iframe.src = iframe.src;
-								break;
-							}
-							case 'navigate-back': {
-								history.back();
-								break;
-							}
-							case 'navigate-forward': {
-								history.forward();
-								break;
-							}
+						// If a message is coming from the preview content window, forward it to the
+						// preview overlay webview.
+						if (message.source === previewContentWindow) {
+							console.log('########forwarding to preview overlay webview:', message.data);
+							// // Cannot read properties of undefined (reading 'postMessage')
+							// window.parent.postMessage({
+							// 	type: message.channel,
+							// 	data: message.data
+							// });
+							// // This doesn't work. Don't think this would send the message to the
+							// // correct layer anyways?
+							// vscode.postMessage({
+							// 	type: message.channel,
+							// 	data: message.data
+							// });
+						} else {
+							console.log('########forwarding to iframe:', message.data);
+							previewContentWindow.postMessage(message.data, '*');
 						}
 					});
-
-					// Notify the parent window that the window has loaded. This
-					// is a best-effort guess since we can't see cross-origin
-					// into the frame.
-					setTimeout(() => {
-						window.parent.postMessage({
-							channel: 'did-load-window',
-							data: {
-								title: ''
-							}
-						}, '*');
-					}, 500);
 				</script>
-			</head>
-			<body>
-				<iframe src="${uri.toString()}"></iframe>
 			</body>
 		</html>`);
 	}
