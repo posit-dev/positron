@@ -226,7 +226,7 @@ export class PositronConsole {
 		return await locator.textContent() ?? '';
 	}
 
-	async waitForConsoleExecution(timeout = 30000): Promise<void> {
+	async waitForConsoleExecution({ timeout = 20000 }: { timeout?: number } = {}): Promise<void> {
 		await expect(this.code.driver.page.getByLabel('Interrupt execution')).not.toBeVisible({ timeout });
 	}
 
