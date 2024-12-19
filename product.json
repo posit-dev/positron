@@ -36,6 +36,8 @@
 	"nodejsRepository": "https://nodejs.org",
 	"urlProtocol": "positron",
 	"webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/",
+	"updateUrl": "https://cdn.posit.co/positron",
+	"downloadUrl": "https://github.com/posit-dev/positron/releases",
 	"builtInExtensions": [
 		{
 			"name": "ms-vscode.js-debug-companion",

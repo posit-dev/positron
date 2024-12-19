@@ -9,7 +9,6 @@ import { tmpdir } from 'os';
 import { timeout } from '../../../base/common/async.js';
 import { CancellationToken } from '../../../base/common/cancellation.js';
 import { memoize } from '../../../base/common/decorators.js';
-import { hash } from '../../../base/common/hash.js';
 import * as path from '../../../base/common/path.js';
 import { URI } from '../../../base/common/uri.js';
 import { checksum } from '../../../base/node/crypto.js';
@@ -21,10 +20,12 @@ import { ILifecycleMainService, IRelaunchHandler, IRelaunchOptions } from '../..
 import { ILogService } from '../../log/common/log.js';
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
 import { IProductService } from '../../product/common/productService.js';
-import { asJson, IRequestService } from '../../request/common/request.js';
-import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 import { AvailableForDownload, DisablementReason, IUpdate, State, StateType, UpdateType } from '../common/update.js';
-import { AbstractUpdateService, createUpdateURL, UpdateErrorClassification, UpdateNotAvailableClassification } from './abstractUpdateService.js';
+
+// --- Start Positron ---
+import { IRequestService } from '../../request/common/request.js';
+import { AbstractUpdateService, createUpdateURL } from './abstractUpdateService.js';
+// --- End Positron ---
 
 async function pollUntil(fn: () => boolean, millis = 1000): Promise<void> {
 	while (!fn()) {
@@ -61,15 +62,14 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	constructor(
 		@ILifecycleMainService lifecycleMainService: ILifecycleMainService,
 		@IConfigurationService configurationService: IConfigurationService,
-		@ITelemetryService private readonly telemetryService: ITelemetryService,
 		@IEnvironmentMainService environmentMainService: IEnvironmentMainService,
 		@IRequestService requestService: IRequestService,
 		@ILogService logService: ILogService,
 		@IFileService private readonly fileService: IFileService,
-		@INativeHostMainService private readonly nativeHostMainService: INativeHostMainService,
-		@IProductService productService: IProductService
+		@IProductService productService: IProductService,
+		@INativeHostMainService nativeHostMainService: INativeHostMainService
 	) {
-		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, productService);
+		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, productService, nativeHostMainService);
 
 		lifecycleMainService.setRelaunchHandler(this);
 	}
@@ -111,70 +111,63 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		return createUpdateURL(platform, quality, this.productService);
 	}
 
-	protected doCheckForUpdates(context: any): void {
+	// --- START POSITRON ---
+	protected override updateAvailable(update: IUpdate): void {
 		if (!this.url) {
 			return;
 		}
 
-		this.setState(State.CheckingForUpdates(context));
+		const updateType = getUpdateType();
 
-		this.requestService.request({ url: this.url }, CancellationToken.None)
-			.then<IUpdate | null>(asJson)
-			.then(update => {
-				const updateType = getUpdateType();
+		if (!update || !update.url || !update.version || !update.productVersion) {
+			this.setState(State.Idle(updateType));
+			return;
+		}
 
-				if (!update || !update.url || !update.version || !update.productVersion) {
-					this.telemetryService.publicLog2<{ explicit: boolean }, UpdateNotAvailableClassification>('update:notAvailable', { explicit: !!context });
+		if (updateType === UpdateType.Archive) {
+			this.setState(State.AvailableForDownload(update));
+			return;
+		}
 
-					this.setState(State.Idle(updateType));
-					return Promise.resolve(null);
-				}
+		// Notify about updates for now. Do not download or install them.
+		if (!this.enableAutoUpdate) {
+			this.setState(State.AvailableForDownload(update));
+			return;
+		}
 
-				if (updateType === UpdateType.Archive) {
-					this.setState(State.AvailableForDownload(update));
-					return Promise.resolve(null);
-				}
+		// TODO: Code for installing updates is disabled due to this.enableAutoUpdate being false
+		this.setState(State.Downloading);
 
-				this.setState(State.Downloading);
+		this.cleanup(update.version).then(() => {
+			return this.getUpdatePackagePath(update.version).then(updatePackagePath => {
+				return pfs.Promises.exists(updatePackagePath).then(exists => {
+					if (exists) {
+						return Promise.resolve(updatePackagePath);
+					}
 
-				return this.cleanup(update.version).then(() => {
-					return this.getUpdatePackagePath(update.version).then(updatePackagePath => {
-						return pfs.Promises.exists(updatePackagePath).then(exists => {
-							if (exists) {
-								return Promise.resolve(updatePackagePath);
-							}
+					const downloadPath = `${updatePackagePath}.tmp`;
 
-							const downloadPath = `${updatePackagePath}.tmp`;
-
-							return this.requestService.request({ url: update.url }, CancellationToken.None)
-								.then(context => this.fileService.writeFile(URI.file(downloadPath), context.stream))
-								.then(update.sha256hash ? () => checksum(downloadPath, update.sha256hash) : () => undefined)
-								.then(() => pfs.Promises.rename(downloadPath, updatePackagePath, false /* no retry */))
-								.then(() => updatePackagePath);
-						});
-					}).then(packagePath => {
-						this.availableUpdate = { packagePath };
-						this.setState(State.Downloaded(update));
-
-						const fastUpdatesEnabled = this.configurationService.getValue('update.enableWindowsBackgroundUpdates');
-						if (fastUpdatesEnabled) {
-							if (this.productService.target === 'user') {
-								this.doApplyUpdate();
-							}
-						} else {
-							this.setState(State.Ready(update));
-						}
-					});
+					return this.requestService.request({ url: update.url }, CancellationToken.None)
+						.then(context => this.fileService.writeFile(URI.file(downloadPath), context.stream))
+						.then(update.sha256hash ? () => checksum(downloadPath, update.sha256hash) : () => undefined)
+						.then(() => pfs.Promises.rename(downloadPath, updatePackagePath, false /* no retry */))
+						.then(() => updatePackagePath);
 				});
-			})
-			.then(undefined, err => {
-				this.telemetryService.publicLog2<{ messageHash: string }, UpdateErrorClassification>('update:error', { messageHash: String(hash(String(err))) });
-				this.logService.error(err);
+			}).then(packagePath => {
+				this.availableUpdate = { packagePath };
+				this.setState(State.Downloaded(update));
 
-				// only show message when explicitly checking for updates
-				const message: string | undefined = !!context ? (err.message || err) : undefined;
-				this.setState(State.Idle(getUpdateType(), message));
+				const fastUpdatesEnabled = this.configurationService.getValue('update.enableWindowsBackgroundUpdates');
+				if (fastUpdatesEnabled) {
+					if (this.productService.target === 'user') {
+						this.doApplyUpdate();
+					}
+				} else {
+					this.setState(State.Ready(update));
+				}
 			});
+		});
+		// --- END POSITRON ---
 	}
 
 	protected override async doDownloadUpdate(state: AvailableForDownload): Promise<void> {
