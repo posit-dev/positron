@@ -87,6 +87,14 @@
 .data-grid-column-header
 .content
 .title-description
+.title
+.whitespace {
+	opacity: 50%;
+}
+
+.data-grid-column-header
+.content
+.title-description
 .description {
 	opacity: 80%;
 	overflow: hidden;
