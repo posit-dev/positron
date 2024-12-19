@@ -21,7 +21,7 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 	const containerRef = React.useRef<HTMLDivElement>(null);
 	const notebookInstance = useNotebookInstance();
 	const visibilityObservable = useNotebookVisibility();
-	const { editorService } = useServices();
+	const { editorService, layoutService } = useServices();
 
 	React.useEffect(() => {
 		const controller = new AbortController();
@@ -30,17 +30,40 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 		let visibilityObserver: IDisposable | undefined;
 		let containerBlurDisposable: IDisposable | undefined;
 		let editorChangeDisposable: IDisposable | undefined;
+		let resizeObserver: ResizeObserver | undefined;
 
 		/**
 		 * Updates the layout of the webview element if both the webview and container are available
 		 */
-		function updateWebviewLayout() {
+		// Track if there's a pending layout update
+		let layoutTimeout: number | undefined;
+		function updateWebviewLayout(immediate = false) {
 			if (!webviewElement || !containerRef.current) { return; }
-			webviewElement.layoutWebviewOverElement(
-				containerRef.current,
-				undefined,
-				notebookInstance.cellsContainer
-			);
+
+			// Clear any pending layout update
+			if (layoutTimeout !== undefined) {
+				window.clearTimeout(layoutTimeout);
+				layoutTimeout = undefined;
+			}
+
+			const doLayout = () => {
+				if (!containerRef.current || !notebookInstance.cellsContainer) {
+					return;
+				}
+
+				webviewElement?.layoutWebviewOverElement(
+					containerRef.current,
+					undefined,
+					notebookInstance.cellsContainer
+				);
+			};
+
+			if (immediate) {
+				doLayout();
+			} else {
+				// Add a small delay to ensure the layout has settled
+				layoutTimeout = window.setTimeout(doLayout, 50);
+			}
 		}
 
 		function claimWebview() {
@@ -79,14 +102,14 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 				updateWebviewLayout();
 
 				// Update layout on scroll and visibility changes
-				scrollDisposable = notebookInstance.onDidScrollCellsContainer(updateWebviewLayout);
+				scrollDisposable = notebookInstance.onDidScrollCellsContainer(() => updateWebviewLayout(true));
 
 				// Update layout when focus leaves the notebook container
 				if (notebookInstance.cellsContainer) {
 					containerBlurDisposable = addDisposableListener(notebookInstance.cellsContainer, 'focusout', (e) => {
 						// Only update if focus is moving outside the notebook container
 						if (!notebookInstance.cellsContainer?.contains(e.relatedTarget as Node)) {
-							updateWebviewLayout();
+							updateWebviewLayout(true);
 						}
 					});
 				}
@@ -106,10 +129,36 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 					containerRef.current.style.height = `${boundedHeight}px`;
 				});
 
-				// Listen for editor group changes and update layout
-				editorChangeDisposable = editorService.onDidActiveEditorChange(() => {
-					updateWebviewLayout();
+				// Listen for all editor and layout changes that might affect the webview
+				const handleLayoutChange = () => updateWebviewLayout(false);
+				editorChangeDisposable = Event.any(
+					editorService.onDidActiveEditorChange,
+					editorService.onDidVisibleEditorsChange, // Catches editor group changes
+					layoutService.onDidChangePartVisibility,
+					layoutService.onDidChangeZenMode,
+					layoutService.onDidChangeWindowMaximized,
+					layoutService.onDidChangePanelAlignment,
+					layoutService.onDidChangePanelPosition
+				)(handleLayoutChange);
+
+				// Create and setup resize observer for layout changes
+				resizeObserver = new ResizeObserver(() => {
+					updateWebviewLayout(true);
 				});
+
+				if (notebookInstance.cellsContainer) {
+					resizeObserver.observe(notebookInstance.cellsContainer);
+				}
+
+				// Update layout when focus leaves the notebook container
+				if (notebookInstance.cellsContainer) {
+					containerBlurDisposable = addDisposableListener(notebookInstance.cellsContainer, 'focusout', (e) => {
+						// Only update if focus is moving outside the notebook container
+						if (!notebookInstance.cellsContainer?.contains(e.relatedTarget as Node)) {
+							updateWebviewLayout(true);
+						}
+					});
+				}
 
 				return scrollDisposable;
 
@@ -133,11 +182,16 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 
 		return () => {
 			controller.abort();
+			if (layoutTimeout !== undefined) {
+				window.clearTimeout(layoutTimeout);
+				layoutTimeout = undefined;
+			}
 			releaseWebview();
 			scrollDisposable?.dispose();
 			containerBlurDisposable?.dispose();
 			visibilityObserver?.dispose();
 			editorChangeDisposable?.dispose();
+			resizeObserver?.disconnect();
 		};
 	}, [webview, notebookInstance, visibilityObservable]);
 
