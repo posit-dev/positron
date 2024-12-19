@@ -60,7 +60,7 @@ export class ExtHostConnections implements extHostProtocol.ExtHostConnectionsSha
 		if (!driver || !driver.connect) {
 			throw new Error(`Driver ${driverId} does not support connecting`);
 		}
-		return await driver.connect(code);
+		return driver.connect(code);
 	}
 
 	public async $driverCheckDependencies(driverId: string): Promise<boolean> {
@@ -68,7 +68,7 @@ export class ExtHostConnections implements extHostProtocol.ExtHostConnectionsSha
 		if (!driver || !driver.checkDependencies) {
 			throw new Error(`Driver ${driverId} does not support checking dependencies`);
 		}
-		return await driver.checkDependencies();
+		return driver.checkDependencies();
 	}
 
 	public async $driverInstallDependencies(driverId: string): Promise<boolean> {
@@ -76,6 +76,6 @@ export class ExtHostConnections implements extHostProtocol.ExtHostConnectionsSha
 		if (!driver || !driver.installDependencies) {
 			throw new Error(`Driver ${driverId} does not support installing dependencies`);
 		}
-		return await driver.installDependencies();
+		return driver.installDependencies();
 	}
 }
