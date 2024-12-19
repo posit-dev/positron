@@ -469,7 +469,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 				// Check the setting to see if we should be auto-starting.
 				const autoStart = this._configurationService.getValue<boolean>(
-					'positron.interpreters.automaticStartup');
+					'interpreters.automaticStartup');
 				if (!autoStart) {
 					this._logService.info(`Language runtime ` +
 						`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
@@ -677,7 +677,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		if (affiliatedRuntimeMetadata) {
 			// Check the setting to see if we should be auto-starting.
 			const autoStart = this._configurationService.getValue<boolean>(
-				'positron.interpreters.automaticStartup');
+				'interpreters.automaticStartup');
 
 			if (autoStart) {
 
@@ -846,7 +846,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 
 		const restartOnCrash =
-			this._configurationService.getValue<boolean>('positron.interpreters.restartOnCrash');
+			this._configurationService.getValue<boolean>('interpreters.restartOnCrash');
 
 		let action;
 

@@ -509,7 +509,7 @@ async function showEnableShellIntegrationMessage(rerunApplicationCallback: () =>
 		}
 	} else if (selection === dontAskAgain) {
 		// Disable the prompt for future runs.
-		const runAppConfig = vscode.workspace.getConfiguration('positron.runApplication');
+		const runAppConfig = vscode.workspace.getConfiguration('positron.appLauncher');
 		await runAppConfig.update('showShellIntegrationPrompt', false, vscode.ConfigurationTarget.Global);
 	}
 }
@@ -538,7 +538,7 @@ async function showShellIntegrationNotSupportedMessage(): Promise<void> {
 		await vscode.env.openExternal(vscode.Uri.parse('https://code.visualstudio.com/docs/terminal/shell-integration'));
 	} else if (selection === dontShowAgain) {
 		// Disable the prompt for future runs.
-		const runAppConfig = vscode.workspace.getConfiguration('positron.runApplication');
+		const runAppConfig = vscode.workspace.getConfiguration('positron.appLauncher');
 		await runAppConfig.update('showShellIntegrationNotSupportedMessage', false, vscode.ConfigurationTarget.Global);
 	}
 }

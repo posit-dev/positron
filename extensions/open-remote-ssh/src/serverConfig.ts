@@ -26,7 +26,7 @@ export interface IServerConfig {
 export async function getVSCodeServerConfig(): Promise<IServerConfig> {
 	const productJson = await getVSCodeProductJson();
 
-	const customServerBinaryName = vscode.workspace.getConfiguration('remote.SSH.experimental').get<string>('serverBinaryName', '');
+	const customServerBinaryName = vscode.workspace.getConfiguration('remoteSSH.experimental').get<string>('serverBinaryName', '');
 
 	const version = `${positron.version}-${positron.buildNumber}`;
 

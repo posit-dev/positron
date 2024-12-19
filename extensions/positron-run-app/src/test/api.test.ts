@@ -117,7 +117,7 @@ suite('PositronRunApp', () => {
 		assert(terminal, 'Terminal not found');
 	}
 
-	test('runApplication: shell integration supported', async () => {
+	test('appLauncher: shell integration supported', async () => {
 		// Run the application.
 		await verifyRunTestApplication();
 
@@ -129,7 +129,7 @@ suite('PositronRunApp', () => {
 		sinon.assert.calledOnceWithMatch(previewUrlStub, localhostUriMatch);
 	});
 
-	test('runApplication: shell integration disabled, user enables and reruns', async () => {
+	test('appLauncher: shell integration disabled, user enables and reruns', async () => {
 		// Disable shell integration.
 		await vscode.workspace.getConfiguration('terminal.integrated.shellIntegration').update('enabled', false);
 

@@ -12,6 +12,6 @@ export function initializePositron(): void {
 
     // Don't start Positron interpreters automatically during tests.
     vscode.workspace
-        .getConfiguration('positron.interpreters')
+        .getConfiguration('interpreters')
         .update('automaticStartup', false, vscode.ConfigurationTarget.Global);
 }

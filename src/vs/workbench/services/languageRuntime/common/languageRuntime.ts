@@ -137,13 +137,13 @@ const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationE
 configurationRegistry.registerConfiguration({
 	...positronConfigurationNodeBase,
 	properties: {
-		'positron.interpreters.restartOnCrash': {
+		'interpreters.restartOnCrash': {
 			scope: ConfigurationScope.MACHINE_OVERRIDABLE,
 			type: 'boolean',
 			default: true,
 			description: nls.localize('positron.runtime.restartOnCrash', "When enabled, interpreters are automatically restarted after a crash.")
 		},
-		'positron.interpreters.automaticStartup': {
+		'interpreters.automaticStartup': {
 			scope: ConfigurationScope.MACHINE_OVERRIDABLE,
 			type: 'boolean',
 			default: true,

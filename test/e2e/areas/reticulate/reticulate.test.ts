@@ -22,7 +22,7 @@ test.describe('Reticulate', {
 			// remove this once https://github.com/posit-dev/positron/issues/5226
 			// is resolved
 			await userSettings.set([
-				['positronKernelSupervisor.enable', 'false'],
+				['kernelSupervisor.enable', 'false'],
 				['positron.reticulate.enabled', 'true']
 			]);
 

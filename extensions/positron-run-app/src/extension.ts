@@ -12,8 +12,8 @@ export const log = vscode.window.createOutputChannel('Positron Run App', { log: 
 
 export enum Config {
 	ShellIntegrationEnabled = 'terminal.integrated.shellIntegration.enabled',
-	ShowEnableShellIntegrationMessage = 'positron.runApplication.showEnableShellIntegrationMessage',
-	ShowShellIntegrationNotSupportedMessage = 'positron.runApplication.showShellIntegrationNotSupportedMessage',
+	ShowEnableShellIntegrationMessage = 'positron.appLauncher.showEnableShellIntegrationMessage',
+	ShowShellIntegrationNotSupportedMessage = 'positron.appLauncher.showShellIntegrationNotSupportedMessage',
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<PositronRunApp> {
