@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
+import * as fs from 'fs';
 import { JupyterKernel, JupyterSession } from './jupyter-adapter';
 import { KallichoreSession } from './KallichoreSession';
 import { KernelInfoReply } from './jupyter/KernelInfoRequest';
@@ -21,9 +22,9 @@ export class AdoptedSession implements JupyterKernel {
 	}
 
 	async connectToSession(session: JupyterSession): Promise<void> {
-		// Read the connection information from the session
 		const connectionFile = session.state.connectionFile;
-		const connectionInfo = JSON.parse(connectionFile) as ConnectionInfo;
+		// Read the contents of the file from disk
+		const connectionInfo = fs.readFileSync(connectionFile, 'utf-8');
 
 		// Adopt the session using the connection information
 		this._api.adoptSession(session.state.sessionId, connectionInfo);

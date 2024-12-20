@@ -749,6 +749,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Start the kernel and wait for it to be ready
 		await this._kernelSpec!.startKernel!(session, kernel);
 
+		// Connect to the session's websocket
+		await withTimeout(this.connect(), 2000, `Start failed: timed out connecting to adopted session ${this.metadata.sessionId}`);
+
 		// Mark the session as ready
 		this.markReady('kernel adoption complete');
 
