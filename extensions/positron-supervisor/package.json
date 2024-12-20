@@ -90,6 +90,12 @@
         "title": "%command.reconnectSession.title%",
         "shortTitle": "%command.reconnectSession.title%",
         "enablement": "isDevelopment"
+      },
+      {
+        "command": "positron.supervisor.restartSupervisor",
+        "category": "%command.positron.supervisor.category%",
+        "title": "%command.restartSupervisor.title%",
+        "shortTitle": "%command.restartSupervisor.title%"
       }
     ]
   },

@@ -24,10 +24,10 @@ export class AdoptedSession implements JupyterKernel {
 	async connectToSession(session: JupyterSession): Promise<void> {
 		const connectionFile = session.state.connectionFile;
 		// Read the contents of the file from disk
-		const connectionInfo = fs.readFileSync(connectionFile, 'utf-8');
+		const connectionInfo = JSON.parse(fs.readFileSync(connectionFile, 'utf-8')) as ConnectionInfo;
 
 		// Adopt the session using the connection information
-		this._api.adoptSession(session.state.sessionId, connectionInfo);
+		this._runtimeInfo = (await this._api.adoptSession(session.state.sessionId, connectionInfo)).body;
 	}
 
 	get runtimeInfo(): KernelInfoReply | undefined {
