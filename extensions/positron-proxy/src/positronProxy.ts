@@ -13,7 +13,7 @@ import { log, ProxyServerStyles } from './extension';
 import { Disposable, ExtensionContext } from 'vscode';
 import { createProxyMiddleware, responseInterceptor } from 'http-proxy-middleware';
 import { HtmlProxyServer } from './htmlProxy';
-import { htmlContentRewriter, rewriteUrlsWithProxyPath } from './util';
+import { helpContentRewriter, htmlContentRewriter } from './util';
 import { ContentRewriter, isAddressInfo, MaybeAddressInfo, PendingProxyServer, ProxyServerHtml, ProxyServerHtmlConfig, ProxyServerType } from './types';
 
 /**
@@ -135,59 +135,7 @@ export class PositronProxy implements Disposable {
 		log.debug(`Starting a help proxy server for target: ${targetOrigin}...`);
 
 		// Start the proxy server.
-		return this.startProxyServer(
-			targetOrigin,
-			async (_serverOrigin, proxyPath, _url, contentType, responseBuffer) => {
-				// If this isn't 'text/html' content, just return the response buffer.
-				if (!contentType.includes('text/html')) {
-					return responseBuffer;
-				}
-
-				// Build the help vars.
-				let helpVars = '';
-				const {
-					styleDefaults,
-					styleOverrides,
-					script: helpScript,
-					styles: helpStyles
-				} = this._proxyServerHtmlConfigs.help;
-				if (helpStyles) {
-					helpVars += '<style id="help-vars">\n';
-					helpVars += '    body {\n';
-					for (const style in helpStyles) {
-						helpVars += `        --${style}: ${helpStyles[style]};\n`;
-					}
-					helpVars += '    }\n';
-					helpVars += '</style>\n';
-				}
-
-				// Get the response.
-				let response = responseBuffer.toString('utf8');
-
-				// Inject the help style defaults for unstyled help documents and the help vars.
-				response = response.replace(
-					'<head>',
-					`<head>\n
-					${helpVars}\n
-					${styleDefaults}`
-				);
-
-				// Inject the help style overrides and the help script.
-				response = response.replace(
-					'</head>',
-					`${styleOverrides}\n
-					${helpScript}\n
-					</head>`
-				);
-
-				// Rewrite the URLs with the proxy path.
-				response = rewriteUrlsWithProxyPath(response, proxyPath);
-
-				// Return the response.
-				return response;
-			},
-			ProxyServerType.Help
-		);
+		return this.startProxyServer(targetOrigin, helpContentRewriter, ProxyServerType.Help);
 	}
 
 	/**
@@ -496,8 +444,20 @@ export class PositronProxy implements Disposable {
 					return responseBuffer;
 				}
 
+				// Get the HTML configuration.
+				const htmlConfig = serverType === ProxyServerType.Help
+					? this._proxyServerHtmlConfigs.help
+					: this._proxyServerHtmlConfigs.preview;
+
 				// Rewrite the content.
-				return contentRewriter(serverOrigin, externalUri.path, url, contentType, responseBuffer);
+				return contentRewriter(
+					serverOrigin,
+					externalUri.path,
+					url,
+					contentType,
+					responseBuffer,
+					htmlConfig
+				);
 			})
 		}));
 	}

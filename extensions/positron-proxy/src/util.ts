@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { ProxyServerHtml } from './types';
 
 /**
  * PromiseHandles is a class that represents a promise that can be resolved or
@@ -33,7 +34,14 @@ export class PromiseHandles<T> {
  * @param responseBuffer The response buffer.
  * @returns The rewritten response buffer.
  */
-export async function htmlContentRewriter(_serverOrigin: string, proxyPath: string, _url: string, contentType: string, responseBuffer: Buffer) {
+export async function htmlContentRewriter(
+	_serverOrigin: string,
+	proxyPath: string,
+	_url: string,
+	contentType: string,
+	responseBuffer: Buffer,
+	htmlConfig?: ProxyServerHtml
+) {
 	// If this isn't 'text/html' content, just return the response buffer.
 	if (!contentType.includes('text/html')) {
 		return responseBuffer;
@@ -41,6 +49,87 @@ export async function htmlContentRewriter(_serverOrigin: string, proxyPath: stri
 
 	// Get the response.
 	let response = responseBuffer.toString('utf8');
+
+	// If we're running in the web, we need to inject resources for the preview HTML.
+	if (vscode.env.uiKind === vscode.UIKind.Web && htmlConfig) {
+		// Inject the preview style defaults for unstyled preview documents.
+		response = response.replace(
+			'<head>',
+			`<head>\n
+			${htmlConfig.styleDefaults + '\n' || ''}`
+		);
+
+		// Inject the preview style overrides and script.
+		response = response.replace(
+			'</head>',
+			`${htmlConfig.styleOverrides + '\n' || ''}
+			${htmlConfig.script + '\n' || ''}
+			</head>`
+		);
+	}
+
+	// Rewrite the URLs with the proxy path.
+	response = rewriteUrlsWithProxyPath(response, proxyPath);
+
+	// Return the response.
+	return response;
+}
+
+export async function helpContentRewriter(
+	_serverOrigin: string,
+	proxyPath: string,
+	_url: string,
+	contentType: string,
+	responseBuffer: Buffer,
+	htmlConfig?: ProxyServerHtml
+) {
+	// If this isn't 'text/html' content, just return the response buffer.
+	if (!contentType.includes('text/html')) {
+		return responseBuffer;
+	}
+
+	// Get the response.
+	let response = responseBuffer.toString('utf8');
+
+	if (htmlConfig) {
+		// Build the help vars.
+		let helpVars = '';
+
+		// Destructure the HTML config.
+		const {
+			styleDefaults,
+			styleOverrides,
+			script: helpScript,
+			styles: helpStyles
+		} = htmlConfig;
+
+		// Inject the help vars.
+		if (helpStyles) {
+			helpVars += '<style id="help-vars">\n';
+			helpVars += '    body {\n';
+			for (const style in helpStyles) {
+				helpVars += `        --${style}: ${helpStyles[style]};\n`;
+			}
+			helpVars += '    }\n';
+			helpVars += '</style>\n';
+		}
+
+		// Inject the help style defaults for unstyled help documents and the help vars.
+		response = response.replace(
+			'<head>',
+			`<head>\n
+			${helpVars}\n
+			${styleDefaults}`
+		);
+
+		// Inject the help style overrides and the help script.
+		response = response.replace(
+			'</head>',
+			`${styleOverrides}\n
+			${helpScript}\n
+			</head>`
+		);
+	}
 
 	// Rewrite the URLs with the proxy path.
 	response = rewriteUrlsWithProxyPath(response, proxyPath);

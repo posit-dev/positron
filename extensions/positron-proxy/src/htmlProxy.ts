@@ -104,8 +104,8 @@ export class HtmlProxyServer implements Disposable {
 						content = content.replace(
 							'</head>',
 							`${htmlConfig.styleOverrides + '\n' || ''}
-						${htmlConfig.script + '\n' || ''}
-						</head>`
+							${htmlConfig.script + '\n' || ''}
+							</head>`
 						);
 					}
 					res.send(content);
