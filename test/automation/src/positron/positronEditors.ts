@@ -23,7 +23,7 @@ export class PositronEditors {
 		if (process.platform === 'darwin') {
 			await this.code.driver.page.keyboard.press('Meta+N');
 		} else {
-			await this.code.dispatchKeybinding('Control+N');
+			await this.code.driver.page.keyboard.press('Control+N');
 		}
 
 		await this.waitForEditorFocus('Untitled-1');
@@ -46,23 +46,11 @@ export class PositronEditors {
 		// best to retry this task in case some other component steals
 		// focus away from the editor while we attempt to get focus
 
-		let error: unknown | undefined = undefined;
-		let retries = 0;
-		while (retries < 10) {
+		await expect(async () => {
 			await this.code.driver.page.locator(`.tabs-container div.tab[data-resource-name$="${fileName}"]`).click();
 			await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+1' : 'Control+1'); // make editor really active if click failed somehow
-
-			try {
-				await this.waitForEditorFocus(fileName);
-				return;
-			} catch (e) {
-				error = e;
-				retries++;
-			}
-		}
-
-		// We failed after 10 retries
-		throw error;
+			await this.waitForEditorFocus(fileName);
+		}).toPass();
 	}
 
 	async waitForTab(fileName: string, isDirty: boolean = false): Promise<void> {
