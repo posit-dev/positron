@@ -103,8 +103,10 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	protected buildUpdateFeedUrl(channel: string): string | undefined {
 		const platform = `win/${process.arch === 'x64' ? 'x86_64' : 'arm64'}`;
 		const prefix = getUpdateType() === UpdateType.Setup ? 'system-' : 'user-';
+		const baseUrl = createUpdateURL(platform, channel, this.productService);
 
-		const url = createUpdateURL(platform, channel, this.productService) + `/${prefix}releases.json`;
+		// TODO: properly determine if this is a user or system install
+		const url = `${baseUrl}/${prefix}releases.json`;
 
 		return url;
 	}
