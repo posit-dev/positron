@@ -37,7 +37,7 @@ import { DapClient } from './DapClient';
 import { SocketSession } from './ws/SocketSession';
 import { KernelOutputMessage } from './ws/KernelMessage';
 import { UICommRequest } from './UICommRequest';
-import { createUniqueId, summarizeHttpError } from './util';
+import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 import { AdoptedSession } from './AdoptedSession';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
@@ -723,7 +723,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._established.open();
 	}
 
-	async startAndAdoptKernel(kernelSpec: JupyterKernelSpec): Promise<positron.LanguageRuntimeInfo> {
+	/**
+	 * Starts and then adopts a kernel that has an external provider.
+	 *
+	 * @param kernelSpec The kernel spec to use for the session
+	 * @returns The runtime info for the kernel
+	 */
+	async startAndAdoptKernel(
+		kernelSpec: JupyterKernelSpec): Promise<positron.LanguageRuntimeInfo> {
+
 		// Mark the session as starting
 		this.onStateChange(positron.RuntimeState.Starting, 'starting kernel via external provider');
 
@@ -734,12 +742,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			// If we never made it to the "ready" state, mark the session as
 			// exited since we didn't ever start it fully.
 			if (this._runtimeState === positron.RuntimeState.Starting) {
-				const message = err instanceof HttpError ? summarizeHttpError(err) : err instanceof Error ? err.message : JSON.stringify(err);
 				const event: positron.LanguageRuntimeExit = {
 					runtime_name: this.runtimeMetadata.runtimeName,
 					exit_code: 0,
 					reason: positron.RuntimeExitReason.StartupFailed,
-					message
+					message: summarizeError(err)
 				};
 				this._exit.fire(event);
 				this.onStateChange(positron.RuntimeState.Exited, 'kernel adoption failed');
@@ -751,12 +758,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	async tryStartAndAdoptKernel(kernelSpec: JupyterKernelSpec): Promise<positron.LanguageRuntimeInfo> {
 
 		// Get the connection info for the session
-		const connectionInfo = await this._api.connectionInfo(this.metadata.sessionId);
+		let connectionInfo: any;
+		try {
+			const result = await this._api.connectionInfo(this.metadata.sessionId);
+			connectionInfo = result.body;
+		} catch (err) {
+			throw new Error(`Failed to aquire connection info for session ${this.metadata.sessionId}: ${summarizeError(err)}`);
+		}
 
 		// Write the connection file to disk
 		const connectionFile = path.join(os.tmpdir(), `connection-${this.metadata.sessionId}.json`);
 		fs.writeFileSync(connectionFile, JSON.stringify(connectionInfo.body));
-
 		const session: JupyterSession = {
 			state: {
 				sessionId: this.metadata.sessionId,
@@ -832,13 +844,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 				// Attempt to extract a message from the error, or just
 				// stringify it if it's not an Error
-				const message =
-					err instanceof HttpError ? summarizeHttpError(err) : err instanceof Error ? err.message : JSON.stringify(err);
 				const event: positron.LanguageRuntimeExit = {
 					runtime_name: this.runtimeMetadata.runtimeName,
 					exit_code: 0,
 					reason: positron.RuntimeExitReason.StartupFailed,
-					message
+					message: summarizeError(err)
 				};
 				this._exit.fire(event);
 			}
