@@ -17,13 +17,13 @@ import { NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY } from '../common/runtime
  */
 export class NotebookExecutionStatus extends Disposable {
 	/** The ID of the status bar entry. */
-	private static readonly _ID = 'status.notebook.executionInfo';
+	public static readonly ID = 'status.notebook.executionInfo';
 
 	/** The name of the status bar entry. */
-	private static readonly _NAME = localize('status.notebook.executionInfo.name', 'Execution Info');
+	public static readonly NAME = localize('status.notebook.executionInfo.name', 'Execution Info');
 
 	/** Accessor for the status bar entry. */
-	private readonly _entryAccessor: IStatusbarEntryAccessor;
+	public readonly entry: IStatusbarEntryAccessor;
 
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -33,11 +33,11 @@ export class NotebookExecutionStatus extends Disposable {
 		super();
 
 		// Add the status bar entry.
-		this._entryAccessor = this._register(this._statusbarService.addEntry({
+		this.entry = this._register(this._statusbarService.addEntry({
 			ariaLabel: '',
-			name: NotebookExecutionStatus._NAME,
+			name: NotebookExecutionStatus.NAME,
 			text: '',
-		}, NotebookExecutionStatus._ID, StatusbarAlignment.RIGHT));
+		}, NotebookExecutionStatus.ID, StatusbarAlignment.RIGHT));
 
 		// Update the visibility when the configuration changes.
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
@@ -53,9 +53,9 @@ export class NotebookExecutionStatus extends Disposable {
 		this._register(this._notebookExecutionService.onDidStartNotebookCellsExecution(e => {
 			const cellCountString = this.getCellCountString(e.cellHandles.length);
 			const text = localize('status.notebook.executionInfo.startExecution', 'Executing {0}', cellCountString);
-			this._entryAccessor.update({
+			this.entry.update({
 				ariaLabel: text,
-				name: NotebookExecutionStatus._NAME,
+				name: NotebookExecutionStatus.NAME,
 				text,
 			});
 		}));
@@ -63,11 +63,11 @@ export class NotebookExecutionStatus extends Disposable {
 		// Update the text when an execution ends.
 		this._register(this._notebookExecutionService.onDidEndNotebookCellsExecution(e => {
 			const cellCountString = this.getCellCountString(e.cellHandles.length);
-			const durationString = getDurationString(e.duration, true);
+			const durationString = getDurationString(e.duration, false);
 			const text = localize('status.notebook.executionInfo.endExecution', 'Executed {0} in {1}', cellCountString, durationString);
-			this._entryAccessor.update({
+			this.entry.update({
 				ariaLabel: text,
-				name: NotebookExecutionStatus._NAME,
+				name: NotebookExecutionStatus.NAME,
 				text,
 			});
 		}));
@@ -78,7 +78,7 @@ export class NotebookExecutionStatus extends Disposable {
 	 */
 	private updateVisibility(): void {
 		const visible = this._configurationService.getValue<boolean>(NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY);
-		this._statusbarService.updateEntryVisibility(NotebookExecutionStatus._ID, visible);
+		this._statusbarService.updateEntryVisibility(NotebookExecutionStatus.ID, visible);
 	}
 
 	/**
