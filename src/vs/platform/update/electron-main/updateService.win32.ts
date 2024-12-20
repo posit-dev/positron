@@ -20,7 +20,7 @@ import { ILifecycleMainService, IRelaunchHandler, IRelaunchOptions } from '../..
 import { ILogService } from '../../log/common/log.js';
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
 import { IProductService } from '../../product/common/productService.js';
-import { AvailableForDownload, DisablementReason, IUpdate, State, StateType, UpdateType } from '../common/update.js';
+import { DisablementReason, IUpdate, State, StateType, UpdateType } from '../common/update.js';
 
 // --- Start Positron ---
 import { IRequestService } from '../../request/common/request.js';
@@ -99,36 +99,17 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		await super.initialize();
 	}
 
-	protected buildUpdateFeedUrl(quality: string): string | undefined {
-		let platform = `win32-${process.arch}`;
+	// --- START POSITRON ---
+	protected buildUpdateFeedUrl(channel: string): string | undefined {
+		const platform = `win/${process.arch === 'x64' ? 'x86_64' : 'arm64'}`;
+		const prefix = getUpdateType() === UpdateType.Setup ? 'system-' : 'user-';
 
-		if (getUpdateType() === UpdateType.Archive) {
-			platform += '-archive';
-		} else if (this.productService.target === 'user') {
-			platform += '-user';
-		}
+		const url = createUpdateURL(platform, channel, this.productService) + `/${prefix}releases.json`;
 
-		return createUpdateURL(platform, quality, this.productService);
+		return url;
 	}
 
-	// --- START POSITRON ---
 	protected override updateAvailable(update: IUpdate): void {
-		if (!this.url) {
-			return;
-		}
-
-		const updateType = getUpdateType();
-
-		if (!update || !update.url || !update.version || !update.productVersion) {
-			this.setState(State.Idle(updateType));
-			return;
-		}
-
-		if (updateType === UpdateType.Archive) {
-			this.setState(State.AvailableForDownload(update));
-			return;
-		}
-
 		// Notify about updates for now. Do not download or install them.
 		if (!this.enableAutoUpdate) {
 			this.setState(State.AvailableForDownload(update));
@@ -167,15 +148,8 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				}
 			});
 		});
-		// --- END POSITRON ---
 	}
-
-	protected override async doDownloadUpdate(state: AvailableForDownload): Promise<void> {
-		if (state.update.url) {
-			this.nativeHostMainService.openExternal(undefined, state.update.url);
-		}
-		this.setState(State.Idle(getUpdateType()));
-	}
+	// --- END POSITRON ---
 
 	private async getUpdatePackagePath(version: string): Promise<string> {
 		const cachePath = await this.cachePath;

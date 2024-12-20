@@ -215,7 +215,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		if (this.productService.downloadUrl && this.productService.downloadUrl.length > 0) {
 			// Use the download URL if available as we don't currently detect the package type that was
 			// installed and the website download page is more useful than the tarball generally.
-			this.nativeHostMainService.openExternal(undefined, `${this.productService.downloadUrl}/tag/${state.update.version}`);
+			this.nativeHostMainService.openExternal(undefined, this.productService.downloadUrl);
 		} else if (state.update.url) {
 			this.nativeHostMainService.openExternal(undefined, state.update.url);
 		}

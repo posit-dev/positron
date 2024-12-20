@@ -82,7 +82,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 
 	//--- START POSITRON
 	protected buildUpdateFeedUrl(channel: string): string | undefined {
-		const platform = `mac/universal`;
+		const platform = 'mac/universal';
 		const url = createUpdateURL(platform, channel, this.productService) + '/releases.json';
 		try {
 			electron.autoUpdater.setFeedURL({ url: url });
