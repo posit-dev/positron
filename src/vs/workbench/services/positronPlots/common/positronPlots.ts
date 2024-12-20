@@ -178,8 +178,16 @@ export interface IPositronPlotsService {
 
 	/**
 	 * Opens the currently selected plot in an editor.
+	 *
+	 * @param groupType Specify where the editor tab will be opened. Defaults to the preferred
+	 *   editor group.
 	 */
-	openEditor(): Promise<void>;
+	openEditor(groupType?: number): Promise<void>;
+
+	/**
+	 * Gets the preferred editor group for opening the plot in an editor tab.
+	 */
+	getPreferredEditorGroup(): number;
 
 	/**
 	 * Gets the plot client that is connected to an editor for the specified id.
