@@ -410,8 +410,8 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 	// A function that starts a kernel and then connects to it.
 	async startKernel(session: JupyterSession, kernel: JupyterKernel) {
-		kernel.log('Starting the reticulate session!');
-		this.progress.report({ increment: 10, message: 'Starting the reticulate session in R' });
+		kernel.log('Starting the Reticulate session!');
+		this.progress.report({ increment: 10, message: 'Starting the Reticulate session in R' });
 
 		// Store a reference to the kernel, so the session can log, reconnect, etc.
 		this.kernel = kernel;
@@ -440,7 +440,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			logLevel as string
 		) as string;
 
-		this.progress.report({ increment: 10, message: 'Connecting to the reticulate session' });
+		this.progress.report({ increment: 10, message: 'Connecting to the Reticulate session' });
 
 		// An empty result means that the initialization went fine.
 		if (init_err !== '') {

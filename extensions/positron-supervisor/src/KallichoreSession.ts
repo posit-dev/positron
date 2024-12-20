@@ -727,6 +727,29 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Mark the session as starting
 		this.onStateChange(positron.RuntimeState.Starting, 'starting kernel via external provider');
 
+		try {
+			const result = await this.tryStartAndAdoptKernel(kernelSpec);
+			return result;
+		} catch (err) {
+			// If we never made it to the "ready" state, mark the session as
+			// exited since we didn't ever start it fully.
+			if (this._runtimeState === positron.RuntimeState.Starting) {
+				const message = err instanceof HttpError ? summarizeHttpError(err) : err instanceof Error ? err.message : JSON.stringify(err);
+				const event: positron.LanguageRuntimeExit = {
+					runtime_name: this.runtimeMetadata.runtimeName,
+					exit_code: 0,
+					reason: positron.RuntimeExitReason.StartupFailed,
+					message
+				};
+				this._exit.fire(event);
+				this.onStateChange(positron.RuntimeState.Exited, 'kernel adoption failed');
+			}
+			throw err;
+		}
+	}
+
+	async tryStartAndAdoptKernel(kernelSpec: JupyterKernelSpec): Promise<positron.LanguageRuntimeInfo> {
+
 		// Get the connection info for the session
 		const connectionInfo = await this._api.connectionInfo(this.metadata.sessionId);
 
