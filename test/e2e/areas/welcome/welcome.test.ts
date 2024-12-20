@@ -74,7 +74,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
 
 			await app.workbench.positronQuickInput.selectQuickInputElementContaining('Python File');
 
-			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/python-lang-file-icon/);
+			await expect(app.workbench.positronEditors.activeEditor.locator(app.workbench.positronEditors.editorIcon)).toHaveClass(/python-lang-file-icon/);
 
 			await app.workbench.positronQuickaccess.runCommand('View: Close Editor');
 		});
@@ -85,7 +85,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
 
 			await app.workbench.positronPopups.clickOnModalDialogPopupOption('Python Notebook');
 
-			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
+			await expect(app.workbench.positronEditors.activeEditor.locator(app.workbench.positronEditors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
 
 			const expectedInterpreterVersion = new RegExp(`Python ${process.env.POSITRON_PY_VER_SEL}`, 'i');
 			await expect(app.workbench.positronNotebooks.kernelLabel).toHaveText(expectedInterpreterVersion);
@@ -100,7 +100,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
 			await app.workbench.positronPopups.clickOnModalDialogPopupOption(expectedInterpreterVersion);
 
 			// editor is hidden because bottom panel is maximized
-			await expect(app.workbench.editors.editorPart).not.toBeVisible();
+			await expect(app.workbench.positronEditors.editorPart).not.toBeVisible();
 
 			// console is the active view in the bottom panel
 			await expect(app.workbench.positronLayouts.panelViewsTab.and(app.code.driver.page.locator('.checked'))).toHaveText('Console');
@@ -113,7 +113,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
 
 			await app.workbench.positronQuickInput.selectQuickInputElementContaining('R File');
 
-			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/r-lang-file-icon/);
+			await expect(app.workbench.positronEditors.activeEditor.locator(app.workbench.positronEditors.editorIcon)).toHaveClass(/r-lang-file-icon/);
 		});
 
 		test('Click on R console from the Welcome page [C684756]', async function ({ app, r }) {
@@ -124,7 +124,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
 			await app.workbench.positronPopups.clickOnModalDialogPopupOption(expectedInterpreterVersion);
 
 			// editor is hidden because bottom panel is maximized
-			await expect(app.workbench.editors.editorPart).not.toBeVisible();
+			await expect(app.workbench.positronEditors.editorPart).not.toBeVisible();
 
 			// console is the active view in the bottom panel
 			await expect(app.workbench.positronLayouts.panelViewsTab.and(app.code.driver.page.locator('.checked'))).toHaveText('Console');
@@ -135,7 +135,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
 
 			await app.workbench.positronPopups.clickOnModalDialogPopupOption('R Notebook');
 
-			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
+			await expect(app.workbench.positronEditors.activeEditor.locator(app.workbench.positronEditors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
 
 			const expectedInterpreterVersion = new RegExp(`R ${process.env.POSITRON_R_VER_SEL}`, 'i');
 			await expect(app.workbench.positronNotebooks.kernelLabel).toHaveText(expectedInterpreterVersion);

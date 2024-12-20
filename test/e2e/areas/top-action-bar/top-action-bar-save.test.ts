@@ -33,17 +33,17 @@ test.describe('Top Action Bar - Save Actions', {
 		await app.workbench.positronQuickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, fileName));
 		await app.workbench.positronQuickaccess.runCommand('workbench.action.keepEditor', { keepOpen: false });
-		await app.workbench.editors.selectTab(fileName);
+		await app.workbench.positronEditors.selectTab(fileName);
 		await app.workbench.editor.waitForTypeInEditor(fileName, 'Puppies frolicking in a meadow of wildflowers');
 		// The file is now "dirty" and the save buttons should be enabled
-		await app.workbench.editors.waitForTab(fileName, true);
+		await app.workbench.positronEditors.waitForTab(fileName, true);
 		await expect(async () => {
 			expect(await app.workbench.positronTopActionBar.saveButton.isEnabled()).toBeTruthy();
 			expect(await app.workbench.positronTopActionBar.saveAllButton.isEnabled()).toBeTruthy();
 		}).toPass({ timeout: 10000 });
 		await app.workbench.positronTopActionBar.saveButton.click();
 		// The file is now saved, so the file should no longer be "dirty"
-		await app.workbench.editors.waitForTab(fileName, false);
+		await app.workbench.positronEditors.waitForTab(fileName, false);
 		await expect(async () => {
 			// The Save button stays enabled even when the active file is not "dirty"
 			expect(await app.workbench.positronTopActionBar.saveButton.isEnabled()).toBeTruthy();
@@ -62,21 +62,21 @@ test.describe('Top Action Bar - Save Actions', {
 		await app.workbench.positronQuickaccess.runCommand('workbench.action.keepEditor', { keepOpen: false });
 		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, fileName2));
 		await app.workbench.positronQuickaccess.runCommand('workbench.action.keepEditor', { keepOpen: false });
-		await app.workbench.editors.selectTab(fileName1);
-		await app.workbench.editor.waitForTypeInEditor(fileName1, text);
-		await app.workbench.editors.selectTab(fileName2);
-		await app.workbench.editor.waitForTypeInEditor(fileName2, text);
+		await app.workbench.positronEditors.selectTab(fileName1);
+		await app.workbench.positronEditor.waitForTypeInEditor(fileName1, text);
+		await app.workbench.positronEditors.selectTab(fileName2);
+		await app.workbench.positronEditor.waitForTypeInEditor(fileName2, text);
 		// The files are now "dirty" and the save buttons should be enabled
-		await app.workbench.editors.waitForTab(fileName1, true);
-		await app.workbench.editors.waitForTab(fileName2, true);
+		await app.workbench.positronEditors.waitForTab(fileName1, true);
+		await app.workbench.positronEditors.waitForTab(fileName2, true);
 		await expect(async () => {
 			expect(await app.workbench.positronTopActionBar.saveButton.isEnabled()).toBeTruthy();
 			expect(await app.workbench.positronTopActionBar.saveAllButton.isEnabled()).toBeTruthy();
 		}).toPass({ timeout: 10000 });
 		await app.workbench.positronTopActionBar.saveAllButton.click();
 		// The files are now saved, so the files should no longer be "dirty"
-		await app.workbench.editors.waitForTab(fileName1, false);
-		await app.workbench.editors.waitForTab(fileName2, false);
+		await app.workbench.positronEditors.waitForTab(fileName1, false);
+		await app.workbench.positronEditors.waitForTab(fileName2, false);
 		await expect(async () => {
 			// The Save button stays enabled even when the active file is not "dirty"
 			expect(await app.workbench.positronTopActionBar.saveButton.isEnabled()).toBeTruthy();
@@ -91,10 +91,10 @@ test.describe('Top Action Bar - Save Actions', {
 		// Open a new file and type in some text
 		await app.workbench.positronQuickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 		await app.workbench.positronQuickaccess.runCommand('workbench.action.files.newUntitledFile', { keepOpen: false });
-		await app.workbench.editors.selectTab(fileName);
-		await app.workbench.editor.waitForTypeInEditor(fileName, text);
+		await app.workbench.positronEditors.selectTab(fileName);
+		await app.workbench.positronEditor.waitForTypeInEditor(fileName, text);
 		// The file is now "dirty" and the save buttons should be enabled
-		await app.workbench.editors.waitForTab(fileName, true);
+		await app.workbench.positronEditors.waitForTab(fileName, true);
 		await expect(async () => {
 			expect(await app.workbench.positronTopActionBar.saveButton.isEnabled()).toBeTruthy();
 			expect(await app.workbench.positronTopActionBar.saveAllButton.isEnabled()).toBeTruthy();
