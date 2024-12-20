@@ -132,6 +132,9 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 				return;
 			}
 			try {
+				// We're using the base ref here because it's a constant reference and thus
+				// will avoid unnecessary mismatches for claiming and releasing the webview
+				// across multiple renders.
 				webviewElement.claim(containerRef, getWindow(containerRef.current), undefined);
 			} catch (err) {
 				setError(new WebviewMountError('Failed to claim webview', err instanceof Error ? err : undefined));
