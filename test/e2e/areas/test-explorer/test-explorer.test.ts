@@ -23,7 +23,7 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER] }, () => {
 			await app.workbench.positronConsole.barClearButton.click();
 			await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		} catch (e) {
-			app.code.driver.takeScreenshot('testExplorerSetup');
+			await app.code.driver.takeScreenshot('testExplorerSetup');
 			throw e;
 		}
 	});

@@ -32,7 +32,7 @@ export class PositronRFixtures {
 			await this.app.workbench.positronConsole.selectInterpreter(InterpreterType.R, desiredR, skipReadinessCheck);
 			await this.app.workbench.positronConsole.waitForReady('>', 40000);
 		} catch (e) {
-			this.app.code.driver.takeScreenshot('startRInterpreter');
+			await this.app.code.driver.takeScreenshot('startRInterpreter');
 			throw e;
 		}
 
