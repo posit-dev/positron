@@ -57,12 +57,12 @@ test.describe('Editor Action Bar', {
 	}, async function ({ app, page }) {
 		await openNotebook(app, 'workspaces/large_r_notebook/spotify.ipynb');
 
-		await verifySplitEditor(page, 'spotify.ipynb');
+		if (app.web) {
+			await verifyToggleLineNumbers(page);
+			await verifyToggleBreadcrumb(page);
+		}
 
-		// if (app.web) {
-		// 	await verifyToggleLineNumbers(page);
-		// 	await verifyToggleBreadcrumb(page);
-		// }
+		await verifySplitEditor(page, 'spotify.ipynb');
 	});
 });
 
@@ -114,13 +114,14 @@ async function verifyOpenInNewWindow(page, expectedText: string) {
 async function clickCustomizeNotebookMenuItem(page, menuItem: string) {
 	const role = menuItem.includes('Line Numbers') ? 'menuitemcheckbox' : 'menuitem';
 	const dropdownButton = page.getByLabel('Customize Notebook...').nth(1);
-	await dropdownButton.evaluate((button) => (button as HTMLElement).click());
+	await dropdownButton.evaluate((button) => {
+		(button as HTMLElement).dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+	});
 
 	const toggleMenuItem = page.getByRole(role, { name: menuItem });
-	// await toggleMenuItem.hover();
-	// await page.waitForTimeout(500);
-	await toggleMenuItem.evaluate((el) => el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })));
-	// await toggleMenuItem.click();
+	await toggleMenuItem.hover();
+	await page.waitForTimeout(500);
+	await toggleMenuItem.click();
 }
 
 async function verifyLineNumbersVisibility(page, isVisible: boolean) {
