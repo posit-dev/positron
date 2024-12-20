@@ -38,21 +38,6 @@ import { ActiveNotebookHasRunningRuntimeManager } from '../common/activeNotebook
  */
 const viewType = 'jupyter-notebook';
 
-/** An event that fires when a notebook execution starts. */
-interface DidStartExecutionEvent {
-	/** The notebook cells being executed. */
-	cells: NotebookCellTextModel[];
-}
-
-/** An event that fires when a notebook execution ends. */
-interface DidEndExecutionEvent {
-	/** The notebook cells that were executed. */
-	cells: NotebookCellTextModel[];
-
-	/** The duration of the execution in milliseconds. */
-	duration: number;
-}
-
 /**
  * The affinity of a kernel for a notebook.
  *
@@ -83,9 +68,6 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 	/** Map of runtime notebook kernels keyed by runtime ID. */
 	private readonly _kernelsByRuntimeId = new Map<string, RuntimeNotebookKernel>();
 
-	/** A status bar entry that displays information about the current notebook execution. */
-	private _executionStatus: NotebookExecutionStatus;
-
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
@@ -98,17 +80,17 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 	) {
 		super();
 
-		// Create the execution info status.
-		this._executionStatus = this._register(this._instantiationService.createInstance(NotebookExecutionStatus));
-
-		// If runtime notebook kernels are disabled, do nothing.
-		// In that case, the positron-notebook-controllers extension will register notebook kernels.
-		if (!isRuntimeNotebookKernelEnabled(this._configurationService)) {
-			return;
-		}
+		// Create the notebook execution status bar entry.
+		this._register(this._instantiationService.createInstance(NotebookExecutionStatus));
 
 		// Create the active notebook has running runtime context manager.
 		this._register(this._instantiationService.createInstance(ActiveNotebookHasRunningRuntimeManager));
+
+		// If runtime notebook kernels are disabled, do not proceed.
+		// In that case, the positron-notebook-controllers extension's kernels will be used.
+		if (!isRuntimeNotebookKernelEnabled(this._configurationService)) {
+			return;
+		}
 
 		// Register a kernel when a runtime is registered.
 		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
@@ -189,9 +171,6 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 	private createRuntimeNotebookKernel(runtime: ILanguageRuntimeMetadata): void {
 		// TODO: Dispose the kernel when the runtime is disposed/unregistered?
 		const kernel = this._instantiationService.createInstance(RuntimeNotebookKernel, runtime);
-
-		// TODO: Dispose
-		this._executionStatus.attachKernel(kernel);
 
 		// TODO: Error if a kernel is already registered for the ID.
 		this._kernels.set(kernel.id, kernel);
@@ -289,17 +268,9 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	public readonly localResourceRoot: URI = URI.parse('');
 
 	private readonly _onDidChange = this._register(new Emitter<INotebookKernelChangeEvent>());
-	private readonly _onDidStartExecution = this._register(new Emitter<DidStartExecutionEvent>());
-	private readonly _onDidEndExecution = this._register(new Emitter<DidEndExecutionEvent>());
 
 	/** An event that fires when the kernel's details change. */
 	public readonly onDidChange = this._onDidChange.event;
-
-	/** An event that fires when a notebook execution starts. */
-	public readonly onDidStartExecution = this._onDidStartExecution.event;
-
-	/** An event that fires when a notebook execution ends. */
-	public readonly onDidEndExecution = this._onDidEndExecution.event;
 
 	private readonly _notebookRuntimeKernelSessionsByNotebookUri = new ResourceMap<RuntimeNotebookKernelSession>();
 
@@ -366,20 +337,12 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			cells.push(cell);
 		}
 
-		// Fire the start execution event.
-		const startTime = Date.now();
-		this._onDidStartExecution.fire({ cells });
-
 		// Execute the cells.
 		try {
 			await notebookRuntimeKernelSession.executeCells(cells);
 		} catch (err) {
 			this._logService.debug(`Error executing cells: ${err.stack ?? err}`);
 		}
-
-		// Fire the end execution event.
-		const duration = Date.now() - startTime;
-		this._onDidEndExecution.fire({ cells, duration });
 	}
 
 	async cancelNotebookCellExecution(uri: URI, _cellHandles: number[]): Promise<void> {

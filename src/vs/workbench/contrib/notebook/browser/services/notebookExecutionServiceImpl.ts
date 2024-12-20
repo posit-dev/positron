@@ -17,10 +17,22 @@ import { INotebookCellExecution, INotebookExecutionStateService } from '../../co
 import { INotebookKernelHistoryService, INotebookKernelService } from '../../common/notebookKernelService.js';
 import { INotebookLoggingService } from '../../common/notebookLoggingService.js';
 
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { IDidStartNotebookCellsExecutionEvent, IDidEndNotebookCellsExecutionEvent } from '../../common/notebookExecutionService.js';
+import { Emitter } from '../../../../../base/common/event.js';
+// --- End Positron ---
 
 export class NotebookExecutionService implements INotebookExecutionService, IDisposable {
 	declare _serviceBrand: undefined;
 	private _activeProxyKernelExecutionToken: CancellationTokenSource | undefined;
+	// --- Start Positron ---
+	private readonly _onDidStartNotebookCellsExecution = new Emitter<IDidStartNotebookCellsExecutionEvent>();
+	private readonly _onDidEndNotebookCellsExecution = new Emitter<IDidEndNotebookCellsExecutionEvent>();
+
+	public readonly onDidStartNotebookCellsExecution = this._onDidStartNotebookCellsExecution.event;
+	public readonly onDidEndNotebookCellsExecution = this._onDidEndNotebookCellsExecution.event;
+	// --- End Positron ---
 
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
@@ -81,7 +93,20 @@ export class NotebookExecutionService implements INotebookExecutionService, IDis
 			await this.runExecutionParticipants(validCellExecutions);
 
 			this._notebookKernelService.selectKernelForNotebook(kernel, notebook);
-			await kernel.executeNotebookCellsRequest(notebook.uri, validCellExecutions.map(c => c.cellHandle));
+			// --- Start Positron ---
+			// await kernel.executeNotebookCellsRequest(notebook.uri, validCellExecutions.map(c => c.cellHandle));
+
+			// Wrap executeNotebookCellsRequest in a try-finally, and fire the start/end execution events.
+			const startTime = Date.now();
+			const cellHandles = validCellExecutions.map(c => c.cellHandle);
+			this._onDidStartNotebookCellsExecution.fire({ cellHandles });
+			try {
+				await kernel.executeNotebookCellsRequest(notebook.uri, cellHandles);
+			} finally {
+				const duration = Date.now() - startTime;
+				this._onDidEndNotebookCellsExecution.fire({ cellHandles, duration });
+			}
+			// --- End Positron ---
 			// the connecting state can change before the kernel resolves executeNotebookCellsRequest
 			const unconfirmed = validCellExecutions.filter(exe => exe.state === NotebookCellExecutionState.Unconfirmed);
 			if (unconfirmed.length) {
