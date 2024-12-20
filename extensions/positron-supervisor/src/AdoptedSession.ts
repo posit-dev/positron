@@ -20,20 +20,16 @@ export class AdoptedSession implements JupyterKernel {
 
 	constructor(
 		private readonly _session: KallichoreSession,
+		private readonly _connectionInfo: ConnectionInfo,
 		private readonly _api: DefaultApi
 	) {
 
 	}
 
 	async connectToSession(session: JupyterSession): Promise<void> {
-		const connectionFile = session.state.connectionFile;
-
-		// Read the contents of the file from disk
-		const connectionInfo = JSON.parse(fs.readFileSync(connectionFile, 'utf-8')) as ConnectionInfo;
-
 		// Adopt the session using the connection information
 		try {
-			this._runtimeInfo = (await this._api.adoptSession(session.state.sessionId, connectionInfo)).body;
+			this._runtimeInfo = (await this._api.adoptSession(session.state.sessionId, this._connectionInfo)).body;
 		} catch (err) {
 			const message = err instanceof HttpError ? summarizeHttpError(err) : err.message;
 			throw new Error(`Failed to adopt session: ${message}`);

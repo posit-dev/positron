@@ -198,21 +198,29 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			title: 'Creating the Reticulate Python session',
 			cancellable: false
 		}, async (progress, _token) => {
-			progress.report({ increment: 10, message: 'Initializing the host R session' });
-			const rSession = await getRSession();
-			progress.report({ increment: 10, message: 'Checking prerequisites' });
-			const config = await ReticulateRuntimeSession.checkRSession(rSession);
-			const metadata = await ReticulateRuntimeSession.fixInterpreterPath(runtimeMetadata, config.python);
-			const session = new ReticulateRuntimeSession(
-				rSession,
-				metadata,
-				sessionMetadata,
-				ReticulateRuntimeSessionType.Create,
-				progress
-			);
-			sessionPromise.resolve(session);
-			progress.report({ increment: 10, message: 'Waiting to connect' });
-			await session.started.wait();
+			let session: ReticulateRuntimeSession | undefined;
+			try {
+				progress.report({ increment: 10, message: 'Initializing the host R session' });
+				const rSession = await getRSession(progress);
+				progress.report({ increment: 10, message: 'Checking prerequisites' });
+				const config = await ReticulateRuntimeSession.checkRSession(rSession);
+				const metadata = await ReticulateRuntimeSession.fixInterpreterPath(runtimeMetadata, config.python);
+				session = new ReticulateRuntimeSession(
+					rSession,
+					metadata,
+					sessionMetadata,
+					ReticulateRuntimeSessionType.Create,
+					progress
+				);
+				sessionPromise.resolve(session);
+			} catch (err) {
+				sessionPromise.reject(err);
+			}
+
+			if (session) {
+				progress.report({ increment: 10, message: 'Waiting to connect' });
+				await session.started.wait();
+			}
 		});
 
 		return sessionPromise.promise;
@@ -230,21 +238,29 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			title: 'Restoring the Reticulate Python session',
 			cancellable: false
 		}, async (progress, _token) => {
-			progress.report({ increment: 10, message: 'Initializing the host R session' });
-			const rSession = await getRSession();
-			progress.report({ increment: 10, message: 'Checking prerequisites' });
-			const config = await ReticulateRuntimeSession.checkRSession(rSession);
-			const metadata = await ReticulateRuntimeSession.fixInterpreterPath(runtimeMetadata, config.python);
-			const session = new ReticulateRuntimeSession(
-				rSession,
-				metadata,
-				sessionMetadata,
-				ReticulateRuntimeSessionType.Restore,
-				progress
-			);
-			sessionPromise.resolve(session);
-			progress.report({ increment: 10, message: 'Waiting to reconnect' });
-			await session.started.wait();
+			let session: ReticulateRuntimeSession | undefined;
+			try {
+
+				progress.report({ increment: 10, message: 'Initializing the host R session' });
+				const rSession = await getRSession(progress);
+				progress.report({ increment: 10, message: 'Checking prerequisites' });
+				const config = await ReticulateRuntimeSession.checkRSession(rSession);
+				const metadata = await ReticulateRuntimeSession.fixInterpreterPath(runtimeMetadata, config.python);
+				session = new ReticulateRuntimeSession(
+					rSession,
+					metadata,
+					sessionMetadata,
+					ReticulateRuntimeSessionType.Restore,
+					progress
+				);
+				sessionPromise.resolve(session);
+			} catch (err) {
+				sessionPromise.reject(err);
+			}
+			if (session) {
+				progress.report({ increment: 10, message: 'Waiting to reconnect' });
+				await session.started.wait();
+			}
 		});
 
 		return sessionPromise.promise;
@@ -440,12 +456,12 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			logLevel as string
 		) as string;
 
-		this.progress.report({ increment: 10, message: 'Connecting to the Reticulate session' });
-
 		// An empty result means that the initialization went fine.
 		if (init_err !== '') {
 			throw new Error(`Reticulate initialization failed: ${init_err}`);
 		}
+
+		this.progress.report({ increment: 10, message: 'Connecting to the Reticulate session' });
 
 		try {
 			await kernel.connectToSession(session);
@@ -575,7 +591,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 	}
 }
 
-async function getRSession(): Promise<positron.LanguageRuntimeSession> {
+async function getRSession(progress: vscode.Progress<{ message?: string; increment?: number }>): Promise<positron.LanguageRuntimeSession> {
 
 	// Retry logic to start an R session.
 	const maxRetries = 5;
@@ -583,7 +599,7 @@ async function getRSession(): Promise<positron.LanguageRuntimeSession> {
 	let error;
 	for (let i = 0; i < maxRetries; i++) {
 		try {
-			session = await getRSession_();
+			session = await getRSession_(progress);
 		}
 		catch (err: any) {
 			error = err; // Keep the last error so we can display it
@@ -608,7 +624,7 @@ class RSessionError extends Error {
 	}
 }
 
-async function getRSession_(): Promise<positron.LanguageRuntimeSession> {
+async function getRSession_(progress: vscode.Progress<{ message?: string; increment?: number }>): Promise<positron.LanguageRuntimeSession> {
 	let session = await positron.runtime.getForegroundSession();
 
 	if (session) {
@@ -623,25 +639,15 @@ async function getRSession_(): Promise<positron.LanguageRuntimeSession> {
 	}
 
 	if (!session || session.runtimeMetadata.languageId !== 'r') {
-		session = await vscode.window.withProgress({
-			location: vscode.ProgressLocation.Notification,
-			title: 'Starting R session for reticulate',
-			cancellable: true
-		}, async (progress, token) => {
-			token.onCancellationRequested(() => {
-				throw new RSessionError('User requested cancellation', true);
-			});
-			progress.report({ increment: 0, message: 'Looking for prefered runtime...' });
-			const runtime = await positron.runtime.getPreferredRuntime('r');
+		progress.report({ increment: 10, message: 'Looking for prefered runtime...' });
 
-			progress.report({ increment: 20, message: 'Starting R runtime...' });
-			await positron.runtime.selectLanguageRuntime(runtime.runtimeId);
+		const runtime = await positron.runtime.getPreferredRuntime('r');
 
-			progress.report({ increment: 70, message: 'Getting R session...' });
-			session = await positron.runtime.getForegroundSession();
+		progress.report({ increment: 10, message: 'Starting R runtime...' });
+		await positron.runtime.selectLanguageRuntime(runtime.runtimeId);
 
-			return session;
-		});
+		progress.report({ increment: 10, message: 'Getting R session...' });
+		session = await positron.runtime.getForegroundSession();
 	}
 
 	if (!session) {

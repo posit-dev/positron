@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession } from './jupyter-adapter';
-import { ActiveSession, DefaultApi, HttpError, InterruptMode, NewSession, Status } from './kcclient/api';
+import { ActiveSession, ConnectionInfo, DefaultApi, HttpError, InterruptMode, NewSession, Status } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoReply, KernelInfoRequest } from './jupyter/KernelInfoRequest';
@@ -758,28 +758,45 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	async tryStartAndAdoptKernel(kernelSpec: JupyterKernelSpec): Promise<positron.LanguageRuntimeInfo> {
 
 		// Get the connection info for the session
-		let connectionInfo: any;
+		const connectionFileContents = {};
+		let connectionInfo: ConnectionInfo;
 		try {
 			const result = await this._api.connectionInfo(this.metadata.sessionId);
 			connectionInfo = result.body;
+			for (const [inKey, val] of Object.entries(connectionInfo)) {
+				for (const outKey of ConnectionInfo.attributeTypeMap) {
+					if (inKey === outKey.name) {
+						connectionFileContents[outKey.baseName] = val;
+					}
+				}
+			}
 		} catch (err) {
 			throw new Error(`Failed to aquire connection info for session ${this.metadata.sessionId}: ${summarizeError(err)}`);
 		}
 
+		// Ensure we have a log file
+		if (!this._kernelLogFile) {
+			const logFile = path.join(os.tmpdir(), `kernel-${this.metadata.sessionId}.log`);
+			this._kernelLogFile = logFile;
+			fs.writeFile(logFile, '', async () => {
+				await this.streamLogFile(logFile);
+			});
+		}
+
 		// Write the connection file to disk
 		const connectionFile = path.join(os.tmpdir(), `connection-${this.metadata.sessionId}.json`);
-		fs.writeFileSync(connectionFile, JSON.stringify(connectionInfo.body));
+		fs.writeFileSync(connectionFile, JSON.stringify(connectionFileContents));
 		const session: JupyterSession = {
 			state: {
 				sessionId: this.metadata.sessionId,
 				connectionFile: connectionFile,
-				logFile: this._kernelLogFile ?? '',
+				logFile: this._kernelLogFile,
 				processId: 0,
 			}
 		};
 
 		// Create the "kernel"
-		const kernel = new AdoptedSession(this, this._api);
+		const kernel = new AdoptedSession(this, connectionInfo, this._api);
 
 		// Start the kernel and wait for it to be ready
 		await kernelSpec.startKernel!(session, kernel);
