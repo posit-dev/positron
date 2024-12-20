@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter, Event } from '../../../../../base/common/event.js';
-import { IPositronConnectionEntry } from '../positronConnectionsUtils.js';
 
 export interface IConnectionMetadata {
 	name: string;
@@ -78,4 +77,21 @@ export interface IPositronConnectionItem {
 
 	hasChildren?(): Promise<boolean>;
 	getChildren?(): Promise<IPositronConnectionItem[]>;
+}
+
+export interface IPositronConnectionEntry extends IPositronConnectionItem {
+	/***
+	 * The list of connections entries is flat. Level allows us to find
+	 * how nested an entry is.
+	 */
+	level: number;
+
+	/***
+	 * If the entry is expanded or not. Undefined if the entry is not expandable.
+	 */
+	expanded?: boolean;
+
+	// If an error happens during some evaluation for that element
+	// we try to display some information .
+	error?: string;
 }
