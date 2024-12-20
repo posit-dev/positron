@@ -61,7 +61,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
-	test('With ipykernel already installed [C609619]', {
+	test.skip('With ipykernel already installed [C609619]', {
 		tag: [tags.WIN],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5730' }],
 	}, async function ({ app, page, python }) {
@@ -99,7 +99,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await expect(app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 90000 });
 	});
 
-	test('With ipykernel not already installed [C609617]', {
+	test.skip('With ipykernel not already installed [C609617]', {
 		tag: [tags.WIN],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5730' }],
 	}, async function ({ app, page }) {
