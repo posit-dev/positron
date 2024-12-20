@@ -12,29 +12,26 @@ import { ResourceMap } from '../../../../base/common/map.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { IOutputItemDto } from '../../notebook/common/notebookCommon.js';
-import { NOTEBOOK_POSITRON_KERNEL_RUNNING } from '../../notebook/common/notebookContextKeys.js';
-import { isNotebookEditorInput } from '../../notebook/common/notebookEditorInput.js';
 import { CellExecutionUpdateType } from '../../notebook/common/notebookExecutionService.js';
 import { INotebookCellExecution, INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { INotebookKernel, INotebookKernelChangeEvent, INotebookKernelService, VariablesResult } from '../../notebook/common/notebookKernelService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
-import { isActiveNotebookUri, registerRuntimeNotebookKernelActions } from '../common/runtimeNotebookKernelActions.js';
+import { registerRuntimeNotebookKernelActions } from '../common/runtimeNotebookKernelActions.js';
 import { isRuntimeNotebookKernelEnabled, POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../common/runtimeNotebookKernelConfig.js';
 import { IRuntimeNotebookKernelService } from './interfaces/runtimeNotebookKernelService.js';
 import { NotebookExecutionStatus } from './notebookExecutionStatus.js';
+import { ActiveNotebookHasRunningRuntimeManager } from '../common/activeNotebookHasRunningRuntime.js';
 
 /**
  * The view type supported by Positron runtime notebook kernels. Currently only Jupyter notebooks are supported.
@@ -91,8 +88,6 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
-		@IEditorService private readonly _editorService: IEditorService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@ILogService private readonly _logService: ILogService,
@@ -103,9 +98,6 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 	) {
 		super();
 
-		// Bind the notebookHasRunningPositronKernelContext.
-		const notebookHasRunningPositronKernelContext = NOTEBOOK_POSITRON_KERNEL_RUNNING.bindTo(this._contextKeyService);
-
 		// Create the execution info status.
 		this._executionStatus = this._register(this._instantiationService.createInstance(NotebookExecutionStatus));
 
@@ -114,6 +106,9 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 		if (!isRuntimeNotebookKernelEnabled(this._configurationService)) {
 			return;
 		}
+
+		// Create the active notebook has running runtime context manager.
+		this._register(this._instantiationService.createInstance(ActiveNotebookHasRunningRuntimeManager));
 
 		// Register a kernel when a runtime is registered.
 		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
@@ -130,18 +125,12 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 		this._register(this._notebookKernelService.onDidChangeSelectedNotebooks(async e => {
 			const newKernel = e.newKernel && this._kernels.get(e.newKernel);
 			if (newKernel) {
-				// Disable the notebookHasRunningPositronKernelContext while we select a runtime.
-				notebookHasRunningPositronKernelContext.set(false);
-
 				await this._runtimeSessionService.selectRuntime(
 					newKernel.runtime.runtimeId,
 					// TODO: Is this a user action or can it be automatic?
 					`Runtime selected for notebook`,
 					e.notebook,
 				);
-
-				// Enable the notebookHasRunningPositronKernelContext.
-				notebookHasRunningPositronKernelContext.set(true);
 			}
 		}));
 
@@ -158,36 +147,10 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 
 		// When a notebook is closed, shut down the corresponding session.
 		this._register(this._notebookService.onWillRemoveNotebookDocument(async notebook => {
-			// If the active notebook was closed, disable the notebookHasRunningPositronKernelContext.
-			if (isActiveNotebookUri(this._editorService, notebook.uri)) {
-				notebookHasRunningPositronKernelContext.set(false);
-			}
-
 			// TODO: Add a shutdownNotebookSession to the runtime session service and call it here.
 			//       We need a dedicated method so that the runtime session service can manage
 			//       concurrent attempts to start/shutdown/restart while the shutdown is in progress.
 		}));
-
-		// Set the notebookHasRunningPositronKernelContext when the active notebook editor changes.
-		this._register(this._editorService.onDidActiveEditorChange(() => {
-			const activeInput = this._editorService.activeEditorPane?.input;
-			if (isNotebookEditorInput(activeInput)) {
-				// Changed to a notebook editor, check if it has a running session.
-				const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(activeInput.resource);
-				notebookHasRunningPositronKernelContext.set(Boolean(session));
-			} else {
-				// Changed to a non-notebook editor.
-				notebookHasRunningPositronKernelContext.set(false);
-			}
-		}));
-
-		// Set the notebookHasRunningPositronKernelContext for the current active notebook editor.
-		const activeInput = this._editorService.activeEditorPane?.input;
-		if (isNotebookEditorInput(activeInput)) {
-			// A notebook editor is active, check if it has a running session.
-			const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(activeInput.resource);
-			notebookHasRunningPositronKernelContext.set(Boolean(session));
-		}
 
 		// Register kernel source action providers. This is a more customizable way to modify the
 		// kernel selection quickpick. Each command must return a valid runtime ID.

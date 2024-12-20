@@ -36,9 +36,13 @@ import { IRuntimeSessionService } from '../../services/runtimeSession/common/run
 import { TestConfigurationService } from '../../../platform/configuration/test/common/testConfigurationService.js';
 import { IPositronConsoleService } from '../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { PositronConsoleService } from '../../services/positronConsole/browser/positronConsoleService.js';
+import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
 
 export function positronWorkbenchInstantiationService(
 	disposables: Pick<DisposableStore, 'add'> = new DisposableStore(),
+	overrides?: {
+		editorService?: (instantiationService: IInstantiationService) => IEditorService;
+	},
 ): TestInstantiationService {
 	const instantiationService = baseWorkbenchInstantiationService(undefined, disposables);
 
@@ -56,7 +60,8 @@ export function positronWorkbenchInstantiationService(
 	instantiationService.stub(IPositronIPyWidgetsService, disposables.add(instantiationService.createInstance(PositronIPyWidgetsService)));
 	instantiationService.stub(IViewsService, new TestViewsService());
 	instantiationService.stub(IPositronPlotsService, disposables.add(instantiationService.createInstance(PositronPlotsService)));
-	instantiationService.stub(IEditorService, disposables.add(new TestEditorService()));
+	const editorService = overrides?.editorService ? overrides.editorService(instantiationService) : disposables.add(new TestEditorService());
+	instantiationService.stub(IEditorService, editorService);
 	instantiationService.stub(IConfigurationService, new TestConfigurationService());
 	instantiationService.stub(IPositronConsoleService, disposables.add(instantiationService.createInstance(PositronConsoleService)));
 	instantiationService.stub(IPositronVariablesService, disposables.add(instantiationService.createInstance(PositronVariablesService)));
@@ -72,8 +77,7 @@ export class PositronTestServiceAccessor {
 		@IPositronPlotsService public positronPlotsService: IPositronPlotsService,
 		@IPositronWebviewPreloadService public positronWebviewPreloadService: PositronWebviewPreloadService,
 		@IPositronVariablesService public positronVariablesService: IPositronVariablesService,
-		@IEditorService public editorService: IEditorService,
-		@IConfigurationService public configurationService: IConfigurationService,
+		@IEditorService public editorService: TestEditorService,
 		@IRuntimeSessionService public runtimeSessionService: IRuntimeSessionService,
 	) { }
 }

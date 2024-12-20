@@ -65,19 +65,5 @@ export const NOTEBOOK_INTERRUPTIBLE_KERNEL = new RawContextKey<boolean>('noteboo
 export const NOTEBOOK_MISSING_KERNEL_EXTENSION = new RawContextKey<boolean>('notebookMissingKernelExtension', false);
 export const NOTEBOOK_HAS_OUTPUTS = new RawContextKey<boolean>('notebookHasOutputs', false);
 export const KERNEL_HAS_VARIABLE_PROVIDER = new RawContextKey<boolean>('kernelHasVariableProvider', false);
-// --- Start Positron ---
-import { localize } from '../../../../nls.js';
-import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../runtimeNotebookKernel/common/runtimeNotebookKernelConfig.js';
-
-/** Whether the active notebook has a running Positron kernel. */
-export const NOTEBOOK_POSITRON_KERNEL_RUNNING = new RawContextKey<boolean>(
-	'notebookPositronKernelRunning',
-	false,
-	localize('notebookPositronKernelRunning', 'Whether the active notebook has a running Positron kernel.'),
-);
-
-/** Whether a Positron kernel is selected for the active notebook. */
-export const NOTEBOOK_POSITRON_KERNEL_SELECTED = ContextKeyExpr.regex(NOTEBOOK_KERNEL.key, new RegExp(`${POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID}\/.*`));
-// --- End Positron ---
 
 //#endregion
