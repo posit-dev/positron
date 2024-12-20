@@ -112,12 +112,12 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 
 		// Register a kernel when a runtime is registered.
 		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
-			this._createRuntimeNotebookKernel(runtime);
+			this.createRuntimeNotebookKernel(runtime);
 		}));
 
 		// Register a kernel for each existing runtime.
 		for (const runtime of this._languageRuntimeService.registeredRuntimes) {
-			this._createRuntimeNotebookKernel(runtime);
+			this.createRuntimeNotebookKernel(runtime);
 		}
 
 		// When one of our kernels is selected for a notebook, select the corresponding session
@@ -136,12 +136,12 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 
 		// When a notebook is added, update its kernel affinity.
 		this._register(this._notebookService.onWillAddNotebookDocument(async notebook => {
-			await this._updateKernelNotebookAffinity(notebook);
+			await this.updateKernelNotebookAffinity(notebook);
 		}));
 
 		// Update the kernel affinity of all existing notebooks.
 		for (const notebook of this._notebookService.getNotebookTextModels()) {
-			this._updateKernelNotebookAffinity(notebook)
+			this.updateKernelNotebookAffinity(notebook)
 				.catch(err => this._logService.error(`Error updating affinity for notebook ${notebook.uri.fsPath}: ${err}`));
 		}
 
@@ -186,7 +186,7 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 	 *
 	 * @param runtime The language runtime to create a notebook kernel for.
 	 */
-	private _createRuntimeNotebookKernel(runtime: ILanguageRuntimeMetadata): void {
+	private createRuntimeNotebookKernel(runtime: ILanguageRuntimeMetadata): void {
 		// TODO: Dispose the kernel when the runtime is disposed/unregistered?
 		const kernel = this._instantiationService.createInstance(RuntimeNotebookKernel, runtime);
 
@@ -207,7 +207,7 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 	 * @param notebook The notebook whose affinity to update.
 	 * @returns Promise that resolves when the notebook's affinity has been updated for all kernels.
 	 */
-	private async _updateKernelNotebookAffinity(notebook: NotebookTextModel): Promise<void> {
+	private async updateKernelNotebookAffinity(notebook: NotebookTextModel): Promise<void> {
 		const cells = notebook.cells;
 		if (cells.length === 0 ||
 			(cells.length === 1 && cells[0].getValue() === '')) {
@@ -230,7 +230,7 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 		}
 
 		// Get the notebook's language.
-		const languageId = _getNotebookLanguage(notebook);
+		const languageId = getNotebookLanguage(notebook);
 		if (!languageId) {
 			this._logService.debug(`Could not determine notebook ${notebook.uri.fsPath} language`);
 			return;
@@ -416,17 +416,17 @@ class RuntimeNotebookKernelSession extends Disposable {
 	}
 
 	async executeCells(cells: NotebookCellTextModel[]): Promise<void> {
-		const executionPromises = cells.map(cell => this._queueCellExecution(cell));
+		const executionPromises = cells.map(cell => this.queueCellExecution(cell));
 		await Promise.all(executionPromises);
 	}
 
-	private async _queueCellExecution(cell: NotebookCellTextModel): Promise<void> {
+	private async queueCellExecution(cell: NotebookCellTextModel): Promise<void> {
 		// Get the pending execution for this notebook, if one exists.
 		const pendingExecution = this._pendingCellExecutionsByNotebookUri.get(this._notebook.uri);
 
 		// Chain this execution after the pending one.
 		const currentExecution = Promise.resolve(pendingExecution)
-			.then(() => this._executeCell(cell))
+			.then(() => this.executeCell(cell))
 			.finally(() => {
 				// If this was the last execution in the chain, remove it from the map,
 				// starting a new chain.
@@ -441,7 +441,7 @@ class RuntimeNotebookKernelSession extends Disposable {
 		return currentExecution;
 	}
 
-	private async _executeCell(cell: NotebookCellTextModel): Promise<void> {
+	private async executeCell(cell: NotebookCellTextModel): Promise<void> {
 		// Don't try to execute raw cells; they're often used to define metadata e.g in Quarto notebooks.
 		if (cell.language === 'raw') {
 			return;
@@ -501,35 +501,35 @@ class RuntimeNotebookCellExecution extends Disposable {
 		super();
 
 		this._register(this._session.onDidReceiveRuntimeMessageInput(async message => {
-			await this._taskQueue.queue(() => this._handleRuntimeMessageInput(message));
+			await this._taskQueue.queue(() => this.handleRuntimeMessageInput(message));
 		}));
 
 		this._register(this._session.onDidReceiveRuntimeMessagePrompt(async message => {
-			await this._taskQueue.queue(() => this._handleRuntimeMessagePrompt(message));
+			await this._taskQueue.queue(() => this.handleRuntimeMessagePrompt(message));
 		}));
 
 		this._register(this._session.onDidReceiveRuntimeMessageOutput(async message => {
-			await this._taskQueue.queue(() => this._handleRuntimeMessageOutput(
+			await this._taskQueue.queue(() => this.handleRuntimeMessageOutput(
 				message, JupyterNotebookCellOutputType.DisplayData
 			));
 		}));
 
 		this._register(this._session.onDidReceiveRuntimeMessageResult(async message => {
-			await this._taskQueue.queue(() => this._handleRuntimeMessageOutput(
+			await this._taskQueue.queue(() => this.handleRuntimeMessageOutput(
 				message, JupyterNotebookCellOutputType.ExecuteResult
 			));
 		}));
 
 		this._register(this._session.onDidReceiveRuntimeMessageStream(async message => {
-			await this._taskQueue.queue(() => this._handleRuntimeMessageStream(message));
+			await this._taskQueue.queue(() => this.handleRuntimeMessageStream(message));
 		}));
 
 		this._register(this._session.onDidReceiveRuntimeMessageError(async message => {
-			await this._taskQueue.queue(() => this._handleRuntimeMessageError(message));
+			await this._taskQueue.queue(() => this.handleRuntimeMessageError(message));
 		}));
 
 		this._register(this._session.onDidReceiveRuntimeMessageState(async message => {
-			await this._taskQueue.queue(() => this._handleRuntimeMessageState(message));
+			await this._taskQueue.queue(() => this.handleRuntimeMessageState(message));
 		}));
 
 		this._cellExecution.update([{
@@ -576,7 +576,7 @@ class RuntimeNotebookCellExecution extends Disposable {
 		this.dispose();
 	}
 
-	private async _handleRuntimeMessageInput(message: ILanguageRuntimeMessageInput): Promise<void> {
+	private async handleRuntimeMessageInput(message: ILanguageRuntimeMessageInput): Promise<void> {
 		// Update the cell's execution order (usually displayed in notebook UIs).
 		this._cellExecution.update([{
 			editType: CellExecutionUpdateType.ExecutionState,
@@ -584,7 +584,7 @@ class RuntimeNotebookCellExecution extends Disposable {
 		}]);
 	}
 
-	private async _handleRuntimeMessagePrompt(message: ILanguageRuntimeMessagePrompt): Promise<void> {
+	private async handleRuntimeMessagePrompt(message: ILanguageRuntimeMessagePrompt): Promise<void> {
 		// Let the user input a reply.
 		const reply = await this._quickInputService.input({
 			password: message.password,
@@ -595,7 +595,7 @@ class RuntimeNotebookCellExecution extends Disposable {
 		this._session.replyToPrompt(message.id, reply ?? '');
 	}
 
-	private async _handleRuntimeMessageOutput(
+	private async handleRuntimeMessageOutput(
 		message: ILanguageRuntimeMessageOutput,
 		outputType: JupyterNotebookCellOutputType,
 	): Promise<void> {
@@ -644,7 +644,7 @@ class RuntimeNotebookCellExecution extends Disposable {
 		}]);
 	}
 
-	private async _handleRuntimeMessageStream(message: ILanguageRuntimeMessageStream): Promise<void> {
+	private async handleRuntimeMessageStream(message: ILanguageRuntimeMessageStream): Promise<void> {
 		// Convert the runtime message into an output item data transfer object.
 		let mime: string;
 		if (message.name === 'stdout') {
@@ -682,7 +682,7 @@ class RuntimeNotebookCellExecution extends Disposable {
 		}
 	}
 
-	private async _handleRuntimeMessageError(message: ILanguageRuntimeMessageError): Promise<void> {
+	private async handleRuntimeMessageError(message: ILanguageRuntimeMessageError): Promise<void> {
 		this._cellExecution.update([{
 			editType: CellExecutionUpdateType.Output,
 			cellHandle: this._cellExecution.cellHandle,
@@ -716,7 +716,7 @@ class RuntimeNotebookCellExecution extends Disposable {
 		));
 	}
 
-	private async _handleRuntimeMessageState(message: ILanguageRuntimeMessageState): Promise<void> {
+	private async handleRuntimeMessageState(message: ILanguageRuntimeMessageState): Promise<void> {
 		if (message.state === RuntimeOnlineState.Idle) {
 			this.complete();
 		}
@@ -733,7 +733,7 @@ class RuntimeNotebookCellExecution extends Disposable {
  * @param notebook The notebook to determine the language of.
  * @returns The language ID of the notebook, or `undefined` if it could not be determined.
  */
-function _getNotebookLanguage(notebook: NotebookTextModel): string | undefined {
+function getNotebookLanguage(notebook: NotebookTextModel): string | undefined {
 	// First try the notebook metadata.
 	const metadata = notebook.metadata?.metadata as any;
 	const languageId = metadata?.language_info?.name ?? metadata?.kernelspec?.language;
