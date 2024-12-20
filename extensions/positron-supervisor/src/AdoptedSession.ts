@@ -9,10 +9,14 @@ import { JupyterKernel, JupyterSession } from './jupyter-adapter';
 import { KallichoreSession } from './KallichoreSession';
 import { KernelInfoReply } from './jupyter/KernelInfoRequest';
 import { KallichoreAdapterApi } from './positron-supervisor';
-import { ConnectionInfo, DefaultApi } from './kcclient/api';
+import { ConnectionInfo, DefaultApi, HttpError } from './kcclient/api';
+import { summarizeHttpError } from './util';
+import { Barrier } from './async';
 
 export class AdoptedSession implements JupyterKernel {
 	private _runtimeInfo: KernelInfoReply | undefined;
+
+	public connected = new Barrier();
 
 	constructor(
 		private readonly _session: KallichoreSession,
@@ -23,11 +27,19 @@ export class AdoptedSession implements JupyterKernel {
 
 	async connectToSession(session: JupyterSession): Promise<void> {
 		const connectionFile = session.state.connectionFile;
+
 		// Read the contents of the file from disk
 		const connectionInfo = JSON.parse(fs.readFileSync(connectionFile, 'utf-8')) as ConnectionInfo;
 
 		// Adopt the session using the connection information
-		this._runtimeInfo = (await this._api.adoptSession(session.state.sessionId, connectionInfo)).body;
+		try {
+			this._runtimeInfo = (await this._api.adoptSession(session.state.sessionId, connectionInfo)).body;
+		} catch (err) {
+			const message = err instanceof HttpError ? summarizeHttpError(err) : err.message;
+			throw new Error(`Failed to adopt session: ${message}`);
+		} finally {
+			this.connected.open();
+		}
 	}
 
 	get runtimeInfo(): KernelInfoReply | undefined {
