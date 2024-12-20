@@ -7,33 +7,12 @@ import { Emitter, Event } from '../../../base/common/event.js';
 import { IDisposable } from '../../../base/common/lifecycle.js';
 import { URI } from '../../../base/common/uri.js';
 import { ICommandService, ICommandEvent, CommandsRegistry } from '../../../platform/commands/common/commands.js';
-import { ExtensionIdentifier } from '../../../platform/extensions/common/extensions.js';
 import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
 import { IOpenerService, IOpener, IValidator, IExternalUriResolver, IExternalOpener, OpenInternalOptions, OpenExternalOptions, ResolveExternalUriOptions, IResolvedExternalUri } from '../../../platform/opener/common/opener.js';
-import { INotebookRendererInfo, INotebookStaticPreloadInfo } from '../../contrib/notebook/common/notebookCommon.js';
-import { NotebookOutputRendererInfo } from '../../contrib/notebook/common/notebookOutputRenderer.js';
-import { INotebookService } from '../../contrib/notebook/common/notebookService.js';
 import { ILanguageRuntimeMetadata } from '../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronModalDialogsService, ShowConfirmationModalDialogOptions, IModalDialogPromptInstance } from '../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, ILanguageRuntimeSession } from '../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession } from '../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
-
-export class TestNotebookService implements Partial<INotebookService> {
-	getRenderers(): INotebookRendererInfo[] {
-		return [];
-	}
-
-	getPreferredRenderer(_mimeType: string): NotebookOutputRendererInfo | undefined {
-		return <NotebookOutputRendererInfo>{
-			id: 'positron-ipywidgets',
-			extensionId: new ExtensionIdentifier('positron.positron-ipywidgets'),
-		};
-	}
-
-	*getStaticPreloads(_viewType: string): Iterable<INotebookStaticPreloadInfo> {
-		// Yield nothing.
-	}
-}
 
 export class TestOpenerService implements IOpenerService {
 	_serviceBrand: undefined;
@@ -59,6 +38,7 @@ export class TestOpenerService implements IOpenerService {
 		throw new Error('Method not implemented.');
 	}
 }
+
 // Copied from src/vs/editor/test/browser/editorTestServices.ts for access outside of the browser context.
 export class TestCommandService implements ICommandService {
 	declare readonly _serviceBrand: undefined;
@@ -91,6 +71,7 @@ export class TestCommandService implements ICommandService {
 		}
 	}
 }
+
 export class TestPositronModalDialogService implements IPositronModalDialogsService {
 	_serviceBrand: undefined;
 	showConfirmationModalDialog(options: ShowConfirmationModalDialogOptions): void {
@@ -106,6 +87,7 @@ export class TestPositronModalDialogService implements IPositronModalDialogsServ
 		throw new Error('Method not implemented.');
 	}
 }
+
 export class TestRuntimeSessionManager implements ILanguageRuntimeSessionManager {
 	public static readonly instance = new TestRuntimeSessionManager();
 

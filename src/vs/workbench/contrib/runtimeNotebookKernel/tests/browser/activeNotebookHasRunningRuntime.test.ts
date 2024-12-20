@@ -37,7 +37,6 @@ class TestEditorService2 extends TestEditorService {
 
 suite('ActiveNotebookHasRunningRuntimeManager', () => {
 	const notebookUri = URI.file('notebook.ipynb');
-
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 	let editorService: TestEditorService2;
 	let instantiationService: TestInstantiationService;

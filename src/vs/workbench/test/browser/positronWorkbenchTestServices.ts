@@ -11,7 +11,6 @@ import { INotebookEditorService } from '../../contrib/notebook/browser/services/
 import { NotebookEditorWidgetService } from '../../contrib/notebook/browser/services/notebookEditorServiceImpl.js';
 import { NotebookRendererMessagingService } from '../../contrib/notebook/browser/services/notebookRendererMessagingServiceImpl.js';
 import { INotebookRendererMessagingService } from '../../contrib/notebook/common/notebookRendererMessagingService.js';
-import { INotebookService } from '../../contrib/notebook/common/notebookService.js';
 import { PositronIPyWidgetsService } from '../../contrib/positronIPyWidgets/browser/positronIPyWidgetsService.js';
 import { IPositronNotebookOutputWebviewService } from '../../contrib/positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { PositronNotebookOutputWebviewService } from '../../contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl.js';
@@ -27,7 +26,6 @@ import { createRuntimeServices } from '../../services/runtimeSession/test/common
 import { IWorkbenchThemeService } from '../../services/themes/common/workbenchThemeService.js';
 import { IViewsService } from '../../services/views/common/viewsService.js';
 import { workbenchInstantiationService as baseWorkbenchInstantiationService, TestEditorService, TestViewsService } from './workbenchTestServices.js';
-import { TestNotebookService } from '../common/positronWorkbenchTestServices.js';
 import { IPositronVariablesService } from '../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { PositronVariablesService } from '../../services/positronVariables/common/positronVariablesService.js';
 import { IEditorService } from '../../services/editor/common/editorService.js';
@@ -52,7 +50,6 @@ export function positronWorkbenchInstantiationService(
 	instantiationService.stub(INotebookEditorService, disposables.add(instantiationService.createInstance(NotebookEditorWidgetService)));
 	instantiationService.stub(IWorkbenchThemeService, new TestThemeService() as any);
 	instantiationService.stub(INotebookDocumentService, new NotebookDocumentWorkbenchService());
-	instantiationService.stub(INotebookService, new TestNotebookService());
 	instantiationService.stub(IWebviewService, disposables.add(new WebviewService(instantiationService)));
 	instantiationService.stub(IPositronNotebookOutputWebviewService, instantiationService.createInstance(PositronNotebookOutputWebviewService));
 	instantiationService.stub(IPositronIPyWidgetsService, disposables.add(instantiationService.createInstance(PositronIPyWidgetsService)));
