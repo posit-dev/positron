@@ -149,8 +149,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: 'ubuntu-latest'
-            python: '3.8'
           - os: 'macos-latest'
             python: '3.9'
           - os: 'windows-latest'
@@ -159,6 +157,9 @@ jobs:
             python: '3.11'
           - os: 'ubuntu-latest'
             python: '3.12'
+          # add in 3.13 when ibis-framework[duckdb] supports it
+          # - os: 'ubuntu-latest'
+          #   python: '3.13'
 
     steps:
       - name: Checkout
