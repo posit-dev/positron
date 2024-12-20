@@ -134,11 +134,15 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 				editorChangeDisposable = Event.any(
 					editorService.onDidActiveEditorChange,
 					editorService.onDidVisibleEditorsChange, // Catches editor group changes
+					layoutService.onDidLayoutMainContainer, // Listen for main container layout changes
+					layoutService.onDidLayoutContainer, // Listen for any container layout changes
+					layoutService.onDidLayoutActiveContainer, // Listen for active container layout changes
 					layoutService.onDidChangePartVisibility,
 					layoutService.onDidChangeZenMode,
 					layoutService.onDidChangeWindowMaximized,
 					layoutService.onDidChangePanelAlignment,
-					layoutService.onDidChangePanelPosition
+					layoutService.onDidChangePanelPosition,
+					layoutService.onDidChangeMainEditorCenteredLayout // Listen for main editor centered layout changes
 				)(handleLayoutChange);
 
 				// Create and setup resize observer for layout changes
