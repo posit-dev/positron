@@ -11,8 +11,6 @@ import { IStatusbarEntryAccessor, IStatusbarService, StatusbarAlignment } from '
 import { INotebookExecutionService } from '../../notebook/common/notebookExecutionService.js';
 import { NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY } from '../common/runtimeNotebookKernelConfig.js';
 
-const CELL_STRING = localize('status.notebook.executionInfo.cell', 'cell');
-
 /**
  * A status bar entry that displays information about the current notebook execution,
  * such as the total duration and number of cells executed.
@@ -51,8 +49,9 @@ export class NotebookExecutionStatus extends Disposable {
 		// Update the visibility initially.
 		this.updateVisibility();
 
+		// Update the text when an execution starts.
 		this._register(this._notebookExecutionService.onDidStartNotebookCellsExecution(e => {
-			const cellCountString = getCountString(e.cellHandles.length, CELL_STRING);
+			const cellCountString = this.getCellCountString(e.cellHandles.length);
 			const text = localize('status.notebook.executionInfo.startExecution', 'Executing {0}', cellCountString);
 			this._entryAccessor.update({
 				ariaLabel: text,
@@ -61,8 +60,9 @@ export class NotebookExecutionStatus extends Disposable {
 			});
 		}));
 
+		// Update the text when an execution ends.
 		this._register(this._notebookExecutionService.onDidEndNotebookCellsExecution(e => {
-			const cellCountString = getCountString(e.cellHandles.length, CELL_STRING);
+			const cellCountString = this.getCellCountString(e.cellHandles.length);
 			const durationString = getDurationString(e.duration, true);
 			const text = localize('status.notebook.executionInfo.endExecution', 'Executed {0} in {1}', cellCountString, durationString);
 			this._entryAccessor.update({
@@ -80,18 +80,15 @@ export class NotebookExecutionStatus extends Disposable {
 		const visible = this._configurationService.getValue<boolean>(NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY);
 		this._statusbarService.updateEntryVisibility(NotebookExecutionStatus._ID, visible);
 	}
-}
 
-/**
- * Format a count and unit for display.
- *
- * @param count The count to format.
- * @param unit The unit to format e.g. 'cell'.
- * @returns The formatted count e.g. '1 cell' or '2 cells'.
- */
-function getCountString(count: number, unit: string): string {
-	if (count === 1) {
-		return `${count} ${unit}`;
+	/**
+	 * Format a cell count for display.
+	 */
+	private getCellCountString(cellCount: number): string {
+		if (cellCount === 1) {
+			return localize('status.notebook.executionInfo.cell', '1 cell');
+		} else {
+			return localize('status.notebook.executionInfo.cells', '{0} cells', cellCount);
+		}
 	}
-	return `${count} ${unit}s`;
 }
