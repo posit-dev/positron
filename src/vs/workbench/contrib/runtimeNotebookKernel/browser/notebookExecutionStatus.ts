@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { getDurationString } from '../../../../base/common/date.js';
-import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IStatusbarEntryAccessor, IStatusbarService, StatusbarAlignment } from '../../../services/statusbar/browser/statusbar.js';
+import { INotebookExecutionService } from '../../notebook/common/notebookExecutionService.js';
 import { NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY } from '../common/runtimeNotebookKernelConfig.js';
-import { RuntimeNotebookKernel } from './runtimeNotebookKernelService.js';
 
 const CELL_STRING = localize('status.notebook.executionInfo.cell', 'cell');
 
@@ -29,6 +29,7 @@ export class NotebookExecutionStatus extends Disposable {
 
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@INotebookExecutionService private readonly _notebookExecutionService: INotebookExecutionService,
 		@IStatusbarService private readonly _statusbarService: IStatusbarService,
 	) {
 		super();
@@ -49,20 +50,9 @@ export class NotebookExecutionStatus extends Disposable {
 
 		// Update the visibility initially.
 		this.updateVisibility();
-	}
 
-	/**
-	 * Attach a runtime notebook kernel.
-	 *
-	 * @param kernel The runtime notebook kernel to attach.
-	 * @returns A disposable that detaches the kernel when disposed.
-	 */
-	public attachKernel(kernel: RuntimeNotebookKernel): IDisposable {
-		const disposables = this._register(new DisposableStore());
-
-		// Update the text when an execution starts.
-		disposables.add(kernel.onDidStartExecution(e => {
-			const cellCountString = getCountString(e.cells.length, CELL_STRING);
+		this._register(this._notebookExecutionService.onDidStartNotebookCellsExecution(e => {
+			const cellCountString = getCountString(e.cellHandles.length, CELL_STRING);
 			const text = localize('status.notebook.executionInfo.startExecution', 'Executing {0}', cellCountString);
 			this._entryAccessor.update({
 				ariaLabel: text,
@@ -71,9 +61,8 @@ export class NotebookExecutionStatus extends Disposable {
 			});
 		}));
 
-		// Update the text when an execution ends.
-		disposables.add(kernel.onDidEndExecution(e => {
-			const cellCountString = getCountString(e.cells.length, CELL_STRING);
+		this._register(this._notebookExecutionService.onDidEndNotebookCellsExecution(e => {
+			const cellCountString = getCountString(e.cellHandles.length, CELL_STRING);
 			const durationString = getDurationString(e.duration, true);
 			const text = localize('status.notebook.executionInfo.endExecution', 'Executed {0} in {1}', cellCountString, durationString);
 			this._entryAccessor.update({
@@ -82,8 +71,6 @@ export class NotebookExecutionStatus extends Disposable {
 				text,
 			});
 		}));
-
-		return disposables;
 	}
 
 	/**
