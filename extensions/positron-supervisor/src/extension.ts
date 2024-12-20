@@ -13,7 +13,7 @@ import { KCApi } from './KallichoreAdapterApi';
 export let API_INSTANCE: KCApi;
 
 export function activate(context: vscode.ExtensionContext): KallichoreAdapterApi {
-	const log = positron.window.createRawLogOutputChannel('Positron Kernel Supervisor');
+	const log = positron.window.createRawLogOutputChannel('Kernel Supervisor');
 	log.appendLine('Positron Kernel Supervisor activated');
 
 	// Create the singleton instance of the Kallichore API wrapper
