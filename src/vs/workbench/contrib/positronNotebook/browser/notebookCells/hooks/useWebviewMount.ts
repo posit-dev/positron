@@ -132,17 +132,16 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 				// Listen for all editor and layout changes that might affect the webview
 				const handleLayoutChange = () => updateWebviewLayout(false);
 				editorChangeDisposable = Event.any(
-					editorService.onDidActiveEditorChange,
-					editorService.onDidVisibleEditorsChange, // Catches editor group changes
-					layoutService.onDidLayoutMainContainer, // Listen for main container layout changes
-					layoutService.onDidLayoutContainer, // Listen for any container layout changes
-					layoutService.onDidLayoutActiveContainer, // Listen for active container layout changes
-					layoutService.onDidChangePartVisibility,
-					layoutService.onDidChangeZenMode,
-					layoutService.onDidChangeWindowMaximized,
-					layoutService.onDidChangePanelAlignment,
-					layoutService.onDidChangePanelPosition,
-					layoutService.onDidChangeMainEditorCenteredLayout // Listen for main editor centered layout changes
+					editorService.onDidActiveEditorChange,          // Active editor switched
+					editorService.onDidVisibleEditorsChange,        // Editor groups/layout changed
+					layoutService.onDidLayoutMainContainer,         // Main container resized/moved
+					layoutService.onDidLayoutContainer,             // Any container resized/moved
+					layoutService.onDidLayoutActiveContainer,       // Active container resized/moved
+					layoutService.onDidChangePartVisibility,        // UI part shown/hidden
+					layoutService.onDidChangeWindowMaximized,       // Window maximized/restored
+					layoutService.onDidChangePanelAlignment,        // Panel alignment changed
+					layoutService.onDidChangePanelPosition,         // Panel position changed
+					layoutService.onDidChangeMainEditorCenteredLayout // Editor centered mode toggled
 				)(handleLayoutChange);
 
 				// Create and setup resize observer for layout changes
