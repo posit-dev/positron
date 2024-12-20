@@ -35,6 +35,10 @@ import { TestConfigurationService } from '../../../platform/configuration/test/c
 import { IPositronConsoleService } from '../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { PositronConsoleService } from '../../services/positronConsole/browser/positronConsoleService.js';
 import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
+import { INotebookExecutionService } from '../../contrib/notebook/common/notebookExecutionService.js';
+import { TestNotebookExecutionService } from '../common/positronWorkbenchTestServices.js';
+import { IStatusbarService } from '../../services/statusbar/browser/statusbar.js';
+import { StatusbarService } from '../../browser/parts/statusbar/statusbarPart.js';
 
 export function positronWorkbenchInstantiationService(
 	disposables: Pick<DisposableStore, 'add'> = new DisposableStore(),
@@ -46,6 +50,7 @@ export function positronWorkbenchInstantiationService(
 
 	createRuntimeServices(instantiationService, disposables);
 
+	instantiationService.stub(INotebookExecutionService, new TestNotebookExecutionService());
 	instantiationService.stub(INotebookRendererMessagingService, disposables.add(instantiationService.createInstance(NotebookRendererMessagingService)));
 	instantiationService.stub(INotebookEditorService, disposables.add(instantiationService.createInstance(NotebookEditorWidgetService)));
 	instantiationService.stub(IWorkbenchThemeService, new TestThemeService() as any);
@@ -62,19 +67,23 @@ export function positronWorkbenchInstantiationService(
 	instantiationService.stub(IConfigurationService, new TestConfigurationService());
 	instantiationService.stub(IPositronConsoleService, disposables.add(instantiationService.createInstance(PositronConsoleService)));
 	instantiationService.stub(IPositronVariablesService, disposables.add(instantiationService.createInstance(PositronVariablesService)));
+	instantiationService.stub(IStatusbarService, disposables.add(instantiationService.createInstance(StatusbarService)));
 
 	return instantiationService;
 }
 
 export class PositronTestServiceAccessor {
 	constructor(
+		@IConfigurationService public configurationService: TestConfigurationService,
+		@IEditorService public editorService: TestEditorService,
 		@ILogService public logService: ILogService,
 		@INotebookEditorService public notebookEditorService: INotebookEditorService,
+		@INotebookExecutionService public notebookExecutionService: TestNotebookExecutionService,
 		@IPositronIPyWidgetsService public positronIPyWidgetsService: PositronIPyWidgetsService,
 		@IPositronPlotsService public positronPlotsService: IPositronPlotsService,
-		@IPositronWebviewPreloadService public positronWebviewPreloadService: PositronWebviewPreloadService,
 		@IPositronVariablesService public positronVariablesService: IPositronVariablesService,
-		@IEditorService public editorService: TestEditorService,
+		@IPositronWebviewPreloadService public positronWebviewPreloadService: PositronWebviewPreloadService,
 		@IRuntimeSessionService public runtimeSessionService: IRuntimeSessionService,
+		@IStatusbarService public statusbarService: IStatusbarService,
 	) { }
 }
