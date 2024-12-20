@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
+import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession } from './jupyter-adapter';
 import { ActiveSession, DefaultApi, HttpError, InterruptMode, NewSession, Status } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
@@ -38,6 +38,7 @@ import { SocketSession } from './ws/SocketSession';
 import { KernelOutputMessage } from './ws/KernelMessage';
 import { UICommRequest } from './UICommRequest';
 import { createUniqueId, summarizeHttpError } from './util';
+import { AdoptedSession } from './AdoptedSession';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
@@ -93,6 +94,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	/** A map of pending comm startups */
 	private _startingComms: Map<string, PromiseHandles<void>> = new Map();
+
+	/** The original kernelspec */
+	private _kernelSpec: JupyterKernelSpec | undefined;
 
 	/**
 	 * The channel to which output for this specific kernel is logged, if any
@@ -184,6 +188,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			throw new Error(`Session ${this.metadata.sessionId} already exists`);
 		}
 
+		// Save the kernel spec for later use
+		this._kernelSpec = kernelSpec;
+
 		// Forward the environment variables from the kernel spec
 		const env = {};
 		if (kernelSpec.env) {
@@ -251,7 +258,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Initialize extra functionality, if any. These settings modify the
 		// argument list `args` in place, so need to happen right before we send
 		// the arg list to the server.
-		const config = vscode.workspace.getConfiguration('kernelSupervisor');
+		const config = vscode.workspace.getConfiguration('positronKernelSupervisor');
 		const attachOnStartup = config.get('attachOnStartup', false) && this._extra?.attachOnStartup;
 		const sleepOnStartup = config.get('sleepOnStartup', undefined) && this._extra?.sleepOnStartup;
 		const connectionTimeout = config.get('connectionTimeout', 30);
@@ -716,6 +723,41 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._established.open();
 	}
 
+	async startAndAdoptKernel(kernelSpec: JupyterKernelSpec): Promise<positron.LanguageRuntimeInfo> {
+		// Mark the session as starting
+		this.onStateChange(positron.RuntimeState.Starting, 'starting kernel via external provider');
+
+		// Get the connection info for the session
+		const connectionInfo = await this._api.connectionInfo(this.metadata.sessionId);
+
+		// Write the connection file to disk
+		const connectionFile = path.join(os.tmpdir(), `connection-${this.metadata.sessionId}.json`);
+		fs.writeFileSync(connectionFile, JSON.stringify(connectionInfo.body));
+
+		const session: JupyterSession = {
+			state: {
+				sessionId: this.metadata.sessionId,
+				connectionFile: connectionFile,
+				logFile: this._kernelLogFile ?? '',
+				processId: 0,
+			}
+		};
+
+		// Create the "kernel"
+		const kernel = new AdoptedSession(this);
+
+		// Start the kernel and wait for it to be ready
+		await this._kernelSpec!.startKernel!(session, kernel);
+
+		// Return the runtime info from the adopted session
+		const info = kernel.runtimeInfo;
+		if (info) {
+			return this.runtimeInfoFromKernelInfo(info);
+		} else {
+			return this.getKernelInfo();
+		}
+	}
+
 	/**
 	 * Starts a previously established session.
 	 *
@@ -725,6 +767,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @returns The kernel info for the session.
 	 */
 	async start(): Promise<positron.LanguageRuntimeInfo> {
+		// If this session wants to control its own lifecycle, start it now.
+		if (this._kernelSpec?.startKernel) {
+			return this.startAndAdoptKernel(this._kernelSpec);
+		}
+
 		try {
 			// Attempt to start the session
 			const info = await this.tryStart();
@@ -798,7 +845,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Before connecting, check if we should attach to the session on
 		// startup
-		const config = vscode.workspace.getConfiguration('kernelSupervisor');
+		const config = vscode.workspace.getConfiguration('positronKernelSupervisor');
 		const attachOnStartup = config.get('attachOnStartup', false) && this._extra?.attachOnStartup;
 		if (attachOnStartup) {
 			try {
