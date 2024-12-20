@@ -56,12 +56,13 @@ test.describe('Editor Action Bar', {
 		annotation: [{ type: 'info', description: 'electron test unable to interact with dropdown native menu' }],
 	}, async function ({ app, page }) {
 		await openNotebook(app, 'workspaces/large_r_notebook/spotify.ipynb');
-		await verifySplitEditor(page, 'spotify.ipynb');
 
 		if (app.web) {
 			await verifyToggleLineNumbers(page);
 			await verifyToggleBreadcrumb(page);
 		}
+
+		await verifySplitEditor(page, 'spotify.ipynb');
 	});
 });
 
@@ -113,7 +114,9 @@ async function verifyOpenInNewWindow(page, expectedText: string) {
 async function clickCustomizeNotebookMenuItem(page, menuItem: string) {
 	const role = menuItem.includes('Line Numbers') ? 'menuitemcheckbox' : 'menuitem';
 	const dropdownButton = page.getByLabel('Customize Notebook...').nth(1);
-	await dropdownButton.evaluate((button) => (button as HTMLElement).click());
+	await dropdownButton.evaluate((button) => {
+		(button as HTMLElement).dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+	});
 
 	const toggleMenuItem = page.getByRole(role, { name: menuItem });
 	await toggleMenuItem.hover();
