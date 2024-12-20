@@ -19,7 +19,7 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 			await app.workbench.positronConsole.barClearButton.click();
 			await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		} catch (e) {
-			app.code.driver.takeScreenshot('rPackageSetup');
+			await app.code.driver.takeScreenshot('rPackageSetup');
 			throw e;
 		}
 	});

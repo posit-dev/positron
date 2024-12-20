@@ -27,7 +27,7 @@ test.describe('Reticulate', {
 			]);
 
 		} catch (e) {
-			app.code.driver.takeScreenshot('reticulateSetup');
+			await app.code.driver.takeScreenshot('reticulateSetup');
 			throw e;
 		}
 	});
