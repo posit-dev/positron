@@ -46,21 +46,44 @@ export const isAddressInfo = (
 	(addressInfo as AddressInfo).port !== undefined;
 
 /**
- * ProxyServerStyles type.
+ * ProxyServerHtml class.
  */
-export type ProxyServerHtml = {
-	styles?: ProxyServerStyles;
+export class ProxyServerHtml {
 	styleDefaults?: string;
 	styleOverrides?: string;
 	script?: string;
+	styles?: ProxyServerStyles;
+
+	constructor(
+		styleDefaults?: string,
+		styleOverrides?: string,
+		script?: string,
+		styles?: ProxyServerStyles,
+
+	) {
+		this.styleDefaults = styleDefaults;
+		this.styleOverrides = styleOverrides;
+		this.script = script;
+		this.styles = styles;
+	}
+
+	/**
+	 * Function to check if all resources are loaded.
+	 * @returns true if styles, styleDefaults, and styleOverrides are all defined; otherwise, false.
+	 */
+	resourcesLoaded(): boolean {
+		return this.styleDefaults !== undefined
+			&& this.styleOverrides !== undefined
+			&& this.script !== undefined;
+	}
 };
 
 /**
  * ProxyServerHtmlConfig type.
  */
 export interface ProxyServerHtmlConfig {
-	help?: ProxyServerHtml;
-	preview?: ProxyServerHtml;
+	help: ProxyServerHtml;
+	preview: ProxyServerHtml;
 }
 
 /**
