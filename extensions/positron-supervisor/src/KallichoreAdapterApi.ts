@@ -15,7 +15,7 @@ import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } 
 import { KallichoreSession } from './KallichoreSession';
 import { Barrier, PromiseHandles, withTimeout } from './async';
 import { LogStreamer } from './LogStreamer';
-import { createUniqueId, summarizeHttpError } from './util';
+import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 
 const KALLICHORE_STATE_KEY = 'positron-supervisor.v1';
 
@@ -793,7 +793,6 @@ export class KCApi implements KallichoreAdapterApi {
 			return this.ensureStarted();
 		}
 
-		// Clear the log output
 		this._log.appendLine('Restarting Kallichore server');
 
 		// Clean up all the sessions and mark them as exited
@@ -813,7 +812,7 @@ export class KCApi implements KallichoreAdapterApi {
 		} catch (err) {
 			// We can start a new server even if we failed to shut down the old
 			// one, so just log this error
-			const message = err instanceof HttpError ? summarizeHttpError(err) : err;
+			const message = summarizeError(err);
 			this._log.appendLine(`Failed to shut down Kallichore server: ${message}`);
 		}
 

@@ -258,7 +258,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Initialize extra functionality, if any. These settings modify the
 		// argument list `args` in place, so need to happen right before we send
 		// the arg list to the server.
-		const config = vscode.workspace.getConfiguration('positronKernelSupervisor');
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
 		const attachOnStartup = config.get('attachOnStartup', false) && this._extra?.attachOnStartup;
 		const sleepOnStartup = config.get('sleepOnStartup', undefined) && this._extra?.sleepOnStartup;
 		const connectionTimeout = config.get('connectionTimeout', 30);
@@ -724,13 +724,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
-	 * Starts and then adopts a kernel that has an external provider.
+	 * Starts and then adopts a kernel owned by an external provider.
 	 *
 	 * @param kernelSpec The kernel spec to use for the session
 	 * @returns The runtime info for the kernel
 	 */
 	async startAndAdoptKernel(
-		kernelSpec: JupyterKernelSpec): Promise<positron.LanguageRuntimeInfo> {
+		kernelSpec: JupyterKernelSpec):
+		Promise<positron.LanguageRuntimeInfo> {
 
 		// Mark the session as starting
 		this.onStateChange(positron.RuntimeState.Starting, 'starting kernel via external provider');
@@ -755,14 +756,26 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
+	/**
+	 * Tries to start and then adopt a kernel owned by an external provider.
+	 *
+	 * @param kernelSpec The kernel spec to use for the session
+	 */
 	async tryStartAndAdoptKernel(kernelSpec: JupyterKernelSpec): Promise<positron.LanguageRuntimeInfo> {
 
 		// Get the connection info for the session
 		const connectionFileContents = {};
 		let connectionInfo: ConnectionInfo;
 		try {
+			// Read the connection info from the API. This arrives to us in the
+			// form of a `ConnectionInfo` object.
 			const result = await this._api.connectionInfo(this.metadata.sessionId);
 			connectionInfo = result.body;
+
+			// The serialized form of the connection info is a JSON object with
+			// snake_case names, but ConnectionInfo uses camelCase. Use the map
+			// in ConnectionInfo to convert the names to snake_case for
+			// serialization.
 			for (const [inKey, val] of Object.entries(connectionInfo)) {
 				for (const outKey of ConnectionInfo.attributeTypeMap) {
 					if (inKey === outKey.name) {
@@ -828,7 +841,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @returns The kernel info for the session.
 	 */
 	async start(): Promise<positron.LanguageRuntimeInfo> {
-		// If this session wants to control its own lifecycle, start it now.
+		// If this session needs to be started by an external provider, do that
+		// instead of asking the supervisor to start it.
 		if (this._kernelSpec?.startKernel) {
 			return this.startAndAdoptKernel(this._kernelSpec);
 		}
@@ -904,7 +918,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Before connecting, check if we should attach to the session on
 		// startup
-		const config = vscode.workspace.getConfiguration('positronKernelSupervisor');
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
 		const attachOnStartup = config.get('attachOnStartup', false) && this._extra?.attachOnStartup;
 		if (attachOnStartup) {
 			try {

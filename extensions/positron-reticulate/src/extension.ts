@@ -174,25 +174,28 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 	// runtime session using the exported interface from the positron-python
 	// extension.
 
-	// The PythonRuntimeSession object in the positron-python extensions, is created
-	// by passing 'runtimeMetadata', 'sessionMetadata' and something called 'kernelSpec'
-	// that's further passed to the JupyterAdapter extension in order to actually initialize
-	// the session.
+	// The PythonRuntimeSession object in the positron-python extensions, is
+	// created by passing 'runtimeMetadata', 'sessionMetadata' and something
+	// called 'kernelSpec' that's further passed to the JupyterAdapter
+	// extension in order to actually initialize the session.
 
-	// ReticulateRuntimeSession are only different from Python runtime sessions in the
-	// way the kernel spec is provided. In general, the kernel spec contains a runtime
-	// path and some arguments that are used start the kernel process. (The kernel is started
-	// by the Jupyter Adapter in a vscode terminal). In the reticulate case, the kernel isn't
-	// started that way. Instead, we need to call into the R console to start the python jupyter
-	// kernel (that's actually running in the same process as R), and only then, ask JupyterAdapter
-	// to connect to that kernel.
+	// ReticulateRuntimeSession are only different from Python runtime sessions
+	// in the way the kernel spec is provided. In general, the kernel spec
+	// contains a runtime path and some arguments that are used start the
+	// kernel process. (The kernel is started by the Jupyter Adapter in a
+	// vscode terminal). In the reticulate case, the kernel isn't started that
+	// way. Instead, we need to call into the R console to start the python
+	// jupyter kernel (that's actually running in the same process as R), and
+	// only then, ask JupyterAdapter to connect to that kernel.
 	static async create(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
 		sessionMetadata: positron.RuntimeSessionMetadata,
 	): Promise<ReticulateRuntimeSession> {
 
+		// A deferred promise that will resolve when the session is created.
 		const sessionPromise = new PromiseHandles<ReticulateRuntimeSession>();
 
+		// Show a progress notification while we create the session.
 		vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
 			title: 'Creating the Reticulate Python session',
@@ -200,11 +203,16 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		}, async (progress, _token) => {
 			let session: ReticulateRuntimeSession | undefined;
 			try {
+				// Get the R session that we'll use to start the reticulate session.
 				progress.report({ increment: 10, message: 'Initializing the host R session' });
 				const rSession = await getRSession(progress);
+
+				// Make sure the R session has the necessary packages installed.
 				progress.report({ increment: 10, message: 'Checking prerequisites' });
 				const config = await ReticulateRuntimeSession.checkRSession(rSession);
 				const metadata = await ReticulateRuntimeSession.fixInterpreterPath(runtimeMetadata, config.python);
+
+				// Create the session itself.
 				session = new ReticulateRuntimeSession(
 					rSession,
 					metadata,
@@ -217,6 +225,9 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 				sessionPromise.reject(err);
 			}
 
+			// Wait for the session to start (or fail to start) before
+			// returning from this callback, so that the progress bar stays up
+			// while we wait.
 			if (session) {
 				progress.report({ increment: 10, message: 'Waiting to connect' });
 				await session.started.wait();
@@ -240,12 +251,16 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		}, async (progress, _token) => {
 			let session: ReticulateRuntimeSession | undefined;
 			try {
-
+				// Find the R session that we'll use to restore the reticulate session.
 				progress.report({ increment: 10, message: 'Initializing the host R session' });
 				const rSession = await getRSession(progress);
+
+				// Make sure the R session has the necessary packages installed.
 				progress.report({ increment: 10, message: 'Checking prerequisites' });
 				const config = await ReticulateRuntimeSession.checkRSession(rSession);
 				const metadata = await ReticulateRuntimeSession.fixInterpreterPath(runtimeMetadata, config.python);
+
+				// Create the session itself.
 				session = new ReticulateRuntimeSession(
 					rSession,
 					metadata,
@@ -257,6 +272,9 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			} catch (err) {
 				sessionPromise.reject(err);
 			}
+
+			// Wait for the session to resume (or fail to resume) before
+			// returning
 			if (session) {
 				progress.report({ increment: 10, message: 'Waiting to reconnect' });
 				await session.started.wait();
