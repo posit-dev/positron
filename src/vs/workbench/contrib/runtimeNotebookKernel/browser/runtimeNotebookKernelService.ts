@@ -51,9 +51,21 @@ enum NotebookKernelAffinity {
 	Preferred = 2
 }
 
-// TODO: Add from PR #5680.
-/** The type of a Jupyter notebook cell output. */
+/**
+ * The type of a Jupyter notebook cell output.
+ *
+ * Used by the ipynb notebook serializer (extensions/ipynb/src/serializers.ts) to convert from
+ * VSCode notebook cell outputs to Jupyter notebook cell outputs.
+ *
+ * See: https://jupyter-client.readthedocs.io/en/latest/messaging.html
+ */
 enum JupyterNotebookCellOutputType {
+	/** An error occurred during an execution. */
+	Error = 'error',
+
+	/** Output from one of the standard streams (stdout or stderr). */
+	Stream = 'stream',
+
 	/** One of possibly many outputs related to an execution. */
 	DisplayData = 'display_data',
 
@@ -250,7 +262,7 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 	}
 }
 
-export class RuntimeNotebookKernel extends Disposable implements INotebookKernel {
+class RuntimeNotebookKernel extends Disposable implements INotebookKernel {
 	public readonly viewType = viewType;
 
 	public readonly extension = new ExtensionIdentifier(POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID);
@@ -599,10 +611,7 @@ class RuntimeNotebookCellExecution extends Disposable {
 			outputs: [{
 				outputId: message.id,
 				outputs: outputItems,
-				metadata: {
-					...message.metadata,
-					outputType,
-				}
+				metadata: { outputType },
 			}]
 		}]);
 	}
@@ -639,7 +648,7 @@ class RuntimeNotebookCellExecution extends Disposable {
 				outputs: [{
 					outputId: message.id,
 					outputs: [newOutputItem],
-					metadata: message.metadata,
+					metadata: { outputType: JupyterNotebookCellOutputType.Stream },
 				}]
 			}]);
 		}
@@ -659,8 +668,9 @@ class RuntimeNotebookCellExecution extends Disposable {
 						stack: message.traceback.join('\n'),
 					}, undefined, '\t')),
 					mime: 'application/vnd.code.notebook.error',
-				}]
-			}]
+				}],
+				metadata: { outputType: JupyterNotebookCellOutputType.Error },
+			}],
 		}]);
 		this._cellExecution.complete({
 			runEndTime: Date.now(),
