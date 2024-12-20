@@ -266,7 +266,9 @@ export namespace InterpreterQuickPickList {
 
 export namespace OutputChannelNames {
     export const languageServer = l10n.t('Python Language Server');
-    export const python = l10n.t('Python');
+    // --- Start Positron ---
+    export const python = l10n.t('Python Language Pack');
+    // --- End Positron ---
     export const pythonTest = l10n.t('Python Test Log');
 }
 
