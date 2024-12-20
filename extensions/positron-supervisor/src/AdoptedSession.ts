@@ -1,0 +1,39 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import * as positron from 'positron';
+import { JupyterKernel, JupyterSession } from './jupyter-adapter';
+import { KallichoreSession } from './KallichoreSession';
+import { KernelInfoReply } from './jupyter/KernelInfoRequest';
+import { KallichoreAdapterApi } from './positron-supervisor';
+import { ConnectionInfo, DefaultApi } from './kcclient/api';
+
+export class AdoptedSession implements JupyterKernel {
+	private _runtimeInfo: KernelInfoReply | undefined;
+
+	constructor(
+		private readonly _session: KallichoreSession,
+		private readonly _api: DefaultApi
+	) {
+
+	}
+
+	async connectToSession(session: JupyterSession): Promise<void> {
+		// Read the connection information from the session
+		const connectionFile = session.state.connectionFile;
+		const connectionInfo = JSON.parse(connectionFile) as ConnectionInfo;
+
+		// Adopt the session using the connection information
+		this._api.adoptSession(session.state.sessionId, connectionInfo);
+	}
+
+	get runtimeInfo(): KernelInfoReply | undefined {
+		return this._runtimeInfo;
+	}
+
+	log(msg: string): void {
+		this._session.log(msg);
+	}
+}

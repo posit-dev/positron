@@ -744,10 +744,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		};
 
 		// Create the "kernel"
-		const kernel = new AdoptedSession(this);
+		const kernel = new AdoptedSession(this, this._api);
 
 		// Start the kernel and wait for it to be ready
 		await this._kernelSpec!.startKernel!(session, kernel);
+
+		// Mark the session as ready
+		this.markReady('kernel adoption complete');
 
 		// Return the runtime info from the adopted session
 		const info = kernel.runtimeInfo;
