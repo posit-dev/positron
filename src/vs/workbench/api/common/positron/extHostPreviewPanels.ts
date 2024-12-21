@@ -13,6 +13,7 @@ import { IExtHostWorkspace } from '../extHostWorkspace.js';
 import type * as vscode from 'vscode';
 import type * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
+import * as path from '../../../../base/common/path.js';
 
 type IconPath = URI | { readonly light: URI; readonly dark: URI };
 
@@ -242,7 +243,6 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 		};
 		this._proxy.$previewHtml(toExtensionData(extension), handle, htmlpath);
 		const webview = this.webviews.$createNewWebview(handle, options, extension);
-		const path = require('path');
 		const title = path.basename(htmlpath);
 		const panel = this.createNewPreviewPanel(handle, viewType, title, webview as ExtHostWebview, true);
 
