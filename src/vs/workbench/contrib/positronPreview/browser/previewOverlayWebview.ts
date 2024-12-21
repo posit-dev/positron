@@ -66,7 +66,7 @@ export class PreviewOverlayWebview extends Disposable {
 
 					// Listen for messages
 					window.addEventListener('message', message => {
-						if (message.source === previewContentWindow) {
+						if (message.source === previewContentWindow && message.data.channel !== 'execCommand') {
 							// If a message is coming from the preview content window, forward it to the
 							// preview overlay webview.
 							vscode.postMessage({
@@ -75,6 +75,8 @@ export class PreviewOverlayWebview extends Disposable {
 							});
 						} else {
 							// Forward messages from the preview overlay webview to the preview content window.
+							// Messages may include commands to navigate back, forward, reload, etc.,
+							// via the 'execCommand' channel.
 							previewContentWindow.postMessage(message.data, '*');
 						}
 					});

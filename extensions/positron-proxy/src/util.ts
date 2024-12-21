@@ -52,20 +52,29 @@ export async function htmlContentRewriter(
 
 	// If we're running in the web, we need to inject resources for the preview HTML.
 	if (vscode.env.uiKind === vscode.UIKind.Web && htmlConfig) {
-		// Inject the preview style defaults for unstyled preview documents.
-		response = response.replace(
-			'<head>',
-			`<head>\n
-			${htmlConfig.styleDefaults + '\n' || ''}`
-		);
+		// If the response includes a head tag, inject the preview resources into the head tag.
+		if (response.includes('<head>')) {
+			// Inject the preview style defaults for unstyled preview documents.
+			response = response.replace(
+				'<head>',
+				`<head>\n
+				${htmlConfig.styleDefaults || ''}`
+			);
 
-		// Inject the preview style overrides and script.
-		response = response.replace(
-			'</head>',
-			`${htmlConfig.styleOverrides + '\n' || ''}
-			${htmlConfig.script + '\n' || ''}
-			</head>`
-		);
+			// Inject the preview style overrides and script.
+			response = response.replace(
+				'</head>',
+				`${htmlConfig.styleOverrides || ''}
+				${htmlConfig.script || ''}
+				</head>`
+			);
+		} else {
+			// Otherwise, prepend the HTML content with the preview resources.
+			response = `${htmlConfig.styleDefaults || ''}
+				${htmlConfig.styleOverrides || ''}
+				${htmlConfig.script || ''}
+				${response}`;
+		}
 	}
 
 	// Rewrite the URLs with the proxy path.
