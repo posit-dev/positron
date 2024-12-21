@@ -31,7 +31,7 @@ test.describe('Console ANSI styling', { tag: [tags.CRITICAL, tags.CONSOLE, tags.
 			await expect(link).toContainText(fileName, { useInnerText: true });
 
 			await link.click();
-			await app.workbench.editors.waitForActiveTab(fileName);
+			await app.workbench.positronEditors.waitForActiveTab(fileName);
 		}).toPass({ timeout: 60000 });
 	});
 

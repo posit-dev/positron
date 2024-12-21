@@ -190,7 +190,7 @@ Data_Frame = data('mtcars')`;
 		}).toPass();
 
 		// Now move focus out of the the data explorer pane
-		await app.workbench.editors.newUntitledFile();
+		await app.workbench.positronEditors.newUntitledFile();
 		await app.workbench.positronQuickaccess.runCommand('workbench.panel.positronVariables.focus');
 		await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
 

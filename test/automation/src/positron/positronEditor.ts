@@ -78,4 +78,36 @@ export class PositronEditor {
 
 		return topValue;
 	}
+
+	async waitForTypeInEditor(filename: string, text: string, selectorPrefix = ''): Promise<any> {
+		if (text.includes('\n')) {
+			throw new Error('waitForTypeInEditor does not support new lines, use either a long single line or dispatchKeybinding(\'Enter\')');
+		}
+		const editor = [selectorPrefix || '', EDITOR(filename)].join(' ');
+
+		await expect(this.code.driver.page.locator(editor)).toBeVisible();
+
+		const textarea = `${editor} textarea`;
+		await expect(this.code.driver.page.locator(textarea)).toBeFocused();
+
+		await this.code.driver.page.locator(textarea).fill(text);
+
+		await this.waitForEditorContents(filename, c => c.indexOf(text) > -1, selectorPrefix);
+	}
+
+	async waitForEditorContents(filename: string, accept: (contents: string) => boolean, selectorPrefix = ''): Promise<any> {
+		const selector = [selectorPrefix || '', `${EDITOR(filename)} .view-lines`].join(' ');
+		const locator = this.code.driver.page.locator(selector);
+
+		let content = '';
+		await expect(async () => {
+			content = (await locator.textContent())?.replace(/\u00a0/g, ' ') || '';
+			if (!accept(content)) {
+				throw new Error(`Content did not match condition: ${content}`);
+			}
+		}).toPass();
+
+		return content;
+	}
+
 }

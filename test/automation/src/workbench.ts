@@ -43,6 +43,7 @@ import { PositronWelcome } from './positron/positronWelcome';
 import { PositronTerminal } from './positron/positronTerminal';
 import { PositronViewer } from './positron/positronViewer';
 import { PositronEditor } from './positron/positronEditor';
+import { PositronEditors } from './positron/positronEditors';
 import { PositronTestExplorer } from './positron/positronTestExplorer';
 import { PositronQuickAccess } from './positron/positronQuickaccess';
 import { PositronOutline } from './positron/positronOutline';
@@ -102,6 +103,7 @@ export class Workbench {
 	readonly positronClipboard: PositronClipboard;
 	readonly positronQuickInput: PositronQuickInput;
 	readonly positronExtensions: PositronExtensions;
+	readonly positronEditors: PositronEditors;
 	// --- End Positron ---
 
 	constructor(code: Code) {
@@ -150,6 +152,7 @@ export class Workbench {
 		this.positronOutline = new PositronOutline(code, this.positronQuickaccess);
 		this.positronClipboard = new PositronClipboard(code);
 		this.positronExtensions = new PositronExtensions(code, this.positronQuickaccess);
+		this.positronEditors = new PositronEditors(code);
 		// --- End Positron ---
 	}
 }
