@@ -273,12 +273,6 @@
             "default": [],
             "description": "%r.configuration.extraArguments.description%"
           },
-          "positron.r.taskHyperlinks": {
-            "scope": "window",
-            "type": "boolean",
-            "default": false,
-            "description": "%r.configuration.taskHyperlinks.description%"
-          },
           "positron.r.defaultRepositories": {
             "scope": "window",
             "type": "string",
