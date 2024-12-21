@@ -73,7 +73,7 @@ export async function prepCliEnvVars(session?: RSession): Promise<EnvVar> {
 	}
 
 	const taskHyperlinks = taskHyperlinksEnabled();
-	const cliPkg = await session.packageVersion('cli', '3.6.3.9001');
+	const cliPkg = await session.packageVersion('cli', '3.6.3.9002');
 	const cliSupportsHyperlinks = cliPkg?.compatible ?? false;
 
 	if (!taskHyperlinks || !cliSupportsHyperlinks) {
@@ -84,6 +84,7 @@ export async function prepCliEnvVars(session?: RSession): Promise<EnvVar> {
 	return {
 		/* eslint-disable @typescript-eslint/naming-convention */
 		R_CLI_HYPERLINKS: 'TRUE',
+		R_CLI_HYPERLINK_FILE_URL_FORMAT: 'positron://file{path}:{line}:{column}',
 		// TODO: I'd like to request POSIX compliant hyperlinks in the future, but currently
 		// cli's tests implicitly assume the default and there are more important changes to
 		// propose in cli, such as tweaks to file hyperlinks. Leave this alone for now.
