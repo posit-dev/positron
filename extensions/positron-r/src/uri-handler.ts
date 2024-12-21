@@ -5,24 +5,11 @@
 
 import * as vscode from 'vscode';
 
-import { LOGGER } from './extension';
 import { RSessionManager } from './session-manager';
 import { EnvVar, RSession } from './session';
 
 export async function registerUriHandler() {
 	vscode.window.registerUriHandler({ handleUri });
-}
-
-// Temporary feature flag to finesse the fact that cli hyperlinks are either all ON or all OFF.
-// cli 3.6.3.9001 gained support for configuring the URL format of run/help/vignette hyperlinks.
-// But file hyperlinks are not yet configurable and will delegate to operating system.
-// If the user still has RStudio as the app associated with .R files, it will open in RStudio.
-// Flag will be removed once cli can be configured to emit positron://file/... hyperlinks.
-function taskHyperlinksEnabled(): boolean {
-	const extConfig = vscode.workspace.getConfiguration('positron.r');
-	const taskHyperlinksEnabled = extConfig.get<boolean>('taskHyperlinks');
-
-	return taskHyperlinksEnabled === true;
 }
 
 // Example of a URI we expect to handle:
@@ -72,11 +59,10 @@ export async function prepCliEnvVars(session?: RSession): Promise<EnvVar> {
 		return {};
 	}
 
-	const taskHyperlinks = taskHyperlinksEnabled();
 	const cliPkg = await session.packageVersion('cli', '3.6.3.9002');
 	const cliSupportsHyperlinks = cliPkg?.compatible ?? false;
 
-	if (!taskHyperlinks || !cliSupportsHyperlinks) {
+	if (!cliSupportsHyperlinks) {
 		// eslint-disable-next-line @typescript-eslint/naming-convention
 		return { R_CLI_HYPERLINKS: 'FALSE' };
 	}
