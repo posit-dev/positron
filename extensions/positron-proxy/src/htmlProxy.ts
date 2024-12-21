@@ -9,7 +9,7 @@ import path = require('path');
 import fs = require('fs');
 
 import { Disposable, Uri } from 'vscode';
-import { PromiseHandles } from './util';
+import { injectPreviewResources, PromiseHandles } from './util';
 import { isAddressInfo, ProxyServerHtml } from './types';
 
 /**
@@ -93,29 +93,7 @@ export class HtmlProxyServer implements Disposable {
 					let content = fs.readFileSync(filePath, 'utf8');
 					// If there is an HTML configuration, use it to rewrite the content.
 					if (htmlConfig) {
-						// If the response includes a head tag, inject the preview resources into the head tag.
-						if (content.includes('<head>')) {
-							// Inject the preview style defaults for unstyled preview documents.
-							content = content.replace(
-								'<head>',
-								`<head>
-								${htmlConfig.styleDefaults || ''}`
-							);
-
-							// Inject the preview style overrides and script.
-							content = content.replace(
-								'</head>',
-								`${htmlConfig.styleOverrides || ''}
-								${htmlConfig.script || ''}
-								</head>`
-							);
-						} else {
-							// Otherwise, prepend the HTML content with the preview resources.
-							content = `${htmlConfig.styleDefaults || ''}
-								${htmlConfig.styleOverrides || ''}
-								${htmlConfig.script || ''}
-								${content}`;
-						}
+						content = injectPreviewResources(content, htmlConfig);
 					}
 					res.send(content);
 				} else {

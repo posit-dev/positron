@@ -52,29 +52,7 @@ export async function htmlContentRewriter(
 
 	// If we're running in the web, we need to inject resources for the preview HTML.
 	if (vscode.env.uiKind === vscode.UIKind.Web && htmlConfig) {
-		// If the response includes a head tag, inject the preview resources into the head tag.
-		if (response.includes('<head>')) {
-			// Inject the preview style defaults for unstyled preview documents.
-			response = response.replace(
-				'<head>',
-				`<head>\n
-				${htmlConfig.styleDefaults || ''}`
-			);
-
-			// Inject the preview style overrides and script.
-			response = response.replace(
-				'</head>',
-				`${htmlConfig.styleOverrides || ''}
-				${htmlConfig.script || ''}
-				</head>`
-			);
-		} else {
-			// Otherwise, prepend the HTML content with the preview resources.
-			response = `${htmlConfig.styleDefaults || ''}
-				${htmlConfig.styleOverrides || ''}
-				${htmlConfig.script || ''}
-				${response}`;
-		}
+		response = injectPreviewResources(response, htmlConfig);
 	}
 
 	// Rewrite the URLs with the proxy path.
@@ -84,6 +62,49 @@ export async function htmlContentRewriter(
 	return response;
 }
 
+/**
+ * Injects the preview resources into the HTML content.
+ * @param content The HTML content to inject the preview resources into.
+ * @param htmlConfig The HTML configuration defining the preview resources.
+ * @returns The content with the preview resources injected.
+ */
+export function injectPreviewResources(content: string, htmlConfig: ProxyServerHtml) {
+	// If the response includes a head tag, inject the preview resources into the head tag.
+	if (content.includes('<head>')) {
+		// Inject the preview style defaults for unstyled preview documents.
+		content = content.replace(
+			'<head>',
+			`<head>\n
+			${htmlConfig.styleDefaults || ''}`
+		);
+
+		// Inject the preview style overrides and script.
+		content = content.replace(
+			'</head>',
+			`${htmlConfig.styleOverrides || ''}
+			${htmlConfig.script || ''}
+			</head>`
+		);
+	} else {
+		// Otherwise, prepend the HTML content with the preview resources.
+		content = `${htmlConfig.styleDefaults || ''}
+			${htmlConfig.styleOverrides || ''}
+			${htmlConfig.script || ''}
+			${content}`;
+	}
+	return content;
+}
+
+/**
+ * A content rewriter for help content. Injects the help resources into the help HTML content.
+ * @param _serverOrigin The server origin.
+ * @param proxyPath The proxy path.
+ * @param _url The URL.
+ * @param contentType The content type.
+ * @param responseBuffer The response buffer.
+ * @param htmlConfig The HTML configuration.
+ * @returns The rewritten response buffer.
+ */
 export async function helpContentRewriter(
 	_serverOrigin: string,
 	proxyPath: string,
