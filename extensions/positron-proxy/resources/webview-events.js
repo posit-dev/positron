@@ -21,6 +21,9 @@
  * // --- End Positron Proxy Changes ---
  *
  * Original: src/vs/workbench/contrib/webview/browser/pre/webview-events.js
+ *
+ * This file is intended for the browser context of Positron, and should not used in the
+ * Electron context. Please see the original webview-events.js file for the Electron context.
  */
 
 /**
@@ -87,18 +90,27 @@ const handleAuxClick = (event) => {
 	}
 };
 
+// --- Start Positron Proxy Changes ---
 /**
+ * This is a copy of the handleInnerKeydown function from src/vs/workbench/contrib/webview/browser/pre/index.html,
+ * with some modifications for Positron in a browser context.
  * @param {KeyboardEvent} e
  */
 const handleInnerKeydown = (e) => {
 	// If the keypress would trigger a browser event, such as copy or paste,
 	// make sure we block the browser from dispatching it. Instead VS Code
 	// handles these events and will dispatch a copy/paste back to the webview
-	// --- Start Positron Proxy Changes ---
-	if (isUndoRedo(e) || isPrint(e) || isFindEvent(e) || isSaveEvent(e) /*|| isCopyPasteOrCut(e)*/) {
-	// --- End Positron Proxy Changes ---
+	// if needed
+	if (isPrint(e) || isFindEvent(e) || isSaveEvent(e)) {
+		e.preventDefault();
+	} else if (isUndoRedo(e) || isCopyPasteOrCut(e)) {
+		return; // let the browser handle this
+	} else if (isCloseTab(e) || isNewWindow(e) || isHelp(e) || isRefresh(e)) {
+		// Prevent Ctrl+W closing window / Ctrl+N opening new window in PWA.
+		// (No effect in a regular browser tab.)
 		e.preventDefault();
 	}
+
 	hostMessaging.postMessage('did-keydown', {
 		key: e.key,
 		keyCode: e.keyCode,
@@ -107,9 +119,11 @@ const handleInnerKeydown = (e) => {
 		altKey: e.altKey,
 		ctrlKey: e.ctrlKey,
 		metaKey: e.metaKey,
-		repeat: e.repeat,
+		repeat: e.repeat
 	});
 };
+// --- End Positron Proxy Changes ---
+
 /**
  * @param {KeyboardEvent} e
  */
