@@ -86,7 +86,10 @@ export class HtmlProxyServer implements Disposable {
 		}
 
 		// Create a new path entry.
-		if (vscode.env.uiKind === vscode.UIKind.Web) {
+		if (vscode.env.uiKind !== vscode.UIKind.Web) {
+			this._app.use(`/${serverPath}`, express.static(targetPath));
+		} else {
+			// If we're running in the web, we need to inject resources for the preview HTML.
 			this._app.use(`/${serverPath}`, async (req, res, next) => {
 				const filePath = path.join(targetPath, req.path);
 				if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
@@ -100,8 +103,6 @@ export class HtmlProxyServer implements Disposable {
 					next();
 				}
 			});
-		} else {
-			this._app.use(`/${serverPath}`, express.static(targetPath));
 		}
 		const address = this._server.address();
 		if (!isAddressInfo(address)) {
