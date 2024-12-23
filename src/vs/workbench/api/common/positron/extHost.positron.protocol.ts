@@ -6,13 +6,14 @@
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
-import { MainContext, IWebviewPortMapping, WebviewExtensionDescription } from '../extHost.protocol.js';
+import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatProgressDto } from '../extHost.protocol.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
 import { RuntimeClientType } from './extHostTypes.positron.js';
-import { LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
+import { LanguageRuntimeDynState, RuntimeSessionMetadata, ai } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -123,6 +124,16 @@ export interface ExtHostConnectionsShape {
 	$driverInstallDependencies(driverId: string): Promise<boolean>;
 }
 
+export interface MainThreadAiFeaturesShape {
+	$registerAssistant(id: string, name: string): void;
+	$unregisterAssistant(id: string): void;
+	$taskResponse(id: string, content: IChatProgressDto): void;
+}
+
+export interface ExtHostAiFeaturesShape {
+	$provideChatResponse(assistantId: string, request: ai.ChatRequest, taskId: string, token: CancellationToken): Promise<void>;
+}
+
 /**
  * The view state of a preview in the Preview panel. Only one preview can be
  * active at a time (the one currently loaded into the panel); the active
@@ -196,6 +207,7 @@ export const ExtHostPositronContext = {
 	ExtHostContextKeyService: createProxyIdentifier<ExtHostContextKeyServiceShape>('ExtHostContextKeyService'),
 	ExtHostMethods: createProxyIdentifier<ExtHostMethodsShape>('ExtHostMethods'),
 	ExtHostConnections: createProxyIdentifier<ExtHostConnectionsShape>('ExtHostConnections'),
+	ExtHostAiFeatures: createProxyIdentifier<ExtHostAiFeaturesShape>('ExtHostAiFeatures'),
 };
 
 export const MainPositronContext = {
@@ -206,4 +218,5 @@ export const MainPositronContext = {
 	MainThreadContextKeyService: createProxyIdentifier<MainThreadContextKeyServiceShape>('MainThreadContextKeyService'),
 	MainThreadMethods: createProxyIdentifier<MainThreadMethodsShape>('MainThreadMethods'),
 	MainThreadConnections: createProxyIdentifier<MainThreadConnectionsShape>('MainThreadConnections'),
+	MainThreadAiFeatures: createProxyIdentifier<MainThreadAiFeaturesShape>('MainThreadAiFeatures'),
 };

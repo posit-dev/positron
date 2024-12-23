@@ -1524,4 +1524,119 @@ declare module 'positron' {
 		 */
 		export function registerConnectionDriver(driver: ConnectionsDriver): vscode.Disposable;
 	}
+
+	/**
+	 * Experimental AI features.
+	 */
+	namespace ai {
+		/**
+		 * An assistant (experimental)
+		 */
+		export interface Assistant {
+			/**
+			 * The display name for the assistant.
+			 */
+			readonly name: string;
+
+			/**
+			 * Assistant identifier.
+			 */
+			readonly identifier: string;
+
+			/**
+			 * Handle a chat request from the user.
+			 */
+			readonly chatResponseProvider: (request: ai.ChatRequest, response: ai.ChatResponse,
+				token: vscode.CancellationToken) => Thenable<void>;
+
+			/**
+			 * Handle a terminal chat request.
+			 */
+			readonly terminalResponseProvider: (request: ai.ChatRequest, response: ai.ChatResponse,
+				token: vscode.CancellationToken) => Thenable<void>;
+
+			/**
+			 * Handle an editor chat request.
+			 */
+			readonly editorResponseProvider: (request: ai.ChatRequest, response: ai.ChatResponse,
+				token: vscode.CancellationToken) => Thenable<void>;
+		}
+
+		/**
+		 * Register an assistant.
+		 */
+		export function registerAssistant(extension: vscode.Extension<any>,
+			assistant: Assistant): vscode.Disposable;
+
+		/**
+		 * A chat message.
+		 */
+		export interface ChatMessage {
+			/**
+			 * Role of message author.
+			 */
+			role: 'system' | 'assistant' | 'user';
+
+			/**
+			 * Message content.
+			 */
+			content: string;
+		}
+
+		/**
+		 * A chat request.
+		 */
+		export interface ChatRequest {
+			/**
+			 * User prompt.
+			 */
+			message: string;
+			attempt?: number;
+			location: string;
+			locationData?: any;
+			userSelectedModelId?: string;
+
+			/**
+			 * Histroy for this chat thread.
+			 */
+			history: ChatMessage[];
+
+			/**
+			 * Other context to be provided to the assistant.
+			 */
+			context?: {
+				value: {
+					console?: {
+						language: string;
+						version: string;
+					};
+					variables?: {
+						name: string;
+						value: string;
+						type: string;
+					}[];
+					shell?: string;
+					selection?: string;
+				};
+				additional: {
+					plotUri?: string;
+				};
+			};
+		}
+
+		/**
+		 * Methods provided to stream content back to the user.
+		 */
+		export interface ChatResponse {
+			/**
+			 * Write text content to the response stream.
+			 */
+			write: (content: string | vscode.MarkdownString) => void;
+
+			/**
+			 * Write a text edit to the response stream.
+			 */
+			writeTextEdit: (uri: vscode.Uri, edits: vscode.TextEdit | vscode.TextEdit[]) => void;
+		}
+	}
 }

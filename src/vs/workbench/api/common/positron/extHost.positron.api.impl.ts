@@ -30,6 +30,7 @@ import { ExtHostMethods } from './extHostMethods.js';
 import { ExtHostEditors } from '../extHostTextEditors.js';
 import { UiFrontendRequest } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ExtHostConnections } from './extHostConnections.js';
+import { ExtHostAiFeatures } from './extHostAiFeatures.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -65,6 +66,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostEditors: ExtHostEditors = rpcProtocol.getRaw(ExtHostContext.ExtHostEditors);
 	const extHostDocuments: ExtHostDocuments = rpcProtocol.getRaw(ExtHostContext.ExtHostDocuments);
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol, extHostLogService));
+	const extHostAiFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostAiFeatures, new ExtHostAiFeatures(rpcProtocol));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
 	const extHostContextKeyService = rpcProtocol.set(ExtHostPositronContext.ExtHostContextKeyService, new ExtHostContextKeyService(rpcProtocol));
@@ -207,6 +209,12 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			}
 		};
 
+		const ai: typeof positron.ai = {
+			registerAssistant(extension: vscode.Extension<any>, provider: positron.ai.Assistant): vscode.Disposable {
+				return extHostAiFeatures.registerAssistant(extension, provider);
+			}
+		};
+
 		// --- End Positron ---
 
 		return <typeof positron>{
@@ -217,6 +225,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			languages,
 			methods,
 			connections,
+			ai,
 			PositronOutputLocation: extHostTypes.PositronOutputLocation,
 			RuntimeClientType: extHostTypes.RuntimeClientType,
 			RuntimeClientState: extHostTypes.RuntimeClientState,
