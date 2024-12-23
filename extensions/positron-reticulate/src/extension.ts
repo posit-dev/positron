@@ -437,6 +437,13 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			kernelSpec
 		);
 
+		// Open the start barrier once the session is ready.
+		this.pythonSession.onDidChangeRuntimeState((state) => {
+			if (state === positron.RuntimeState.Ready || state === positron.RuntimeState.Idle) {
+				this.started.open();
+			}
+		});
+
 		this.onDidReceiveRuntimeMessage = this.pythonSession.onDidReceiveRuntimeMessage;
 		this.onDidChangeRuntimeState = this.pythonSession.onDidChangeRuntimeState;
 		this.onDidEndSession = this.pythonSession.onDidEndSession;
@@ -647,7 +654,7 @@ async function getRSession_(progress: vscode.Progress<{ message?: string; increm
 
 	if (session) {
 		// Get foreground session will return a runtime session even if it has
-		// already exitted. We check that it's still there before proceeding.
+		// already exited. We check that it's still there before proceeding.
 		// TODO: it would be nice to have an API to check for the session state.
 		try {
 			await session.callMethod?.('is_installed', 'reticulate', '1.39');
