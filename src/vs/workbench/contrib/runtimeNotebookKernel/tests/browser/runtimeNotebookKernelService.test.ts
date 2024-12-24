@@ -5,32 +5,33 @@
 
 import assert from 'assert';
 import sinon from 'sinon';
+import { timeout } from '../../../../../base/common/async.js';
 import { Event } from '../../../../../base/common/event.js';
+import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
+import { ResourceMap } from '../../../../../base/common/map.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
+import { ILanguageRuntimeMessageError, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { TestLanguageRuntimeSession, waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { PositronTestServiceAccessor, positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
-import { NotebookKernelService } from '../../../notebook/browser/services/notebookKernelServiceImpl.js';
-import { IRuntimeNotebookKernelService } from '../../browser/interfaces/runtimeNotebookKernelService.js';
-import { RuntimeNotebookKernel, RuntimeNotebookKernelService } from '../../browser/runtimeNotebookKernelService.js';
-import { POSITRON_RUNTIME_NOTEBOOK_KERNEL_ENABLED_KEY, POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../common/runtimeNotebookKernelConfig.js';
-import { createTestNotebookEditor, MockNotebookCell, TestNotebookExecutionStateService } from '../../../notebook/test/browser/testNotebookEditor.js';
-import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
-import { timeout } from '../../../../../base/common/async.js';
-import { TestLanguageRuntimeSession, waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
-import { ILanguageRuntimeMessageError, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { CellKind, CellUri, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
-import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
-import { INotebookService } from '../../../notebook/common/notebookService.js';
 import { mock } from '../../../../test/common/workbenchTestServices.js';
-import { URI } from '../../../../../base/common/uri.js';
-import { ICellExecuteUpdate, ICellExecutionComplete, INotebookCellExecution, INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
-import { ResourceMap } from '../../../../../base/common/map.js';
+import { NotebookKernelService } from '../../../notebook/browser/services/notebookKernelServiceImpl.js';
+import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
+import { CellKind, CellUri, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
 import { CellExecutionUpdateType } from '../../../notebook/common/notebookExecutionService.js';
+import { ICellExecuteUpdate, ICellExecutionComplete, INotebookCellExecution, INotebookExecutionStateService } from '../../../notebook/common/notebookExecutionStateService.js';
+import { INotebookService } from '../../../notebook/common/notebookService.js';
+import { createTestNotebookEditor, MockNotebookCell, TestNotebookExecutionStateService } from '../../../notebook/test/browser/testNotebookEditor.js';
+import { IRuntimeNotebookKernelService } from '../../browser/interfaces/runtimeNotebookKernelService.js';
+import { RuntimeNotebookKernel } from '../../browser/runtimeNotebookKernel.js';
+import { RuntimeNotebookKernelService } from '../../browser/runtimeNotebookKernelService.js';
+import { POSITRON_RUNTIME_NOTEBOOK_KERNEL_ENABLED_KEY, POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../common/runtimeNotebookKernelConfig.js';
 
-suite('RuntimeNotebookKernelService', () => {
+suite('Positron - RuntimeNotebookKernelService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 	let instantiationService: TestInstantiationService;
 	let configurationService: TestConfigurationService;
@@ -143,11 +144,10 @@ suite('RuntimeNotebookKernelService', () => {
 	// TODO: Kernel source action providers?
 });
 
-suite('RuntimeNotebookKernel', () => {
+suite('Positron - RuntimeNotebookKernel', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 	let instantiationService: TestInstantiationService;
 	let notebookExecutionStateService: TestNotebookExecutionStateService2;
-	let runtimeSessionService: IRuntimeSessionService;
 	let runtime: ILanguageRuntimeMetadata;
 	let session: TestLanguageRuntimeSession;
 	let kernel: RuntimeNotebookKernel;
@@ -155,7 +155,6 @@ suite('RuntimeNotebookKernel', () => {
 
 	setup(async () => {
 		instantiationService = positronWorkbenchInstantiationService(disposables);
-		const accessor = instantiationService.createInstance(PositronTestServiceAccessor);
 		// notebookExecutionStateService = accessor.notebookExecutionStateService;
 
 		// notebookExecutionStateService = new class extends TestNotebookExecutionStateService {
@@ -171,8 +170,6 @@ suite('RuntimeNotebookKernel', () => {
 		// }();
 		notebookExecutionStateService = new TestNotebookExecutionStateService2();
 		instantiationService.stub(INotebookExecutionStateService, notebookExecutionStateService);
-
-		runtimeSessionService = accessor.runtimeSessionService;
 
 		const cells: MockNotebookCell[] = [
 			['print(x)', 'python', CellKind.Code, [], {}],
