@@ -195,6 +195,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 			sessionMode: LanguageRuntimeSessionMode.Notebook,
 			startReason: '',
 		});
+		await waitForRuntimeState(session, RuntimeState.Ready);
 	});
 
 	function getExecution(cellIndex: number) {
@@ -366,7 +367,6 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		const sessionInterruptSpy = sinon.spy(session, 'interrupt');
 
 		// Exit the session after the execution started but before the interrupt.
-		await waitForRuntimeState(session, RuntimeState.Ready);
 		await session.shutdown(RuntimeExitReason.Shutdown);
 
 		// Interrupt and wait for the execution to end (it should actually end!).

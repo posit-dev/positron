@@ -101,7 +101,17 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		_errorBehavior: RuntimeErrorBehavior
 	): void {
 		this._lastExecutionId = id;
-		this._onDidExecute.fire(id);
+
+		// Go to busy on the next tick, trying to match real runtime behavior.
+		setTimeout(() => {
+			this._onDidChangeRuntimeState.fire(RuntimeState.Busy);
+
+			// Fire onDidExecute on the next tick, so that tests can listen and fire their own
+			// messages in response to the execution.
+			setTimeout(() => {
+				this._onDidExecute.fire(id);
+			});
+		});
 	}
 
 	async isCodeFragmentComplete(_code: string): Promise<RuntimeCodeFragmentStatus> {
