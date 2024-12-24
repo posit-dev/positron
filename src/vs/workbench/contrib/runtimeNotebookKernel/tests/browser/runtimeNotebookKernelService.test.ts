@@ -20,7 +20,7 @@ import { IRuntimeSessionService } from '../../../../services/runtimeSession/comm
 import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { timeout } from '../../../../../base/common/async.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
-import { ILanguageRuntimeMessageError, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeOnlineState, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMessageError, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { CellKind, CellUri, NotebookCellExecutionState } from '../../../notebook/common/notebookCommon.js';
 import { NotebookTextModel } from '../../../notebook/common/model/notebookTextModel.js';
 import { INotebookService } from '../../../notebook/common/notebookService.js';
@@ -368,8 +368,9 @@ suite('RuntimeNotebookKernel', () => {
 
 		const sessionInterruptSpy = sinon.spy(session, 'interrupt');
 
-		// Simulate the session exiting after the execution started but before the interrupt.
-		sinon.stub(runtimeSessionService, 'getNotebookSessionForNotebookUri').returns(undefined);
+		// Exit the session after the execution started but before the interrupt.
+		await waitForRuntimeState(session, RuntimeState.Ready);
+		await session.shutdown(RuntimeExitReason.Shutdown);
 
 		// Interrupt and wait for the execution to end (it should actually end!).
 		await kernel.cancelNotebookCellExecution(notebookDocument.uri, [0]);

@@ -17,7 +17,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeOnlineState, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
@@ -369,12 +369,10 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	async cancelNotebookCellExecution(uri: URI, _cellHandles: number[]): Promise<void> {
 		this._logService.debug(`[RuntimeNotebookKernel] Interrupting`);
 
-		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(uri);
-		if (!session) {
-			throw new Error(`NO runtime session for notebook '${uri}'`);
+		const notebookRuntimeKernelSession = this._notebookRuntimeKernelSessionsByNotebookUri.get(uri);
+		if (notebookRuntimeKernelSession) {
+			notebookRuntimeKernelSession.interrupt();
 		}
-
-		session.interrupt();
 	}
 
 	provideVariables(notebookUri: URI, parentId: number | undefined, kind: 'named' | 'indexed', start: number, token: CancellationToken): AsyncIterableObject<VariablesResult> {
@@ -398,10 +396,13 @@ class RuntimeNotebookKernelSession extends Disposable {
 	 */
 	private readonly _pendingCellExecutionsByNotebookUri = new ResourceMap<Promise<void>>();
 
+	private _pendingRuntimeExecution: RuntimeNotebookCellExecution | undefined;
+
 	constructor(
 		private readonly _session: ILanguageRuntimeSession,
 		private readonly _notebook: NotebookTextModel,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@ILogService private readonly _logService: ILogService,
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
 	) {
 		super();
@@ -457,9 +458,10 @@ class RuntimeNotebookKernelSession extends Disposable {
 		// TODO: Error if there's already a runtimeExecution for this ID?
 		//       Or get another id?
 
-		const runtimeExecution = this._register(this._instantiationService.createInstance(
+		const execution = this._register(this._instantiationService.createInstance(
 			RuntimeNotebookCellExecution, this._session, cellExecution, cell
 		));
+		this._pendingRuntimeExecution = execution;
 
 		try {
 			this._session.execute(
@@ -469,10 +471,46 @@ class RuntimeNotebookKernelSession extends Disposable {
 				RuntimeErrorBehavior.Stop,
 			);
 		} catch (err) {
-			runtimeExecution.error(err);
+			execution.error(err);
 		}
 
-		return runtimeExecution.promise;
+		return this._pendingRuntimeExecution.promise.finally(() => {
+			if (this._pendingRuntimeExecution === execution) {
+				this._pendingRuntimeExecution = undefined;
+			}
+		});
+	}
+
+	async interrupt(): Promise<void> {
+		if (this._session.getRuntimeState() === RuntimeState.Busy ||
+			this._session.getRuntimeState() === RuntimeState.Interrupting) {
+			// The session is in an interruptible state, interrupt it.
+			this._session.interrupt();
+		} else if (this._session.getRuntimeState() === RuntimeState.Exiting ||
+			this._session.getRuntimeState() === RuntimeState.Exited ||
+			this._session.getRuntimeState() === RuntimeState.Restarting ||
+			this._session.getRuntimeState() === RuntimeState.Uninitialized) {
+
+			// TODO: Is it possible that a user could interrupt without a RuntimeNotebookKernelSession at all?
+			//       That would leave the executions running atm.
+
+			const execution = this._pendingRuntimeExecution;
+			if (!execution) {
+				// It shouldn't be possible to interrupt an execution without having set a token source.
+				// Log a warning and do nothing.
+				this._logService.warn(`Tried to interrupt notebook ${this._notebook.uri.toString()} with no executing cell.`);
+				return;
+			}
+
+			// It's possible that the session exited after the execution started.
+			// Log a warning and cancel the execution promise.
+			// TODO: Should this be primarily handled in a session.onDidEndSession listener?
+			this._logService.warn(`Tried to interrupt notebook ${this._notebook.uri.toString()} with no running session. Cancelling execution.`);
+			execution.error({
+				name: 'Session Exited Unexpectedly',
+				message: 'The session has exited unexpectedly.',
+			});
+		}
 	}
 }
 
