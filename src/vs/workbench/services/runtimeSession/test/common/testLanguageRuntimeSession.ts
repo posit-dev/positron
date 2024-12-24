@@ -56,6 +56,13 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	onDidReceiveRuntimeMessagePromptConfig = this._onDidReceiveRuntimeMessagePromptConfig.event;
 	onDidReceiveRuntimeMessageIPyWidget = this._onDidReceiveRuntimeMessageIPyWidgetEmitter.event;
 
+	// Test helper events
+	private readonly _onDidExecute = this._register(new Emitter<string>());
+	onDidExecute = this._onDidExecute.event;
+
+	// Track the last execution ID for interrupts.
+	private _lastExecutionId?: string;
+
 	readonly dynState = {
 		inputPrompt: `T>`,
 		continuationPrompt: 'T+',
@@ -89,11 +96,12 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 
 	execute(
 		_code: string,
-		_id: string,
+		id: string,
 		_mode: RuntimeCodeExecutionMode,
 		_errorBehavior: RuntimeErrorBehavior
 	): void {
-		throw new Error('Not implemented.');
+		this._lastExecutionId = id;
+		this._onDidExecute.fire(id);
 	}
 
 	async isCodeFragmentComplete(_code: string): Promise<RuntimeCodeFragmentStatus> {
@@ -162,7 +170,14 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	}
 
 	async interrupt(): Promise<void> {
-		throw new Error('Not implemented.');
+		if (this._lastExecutionId) {
+			this.receiveErrorMessage({
+				parent_id: this._lastExecutionId,
+				name: 'InterruptError',
+				message: 'The session was interrupted.',
+				traceback: [],
+			});
+		}
 	}
 
 	async restart(): Promise<void> {
@@ -282,7 +297,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			...this._defaultMessage(message, LanguageRuntimeMessageType.Error),
 			name: message.name ?? 'Error',
 			message: message.message ?? '',
-			traceback: [],
+			traceback: message.traceback ?? [],
 		};
 	}
 

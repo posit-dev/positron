@@ -9,7 +9,7 @@ import { ConfigurationScope, Extensions, IConfigurationRegistry } from '../../..
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { positronConfigurationNodeBase } from '../../../services/languageRuntime/common/languageRuntime.js';
 
-const POSITRON_RUNTIME_NOTEBOOK_KERNEL_ENABLED_KEY = 'positron.runtimeNotebookKernel.enable';
+export const POSITRON_RUNTIME_NOTEBOOK_KERNEL_ENABLED_KEY = 'positron.runtimeNotebookKernel.enable';
 export const NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY = 'notebook.experimental.showExecutionInfo';
 
 /**

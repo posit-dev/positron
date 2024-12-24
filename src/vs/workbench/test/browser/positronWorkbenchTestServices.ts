@@ -39,6 +39,12 @@ import { INotebookExecutionService } from '../../contrib/notebook/common/noteboo
 import { TestNotebookExecutionService } from '../common/positronWorkbenchTestServices.js';
 import { IStatusbarService } from '../../services/statusbar/browser/statusbar.js';
 import { StatusbarService } from '../../browser/parts/statusbar/statusbarPart.js';
+import { INotebookService } from '../../contrib/notebook/common/notebookService.js';
+import { INotebookKernelService } from '../../contrib/notebook/common/notebookKernelService.js';
+import { INotebookExecutionStateService } from '../../contrib/notebook/common/notebookExecutionStateService.js';
+import { TestNotebookExecutionStateService } from '../../contrib/notebook/test/browser/testNotebookEditor.js';
+import { NotebookKernelService } from '../../contrib/notebook/browser/services/notebookKernelServiceImpl.js';
+import { NotebookService } from '../../contrib/notebook/browser/services/notebookServiceImpl.js';
 
 export function positronWorkbenchInstantiationService(
 	disposables: Pick<DisposableStore, 'add'> = new DisposableStore(),
@@ -46,28 +52,33 @@ export function positronWorkbenchInstantiationService(
 		editorService?: (instantiationService: IInstantiationService) => IEditorService;
 	},
 ): TestInstantiationService {
-	const instantiationService = baseWorkbenchInstantiationService(undefined, disposables);
+	const instantiationService = baseWorkbenchInstantiationService(overrides, disposables);
 
 	createRuntimeServices(instantiationService, disposables);
 
+	// Additional workbench services.
+	instantiationService.stub(IStatusbarService, disposables.add(instantiationService.createInstance(StatusbarService)));
+	instantiationService.stub(IWorkbenchThemeService, new TestThemeService() as any);
+	instantiationService.stub(IWebviewService, disposables.add(new WebviewService(instantiationService)));
+	instantiationService.stub(IViewsService, new TestViewsService());
+
+	// Notebook services.
 	instantiationService.stub(INotebookExecutionService, new TestNotebookExecutionService());
+	instantiationService.stub(INotebookExecutionStateService, instantiationService.createInstance(TestNotebookExecutionStateService));
 	instantiationService.stub(INotebookRendererMessagingService, disposables.add(instantiationService.createInstance(NotebookRendererMessagingService)));
 	instantiationService.stub(INotebookEditorService, disposables.add(instantiationService.createInstance(NotebookEditorWidgetService)));
-	instantiationService.stub(IWorkbenchThemeService, new TestThemeService() as any);
 	instantiationService.stub(INotebookDocumentService, new NotebookDocumentWorkbenchService());
-	instantiationService.stub(IWebviewService, disposables.add(new WebviewService(instantiationService)));
+	instantiationService.stub(INotebookService, disposables.add(instantiationService.createInstance(NotebookService)));
+	instantiationService.stub(INotebookKernelService, disposables.add(instantiationService.createInstance(NotebookKernelService)));
+
+	// Positron services.
 	instantiationService.stub(IPositronNotebookOutputWebviewService, instantiationService.createInstance(PositronNotebookOutputWebviewService));
 	instantiationService.stub(IPositronIPyWidgetsService, disposables.add(instantiationService.createInstance(PositronIPyWidgetsService)));
 	instantiationService.stub(IPositronWebviewPreloadService, disposables.add(instantiationService.createInstance(PositronWebviewPreloadService)));
 	instantiationService.stub(IPositronIPyWidgetsService, disposables.add(instantiationService.createInstance(PositronIPyWidgetsService)));
-	instantiationService.stub(IViewsService, new TestViewsService());
 	instantiationService.stub(IPositronPlotsService, disposables.add(instantiationService.createInstance(PositronPlotsService)));
-	const editorService = overrides?.editorService ? overrides.editorService(instantiationService) : disposables.add(new TestEditorService());
-	instantiationService.stub(IEditorService, editorService);
-	instantiationService.stub(IConfigurationService, new TestConfigurationService());
 	instantiationService.stub(IPositronConsoleService, disposables.add(instantiationService.createInstance(PositronConsoleService)));
 	instantiationService.stub(IPositronVariablesService, disposables.add(instantiationService.createInstance(PositronVariablesService)));
-	instantiationService.stub(IStatusbarService, disposables.add(instantiationService.createInstance(StatusbarService)));
 
 	return instantiationService;
 }
@@ -79,6 +90,8 @@ export class PositronTestServiceAccessor {
 		@ILogService public logService: ILogService,
 		@INotebookEditorService public notebookEditorService: INotebookEditorService,
 		@INotebookExecutionService public notebookExecutionService: TestNotebookExecutionService,
+		@INotebookExecutionStateService public notebookExecutionStateService: TestNotebookExecutionStateService,
+		@INotebookKernelService public notebookKernelService: NotebookKernelService,
 		@IPositronIPyWidgetsService public positronIPyWidgetsService: PositronIPyWidgetsService,
 		@IPositronPlotsService public positronPlotsService: IPositronPlotsService,
 		@IPositronVariablesService public positronVariablesService: IPositronVariablesService,
