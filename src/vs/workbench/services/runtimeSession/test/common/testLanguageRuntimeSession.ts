@@ -100,6 +100,17 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		_mode: RuntimeCodeExecutionMode,
 		_errorBehavior: RuntimeErrorBehavior
 	): void {
+		if (this._currentState === RuntimeState.Busy ||
+			this._currentState === RuntimeState.Exited ||
+			this._currentState === RuntimeState.Exiting ||
+			this._currentState === RuntimeState.Initializing ||
+			this._currentState === RuntimeState.Offline ||
+			this._currentState === RuntimeState.Restarting ||
+			this._currentState === RuntimeState.Starting ||
+			this._currentState === RuntimeState.Uninitialized) {
+			throw new Error(`Cannot execute code while runtime is '${this._currentState}'`);
+		}
+
 		this._lastExecutionId = id;
 
 		// Go to busy on the next tick, trying to match real runtime behavior.
