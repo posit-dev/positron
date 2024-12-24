@@ -73,7 +73,7 @@ enum JupyterNotebookCellOutputType {
 	ExecuteResult = 'execute_result',
 }
 
-class RuntimeNotebookKernelService extends Disposable implements IRuntimeNotebookKernelService {
+export class RuntimeNotebookKernelService extends Disposable implements IRuntimeNotebookKernelService {
 	/** Map of runtime notebook kernels keyed by kernel ID. */
 	private readonly _kernels = new Map<string, RuntimeNotebookKernel>();
 
@@ -92,6 +92,8 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 	) {
 		super();
 
+		// NOTE: These two instances could be services but we'll keep them here for now.
+
 		// Create the notebook execution status bar entry.
 		this._register(this._instantiationService.createInstance(NotebookExecutionStatus));
 
@@ -104,27 +106,32 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 			return;
 		}
 
-		// Register a kernel when a runtime is registered.
+		// Create a kernel when a runtime is registered.
 		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
 			this.createRuntimeNotebookKernel(runtime);
 		}));
 
-		// Register a kernel for each existing runtime.
+		// Create a kernel for each existing runtime.
 		for (const runtime of this._languageRuntimeService.registeredRuntimes) {
 			this.createRuntimeNotebookKernel(runtime);
 		}
 
-		// When one of our kernels is selected for a notebook, select the corresponding session
-		// via the runtime session service.
+		// When a known kernel is selected for a notebook, select the corresponding runtime for the notebook.
 		this._register(this._notebookKernelService.onDidChangeSelectedNotebooks(async e => {
+			const oldKernel = e.oldKernel && this._kernels.get(e.oldKernel);
 			const newKernel = e.newKernel && this._kernels.get(e.newKernel);
 			if (newKernel) {
+				// A known kernel was selected, select the corresponding runtime.
 				await this._runtimeSessionService.selectRuntime(
 					newKernel.runtime.runtimeId,
-					// TODO: Is this a user action or can it be automatic?
-					`Runtime selected for notebook`,
+					`Runtime kernel ${newKernel.id} selected for notebook`,
 					e.notebook,
 				);
+			} else if (oldKernel) {
+				// The user switched from a known kernel to an unknown kernel, shutdown the existing runtime.
+				// TODO: Add a shutdownNotebookSession to the runtime session service and call it here.
+				//       We need a dedicated method so that the runtime session service can manage
+				//       concurrent attempts to start/shutdown/restart while the shutdown is in progress.
 			}
 		}));
 
@@ -146,7 +153,7 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 			//       concurrent attempts to start/shutdown/restart while the shutdown is in progress.
 		}));
 
-		// Register kernel source action providers. This is a more customizable way to modify the
+		// Register kernel source action providers. This is how we customize the
 		// kernel selection quickpick. Each command must return a valid runtime ID.
 		this._register(this._notebookKernelService.registerKernelSourceActionProvider(viewType, {
 			viewType,
@@ -170,7 +177,7 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 					}
 				];
 			},
-			// Kernel source actions are currently fixed so we don't need this event.
+			// Kernel source actions are currently constant so we don't need this event.
 			onDidChangeSourceActions: undefined,
 		}));
 	}
@@ -182,12 +189,12 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 	 */
 	private createRuntimeNotebookKernel(runtime: ILanguageRuntimeMetadata): void {
 		// TODO: Dispose the kernel when the runtime is disposed/unregistered?
-		const kernel = this._instantiationService.createInstance(RuntimeNotebookKernel, runtime);
+		const kernel = this._register(this._instantiationService.createInstance(RuntimeNotebookKernel, runtime));
 
 		// TODO: Error if a kernel is already registered for the ID.
 		this._kernels.set(kernel.id, kernel);
 		this._kernelsByRuntimeId.set(runtime.runtimeId, kernel);
-		this._notebookKernelService.registerKernel(kernel);
+		this._register(this._notebookKernelService.registerKernel(kernel));
 	}
 
 	/**
@@ -262,7 +269,8 @@ class RuntimeNotebookKernelService extends Disposable implements IRuntimeNoteboo
 	}
 }
 
-class RuntimeNotebookKernel extends Disposable implements INotebookKernel {
+// TODO: Move each class to a separate file.
+export class RuntimeNotebookKernel extends Disposable implements INotebookKernel {
 	public readonly viewType = viewType;
 
 	public readonly extension = new ExtensionIdentifier(POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID);
@@ -277,6 +285,7 @@ class RuntimeNotebookKernel extends Disposable implements INotebookKernel {
 
 	public readonly hasVariableProvider = false;
 
+	// TODO: Not sure what we could set this to...
 	public readonly localResourceRoot: URI = URI.parse('');
 
 	private readonly _onDidChange = this._register(new Emitter<INotebookKernelChangeEvent>());
@@ -297,8 +306,8 @@ class RuntimeNotebookKernel extends Disposable implements INotebookKernel {
 	}
 
 	get id(): string {
-		// The kernel ID format `${extensionId}/${runtimeId}` is assumed by a few services and should not be changed.
-		return `${POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID}/${this.runtime.runtimeId}`;
+		// This kernel ID format is assumed by a few services and should be changed carefully.
+		return `${this.extension.value}/${this.runtime.runtimeId}`;
 	}
 
 	get label(): string {
@@ -370,6 +379,14 @@ class RuntimeNotebookKernel extends Disposable implements INotebookKernel {
 
 	provideVariables(notebookUri: URI, parentId: number | undefined, kind: 'named' | 'indexed', start: number, token: CancellationToken): AsyncIterableObject<VariablesResult> {
 		throw new Error('provideVariables not implemented.');
+	}
+
+	public override dispose(): void {
+		super.dispose();
+
+		for (const disposable of this._notebookRuntimeKernelSessionsByNotebookUri.values()) {
+			disposable.dispose();
+		}
 	}
 }
 
@@ -532,14 +549,14 @@ class RuntimeNotebookCellExecution extends Disposable {
 		this.dispose();
 	}
 
-	public error(err: any): void {
+	public error(err: Error): void {
 		// End the cell execution with the error.
 		this._cellExecution.complete({
 			runEndTime: Date.now(),
 			lastRunSuccess: false,
 			error: {
 				message: err.message,
-				stack: err.stack,
+				stack: err?.stack ?? JSON.stringify(err),
 				uri: this._cell.uri,
 				location: undefined,
 			},
@@ -672,21 +689,12 @@ class RuntimeNotebookCellExecution extends Disposable {
 				metadata: { outputType: JupyterNotebookCellOutputType.Error },
 			}],
 		}]);
-		this._cellExecution.complete({
-			runEndTime: Date.now(),
-			lastRunSuccess: false,
-			error: {
-				message: message.message,
-				stack: message.traceback.join('\n'),
-				uri: this._cell.uri,
-				location: undefined,
-			},
-		});
 
-		// The execution is finished - stop listening for replies.
-		this.error(new Error(
-			`Received language runtime error message: ${JSON.stringify(message)}`
-		));
+		this.error({
+			name: message.name,
+			message: message.message,
+			stack: message.traceback.join('\n'),
+		});
 	}
 
 	private async handleRuntimeMessageState(message: ILanguageRuntimeMessageState): Promise<void> {
