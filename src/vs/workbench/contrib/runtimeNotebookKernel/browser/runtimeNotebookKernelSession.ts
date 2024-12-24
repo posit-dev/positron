@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -35,8 +35,23 @@ export class RuntimeNotebookKernelSession extends Disposable {
 		super();
 	}
 
-	async executeCells(cells: NotebookCellTextModel[]): Promise<void> {
-		const executionPromises = cells.map(cell => this.queueCellExecution(cell));
+	/**
+	 * Register a disposable to be cleaned up when this object is disposed.
+	 */
+	public register(disposable: IDisposable): void {
+		this._register(disposable);
+	}
+
+	async executeCells(cellHandles: number[]): Promise<void> {
+		const executionPromises: Promise<void>[] = [];
+		for (const cellHandle of cellHandles) {
+			const cell = this._notebook.cells.find(cell => cell.handle === cellHandle);
+			// TODO: When does this happen?
+			if (!cell) {
+				continue;
+			}
+			executionPromises.push(this.queueCellExecution(cell));
+		}
 		await Promise.all(executionPromises);
 	}
 

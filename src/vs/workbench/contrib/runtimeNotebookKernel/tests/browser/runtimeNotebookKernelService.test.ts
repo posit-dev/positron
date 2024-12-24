@@ -15,7 +15,7 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { ILanguageRuntimeMessageError, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { TestLanguageRuntimeSession, waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
+import { waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { PositronTestServiceAccessor, positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
 import { mock } from '../../../../test/common/workbenchTestServices.js';
@@ -149,7 +149,6 @@ suite('Positron - RuntimeNotebookKernel', () => {
 	let instantiationService: TestInstantiationService;
 	let notebookExecutionStateService: TestNotebookExecutionStateService2;
 	let runtime: ILanguageRuntimeMetadata;
-	let session: TestLanguageRuntimeSession;
 	let kernel: RuntimeNotebookKernel;
 	let notebookDocument: NotebookTextModel;
 
@@ -187,8 +186,10 @@ suite('Positron - RuntimeNotebookKernel', () => {
 
 		runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
 		kernel = disposables.add(instantiationService.createInstance(RuntimeNotebookKernel, runtime));
+	});
 
-		session = await startTestLanguageRuntimeSession(instantiationService, disposables, {
+	async function startSession() {
+		const session = await startTestLanguageRuntimeSession(instantiationService, disposables, {
 			runtime,
 			notebookUri: notebookDocument.uri,
 			sessionName: 'test',
@@ -196,7 +197,8 @@ suite('Positron - RuntimeNotebookKernel', () => {
 			startReason: '',
 		});
 		await waitForRuntimeState(session, RuntimeState.Ready);
-	});
+		return session;
+	}
 
 	function getExecution(cellIndex: number) {
 		const cell = notebookDocument.cells[cellIndex];
@@ -207,6 +209,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 	}
 
 	test('single cell executes successfully on status idle message', async () => {
+		const session = await startSession();
 		disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
 
 		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0]);
@@ -231,11 +234,27 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		sinon.assert.callOrder(execution.update, execution.complete);
 	});
 
-	// TODO:
-	test.skip('single cell starts a new session if required', async () => {
+	test('single cell starts a new session if required', async () => {
+		// On execution, fire an idle message to complete the execution.
+		const session = await startSession();
+		disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
+
+		await session.shutdown(RuntimeExitReason.Shutdown);
+		// await waitForRuntimeState(session, RuntimeState.Exited);
+
+		// Execute a cell.
+		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0]);
+
+		// Check the execution.
+		const execution = getExecution(0).execution;
+		sinon.assert.calledOnceWithExactly(execution.complete, {
+			runEndTime: sinon.match.number,
+			lastRunSuccess: true,
+		});
 	});
 
 	test('single cell executes unsuccessfully on error message', async () => {
+		const session = await startSession();
 		const error = {
 			name: 'TestError',
 			message: 'An error occurred.',
@@ -248,7 +267,6 @@ suite('Positron - RuntimeNotebookKernel', () => {
 
 		// Check the execution.
 		const { cell, execution } = getExecution(0);
-		assert.ok(execution);
 		sinon.assert.calledOnceWithExactly(execution.complete, {
 			runEndTime: sinon.match.number,
 			lastRunSuccess: false,
@@ -262,6 +280,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 	});
 
 	test('queued cells are not executed if a preceding cell errors', async () => {
+		const session = await startSession();
 		disposables.add(session.onDidExecute(parent_id => session.receiveErrorMessage({ parent_id })));
 
 		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0, 1]);
@@ -279,6 +298,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 	});
 
 	test('queued cells execute in order (single execution)', async () => {
+		const session = await startSession();
 		disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
 
 		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0, 1]);
@@ -293,6 +313,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 	});
 
 	test('queued cells execute in order (multiple executions)', async () => {
+		const session = await startSession();
 		disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
 
 		await Promise.all([
@@ -312,6 +333,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 	});
 
 	test('internal state is reset after each execution', async () => {
+		const session = await startSession();
 		disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
 
 		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0]);
@@ -328,6 +350,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 	});
 
 	test('interrupt with running session and executing cell', async () => {
+		const session = await startSession();
 		const executionStartedPromise = new Promise<void>(resolve => {
 			disposables.add(session.onDidExecute((_id) => {
 				// Don't fire an idle message since we're testing interrupt.
@@ -350,11 +373,14 @@ suite('Positron - RuntimeNotebookKernel', () => {
 	});
 
 	test('interrupt with no executing cell', async () => {
+		await startSession();
+
 		// This should not error.
 		await kernel.cancelNotebookCellExecution(notebookDocument.uri, [0]);
 	});
 
 	test('interrupt with no running session', async () => {
+		const session = await startSession();
 		const executionStartedPromise = new Promise<void>(resolve => {
 			disposables.add(session.onDidExecute((_id) => {
 				// Don't fire an idle message since we're testing interrupt.

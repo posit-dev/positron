@@ -12,10 +12,9 @@ import { URI } from '../../../../base/common/uri.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { ILanguageRuntimeMetadata } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
-import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { INotebookKernel, INotebookKernelChangeEvent, VariablesResult } from '../../notebook/common/notebookKernelService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../common/runtimeNotebookKernelConfig.js';
@@ -44,7 +43,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	/** An event that fires when the kernel's details change. */
 	public readonly onDidChange = this._onDidChange.event;
 
-	private readonly _notebookRuntimeKernelSessionsByNotebookUri = new ResourceMap<RuntimeNotebookKernelSession>();
+	private readonly _kernelSessionsByNotebookUri = new ResourceMap<RuntimeNotebookKernelSession>();
 
 	constructor(
 		public readonly runtime: ILanguageRuntimeMetadata,
@@ -80,6 +79,22 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	async executeNotebookCellsRequest(notebookUri: URI, cellHandles: number[]): Promise<void> {
 		this._logService.debug(`[RuntimeNotebookKernel] Executing cells: ${cellHandles.join(', ')}`);
 
+		const notebookRuntimeKernelSession = this.getOrCreateKernelSession(notebookUri);
+
+		// Execute the cells.
+		try {
+			await notebookRuntimeKernelSession.executeCells(cellHandles);
+		} catch (err) {
+			this._logService.debug(`Error executing cells: ${err.stack ?? err}`);
+		}
+	}
+
+	private getOrCreateKernelSession(notebookUri: URI): RuntimeNotebookKernelSession {
+		const existingKernelSession = this._kernelSessionsByNotebookUri.get(notebookUri);
+		if (existingKernelSession) {
+			return existingKernelSession;
+		}
+
 		const notebook = this._notebookService.getNotebookTextModel(notebookUri);
 		if (!notebook) {
 			// Copying ExtHostNotebookController.getNotebookDocument for now.
@@ -88,41 +103,42 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 
 		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 		if (!session) {
+			// An execution was requested before a session was started for the notebook,
+			// which should not happen.
 			throw new Error(`NO runtime session for notebook '${notebookUri}'`);
 		}
 
-		// TODO: Dispose?
-		let notebookRuntimeKernelSession = this._notebookRuntimeKernelSessionsByNotebookUri.get(notebookUri);
-		if (!notebookRuntimeKernelSession) {
-			notebookRuntimeKernelSession = this._instantiationService.createInstance(RuntimeNotebookKernelSession, session, notebook);
-			this._notebookRuntimeKernelSessionsByNotebookUri.set(notebookUri, notebookRuntimeKernelSession);
-		}
+		// TODO: Need to check the state of the session too...?
 
-		// Get the cells to execute from their handles.
-		const cells: NotebookCellTextModel[] = [];
-		for (const cellHandle of cellHandles) {
-			const cell = notebook.cells.find(cell => cell.handle === cellHandle);
-			// TODO: When does this happen?
-			if (!cell) {
-				continue;
+		const kernelSession = this._instantiationService.createInstance(RuntimeNotebookKernelSession, session, notebook);
+		this._kernelSessionsByNotebookUri.set(notebook.uri, kernelSession);
+
+		const dispose = () => {
+			kernelSession.dispose();
+			if (this._kernelSessionsByNotebookUri.get(notebook.uri) === existingKernelSession) {
+				this._kernelSessionsByNotebookUri.delete(notebook.uri);
 			}
-			cells.push(cell);
-		}
+		};
 
-		// Execute the cells.
-		try {
-			await notebookRuntimeKernelSession.executeCells(cells);
-		} catch (err) {
-			this._logService.debug(`Error executing cells: ${err.stack ?? err}`);
-		}
+		kernelSession.register(session.onDidEndSession(() => {
+			dispose();
+		}));
+
+		kernelSession.register(session.onDidChangeRuntimeState(state => {
+			if (state === RuntimeState.Exited) {
+				dispose();
+			}
+		}));
+
+		return kernelSession;
 	}
 
-	async cancelNotebookCellExecution(uri: URI, _cellHandles: number[]): Promise<void> {
-		this._logService.debug(`[RuntimeNotebookKernel] Interrupting notebook ${uri.toString()}`);
+	async cancelNotebookCellExecution(notebookUri: URI, _cellHandles: number[]): Promise<void> {
+		this._logService.debug(`[RuntimeNotebookKernel] Interrupting notebook ${notebookUri.toString()}`);
 
-		const notebookRuntimeKernelSession = this._notebookRuntimeKernelSessionsByNotebookUri.get(uri);
+		const notebookRuntimeKernelSession = this._kernelSessionsByNotebookUri.get(notebookUri);
 		if (!notebookRuntimeKernelSession) {
-			this._logService.debug(`[RuntimeNotebookKernel] No session to interrupt for notebook ${uri.toString()}`);
+			this._logService.debug(`[RuntimeNotebookKernel] No session to interrupt for notebook ${notebookUri.toString()}`);
 			return;
 		}
 
@@ -136,7 +152,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	public override dispose(): void {
 		super.dispose();
 
-		for (const disposable of this._notebookRuntimeKernelSessionsByNotebookUri.values()) {
+		for (const disposable of this._kernelSessionsByNotebookUri.values()) {
 			disposable.dispose();
 		}
 	}
