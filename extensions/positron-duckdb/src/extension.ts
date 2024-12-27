@@ -50,6 +50,7 @@ import {
 	TableSchema,
 	TextSearchType
 } from './interfaces';
+import { Database } from 'duckdb-async';
 import * as duckdb from '@duckdb/duckdb-wasm';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -60,12 +61,18 @@ import { pathToFileURL } from 'url';
 // Set to true when doing development for better console logging
 const DEBUG_LOG = false;
 
-class DuckDBInstance {
+interface DuckDBInstance {
+	runQuery(query: string): Promise<any[]>;
+	registerVirtualFile(path: string, contents: Buffer): Promise<void>;
+	dropVirtualFile(path: string): Promise<null>;
+}
+
+class DuckDBWasmInstance implements DuckDBInstance {
 	runningQuery: Promise<any> = Promise.resolve();
 
 	constructor(readonly db: duckdb.AsyncDuckDB, readonly con: duckdb.AsyncDuckDBConnection) { }
 
-	static async create(ctx: vscode.ExtensionContext): Promise<DuckDBInstance> {
+	static async create(ctx: vscode.ExtensionContext): Promise<DuckDBWasmInstance> {
 		// Create the path to the DuckDB WASM bundle. Note that only the EH
 		// bundle for Node is used for now as we don't support Positron
 		// extensions running in a browser context yet.
@@ -90,10 +97,10 @@ class DuckDBInstance {
 		await con.query(`LOAD icu;
 		SET TIMEZONE=\'UTC\';
 		`);
-		return new DuckDBInstance(db, con);
+		return new DuckDBWasmInstance(db, con);
 	}
 
-	async runQuery(query: string): Promise<Table<any>> {
+	async runQuery(query: string): Promise<any[]> {
 		await this.runningQuery;
 		try {
 			const startTime = Date.now();
@@ -104,7 +111,7 @@ class DuckDBInstance {
 			if (DEBUG_LOG) {
 				console.log(`Took ${elapsedMs} ms to run:\n${query}`);
 			}
-			return result;
+			return result.toArray();
 		} catch (error) {
 			if (DEBUG_LOG) {
 				console.log(`Failed to execute:\n${query}`);
@@ -114,6 +121,13 @@ class DuckDBInstance {
 		}
 	}
 
+	registerVirtualFile(path: string, contents: Buffer): Promise<void> {
+		return this.db.registerFileBuffer(path, contents);
+	}
+
+	dropVirtualFile(path: string): Promise<null> {
+		return this.db.dropFile(path);
+	}
 }
 
 type RpcResponse<Type> = Promise<Type | string>;
@@ -400,13 +414,13 @@ class ColumnProfileEvaluator {
 		)
 		SELECT value::VARCHAR AS value, freq
 		FROM freq_table
-		ORDER BY freq DESC;`) as Table<any>;
+		ORDER BY freq DESC;`);
 
 		const values: string[] = [];
 		const counts: number[] = [];
 
 		let total = 0;
-		for (const row of result.toArray()) {
+		for (const row of result) {
 			values.push(row.value);
 
 			const valueCount = Number(row.freq);
@@ -479,9 +493,9 @@ class ColumnProfileEvaluator {
 				`${this.whereClause} AND ${predicate}` :
 				`WHERE ${predicate}`;
 			const result = await this.db.runQuery(`SELECT "${field}"::VARCHAR AS value
-			FROM ${this.tableName} ${composedPred} LIMIT 1;`) as Table<any>;
+			FROM ${this.tableName} ${composedPred} LIMIT 1;`);
 
-			const fixedValue = result.toArray()[0].value;
+			const fixedValue = result[0].value;
 
 			return {
 				bin_edges: [fixedValue, fixedValue],
@@ -518,7 +532,7 @@ class ColumnProfileEvaluator {
 			quantiles: []
 		};
 		const histEntries: Map<number, number> = new Map(
-			result.toArray().map(entry => [entry.bin_id, entry.bin_count])
+			result.map(entry => [entry.bin_id, entry.bin_count])
 		);
 		for (let i = 0; i < numBins; ++i) {
 			output.bin_edges.push((binWidth * i).toString());
@@ -607,10 +621,7 @@ class ColumnProfileEvaluator {
 		// Table with a single row containing all the computed statistics
 		const statsResult = await this.db.runQuery(statsQuery);
 
-		const stats = new Map<string, any>(statsResult.schema.names.map((value, index) => {
-			const child = statsResult.getChild(value)!;
-			return [value, child.get(0)] as [string, any];
-		}));
+		const stats = statsResult[0];
 
 		const results: Array<ColumnProfileResult> = [];
 		for (let i = 0; i < this.params.profiles.length; ++i) {
@@ -767,6 +778,7 @@ export class DuckDBTableView {
 			smallFloatFormat = `'{:.${smallNumDigits}f}'`;
 		}
 
+		const columnNames = [];
 		const columnSelectors = [];
 		const selectedColumns = [];
 		for (const column of params.columns) {
@@ -833,7 +845,9 @@ END`;
 					break;
 			}
 			selectedColumns.push(quotedName);
-			columnSelectors.push(`${columnSelector} AS formatted_${columnSelectors.length} `);
+			const outputName = `formatted_${columnSelectors.length}`;
+			columnSelectors.push(`${columnSelector} AS ${outputName}`);
+			columnNames.push(outputName);
 		}
 
 		let numRows = 0;
@@ -863,11 +877,6 @@ END`;
 
 		const queryResult = await this.db.runQuery(query);
 
-		// Sanity check
-		if (queryResult.numCols !== params.columns.length) {
-			throw new Error('Incorrect number of columns in query result');
-		}
-
 		const result: TableData = {
 			columns: []
 		};
@@ -893,7 +902,9 @@ END`;
 			return field.isValid(relIndex) ? field.get(relIndex) : SENTINEL_NULL;
 		};
 
-		for (let i = 0; i < queryResult.numCols; i++) {
+		const numColumns = columnSelectors.length;
+
+		for (let i = 0; i < columnSelectors.length; i++) {
 			const column = params.columns[i];
 			const spec = column.spec;
 			const field = queryResult.getChildAt(i)!;
@@ -903,7 +914,7 @@ END`;
 					// There may be fewer rows available than what was requested
 					const lastIndex = Math.min(
 						spec.last_index,
-						spec.first_index + queryResult.numRows - 1
+						spec.first_index + numColumns - 1
 					);
 
 					const columnValues: Array<string | number> = [];
@@ -1182,7 +1193,7 @@ END`;
 
 		const result = await this.db.runQuery(countStar);
 		// The count comes back as BigInt
-		const numRows = Number(result.toArray()[0].num_rows);
+		const numRows = Number(result[0].num_rows);
 		return [numRows, numColumns];
 	}
 }
@@ -1214,7 +1225,7 @@ export class DataExplorerRpcHandler {
 		let tableView: DuckDBTableView;
 		try {
 			const result = await this.db.runQuery(`DESCRIBE ${tableName};`);
-			tableView = new DuckDBTableView(params.uri, tableName, result.toArray(), this.db);
+			tableView = new DuckDBTableView(params.uri, tableName, result, this.db);
 
 			if (filePath !== undefined) {
 				// watch file for changes and fire `onDatasetChanged` event when it changes
@@ -1223,7 +1234,7 @@ export class DataExplorerRpcHandler {
 
 					await this.createTableFromFilePath(filePath, newTableName, true);
 
-					const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
+					const newSchema = await this.db.runQuery(`DESCRIBE ${newTableName};`);
 					await tableView.onFileUpdated(newTableName, newSchema);
 				});
 			}
@@ -1288,11 +1299,11 @@ export class DataExplorerRpcHandler {
 			// to avoid caching in duckdb-wasm
 			const fileContents = fs.readFileSync(filePath, { encoding: null });
 			const virtualPath = path.basename(filePath);
-			await this.db.db.registerFileBuffer(virtualPath, fileContents);
+			await this.db.registerVirtualFile(virtualPath, fileContents);
 			try {
 				await importDelimited(virtualPath);
 			} finally {
-				await this.db.db.dropFile(virtualPath);
+				await this.db.dropVirtualFile(virtualPath);
 			}
 		} else {
 			await importDelimited(filePath);
@@ -1353,7 +1364,7 @@ export class DataExplorerRpcHandler {
  */
 export async function activate(context: vscode.ExtensionContext) {
 	// Register a simple command that runs a DuckDB-Wasm query
-	const db = await DuckDBInstance.create(context);
+	const db = await DuckDBWasmInstance.create(context);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-duckdb.runQuery',
@@ -1362,7 +1373,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				if (typeof result === 'string') {
 					console.error('DuckDB error:', result);
 				} else {
-					return result.toArray();
+					return result;
 				}
 			})
 	);
