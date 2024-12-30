@@ -18,8 +18,6 @@ test.describe('Python Applications', {
 
 		await app.workbench.positronQuickaccess.runCommand('workbench.action.terminal.focus');
 		await app.workbench.positronTerminal.sendKeysToTerminal('Control+C');
-		// unreliable on ubuntu:
-		// await this.app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('^C')));
 		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 		await app.workbench.positronViewer.clearViewer();
 	});
