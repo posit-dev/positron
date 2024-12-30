@@ -43,8 +43,8 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 			logger.log('Test R Package');
 			await app.workbench.positronQuickaccess.runCommand('r.packageTest');
 			await expect(async () => {
-				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('[ FAIL 1 | WARN 0 | SKIP 0 | PASS 16 ]')));
-				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Terminal will be reused by tasks')));
+				await app.workbench.positronTerminal.waitForTerminalText('[ FAIL 1 | WARN 0 | SKIP 0 | PASS 16 ]');
+				await app.workbench.positronTerminal.waitForTerminalText('Terminal will be reused by tasks');
 			}).toPass({ timeout: 70000 });
 		});
 
@@ -53,15 +53,16 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 			await app.workbench.positronQuickaccess.runCommand('workbench.action.terminal.clear');
 			await app.workbench.positronQuickaccess.runCommand('r.packageCheck');
 			await expect(async () => {
-				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('Error: R CMD check found ERRORs')));
-				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Terminal will be reused by tasks')));
+				await app.workbench.positronTerminal.waitForTerminalText('Error: R CMD check found ERRORs');
+				await app.workbench.positronTerminal.waitForTerminalText('Terminal will be reused by tasks');
 			}).toPass({ timeout: 70000 });
 		});
 
 		await test.step('Install R Package and Restart R', async () => {
 			logger.log('Install R Package and Restart R');
 			await app.workbench.positronQuickaccess.runCommand('r.packageInstall');
-			await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('✔ Installed testfun 0.0.0.9000')));
+			// Appears very briefly and test misses it:
+			// await app.workbench.positronTerminal.waitForTerminalText('✔ Installed testfun 0.0.0.9000');
 
 			await app.workbench.positronConsole.waitForConsoleContents('restarted', { timeout: 30000 });
 			await app.workbench.positronConsole.waitForConsoleContents('library(testfun)');

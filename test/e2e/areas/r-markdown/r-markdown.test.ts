@@ -18,7 +18,7 @@ test.describe('R Markdown', { tag: [tags.WEB, tags.R_MARKDOWN] }, () => {
 		// Using expect.toPass allows it to retry.
 		await expect(async () => {
 			await app.workbench.positronQuickaccess.runCommand('r.rmarkdownRender');
-			await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('Output created: basicRmd.html')));
+			await app.workbench.positronTerminal.waitForTerminalText('Output created: basicRmd.html');
 		}).toPass({ timeout: 80000 });
 
 		// Wrapped in expect.toPass to allow UI to update/render

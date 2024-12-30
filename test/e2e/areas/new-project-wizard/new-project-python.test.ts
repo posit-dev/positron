@@ -179,9 +179,9 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		}).toPass({ timeout: 50000 });
 
 		// Git status should show that we're on the main branch
-		await app.workbench.terminal.createTerminal();
-		await app.workbench.terminal.runCommandInTerminal('git status');
-		await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(e => e.includes('On branch main')));
+		await app.workbench.positronTerminal.createTerminal();
+		await app.workbench.positronTerminal.runCommandInTerminal('git status');
+		await app.workbench.positronTerminal.waitForTerminalText('On branch main');
 	});
 });
 
