@@ -13,7 +13,7 @@ interface FlatVariables {
 	type: string;
 }
 
-const VARIABLE_ITEMS = '.variable-item';
+const VARIABLE_ITEMS = '.variable-item:not(.disabled)';
 const VARIABLE_NAMES = 'name-column';
 const VARIABLE_DETAILS = 'details-column';
 const CURRENT_VARIABLES_GROUP = '.variables-instance[style*="z-index: 1"]';
@@ -33,20 +33,26 @@ export class PositronVariables {
 
 	async getFlatVariables(): Promise<Map<string, FlatVariables>> {
 		const variables = new Map<string, FlatVariables>();
-		const variableItems = await this.code.waitForElements(VARIABLE_ITEMS, true);
+		await expect(this.code.driver.page.locator(VARIABLE_ITEMS).first()).toBeVisible();
+		const variableItems = await this.code.driver.page.locator(VARIABLE_ITEMS).all();
 
 		for (const item of variableItems) {
-			const name = item.children.find(child => child.className === VARIABLE_NAMES)?.textContent;
-			const details = item.children.find(child => child.className === VARIABLE_DETAILS);
+			const nameElement = item.locator(`.${VARIABLE_NAMES}`).first();
+			const detailsElement = item.locator(`.${VARIABLE_DETAILS}`).first();
 
-			const value = details?.children[0].textContent;
-			const type = details?.children[1].textContent;
+			const name = await nameElement.textContent();
+			const value = detailsElement
+				? await detailsElement.locator(':scope > *').nth(0).textContent()
+				: null;
+			const type = detailsElement
+				? await detailsElement.locator(':scope > *').nth(1).textContent()
+				: null;
 
 			if (!name || !value || !type) {
 				throw new Error('Could not parse variable item');
 			}
 
-			variables.set(name, { value, type });
+			variables.set(name.trim(), { value: value.trim(), type: type.trim() });
 		}
 		return variables;
 	}

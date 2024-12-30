@@ -138,7 +138,8 @@ export class Workbench {
 		this.positronTopActionBar = new PositronTopActionBar(code);
 		this.positronLayouts = new PositronLayouts(code, this);
 		this.positronQuickInput = new PositronQuickInput(code);
-		this.positronQuickaccess = new PositronQuickAccess(code, this.editors, this.positronQuickInput);
+		this.positronEditors = new PositronEditors(code);
+		this.positronQuickaccess = new PositronQuickAccess(code, this.positronEditors, this.positronQuickInput);
 		this.positronConnections = new PositronConnections(code, this.positronQuickaccess);
 		this.positronNewProjectWizard = new PositronNewProjectWizard(code, this.positronQuickaccess);
 		this.positronOutput = new PositronOutput(code, this.positronQuickaccess, this.positronQuickInput);
@@ -152,7 +153,6 @@ export class Workbench {
 		this.positronOutline = new PositronOutline(code, this.positronQuickaccess);
 		this.positronClipboard = new PositronClipboard(code);
 		this.positronExtensions = new PositronExtensions(code, this.positronQuickaccess);
-		this.positronEditors = new PositronEditors(code);
 		// --- End Positron ---
 	}
 }

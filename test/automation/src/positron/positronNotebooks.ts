@@ -66,7 +66,7 @@ export class PositronNotebooks {
 		await this.quickaccess.openFileQuickAccessAndWait(basename(path), 1);
 		await this.quickinput.selectQuickInputElement(0);
 
-		await this.code.waitForElement(ACTIVE_ROW_SELECTOR);
+		await expect(this.code.driver.page.locator(ACTIVE_ROW_SELECTOR)).toBeVisible();
 		await this.focusFirstCell();
 	}
 

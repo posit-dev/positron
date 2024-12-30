@@ -117,7 +117,7 @@ export class PositronInterpreterDropdown {
 		await showAllVersionsButton.click();
 
 		// Wait for the secondary interpreters to load
-		await this.code.waitForElements('.secondary-interpreter', false);
+		await expect(this.code.driver.page.locator('.secondary-interpreter')).toBeVisible();
 		return await this.interpreterGroups
 			.locator('.secondary-interpreter')
 			.all();

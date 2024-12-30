@@ -183,18 +183,6 @@ export class PositronConsole {
 		throw new Error('Console is not ready after waiting for R or Python to start');
 	}
 
-	async waitForNoInterpretersRunning(retryCount: number = 200) {
-		const noInterpreter = await this.code.waitForElement(
-			EMPTY_CONSOLE,
-			() => true,
-			retryCount
-		);
-		if (noInterpreter) {
-			return;
-		}
-		throw new Error('Console is not ready after waiting for no interpreters running');
-	}
-
 	async waitForInterpreterShutdown() {
 		await this.waitForConsoleContents('shut down successfully');
 	}

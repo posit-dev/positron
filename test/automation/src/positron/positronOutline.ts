@@ -42,13 +42,15 @@ export class PositronOutline {
 			fail('Bounding box not found');
 		}
 
-		const outllineElements = await this.code.waitForElements(OUTLINE_ELEMENT, false);
+		const outllineElements = await this.code.driver.page.locator(OUTLINE_ELEMENT).all();
 
 		const outlineData: string[] = [];
 		for (let i = 0; i < outllineElements.length; i++) {
 			const element = outllineElements[i];
-			const text = element.textContent;
-			outlineData.push(text);
+			const text = await element.textContent();
+			if (text !== null) {
+				outlineData.push(text);
+			}
 		}
 
 		return outlineData;
