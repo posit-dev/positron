@@ -11,6 +11,12 @@ test.use({
 
 test.describe('Help', { tag: [tags.HELP] }, () => {
 
+	test.beforeAll(async function ({ userSettings }) {
+		// Enable reduced motion so we don't have to wait for animations of expanding
+		// and collapsing the panel.
+		await userSettings.set([['workbench.reduceMotion', '"on"']]);
+	});
+
 	test('Python - Verifies basic help functionality [C633814]', { tag: [tags.WIN] }, async function ({ app, python }) {
 		await app.workbench.positronConsole.executeCode('Python', `?load`, '>>>');
 
@@ -42,10 +48,6 @@ test.describe('Help', { tag: [tags.HELP] }, () => {
 		// exact, but it's likely due to rounding errors or other factors. We'll allow
 		// a small margin of error.
 		const sizePrecision = 5;
-
-		// Enable reduced motion so we don't have to wait for animations of expanding
-		// and collapsing the panel.
-		await app.workbench.settingsEditor.addUserSetting('workbench.reduceMotion', '"on"');
 
 		// Enter layout with help pane docked in session panel
 		await app.workbench.positronLayouts.enterLayout('dockedHelp');

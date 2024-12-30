@@ -25,7 +25,7 @@ export class PositronPopups {
 
 	async popupCurrentlyOpen() {
 		try {
-			await this.code.waitForElement(POSITRON_MODAL_DIALOG_BOX, undefined, 50);
+			await expect(this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX)).toBeVisible();
 			return true;
 		} catch (error) {
 			this.code.logger.log('No modal dialog box found');
@@ -37,7 +37,7 @@ export class PositronPopups {
 		try {
 			this.code.logger.log('Checking for modal dialog box');
 			// fail fast if the modal is not present
-			await this.code.waitForElement(POSITRON_MODAL_DIALOG_BOX, undefined, 50);
+			await expect(this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX)).toBeVisible();
 			await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_OK).click();
 			this.code.logger.log('Installing ipykernel');
 			await this.waitForToastToAppear();

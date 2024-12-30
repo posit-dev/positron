@@ -69,11 +69,12 @@ export const testDataExplorer = async (
 		const row = tsvValues[rowIndex];
 		for (let columnIndex = 0; columnIndex < row.length; columnIndex++) {
 			// Get the cell.
-			const cell = await app.code.waitForElement(`#data-grid-row-cell-content-${columnIndex}-${rowIndex} .text-container .text-value`);
+			const cellLocator = app.code.driver.page.locator(`#data-grid-row-cell-content-${columnIndex}-${rowIndex} .text-container .text-value`);
+			await expect(cellLocator).toBeVisible();
 
 			// Get the cell value and test value.
 			const secsRemover = (value: string) => value.replace(/^(.*)( secs)$/, '$1');
-			const cellValue = secsRemover(cell.textContent);
+			const cellValue = secsRemover((await cellLocator.textContent()) || '');
 			const testValue = secsRemover(row[columnIndex]);
 
 			// If the test value is a number, perform a numerical "close enough" comparison;
@@ -83,7 +84,7 @@ export const testDataExplorer = async (
 					Math.abs(Number.parseFloat(cellValue) - Number.parseFloat(testValue))
 				).toBeLessThan(0.05);
 			} else {
-				expect(cell.textContent, `${rowIndex},${columnIndex}`).toStrictEqual(row[columnIndex]);
+				expect(await cellLocator.textContent(), `${rowIndex},${columnIndex}`).toStrictEqual(row[columnIndex]);
 			}
 
 			// Move to the next cell.

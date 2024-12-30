@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Editors } from '../editors';
 import { Code } from '../code';
 import { basename, isAbsolute } from 'path';
 import { PositronQuickInput } from './positronQuickInput';
 import { expect } from '@playwright/test';
+import { PositronEditors } from './positronEditors';
 
 enum QuickAccessKind {
 	Files = 1,
@@ -17,7 +17,7 @@ enum QuickAccessKind {
 
 export class PositronQuickAccess {
 
-	constructor(private code: Code, private editors: Editors, private quickInput: PositronQuickInput) { }
+	constructor(private code: Code, private editors: PositronEditors, private quickInput: PositronQuickInput) { }
 
 	async openDataFile(path: string): Promise<void> {
 		if (!isAbsolute(path)) {
