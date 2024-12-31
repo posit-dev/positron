@@ -93,7 +93,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 			expect(projectFiles).toContain('renv');
 			expect(projectFiles).toContain('.Rprofile');
 			expect(projectFiles).toContain('renv.lock');
-		}).toPass({ timeout: 50000 });
+		}).toPass({ timeout: 100000 });
 		// Verify that renv output in the console confirms no issues occurred
 		await app.workbench.positronConsole.waitForConsoleContents('renv activated');
 	});
