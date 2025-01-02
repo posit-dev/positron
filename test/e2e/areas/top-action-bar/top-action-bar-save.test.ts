@@ -34,7 +34,7 @@ test.describe('Top Action Bar - Save Actions', {
 		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, fileName));
 		await app.workbench.positronQuickaccess.runCommand('workbench.action.keepEditor', { keepOpen: false });
 		await app.workbench.positronEditors.selectTab(fileName);
-		await app.workbench.editor.waitForTypeInEditor(fileName, 'Puppies frolicking in a meadow of wildflowers');
+		await app.workbench.positronEditor.waitForTypeInEditor(fileName, 'Puppies frolicking in a meadow of wildflowers');
 		// The file is now "dirty" and the save buttons should be enabled
 		await app.workbench.positronEditors.waitForTab(fileName, true);
 		await expect(async () => {

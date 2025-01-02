@@ -5,7 +5,7 @@
 
 import { fail } from 'assert';
 import { Application } from '../../application';
-import { InterpreterInfo, InterpreterType } from '../utils/positronInterpreterInfo';
+import { InterpreterType } from '../utils/positronInterpreterInfo';
 import { expect } from '@playwright/test';
 
 /*
@@ -37,12 +37,12 @@ export class PositronPythonFixtures {
 		await this.app.workbench.positronConsole.logConsoleContents();
 	}
 
-	async startAndGetPythonInterpreter(installIPyKernelIfPrompted: boolean = false): Promise<InterpreterInfo | undefined> {
+	async startAndGetPythonInterpreter(installIPyKernelIfPrompted: boolean = false): Promise<void> {
 		const desiredPython = process.env.POSITRON_PY_VER_SEL;
 		if (desiredPython === undefined) {
 			fail('Please be sure to set env var POSITRON_PY_VER_SEL to the UI text corresponding to the Python version for the test');
 		}
-		const interpreterInfo = await this.app.workbench.positronConsole.selectAndGetInterpreter(InterpreterType.Python, desiredPython);
+		await this.app.workbench.positronConsole.selectInterpreter(InterpreterType.Python, desiredPython);
 
 		if (
 			installIPyKernelIfPrompted &&
@@ -53,8 +53,6 @@ export class PositronPythonFixtures {
 
 		await expect(this.app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 30000 });
 		await this.app.workbench.positronConsole.logConsoleContents();
-
-		return interpreterInfo;
 	}
 
 }

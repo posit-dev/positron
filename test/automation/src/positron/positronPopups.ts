@@ -60,12 +60,8 @@ export class PositronPopups {
 		try {
 			this.code.logger.log('Checking for install Renv modal dialog box');
 			// fail fast if the renv install modal is not present
-			await this.code.waitForTextContent(
-				POSITRON_MODAL_DIALOG_BOX_TITLE,
-				'Missing R package',
-				undefined,
-				50
-			);
+			await this.waitForModalDialogTitle('Missing R package');
+
 			if (install) {
 				this.code.logger.log('Installing Renv');
 				await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_OK).click();
@@ -146,6 +142,9 @@ export class PositronPopups {
 	 * @param title The title to wait for.
 	 */
 	async waitForModalDialogTitle(title: string) {
-		await this.code.waitForTextContent(POSITRON_MODAL_DIALOG_BOX_TITLE, title);
+		await expect(async () => {
+			const textContent = await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_TITLE).textContent();
+			expect(textContent).toContain(title);
+		}).toPass({ timeout: 30000 });
 	}
 }
