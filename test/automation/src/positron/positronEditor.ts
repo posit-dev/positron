@@ -110,4 +110,16 @@ export class PositronEditor {
 		return content;
 	}
 
+	async waitForEditorFocus(filename: string, lineNumber: number, selectorPrefix = ''): Promise<void> {
+		const editor = [selectorPrefix || '', EDITOR(filename)].join(' ');
+		const line = `${editor} .view-lines > .view-line:nth-child(${lineNumber})`;
+		const textarea = `${editor} textarea`;
+
+		await this.code.driver.page.locator(line).click();
+
+		await expect(async () => {
+			await expect(this.code.driver.page.locator(textarea)).toBeFocused();
+		}).toPass();
+	}
+
 }

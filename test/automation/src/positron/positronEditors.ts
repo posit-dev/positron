@@ -56,4 +56,12 @@ export class PositronEditors {
 	async waitForTab(fileName: string, isDirty: boolean = false): Promise<void> {
 		await expect(this.code.driver.page.locator(`.tabs-container div.tab${isDirty ? '.dirty' : ''}[data-resource-name$="${fileName}"]`)).toBeVisible();
 	}
+
+	async saveOpenedFile(): Promise<any> {
+		if (process.platform === 'darwin') {
+			await this.code.driver.page.keyboard.press('Meta+S');
+		} else {
+			await this.code.driver.page.keyboard.press('Control+S');
+		}
+	}
 }
