@@ -15,5 +15,5 @@ pyarrow
 pytest<8.1.1
 pytest-asyncio
 pytest-mock
-torch; python_version < '3.12'
+torch
 sqlalchemy

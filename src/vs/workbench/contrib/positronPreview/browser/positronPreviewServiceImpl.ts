@@ -13,7 +13,7 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from './positronPreviewSevice.js';
 import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IPositronNotebookOutputWebviewService, WebviewType } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { URI } from '../../../../base/common/uri.js';
 import { PreviewUrl } from './previewUrl.js';
 import { ShowHtmlFileEvent, ShowUrlEvent, UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
@@ -28,7 +28,6 @@ import { basename } from '../../../../base/common/path.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { Schemas } from '../../../../base/common/network.js';
-import { assertIsOverlayPositronWebview } from '../../positronOutputWebview/browser/notebookOutputWebviewServiceImpl.js';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -404,11 +403,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 					this._notebookOutputWebviewService.createNotebookOutputWebview({
 						id: e.id,
 						runtime: session,
-						output: e,
-						webviewType: WebviewType.Overlay
+						output: e
 					});
 				if (webview) {
-					assertIsOverlayPositronWebview(webview);
 					const overlay = this.createOverlayWebview(webview.webview);
 					const preview = new PreviewWebview(
 						'notebookRenderer',
