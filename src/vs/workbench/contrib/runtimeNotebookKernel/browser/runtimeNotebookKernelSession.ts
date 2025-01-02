@@ -94,12 +94,6 @@ export class RuntimeNotebookKernelSession extends Disposable {
 			throw new Error(`NO execution for cell '${cell.uri}'`);
 		}
 
-		// TODO: This can be a simple counter for the session.
-		const id = generateUuid();
-
-		// TODO: Error if there's already a runtimeExecution for this ID?
-		//       Or get another id?
-
 		const execution = this._register(this._instantiationService.createInstance(
 			RuntimeNotebookCellExecution, this._session, cellExecution, cell
 		));
@@ -108,7 +102,7 @@ export class RuntimeNotebookKernelSession extends Disposable {
 		try {
 			this._session.execute(
 				code,
-				id,
+				execution.id,
 				RuntimeCodeExecutionMode.Interactive,
 				RuntimeErrorBehavior.Stop,
 			);
