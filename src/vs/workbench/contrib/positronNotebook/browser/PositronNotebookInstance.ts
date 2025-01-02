@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter } from '../../../../base/common/event.js';
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
@@ -110,6 +110,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _container: HTMLElement | undefined = undefined;
 
 	/**
+	 * The DOM element that contains the cells for the notebook.
+	 */
+	private _cellsContainer: HTMLElement | undefined = undefined;
+
+	/**
+	 * Disposables for the current cells container event listeners
+	 */
+	private readonly _cellsContainerListeners = this._register(new DisposableStore());
+
+	/**
 	 * Callback to clear the keyboard navigation listeners. Set when listeners are attached.
 	 */
 	private _clearKeyboardNavigation: (() => void) | undefined = undefined;
@@ -159,6 +169,12 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private readonly _onDidChangeContent = this._register(new Emitter<void>());
 	readonly onDidChangeContent = this._onDidChangeContent.event;
 
+	/**
+	 * Event emitter for when the cells container is scrolled
+	 */
+	private readonly _onDidScrollCellsContainer = this._register(new Emitter<void>());
+	readonly onDidScrollCellsContainer = this._onDidScrollCellsContainer.event;
+
 	// =============================================================================================
 	// #region Public Properties
 
@@ -166,6 +182,59 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Unique identifier for the notebook instance. Currently just the notebook URI as a string.
 	 */
 	private _id: string;
+
+	/**
+	 * The DOM element that contains the cells for the notebook.
+	 */
+	get cellsContainer(): HTMLElement | undefined {
+		return this._cellsContainer;
+	}
+
+	/**
+	 * Sets the DOM element that contains the cells for the notebook.
+	 * @param container The container element to set, or undefined to clear
+	 */
+	setCellsContainer(container: HTMLElement | undefined | null): void {
+		// Clean up any existing listeners
+		this._cellsContainerListeners.clear();
+
+		if (!container) { return; }
+
+		this._cellsContainer = container;
+
+		// Fire initial scroll event after a small delay to ensure layout has settled
+		const initialScrollTimeout = setTimeout(() => {
+			this._onDidScrollCellsContainer.fire();
+		}, 50);
+
+		// Set up scroll listener
+		const scrollListener = DOM.addDisposableListener(container, 'scroll', () => {
+			this._onDidScrollCellsContainer.fire();
+		});
+
+		// Set up mutation observer to watch for DOM changes
+		const observer = new MutationObserver(() => {
+			// Small delay to let the DOM changes settle
+			setTimeout(() => {
+				this._onDidScrollCellsContainer.fire();
+			}, 0);
+		});
+
+		observer.observe(container, {
+			childList: true,
+			subtree: true,
+			attributes: true,
+			attributeFilter: ['style', 'class']
+		});
+
+		// Add all the disposables to our store
+		this._cellsContainerListeners.add(toDisposable(() => clearTimeout(initialScrollTimeout)));
+		this._cellsContainerListeners.add(scrollListener);
+		this._cellsContainerListeners.add(toDisposable(() => observer.disconnect()));
+
+		// Fire initial scroll event
+		this._onDidScrollCellsContainer.fire();
+	}
 
 	/**
 	 * User facing cells wrapped in an observerable for the UI to react to changes

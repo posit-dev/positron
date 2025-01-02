@@ -30,11 +30,16 @@ export function PositronNotebookComponent() {
 	const notebookInstance = useNotebookInstance();
 	const notebookCells = useObservedValue(notebookInstance.cells);
 	const fontStyles = useFontStyles();
+	const containerRef = React.useRef<HTMLDivElement>(null);
+
+	React.useEffect(() => {
+		notebookInstance.setCellsContainer(containerRef.current);
+	}, [notebookInstance]);
 
 	return (
 		<div className='positron-notebook' style={{ ...fontStyles }}>
 			<PositronNotebookHeader notebookInstance={notebookInstance} />
-			<div className='positron-notebook-cells-container'>
+			<div className='positron-notebook-cells-container' ref={containerRef}>
 				{notebookCells?.length ? notebookCells?.map((cell, index) => <>
 					<NotebookCell key={cell.handleId} cell={cell as PositronNotebookCellGeneral} />
 					<AddCellButtons index={index + 1} />
