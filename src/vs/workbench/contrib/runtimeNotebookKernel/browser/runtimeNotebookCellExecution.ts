@@ -3,9 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DeferredPromise, Sequencer } from '../../../../base/common/async.js';
+import { DeferredPromise } from '../../../../base/common/async.js';
 import { decodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -38,11 +39,14 @@ enum JupyterNotebookCellOutputType {
 }
 
 export class RuntimeNotebookCellExecution extends Disposable {
-	private _deferred = new DeferredPromise<void>();
+	/** The execution ID. */
+	public readonly id = generateUuid();
 
-	// Create a promise tracking the current message for the cell. Each execution may
-	// receive multiple messages, which we want to handle in sequence.
-	private _taskQueue = new Sequencer();
+	/**
+	 * Deferred promise that resolves when the runtime execution completes,
+	 * or rejects if the execution errors.
+	 */
+	private _deferred = new DeferredPromise<void>();
 
 	constructor(
 		private readonly _session: ILanguageRuntimeSession,
@@ -53,36 +57,34 @@ export class RuntimeNotebookCellExecution extends Disposable {
 	) {
 		super();
 
+		// Listen for runtime messages.
+
 		this._register(this._session.onDidReceiveRuntimeMessageInput(async message => {
-			await this._taskQueue.queue(() => this.handleRuntimeMessageInput(message));
+			this.handleRuntimeMessageInput(message);
 		}));
 
 		this._register(this._session.onDidReceiveRuntimeMessagePrompt(async message => {
-			await this._taskQueue.queue(() => this.handleRuntimeMessagePrompt(message));
+			this.handleRuntimeMessagePrompt(message);
 		}));
 
 		this._register(this._session.onDidReceiveRuntimeMessageOutput(async message => {
-			await this._taskQueue.queue(() => this.handleRuntimeMessageOutput(
-				message, JupyterNotebookCellOutputType.DisplayData
-			));
+			this.handleRuntimeMessageOutput(message, JupyterNotebookCellOutputType.DisplayData);
 		}));
 
 		this._register(this._session.onDidReceiveRuntimeMessageResult(async message => {
-			await this._taskQueue.queue(() => this.handleRuntimeMessageOutput(
-				message, JupyterNotebookCellOutputType.ExecuteResult
-			));
+			this.handleRuntimeMessageOutput(message, JupyterNotebookCellOutputType.ExecuteResult);
 		}));
 
 		this._register(this._session.onDidReceiveRuntimeMessageStream(async message => {
-			await this._taskQueue.queue(() => this.handleRuntimeMessageStream(message));
+			this.handleRuntimeMessageStream(message);
 		}));
 
 		this._register(this._session.onDidReceiveRuntimeMessageError(async message => {
-			await this._taskQueue.queue(() => this.handleRuntimeMessageError(message));
+			this.handleRuntimeMessageError(message);
 		}));
 
 		this._register(this._session.onDidReceiveRuntimeMessageState(async message => {
-			await this._taskQueue.queue(() => this.handleRuntimeMessageState(message));
+			this.handleRuntimeMessageState(message);
 		}));
 
 		this._cellExecution.update([{
@@ -97,6 +99,9 @@ export class RuntimeNotebookCellExecution extends Disposable {
 		}]);
 	}
 
+	/**
+	 * End the execution successfully.
+	 */
 	public complete(): void {
 		// End the cell execution.
 		this._cellExecution.complete({
@@ -104,12 +109,16 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			lastRunSuccess: true,
 		});
 
+		// Complete the deferred promise.
 		this._deferred.complete();
 
-		// TODO: Do we need to track whether we're disposed in some cases?
+		// Stop listening for replies.
 		this.dispose();
 	}
 
+	/**
+	 * End the execution with an error.
+	 */
 	public error(err: Error): void {
 		// End the cell execution with the error.
 		this._cellExecution.complete({
@@ -123,13 +132,19 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			},
 		});
 
+		// Reject the deferred promise.
 		this._deferred.error(err);
 
-		// TODO: Do we need to track whether we're disposed in some cases?
+		// Stop listening for replies.
 		this.dispose();
 	}
 
 	private async handleRuntimeMessageInput(message: ILanguageRuntimeMessageInput): Promise<void> {
+		// Only handle replies to this execution.
+		if (message.parent_id !== this.id) {
+			return;
+		}
+
 		// Update the cell's execution order (usually displayed in notebook UIs).
 		this._cellExecution.update([{
 			editType: CellExecutionUpdateType.ExecutionState,
@@ -138,6 +153,11 @@ export class RuntimeNotebookCellExecution extends Disposable {
 	}
 
 	private async handleRuntimeMessagePrompt(message: ILanguageRuntimeMessagePrompt): Promise<void> {
+		// Only handle replies to this execution.
+		if (message.parent_id !== this.id) {
+			return;
+		}
+
 		// Let the user input a reply.
 		const reply = await this._quickInputService.input({
 			password: message.password,
@@ -152,6 +172,12 @@ export class RuntimeNotebookCellExecution extends Disposable {
 		message: ILanguageRuntimeMessageOutput,
 		outputType: JupyterNotebookCellOutputType,
 	): Promise<void> {
+		// Only handle replies to this execution.
+		if (message.parent_id !== this.id) {
+			return;
+		}
+
+		// Convert the message data entries to output items.
 		const outputItems: IOutputItemDto[] = [];
 		for (const [mime, data] of Object.entries(message.data)) {
 			switch (mime) {
@@ -182,6 +208,8 @@ export class RuntimeNotebookCellExecution extends Disposable {
 					outputItems.push({ data: VSBuffer.fromString(String(data)), mime });
 			}
 		}
+
+		// Append the output items to the cell.
 		this._cellExecution.update([{
 			editType: CellExecutionUpdateType.Output,
 			cellHandle: this._cellExecution.cellHandle,
@@ -195,7 +223,12 @@ export class RuntimeNotebookCellExecution extends Disposable {
 	}
 
 	private async handleRuntimeMessageStream(message: ILanguageRuntimeMessageStream): Promise<void> {
-		// Convert the runtime message into an output item data transfer object.
+		// Only handle replies to this execution.
+		if (message.parent_id !== this.id) {
+			return;
+		}
+
+		// Convert the runtime message into an output item.
 		let mime: string;
 		if (message.name === 'stdout') {
 			mime = 'application/vnd.code.notebook.stdout';
@@ -233,6 +266,12 @@ export class RuntimeNotebookCellExecution extends Disposable {
 	}
 
 	private async handleRuntimeMessageError(message: ILanguageRuntimeMessageError): Promise<void> {
+		// Only handle replies to this execution.
+		if (message.parent_id !== this.id) {
+			return;
+		}
+
+		// Append an error output item to the cell.
 		this._cellExecution.update([{
 			editType: CellExecutionUpdateType.Output,
 			cellHandle: this._cellExecution.cellHandle,
@@ -251,6 +290,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			}],
 		}]);
 
+		// Error the execution.
 		this.error({
 			name: message.name,
 			message: message.message,
@@ -259,6 +299,12 @@ export class RuntimeNotebookCellExecution extends Disposable {
 	}
 
 	private async handleRuntimeMessageState(message: ILanguageRuntimeMessageState): Promise<void> {
+		// Only handle replies to this execution.
+		if (message.parent_id !== this.id) {
+			return;
+		}
+
+		// If an idle message is received, error the execution.
 		if (message.state === RuntimeOnlineState.Idle) {
 			this.complete();
 		}
