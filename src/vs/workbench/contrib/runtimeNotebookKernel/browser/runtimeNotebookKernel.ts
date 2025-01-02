@@ -14,14 +14,16 @@ import { ExtensionIdentifier } from '../../../../platform/extensions/common/exte
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
-import { ILanguageRuntimeMetadata, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IProgressOptions, IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
+import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
+import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
+import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { INotebookKernel, INotebookKernelChangeEvent, VariablesResult } from '../../notebook/common/notebookKernelService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../common/runtimeNotebookKernelConfig.js';
-import { RuntimeNotebookKernelSession } from './runtimeNotebookKernelSession.js';
+import { RuntimeNotebookCellExecution } from './runtimeNotebookCellExecution.js';
 
 export class RuntimeNotebookKernel extends Disposable implements INotebookKernel {
 	public readonly viewType = IPYNB_VIEW_TYPE;
@@ -46,13 +48,21 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	/** An event that fires when the kernel's details change. */
 	public readonly onDidChange = this._onDidChange.event;
 
-	private readonly _kernelSessionsByNotebookUri = new ResourceMap<RuntimeNotebookKernelSession>();
+	/**
+	 * A map of the last queued cell execution promise for each notebook, keyed by notebook URI.
+	 * Each queued cell execution promise is chained to the previous one for the notebook,
+	 * so that cells are executed in order.
+	 */
+	private readonly _pendingCellExecutionsByNotebookUri = new ResourceMap<Promise<void>>();
+
+	private _pendingRuntimeExecution: RuntimeNotebookCellExecution | undefined;
 
 	constructor(
 		public readonly runtime: ILanguageRuntimeMetadata,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
 		@INotebookService private readonly _notebookService: INotebookService,
+		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IProgressService private readonly _progressService: IProgressService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
@@ -86,85 +96,160 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		try {
 			this._logService.debug(`[RuntimeNotebookKernel] Executing cells: ${cellHandles.join(', ')} for notebook ${notebookUri.toString()}`);
 
-			const notebookRuntimeKernelSession = await this.getOrCreateKernelSession(notebookUri);
+			const notebook = this._notebookService.getNotebookTextModel(notebookUri);
+			if (!notebook) {
+				// Copying ExtHostNotebookKernels behavior for now.
+				const error = new Error(`No notebook document for '${notebookUri.toString()}'`);
+				this._logService.error(`[RuntimeNotebookKernel] ${error.message}`);
+				throw error;
+			}
+
+			let session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+			if (session) {
+				this._logService.debug(`[RuntimeNotebookKernel] Found existing runtime session for notebook ${notebookUri.toString()}`);
+			} else {
+				// An execution was requested before a session was started for the notebook.
+				this._logService.debug(`[RuntimeNotebookKernel] No runtime session for notebook ${notebookUri.toString()}, starting a new one`);
+				session = await this.startRuntimeSession(notebookUri);
+			}
+
+			if (session.getRuntimeState() === RuntimeState.Starting) {
+				this._logService.debug(`[RuntimeNotebookKernel] Waiting for session to be ready for notebook ${notebookUri.toString()}`);
+				await this._progressService.withProgress(this.startProgressOptions(notebookUri),
+					() => new Promise<void>(resolve => {
+						const disposable = session.onDidChangeRuntimeState(state => {
+							if (state === RuntimeState.Ready) {
+								disposable.dispose();
+								resolve();
+							}
+						});
+					}));
+			}
 
 			// Execute the cells.
-			await notebookRuntimeKernelSession.executeCells(cellHandles);
+			const executionPromises: Promise<void>[] = [];
+			for (const cellHandle of cellHandles) {
+				const cell = notebook.cells.find(cell => cell.handle === cellHandle);
+				// TODO: When does this happen?
+				if (!cell) {
+					continue;
+				}
+				executionPromises.push(this.queueCellExecution(cell, notebookUri, session));
+			}
+			await Promise.all(executionPromises);
 		} catch (err) {
 			this._logService.error(`Error executing cells: ${err.stack ?? err}`);
 		}
 	}
 
-	private async getOrCreateKernelSession(notebookUri: URI): Promise<RuntimeNotebookKernelSession> {
-		const existingKernelSession = this._kernelSessionsByNotebookUri.get(notebookUri);
-		if (existingKernelSession) {
-			this._logService.debug(`[RuntimeNotebookKernel] Kernel session already exists for notebook ${notebookUri.toString()}`);
-			return existingKernelSession;
-		}
-
-		const notebook = this._notebookService.getNotebookTextModel(notebookUri);
-		if (!notebook) {
-			// Copying ExtHostNotebookController.getNotebookDocument for now.
-			this._logService.debug(`[RuntimeNotebookKernel] No notebook document for notebook ${notebookUri.toString()}`);
-			throw new Error(`NO notebook document for '${notebookUri}'`);
-		}
-
-		let session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
-		if (!session) {
-			// An execution was requested before a session was started for the notebook.
-			this._logService.debug(`[RuntimeNotebookKernel] No runtime session for notebook ${notebookUri.toString()}, starting a new one`);
-			session = await this.startRuntimeSession(notebookUri);
-		}
-
-		// TODO: Need to check the state of the session too...?
-
-		this._logService.debug(`[RuntimeNotebookKernel] Creating kernel session for notebook ${notebookUri.toString()}`);
-
-		const kernelSession = this._instantiationService.createInstance(RuntimeNotebookKernelSession, session, notebook);
-		this._kernelSessionsByNotebookUri.set(notebook.uri, kernelSession);
-
-		const dispose = () => {
-			kernelSession.dispose();
-			if (this._kernelSessionsByNotebookUri.get(notebook.uri) === existingKernelSession) {
-				this._kernelSessionsByNotebookUri.delete(notebook.uri);
-			}
+	private startProgressOptions(notebookUri: URI): IProgressOptions {
+		return {
+			location: ProgressLocation.Notification,
+			title: localize(
+				"positron.notebook.kernel.starting",
+				"Starting {0} interpreter for '{1}'",
+				this.label,
+				notebookUri.fsPath,
+			),
 		};
+	}
 
-		kernelSession.register(session.onDidEndSession(() => {
-			dispose();
-		}));
+	private async queueCellExecution(cell: NotebookCellTextModel, notebookUri: URI, session: ILanguageRuntimeSession): Promise<void> {
+		this._logService.debug(`[RuntimeNotebookKernel] Queuing cell execution: ${cell.handle} for notebook ${notebookUri.toString()}`);
 
-		kernelSession.register(session.onDidChangeRuntimeState(state => {
-			if (state === RuntimeState.Exited) {
-				dispose();
+		// Get the pending execution for this notebook, if one exists.
+		const pendingExecution = this._pendingCellExecutionsByNotebookUri.get(notebookUri);
+
+		// Chain this execution after the pending one.
+		const currentExecution = Promise.resolve(pendingExecution)
+			.then(() => this.executeCell(cell, session))
+			.finally(() => {
+				// If this was the last execution in the chain, remove it from the map,
+				// starting a new chain.
+				if (this._pendingCellExecutionsByNotebookUri.get(notebookUri) === currentExecution) {
+					this._pendingCellExecutionsByNotebookUri.delete(notebookUri);
+				}
+			});
+
+		// Update the pending execution for this notebook.
+		this._pendingCellExecutionsByNotebookUri.set(notebookUri, currentExecution);
+
+		return currentExecution;
+	}
+
+	private async executeCell(cell: NotebookCellTextModel, session: ILanguageRuntimeSession): Promise<void> {
+		this._logService.debug(`[RuntimeNotebookKernel] Executing cell: ${cell.handle}`);
+
+		// Don't try to execute raw cells; they're often used to define metadata e.g in Quarto notebooks.
+		if (cell.language === 'raw') {
+			return;
+		}
+
+		const code = cell.getValue();
+
+		// If the cell is empty, skip it.
+		if (!code.trim()) {
+			return;
+		}
+
+		const cellExecution = this._notebookExecutionStateService.getCellExecution(cell.uri);
+		if (!cellExecution) {
+			throw new Error(`NO execution for cell '${cell.uri}'`);
+		}
+
+		const execution = this._register(this._instantiationService.createInstance(
+			RuntimeNotebookCellExecution, session, cellExecution, cell
+		));
+		this._pendingRuntimeExecution = execution;
+
+		try {
+			session.execute(
+				code,
+				execution.id,
+				RuntimeCodeExecutionMode.Interactive,
+				RuntimeErrorBehavior.Stop,
+			);
+		} catch (err) {
+			execution.error(err);
+		}
+
+		return this._pendingRuntimeExecution.promise.finally(() => {
+			if (this._pendingRuntimeExecution === execution) {
+				this._pendingRuntimeExecution = undefined;
 			}
-		}));
-
-		return kernelSession;
+		});
 	}
 
 	private async startRuntimeSession(notebookUri: URI): Promise<ILanguageRuntimeSession> {
 		try {
-			await this._progressService.withProgress({
-				location: ProgressLocation.Notification,
-				title: localize(
-					"positron.notebook.kernel.starting",
-					"Starting {0} interpreter for '{1}'",
-					this.label,
-					notebookUri.fsPath,
-				),
-			}, () => this._runtimeSessionService.selectRuntime(
-				this.runtime.runtimeId,
-				`Runtime kernel ${this.id} executed cells for notebook`,
-				notebookUri,
-			));
+			return await this._progressService.withProgress(
+				this.startProgressOptions(notebookUri),
+				async () => {
+					await this._runtimeSessionService.selectRuntime(
+						this.runtime.runtimeId,
+						`Runtime kernel ${this.id} executed cells for notebook`,
+						notebookUri,
+					);
 
-			const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
-			if (!session) {
-				throw new Error(`Unexpected error, session not found after starting for notebook '${notebookUri}'`);
-			}
+					const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+					if (!session) {
+						throw new Error(`Unexpected error, session not found after starting for notebook '${notebookUri}'`);
+					}
 
-			return session;
+					if (session.getRuntimeState() === RuntimeState.Starting) {
+						this._logService.debug(`[RuntimeNotebookKernel] Waiting for session to be ready for notebook ${notebookUri.toString()}`);
+						await new Promise<void>(resolve => {
+							const disposable = session.onDidChangeRuntimeState(state => {
+								if (state === RuntimeState.Ready) {
+									disposable.dispose();
+									resolve();
+								}
+							});
+						});
+					}
+
+					return session;
+				});
 		} catch (err) {
 			this._notificationService.error(localize(
 				"positron.notebook.kernel.starting.failed",
@@ -180,24 +265,37 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	async cancelNotebookCellExecution(notebookUri: URI, _cellHandles: number[]): Promise<void> {
 		this._logService.debug(`[RuntimeNotebookKernel] Interrupting notebook ${notebookUri.toString()}`);
 
-		const notebookRuntimeKernelSession = this._kernelSessionsByNotebookUri.get(notebookUri);
-		if (!notebookRuntimeKernelSession) {
-			this._logService.debug(`[RuntimeNotebookKernel] No session to interrupt for notebook ${notebookUri.toString()}`);
-			return;
-		}
+		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+		if (session &&
+			(session.getRuntimeState() === RuntimeState.Busy ||
+				session.getRuntimeState() === RuntimeState.Interrupting)) {
+			// The session is in an interruptible state, interrupt it.
+			session.interrupt();
+		} else {
+			// TODO: Is it possible that a user could interrupt without a RuntimeNotebookKernelSession at all?
+			//       That would leave the executions running atm.
 
-		notebookRuntimeKernelSession.interrupt();
+			const execution = this._pendingRuntimeExecution;
+			if (!execution) {
+				// It shouldn't be possible to interrupt an execution without having set a token source.
+				// Log a warning and do nothing.
+				this._logService.warn(`Tried to interrupt notebook ${notebookUri.toString()} with no executing cell.`);
+				return;
+			}
+
+			// It's possible that the session exited after the execution started.
+			// Log a warning and cancel the execution promise.
+			// TODO: Should this be primarily handled in a session.onDidEndSession listener?
+			this._logService.warn(`Tried to interrupt notebook ${notebookUri.toString()} with no running session. Cancelling execution.`);
+			execution.error({
+				// TODO: There may not even have been a session to begin with so this isn't accurate.
+				name: 'Session Exited Unexpectedly',
+				message: 'The session has exited unexpectedly.',
+			});
+		}
 	}
 
 	provideVariables(notebookUri: URI, parentId: number | undefined, kind: 'named' | 'indexed', start: number, token: CancellationToken): AsyncIterableObject<VariablesResult> {
 		throw new Error('provideVariables not implemented.');
-	}
-
-	public override dispose(): void {
-		super.dispose();
-
-		for (const disposable of this._kernelSessionsByNotebookUri.values()) {
-			disposable.dispose();
-		}
 	}
 }
