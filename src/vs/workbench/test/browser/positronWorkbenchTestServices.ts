@@ -92,6 +92,7 @@ export class PositronTestServiceAccessor {
 		@INotebookExecutionService public notebookExecutionService: TestNotebookExecutionService,
 		@INotebookExecutionStateService public notebookExecutionStateService: TestNotebookExecutionStateService,
 		@INotebookKernelService public notebookKernelService: NotebookKernelService,
+		@INotebookService public notebookService: NotebookService,
 		@IPositronIPyWidgetsService public positronIPyWidgetsService: PositronIPyWidgetsService,
 		@IPositronPlotsService public positronPlotsService: IPositronPlotsService,
 		@IPositronVariablesService public positronVariablesService: IPositronVariablesService,
