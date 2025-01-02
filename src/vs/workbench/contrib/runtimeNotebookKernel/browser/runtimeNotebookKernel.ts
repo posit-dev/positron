@@ -5,7 +5,7 @@
 
 import { AsyncIterableObject } from '../../../../base/common/async.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { Emitter, Event } from '../../../../base/common/event.js';
+import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -13,7 +13,7 @@ import { localize } from '../../../../nls.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { ILanguageRuntimeMetadata, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -82,15 +82,16 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	}
 
 	async executeNotebookCellsRequest(notebookUri: URI, cellHandles: number[]): Promise<void> {
-		this._logService.debug(`[RuntimeNotebookKernel] Executing cells: ${cellHandles.join(', ')} for notebook ${notebookUri.toString()}`);
-
-		const notebookRuntimeKernelSession = await this.getOrCreateKernelSession(notebookUri);
-
-		// Execute the cells.
+		// NOTE: This method should not throw to avoid undefined behavior in the notebook UI.
 		try {
+			this._logService.debug(`[RuntimeNotebookKernel] Executing cells: ${cellHandles.join(', ')} for notebook ${notebookUri.toString()}`);
+
+			const notebookRuntimeKernelSession = await this.getOrCreateKernelSession(notebookUri);
+
+			// Execute the cells.
 			await notebookRuntimeKernelSession.executeCells(cellHandles);
 		} catch (err) {
-			this._logService.debug(`Error executing cells: ${err.stack ?? err}`);
+			this._logService.error(`Error executing cells: ${err.stack ?? err}`);
 		}
 	}
 
@@ -157,38 +158,23 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 				`Runtime kernel ${this.id} executed cells for notebook`,
 				notebookUri,
 			));
+
+			const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+			if (!session) {
+				throw new Error(`Unexpected error, session not found after starting for notebook '${notebookUri}'`);
+			}
+
+			return session;
 		} catch (err) {
-			return await new Promise<ILanguageRuntimeSession>((resolve, reject) => {
-				const notification = this._notificationService.prompt(
-					Severity.Error,
-					localize(
-						"positron.notebook.kernel.starting.failed",
-						"Starting {0} interpreter for '{1}' failed. Reason: {2}",
-						this.label,
-						notebookUri.fsPath,
-						err.toString(),
-					),
-					[{
-						label: localize('positron.notebook.kernel.starting.retry', 'Retry'),
-						run: async () => {
-							const session = await this.startRuntimeSession(notebookUri);
-							resolve(session);
-						},
-					}],
-				);
-
-				// If the notification is dismissed, reject with the caught error.
-				Event.toPromise(notification.onDidClose).then(() => reject(err));
-			});
+			this._notificationService.error(localize(
+				"positron.notebook.kernel.starting.failed",
+				"Starting {0} interpreter for '{1}' failed. Reason: {2}",
+				this.label,
+				notebookUri.fsPath,
+				err.toString(),
+			));
+			throw err;
 		}
-
-		// TODO: Could simplify if selectRuntime returned the session.
-		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
-		if (!session) {
-			throw new Error(`Unexpected error, session not found after starting for notebook '${notebookUri}'`);
-		}
-
-		return session;
 	}
 
 	async cancelNotebookCellExecution(notebookUri: URI, _cellHandles: number[]): Promise<void> {
