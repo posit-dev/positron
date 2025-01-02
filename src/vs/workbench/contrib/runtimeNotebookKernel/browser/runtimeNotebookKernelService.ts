@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { URI } from '../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -13,6 +14,7 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
+import { CellEditType, CellKind, ICellEditOperation } from '../../notebook/common/notebookCommon.js';
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { ActiveNotebookHasRunningRuntimeManager } from '../common/activeNotebookHasRunningRuntime.js';
@@ -83,7 +85,11 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			const oldKernel = e.oldKernel && this._kernels.get(e.oldKernel);
 			const newKernel = e.newKernel && this._kernels.get(e.newKernel);
 			if (newKernel) {
-				// A known kernel was selected, select the corresponding runtime.
+				// A known kernel was selected.
+				// Update the notebook's language to match the selected kernel.
+				this.updateNotebookLanguage(e.notebook, newKernel.runtime.languageId);
+
+				// Select the corresponding runtime for the notebook.
 				await this._runtimeSessionService.selectRuntime(
 					newKernel.runtime.runtimeId,
 					`Runtime kernel ${newKernel.id} selected for notebook`,
@@ -157,6 +163,58 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		this._kernels.set(kernel.id, kernel);
 		this._kernelsByRuntimeId.set(runtime.runtimeId, kernel);
 		this._register(this._notebookKernelService.registerKernel(kernel));
+	}
+
+	/**
+	 * Update the language of a notebook's metadata and cells.
+	 *
+	 * @param notebookUri URI of the notebook to update.
+	 * @param languageId The language ID.
+	 */
+	private updateNotebookLanguage(notebookUri: URI, languageId: string): void {
+		const notebook = this._notebookService.getNotebookTextModel(notebookUri);
+		if (!notebook) {
+			throw new Error(`No notebook document for '${notebookUri.toString()}'`);
+		}
+
+		// Create the edit operation to update the notebook metadata.
+		const documentMetadataEdit: ICellEditOperation = {
+			editType: CellEditType.DocumentMetadata,
+			metadata: {
+				...notebook.metadata,
+				metadata: {
+					...notebook.metadata.metadata ?? {},
+					language_info: {
+						name: languageId,
+					},
+				}
+			},
+		};
+
+		// Create the edit operations to update the cell languages.
+		const cellEdits = new Array<ICellEditOperation>();
+		for (const [index, cell] of notebook.cells.entries()) {
+			if (cell.cellKind === CellKind.Code &&
+				cell.language !== languageId &&
+				// Don't change raw cells; they're often used to define metadata e.g in Quarto notebooks.
+				cell.language !== 'raw') {
+				cellEdits.push({
+					editType: CellEditType.CellLanguage,
+					index,
+					language: languageId,
+				});
+			}
+		}
+
+		// Apply the edits.
+		notebook.applyEdits(
+			[documentMetadataEdit, ...cellEdits],
+			true,
+			undefined,
+			() => undefined,
+			undefined,
+			false,
+		);
 	}
 
 	/**

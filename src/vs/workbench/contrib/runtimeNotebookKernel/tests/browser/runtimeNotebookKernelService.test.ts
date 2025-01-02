@@ -34,6 +34,7 @@ import { POSITRON_RUNTIME_NOTEBOOK_KERNEL_ENABLED_KEY, POSITRON_RUNTIME_NOTEBOOK
 suite('Positron - RuntimeNotebookKernelService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 	let instantiationService: TestInstantiationService;
+	let accessor: PositronTestServiceAccessor;
 	let configurationService: TestConfigurationService;
 	let notebookKernelService: NotebookKernelService;
 	let runtimeSessionService: IRuntimeSessionService;
@@ -41,7 +42,7 @@ suite('Positron - RuntimeNotebookKernelService', () => {
 
 	setup(() => {
 		instantiationService = positronWorkbenchInstantiationService(disposables);
-		const accessor = instantiationService.createInstance(PositronTestServiceAccessor);
+		accessor = instantiationService.createInstance(PositronTestServiceAccessor);
 
 		configurationService = accessor.configurationService;
 		configurationService.setUserConfiguration(POSITRON_RUNTIME_NOTEBOOK_KERNEL_ENABLED_KEY, true);
@@ -83,7 +84,7 @@ suite('Positron - RuntimeNotebookKernelService', () => {
 		assert.deepStrictEqual(kernel.preloadProvides, []);
 	});
 
-	test('select kernel', async () => {
+	test('select kernel starts a runtime', async () => {
 		const promise = Event.toPromise(notebookKernelService.onDidAddKernel);
 		const runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
 		const kernel = await promise;
@@ -97,6 +98,24 @@ suite('Positron - RuntimeNotebookKernelService', () => {
 		// TODO: Check the started session's properties
 		assert.strictEqual(runtimeSessionService.activeSessions.length, 1);
 		assert.strictEqual(runtimeSessionService.getNotebookSessionForNotebookUri(notebookDocument.uri)?.runtimeMetadata, runtime);
+	});
+
+	test('select kernel updates the notebook language', async () => {
+		const promise = Event.toPromise(notebookKernelService.onDidAddKernel);
+		const runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
+		const kernel = await promise;
+
+		assert.strictEqual(runtimeSessionService.getNotebookSessionForNotebookUri(notebookDocument.uri), undefined);
+
+		// TODO: Why do we need to do this? Why isn't it handled by the test services?
+		sinon.stub(accessor.notebookService, 'getNotebookTextModel').returns(notebookDocument);
+
+		notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
+
+		assert.strictEqual((notebookDocument.metadata.metadata as any).language_info.name, runtime.languageId);
+		for (const cell of notebookDocument.cells) {
+			assert.strictEqual(cell.language, runtime.languageId);
+		}
 	});
 
 	// TODO
