@@ -3,13 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 import express from 'express';
 import path = require('path');
 import fs = require('fs');
 
 import { Disposable, Uri } from 'vscode';
-import { PromiseHandles } from './util';
-import { isAddressInfo } from './positronProxy';
+import { injectPreviewResources, PromiseHandles } from './util';
+import { isAddressInfo, ProxyServerHtml } from './types';
 
 /**
  * HtmlProxyServer class.
@@ -44,7 +45,10 @@ export class HtmlProxyServer implements Disposable {
 	 * to the URL.
 	 * @returns A URL that serves the content at the specified path.
 	 */
-	public async createHtmlProxy(targetPath: string): Promise<string> {
+	public async createHtmlProxy(
+		targetPath: string,
+		htmlConfig?: ProxyServerHtml
+	): Promise<string> {
 		// Wait for the server to be ready.
 		await this._ready.promise;
 
@@ -82,7 +86,24 @@ export class HtmlProxyServer implements Disposable {
 		}
 
 		// Create a new path entry.
-		this._app.use(`/${serverPath}`, express.static(targetPath));
+		if (vscode.env.uiKind !== vscode.UIKind.Web) {
+			this._app.use(`/${serverPath}`, express.static(targetPath));
+		} else {
+			// If we're running in the web, we need to inject resources for the preview HTML.
+			this._app.use(`/${serverPath}`, async (req, res, next) => {
+				const filePath = path.join(targetPath, req.path);
+				if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+					let content = fs.readFileSync(filePath, 'utf8');
+					// If there is an HTML configuration, use it to rewrite the content.
+					if (htmlConfig) {
+						content = injectPreviewResources(content, htmlConfig);
+					}
+					res.send(content);
+				} else {
+					next();
+				}
+			});
+		}
 		const address = this._server.address();
 		if (!isAddressInfo(address)) {
 			throw new Error(`Server address is not available; cannot serve ${targetPath}`);

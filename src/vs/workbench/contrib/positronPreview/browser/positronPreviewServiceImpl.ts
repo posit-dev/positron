@@ -212,7 +212,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		const webviewInitInfo: WebviewInitInfo = {
 			origin: DOM.getActiveWindow().origin,
 			providedViewType: viewType,
-			title: '',
+			title: 'Positron Preview',
 			options: {
 				enableFindWidget: true,
 				retainContextWhenHidden: true,
