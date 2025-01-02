@@ -5,15 +5,18 @@
 
 import { AsyncIterableObject } from '../../../../base/common/async.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { Emitter } from '../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { URI } from '../../../../base/common/uri.js';
+import { localize } from '../../../../nls.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { ILanguageRuntimeMetadata, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { INotebookKernel, INotebookKernelChangeEvent, VariablesResult } from '../../notebook/common/notebookKernelService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
@@ -50,6 +53,8 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
 		@INotebookService private readonly _notebookService: INotebookService,
+		@INotificationService private readonly _notificationService: INotificationService,
+		@IProgressService private readonly _progressService: IProgressService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 	) {
 		super();
@@ -77,9 +82,9 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	}
 
 	async executeNotebookCellsRequest(notebookUri: URI, cellHandles: number[]): Promise<void> {
-		this._logService.debug(`[RuntimeNotebookKernel] Executing cells: ${cellHandles.join(', ')}`);
+		this._logService.debug(`[RuntimeNotebookKernel] Executing cells: ${cellHandles.join(', ')} for notebook ${notebookUri.toString()}`);
 
-		const notebookRuntimeKernelSession = this.getOrCreateKernelSession(notebookUri);
+		const notebookRuntimeKernelSession = await this.getOrCreateKernelSession(notebookUri);
 
 		// Execute the cells.
 		try {
@@ -89,26 +94,30 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		}
 	}
 
-	private getOrCreateKernelSession(notebookUri: URI): RuntimeNotebookKernelSession {
+	private async getOrCreateKernelSession(notebookUri: URI): Promise<RuntimeNotebookKernelSession> {
 		const existingKernelSession = this._kernelSessionsByNotebookUri.get(notebookUri);
 		if (existingKernelSession) {
+			this._logService.debug(`[RuntimeNotebookKernel] Kernel session already exists for notebook ${notebookUri.toString()}`);
 			return existingKernelSession;
 		}
 
 		const notebook = this._notebookService.getNotebookTextModel(notebookUri);
 		if (!notebook) {
 			// Copying ExtHostNotebookController.getNotebookDocument for now.
+			this._logService.debug(`[RuntimeNotebookKernel] No notebook document for notebook ${notebookUri.toString()}`);
 			throw new Error(`NO notebook document for '${notebookUri}'`);
 		}
 
-		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+		let session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 		if (!session) {
-			// An execution was requested before a session was started for the notebook,
-			// which should not happen.
-			throw new Error(`NO runtime session for notebook '${notebookUri}'`);
+			// An execution was requested before a session was started for the notebook.
+			this._logService.debug(`[RuntimeNotebookKernel] No runtime session for notebook ${notebookUri.toString()}, starting a new one`);
+			session = await this.startRuntimeSession(notebookUri);
 		}
 
 		// TODO: Need to check the state of the session too...?
+
+		this._logService.debug(`[RuntimeNotebookKernel] Creating kernel session for notebook ${notebookUri.toString()}`);
 
 		const kernelSession = this._instantiationService.createInstance(RuntimeNotebookKernelSession, session, notebook);
 		this._kernelSessionsByNotebookUri.set(notebook.uri, kernelSession);
@@ -131,6 +140,55 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		}));
 
 		return kernelSession;
+	}
+
+	private async startRuntimeSession(notebookUri: URI): Promise<ILanguageRuntimeSession> {
+		try {
+			await this._progressService.withProgress({
+				location: ProgressLocation.Notification,
+				title: localize(
+					"positron.notebook.kernel.starting",
+					"Starting {0} interpreter for '{1}'",
+					this.label,
+					notebookUri.fsPath,
+				),
+			}, () => this._runtimeSessionService.selectRuntime(
+				this.runtime.runtimeId,
+				`Runtime kernel ${this.id} executed cells for notebook`,
+				notebookUri,
+			));
+		} catch (err) {
+			return await new Promise<ILanguageRuntimeSession>((resolve, reject) => {
+				const notification = this._notificationService.prompt(
+					Severity.Error,
+					localize(
+						"positron.notebook.kernel.starting.failed",
+						"Starting {0} interpreter for '{1}' failed. Reason: {2}",
+						this.label,
+						notebookUri.fsPath,
+						err.toString(),
+					),
+					[{
+						label: localize('positron.notebook.kernel.starting.retry', 'Retry'),
+						run: async () => {
+							const session = await this.startRuntimeSession(notebookUri);
+							resolve(session);
+						},
+					}],
+				);
+
+				// If the notification is dismissed, reject with the caught error.
+				Event.toPromise(notification.onDidClose).then(() => reject(err));
+			});
+		}
+
+		// TODO: Could simplify if selectRuntime returned the session.
+		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+		if (!session) {
+			throw new Error(`Unexpected error, session not found after starting for notebook '${notebookUri}'`);
+		}
+
+		return session;
 	}
 
 	async cancelNotebookCellExecution(notebookUri: URI, _cellHandles: number[]): Promise<void> {

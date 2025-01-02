@@ -5,7 +5,6 @@
 
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../base/common/map.js';
-import { generateUuid } from '../../../../base/common/uuid.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -43,6 +42,8 @@ export class RuntimeNotebookKernelSession extends Disposable {
 	}
 
 	async executeCells(cellHandles: number[]): Promise<void> {
+		this._logService.debug(`[RuntimeNotebookKernelSession] Executing cells: ${cellHandles.join(', ')}`);
+
 		const executionPromises: Promise<void>[] = [];
 		for (const cellHandle of cellHandles) {
 			const cell = this._notebook.cells.find(cell => cell.handle === cellHandle);
@@ -56,6 +57,8 @@ export class RuntimeNotebookKernelSession extends Disposable {
 	}
 
 	private async queueCellExecution(cell: NotebookCellTextModel): Promise<void> {
+		this._logService.debug(`[RuntimeNotebookKernelSession] Queuing cell execution: ${cell.handle}`);
+
 		// Get the pending execution for this notebook, if one exists.
 		const pendingExecution = this._pendingCellExecutionsByNotebookUri.get(this._notebook.uri);
 
@@ -77,6 +80,8 @@ export class RuntimeNotebookKernelSession extends Disposable {
 	}
 
 	private async executeCell(cell: NotebookCellTextModel): Promise<void> {
+		this._logService.debug(`[RuntimeNotebookKernelSession] Executing cell: ${cell.handle}`);
+
 		// Don't try to execute raw cells; they're often used to define metadata e.g in Quarto notebooks.
 		if (cell.language === 'raw') {
 			return;
