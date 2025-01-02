@@ -8,8 +8,7 @@ import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
 import { PositronQuickAccess } from './positronQuickaccess';
 import { PositronQuickInput } from './positronQuickInput';
-import { InterpreterInfo, InterpreterType } from './utils/positronInterpreterInfo';
-import { IElement } from '../driver';
+import { InterpreterType } from './utils/positronInterpreterInfo';
 
 const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
@@ -46,7 +45,7 @@ export class PositronConsole {
 		this.suggestionList = this.code.driver.page.locator(SUGGESTION_LIST);
 	}
 
-	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string, skipWait: boolean = false): Promise<IElement | undefined> {
+	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string, skipWait: boolean = false): Promise<undefined> {
 
 		// don't try to start a new interpreter if one is currently starting up
 		if (!skipWait) {
@@ -72,31 +71,6 @@ export class PositronConsole {
 		await this.quickinput.selectQuickInputElementContaining(desiredInterpreterString);
 		await this.quickinput.waitForQuickInputClosed();
 		return;
-	}
-
-	async selectAndGetInterpreter(
-		desiredInterpreterType: InterpreterType,
-		desiredInterpreter: string
-	): Promise<InterpreterInfo | undefined> {
-		const interpreterElem = await this.selectInterpreter(
-			desiredInterpreterType,
-			desiredInterpreter,
-			true
-		);
-
-		if (interpreterElem) {
-			// The aria-label looks something like: Python 3.10.4 64-bit ('3.10.4'), ~/.pyenv/versions/3.10.4/bin/python, Pyenv
-			const rawInfo = interpreterElem.attributes['aria-label'].split(',');
-			const hasSource = rawInfo.length > 2;
-			return {
-				type: desiredInterpreterType, // e.g. InterpreterType.Python
-				version: rawInfo[0].trim(), // e.g. Python 3.10.4 64-bit ('3.10.4')
-				path: rawInfo[1].trim(), // e.g. ~/.pyenv/versions/3.10.4/bin/python
-				source: hasSource ? rawInfo[2].trim() : '', // e.g. Pyenv
-			} satisfies InterpreterInfo;
-		}
-
-		return undefined;
 	}
 
 	async executeCode(languageName: string, code: string, prompt: string): Promise<void> {
