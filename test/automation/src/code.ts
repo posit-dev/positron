@@ -7,11 +7,13 @@ import * as cp from 'child_process';
 import * as os from 'os';
 import * as treekill from 'tree-kill';
 // --- Start Positron ---
-import { ILogFile } from './driver';
+// Removed imports
 // --- End Positron ---
 import { Logger, measureAndLog } from './logger';
 import { launch as launchPlaywrightBrowser } from './playwrightBrowser';
-import { PlaywrightDriver } from './playwrightDriver';
+// --- Start Positron ---
+import { ILogFile, PlaywrightDriver } from './playwrightDriver';
+// --- End Positron ---
 import { launch as launchPlaywrightElectron } from './playwrightElectron';
 import { teardown } from './processes';
 

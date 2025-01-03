@@ -13,6 +13,17 @@ import { measureAndLog } from './logger';
 import { LaunchOptions } from './code';
 import { teardown } from './processes';
 import { ChildProcess } from 'child_process';
+// --- Start Positron ---
+import * as fs from 'fs/promises';
+import * as path from 'path';
+// --- End Positron ---
+
+// --- Start Positron ---
+export interface ILogFile {
+	relativePath: string;
+	contents: string;
+}
+// --- End Positron ---
 
 export class PlaywrightDriver {
 
@@ -226,9 +237,31 @@ export class PlaywrightDriver {
 	// Removed functions
 	// --- End Positron ---
 
-	async getLogs() {
-		return this.page.evaluate(([driver]) => driver.getLogs(), [await this.getDriverHandle()] as const);
+	// --- Start Positron ---
+	async getLogs(logsHome: string = this.options.logsPath): Promise<ILogFile[]> {
+		const result: ILogFile[] = [];
+		await this.doGetLogs(result, logsHome, logsHome);
+		return result;
 	}
+
+	private async doGetLogs(logs: ILogFile[], curFolder: string, logsHome: string): Promise<void> {
+		const entries = await fs.readdir(curFolder, { withFileTypes: true });
+
+		for (const entry of entries) {
+			const fullPath = path.join(curFolder, entry.name);
+
+			if (entry.isDirectory()) {
+				await this.doGetLogs(logs, fullPath, logsHome);
+			} else if (entry.isFile()) {
+				const contents = await fs.readFile(fullPath, 'utf-8');
+				const relativePath = path.relative(logsHome, fullPath);
+				if (contents && relativePath) {
+					logs.push({ relativePath, contents });
+				}
+			}
+		}
+	}
+	// --- End Positron ---
 
 	private async evaluateWithDriver<T>(pageFunction: PageFunction<IWindowDriver[], T>) {
 		return this.page.evaluate(pageFunction, [await this.getDriverHandle()]);
