@@ -389,6 +389,16 @@ export interface IRuntimeSessionService {
 	 * @param source The source of the request to restart the session, for debugging purposes.
 	 */
 	restartSession(sessionId: string, source: string): Promise<void>;
+
+	/**
+	 * Shutdown a runtime session for a notebook.
+	 *
+	 * @param notebookUri The notebook's URI.
+	 * @param exitReason The reason for exiting.
+	 * @param source The source of the request to shutdown the session, for debugging purposes.
+	 * @returns A promise that resolves when the session has exited.
+	 */
+	shutdownNotebookSession(notebookUri: URI, exitReason: RuntimeExitReason, source: string): Promise<void>;
 }
 
 export { RuntimeClientType };

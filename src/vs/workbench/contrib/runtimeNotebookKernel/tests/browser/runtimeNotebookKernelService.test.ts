@@ -127,9 +127,25 @@ suite('Positron - RuntimeNotebookKernelService', () => {
 		// Select the kernel for the notebook.
 		accessor.notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
 
-		// Wait for a session to start for the expected runtime.
+		// Wait for a session to start.
 		const { session } = await Event.toPromise(runtimeSessionService.onWillStartSession);
+
+		// Check that the session is for the expected runtime.
 		assert.strictEqual(session.runtimeMetadata, runtime);
+	});
+
+	test('runtime is shutdown on kernel deselection', async () => {
+		// Select the kernel for the notebook.
+		accessor.notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
+
+		// Wait for a session to start.
+		const { session } = await Event.toPromise(runtimeSessionService.onWillStartSession);
+
+		// Deselect the kernel for the notebook.
+		accessor.notebookKernelService.selectKernelForNotebook(undefined, notebookDocument);
+
+		// Wait for the session to end.
+		await Event.toPromise(session.onDidEndSession);
 	});
 
 	test('runtime is swapped on kernel selection', async () => {
@@ -143,8 +159,10 @@ suite('Positron - RuntimeNotebookKernelService', () => {
 		// Select another kernel for the notebook.
 		notebookKernelService.selectKernelForNotebook(anotherKernel, notebookDocument);
 
-		// Wait for the new session to start for the expected runtime.
+		// Wait for the new session to start.
 		const { session: anotherSession } = await Event.toPromise(runtimeSessionService.onWillStartSession);
+
+		// Check that the new session is for the expected runtime.
 		assert.strictEqual(anotherSession.runtimeMetadata, anotherRuntime);
 
 		// Check the session states.
@@ -175,8 +193,7 @@ suite('Positron - RuntimeNotebookKernelService', () => {
 		assert.strictEqual(kernels.suggestions[0].id, kernel.id);
 	});
 
-	// TODO: Not yet implemented.
-	test.skip('runtime is shutdown on notebook close', async () => {
+	test('runtime is shutdown on notebook close', async () => {
 		// Select the kernel for the notebook.
 		notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
 
@@ -187,7 +204,8 @@ suite('Positron - RuntimeNotebookKernelService', () => {
 		// Fire the event indicating that a notebook will close.
 		notebookService.onWillRemoveNotebookDocumentEmitter.fire(notebookDocument);
 
-		assert.strictEqual(session.getRuntimeState(), RuntimeState.Exiting);
+		// Wait for the session to end.
+		await Event.toPromise(session.onDidEndSession);
 	});
 
 	test('kernel source action providers are registered', async () => {
