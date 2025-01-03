@@ -46,7 +46,7 @@ export class PositronTerminal {
 	}
 
 	private async _waitForTerminal(): Promise<void> {
-		await this.code.waitForElement('.terminal.xterm.focus');
+		await expect(this.code.driver.page.locator('.terminal.xterm.focus')).toBeVisible();
 		await this.waitForTerminalLines();
 	}
 

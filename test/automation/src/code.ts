@@ -6,7 +6,9 @@
 import * as cp from 'child_process';
 import * as os from 'os';
 import * as treekill from 'tree-kill';
-import { IElement, ILocaleInfo, ILocalizedStrings, ILogFile } from './driver';
+// --- Start Positron ---
+import { ILogFile } from './driver';
+// --- End Positron ---
 import { Logger, measureAndLog } from './logger';
 import { launch as launchPlaywrightBrowser } from './playwrightBrowser';
 import { PlaywrightDriver } from './playwrightDriver';
@@ -130,9 +132,9 @@ export class Code {
 	}
 	// --- End Positron ---
 
-	async dispatchKeybinding(keybinding: string): Promise<void> {
-		await this.driver.dispatchKeybinding(keybinding);
-	}
+	// --- Start Positron ---
+	// Removed function
+	// --- End Positron ---
 
 	async didFinishLoad(): Promise<void> {
 		return this.driver.didFinishLoad();
@@ -200,72 +202,17 @@ export class Code {
 		}), 'Code#exit()', this.logger);
 	}
 
-	async getElement(selector: string): Promise<IElement | undefined> {
-		return (await this.driver.getElements(selector))?.[0];
-	}
-
-	async getElements(selector: string, recursive: boolean): Promise<IElement[] | undefined> {
-		return this.driver.getElements(selector, recursive);
-	}
-
-	async waitForTextContent(selector: string, textContent?: string, accept?: (result: string) => boolean, retryCount?: number): Promise<string> {
-		accept = accept || (result => textContent !== undefined ? textContent === result : !!result);
-
-		return await this.poll(
-			() => this.driver.getElements(selector).then(els => els.length > 0 ? Promise.resolve(els[0].textContent) : Promise.reject(new Error('Element not found for textContent'))),
-			s => accept!(typeof s === 'string' ? s : ''),
-			`get text content '${selector}'`,
-			retryCount
-		);
-	}
-
-	async waitAndClick(selector: string, xoffset?: number, yoffset?: number, retryCount: number = 200): Promise<void> {
-		await this.poll(() => this.driver.click(selector, xoffset, yoffset), () => true, `click '${selector}'`, retryCount);
-	}
-
-	async waitForSetValue(selector: string, value: string): Promise<void> {
-		await this.poll(() => this.driver.setValue(selector, value), () => true, `set value '${selector}'`);
-	}
-
-	async waitForElements(selector: string, recursive: boolean, accept: (result: IElement[]) => boolean = result => result.length > 0): Promise<IElement[]> {
-		return await this.poll(() => this.driver.getElements(selector, recursive), accept, `get elements '${selector}'`);
-	}
-
-	async waitForElement(selector: string, accept: (result: IElement | undefined) => boolean = result => !!result, retryCount: number = 200): Promise<IElement> {
-		return await this.poll<IElement>(() => this.driver.getElements(selector).then(els => els[0]), accept, `get element '${selector}'`, retryCount);
-	}
-
-	async waitForActiveElement(selector: string, retryCount: number = 200): Promise<void> {
-		await this.poll(() => this.driver.isActiveElement(selector), r => r, `is active element '${selector}'`, retryCount);
-	}
-
-	async waitForTitle(accept: (title: string) => boolean): Promise<void> {
-		await this.poll(() => this.driver.getTitle(), accept, `get title`);
-	}
-
-	async waitForTypeInEditor(selector: string, text: string): Promise<void> {
-		await this.poll(() => this.driver.typeInEditor(selector, text), () => true, `type in editor '${selector}'`);
-	}
-
-	async waitForTerminalBuffer(selector: string, accept: (result: string[]) => boolean): Promise<void> {
-		await this.poll(() => this.driver.getTerminalBuffer(selector), accept, `get terminal buffer '${selector}'`);
-	}
-
-	async writeInTerminal(selector: string, value: string): Promise<void> {
-		await this.poll(() => this.driver.writeInTerminal(selector, value), () => true, `writeInTerminal '${selector}'`);
-	}
+	// --- Start Positron ---
+	// Removed functions
+	// --- End Positron ---
 
 	async whenWorkbenchRestored(): Promise<void> {
 		await this.poll(() => this.driver.whenWorkbenchRestored(), () => true, `when workbench restored`);
 	}
 
-	getLocaleInfo(): Promise<ILocaleInfo> {
-		return this.driver.getLocaleInfo();
-	}
-
-	getLocalizedStrings(): Promise<ILocalizedStrings> {
-		return this.driver.getLocalizedStrings();
-	}
+	// --- Start Positron ---
+	// Removed functions
+	// --- End Positron ---
 
 	getLogs(): Promise<ILogFile[]> {
 		return this.driver.getLogs();
@@ -312,35 +259,6 @@ export class Code {
 	}
 }
 
-export function findElement(element: IElement, fn: (element: IElement) => boolean): IElement | null {
-	const queue = [element];
-
-	while (queue.length > 0) {
-		const element = queue.shift()!;
-
-		if (fn(element)) {
-			return element;
-		}
-
-		queue.push(...element.children);
-	}
-
-	return null;
-}
-
-export function findElements(element: IElement, fn: (element: IElement) => boolean): IElement[] {
-	const result: IElement[] = [];
-	const queue = [element];
-
-	while (queue.length > 0) {
-		const element = queue.shift()!;
-
-		if (fn(element)) {
-			result.push(element);
-		}
-
-		queue.push(...element.children);
-	}
-
-	return result;
-}
+// --- Start Positron ---
+// Removed functions
+// --- End Positron ---
