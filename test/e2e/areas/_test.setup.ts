@@ -154,6 +154,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			restartApp = false
 		) => {
 			await userSettings.setUserSettings(settings, restartApp);
+			await app.code.wait(1000); // windows workaround
 		};
 
 		await use({
