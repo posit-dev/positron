@@ -90,11 +90,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 				this.updateNotebookLanguage(e.notebook, newKernel.runtime.languageId);
 
 				// Select the corresponding runtime for the notebook.
-				await this._runtimeSessionService.selectRuntime(
-					newKernel.runtime.runtimeId,
-					`Runtime kernel ${newKernel.id} selected for notebook`,
-					e.notebook,
-				);
+				await newKernel.selectRuntime(e.notebook, `Runtime kernel ${newKernel.id} selected for notebook`);
 			} else if (oldKernel && !newKernel) {
 				// The user switched from a known kernel to an unknown kernel, shutdown the existing runtime.
 				this._runtimeSessionService.shutdownNotebookSession(

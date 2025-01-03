@@ -280,7 +280,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	getNotebookSessionForNotebookUri(notebookUri: URI): ILanguageRuntimeSession | undefined {
 		const session = this._notebookSessionsByNotebookUri.get(notebookUri);
 		this._logService.info(`Lookup notebook session for notebook URI ${notebookUri.toString()}: ${session ? session.metadata.sessionId : 'not found'}`);
-		return this._notebookSessionsByNotebookUri.get(notebookUri);
+		return session;
 	}
 
 	/**
@@ -297,6 +297,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const runtime = this._languageRuntimeService.getRegisteredRuntime(runtimeId);
 		if (!runtime) {
 			throw new Error(`No language runtime with id '${runtimeId}' was found.`);
+		}
+
+		const sessionMode = notebookUri ? LanguageRuntimeSessionMode.Notebook : LanguageRuntimeSessionMode.Console;
+
+		// If a start request is already in progress, wait for it to complete.
+		const startingPromise = this._startingSessionsBySessionMapKey.get(
+			getSessionMapKey(sessionMode, runtimeId, notebookUri));
+		if (startingPromise && !startingPromise.isSettled) {
+			await startingPromise.p;
 		}
 
 		if (notebookUri) {
@@ -324,7 +333,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// Wait for the selected runtime to start.
 			await this.startNewRuntimeSession(runtime.runtimeId,
 				basename(notebookUri),
-				LanguageRuntimeSessionMode.Notebook,
+				sessionMode,
 				notebookUri,
 				source,
 				RuntimeStartMode.Switching);
@@ -346,7 +355,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// Wait for the selected runtime to start.
 			await this.startNewRuntimeSession(runtime.runtimeId,
 				runtime.runtimeName,
-				LanguageRuntimeSessionMode.Console,
+				sessionMode,
 				undefined, // No notebook URI (console session)
 				source,
 				RuntimeStartMode.Switching);
