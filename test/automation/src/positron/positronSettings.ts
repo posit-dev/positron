@@ -24,10 +24,12 @@ export class PositronSettings {
 
 	async clearUserSettings(): Promise<void> {
 		await this.openUserSettingsFile();
+		const file = 'settings.json';
 		await this.quickaccess.runCommand('editor.action.selectAll');
 		await this.code.driver.page.keyboard.press('Delete');
-		await this.editor.waitForTypeInEditor('settings.json', `{`); // will auto close }
+		await this.editor.waitForTypeInEditor(file, `{`); // will auto close }
 		await this.editors.saveOpenedFile();
+		await this.editors.waitForActiveTabNotDirty(file);
 		await this.quickaccess.runCommand('workbench.action.closeActiveEditor');
 	}
 
