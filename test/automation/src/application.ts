@@ -7,6 +7,9 @@ import { Workbench } from './workbench';
 import { Code, launch, LaunchOptions } from './code';
 import { Logger, measureAndLog } from './logger';
 import { Profiler } from './profiler';
+// --- Start Positron ---
+import { expect } from '@playwright/test';
+// --- End Positron ---
 
 export const enum Quality {
 	Dev,
@@ -70,7 +73,9 @@ export class Application {
 
 	async start(): Promise<void> {
 		await this._start();
-		await this.code.waitForElement('.explorer-folders-view');
+		// --- Start Positron ---
+		await expect(this.code.driver.page.locator('.explorer-folders-view')).toBeVisible();
+		// --- End Positron ---
 	}
 
 	async restart(options?: { workspaceOrFolder?: string; extraArgs?: string[] }): Promise<void> {
@@ -126,24 +131,16 @@ export class Application {
 
 		// We need a rendered workbench
 		await measureAndLog(() => code.didFinishLoad(), 'Application#checkWindowReady: wait for navigation to be committed', this.logger);
-		await measureAndLog(() => code.waitForElement('.monaco-workbench'), 'Application#checkWindowReady: wait for .monaco-workbench element', this.logger);
+		// --- Start Positron ---
+		await measureAndLog(() => expect(code.driver.page.locator('.monaco-workbench')).toBeVisible(), 'Application#checkWindowReady: wait for .monaco-workbench element', this.logger);
+		// --- Start Positron ---
 		await measureAndLog(() => code.whenWorkbenchRestored(), 'Application#checkWorkbenchRestored', this.logger);
 
 		// Remote but not web: wait for a remote connection state change
 		if (this.remote) {
-			await measureAndLog(() => code.waitForTextContent('.monaco-workbench .statusbar-item[id="status.host"]', undefined, statusHostLabel => {
-				this.logger.log(`checkWindowReady: remote indicator text is ${statusHostLabel}`);
-
-				// The absence of "Opening Remote" is not a strict
-				// indicator for a successful connection, but we
-				// want to avoid hanging here until timeout because
-				// this method is potentially called from a location
-				// that has no tracing enabled making it hard to
-				// diagnose this. As such, as soon as the connection
-				// state changes away from the "Opening Remote..." one
-				// we return.
-				return !statusHostLabel.includes('Opening Remote');
-			}, 300 /* = 30s of retry */), 'Application#checkWindowReady: wait for remote indicator', this.logger);
+			// --- Start Positron ---
+			await measureAndLog(() => expect(code.driver.page.locator('.monaco-workbench .statusbar-item[id="status.host"]')).not.toContainText('Opening Remote'), 'Application#checkWindowReady: wait for remote indicator', this.logger);
+			// --- End Positron ---
 		}
 	}
 }
