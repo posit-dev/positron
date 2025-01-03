@@ -254,7 +254,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 		});
 
-		languageRuntimeExtPoint.setHandler((extensions) => {
+		this._register(languageRuntimeExtPoint.setHandler((extensions) => {
 			// This new set of extensions replaces the old set, so clear the
 			// language packs.
 			this._languagePacks.clear();
@@ -282,7 +282,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					this._startupPhase.set(RuntimeStartupPhase.Complete, undefined);
 				}
 			}
-		});
+		}));
 
 		// Register a shutdown event handler so that we have a chance to save
 		// state before a reload.

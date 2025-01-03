@@ -151,6 +151,15 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	}
 
 	/**
+	 * Get a runtime notebook kernel by runtime ID.
+	 *
+	 * @param runtimeId The runtime ID.
+	 */
+	public getKernelByRuntimeId(runtimeId: string): RuntimeNotebookKernel | undefined {
+		return this._kernelsByRuntimeId.get(runtimeId);
+	}
+
+	/**
 	 * Create and register a notebook kernel for a given language runtime.
 	 *
 	 * @param runtime The language runtime to create a notebook kernel for.
