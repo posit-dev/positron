@@ -19,6 +19,14 @@ export class PositronEditors {
 		await expect(this.code.driver.page.locator(`.tabs-container div.tab.active${isDirty ? '.dirty' : ''}[aria-selected="true"][data-resource-name$="${fileName}"]`)).toBeVisible();
 	}
 
+	async waitForActiveTabNotDirty(fileName: string): Promise<void> {
+		await expect(
+			this.code.driver.page.locator(
+				`.tabs-container div.tab.active:not(.dirty)[aria-selected="true"][data-resource-name$="${fileName}"]`
+			)
+		).toBeVisible();
+	}
+
 	async newUntitledFile(): Promise<void> {
 		if (process.platform === 'darwin') {
 			await this.code.driver.page.keyboard.press('Meta+N');

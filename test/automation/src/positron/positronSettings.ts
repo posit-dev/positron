@@ -15,10 +15,11 @@ export class PositronSettings {
 
 	async addUserSettings(settings: [key: string, value: string][]): Promise<void> {
 		await this.openUserSettingsFile();
-
+		const file = 'settings.json';
 		await this.code.driver.page.keyboard.press('ArrowRight');
-		await this.editor.waitForTypeInEditor('settings.json', settings.map(v => `"${v[0]}": ${v[1]},`).join(''));
+		await this.editor.waitForTypeInEditor(file, settings.map(v => `"${v[0]}": ${v[1]},`).join(''));
 		await this.editors.saveOpenedFile();
+		await this.editors.waitForActiveTabNotDirty(file);
 	}
 
 	async clearUserSettings(): Promise<void> {
