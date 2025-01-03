@@ -372,13 +372,20 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 
 		const { sessionId } = session;
 
+		// No-op if this is already the active instance. Setting the active
+		// instance below triggers a refresh, so avoid it if if the instance is
+		// already active.
+		if (this._activePositronVariablesInstance?.session.sessionId === sessionId) {
+			return;
+		}
+
 		const positronVariablesInstance = this._positronVariablesInstancesBySessionId.get(
 			sessionId
 		);
 
 		if (positronVariablesInstance) {
 			this._setActivePositronVariablesInstance(positronVariablesInstance);
-			return
+			return;
 		}
 
 		this._logService.error(`Cannot show Variables: ${formatLanguageRuntimeSession(session)} became active, but a Variables instance for it is not running.`);
