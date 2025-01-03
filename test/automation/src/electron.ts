@@ -5,6 +5,9 @@
 
 import { join } from 'path';
 import * as fs from 'fs';
+// -- Start Positron --
+// Removed import
+// -- End Positron --
 import { URI } from 'vscode-uri';
 import { measureAndLog } from './logger';
 import type { LaunchOptions } from './code';

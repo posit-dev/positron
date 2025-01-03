@@ -43,31 +43,31 @@ fi
 echo
 echo "### Positron Code Cells tests"
 echo
-npm run test-extension -l positron-code-cells
+yarn test-extension -l positron-code-cells
 kill_app
 
 echo
 echo "### Positron R tests"
 echo
-npm run test-extension -l positron-r
+yarn test-extension -l positron-r
 kill_app
 
 echo
 echo "### Positron R connections tests"
 echo
-npm run test-extension -l positron-connections
+yarn test-extension -l positron-connections
 kill_app
 
 echo
 echo "### Positron DuckDB tests"
 echo
-npm run test-extension -l positron-duckdb
+yarn test-extension -l positron-duckdb
 kill_app
 
 echo
 echo "### Positron Zed tests"
 echo
-npm run test-extension -l positron-zed
+yarn test-extension -l positron-zed
 kill_app
 
 # Cleanup
