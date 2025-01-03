@@ -3,12 +3,18 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// -- Start Positron --
 import { join } from 'path';
+// -- End Positron --
 import * as fs from 'fs';
-import { copyExtension } from './extensions';
 import { URI } from 'vscode-uri';
 import { measureAndLog } from './logger';
 import type { LaunchOptions } from './code';
+import path = require('path');
+// -- Start Positron --
+import { promisify } from 'util';
+import { ncp } from 'ncp';
+// -- End Positron --
 
 const root = join(__dirname, '..', '..', '..');
 
@@ -137,3 +143,14 @@ export function getBuildVersion(root: string): string {
 			return require(join(root, 'resources', 'app', 'package.json')).version;
 	}
 }
+
+// -- Start Positron --
+export async function copyExtension(repoPath: string, extensionsPath: string, extId: string): Promise<void> {
+	const dest = path.join(extensionsPath, extId);
+	if (!fs.existsSync(dest)) {
+		const orig = path.join(repoPath, 'extensions', extId);
+
+		return promisify(ncp)(orig, dest);
+	}
+}
+// -- End Positron --
