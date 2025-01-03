@@ -3,15 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// -- Start Positron --
 import { join } from 'path';
-// -- End Positron --
 import * as fs from 'fs';
 import { URI } from 'vscode-uri';
 import { measureAndLog } from './logger';
 import type { LaunchOptions } from './code';
-import path = require('path');
 // -- Start Positron --
+import path = require('path');
 import { promisify } from 'util';
 import { ncp } from 'ncp';
 // -- End Positron --
