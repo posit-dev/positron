@@ -9,7 +9,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeExitReason } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
@@ -95,11 +95,13 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 					`Runtime kernel ${newKernel.id} selected for notebook`,
 					e.notebook,
 				);
-			} else if (oldKernel) {
+			} else if (oldKernel && !newKernel) {
 				// The user switched from a known kernel to an unknown kernel, shutdown the existing runtime.
-				// TODO: Add a shutdownNotebookSession to the runtime session service and call it here.
-				//       We need a dedicated method so that the runtime session service can manage
-				//       concurrent attempts to start/shutdown/restart while the shutdown is in progress.
+				this._runtimeSessionService.shutdownNotebookSession(
+					e.notebook,
+					RuntimeExitReason.Shutdown,
+					`Runtime kernel ${oldKernel.id} deselected for notebook`,
+				);
 			}
 		}));
 
@@ -114,11 +116,13 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 				.catch(err => this._logService.error(`Error updating affinity for notebook ${notebook.uri.fsPath}: ${err}`));
 		}
 
-		// When a notebook is closed, shut down the corresponding session.
+		// When a notebook is closed, shutdown the corresponding session.
 		this._register(this._notebookService.onWillRemoveNotebookDocument(async notebook => {
-			// TODO: Add a shutdownNotebookSession to the runtime session service and call it here.
-			//       We need a dedicated method so that the runtime session service can manage
-			//       concurrent attempts to start/shutdown/restart while the shutdown is in progress.
+			await this._runtimeSessionService.shutdownNotebookSession(
+				notebook.uri,
+				RuntimeExitReason.Shutdown,
+				`Notebook closed`,
+			);
 		}));
 
 		// Register kernel source action providers. This is how we customize the

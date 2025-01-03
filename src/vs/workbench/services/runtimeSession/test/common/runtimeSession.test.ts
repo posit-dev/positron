@@ -185,6 +185,16 @@ suite('Positron - RuntimeSessionService', () => {
 		assert.strictEqual(session.getRuntimeState(), RuntimeState.Ready);
 	}
 
+	function assertSessionIsExited(
+		session: ILanguageRuntimeSession,
+		overrides?: { activeSessions?: ILanguageRuntimeSession[] },
+	) {
+		assertServiceState({
+			activeSessions: overrides?.activeSessions ?? [session],
+		}, session.runtimeMetadata);
+		assert.strictEqual(session.getRuntimeState(), RuntimeState.Exited);
+	}
+
 	async function restoreSession(
 		sessionMetadata: IRuntimeSessionMetadata, runtimeMetadata = runtime,
 	) {
@@ -231,9 +241,14 @@ suite('Positron - RuntimeSessionService', () => {
 		return session;
 	}
 
-	async function selectRuntime(runtimeMetadata = runtime) {
-		await runtimeSessionService.selectRuntime(runtimeMetadata.runtimeId, startReason);
-		const session = runtimeSessionService.getConsoleSessionForRuntime(runtimeMetadata.runtimeId);
+	async function selectRuntime(runtimeMetadata = runtime, notebookUri?: URI) {
+		await runtimeSessionService.selectRuntime(runtimeMetadata.runtimeId, startReason, notebookUri);
+		let session: ILanguageRuntimeSession | undefined;
+		if (notebookUri) {
+			session = runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+		} else {
+			session = runtimeSessionService.getConsoleSessionForRuntime(runtimeMetadata.runtimeId);
+		}
 		assert.ok(session instanceof TestLanguageRuntimeSession);
 		disposables.add(session);
 		return session;
@@ -790,7 +805,7 @@ suite('Positron - RuntimeSessionService', () => {
 				// Use a fake timer to avoid actually having to wait for the timeout.
 				const clock = sinon.useFakeTimers();
 				const promise = assert.rejects(restartSession(session.sessionId), new Error(`Timed out waiting for runtime ` +
-					`${formatLanguageRuntimeSession(session)} to finish restarting.`));
+					`${formatLanguageRuntimeSession(session)} to be 'ready'.`));
 				await clock.tickAsync(10_000);
 				await promise;
 			});
@@ -913,6 +928,43 @@ suite('Positron - RuntimeSessionService', () => {
 			assertSessionIsReady(newSession);
 		});
 	}
+
+	async function shutdownNotebook() {
+		await runtimeSessionService.shutdownNotebookSession(
+			notebookUri, RuntimeExitReason.Shutdown, 'Test requested to shutdown a notebook',
+		);
+	}
+
+	test('shutdown notebook', async () => {
+		const session = await startNotebook();
+		await waitForRuntimeState(session, RuntimeState.Ready);
+
+		await shutdownNotebook();
+
+		assertSessionIsExited(session);
+	});
+
+	test('select notebook while shutting down notebook', async () => {
+		const session = await startNotebook();
+		await waitForRuntimeState(session, RuntimeState.Ready);
+
+		const [, newSession] = await Promise.all([
+			shutdownNotebook(),
+			selectRuntime(runtime, notebookUri),
+		]);
+
+		assert.strictEqual(session.getRuntimeState(), RuntimeState.Exited);
+		assertSessionIsStarting(newSession, { activeSessions: [session, newSession] });
+	});
+
+	test('shutdown notebook while selecting notebook', async () => {
+		const [session,] = await Promise.all([
+			selectRuntime(runtime, notebookUri),
+			shutdownNotebook(),
+		]);
+
+		assertSessionIsExited(session);
+	});
 
 	test(`only one UI comm is created`, async () => {
 		// Create the session
