@@ -90,7 +90,18 @@ export class PositronEditor {
 		const textarea = `${editor} textarea`;
 		await expect(this.code.driver.page.locator(textarea)).toBeFocused();
 
-		await this.code.driver.page.locator(textarea).fill(text);
+		await this.code.driver.page.locator(textarea).evaluate((textarea, text) => {
+			const input = textarea as HTMLTextAreaElement;
+			const start = input.selectionStart || 0;
+			const value = input.value;
+			const newValue = value.substring(0, start) + text + value.substring(start);
+
+			input.value = newValue;
+			input.setSelectionRange(start + text.length, start + text.length);
+
+			const event = new Event('input', { bubbles: true, cancelable: true });
+			input.dispatchEvent(event);
+		}, text);
 
 		await this.waitForEditorContents(filename, c => c.indexOf(text) > -1, selectorPrefix);
 	}
@@ -108,6 +119,18 @@ export class PositronEditor {
 		}).toPass();
 
 		return content;
+	}
+
+	async waitForEditorFocus(filename: string, lineNumber: number, selectorPrefix = ''): Promise<void> {
+		const editor = [selectorPrefix || '', EDITOR(filename)].join(' ');
+		const line = `${editor} .view-lines > .view-line:nth-child(${lineNumber})`;
+		const textarea = `${editor} textarea`;
+
+		await this.code.driver.page.locator(line).click();
+
+		await expect(async () => {
+			await expect(this.code.driver.page.locator(textarea)).toBeFocused();
+		}).toPass();
 	}
 
 }

@@ -56,5 +56,6 @@ export * from './positron/positronOutline';
 export * from './positron/positronClipboard';
 export * from './positron/positronExtensions';
 export * from './positron/positronEditors';
+export * from './positron/positronSettings';
 // --- End Positron ---
 export { getDevElectronPath, getBuildElectronPath, getBuildVersion } from './electron';
