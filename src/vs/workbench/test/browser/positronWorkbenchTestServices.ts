@@ -45,6 +45,13 @@ import { INotebookExecutionStateService } from '../../contrib/notebook/common/no
 import { TestNotebookExecutionStateService } from '../../contrib/notebook/test/browser/testNotebookEditor.js';
 import { NotebookKernelService } from '../../contrib/notebook/browser/services/notebookKernelServiceImpl.js';
 import { NotebookService } from '../../contrib/notebook/browser/services/notebookServiceImpl.js';
+import { IRuntimeStartupService } from '../../services/runtimeStartup/common/runtimeStartupService.js';
+import { RuntimeStartupService } from '../../services/runtimeStartup/common/runtimeStartup.js';
+import { IPositronNewProjectService } from '../../services/positronNewProject/common/positronNewProject.js';
+import { PositronNewProjectService } from '../../services/positronNewProject/common/positronNewProjectService.js';
+import { IEphemeralStateService } from '../../../platform/ephemeralState/common/ephemeralState.js';
+import { EphemeralStateService } from '../../../platform/ephemeralState/common/ephemeralStateService.js';
+import { ILanguageService } from '../../../editor/common/languages/language.js';
 
 export function positronWorkbenchInstantiationService(
 	disposables: Pick<DisposableStore, 'add'> = new DisposableStore(),
@@ -72,6 +79,9 @@ export function positronWorkbenchInstantiationService(
 	instantiationService.stub(INotebookKernelService, disposables.add(instantiationService.createInstance(NotebookKernelService)));
 
 	// Positron services.
+	instantiationService.stub(IEphemeralStateService, instantiationService.createInstance(EphemeralStateService));
+	instantiationService.stub(IPositronNewProjectService, disposables.add(instantiationService.createInstance(PositronNewProjectService)));
+	instantiationService.stub(IRuntimeStartupService, disposables.add(instantiationService.createInstance(RuntimeStartupService)));
 	instantiationService.stub(IPositronNotebookOutputWebviewService, instantiationService.createInstance(PositronNotebookOutputWebviewService));
 	instantiationService.stub(IPositronIPyWidgetsService, disposables.add(instantiationService.createInstance(PositronIPyWidgetsService)));
 	instantiationService.stub(IPositronWebviewPreloadService, disposables.add(instantiationService.createInstance(PositronWebviewPreloadService)));
@@ -87,6 +97,7 @@ export class PositronTestServiceAccessor {
 	constructor(
 		@IConfigurationService public configurationService: TestConfigurationService,
 		@IEditorService public editorService: TestEditorService,
+		@ILanguageService public languageService: ILanguageService,
 		@ILogService public logService: ILogService,
 		@INotebookEditorService public notebookEditorService: INotebookEditorService,
 		@INotebookExecutionService public notebookExecutionService: TestNotebookExecutionService,

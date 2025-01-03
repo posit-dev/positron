@@ -5,8 +5,7 @@
 
 import assert from 'assert';
 import sinon from 'sinon';
-import { timeout } from '../../../../../base/common/async.js';
-import { Event } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { DisposableStore, toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -30,6 +29,8 @@ import { IRuntimeNotebookKernelService } from '../../browser/interfaces/runtimeN
 import { RuntimeNotebookKernel } from '../../browser/runtimeNotebookKernel.js';
 import { RuntimeNotebookKernelService } from '../../browser/runtimeNotebookKernelService.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNEL_ENABLED_KEY, POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../common/runtimeNotebookKernelConfig.js';
+import { INotebookKernel } from '../../../notebook/common/notebookKernelService.js';
+import { IPYNB_VIEW_TYPE } from '../../../notebook/browser/notebookBrowser.js';
 
 suite('Positron - RuntimeNotebookKernelService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -39,16 +40,19 @@ suite('Positron - RuntimeNotebookKernelService', () => {
 	let notebookKernelService: NotebookKernelService;
 	let runtimeSessionService: IRuntimeSessionService;
 	let notebookDocument: NotebookTextModel;
+	let runtime: ILanguageRuntimeMetadata;
+	let kernel: INotebookKernel;
+	let notebookService: TestNotebookService;
+	let runtimeNotebookKernelService: RuntimeNotebookKernelService;
+	let anotherRuntime: ILanguageRuntimeMetadata;
+	let anotherKernel: INotebookKernel;
 
-	setup(() => {
+	setup(async () => {
 		instantiationService = positronWorkbenchInstantiationService(disposables);
 		accessor = instantiationService.createInstance(PositronTestServiceAccessor);
 
 		configurationService = accessor.configurationService;
 		configurationService.setUserConfiguration(POSITRON_RUNTIME_NOTEBOOK_KERNEL_ENABLED_KEY, true);
-
-		// TODO: This needs to be after we set the config key...
-		instantiationService.stub(IRuntimeNotebookKernelService, disposables.add(instantiationService.createInstance(RuntimeNotebookKernelService)));
 
 		notebookKernelService = accessor.notebookKernelService;
 
@@ -58,18 +62,41 @@ suite('Positron - RuntimeNotebookKernelService', () => {
 			runtimeSessionService.activeSessions.map(s => s.dispose());
 		}));
 
+		runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
+
 		const notebookEditorDisposables = disposables.add(new DisposableStore());
-		const notebookEditor = createTestNotebookEditor(instantiationService, notebookEditorDisposables, []);
+		const cells: MockNotebookCell[] = [
+			['1 + 1', 'text', CellKind.Code, [], {}],
+			['2 + 2', 'text', CellKind.Code, [], {}],
+		];
+		const notebookEditor = createTestNotebookEditor(instantiationService, notebookEditorDisposables, cells);
 		notebookDocument = notebookEditor.viewModel.notebookDocument;
+		// TODO: This is needed by the kernel matching logic.
+		sinon.stub(notebookDocument, 'notebookType').get(() => IPYNB_VIEW_TYPE);
+
+		notebookService = new TestNotebookService([notebookDocument]);
+		instantiationService.stub(INotebookService, notebookService);
+
+		// TODO: This needs to be after we set the config key...
+		runtimeNotebookKernelService = disposables.add(instantiationService.createInstance(RuntimeNotebookKernelService));
+		instantiationService.stub(IRuntimeNotebookKernelService, runtimeNotebookKernelService);
+
+		kernel = runtimeNotebookKernelService.getKernelByRuntimeId(runtime.runtimeId)!;
+
+		anotherRuntime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
+		anotherKernel = runtimeNotebookKernelService.getKernelByRuntimeId(anotherRuntime.runtimeId)!;
+
+		// Register the 'test' language.
+		disposables.add(accessor.languageService.registerLanguage({ id: runtime.languageId }));
 	});
 
-	test('register a kernel on runtime register', async () => {
-		const promise = Event.toPromise(notebookKernelService.onDidAddKernel);
-
+	test('kernel is added on language runtime registration', async () => {
+		// Register a language runtime, and wait for the corresponding kernel to be added.
+		const kernelPromise = Event.toPromise(notebookKernelService.onDidAddKernel);
 		const runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
+		const kernel = await kernelPromise;
 
-		const kernel = await promise;
-
+		// Check the kernel's properties.
 		assert.strictEqual(kernel.id, `${POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID}/${runtime.runtimeId}`);
 		assert.strictEqual(kernel.label, runtime.runtimeName);
 		assert.strictEqual(kernel.description, runtime.runtimePath);
@@ -84,88 +111,99 @@ suite('Positron - RuntimeNotebookKernelService', () => {
 		assert.deepStrictEqual(kernel.preloadProvides, []);
 	});
 
-	test('select kernel starts a runtime', async () => {
-		const promise = Event.toPromise(notebookKernelService.onDidAddKernel);
-		const runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
-		const kernel = await promise;
-
-		assert.strictEqual(runtimeSessionService.getNotebookSessionForNotebookUri(notebookDocument.uri), undefined);
-
+	test('notebook language is updated on kernel selection', async () => {
 		notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
 
-		await timeout(0);
-
-		// TODO: Check the started session's properties
-		assert.strictEqual(runtimeSessionService.activeSessions.length, 1);
-		assert.strictEqual(runtimeSessionService.getNotebookSessionForNotebookUri(notebookDocument.uri)?.runtimeMetadata, runtime);
-	});
-
-	test('select kernel updates the notebook language', async () => {
-		const promise = Event.toPromise(notebookKernelService.onDidAddKernel);
-		const runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
-		const kernel = await promise;
-
-		assert.strictEqual(runtimeSessionService.getNotebookSessionForNotebookUri(notebookDocument.uri), undefined);
-
-		// TODO: Why do we need to do this? Why isn't it handled by the test services?
-		sinon.stub(accessor.notebookService, 'getNotebookTextModel').returns(notebookDocument);
-
-		notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
-
+		// Check the language in the notebook document metadata.
 		assert.strictEqual((notebookDocument.metadata.metadata as any).language_info.name, runtime.languageId);
+
+		// Check each cell's language.
 		for (const cell of notebookDocument.cells) {
 			assert.strictEqual(cell.language, runtime.languageId);
 		}
 	});
 
-	// TODO
-	test.skip('deselect kernel', async () => {
-		const promise = Event.toPromise(notebookKernelService.onDidAddKernel);
-		const runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
-		const kernel = await promise;
+	test('runtime is started on kernel selection', async () => {
+		// Select the kernel for the notebook.
+		accessor.notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
 
-		assert.strictEqual(runtimeSessionService.getNotebookSessionForNotebookUri(notebookDocument.uri), undefined);
-
-		notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
-
-		await timeout(0);
-
-		assert.strictEqual(runtimeSessionService.activeSessions.length, 1);
-		assert.strictEqual(runtimeSessionService.getNotebookSessionForNotebookUri(notebookDocument.uri)?.runtimeMetadata, runtime);
+		// Wait for a session to start for the expected runtime.
+		const { session } = await Event.toPromise(runtimeSessionService.onWillStartSession);
+		assert.strictEqual(session.runtimeMetadata, runtime);
 	});
 
-	test('swap kernel', async () => {
-		const promise = Event.toPromise(notebookKernelService.onDidAddKernel);
-		createTestLanguageRuntimeMetadata(instantiationService, disposables);
-		const kernel = await promise;
-
-		const anotherPromise = Event.toPromise(notebookKernelService.onDidAddKernel);
-		const anotherRuntime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
-		const anotherKernel = await anotherPromise;
-
-		assert.strictEqual(runtimeSessionService.getNotebookSessionForNotebookUri(notebookDocument.uri), undefined);
-
+	test('runtime is swapped on kernel selection', async () => {
+		// Select the kernel for the notebook.
 		notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
 
-		const session = await Event.toPromise(runtimeSessionService.onDidStartRuntime);
+		// Wait for a session to start and be ready for the expected runtime.
+		const { session } = await Event.toPromise(runtimeSessionService.onWillStartSession);
 		await waitForRuntimeState(session, RuntimeState.Ready);
 
+		// Select another kernel for the notebook.
 		notebookKernelService.selectKernelForNotebook(anotherKernel, notebookDocument);
 
-		await timeout(0);
+		// Wait for the new session to start for the expected runtime.
+		const { session: anotherSession } = await Event.toPromise(runtimeSessionService.onWillStartSession);
+		assert.strictEqual(anotherSession.runtimeMetadata, anotherRuntime);
 
-		assert.strictEqual(runtimeSessionService.activeSessions.length, 2);
-		assert.strictEqual(runtimeSessionService.getNotebookSessionForNotebookUri(notebookDocument.uri)?.runtimeMetadata, anotherRuntime);
+		// Check the session states.
+		assert.strictEqual(session.getRuntimeState(), RuntimeState.Exited);
+		assert.strictEqual(anotherSession.getRuntimeState(), RuntimeState.Starting);
 	});
 
-	// TODO: Kernel affinity.
-	// TODO: Shutdown on notebook close.
-	// TODO: Kernel source action providers?
+	test('notebook kernel affinity is set on notebook open', async () => {
+		// Stub the notebook to have the test runtime's language ID.
+		sinon.stub(notebookDocument, 'metadata').get(() => ({
+			metadata: {
+				language_info: {
+					name: runtime.languageId,
+				},
+			},
+		}));
+
+		// Fire the event indicating that a notebook will open.
+		notebookService.onWillAddNotebookDocumentEmitter.fire(notebookDocument);
+
+		// Get the "matched" kernels for the notebook.
+		const kernels = notebookKernelService.getMatchingKernel(notebookDocument);
+
+		// Check that the expected kernel is the single suggestion i.e. that the kernel affinities
+		// were correctly set for the notebook.
+		// A single suggested kernel is automatically selected by the notebook editor widget.
+		assert.strictEqual(kernels.suggestions.length, 1);
+		assert.strictEqual(kernels.suggestions[0].id, kernel.id);
+	});
+
+	// TODO: Not yet implemented.
+	test.skip('runtime is shutdown on notebook close', async () => {
+		// Select the kernel for the notebook.
+		notebookKernelService.selectKernelForNotebook(kernel, notebookDocument);
+
+		// Wait for a session to start and be ready for the expected runtime.
+		const { session } = await Event.toPromise(runtimeSessionService.onWillStartSession);
+		await waitForRuntimeState(session, RuntimeState.Ready);
+
+		// Fire the event indicating that a notebook will close.
+		notebookService.onWillRemoveNotebookDocumentEmitter.fire(notebookDocument);
+
+		assert.strictEqual(session.getRuntimeState(), RuntimeState.Exiting);
+	});
+
+	test('kernel source action providers are registered', async () => {
+		const kernelSourceActions = await notebookKernelService.getKernelSourceActions2(notebookDocument);
+
+		// Spot check the kernel source actions.
+		assert.strictEqual(kernelSourceActions.length, 2);
+		assert.strictEqual(kernelSourceActions[0].label, 'Python Environments...');
+		assert.strictEqual(kernelSourceActions[1].label, 'R Environments...');
+	});
 });
 
 suite('Positron - RuntimeNotebookKernel', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 	let instantiationService: TestInstantiationService;
+	let accessor: PositronTestServiceAccessor;
 	let notebookExecutionStateService: TestNotebookExecutionStateService2;
 	let runtimeSessionService: IRuntimeSessionService;
 	let runtime: ILanguageRuntimeMetadata;
@@ -174,7 +212,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 
 	setup(async () => {
 		instantiationService = positronWorkbenchInstantiationService(disposables);
-		const accessor = instantiationService.createInstance(PositronTestServiceAccessor);
+		accessor = instantiationService.createInstance(PositronTestServiceAccessor);
 
 		runtimeSessionService = accessor.runtimeSessionService;
 		// notebookExecutionStateService = accessor.notebookExecutionStateService;
@@ -433,6 +471,30 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		});
 	});
 });
+
+class TestNotebookService implements Partial<INotebookService> {
+	onWillAddNotebookDocumentEmitter = new Emitter<NotebookTextModel>();
+	onWillRemoveNotebookDocumentEmitter = new Emitter<NotebookTextModel>();
+
+	onWillAddNotebookDocument = this.onWillAddNotebookDocumentEmitter.event;
+	onWillRemoveNotebookDocument = this.onWillRemoveNotebookDocumentEmitter.event;
+
+	private _notebooks = new ResourceMap<NotebookTextModel>();
+
+	constructor(notebooks: Iterable<NotebookTextModel>) {
+		for (const notebook of notebooks) {
+			this._notebooks.set(notebook.uri, notebook);
+		}
+	}
+
+	getNotebookTextModels(): Iterable<NotebookTextModel> {
+		return this._notebooks.values();
+	}
+
+	getNotebookTextModel(uri: URI): NotebookTextModel | undefined {
+		return this._notebooks.get(uri);
+	}
+}
 
 class TestNotebookExecutionStateService2 extends TestNotebookExecutionStateService {
 	public readonly executions = new ResourceMap<sinon.SinonSpiedInstance<INotebookCellExecution>>();
