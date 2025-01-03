@@ -4,7 +4,6 @@ api/apis.ts
 api/defaultApi.ts
 git_push.sh
 model/activeSession.ts
-model/adoptedSession.ts
 model/connectionInfo.ts
 model/executionQueue.ts
 model/interruptMode.ts

@@ -16,7 +16,7 @@ import http from 'http';
 
 /* tslint:disable:no-unused-locals */
 import { ActiveSession } from '../model/activeSession';
-import { AdoptedSession } from '../model/adoptedSession';
+import { ConnectionInfo } from '../model/connectionInfo';
 import { ModelError } from '../model/modelError';
 import { NewSession } from '../model/newSession';
 import { NewSession200Response } from '../model/newSession200Response';
@@ -102,10 +102,12 @@ export class DefaultApi {
     /**
      * 
      * @summary Adopt an existing session
-     * @param adoptedSession 
+     * @param sessionId 
+     * @param connectionInfo 
      */
-    public async adoptSession (adoptedSession: AdoptedSession, options: {headers: {[name: string]: string}} = {headers: {}}) : Promise<{ response: http.IncomingMessage; body: NewSession200Response;  }> {
-        const localVarPath = this.basePath + '/sessions/adopt';
+    public async adoptSession (sessionId: string, connectionInfo: ConnectionInfo, options: {headers: {[name: string]: string}} = {headers: {}}) : Promise<{ response: http.IncomingMessage; body: any;  }> {
+        const localVarPath = this.basePath + '/sessions/{session_id}/adopt'
+            .replace('{' + 'session_id' + '}', encodeURIComponent(String(sessionId)));
         let localVarQueryParameters: any = {};
         let localVarHeaderParams: any = (<any>Object).assign({}, this._defaultHeaders);
         const produces = ['application/json'];
@@ -117,9 +119,14 @@ export class DefaultApi {
         }
         let localVarFormParams: any = {};
 
-        // verify required parameter 'adoptedSession' is not null or undefined
-        if (adoptedSession === null || adoptedSession === undefined) {
-            throw new Error('Required parameter adoptedSession was null or undefined when calling adoptSession.');
+        // verify required parameter 'sessionId' is not null or undefined
+        if (sessionId === null || sessionId === undefined) {
+            throw new Error('Required parameter sessionId was null or undefined when calling adoptSession.');
+        }
+
+        // verify required parameter 'connectionInfo' is not null or undefined
+        if (connectionInfo === null || connectionInfo === undefined) {
+            throw new Error('Required parameter connectionInfo was null or undefined when calling adoptSession.');
         }
 
         (<any>Object).assign(localVarHeaderParams, options.headers);
@@ -133,7 +140,7 @@ export class DefaultApi {
             uri: localVarPath,
             useQuerystring: this._useQuerystring,
             json: true,
-            body: ObjectSerializer.serialize(adoptedSession, "AdoptedSession")
+            body: ObjectSerializer.serialize(connectionInfo, "ConnectionInfo")
         };
 
         let authenticationPromise = Promise.resolve();
@@ -152,13 +159,13 @@ export class DefaultApi {
                     localVarRequestOptions.form = localVarFormParams;
                 }
             }
-            return new Promise<{ response: http.IncomingMessage; body: NewSession200Response;  }>((resolve, reject) => {
+            return new Promise<{ response: http.IncomingMessage; body: any;  }>((resolve, reject) => {
                 localVarRequest(localVarRequestOptions, (error, response, body) => {
                     if (error) {
                         reject(error);
                     } else {
                         if (response.statusCode && response.statusCode >= 200 && response.statusCode <= 299) {
-                            body = ObjectSerializer.deserialize(body, "NewSession200Response");
+                            body = ObjectSerializer.deserialize(body, "any");
                             resolve({ response: response, body: body });
                         } else {
                             reject(new HttpError(response, body, response.statusCode));
@@ -227,6 +234,75 @@ export class DefaultApi {
                         reject(error);
                     } else {
                         if (response.statusCode && response.statusCode >= 200 && response.statusCode <= 299) {
+                            resolve({ response: response, body: body });
+                        } else {
+                            reject(new HttpError(response, body, response.statusCode));
+                        }
+                    }
+                });
+            });
+        });
+    }
+    /**
+     * 
+     * @summary Get Jupyter connection information for the session
+     * @param sessionId 
+     */
+    public async connectionInfo (sessionId: string, options: {headers: {[name: string]: string}} = {headers: {}}) : Promise<{ response: http.IncomingMessage; body: ConnectionInfo;  }> {
+        const localVarPath = this.basePath + '/sessions/{session_id}/connection_info'
+            .replace('{' + 'session_id' + '}', encodeURIComponent(String(sessionId)));
+        let localVarQueryParameters: any = {};
+        let localVarHeaderParams: any = (<any>Object).assign({}, this._defaultHeaders);
+        const produces = ['application/json'];
+        // give precedence to 'application/json'
+        if (produces.indexOf('application/json') >= 0) {
+            localVarHeaderParams.Accept = 'application/json';
+        } else {
+            localVarHeaderParams.Accept = produces.join(',');
+        }
+        let localVarFormParams: any = {};
+
+        // verify required parameter 'sessionId' is not null or undefined
+        if (sessionId === null || sessionId === undefined) {
+            throw new Error('Required parameter sessionId was null or undefined when calling connectionInfo.');
+        }
+
+        (<any>Object).assign(localVarHeaderParams, options.headers);
+
+        let localVarUseFormData = false;
+
+        let localVarRequestOptions: localVarRequest.Options = {
+            method: 'GET',
+            qs: localVarQueryParameters,
+            headers: localVarHeaderParams,
+            uri: localVarPath,
+            useQuerystring: this._useQuerystring,
+            json: true,
+        };
+
+        let authenticationPromise = Promise.resolve();
+        authenticationPromise = authenticationPromise.then(() => this.authentications.default.applyToRequest(localVarRequestOptions));
+
+        let interceptorPromise = authenticationPromise;
+        for (const interceptor of this.interceptors) {
+            interceptorPromise = interceptorPromise.then(() => interceptor(localVarRequestOptions));
+        }
+
+        return interceptorPromise.then(() => {
+            if (Object.keys(localVarFormParams).length) {
+                if (localVarUseFormData) {
+                    (<any>localVarRequestOptions).formData = localVarFormParams;
+                } else {
+                    localVarRequestOptions.form = localVarFormParams;
+                }
+            }
+            return new Promise<{ response: http.IncomingMessage; body: ConnectionInfo;  }>((resolve, reject) => {
+                localVarRequest(localVarRequestOptions, (error, response, body) => {
+                    if (error) {
+                        reject(error);
+                    } else {
+                        if (response.statusCode && response.statusCode >= 200 && response.statusCode <= 299) {
+                            body = ObjectSerializer.deserialize(body, "ConnectionInfo");
                             resolve({ response: response, body: body });
                         } else {
                             reject(new HttpError(response, body, response.statusCode));

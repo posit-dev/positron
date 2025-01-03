@@ -15,7 +15,7 @@ import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } 
 import { KallichoreSession } from './KallichoreSession';
 import { Barrier, PromiseHandles, withTimeout } from './async';
 import { LogStreamer } from './LogStreamer';
-import { createUniqueId, summarizeHttpError } from './util';
+import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 
 const KALLICHORE_STATE_KEY = 'positron-supervisor.v1';
 
@@ -75,6 +75,13 @@ export class KCApi implements KallichoreAdapterApi {
 	private _disposables: vscode.Disposable[] = [];
 
 	/**
+	 * The terminal hosting the server, if we know it. We only know the
+	 * terminal if it has been started in this session; reconnecting to an
+	 * existing server doesn't give us the terminal.
+	 */
+	private _terminal: vscode.Terminal | undefined;
+
+	/**
 	 * Create a new Kallichore API object.
 	 *
 	 * @param _context The extension context
@@ -96,6 +103,10 @@ export class KCApi implements KallichoreAdapterApi {
 
 		_context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.reconnectSession', () => {
 			this.reconnectActiveSession();
+		}));
+
+		_context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.restartSupervisor', () => {
+			this.restartSupervisor();
 		}));
 	}
 
@@ -770,5 +781,57 @@ export class KCApi implements KallichoreAdapterApi {
 		// trigger a reconnect.
 		kallichoreSession.log('Disconnecting by user request', vscode.LogLevel.Info);
 		kallichoreSession.disconnect();
+	}
+
+	/**
+	 * Restarts the supervisor, ending all sessions.
+	 */
+	private async restartSupervisor(): Promise<void> {
+
+		// If we never started the supervisor, just start it
+		if (!this._started.isOpen()) {
+			return this.ensureStarted();
+		}
+
+		this._log.appendLine('Restarting Kallichore server');
+
+		// Clean up all the sessions and mark them as exited
+		this._sessions.forEach(session => {
+			session.markExited(0, positron.RuntimeExitReason.Shutdown);
+			session.dispose();
+		});
+		this._sessions.length = 0;
+
+		// Clear the workspace state so we don't try to reconnect to the old
+		// server
+		this._context.workspaceState.update(KALLICHORE_STATE_KEY, undefined);
+
+		// Shut down the server itself
+		try {
+			await this._api.shutdownServer();
+		} catch (err) {
+			// We can start a new server even if we failed to shut down the old
+			// one, so just log this error
+			const message = summarizeError(err);
+			this._log.appendLine(`Failed to shut down Kallichore server: ${message}`);
+		}
+
+		// If we know the terminal, kill it
+		if (this._terminal) {
+			this._terminal.dispose();
+			this._terminal = undefined;
+		}
+
+		// Reset the start barrier
+		this._started = new Barrier();
+
+		// Start the new server
+		try {
+			await this.ensureStarted();
+			vscode.window.showInformationMessage(vscode.l10n.t('Kernel supervisor successfully restarted'));
+		} catch (err) {
+			const message = err instanceof HttpError ? summarizeHttpError(err) : err;
+			vscode.window.showErrorMessage(vscode.l10n.t('Failed to restart kernel supervisor: {0}', err));
+		}
 	}
 }
