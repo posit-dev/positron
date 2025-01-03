@@ -16,6 +16,28 @@ export function createUniqueId(): string {
 }
 
 /**
+ * Summarizes an error into a human-readable string. Used for serializing
+ * errors reported across the Positron API boundary.
+ *
+ * @param err An error to summarize.
+ * @returns A human-readable string summarizing the error.
+ */
+export function summarizeError(err: any): string {
+	if (err instanceof HttpError) {
+		// HTTP errors are common and should be summarized
+		return summarizeHttpError(err);
+	} else if (err instanceof Error) {
+		// Other errors should be summarized as their message
+		return err.message;
+	} else if (typeof err === 'string') {
+		// Strings are returned as-is
+		return err;
+	}
+	// For anything else, return the JSON representation
+	return JSON.stringify(err);
+}
+
+/**
  * Summarizes an HTTP error into a human-readable string. Used for serializing
  * structured errors reported up to Positron where only a string can be
  * displayed.

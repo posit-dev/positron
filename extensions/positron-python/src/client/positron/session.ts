@@ -468,7 +468,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
         const config = vscode.workspace.getConfiguration('kernelSupervisor');
-        if (config.get<boolean>('enable', true) && this.runtimeMetadata.runtimeId !== 'reticulate') {
+        if (config.get<boolean>('enable', true)) {
             // Use the Positron kernel supervisor if enabled
             const ext = vscode.extensions.getExtension('positron.positron-supervisor');
             if (!ext) {

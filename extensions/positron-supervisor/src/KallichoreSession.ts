@@ -8,8 +8,8 @@ import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
-import { ActiveSession, DefaultApi, HttpError, InterruptMode, NewSession, Status } from './kcclient/api';
+import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession } from './jupyter-adapter';
+import { ActiveSession, ConnectionInfo, DefaultApi, HttpError, InterruptMode, NewSession, Status } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoReply, KernelInfoRequest } from './jupyter/KernelInfoRequest';
@@ -37,7 +37,8 @@ import { DapClient } from './DapClient';
 import { SocketSession } from './ws/SocketSession';
 import { KernelOutputMessage } from './ws/KernelMessage';
 import { UICommRequest } from './UICommRequest';
-import { createUniqueId, summarizeHttpError } from './util';
+import { createUniqueId, summarizeError, summarizeHttpError } from './util';
+import { AdoptedSession } from './AdoptedSession';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
@@ -93,6 +94,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	/** A map of pending comm startups */
 	private _startingComms: Map<string, PromiseHandles<void>> = new Map();
+
+	/** The original kernelspec */
+	private _kernelSpec: JupyterKernelSpec | undefined;
 
 	/**
 	 * The channel to which output for this specific kernel is logged, if any
@@ -183,6 +187,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		if (!this._new) {
 			throw new Error(`Session ${this.metadata.sessionId} already exists`);
 		}
+
+		// Save the kernel spec for later use
+		this._kernelSpec = kernelSpec;
 
 		// Forward the environment variables from the kernel spec
 		const env = {};
@@ -717,6 +724,115 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
+	 * Starts and then adopts a kernel owned by an external provider.
+	 *
+	 * @param kernelSpec The kernel spec to use for the session
+	 * @returns The runtime info for the kernel
+	 */
+	async startAndAdoptKernel(
+		kernelSpec: JupyterKernelSpec):
+		Promise<positron.LanguageRuntimeInfo> {
+
+		// Mark the session as starting
+		this.onStateChange(positron.RuntimeState.Starting, 'starting kernel via external provider');
+
+		try {
+			const result = await this.tryStartAndAdoptKernel(kernelSpec);
+			return result;
+		} catch (err) {
+			// If we never made it to the "ready" state, mark the session as
+			// exited since we didn't ever start it fully.
+			if (this._runtimeState === positron.RuntimeState.Starting) {
+				const event: positron.LanguageRuntimeExit = {
+					runtime_name: this.runtimeMetadata.runtimeName,
+					exit_code: 0,
+					reason: positron.RuntimeExitReason.StartupFailed,
+					message: summarizeError(err)
+				};
+				this._exit.fire(event);
+				this.onStateChange(positron.RuntimeState.Exited, 'kernel adoption failed');
+			}
+			throw err;
+		}
+	}
+
+	/**
+	 * Tries to start and then adopt a kernel owned by an external provider.
+	 *
+	 * @param kernelSpec The kernel spec to use for the session
+	 */
+	async tryStartAndAdoptKernel(kernelSpec: JupyterKernelSpec): Promise<positron.LanguageRuntimeInfo> {
+
+		// Get the connection info for the session
+		const connectionFileContents = {};
+		let connectionInfo: ConnectionInfo;
+		try {
+			// Read the connection info from the API. This arrives to us in the
+			// form of a `ConnectionInfo` object.
+			const result = await this._api.connectionInfo(this.metadata.sessionId);
+			connectionInfo = result.body;
+
+			// The serialized form of the connection info is a JSON object with
+			// snake_case names, but ConnectionInfo uses camelCase. Use the map
+			// in ConnectionInfo to convert the names to snake_case for
+			// serialization.
+			for (const [inKey, val] of Object.entries(connectionInfo)) {
+				for (const outKey of ConnectionInfo.attributeTypeMap) {
+					if (inKey === outKey.name) {
+						connectionFileContents[outKey.baseName] = val;
+					}
+				}
+			}
+		} catch (err) {
+			throw new Error(`Failed to aquire connection info for session ${this.metadata.sessionId}: ${summarizeError(err)}`);
+		}
+
+		// Ensure we have a log file
+		if (!this._kernelLogFile) {
+			const logFile = path.join(os.tmpdir(), `kernel-${this.metadata.sessionId}.log`);
+			this._kernelLogFile = logFile;
+			fs.writeFile(logFile, '', async () => {
+				await this.streamLogFile(logFile);
+			});
+		}
+
+		// Write the connection file to disk
+		const connectionFile = path.join(os.tmpdir(), `connection-${this.metadata.sessionId}.json`);
+		fs.writeFileSync(connectionFile, JSON.stringify(connectionFileContents));
+		const session: JupyterSession = {
+			state: {
+				sessionId: this.metadata.sessionId,
+				connectionFile: connectionFile,
+				logFile: this._kernelLogFile,
+				processId: 0,
+			}
+		};
+
+		// Create the "kernel"
+		const kernel = new AdoptedSession(this, connectionInfo, this._api);
+
+		// Start the kernel and wait for it to be ready
+		await kernelSpec.startKernel!(session, kernel);
+
+		// Wait for session adoption to finish
+		await kernel.connected.wait();
+
+		// Connect to the session's websocket
+		await withTimeout(this.connect(), 2000, `Start failed: timed out connecting to adopted session ${this.metadata.sessionId}`);
+
+		// Mark the session as ready
+		this.markReady('kernel adoption complete');
+
+		// Return the runtime info from the adopted session
+		const info = kernel.runtimeInfo;
+		if (info) {
+			return this.runtimeInfoFromKernelInfo(info);
+		} else {
+			return this.getKernelInfo();
+		}
+	}
+
+	/**
 	 * Starts a previously established session.
 	 *
 	 * This method is used both to start a new session and to reconnect to an
@@ -725,6 +841,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @returns The kernel info for the session.
 	 */
 	async start(): Promise<positron.LanguageRuntimeInfo> {
+		// If this session needs to be started by an external provider, do that
+		// instead of asking the supervisor to start it.
+		if (this._kernelSpec?.startKernel) {
+			return this.startAndAdoptKernel(this._kernelSpec);
+		}
+
 		try {
 			// Attempt to start the session
 			const info = await this.tryStart();
@@ -753,13 +875,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 				// Attempt to extract a message from the error, or just
 				// stringify it if it's not an Error
-				const message =
-					err instanceof HttpError ? summarizeHttpError(err) : err instanceof Error ? err.message : JSON.stringify(err);
 				const event: positron.LanguageRuntimeExit = {
 					runtime_name: this.runtimeMetadata.runtimeName,
 					exit_code: 0,
 					reason: positron.RuntimeExitReason.StartupFailed,
-					message
+					message: summarizeError(err)
 				};
 				this._exit.fire(event);
 			}

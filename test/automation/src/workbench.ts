@@ -50,6 +50,7 @@ import { PositronOutline } from './positron/positronOutline';
 import { PositronClipboard } from './positron/positronClipboard';
 import { PositronQuickInput } from './positron/positronQuickInput';
 import { PositronExtensions } from './positron/positronExtensions';
+import { PositronSettings } from './positron/positronSettings';
 // --- End Positron ---
 
 export interface Commands {
@@ -104,6 +105,7 @@ export class Workbench {
 	readonly positronQuickInput: PositronQuickInput;
 	readonly positronExtensions: PositronExtensions;
 	readonly positronEditors: PositronEditors;
+	readonly positronSettings: PositronSettings;
 	// --- End Positron ---
 
 	constructor(code: Code) {
@@ -153,6 +155,7 @@ export class Workbench {
 		this.positronOutline = new PositronOutline(code, this.positronQuickaccess);
 		this.positronClipboard = new PositronClipboard(code);
 		this.positronExtensions = new PositronExtensions(code, this.positronQuickaccess);
+		this.positronSettings = new PositronSettings(code, this.positronEditors, this.positronEditor, this.positronQuickaccess);
 		// --- End Positron ---
 	}
 }
