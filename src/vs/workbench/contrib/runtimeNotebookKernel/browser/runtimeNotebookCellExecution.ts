@@ -215,7 +215,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			cellHandle: this._cellExecution.cellHandle,
 			append: true,
 			outputs: [{
-				outputId: message.id,
+				outputId: generateNotebookCellOutputId(),
 				outputs: outputItems,
 				metadata: { outputType },
 			}]
@@ -257,7 +257,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 				cellHandle: this._cellExecution.cellHandle,
 				append: true,
 				outputs: [{
-					outputId: message.id,
+					outputId: generateNotebookCellOutputId(),
 					outputs: [newOutputItem],
 					metadata: { outputType: JupyterNotebookCellOutputType.Stream },
 				}]
@@ -277,7 +277,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			cellHandle: this._cellExecution.cellHandle,
 			append: true,
 			outputs: [{
-				outputId: message.id,
+				outputId: generateNotebookCellOutputId(),
 				outputs: [{
 					data: VSBuffer.fromString(JSON.stringify({
 						name: message.name,
@@ -313,4 +313,15 @@ export class RuntimeNotebookCellExecution extends Disposable {
 	public get promise(): Promise<void> {
 		return this._deferred.p;
 	}
+}
+
+/**
+ * Generate a notebook cell output ID.
+ *
+ * NOTE: src/vs/workbench/contrib/notebook/common/notebookCommon.ts:CellUri.parseCellOutputUri
+ * assumes that output IDs are generated using {@link generateUuid}. If they aren't,
+ * opening a truncated cell output in a text editor will not work.
+ */
+function generateNotebookCellOutputId(): string {
+	return generateUuid();
 }
