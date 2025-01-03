@@ -6,7 +6,7 @@
 import { AsyncIterableObject } from '../../../../base/common/async.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
@@ -14,7 +14,7 @@ import { ExtensionIdentifier } from '../../../../platform/extensions/common/exte
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IProgressOptions, IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
+import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
@@ -56,6 +56,8 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	private readonly _pendingCellExecutionsByNotebookUri = new ResourceMap<Promise<void>>();
 
 	private _pendingRuntimeExecution: RuntimeNotebookCellExecution | undefined;
+
+	private _sessionsByNotebookUri = new ResourceMap<ILanguageRuntimeSession>();
 
 	constructor(
 		public readonly runtime: ILanguageRuntimeMetadata,
@@ -104,26 +106,19 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 				throw error;
 			}
 
-			let session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
-			if (session) {
-				this._logService.debug(`[RuntimeNotebookKernel] Found existing runtime session for notebook ${notebookUri.toString()}`);
-			} else {
-				// An execution was requested before a session was started for the notebook.
-				this._logService.debug(`[RuntimeNotebookKernel] No runtime session for notebook ${notebookUri.toString()}, starting a new one`);
-				session = await this.startRuntimeSession(notebookUri);
-			}
-
-			if (session.getRuntimeState() === RuntimeState.Starting) {
-				this._logService.debug(`[RuntimeNotebookKernel] Waiting for session to be ready for notebook ${notebookUri.toString()}`);
-				await this._progressService.withProgress(this.startProgressOptions(notebookUri),
-					() => new Promise<void>(resolve => {
-						const disposable = session.onDidChangeRuntimeState(state => {
-							if (state === RuntimeState.Ready) {
-								disposable.dispose();
-								resolve();
-							}
-						});
-					}));
+			let session = this._sessionsByNotebookUri.get(notebookUri);
+			if (!session) {
+				session = await this._progressService.withProgress({
+					location: ProgressLocation.Notification,
+					title: localize(
+						"positron.notebook.kernel.starting",
+						"Starting {0} interpreter for '{1}'",
+						this.label,
+						notebookUri.fsPath,
+					),
+				}, async () => {
+					return await this.selectRuntime(notebookUri, `Runtime kernel ${this.id} executed cells for notebook`);
+				});
 			}
 
 			// Execute the cells.
@@ -138,20 +133,8 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			}
 			await Promise.all(executionPromises);
 		} catch (err) {
-			this._logService.error(`Error executing cells: ${err.stack ?? err}`);
+			this._logService.error(`Error executing cells: ${err.stack ?? err.toString()}`);
 		}
-	}
-
-	private startProgressOptions(notebookUri: URI): IProgressOptions {
-		return {
-			location: ProgressLocation.Notification,
-			title: localize(
-				"positron.notebook.kernel.starting",
-				"Starting {0} interpreter for '{1}'",
-				this.label,
-				notebookUri.fsPath,
-			),
-		};
 	}
 
 	private async queueCellExecution(cell: NotebookCellTextModel, notebookUri: URI, session: ILanguageRuntimeSession): Promise<void> {
@@ -220,36 +203,58 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		});
 	}
 
-	private async startRuntimeSession(notebookUri: URI): Promise<ILanguageRuntimeSession> {
+	public async selectRuntime(notebookUri: URI, source: string): Promise<ILanguageRuntimeSession> {
+		const session = await this.doSelectRuntime(notebookUri, source);
+		this._sessionsByNotebookUri.set(notebookUri, session);
+
+		const disposables = this._register(new DisposableStore());
+
+		const dispose = () => {
+			disposables.dispose();
+			this._sessionsByNotebookUri.delete(notebookUri);
+		};
+
+		disposables.add(session.onDidEndSession(() => {
+			dispose();
+		}));
+
+		disposables.add(session.onDidChangeRuntimeState(state => {
+			if (state === RuntimeState.Exiting ||
+				state === RuntimeState.Exited ||
+				state === RuntimeState.Restarting) {
+				dispose();
+			}
+		}));
+
+		return session;
+	}
+
+	private async doSelectRuntime(notebookUri: URI, source: string): Promise<ILanguageRuntimeSession> {
 		try {
-			return await this._progressService.withProgress(
-				this.startProgressOptions(notebookUri),
-				async () => {
-					await this._runtimeSessionService.selectRuntime(
-						this.runtime.runtimeId,
-						`Runtime kernel ${this.id} executed cells for notebook`,
-						notebookUri,
-					);
+			await this._runtimeSessionService.selectRuntime(
+				this.runtime.runtimeId,
+				source,
+				notebookUri,
+			);
 
-					const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
-					if (!session) {
-						throw new Error(`Unexpected error, session not found after starting for notebook '${notebookUri}'`);
-					}
+			const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+			if (!session) {
+				throw new Error(`Unexpected error, session not found after starting for notebook '${notebookUri}'`);
+			}
 
-					if (session.getRuntimeState() === RuntimeState.Starting) {
-						this._logService.debug(`[RuntimeNotebookKernel] Waiting for session to be ready for notebook ${notebookUri.toString()}`);
-						await new Promise<void>(resolve => {
-							const disposable = session.onDidChangeRuntimeState(state => {
-								if (state === RuntimeState.Ready) {
-									disposable.dispose();
-									resolve();
-								}
-							});
-						});
-					}
-
-					return session;
+			if (session.getRuntimeState() === RuntimeState.Starting) {
+				this._logService.debug(`[RuntimeNotebookKernel] Waiting for session to be ready for notebook ${notebookUri.toString()}`);
+				await new Promise<void>(resolve => {
+					const disposable = session.onDidChangeRuntimeState(state => {
+						if (state === RuntimeState.Ready) {
+							disposable.dispose();
+							resolve();
+						}
+					});
 				});
+			}
+
+			return session;
 		} catch (err) {
 			this._notificationService.error(localize(
 				"positron.notebook.kernel.starting.failed",
