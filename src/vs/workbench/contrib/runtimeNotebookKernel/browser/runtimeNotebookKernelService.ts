@@ -308,17 +308,19 @@ function getNotebookLanguage(notebook: NotebookTextModel): string | undefined {
 	// First try the notebook metadata.
 	const metadata = notebook.metadata?.metadata as any;
 	const languageId = metadata?.language_info?.name ?? metadata?.kernelspec?.language;
-	if (languageId) {
+	if (languageId &&
+		languageId !== 'raw' &&
+		languageId !== 'plaintext'
+	) {
 		return languageId;
 	}
 
 	// Fall back to the first cell's language, if available.
 	for (const cell of notebook.cells) {
-		const language = cell.language;
-		if (language !== 'markdown' &&
-			language !== 'raw' &&
-			language !== 'text') {
-			return language;
+		if (cell.cellKind === CellKind.Code &&
+			cell.language !== 'raw' &&
+			cell.language !== 'plaintext') {
+			return cell.language;
 		}
 	}
 
