@@ -3,7 +3,9 @@
   "version": "0.0.1",
   "license": "MIT",
   "scripts": {
-    "compile": "node ../../node_modules/typescript/bin/tsc",
+    "copy-driver-definition": "node infra/tools/copy-driver-definition.js",
+    "watch-driver-definition": "watch \"node tools/copy-driver-definition.js\"",
+    "compile": "npm run copy-driver-definition && node ../../node_modules/typescript/bin/tsc",
     "watch-e2e": "npm run compile -- --watch --preserveWatchOutput",
     "watch": "npm-run-all -lp watch-e2e"
   },
