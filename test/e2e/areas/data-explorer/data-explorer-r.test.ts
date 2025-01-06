@@ -22,18 +22,18 @@ test.describe('Data Explorer - R ', {
 )`;
 
 		logger.log('Sending code to console');
-		await app.workbench.positronConsole.executeCode('R', script, '>');
+		await app.workbench.console.executeCode('R', script, '>');
 
 		logger.log('Opening data grid');
 		await expect(async () => {
-			await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
+			await app.workbench.variables.doubleClickVariableRow('Data_Frame');
 			await app.code.driver.page.locator('.label-name:has-text("Data: Data_Frame")').innerText();
 		}).toPass();
 
-		await app.workbench.positronDataExplorer.maximizeDataExplorer(true);
+		await app.workbench.dataExplorer.maximizeDataExplorer(true);
 
 		await expect(async () => {
-			const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
 
 			expect(tableData[0]).toStrictEqual({ 'Training': 'Strength', 'Pulse': '100.00', 'Duration': '60.00', 'Note': 'NA' });
 			expect(tableData[1]).toStrictEqual({ 'Training': 'Stamina', 'Pulse': 'NA', 'Duration': '30.00', 'Note': 'NA' });
@@ -47,32 +47,32 @@ test.describe('Data Explorer - R ', {
 	test('R - Verifies basic data explorer column info functionality [C734265]', {
 		tag: [tags.CRITICAL]
 	}, async function ({ app, r }) {
-		await app.workbench.positronDataExplorer.expandSummary();
+		await app.workbench.dataExplorer.expandSummary();
 
-		expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
-		expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('33%');
-		expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(3)).toBe('0%');
-		expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(4)).toBe('66%');
+		expect(await app.workbench.dataExplorer.getColumnMissingPercent(1)).toBe('0%');
+		expect(await app.workbench.dataExplorer.getColumnMissingPercent(2)).toBe('33%');
+		expect(await app.workbench.dataExplorer.getColumnMissingPercent(3)).toBe('0%');
+		expect(await app.workbench.dataExplorer.getColumnMissingPercent(4)).toBe('66%');
 
-		await app.workbench.positronLayouts.enterLayout('notebook');
+		await app.workbench.layouts.enterLayout('notebook');
 
-		const col1ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(1);
+		const col1ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(1);
 		expect(col1ProfileInfo.profileData).toStrictEqual({ 'Missing': '0', 'Empty': '0', 'Unique': '3' });
 
-		const col2ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(2);
+		const col2ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(2);
 		expect(col2ProfileInfo.profileData).toStrictEqual({ 'Missing': '1', 'Min': '100.00', 'Median': '110.00', 'Mean': '110.00', 'Max': '120.00', 'SD': '14.14' });
 
-		const col3ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(3);
+		const col3ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(3);
 		expect(col3ProfileInfo.profileData).toStrictEqual({ 'Missing': '0', 'Min': '30.00', 'Median': '45.00', 'Mean': '45.00', 'Max': '60.00', 'SD': '15.00' });
 
-		const col4ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(4);
+		const col4ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(4);
 		expect(col4ProfileInfo.profileData).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '2' });
 
-		await app.workbench.positronLayouts.enterLayout('stacked');
-		await app.workbench.positronSideBar.closeSecondarySideBar();
+		await app.workbench.layouts.enterLayout('stacked');
+		await app.workbench.sideBar.closeSecondarySideBar();
 
-		await app.workbench.positronDataExplorer.closeDataExplorer();
-		await app.workbench.positronQuickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.dataExplorer.closeDataExplorer();
+		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
 
 	});
 
@@ -82,38 +82,38 @@ test.describe('Data Explorer - R ', {
 		// Regression test for https://github.com/posit-dev/positron/issues/4197
 		// and https://github.com/posit-dev/positron/issues/5714
 		const script = `Data_Frame <- mtcars`;
-		await app.workbench.positronConsole.executeCode('R', script, '>');
-		await app.workbench.positronQuickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.console.executeCode('R', script, '>');
+		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
 
 		await expect(async () => {
-			await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
+			await app.workbench.variables.doubleClickVariableRow('Data_Frame');
 			await app.code.driver.page.locator('.label-name:has-text("Data: Data_Frame")').innerText();
 		}).toPass();
 
 		// Now move focus out of the the data explorer pane
-		await app.workbench.positronEditors.newUntitledFile();
-		await app.workbench.positronQuickaccess.runCommand('workbench.panel.positronVariables.focus');
-		await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
+		await app.workbench.editors.newUntitledFile();
+		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
 
 		await expect(async () => {
 			await app.code.driver.page.locator('.label-name:has-text("Data: Data_Frame")').innerText();
 		}).toPass();
 
-		await app.workbench.positronDataExplorer.closeDataExplorer();
-		await app.workbench.positronQuickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.dataExplorer.closeDataExplorer();
+		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
 	});
 
 	test('R - Check blank spaces in data explorer [C1078834]', async function ({ app, r }) {
 		const script = `df = data.frame(x = c("a ", "a", "   ", ""))`;
-		await app.workbench.positronConsole.executeCode('R', script, '>');
+		await app.workbench.console.executeCode('R', script, '>');
 
 		await expect(async () => {
-			await app.workbench.positronVariables.doubleClickVariableRow('df');
+			await app.workbench.variables.doubleClickVariableRow('df');
 			await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
 		}).toPass();
 
 		await expect(async () => {
-			const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
 
 			expect(tableData[0]).toStrictEqual({ 'x': 'a·' });
 			expect(tableData[1]).toStrictEqual({ 'x': 'a' });

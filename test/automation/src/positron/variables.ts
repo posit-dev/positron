@@ -26,7 +26,7 @@ const VARIABLES_GROUP_SELECTOR = '.positron-variables-container .action-bar-butt
 /*
  *  Reuseable Positron variables functionality for tests to leverage.
  */
-export class PositronVariables {
+export class Variables {
 	interpreterLocator = this.code.driver.page.locator(VARIABLES_INTERPRETER);
 
 	constructor(private code: Code) { }

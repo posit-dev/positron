@@ -15,7 +15,7 @@ test.describe('Outline #web #win', {
 }, () => {
 
 	test('Python - Verify Outline Contents [C956870]', async function ({ app, python }) {
-		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
+		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 		const outlineData = await app.workbench.positronOutline.getOutlineData();
 		const expected = [
 			'data_file_pathdata_file_path = os.path.join(os.getcwd(), \'data-files\', \'chinook\', \'chinook.db\')',
@@ -33,7 +33,7 @@ test.describe('Outline #web #win', {
 	});
 
 	test('R - Verify Outline Contents [C956871]', async function ({ app, r }) {
-		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
+		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
 		const outlineData = await app.workbench.positronOutline.getOutlineData();
 		const expected = [
 			'con',

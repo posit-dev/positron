@@ -24,7 +24,7 @@ const INNER_WEBVIEW_FRAME = '#active-frame';
 /*
  *  Reuseable Positron plots functionality for tests to leverage.
  */
-export class PositronPlots {
+export class Plots {
 
 	nextPlotButton: Locator;
 	previousPlotButton: Locator;

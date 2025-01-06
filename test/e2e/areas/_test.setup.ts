@@ -140,7 +140,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		{ scope: 'test' }],
 
 	devTools: [async ({ app }, use) => {
-		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleDevTools');
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');
 		await use();
 	},
 

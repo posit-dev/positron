@@ -18,7 +18,7 @@ export const testDataExplorer = async (
 ): Promise<void> => {
 	// Execute commands.
 	for (let i = 0; i < commands.length; i++) {
-		await app.workbench.positronConsole.executeCode(
+		await app.workbench.console.executeCode(
 			language,
 			commands[i],
 			prompt
@@ -27,15 +27,15 @@ export const testDataExplorer = async (
 
 	// Open the data frame.
 	await expect(async () => {
-		await app.workbench.positronVariables.doubleClickVariableRow(dataFrameName);
+		await app.workbench.variables.doubleClickVariableRow(dataFrameName);
 		await app.code.driver.page.locator(`.label-name:has-text("Data: ${dataFrameName}")`).innerText();
 	}).toPass();
 
 	// Maximize the data explorer.
-	await app.workbench.positronDataExplorer.maximizeDataExplorer();
+	await app.workbench.dataExplorer.maximizeDataExplorer();
 
 	// Drive focus into the data explorer.
-	await app.workbench.positronDataExplorer.clickUpperLeftCorner();
+	await app.workbench.dataExplorer.clickUpperLeftCorner();
 
 	// Load the TSV file that is used to verify the data and split it into lines.
 	const tsvFile = fs.readFileSync(tsvFilePath, { encoding: 'utf8' });
@@ -58,11 +58,11 @@ export const testDataExplorer = async (
 	 */
 	const testRow = async (rowIndex: number) => {
 		// Scroll to home and put the cursor there.
-		await app.workbench.positronDataExplorer.cmdCtrlHome();
+		await app.workbench.dataExplorer.cmdCtrlHome();
 
 		// Navigate to the row under test.
 		for (let i = 0; i < rowIndex; i++) {
-			await app.workbench.positronDataExplorer.arrowDown();
+			await app.workbench.dataExplorer.arrowDown();
 		}
 
 		// Test each cell in the row under test.
@@ -88,7 +88,7 @@ export const testDataExplorer = async (
 			}
 
 			// Move to the next cell.
-			await app.workbench.positronDataExplorer.arrowRight();
+			await app.workbench.dataExplorer.arrowRight();
 		}
 
 	};
@@ -99,7 +99,7 @@ export const testDataExplorer = async (
 	await testRow(tsvValues.length - 1);
 
 	// Return to Stacked layout
-	await app.workbench.positronLayouts.enterLayout('stacked');
+	await app.workbench.layouts.enterLayout('stacked');
 };
 
 export const parquetFilePath = (app: Application) => {

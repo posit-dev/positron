@@ -5,14 +5,14 @@
 
 import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
-import { PositronQuickAccess } from './positronQuickaccess';
+import { QuickAccess } from './quickaccess';
 
 const TERMINAL_WRAPPER = '#terminal .terminal-wrapper';
 
-export class PositronTerminal {
+export class Terminal {
 	terminalTab: Locator;
 
-	constructor(private code: Code, private quickaccess: PositronQuickAccess) {
+	constructor(private code: Code, private quickaccess: QuickAccess) {
 		this.terminalTab = this.code.driver.page.getByRole('tab', { name: 'Terminal' }).locator('a');
 	}
 

@@ -45,7 +45,7 @@ export interface ColumnProfile {
 /*
  *  Reuseable Positron data explorer functionality for tests to leverage.
  */
-export class PositronDataExplorer {
+export class DataExplorer {
 
 	clearSortingButton: Locator;
 
@@ -237,10 +237,10 @@ export class PositronDataExplorer {
 	}
 
 	async maximizeDataExplorer(collapseSummary: boolean = false): Promise<void> {
-		await this.workbench.positronLayouts.enterLayout('stacked');
-		await this.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
-		await this.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await this.workbench.positronQuickaccess.runCommand('workbench.action.togglePanel');
+		await this.workbench.layouts.enterLayout('stacked');
+		await this.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await this.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await this.workbench.quickaccess.runCommand('workbench.action.togglePanel');
 
 		if (collapseSummary) {
 			await this.collapseSummary();
@@ -248,10 +248,10 @@ export class PositronDataExplorer {
 	}
 
 	async collapseSummary(): Promise<void> {
-		await this.workbench.positronQuickaccess.runCommand('workbench.action.positronDataExplorer.collapseSummary');
+		await this.workbench.quickaccess.runCommand('workbench.action.positronDataExplorer.collapseSummary');
 	}
 
 	async expandSummary(): Promise<void> {
-		await this.workbench.positronQuickaccess.runCommand('workbench.action.positronDataExplorer.expandSummary');
+		await this.workbench.quickaccess.runCommand('workbench.action.positronDataExplorer.expandSummary');
 	}
 }

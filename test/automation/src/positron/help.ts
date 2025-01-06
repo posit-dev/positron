@@ -17,7 +17,7 @@ const AUX_BAR = '.part.auxiliarybar';
 /*
  *  Reuseable Positron Help functionality for tests to leverage.
  */
-export class PositronHelp {
+export class Help {
 
 	private auxilaryBar = this.code.driver.page.locator(AUX_BAR);
 

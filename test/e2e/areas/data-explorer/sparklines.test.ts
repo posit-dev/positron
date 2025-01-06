@@ -15,22 +15,22 @@ test.describe('Data Explorer - Sparklines', {
 }, () => {
 
 	test.beforeEach(async function ({ app }) {
-		await app.workbench.positronLayouts.enterLayout('stacked');
+		await app.workbench.layouts.enterLayout('stacked');
 	});
 
 	test.afterEach(async ({ app }) => {
-		await app.workbench.positronQuickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
+		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 	});
 
 	test('Python Pandas - Verifies downward trending graph [C830552]', async ({ app, python }) => {
-		await app.workbench.positronConsole.executeCode('Python', pythonScript, '>>>');
+		await app.workbench.console.executeCode('Python', pythonScript, '>>>');
 		await openDataExplorerColumnProfile(app, 'pythonData');
 		await verifyGraphBarHeights(app);
 	});
 
 
 	test('R - Verifies downward trending graph [C830553]', async ({ app, r }) => {
-		await app.workbench.positronConsole.executeCode('R', rScript, '>');
+		await app.workbench.console.executeCode('R', rScript, '>');
 		await openDataExplorerColumnProfile(app, 'rData');
 		await verifyGraphBarHeights(app);
 	});
@@ -39,14 +39,14 @@ test.describe('Data Explorer - Sparklines', {
 async function openDataExplorerColumnProfile(app: Application, variableName: string) {
 
 	await expect(async () => {
-		await app.workbench.positronVariables.doubleClickVariableRow(variableName);
+		await app.workbench.variables.doubleClickVariableRow(variableName);
 		await app.code.driver.page.locator(`.label-name:has-text("Data: ${variableName}")`).innerText();
 	}).toPass();
 
-	await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+	await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 	await app.workbench.positronSideBar.closeSecondarySideBar();
-	await app.workbench.positronDataExplorer.getDataExplorerTableData();
-	await app.workbench.positronDataExplorer.expandColumnProfile(0);
+	await app.workbench.dataExplorer.getDataExplorerTableData();
+	await app.workbench.dataExplorer.expandColumnProfile(0);
 }
 
 async function verifyGraphBarHeights(app: Application) {

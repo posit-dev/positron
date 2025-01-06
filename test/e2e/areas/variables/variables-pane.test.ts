@@ -13,12 +13,12 @@ test.describe('Variables Pane', {
 	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.VARIABLES]
 }, () => {
 	test.beforeEach(async function ({ app }) {
-		await app.workbench.positronLayouts.enterLayout('stacked');
+		await app.workbench.layouts.enterLayout('stacked');
 	});
 
 	test('Python - Verifies Variables pane basic function [C628634]', async function ({ app, logger, python }) {
 		const executeCode = async (code: string) => {
-			await app.workbench.positronConsole.executeCode('Python', code, '>>>');
+			await app.workbench.console.executeCode('Python', code, '>>>');
 		};
 
 		await executeCode('x=1');
@@ -26,9 +26,9 @@ test.describe('Variables Pane', {
 		await executeCode('z=100');
 
 		logger.log('Entered lines in console defining variables');
-		await app.workbench.positronConsole.logConsoleContents();
-		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-		const variablesMap = await app.workbench.positronVariables.getFlatVariables();
+		await app.workbench.console.logConsoleContents();
+		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+		const variablesMap = await app.workbench.variables.getFlatVariables();
 
 		expect(variablesMap.get('x')).toStrictEqual({ value: '1', type: 'int' });
 		expect(variablesMap.get('y')).toStrictEqual({ value: '10', type: 'int' });
@@ -38,7 +38,7 @@ test.describe('Variables Pane', {
 
 	test('R - Verifies Variables pane basic function [C628635]', async function ({ app, logger, r }) {
 		const executeCode = async (code: string) => {
-			await app.workbench.positronConsole.executeCode('R', code, '>');
+			await app.workbench.console.executeCode('R', code, '>');
 		};
 
 		await executeCode('x=1');
@@ -46,9 +46,9 @@ test.describe('Variables Pane', {
 		await executeCode('z=100');
 
 		logger.log('Entered lines in console defining variables');
-		await app.workbench.positronConsole.logConsoleContents();
-		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-		const variablesMap = await app.workbench.positronVariables.getFlatVariables();
+		await app.workbench.console.logConsoleContents();
+		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+		const variablesMap = await app.workbench.variables.getFlatVariables();
 
 		expect(variablesMap.get('x')).toStrictEqual({ value: '1', type: 'dbl' });
 		expect(variablesMap.get('y')).toStrictEqual({ value: '10', type: 'dbl' });

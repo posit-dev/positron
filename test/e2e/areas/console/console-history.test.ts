@@ -50,9 +50,9 @@ test.describe('Console History', {
 async function enterLines(app: Application, lines: string[]) {
 	await test.step('Enter lines into the console', async () => {
 		for (const line of lines) {
-			await app.workbench.positronConsole.typeToConsole(line);
-			await app.workbench.positronConsole.sendEnterKey();
-			await app.workbench.positronConsole.waitForConsoleContents(line);
+			await app.workbench.console.typeToConsole(line);
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.waitForConsoleContents(line);
 		}
 	});
 }
@@ -60,9 +60,9 @@ async function enterLines(app: Application, lines: string[]) {
 
 async function clearConsole(app: Application) {
 	await test.step('Clear the console', async () => {
-		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
-		await app.workbench.positronConsole.barClearButton.click();
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await app.workbench.console.barClearButton.click();
 	});
 }
 
@@ -72,22 +72,22 @@ async function selectFirstHistoryResult(app: Application, expectedLine: string) 
 		await page.keyboard.press('ArrowUp');
 		await page.keyboard.press('ArrowUp');
 		await page.keyboard.press('ArrowUp');
-		await app.workbench.positronConsole.waitForCurrentConsoleLineContents(expectedLine);
-		await app.workbench.positronConsole.sendEnterKey();
+		await app.workbench.console.waitForCurrentConsoleLineContents(expectedLine);
+		await app.workbench.console.sendEnterKey();
 	});
 }
 
 async function verifyFullHistory(app: Application, lines: string[]) {
 	await test.step('Verify the full history', async () => {
-		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.positronConsole.barClearButton.click();
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.console.barClearButton.click();
 
-		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 		await app.code.driver.page.keyboard.press('Control+R');
 
-		await app.workbench.positronConsole.waitForHistoryContents(lines[0], 2);
-		await app.workbench.positronConsole.waitForHistoryContents(lines[1]);
-		await app.workbench.positronConsole.waitForHistoryContents(lines[2]);
+		await app.workbench.console.waitForHistoryContents(lines[0], 2);
+		await app.workbench.console.waitForHistoryContents(lines[1]);
+		await app.workbench.console.waitForHistoryContents(lines[2]);
 	});
 }

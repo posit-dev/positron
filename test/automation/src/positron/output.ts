@@ -5,17 +5,17 @@
 
 
 import { Code } from '../code';
-import { PositronQuickAccess } from './positronQuickaccess';
-import { PositronQuickInput } from './positronQuickInput';
+import { QuickAccess } from './quickaccess';
+import { QuickInput } from './quickInput';
 
 const OUTPUT_LINE = '.view-line';
 
 /*
  *  Reuseable Positron output functionality for tests to leverage.
  */
-export class PositronOutput {
+export class Output {
 
-	constructor(private code: Code, private quickaccess: PositronQuickAccess, private quickinput: PositronQuickInput) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) { }
 
 	async openOutputPane(outputPaneNameContains: string) {
 		await this.quickaccess.runCommand('workbench.action.showOutputChannels', { keepOpen: true });

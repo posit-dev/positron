@@ -14,7 +14,7 @@ const POSITRON_EXPLORER_PROJECT_FILES = 'div[id="workbench.view.explorer"] span[
 /*
  *  Reuseable Positron explorer functionality for tests to leverage.
  */
-export class PositronExplorer {
+export class Explorer {
 	explorerProjectTitle: Locator = this.code.driver.page.locator(POSITRON_EXPLORER_PROJECT_TITLE);
 	explorerProjectTitleLocator = this.code.driver.page.locator(POSITRON_EXPLORER_PROJECT_TITLE);
 

@@ -34,27 +34,27 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 	});
 
 	test.afterEach(async function ({ app }) {
-		await app.workbench.positronDataExplorer.closeDataExplorer();
-		await app.workbench.positronVariables.toggleVariablesView();
+		await app.workbench.dataExplorer.closeDataExplorer();
+		await app.workbench.variables.toggleVariablesView();
 	});
 
 
 	test.describe('Python Data Explorer (Very Large Data Frame)', () => {
 		if (githubActions) {
 			test('Python - Verifies data explorer functionality with very large unique data dataframe [C804823]', async function ({ app, logger, python }) {
-				await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.py'));
-				await app.workbench.positronQuickaccess.runCommand('python.execInConsole');
+				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.py'));
+				await app.workbench.quickaccess.runCommand('python.execInConsole');
 				const startTime = performance.now();
 
 				logger.log('Opening data grid');
 				await expect(async () => {
-					await app.workbench.positronVariables.doubleClickVariableRow('df');
+					await app.workbench.variables.doubleClickVariableRow('df');
 					await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
 				}).toPass();
 
-				await app.workbench.positronSideBar.closeSecondarySideBar();
+				await app.workbench.sideBar.closeSecondarySideBar();
 				// awaits table load completion
-				await app.workbench.positronDataExplorer.getDataExplorerTableData();
+				await app.workbench.dataExplorer.getDataExplorerTableData();
 				const endTime = performance.now();
 				const timeTaken = endTime - startTime;
 
@@ -67,20 +67,20 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 		} else {
 
 			test('Python - Verifies data explorer functionality with very large duplicated data dataframe [C807824]', async function ({ app, logger, python }) {
-				await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.py'));
-				await app.workbench.positronQuickaccess.runCommand('python.execInConsole');
+				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.py'));
+				await app.workbench.quickaccess.runCommand('python.execInConsole');
 				const startTime = performance.now();
 
 				logger.log('Opening data grid');
 				await expect(async () => {
-					await app.workbench.positronVariables.doubleClickVariableRow('df_large');
+					await app.workbench.variables.doubleClickVariableRow('df_large');
 					await app.code.driver.page.locator('.label-name:has-text("Data: df_large")').innerText();
 				}).toPass();
 
-				await app.workbench.positronSideBar.closeSecondarySideBar();
+				await app.workbench.sideBar.closeSecondarySideBar();
 
 				// awaits table load completion
-				await app.workbench.positronDataExplorer.getDataExplorerTableData();
+				await app.workbench.dataExplorer.getDataExplorerTableData();
 				const endTime = performance.now();
 				const timeTaken = endTime - startTime;
 
@@ -96,20 +96,20 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 	test.describe('R Data Explorer (Very Large Data Frame)', () => {
 		if (githubActions) {
 			test('R - Verifies data explorer functionality with very large unique data dataframe [C804824]', async function ({ app, logger, r }) {
-				await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.r'));
-				await app.workbench.positronQuickaccess.runCommand('r.sourceCurrentFile');
+				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.r'));
+				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 				const startTime = performance.now();
 
 				logger.log('Opening data grid');
 				await expect(async () => {
-					await app.workbench.positronVariables.doubleClickVariableRow('df2');
+					await app.workbench.variables.doubleClickVariableRow('df2');
 					await app.code.driver.page.locator('.label-name:has-text("Data: df2")').innerText();
 				}).toPass();
 
-				await app.workbench.positronSideBar.closeSecondarySideBar();
+				await app.workbench.sideBar.closeSecondarySideBar();
 
 				// awaits table load completion
-				await app.workbench.positronDataExplorer.getDataExplorerTableData();
+				await app.workbench.dataExplorer.getDataExplorerTableData();
 				const endTime = performance.now();
 				const timeTaken = endTime - startTime;
 
@@ -122,20 +122,20 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 		} else {
 
 			test('R - Verifies data explorer functionality with very large duplicated data dataframe [C807825]', async function ({ app, logger, r }) {
-				await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.r'));
-				await app.workbench.positronQuickaccess.runCommand('r.sourceCurrentFile');
+				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.r'));
+				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 				const startTime = performance.now();
 
 				logger.log('Opening data grid');
 				await expect(async () => {
-					await app.workbench.positronVariables.doubleClickVariableRow('df3_large');
+					await app.workbench.variables.doubleClickVariableRow('df3_large');
 					await app.code.driver.page.locator('.label-name:has-text("Data: df3_large")').innerText();
 				}).toPass();
 
-				await app.workbench.positronSideBar.closeSecondarySideBar();
+				await app.workbench.sideBar.closeSecondarySideBar();
 
 				// awaits table load completion
-				await app.workbench.positronDataExplorer.getDataExplorerTableData();
+				await app.workbench.dataExplorer.getDataExplorerTableData();
 				const endTime = performance.now();
 				const timeTaken = endTime - startTime;
 

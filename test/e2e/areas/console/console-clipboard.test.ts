@@ -5,7 +5,7 @@
 
 import * as os from 'os';
 import { test, tags } from '../_test.setup';
-import { Application, PositronConsole } from '../../../automation';
+import { Application, Console } from '../../../automation';
 
 test.use({
 	suiteId: __filename
@@ -23,7 +23,7 @@ test.describe('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN] }, () => {
 });
 
 async function testConsoleClipboard(app: Application) {
-	const console = app.workbench.positronConsole;
+	const console = app.workbench.console;
 	const page = console.activeConsole.page();
 	const testLine = 'a = 1';
 
@@ -36,7 +36,7 @@ async function testConsoleClipboard(app: Application) {
 
 async function toggleAuxiliaryBar(app: Application) {
 	await test.step('Toggle auxiliary bar', async () => {
-		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 }
 
@@ -47,7 +47,7 @@ async function initializeConsole(console: any) {
 	});
 }
 
-async function executeCopyAndPaste(console: PositronConsole, page: any, testLine: string) {
+async function executeCopyAndPaste(console: Console, page: any, testLine: string) {
 	const isMac = os.platform() === 'darwin';
 	const modifier = isMac ? 'Meta' : 'Control';
 

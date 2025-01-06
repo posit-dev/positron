@@ -22,7 +22,7 @@ test.describe('Editor Action Bar', {
 	});
 
 	test.afterEach(async function ({ app }) {
-		await app.workbench.positronQuickaccess.runCommand('workbench.action.closeAllEditors');
+		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 	});
 
 	test('R Markdown Document [C1080703]', {
@@ -71,13 +71,13 @@ test.describe('Editor Action Bar', {
 async function openFile(app, filePath: string) {
 	const fileName = path.basename(filePath);
 	await test.step(`open file: ${fileName}`, async () => {
-		await app.workbench.positronQuickaccess.openFile(path.join(app.workspacePathOrFolder, filePath));
+		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath));
 	});
 }
 
 async function openNotebook(app: Application, filePath: string) {
 	await test.step('open jupyter notebook', async () => {
-		await app.workbench.positronQuickaccess.openDataFile(
+		await app.workbench.quickaccess.openDataFile(
 			path.join(app.workspacePathOrFolder, filePath)
 		);
 	});
@@ -171,7 +171,7 @@ async function verifyOpenViewerRendersHtml(app: Application) {
 async function verifyPreviewRendersHtml(app: Application, heading: string) {
 	await test.step('verify "preview" renders html', async () => {
 		await app.code.driver.page.getByLabel('Preview', { exact: true }).click();
-		const viewerFrame = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe');
+		const viewerFrame = app.workbench.viewer.getViewerFrame().frameLocator('iframe');
 		await expect(viewerFrame.getByRole('heading', { name: heading })).toBeVisible({ timeout: 30000 });
 	});
 }

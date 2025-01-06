@@ -14,36 +14,36 @@ test.describe('Console Pane: R', {
 }, () => {
 	test.beforeAll(async function ({ app }) {
 		// Need to make console bigger to see all bar buttons
-		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
 	test('Verify restart button inside the console [C377917]', async function ({ app, r }) {
 		await expect(async () => {
-			await app.workbench.positronConsole.barClearButton.click();
-			await app.workbench.positronConsole.barPowerButton.click();
-			await app.workbench.positronConsole.consoleRestartButton.click();
-			await app.workbench.positronConsole.waitForReady('>');
-			await app.workbench.positronConsole.waitForConsoleContents('restarted');
-			await expect(app.workbench.positronConsole.consoleRestartButton).not.toBeVisible();
+			await app.workbench.console.barClearButton.click();
+			await app.workbench.console.barPowerButton.click();
+			await app.workbench.console.consoleRestartButton.click();
+			await app.workbench.console.waitForReady('>');
+			await app.workbench.console.waitForConsoleContents('restarted');
+			await expect(app.workbench.console.consoleRestartButton).not.toBeVisible();
 		}).toPass();
 	});
 
 	test('Verify restart button on console bar [C620636]', async function ({ app, r }) {
 		await expect(async () => {
-			await app.workbench.positronConsole.barClearButton.click();
-			await app.workbench.positronConsole.barRestartButton.click();
-			await app.workbench.positronConsole.waitForReady('>');
-			await app.workbench.positronConsole.waitForConsoleContents('restarted');
+			await app.workbench.console.barClearButton.click();
+			await app.workbench.console.barRestartButton.click();
+			await app.workbench.console.waitForReady('>');
+			await app.workbench.console.waitForConsoleContents('restarted');
 		}).toPass();
 	});
 
 	test('Verify cancel button on console bar [C...]', {
 	}, async function ({ app, r }) {
 
-		await app.workbench.positronConsole.pasteCodeToConsole('Sys.sleep(10)');
-		await app.workbench.positronConsole.sendEnterKey();
+		await app.workbench.console.pasteCodeToConsole('Sys.sleep(10)');
+		await app.workbench.console.sendEnterKey();
 
-		await app.workbench.positronConsole.interruptExecution();
+		await app.workbench.console.interruptExecution();
 
 		// nothing appears in console after interrupting execution
 	});

@@ -5,9 +5,9 @@
 
 import { Code } from '../code';
 import { basename, isAbsolute } from 'path';
-import { PositronQuickInput } from './positronQuickInput';
+import { QuickInput } from './quickInput';
 import { expect } from '@playwright/test';
-import { PositronEditors } from './positronEditors';
+import { Editors } from './editors';
 
 enum QuickAccessKind {
 	Files = 1,
@@ -15,9 +15,9 @@ enum QuickAccessKind {
 	Symbols
 }
 
-export class PositronQuickAccess {
+export class QuickAccess {
 
-	constructor(private code: Code, private editors: PositronEditors, private quickInput: PositronQuickInput) { }
+	constructor(private code: Code, private editors: Editors, private quickInput: QuickInput) { }
 
 	async openDataFile(path: string): Promise<void> {
 		if (!isAbsolute(path)) {
@@ -25,7 +25,7 @@ export class PositronQuickAccess {
 			// result back that is unique and avoid hitting
 			// the search process to reduce chances of
 			// search needing longer.
-			throw new Error('PositronQuickAccess.openFile requires an absolute path');
+			throw new Error('quickAccess.openFile requires an absolute path');
 		}
 
 		// quick access shows files with the basename of the path

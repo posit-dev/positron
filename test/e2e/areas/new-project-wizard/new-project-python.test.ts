@@ -11,7 +11,7 @@ test.use({
 });
 
 test.beforeEach(async function ({ app }) {
-	await app.workbench.positronConsole.waitForReadyOrNoInterpreter();
+	await app.workbench.console.waitForReadyOrNoInterpreter();
 });
 
 // Not running conda test on windows becuase conda reeks havoc on selecting the correct python interpreter
@@ -38,10 +38,10 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 			expect(projectFiles).toContain('.conda');
 		}).toPass({ timeout: 50000 });
 		// The console should initialize without any prompts to install ipykernel
-		await expect(app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 45000 });
-		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.positronConsole.barClearButton.click();
-		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await expect(app.workbench.console.activeConsole.getByText('>>>')).toBeVisible({ timeout: 45000 });
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.console.barClearButton.click();
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
 	test('Create a new Venv environment [C627912]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app, page }) {
@@ -55,10 +55,10 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 		await expect(page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 20000 });
-		await expect(app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 100000 });
-		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.positronConsole.barClearButton.click();
-		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await expect(app.workbench.console.activeConsole.getByText('>>>')).toBeVisible({ timeout: 100000 });
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.console.barClearButton.click();
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
 	test.skip('With ipykernel already installed [C609619]', {
@@ -96,7 +96,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 		await expect(page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 20000 });
-		await expect(app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 90000 });
+		await expect(app.workbench.console.activeConsole.getByText('>>>')).toBeVisible({ timeout: 90000 });
 	});
 
 	test('With ipykernel not already installed [C609617]', {
@@ -112,9 +112,9 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 			await app.workbench.positronInterpreterDropdown.getSelectedInterpreterInfo();
 		expect(interpreterInfo?.path).toBeDefined();
 		await app.workbench.positronInterpreterDropdown.closeInterpreterDropdown();
-		await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
-		await app.workbench.positronConsole.sendEnterKey();
-		await app.workbench.positronConsole.waitForConsoleContents('Successfully uninstalled ipykernel');
+		await app.workbench.console.typeToConsole('pip uninstall -y ipykernel');
+		await app.workbench.console.sendEnterKey();
+		await app.workbench.console.waitForConsoleContents('Successfully uninstalled ipykernel');
 
 		// Create a new Python project and use the selected python interpreter
 		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
@@ -144,10 +144,10 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 
 		// If ipykernel was successfully installed during the new project initialization,
 		// the console should be ready without any prompts to install ipykernel
-		await expect(app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 90000 });
-		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.positronConsole.barClearButton.click();
-		await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await expect(app.workbench.console.activeConsole.getByText('>>>')).toBeVisible({ timeout: 90000 });
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.console.barClearButton.click();
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
 	test('Default Python Project with git init [C674522]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app, page }) {
@@ -166,7 +166,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		// Open the new project in the current window and wait for the console to be ready
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 		await expect(page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 20000 });
-		await expect(app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 90000 });
+		await expect(app.workbench.console.activeConsole.getByText('>>>')).toBeVisible({ timeout: 90000 });
 
 		// Verify git-related files are present
 		await expect(async () => {
@@ -178,9 +178,9 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		}).toPass({ timeout: 50000 });
 
 		// Git status should show that we're on the main branch
-		await app.workbench.positronTerminal.createTerminal();
-		await app.workbench.positronTerminal.runCommandInTerminal('git status');
-		await app.workbench.positronTerminal.waitForTerminalText('On branch main');
+		await app.workbench.terminal.createTerminal();
+		await app.workbench.terminal.runCommandInTerminal('git status');
+		await app.workbench.terminal.waitForTerminalText('On branch main');
 	});
 });
 

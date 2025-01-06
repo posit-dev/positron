@@ -6,9 +6,9 @@
 
 import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
-import { PositronQuickAccess } from './positronQuickaccess';
-import { PositronQuickInput } from './positronQuickInput';
-import { InterpreterType } from './utils/positronInterpreterInfo';
+import { QuickAccess } from './quickaccess';
+import { QuickInput } from './quickInput';
+import { InterpreterType } from './utils/interpreterInfo';
 
 const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
@@ -24,7 +24,7 @@ const CONSOLE_LINES = `${ACTIVE_CONSOLE_INSTANCE} div span`;
  *  Reuseable Positron console functionality for tests to leverage.  Includes the ability to select an interpreter and execute code which
  *  aren't directly console functions, but rather features needed to support console testing.
  */
-export class PositronConsole {
+export class Console {
 	barPowerButton: Locator;
 	barRestartButton: Locator;
 	barClearButton: Locator;
@@ -36,7 +36,7 @@ export class PositronConsole {
 		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
 	}
 
-	constructor(private code: Code, private quickaccess: PositronQuickAccess, private quickinput: PositronQuickInput) {
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) {
 		this.barPowerButton = this.code.driver.page.getByLabel('Shutdown console');
 		this.barRestartButton = this.code.driver.page.getByLabel('Restart console');
 		this.barClearButton = this.code.driver.page.getByLabel('Clear console');

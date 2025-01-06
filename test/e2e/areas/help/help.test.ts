@@ -18,20 +18,20 @@ test.describe('Help', { tag: [tags.HELP] }, () => {
 	});
 
 	test('Python - Verifies basic help functionality [C633814]', { tag: [tags.WIN] }, async function ({ app, python }) {
-		await app.workbench.positronConsole.executeCode('Python', `?load`, '>>>');
+		await app.workbench.console.executeCode('Python', `?load`, '>>>');
 
 		await expect(async () => {
-			const helpFrame = await app.workbench.positronHelp.getHelpFrame(0);
+			const helpFrame = await app.workbench.help.getHelpFrame(0);
 			await expect(helpFrame.locator('body')).toContainText('Load code into the current frontend.');
 		}).toPass();
 
 	});
 
 	test('R - Verifies basic help functionality [C633813]', { tag: [tags.WIN] }, async function ({ app, r }) {
-		await app.workbench.positronConsole.executeCode('R', `?load()`, '>');
+		await app.workbench.console.executeCode('R', `?load()`, '>');
 
 		await expect(async () => {
-			const helpFrame = await app.workbench.positronHelp.getHelpFrame(1);
+			const helpFrame = await app.workbench.help.getHelpFrame(1);
 			await expect(helpFrame.locator('body')).toContainText('Reload Saved Datasets');
 		}).toPass();
 
@@ -39,9 +39,9 @@ test.describe('Help', { tag: [tags.HELP] }, () => {
 
 	test('Verifies help panel can be opened when empty and also can be resized smaller and remember resize height [C640934]', async function ({ app, logger }) {
 		// Not running on windows as the size calculation is off for the resolution in CI
-		const positronHelp = app.workbench.positronHelp;
-		const helpContainerLocator = positronHelp.getHelpContainer();
-		const helpPanelHeaderLocator = positronHelp.getHelpHeader();
+		const help = app.workbench.help;
+		const helpContainerLocator = help.getHelpContainer();
+		const helpPanelHeaderLocator = help.getHelpHeader();
 		const getHelpHeight = async () => (await helpContainerLocator.boundingBox())?.height ?? -1;
 
 		// How close should our heights be? It's not totally clear why this isn't always
@@ -50,7 +50,7 @@ test.describe('Help', { tag: [tags.HELP] }, () => {
 		const sizePrecision = 5;
 
 		// Enter layout with help pane docked in session panel
-		await app.workbench.positronLayouts.enterLayout('dockedHelp');
+		await app.workbench.layouts.enterLayout('dockedHelp');
 
 		// Help panel starts collapsed thanks to the above command
 		await expect(helpContainerLocator).not.toBeVisible();
@@ -69,7 +69,7 @@ test.describe('Help', { tag: [tags.HELP] }, () => {
 		// We'll make it roughly two thirds the size of the original height
 		const resize_delta = helpPanelHeight / 3;
 		const expectedHeightAfterResize = helpPanelHeight - resize_delta;
-		await positronHelp.resizeHelpPanel({ y: resize_delta });
+		await help.resizeHelpPanel({ y: resize_delta });
 
 		// Verify that the height has changed by the expected amount
 		const helpPanelHeightAfter = await getHelpHeight();

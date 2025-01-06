@@ -12,24 +12,24 @@ test.use({
 test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 
 	test.afterEach(async function ({ app }) {
-		await app.workbench.positronViewer.clearViewer();
+		await app.workbench.viewer.clearViewer();
 	});
 
 	test.skip('Python - Verify Viewer functionality with vetiver [C784887]', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5569' }]
 	}, async function ({ app, page, logger, python }) {
 		logger.log('Sending code to console');
-		await app.workbench.positronConsole.pasteCodeToConsole(pythonScript);
-		await app.workbench.positronConsole.sendEnterKey();
-		const theDoc = app.workbench.positronViewer.getViewerLocator('#thedoc');
+		await app.workbench.console.pasteCodeToConsole(pythonScript);
+		await app.workbench.console.sendEnterKey();
+		const theDoc = app.workbench.viewer.getViewerLocator('#thedoc');
 		await theDoc.waitFor({ state: 'attached', timeout: 60000 });
 
 		// This is bad because it can end up clicking a link inside the console:
-		//await app.workbench.positronConsole.activeConsole.click();
+		//await app.workbench.console.activeConsole.click();
 
-		await app.workbench.positronConsole.clickConsoleTab();
+		await app.workbench.console.clickConsoleTab();
 		await page.keyboard.press('Control+C');
-		await app.workbench.positronConsole.waitForConsoleContents('Application shutdown complete.');
+		await app.workbench.console.waitForConsoleContents('Application shutdown complete.');
 	});
 
 	// This randomly fails only in CI
@@ -38,13 +38,13 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 		// extra clean up - https://github.com/posit-dev/positron/issues/4604
 		// without this, on ubuntu, the Enter key send to the console
 		// won't work because the pasted code is out of view
-		await app.workbench.positronConsole.barClearButton.click();
+		await app.workbench.console.barClearButton.click();
 
 		logger.log('Sending code to console');
-		await app.workbench.positronConsole.pasteCodeToConsole(pythonGreatTablesScript);
-		await app.workbench.positronConsole.sendEnterKey();
+		await app.workbench.console.pasteCodeToConsole(pythonGreatTablesScript);
+		await app.workbench.console.sendEnterKey();
 
-		const apricot = app.workbench.positronViewer.getViewerLocator('td').filter({ hasText: 'apricot' });
+		const apricot = app.workbench.viewer.getViewerLocator('td').filter({ hasText: 'apricot' });
 		await apricot.waitFor({ state: 'attached', timeout: 60000 });
 
 		// Note that there is not a control to clear the viewer at this point
@@ -53,8 +53,8 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 
 	test('R - Verify Viewer functionality with modelsummary [C784889]', async function ({ app, logger, r }) {
 		logger.log('Sending code to console');
-		await app.workbench.positronConsole.executeCode('R', rModelSummaryScript, '>');
-		const billDepthLocator = app.workbench.positronViewer.getViewerLocator('tr').filter({ hasText: 'bill_depth_mm' });
+		await app.workbench.console.executeCode('R', rModelSummaryScript, '>');
+		const billDepthLocator = app.workbench.viewer.getViewerLocator('tr').filter({ hasText: 'bill_depth_mm' });
 		await billDepthLocator.waitFor({ state: 'attached' });
 
 	});
@@ -62,9 +62,9 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 	test('R - Verify Viewer functionality with reactable [C784930]', async function ({ app, logger, r }) {
 
 		logger.log('Sending code to console');
-		await app.workbench.positronConsole.executeCode('R', rReactableScript, '>');
+		await app.workbench.console.executeCode('R', rReactableScript, '>');
 
-		const datsun710 = app.workbench.positronViewer.getViewerLocator('div.rt-td-inner').filter({ hasText: 'Datsun 710' });
+		const datsun710 = app.workbench.viewer.getViewerLocator('div.rt-td-inner').filter({ hasText: 'Datsun 710' });
 
 		await datsun710.waitFor({ state: 'attached' });
 
@@ -73,9 +73,9 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 	test('R - Verify Viewer functionality with reprex [C784931]', async function ({ app, logger, r }) {
 
 		logger.log('Sending code to console');
-		await app.workbench.positronConsole.executeCode('R', rReprexScript, '>');
+		await app.workbench.console.executeCode('R', rReprexScript, '>');
 
-		const rnorm = app.workbench.positronViewer.getViewerLocator('code.sourceCode').filter({ hasText: 'x <- rnorm(100)' });
+		const rnorm = app.workbench.viewer.getViewerLocator('code.sourceCode').filter({ hasText: 'x <- rnorm(100)' });
 
 		await rnorm.waitFor({ state: 'attached' });
 

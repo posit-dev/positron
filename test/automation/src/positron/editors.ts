@@ -7,7 +7,7 @@ import { expect } from '@playwright/test';
 import { Code } from '../code';
 
 
-export class PositronEditors {
+export class Editors {
 
 	activeEditor = this.code.driver.page.locator('div.tab.tab-actions-right.active.selected');
 	editorIcon = this.code.driver.page.locator('.monaco-icon-label.file-icon');

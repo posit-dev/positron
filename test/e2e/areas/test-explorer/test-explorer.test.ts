@@ -19,9 +19,9 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER] }, () => {
 				'true',
 			]]);
 
-			await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-			await app.workbench.positronConsole.barClearButton.click();
-			await app.workbench.positronQuickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+			await app.workbench.console.barClearButton.click();
+			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		} catch (e) {
 			await app.code.driver.takeScreenshot('testExplorerSetup');
 			throw e;
@@ -32,29 +32,29 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER] }, () => {
 		await expect(async () => {
 			// Navigate to https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
 			// This is an R package embedded in qa-example-content
-			await app.workbench.positronQuickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
-			await app.workbench.positronQuickInput.waitForQuickInputOpened();
-			await app.workbench.positronQuickInput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
+			await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
+			await app.workbench.quickInput.waitForQuickInputOpened();
+			await app.workbench.quickInput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
 			// Had to add a positron class, because Microsoft did not have this:
-			await app.workbench.positronQuickInput.clickOkOnQuickInput();
+			await app.workbench.quickInput.clickOkOnQuickInput();
 
 			// Wait for the console to be ready
-			await app.workbench.positronConsole.waitForReady('>', 10000);
+			await app.workbench.console.waitForReady('>', 10000);
 		}).toPass({ timeout: 50000 });
 
 		await expect(async () => {
-			await app.workbench.positronTestExplorer.clickTestExplorerIcon();
+			await app.workbench.testExplorer.clickTestExplorerIcon();
 
-			const projectFiles = await app.workbench.positronTestExplorer.getTestExplorerFiles();
+			const projectFiles = await app.workbench.testExplorer.getTestExplorerFiles();
 
 			// test-mathstuff.R is the last section of tests in https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
 			expect(projectFiles).toContain('test-mathstuff.R');
 		}).toPass({ timeout: 50000 });
 
-		await app.workbench.positronTestExplorer.runAllTests();
+		await app.workbench.testExplorer.runAllTests();
 
 		await expect(async () => {
-			const testResults = await app.workbench.positronTestExplorer.getTestResults();
+			const testResults = await app.workbench.testExplorer.getTestResults();
 
 			expect(testResults[0].caseText).toBe('nothing really');
 			expect(testResults[0].status).toBe('fail');

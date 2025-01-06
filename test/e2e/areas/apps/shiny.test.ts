@@ -22,16 +22,16 @@ test.describe('Shiny Application', { tag: [tags.APPS, tags.VIEWER, tags.WIN, tag
 	});
 
 	test.afterEach(async function ({ app }) {
-		await app.workbench.positronTerminal.sendKeysToTerminal('Control+C');
-		await app.workbench.positronViewer.refreshViewer();
+		await app.workbench.terminal.sendKeysToTerminal('Control+C');
+		await app.workbench.viewer.refreshViewer();
 	});
 
 	test('Python - Verify Basic Shiny App [C699099]', async function ({ app, python }) {
-		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'shiny-py-example', 'app.py'));
-		await app.workbench.positronQuickaccess.runCommand('shiny.python.runApp');
+		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'shiny-py-example', 'app.py'));
+		await app.workbench.quickaccess.runCommand('shiny.python.runApp');
 		const headerLocator = app.web
-			? app.workbench.positronViewer.viewerFrame.frameLocator('iframe').locator('h1')
-			: app.workbench.positronViewer.getViewerLocator('h1');
+			? app.workbench.viewer.viewerFrame.frameLocator('iframe').locator('h1')
+			: app.workbench.viewer.getViewerLocator('h1');
 
 		await expect(async () => {
 			await expect(headerLocator).toHaveText('Restaurant tipping', { timeout: 20000 });
@@ -41,11 +41,11 @@ test.describe('Shiny Application', { tag: [tags.APPS, tags.VIEWER, tags.WIN, tag
 	test('R - Verify Basic Shiny App [C699100]', async function ({ app, r }) {
 		const code = `library(shiny)
 runExample("01_hello")`;
-		await app.workbench.positronConsole.pasteCodeToConsole(code);
-		await app.workbench.positronConsole.sendEnterKey();
+		await app.workbench.console.pasteCodeToConsole(code);
+		await app.workbench.console.sendEnterKey();
 		const headerLocator = app.web
-			? app.workbench.positronViewer.viewerFrame.frameLocator('iframe').locator('h1')
-			: app.workbench.positronViewer.getViewerLocator('h1');
+			? app.workbench.viewer.viewerFrame.frameLocator('iframe').locator('h1')
+			: app.workbench.viewer.getViewerLocator('h1');
 		await expect(async () => {
 			await expect(headerLocator).toHaveText('Hello Shiny!', { timeout: 20000 });
 		}).toPass({ timeout: 60000 });

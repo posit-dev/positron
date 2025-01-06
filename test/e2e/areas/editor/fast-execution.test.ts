@@ -14,7 +14,7 @@ const FILENAME = 'fast-execution.r';
 
 test.describe('R Fast Execution', { tag: [tags.WEB, tags.EDITOR, tags.WIN] }, () => {
 	test('Verify fast execution is not out of order [C712539]', async function ({ app, r }) {
-		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'fast-statement-execution', FILENAME));
+		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'fast-statement-execution', FILENAME));
 
 		let previousTop = -1;
 
@@ -22,7 +22,7 @@ test.describe('R Fast Execution', { tag: [tags.WEB, tags.EDITOR, tags.WIN] }, ()
 		// file fast-execution.r is 10 lines.  We want to be sure to send a Control+Enter
 		// for every line of the file
 		for (let i = 0; i < 10; i++) {
-			let currentTop = await app.workbench.positronEditor.getCurrentLineTop();
+			let currentTop = await app.workbench.editor.getCurrentLineTop();
 			let retries = 20;
 
 			// Note that top is a measurement of the distance from the top of the editor
@@ -31,7 +31,7 @@ test.describe('R Fast Execution', { tag: [tags.WEB, tags.EDITOR, tags.WIN] }, ()
 			// would send Control+Enter many times to the first line of the file and not
 			// perform the desired test.
 			while (currentTop === previousTop && retries > 0) {
-				currentTop = await app.workbench.positronEditor.getCurrentLineTop();
+				currentTop = await app.workbench.editor.getCurrentLineTop();
 				retries--;
 			}
 
@@ -40,9 +40,9 @@ test.describe('R Fast Execution', { tag: [tags.WEB, tags.EDITOR, tags.WIN] }, ()
 			await app.code.driver.getKeyboard().press('Control+Enter');
 		}
 
-		await app.workbench.positronVariables.waitForVariableRow('c');
-		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-		const variablesMap = await app.workbench.positronVariables.getFlatVariables();
+		await app.workbench.variables.waitForVariableRow('c');
+		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+		const variablesMap = await app.workbench.variables.getFlatVariables();
 
 		expect(variablesMap.get('x')).toStrictEqual({ value: '1', type: 'dbl' });
 		expect(variablesMap.get('y')).toStrictEqual({ value: '1', type: 'dbl' });

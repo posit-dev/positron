@@ -14,7 +14,7 @@ const PLAY_BUTTON = '.codicon-play';
 const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
 
-export class PositronEditor {
+export class Editor {
 
 	viewerFrame = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
 

@@ -12,7 +12,7 @@ const REFRESH_BUTTON = '.codicon-positron-refresh';
 
 const FULL_APP = 'body';
 
-export class PositronViewer {
+export class Viewer {
 
 	fullApp = this.code.driver.page.locator(FULL_APP);
 	viewerFrame = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);

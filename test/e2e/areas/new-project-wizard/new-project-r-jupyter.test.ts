@@ -11,8 +11,8 @@ test.use({
 });
 
 test.beforeEach(async function ({ app }) {
-	await app.workbench.positronConsole.waitForReadyOrNoInterpreter();
-	await app.workbench.positronLayouts.enterLayout("stacked");
+	await app.workbench.console.waitForReadyOrNoInterpreter();
+	await app.workbench.layouts.enterLayout("stacked");
 });
 
 test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () => {
@@ -29,9 +29,9 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 		await pw.navigate(ProjectWizardNavigateAction.NEXT);
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await app.workbench.positronLayouts.enterLayout("fullSizedSidebar");
+		await app.workbench.layouts.enterLayout("fullSizedSidebar");
 		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 15000 });
-		// NOTE: For completeness, we probably want to await app.workbench.positronConsole.waitForReady('>', 10000);
+		// NOTE: For completeness, we probably want to await app.workbench.console.waitForReady('>', 10000);
 		// here, but it's timing out in CI, so it is not included for now.
 	});
 
@@ -49,7 +49,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 
 		// Interact with the modal to install renv
-		await app.workbench.positronPopups.installRenv();
+		await app.workbench.popups.installRenv();
 
 		// If this test is running on a machine that is using Renv for the first time, we
 		// may need to interact with the Console to allow the renv installation to complete
@@ -57,11 +57,11 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 
 		// You should either manually interact with the Console to proceed with the Renv
 		// install or temporarily uncomment the code below to automate the interaction.
-		// await app.workbench.positronConsole.waitForConsoleContents('Do you want to proceed?')
-		// await app.workbench.positronConsole.typeToConsole('y');
-		// await app.workbench.positronConsole.sendEnterKey();
+		// await app.workbench.console.waitForConsoleContents('Do you want to proceed?')
+		// await app.workbench.console.typeToConsole('y');
+		// await app.workbench.console.sendEnterKey();
 
-		await app.workbench.positronLayouts.enterLayout("fullSizedSidebar");
+		await app.workbench.layouts.enterLayout("fullSizedSidebar");
 		await expect(app.code.driver.page.getByRole('button', { name: 'Explorer Section: my-r-' })).toHaveText(defaultProjectName + projSuffix, { timeout: 15000 });
 		// Verify renv files are present
 		await expect(async () => {
@@ -71,7 +71,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 			expect(projectFiles).toContain('renv.lock');
 		}).toPass({ timeout: 50000 });
 		// Verify that renv output in the console confirms no issues occurred
-		await app.workbench.positronConsole.waitForConsoleContents('renv activated');
+		await app.workbench.console.waitForConsoleContents('renv activated');
 	});
 
 	test('R - Renv already installed [C656251]', { tag: [tags.WIN] }, async function ({ app }) {
@@ -95,15 +95,15 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 			expect(projectFiles).toContain('renv.lock');
 		}).toPass({ timeout: 100000 });
 		// Verify that renv output in the console confirms no issues occurred
-		await app.workbench.positronConsole.waitForConsoleContents('renv activated');
+		await app.workbench.console.waitForConsoleContents('renv activated');
 	});
 
 	test('R - Cancel Renv install [C656252]', { tag: [tags.WIN] }, async function ({ app }) {
 		const projSuffix = addRandomNumSuffix('_cancelRenvInstall');
 		const pw = app.workbench.positronNewProjectWizard;
 		// Remove renv package so we are prompted to install it again
-		await app.workbench.positronConsole.executeCode('R', 'remove.packages("renv")', '>');
-		await app.workbench.positronConsole.waitForConsoleContents(`Removing package`);
+		await app.workbench.console.executeCode('R', 'remove.packages("renv")', '>');
+		await app.workbench.console.waitForConsoleContents(`Removing package`);
 		// Create a new R project - select Renv but opt out of installing
 		await pw.startNewProject(ProjectType.R_PROJECT);
 		await pw.navigate(ProjectWizardNavigateAction.NEXT);
@@ -115,7 +115,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 		await expect(app.code.driver.page.getByRole('button', { name: 'Explorer Section: my-r-' })).toHaveText(defaultProjectName + projSuffix, { timeout: 15000 });
 		// Interact with the modal to skip installing renv
-		await app.workbench.positronPopups.installRenv(false);
+		await app.workbench.popups.installRenv(false);
 		// Verify renv files are **not** present
 		await expect(async () => {
 			const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
@@ -143,9 +143,9 @@ test.describe('Jupyter - New Project Wizard', () => {
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 		await app.code.driver.wait(10000);
-		await app.workbench.positronLayouts.enterLayout("fullSizedSidebar");
+		await app.workbench.layouts.enterLayout("fullSizedSidebar");
 		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 15000 });
-		// NOTE: For completeness, we probably want to await app.workbench.positronConsole.waitForReady('>>>', 10000);
+		// NOTE: For completeness, we probably want to await app.workbench.console.waitForReady('>>>', 10000);
 		// here, but it's timing out in CI, so it is not included for now.
 	});
 });

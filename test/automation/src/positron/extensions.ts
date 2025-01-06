@@ -5,11 +5,11 @@
 
 import { expect } from '@playwright/test';
 import { Code } from '../code';
-import { PositronQuickAccess } from './positronQuickaccess';
+import { QuickAccess } from './quickaccess';
 
-export class PositronExtensions {
+export class Extensions {
 
-	constructor(private code: Code, private quickaccess: PositronQuickAccess) { }
+	constructor(private code: Code, private quickaccess: QuickAccess) { }
 
 	async searchForExtension(id: string): Promise<void> {
 		await this.quickaccess.runCommand('Extensions: Focus on Extensions View', { exactLabelMatch: true });

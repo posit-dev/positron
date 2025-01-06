@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { PositronExplorer } from './positronExplorer';
+import { Explorer } from './explorer';
 
 const TEST_RESULT_ITEM = '.monaco-list-row[aria-level="2"] .test-peek-item';
 const NAME = '.name';
@@ -14,7 +14,7 @@ const TEST_EXPLORER_ICON = '.composite-bar .codicon-test-view-icon';
 /*
  *  Reuseable Positron test explorer functionality for tests to leverage.
  */
-export class PositronTestExplorer extends PositronExplorer {
+export class TestExplorer extends Explorer {
 
 	/**
 	 * Constructs a object containing test results from the test explorer.

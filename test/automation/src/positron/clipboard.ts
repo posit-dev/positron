@@ -5,7 +5,7 @@
 
 import { Code } from '../code';
 
-export class PositronClipboard {
+export class Clipboard {
 
 	constructor(private code: Code) { }
 

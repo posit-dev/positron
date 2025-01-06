@@ -14,7 +14,7 @@ test.describe('Console Input', {
 }, () => {
 
 	test.beforeEach(async function ({ app, r }) {
-		await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
+		await app.workbench.layouts.enterLayout('fullSizedPanel');
 	});
 
 
@@ -22,13 +22,13 @@ test.describe('Console Input', {
 		const inputCode = `val = input("Enter your name: ")
 print(f'Hello {val}!')`;
 
-		await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
-		await app.workbench.positronConsole.sendEnterKey();
-		await expect(app.workbench.positronConsole.activeConsole.getByText('Enter your name:', { exact: true })).toBeVisible();
+		await app.workbench.console.pasteCodeToConsole(inputCode);
+		await app.workbench.console.sendEnterKey();
+		await expect(app.workbench.console.activeConsole.getByText('Enter your name:', { exact: true })).toBeVisible();
 
-		await app.workbench.positronConsole.typeToConsole('John Doe');
-		await app.workbench.positronConsole.sendEnterKey();
-		await app.workbench.positronConsole.waitForConsoleContents('Hello John Doe!');
+		await app.workbench.console.typeToConsole('John Doe');
+		await app.workbench.console.sendEnterKey();
+		await app.workbench.console.waitForConsoleContents('Hello John Doe!');
 
 	});
 
@@ -36,31 +36,31 @@ print(f'Hello {val}!')`;
 	test('R - Get Input String Console [C667517]', async function ({ app, r }) {
 		const inputCode = `val <- readline(prompt = "Enter your name: ")
 cat(sprintf('Hello %s!\n', val))`;
-		await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
-		await app.workbench.positronConsole.sendEnterKey();
-		await expect(app.workbench.positronConsole.activeConsole.getByText('Enter your name:', { exact: true })).toBeVisible();
+		await app.workbench.console.pasteCodeToConsole(inputCode);
+		await app.workbench.console.sendEnterKey();
+		await expect(app.workbench.console.activeConsole.getByText('Enter your name:', { exact: true })).toBeVisible();
 
 		// slight wait before starting to type
 		await app.code.wait(200);
-		await app.workbench.positronConsole.typeToConsole('John Doe');
-		await app.workbench.positronConsole.sendEnterKey();
-		await app.workbench.positronConsole.waitForConsoleContents('Hello John Doe!');
+		await app.workbench.console.typeToConsole('John Doe');
+		await app.workbench.console.sendEnterKey();
+		await app.workbench.console.waitForConsoleContents('Hello John Doe!');
 	});
 
 	test('R - Can use `menu` to select alternatives [C684749]', async function ({ app, r }) {
 		const inputCode = `x <- menu(letters)`;
 
-		await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
-		await app.workbench.positronConsole.sendEnterKey();
-		await app.workbench.positronConsole.waitForConsoleContents('Selection:');
+		await app.workbench.console.pasteCodeToConsole(inputCode);
+		await app.workbench.console.sendEnterKey();
+		await app.workbench.console.waitForConsoleContents('Selection:');
 
-		await app.workbench.positronConsole.typeToConsole('1');
-		await app.workbench.positronConsole.sendEnterKey();
+		await app.workbench.console.typeToConsole('1');
+		await app.workbench.console.sendEnterKey();
 
-		await app.workbench.positronConsole.typeToConsole('x');
-		await app.workbench.positronConsole.sendEnterKey();
+		await app.workbench.console.typeToConsole('x');
+		await app.workbench.console.sendEnterKey();
 
-		await app.workbench.positronConsole.waitForConsoleContents('[1] 1');
+		await app.workbench.console.waitForConsoleContents('[1] 1');
 	});
 
 	test("R - Esc only dismisses autocomplete not full text typed into console [C685868]", async function ({ app, page, r }) {
@@ -68,9 +68,9 @@ cat(sprintf('Hello %s!\n', val))`;
 
 		const inputCode = `base::mea`;
 
-		await app.workbench.positronConsole.typeToConsole(inputCode);
+		await app.workbench.console.typeToConsole(inputCode);
 
-		const activeConsole = app.workbench.positronConsole.activeConsole;
+		const activeConsole = app.workbench.console.activeConsole;
 
 		// Makes sure the code suggestions are activated
 		const suggestion = activeConsole.locator('.suggest-widget');

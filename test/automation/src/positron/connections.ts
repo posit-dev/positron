@@ -5,7 +5,7 @@
 
 import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
-import { PositronQuickAccess } from './positronQuickaccess';
+import { QuickAccess } from './quickaccess';
 
 const CONNECTIONS_CONTAINER = '.connections-items-container';
 const CONNECTIONS_ITEM = '.connections-item';
@@ -13,7 +13,7 @@ const CONNECTIONS_ITEM = '.connections-item';
 /*
  *  Reuseable Positron connections tab functionality for tests to leverage
  */
-export class PositronConnections {
+export class Connections {
 
 	deleteConnectionButton: Locator;
 	disconnectButton: Locator;
@@ -21,7 +21,7 @@ export class PositronConnections {
 	connectionItems: Locator;
 	resumeConnectionButton: Locator;
 
-	constructor(private code: Code, private quickaccess: PositronQuickAccess) {
+	constructor(private code: Code, private quickaccess: QuickAccess) {
 		this.deleteConnectionButton = code.driver.page.getByLabel('Delete Connection');
 		this.disconnectButton = code.driver.page.getByLabel('Disconnect');
 		this.connectIcon = code.driver.page.locator('.codicon-arrow-circle-right');

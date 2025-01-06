@@ -5,13 +5,13 @@
 
 
 import { Code } from '../code';
-import { PositronEditor } from './positronEditor';
-import { PositronEditors } from './positronEditors';
-import { PositronQuickAccess } from './positronQuickaccess';
+import { Editor } from './editor';
+import { Editors } from './editors';
+import { QuickAccess } from './quickaccess';
 
-export class PositronSettings {
+export class Settings {
 
-	constructor(private code: Code, private editors: PositronEditors, private editor: PositronEditor, private quickaccess: PositronQuickAccess) { }
+	constructor(private code: Code, private editors: Editors, private editor: Editor, private quickaccess: QuickAccess) { }
 
 	async addUserSettings(settings: [key: string, value: string][]): Promise<void> {
 		await this.openUserSettingsFile();

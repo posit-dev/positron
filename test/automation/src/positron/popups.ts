@@ -17,7 +17,7 @@ const NOTIFICATION_TOAST = '.notification-toast';
 /*
  *  Reuseable Positron popups functionality for tests to leverage.
  */
-export class PositronPopups {
+export class Popups {
 
 	toastLocator = this.code.driver.page.locator(NOTIFICATION_TOAST);
 

@@ -6,7 +6,7 @@
 
 import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
-import { getInterpreterType, InterpreterInfo, InterpreterType } from './utils/positronInterpreterInfo';
+import { getInterpreterType, InterpreterInfo, InterpreterType } from './utils/interpreterInfo';
 
 const INTERPRETER_INFO_LINE = '.info .container .line';
 const INTERPRETER_ACTIONS_SELECTOR = `.interpreter-actions .action-button`;
@@ -14,7 +14,7 @@ const INTERPRETER_ACTIONS_SELECTOR = `.interpreter-actions .action-button`;
 /*
  *  Reuseable Positron interpreter selection functionality for tests to leverage.
  */
-export class PositronInterpreterDropdown {
+export class InterpreterDropdown {
 	private interpreterGroups = this.code.driver.page.locator(
 		'.positron-modal-popup .interpreter-groups'
 	);

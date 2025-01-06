@@ -6,7 +6,7 @@
 import { fail } from 'assert';
 import { expect } from '@playwright/test';
 import { Code } from '../code';
-import { PositronQuickAccess } from './positronQuickaccess';
+import { QuickAccess } from './quickaccess';
 
 // Selector for the pre-selected dropdown item in the project wizard
 const PROJECT_WIZARD_PRESELECTED_DROPDOWN_ITEM =
@@ -41,7 +41,7 @@ export enum ProjectType {
 /*
  *  Reuseable Positron new project wizard functionality for tests to leverage.
  */
-export class PositronNewProjectWizard {
+export class NewProjectWizard {
 	projectTypeStep: ProjectWizardProjectTypeStep;
 	projectNameLocationStep: ProjectWizardProjectNameLocationStep;
 	rConfigurationStep: ProjectWizardRConfigurationStep;
@@ -53,7 +53,7 @@ export class PositronNewProjectWizard {
 	private nextButton = this.code.driver.page.locator(PROJECT_WIZARD_DEFAULT_BUTTON).getByText('Next');
 	private createButton = this.code.driver.page.locator(PROJECT_WIZARD_DEFAULT_BUTTON).getByText('Create');
 
-	constructor(private code: Code, private quickaccess: PositronQuickAccess) {
+	constructor(private code: Code, private quickaccess: QuickAccess) {
 		this.projectTypeStep = new ProjectWizardProjectTypeStep(this.code);
 		this.projectNameLocationStep = new ProjectWizardProjectNameLocationStep(this.code);
 		this.rConfigurationStep = new ProjectWizardRConfigurationStep(this.code);

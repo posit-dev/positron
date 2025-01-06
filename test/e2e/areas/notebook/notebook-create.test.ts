@@ -14,55 +14,55 @@ test.describe('Notebooks', {
 }, () => {
 	test.describe('Python Notebooks', () => {
 		test.beforeEach(async function ({ app, python }) {
-			await app.workbench.positronLayouts.enterLayout('notebook');
-			await app.workbench.positronNotebooks.createNewNotebook();
-			await app.workbench.positronNotebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
+			await app.workbench.layouts.enterLayout('notebook');
+			await app.workbench.notebooks.createNewNotebook();
+			await app.workbench.notebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
 		});
 
 		test.afterEach(async function ({ app }) {
-			await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
+			await app.workbench.notebooks.closeNotebookWithoutSaving();
 		});
 
 		test('Python - Basic notebook creation and execution (code) [C628631]', async function ({ app }) {
-			await app.workbench.positronNotebooks.addCodeToFirstCell('eval("8**2")');
-			await app.workbench.positronNotebooks.executeCodeInCell();
-			await app.workbench.positronNotebooks.assertCellOutput('64');
+			await app.workbench.notebooks.addCodeToFirstCell('eval("8**2")');
+			await app.workbench.notebooks.executeCodeInCell();
+			await app.workbench.notebooks.assertCellOutput('64');
 		});
 
 		test('Python - Basic notebook creation and execution (markdown) [C628632]', async function ({ app }) {
 			const randomText = Math.random().toString(36).substring(7);
 
-			await app.workbench.positronNotebooks.insertNotebookCell('markdown');
-			await app.workbench.positronNotebooks.waitForTypeInEditor(`## ${randomText} `);
-			await app.workbench.positronNotebooks.stopEditingCell();
-			await app.workbench.positronNotebooks.assertMarkdownText('h2', randomText);
+			await app.workbench.notebooks.insertNotebookCell('markdown');
+			await app.workbench.notebooks.waitForTypeInEditor(`## ${randomText} `);
+			await app.workbench.notebooks.stopEditingCell();
+			await app.workbench.notebooks.assertMarkdownText('h2', randomText);
 		});
 	});
 
 	test.describe('R Notebooks', () => {
 		test.beforeEach(async function ({ app, r }) {
-			await app.workbench.positronLayouts.enterLayout('notebook');
-			await app.workbench.positronNotebooks.createNewNotebook();
-			await app.workbench.positronNotebooks.selectInterpreter('R Environments', process.env.POSITRON_R_VER_SEL!);
+			await app.workbench.layouts.enterLayout('notebook');
+			await app.workbench.notebooks.createNewNotebook();
+			await app.workbench.notebooks.selectInterpreter('R Environments', process.env.POSITRON_R_VER_SEL!);
 		});
 
 		test.afterEach(async function ({ app }) {
-			await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
+			await app.workbench.notebooks.closeNotebookWithoutSaving();
 		});
 
 		test('R - Basic notebook creation and execution (code) [C628629]', async function ({ app }) {
-			await app.workbench.positronNotebooks.addCodeToFirstCell('eval(parse(text="8**2"))');
-			await app.workbench.positronNotebooks.executeCodeInCell();
-			await app.workbench.positronNotebooks.assertCellOutput('[1] 64');
+			await app.workbench.notebooks.addCodeToFirstCell('eval(parse(text="8**2"))');
+			await app.workbench.notebooks.executeCodeInCell();
+			await app.workbench.notebooks.assertCellOutput('[1] 64');
 		});
 
 		test('R - Basic notebook creation and execution (markdown) [C628630]', async function ({ app }) {
 			const randomText = Math.random().toString(36).substring(7);
 
-			await app.workbench.positronNotebooks.insertNotebookCell('markdown');
-			await app.workbench.positronNotebooks.waitForTypeInEditor(`## ${randomText} `);
-			await app.workbench.positronNotebooks.stopEditingCell();
-			await app.workbench.positronNotebooks.assertMarkdownText('h2', randomText);
+			await app.workbench.notebooks.insertNotebookCell('markdown');
+			await app.workbench.notebooks.waitForTypeInEditor(`## ${randomText} `);
+			await app.workbench.notebooks.stopEditingCell();
+			await app.workbench.notebooks.assertMarkdownText('h2', randomText);
 		});
 	});
 });

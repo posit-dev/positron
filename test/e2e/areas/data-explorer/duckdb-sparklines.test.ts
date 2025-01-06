@@ -15,20 +15,20 @@ test.describe('Data Explorer - DuckDB Column Summary', {
 }, () => {
 	test('Verifies basic duckdb column summary functionality [C1053635]', async function ({ app }) {
 
-		await app.workbench.positronQuickaccess.openDataFile(join(app.workspacePathOrFolder, 'data-files', '100x100', '100x100.parquet'));
+		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'data-files', '100x100', '100x100.parquet'));
 
-		await app.workbench.positronLayouts.enterLayout('notebook');
+		await app.workbench.layouts.enterLayout('notebook');
 
 		await test.step('Verify some column missing percentages', async () => {
-			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
-			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('0%');
-			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(3)).toBe('0%');
-			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(4)).toBe('0%');
-			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(5)).toBe('0%');
+			expect(await app.workbench.dataExplorer.getColumnMissingPercent(1)).toBe('0%');
+			expect(await app.workbench.dataExplorer.getColumnMissingPercent(2)).toBe('0%');
+			expect(await app.workbench.dataExplorer.getColumnMissingPercent(3)).toBe('0%');
+			expect(await app.workbench.dataExplorer.getColumnMissingPercent(4)).toBe('0%');
+			expect(await app.workbench.dataExplorer.getColumnMissingPercent(5)).toBe('0%');
 		});
 
 		await test.step('Verify some column profile info', async () => {
-			const col1ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(1);
+			const col1ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(1);
 			expect(col1ProfileInfo.profileData).toStrictEqual({
 				'Missing': '0',
 				'Min': '0',
@@ -39,7 +39,7 @@ test.describe('Data Explorer - DuckDB Column Summary', {
 			});
 			expect(col1ProfileInfo.profileSparklineHeights).toStrictEqual(['50.0']);
 
-			const col2ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(2);
+			const col2ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(2);
 			expect(col2ProfileInfo.profileData).toStrictEqual({
 				'Missing': '0',
 				'Empty': '0',
@@ -65,7 +65,7 @@ test.describe('Data Explorer - DuckDB Column Summary', {
 				'50.0',
 			]);
 
-			const col3ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(3);
+			const col3ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(3);
 			expect(col3ProfileInfo.profileData).toStrictEqual({
 				'Missing': '0',
 				'True': '46',
@@ -73,7 +73,7 @@ test.describe('Data Explorer - DuckDB Column Summary', {
 			});
 			expect(col3ProfileInfo.profileSparklineHeights).toStrictEqual(['50.0', '42.6']);
 
-			const col4ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(4);
+			const col4ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(4);
 			expect(col4ProfileInfo.profileData).toStrictEqual({
 				'Missing': '0',
 				'Min': '-125',
@@ -90,7 +90,7 @@ test.describe('Data Explorer - DuckDB Column Summary', {
 				'0.0',
 			]);
 
-			const col5ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(5);
+			const col5ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(5);
 			expect(col5ProfileInfo.profileData).toStrictEqual({
 				'Missing': '0',
 				'Min': '-32403',
@@ -108,11 +108,11 @@ test.describe('Data Explorer - DuckDB Column Summary', {
 			]);
 		});
 
-		await app.workbench.positronLayouts.enterLayout('stacked');
+		await app.workbench.layouts.enterLayout('stacked');
 		await app.workbench.positronSideBar.closeSecondarySideBar();
 
-		await app.workbench.positronDataExplorer.closeDataExplorer();
-		await app.workbench.positronVariables.toggleVariablesView();
+		await app.workbench.dataExplorer.closeDataExplorer();
+		await app.workbench.variables.toggleVariablesView();
 
 	});
 });

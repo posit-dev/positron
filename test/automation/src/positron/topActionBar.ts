@@ -14,7 +14,7 @@ const POSITRON_TOP_ACTION_SAVE_ALL_BUTTON = 'div[id="workbench.parts.positron-to
 /*
  *  Reuseable Positron top action bar functionality for tests to leverage.
  */
-export class PositronTopActionBar {
+export class TopActionBar {
 	topActionBar: Locator;
 	saveButton: Locator;
 	saveAllButton: Locator;

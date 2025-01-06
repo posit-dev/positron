@@ -18,15 +18,15 @@ test.describe('Large Python Notebook', {
 
 	test('Python - Large notebook execution [C983592]', async function ({ app, python }) {
 		test.setTimeout(480_000); // huge timeout because this is a heavy test
-		const notebooks = app.workbench.positronNotebooks;
+		const notebooks = app.workbench.notebooks;
 
 
-		await app.workbench.positronQuickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
+		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
 		await notebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
 
 		await notebooks.runAllCells(120000);
 
-		await app.workbench.positronQuickaccess.runCommand('notebook.focusTop');
+		await app.workbench.quickaccess.runCommand('notebook.focusTop');
 		await app.code.driver.page.locator('span').filter({ hasText: 'import pandas as pd' }).locator('span').first().click();
 
 		const allFigures: any[] = [];
@@ -41,7 +41,7 @@ test.describe('Large Python Notebook', {
 				await app.code.driver.page.waitForTimeout(100);
 			}
 
-			const figureLocator = app.workbench.positronNotebooks.frameLocator.locator('.plot-container');
+			const figureLocator = app.workbench.notebooks.frameLocator.locator('.plot-container');
 			const figures = await figureLocator.all();
 
 			if (figures!.length > 0) {

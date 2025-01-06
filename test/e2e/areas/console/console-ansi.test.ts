@@ -12,7 +12,7 @@ test.use({
 
 test.describe('Console ANSI styling', { tag: [tags.CRITICAL, tags.CONSOLE, tags.WIN] }, () => {
 	test.beforeEach(async function ({ app }) {
-		await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
+		await app.workbench.layouts.enterLayout('fullSizedPanel');
 	});
 
 	test("R - Can produce clickable file links [C683069]", async function ({ app, r }) {
@@ -23,15 +23,15 @@ test.describe('Console ANSI styling', { tag: [tags.CRITICAL, tags.CONSOLE, tags.
 		const inputCode = `cli::cli_inform(r"[{.file ${filePath}}]")`;
 
 		await expect(async () => {
-			await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
-			await app.workbench.positronConsole.sendEnterKey();
+			await app.workbench.console.pasteCodeToConsole(inputCode);
+			await app.workbench.console.sendEnterKey();
 
 			// Locate the link and click on it
-			const link = app.workbench.positronConsole.getLastClickableLink();
+			const link = app.workbench.console.getLastClickableLink();
 			await expect(link).toContainText(fileName, { useInnerText: true });
 
 			await link.click();
-			await app.workbench.positronEditors.waitForActiveTab(fileName);
+			await app.workbench.editors.waitForActiveTab(fileName);
 		}).toPass({ timeout: 60000 });
 	});
 
@@ -39,17 +39,17 @@ test.describe('Console ANSI styling', { tag: [tags.CRITICAL, tags.CONSOLE, tags.
 		const inputCode = `cli::cli_inform("{.fun base::mean}")`;
 
 		await expect(async () => {
-			await app.workbench.positronConsole.pasteCodeToConsole(inputCode);
-			await app.workbench.positronConsole.sendEnterKey();
+			await app.workbench.console.pasteCodeToConsole(inputCode);
+			await app.workbench.console.sendEnterKey();
 
 			// Locate the link and click on it
-			const link = app.workbench.positronConsole.getLastClickableLink();
+			const link = app.workbench.console.getLastClickableLink();
 			await expect(link).toContainText('base::mean', { useInnerText: true });
 
 			await link.click();
 			await app.code.wait(200);
 
-			const helpFrame = await app.workbench.positronHelp.getHelpFrame(0);
+			const helpFrame = await app.workbench.help.getHelpFrame(0);
 			await expect(helpFrame.locator('body')).toContainText('Arithmetic Mean');
 		}).toPass({ timeout: 60000 });
 	});
@@ -59,7 +59,7 @@ test.describe('Console ANSI styling', { tag: [tags.CRITICAL, tags.CONSOLE, tags.
 		const rgb_color = "rgb(255, 51, 51)"; // same as above but in rgb
 
 		await expect(async () => {
-			await app.workbench.positronConsole.pasteCodeToConsole(
+			await app.workbench.console.pasteCodeToConsole(
 				`
 						cli::cli_div(theme = list(span.emph = list(color = "${color}")))
 						cli::cli_text("This is very {.emph important}")
@@ -68,9 +68,9 @@ test.describe('Console ANSI styling', { tag: [tags.CRITICAL, tags.CONSOLE, tags.
 			);
 		}).toPass();
 
-		await app.workbench.positronConsole.sendEnterKey();
+		await app.workbench.console.sendEnterKey();
 
-		const styled_locator = app.workbench.positronConsole.activeConsole.getByText("important").last();
+		const styled_locator = app.workbench.console.activeConsole.getByText("important").last();
 		await expect(styled_locator).toHaveCSS('font-style', 'italic');
 		await expect(styled_locator).toHaveCSS('color', rgb_color);
 	});

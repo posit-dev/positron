@@ -35,7 +35,7 @@ export class PositronUserSettingsFixtures {
 		}
 
 		// Set the user settings
-		await this.app.workbench.positronSettings.addUserSettings([
+		await this.app.workbench.settings.addUserSettings([
 			// Set editor.wordWrap to "on" to avoid issues with long settings.
 			// See test/automation/src/settings.ts for more explanation.
 			['editor.wordWrap', '"on"'],
@@ -43,7 +43,7 @@ export class PositronUserSettingsFixtures {
 		]);
 
 		// Close the settings editor
-		await this.app.workbench.positronQuickaccess.runCommand('workbench.action.closeActiveEditor');
+		await this.app.workbench.quickaccess.runCommand('workbench.action.closeActiveEditor');
 
 		// Restart the application if requested, to apply the settings
 		if (restartApp) {
@@ -56,7 +56,7 @@ export class PositronUserSettingsFixtures {
 	 */
 	async unsetUserSettings(restartApp = false) {
 		// Clear all user settings
-		await this.app.workbench.positronSettings.clearUserSettings();
+		await this.app.workbench.settings.clearUserSettings();
 
 		// Restart the application if requested, to apply the settings
 		if (restartApp) {

@@ -14,7 +14,7 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN] }, () => {
 	test.describe('Stacked Layout', () => {
 
 		test('Verify stacked layout puts stuff in appropriate places [C656294]', async function ({ app }) {
-			const layouts = app.workbench.positronLayouts;
+			const layouts = app.workbench.layouts;
 
 			await app.code.driver.setViewportSize({ width: 1400, height: 1000 });
 
@@ -60,7 +60,7 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN] }, () => {
 
 		test('Verify Side-by-side layout puts stuff in appropriate places [C656295]', async function ({ app }) {
 
-			const layouts = app.workbench.positronLayouts;
+			const layouts = app.workbench.layouts;
 
 			// Enter layout with help pane docked in session panel
 			await layouts.enterLayout('side_by_side');
@@ -102,7 +102,7 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN] }, () => {
 
 		test('Verify notebook layout puts stuff in appropriate places [C656296]', async function ({ app }) {
 
-			const layouts = app.workbench.positronLayouts;
+			const layouts = app.workbench.layouts;
 
 			// Enter layout with help pane docked in session panel
 			await layouts.enterLayout('notebook');

@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// eslint-disable-next-line local/code-import-patterns
 import { S3Client, GetObjectCommand, GetObjectCommandOutput } from '@aws-sdk/client-s3';
 import { createWriteStream } from 'fs';
 import { pipeline } from 'stream';

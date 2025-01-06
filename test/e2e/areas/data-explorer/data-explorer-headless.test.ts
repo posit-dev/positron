@@ -15,11 +15,11 @@ test.describe('Headless Data Explorer - Large Data Frame', {
 	tag: [tags.WEB, tags.DATA_EXPLORER, tags.DUCK_DB, tags.WIN]
 }, () => {
 	test.beforeEach(async function ({ app }) {
-		await app.workbench.positronLayouts.enterLayout('stacked');
+		await app.workbench.layouts.enterLayout('stacked');
 	});
 
 	test.afterEach(async function ({ app }) {
-		await app.workbench.positronDataExplorer.closeDataExplorer();
+		await app.workbench.dataExplorer.closeDataExplorer();
 	});
 
 	test('Verifies headless data explorer functionality with large parquet file [C938893]', async function ({ app, logger }) {
@@ -34,19 +34,19 @@ test.describe('Headless Data Explorer - Large Data Frame', {
 async function testBody(app: Application, logger: Logger, fileName: string) {
 	const LAST_CELL_CONTENTS = '2013-09-30 08:00:00';
 
-	await app.workbench.positronQuickaccess.openDataFile(join(app.workspacePathOrFolder, 'data-files', 'flights', fileName));
+	await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'data-files', 'flights', fileName));
 
 	logger.log('Opening data grid');
 	await expect(async () => {
 		expect(await app.code.driver.page.locator(`.label-name:has-text("Data: ${fileName}")`).innerText() === `Data: ${fileName}`);
 	}).toPass();
 
-	await app.workbench.positronSideBar.closeSecondarySideBar();
+	await app.workbench.sideBar.closeSecondarySideBar();
 
 	await expect(async () => {
 		// Validate full grid by checking bottom right corner data
-		await app.workbench.positronDataExplorer.clickLowerRightCorner();
-		const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+		await app.workbench.dataExplorer.clickLowerRightCorner();
+		const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
 		const lastRow = tableData.at(-1);
 		const lastHour = lastRow!['time_hour'];
 		expect(lastHour).toBe(LAST_CELL_CONTENTS);

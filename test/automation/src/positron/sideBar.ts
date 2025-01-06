@@ -11,7 +11,7 @@ const HIDE_SECONDARY_SIDE_BAR = '[aria-label="Hide Secondary Side Bar"]';
 /*
  *  Reuseable Positron sidebar functionality for tests to leverage.
  */
-export class PositronSideBar {
+export class SideBar {
 
 	constructor(private code: Code) { }
 

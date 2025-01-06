@@ -33,7 +33,7 @@ const positronLayoutPresets = {
  * Allows for things like getting various locators for parts of the IDE and entering different
  * layouts.
  */
-export class PositronLayouts {
+export class Layouts {
 
 	/**
 	 * Locator for the entire IDE. This is the "body" of the root page.
@@ -92,7 +92,7 @@ export class PositronLayouts {
 	 * @param layout Known layout to enter.
 	 */
 	async enterLayout(layout: keyof typeof positronLayoutPresets): Promise<void> {
-		await this.workbench.positronQuickaccess.runCommand(positronLayoutPresets[layout], { keepOpen: true });
+		await this.workbench.quickaccess.runCommand(positronLayoutPresets[layout], { keepOpen: true });
 	}
 
 	/**

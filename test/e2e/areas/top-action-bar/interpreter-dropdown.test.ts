@@ -3,11 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import {
-	PositronConsole,
-	PositronInterpreterDropdown,
-} from '../../../automation';
 
+import { InterpreterDropdown, Console } from '../../../automation';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({
@@ -15,12 +12,12 @@ test.use({
 });
 
 test.describe.skip('Interpreter Dropdown in Top Action Bar', { tag: [tags.WEB, tags.TOP_ACTION_BAR] }, () => {
-	let interpreterDropdown: PositronInterpreterDropdown;
-	let positronConsole: PositronConsole;
+	let interpreterDropdown: InterpreterDropdown;
+	let console: Console;
 
 	test.beforeAll(async function ({ app }) {
-		interpreterDropdown = app.workbench.positronInterpreterDropdown;
-		positronConsole = app.workbench.positronConsole;
+		interpreterDropdown = app.workbench.interpreterDropdown;
+		console = app.workbench.console;
 	});
 
 	test('Python interpreter starts and shows running [C707212]', async function ({ app }) {
@@ -34,12 +31,12 @@ test.describe.skip('Interpreter Dropdown in Top Action Bar', { tag: [tags.WEB, t
 		).toPass({ timeout: 30_000 });
 
 		// Install ipykernel if prompted
-		if (await app.workbench.positronPopups.popupCurrentlyOpen()) {
-			await app.workbench.positronPopups.installIPyKernel();
+		if (await app.workbench.popups.popupCurrentlyOpen()) {
+			await app.workbench.popups.installIPyKernel();
 		}
 
 		// Wait for the console to be ready
-		await positronConsole.waitForReady('>>>', 10_000);
+		await console.waitForReady('>>>', 10_000);
 
 		// The interpreter selected in the dropdown matches the desired interpreter
 		const interpreterInfo =
@@ -69,11 +66,11 @@ test.describe.skip('Interpreter Dropdown in Top Action Bar', { tag: [tags.WEB, t
 		await interpreterDropdown.closeInterpreterDropdown();
 
 		// The console should indicate that the interpreter is restarting
-		await positronConsole.waitForConsoleContents('preparing for restart');
-		await positronConsole.waitForConsoleContents('restarted');
+		await console.waitForConsoleContents('preparing for restart');
+		await console.waitForConsoleContents('restarted');
 
 		// Wait for the console to be ready
-		await positronConsole.waitForReady('>>>', 10_000);
+		await console.waitForReady('>>>', 10_000);
 
 		// The interpreter dropdown should show the expected running indicators
 		await expect(async () => {
@@ -98,7 +95,7 @@ test.describe.skip('Interpreter Dropdown in Top Action Bar', { tag: [tags.WEB, t
 		await interpreterDropdown.closeInterpreterDropdown();
 
 		// Wait for the console to be ready
-		await positronConsole.waitForReady('>', 10_000);
+		await console.waitForReady('>', 10_000);
 
 		// The interpreter selected in the dropdown matches the desired interpreter
 		const interpreterInfo =
@@ -133,7 +130,7 @@ test.describe.skip('Interpreter Dropdown in Top Action Bar', { tag: [tags.WEB, t
 		await interpreterDropdown.closeInterpreterDropdown();
 
 		// The console should indicate that the interpreter is shutting down
-		await positronConsole.waitForInterpreterShutdown();
+		await console.waitForInterpreterShutdown();
 
 		// The interpreter dropdown should no longer show the running indicators
 		expect(

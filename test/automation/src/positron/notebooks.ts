@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Code } from '../code';
-import { PositronQuickInput } from './positronQuickInput';
-import { PositronQuickAccess } from './positronQuickaccess';
+import { QuickInput } from './quickInput';
+import { QuickAccess } from './quickaccess';
 import { basename } from 'path';
 import { expect } from '@playwright/test';
 
@@ -28,13 +28,13 @@ const ACTIVE_ROW_SELECTOR = `.notebook-editor .monaco-list-row.focused`;
 /*
  *  Reuseable Positron notebook functionality for tests to leverage.  Includes selecting the notebook's interpreter.
  */
-export class PositronNotebooks {
+export class Notebooks {
 	kernelLabel = this.code.driver.page.locator(KERNEL_LABEL);
 	frameLocator = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
 	notebookProgressBar = this.code.driver.page.locator('[id="workbench\\.parts\\.editor"]').getByRole('progressbar');
 
 
-	constructor(private code: Code, private quickinput: PositronQuickInput, private quickaccess: PositronQuickAccess) { }
+	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess) { }
 
 	async selectInterpreter(kernelGroup: string, desiredKernel: string) {
 		await expect(this.notebookProgressBar).not.toBeVisible({ timeout: 30000 });

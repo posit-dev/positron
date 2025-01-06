@@ -18,7 +18,7 @@ const HEADING_ROLE = 'heading';
 const BUTTON_ROLE = 'button';
 const LINK_ROLE = 'link';
 
-export class PositronWelcome {
+export class Welcome {
 
 	logo = this.code.driver.page.locator(LOGO);
 	title = this.code.driver.page.locator(TITLE);

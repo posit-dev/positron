@@ -12,13 +12,13 @@ test.use({
 
 test.describe('R Markdown', { tag: [tags.WEB, tags.R_MARKDOWN] }, () => {
 	test('Render R Markdown [C680618]', async function ({ app, r }) {
-		await app.workbench.positronQuickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'basic-rmd-file', 'basicRmd.rmd'));
+		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'basic-rmd-file', 'basicRmd.rmd'));
 
 		// Sometimes running render too quickly fails, saying pandoc is not installed.
 		// Using expect.toPass allows it to retry.
 		await expect(async () => {
-			await app.workbench.positronQuickaccess.runCommand('r.rmarkdownRender');
-			await app.workbench.positronTerminal.waitForTerminalText('Output created: basicRmd.html');
+			await app.workbench.quickaccess.runCommand('r.rmarkdownRender');
+			await app.workbench.terminal.waitForTerminalText('Output created: basicRmd.html');
 		}).toPass({ timeout: 80000 });
 
 		// Wrapped in expect.toPass to allow UI to update/render
@@ -36,7 +36,7 @@ test.describe('R Markdown', { tag: [tags.WEB, tags.R_MARKDOWN] }, () => {
 
 		// inner most frame has no useful identifying features
 		// not factoring this locator because its not part of positron
-		const gettingStarted = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe').locator('h2[data-anchor-id="getting-started"]');
+		const gettingStarted = app.workbench.viewer.getViewerFrame().frameLocator('iframe').locator('h2[data-anchor-id="getting-started"]');
 
 		await expect(gettingStarted).toBeVisible({ timeout: 60000 });
 		await expect(gettingStarted).toHaveText('Getting started');
