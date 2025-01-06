@@ -37,7 +37,7 @@ export class UserSettingsFixtures {
 		// Set the user settings
 		await this.app.workbench.settings.addUserSettings([
 			// Set editor.wordWrap to "on" to avoid issues with long settings.
-			// See test/automation/src/settings.ts for more explanation.
+			// See test/e2e/pages/settings.ts for more explanation.
 			['editor.wordWrap', '"on"'],
 			...settings
 		]);

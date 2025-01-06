@@ -45,9 +45,7 @@ jobs:
       - name: Compile tests
         run: |
           npm install
-          npm --prefix test/automation install
           npm --prefix test/e2e install
-          npm --prefix test/automation run compile
           npm --prefix test/e2e run compile
 
       - name: Get & install latest release
