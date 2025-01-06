@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -722,7 +722,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		if (!storedSessions) {
 			this._logService.debug(`[Runtime startup] No sessions to resume found in ephemeral storage.`);
-			return;
+		}
+
+		// Next, check for any sessions persisted in the workspace storage.
+		const sessions = this._storageService.get(PERSISTENT_WORKSPACE_SESSIONS_PREFIX,
+			StorageScope.WORKSPACE);
+		if (sessions) {
+			try {
+				const stored = JSON.parse(sessions) as Array<SerializedSessionMetadata>;
+				storedSessions.push(...stored);
+			} catch (err) {
+				this._logService.error(`Error parsing persisted workspace sessions: ${err} (sessions: '${sessions}')`);
+			}
 		}
 
 		try {
@@ -754,6 +765,38 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private async restoreWorkspaceSessions(sessions: SerializedSessionMetadata[]) {
 		this._startupPhase.set(RuntimeStartupPhase.Reconnecting, undefined);
+
+		// Before reconnecting, validate any sessions that need it.
+		const validSessions = await Promise.all(sessions.map(async session => {
+			if (session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Machine) {
+				// If the session is persistent on the machine, we need to
+				// check to see if it is still valid (i.e. still running)
+				// before reconnecting.
+				this._logService.debug(`[Runtime startup] Checking to see if persisted session ${session.metadata.sessionName} (${session.metadata.sessionId}) is still valid.`);
+				try {
+					// Ask the runtime session service to validate the session.
+					// This call will eventually be proxied through to the
+					// extension that provides the runtime.
+					const valid = await this._runtimeSessionService.validateRuntimeSession(session.runtimeMetadata, session.metadata.sessionId);
+
+					this._logService.debug(`[Runtime startup] Session ${session.metadata.sessionName} (${session.metadata.sessionId}) valid = ${valid}`);
+					return valid;
+				} catch (err) {
+					// This is a non-fatal error since we can just avoid reconnecting
+					// to the session.
+					this._logService.error(`Error validating persisted session ${session.metadata.sessionName} (${session.metadata.sessionId}): ${err}`);
+					return false;
+				}
+			}
+
+			// Sessions stored in other locations are always valid.
+			return true;
+		}));
+
+		// Remove all the sessions that are no longer valid.
+		sessions = sessions.filter((_, i) => validSessions[i]);
+
+		// Reconnect to the remaining sessions.
 		this._logService.debug(`Reconnecting to sessions: ` +
 			sessions.map(session => session.metadata.sessionName).join(', '));
 
