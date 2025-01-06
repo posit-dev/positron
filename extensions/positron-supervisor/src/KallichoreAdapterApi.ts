@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -80,6 +80,12 @@ export class KCApi implements KallichoreAdapterApi {
 	 * existing server doesn't give us the terminal.
 	 */
 	private _terminal: vscode.Terminal | undefined;
+
+	/**
+	 * Whether the server is a new server that was just started in this
+	 * Positron session.
+	 */
+	private _newSupervisor = true;
 
 	/**
 	 * Create a new Kallichore API object.
@@ -504,6 +510,10 @@ export class KCApi implements KallichoreAdapterApi {
 		const status = await this._api.serverStatus();
 		this._started.open();
 		this._log.appendLine(`Kallichore ${status.body.version} server reconnected with ${status.body.sessions} sessions`);
+
+		// Mark this a restored server
+		this._newSupervisor = false;
+
 		return true;
 	}
 
@@ -674,6 +684,29 @@ export class KCApi implements KallichoreAdapterApi {
 
 		// The server did exit.
 		return true;
+	}
+
+	/**
+	 * Validate an existing session for a Jupyter-compatible kernel.
+	 */
+	async validateSession(sessionId: string): Promise<boolean> {
+		// Wait for the server to start if it's not already running
+		await this.ensureStarted();
+
+		// If we started a new server instance, no sessions will be running, so
+		// save the round trip and just return false.
+		if (this._newSupervisor) {
+			return false;
+		}
+		try {
+			await this._api.getSession(sessionId);
+			// If we got here, the session exists
+			return true;
+		} catch (e) {
+			// Swallow errors; we're just checking to see if the session exists
+		}
+
+		return false;
 	}
 
 	/**
