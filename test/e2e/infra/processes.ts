@@ -5,7 +5,7 @@
 
 import { ChildProcess } from 'child_process';
 import { promisify } from 'util';
-import * as treekill from 'tree-kill';
+import treeKill from 'tree-kill';
 import { Logger } from './logger';
 
 export async function teardown(p: ChildProcess, logger: Logger, retryCount = 3): Promise<void> {
@@ -19,7 +19,7 @@ export async function teardown(p: ChildProcess, logger: Logger, retryCount = 3):
 		retries++;
 
 		try {
-			return await promisify(treekill)(pid);
+			return await promisify(treeKill)(pid);
 		} catch (error) {
 			try {
 				process.kill(pid, 0); // throws an exception if the process doesn't exist anymore
