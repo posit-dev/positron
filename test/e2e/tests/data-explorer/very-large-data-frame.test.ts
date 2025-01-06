@@ -6,7 +6,7 @@
 import { fail } from 'assert';
 import { join } from 'path';
 import { test, expect, tags } from '../_test.setup';
-import { downloadFileFromS3, S3FileDownloadOptions } from '../../automation';
+import { downloadFileFromS3, S3FileDownloadOptions } from '../../infra';
 
 test.use({
 	suiteId: __filename

@@ -22,7 +22,7 @@ import archiver from 'archiver';
 
 // Local imports
 import { createLogger, createApp, TestTags } from '../helpers';
-import { Application, Logger, PythonFixtures, RFixtures, UserSetting, UserSettingsFixtures } from '../automation';
+import { Application, Logger, PythonFixtures, RFixtures, UserSetting, UserSettingsFixtures } from '../infra';
 
 // Constants
 const TEMP_DIR = `temp-${randomUUID()}`;

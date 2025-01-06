@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Locator } from '@playwright/test';
-import { Code } from '../automation/code';
-import { Workbench } from '../automation/workbench';
+import { Code } from '../infra/code';
+import { Workbench } from '../infra/workbench';
 
 const FULL_APP = 'body';
 const AUX_BAR = '.part.auxiliarybar';

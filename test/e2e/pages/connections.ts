@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect, Locator } from '@playwright/test';
-import { Code } from '../automation/code';
+import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 
 const CONNECTIONS_CONTAINER = '.connections-items-container';

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, expect, tags } from '../_test.setup';
-import { Application } from '../../automation';
+import { Application } from '../../infra';
 import { Page } from '@playwright/test';
 import path = require('path');
 

@@ -5,7 +5,7 @@
 
 
 import { expect, Locator } from '@playwright/test';
-import { Code } from '../automation/code';
+import { Code } from '../infra/code';
 
 const POSITRON_EXPLORER_PROJECT_TITLE = 'div[id="workbench.view.explorer"] h3.title';
 const POSITRON_EXPLORER_PROJECT_FILES = 'div[id="workbench.view.explorer"] span[class="monaco-highlighted-label"]';

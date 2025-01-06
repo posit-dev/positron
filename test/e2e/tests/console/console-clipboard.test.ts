@@ -5,7 +5,7 @@
 
 import * as os from 'os';
 import { test, tags } from '../_test.setup';
-import { Application, Console } from '../../automation';
+import { Application, Console } from '../../infra';
 
 test.use({
 	suiteId: __filename

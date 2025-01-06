@@ -5,7 +5,7 @@
 
 
 import { expect } from '@playwright/test';
-import { Code } from '../automation/code';
+import { Code } from '../infra/code';
 
 const POSITRON_MODAL_DIALOG_BOX = '.positron-modal-dialog-box';
 const POSITRON_MODAL_DIALOG_BOX_OK = '.positron-modal-dialog-box .ok-cancel-action-bar .positron-button.action-bar-button.default';

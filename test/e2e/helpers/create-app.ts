@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Application, ApplicationOptions } from '../automation';
+import { Application, ApplicationOptions } from '../infra';
 
 export function createApp(options: ApplicationOptions, optionsTransform?: (opts: ApplicationOptions) => ApplicationOptions): Application {
 	if (optionsTransform) {

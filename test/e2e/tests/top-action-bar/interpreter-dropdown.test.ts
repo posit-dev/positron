@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { InterpreterDropdown, Console } from '../../automation';
+import { InterpreterDropdown, Console } from '../../infra';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({

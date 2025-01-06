@@ -5,8 +5,8 @@
 
 
 import { expect, Locator } from '@playwright/test';
-import { Code } from '../automation/code';
-import { Workbench } from '../automation/workbench';
+import { Code } from '../infra/code';
+import { Workbench } from '../infra/workbench';
 
 const COLUMN_HEADERS = '.data-explorer-panel .right-column .data-grid-column-headers';
 const HEADER_TITLES = '.data-grid-column-header .title-description .title';

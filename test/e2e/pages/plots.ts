@@ -5,7 +5,7 @@
 
 
 import { expect, Locator } from '@playwright/test';
-import { Code } from '../automation/code';
+import { Code } from '../infra/code';
 
 const CURRENT_PLOT = '.plot-instance img';
 const CURRENT_STATIC_PLOT = '.plot-instance.static-plot-instance img';

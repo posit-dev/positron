@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { Code } from '../automation/code';
+import { Code } from '../infra/code';
 
 
 export class Editors {

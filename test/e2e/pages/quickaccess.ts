@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Code } from '../automation/code';
+import { Code } from '../infra/code';
 import { basename, isAbsolute } from 'path';
 import { QuickInput } from './quickInput';
 import { expect } from '@playwright/test';

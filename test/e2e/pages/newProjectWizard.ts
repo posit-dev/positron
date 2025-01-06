@@ -5,7 +5,7 @@
 
 import { fail } from 'assert';
 import { expect } from '@playwright/test';
-import { Code } from '../automation/code';
+import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 
 // Selector for the pre-selected dropdown item in the project wizard

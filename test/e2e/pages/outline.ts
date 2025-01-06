@@ -5,7 +5,7 @@
 
 
 import { fail } from 'assert';
-import { Code } from '../automation/code';
+import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 
 const HORIZONTAL_SASH = '.explorer-viewlet .monaco-sash.horizontal';

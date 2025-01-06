@@ -5,7 +5,7 @@
 
 
 import { expect, Locator } from '@playwright/test';
-import { Code } from '../automation/code';
+import { Code } from '../infra/code';
 import { getInterpreterType, InterpreterInfo, InterpreterType } from './utils/interpreterInfo';
 
 const INTERPRETER_INFO_LINE = '.info .container .line';

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Code } from '../automation/code';
+import { Code } from '../infra/code';
 
 const LOGO = '.product-logo';
 const TITLE = '.gettingStartedCategoriesContainer div.header div .positron';

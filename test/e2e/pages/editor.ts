@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect, FrameLocator, Locator } from '@playwright/test';
-import { Code } from '../automation/code';
+import { Code } from '../infra/code';
 
 // currently a dupe of declaration in ../editor.ts but trying not to modifiy that file
 const EDITOR = (filename: string) => `.monaco-editor[data-uri$="${filename}"]`;

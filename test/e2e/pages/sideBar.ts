@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Code } from '../automation/code';
+import { Code } from '../infra/code';
 
 const HIDE_SECONDARY_SIDE_BAR = '[aria-label="Hide Secondary Side Bar"]';
 

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Code } from '../automation/code';
+import { Code } from '../infra/code';
 import * as os from 'os';
 import { expect, Locator } from '@playwright/test';
 

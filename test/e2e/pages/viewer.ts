@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { FrameLocator, Locator } from '@playwright/test';
-import { Code } from '../automation/code';
+import { Code } from '../infra/code';
 
 const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';

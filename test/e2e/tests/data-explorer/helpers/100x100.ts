@@ -6,7 +6,7 @@
 import { join } from 'path';
 import * as fs from 'fs';
 import { expect } from '@playwright/test';
-import { Application } from '../../../automation';
+import { Application } from '../../../infra';
 
 export const testDataExplorer = async (
 	app: Application,

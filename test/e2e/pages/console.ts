@@ -5,7 +5,7 @@
 
 
 import { expect, Locator } from '@playwright/test';
-import { Code } from '../automation/code';
+import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
 import { InterpreterType } from './utils/interpreterInfo';

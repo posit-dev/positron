@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Code } from '../automation/code';
+import { Code } from '../infra/code';
 import { Editor } from './editor';
 import { Editors } from './editors';
 import { QuickAccess } from './quickaccess';

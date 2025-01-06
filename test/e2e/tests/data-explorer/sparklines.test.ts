@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Application } from '../../automation';
+import { Application } from '../../infra';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({
