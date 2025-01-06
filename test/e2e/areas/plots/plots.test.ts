@@ -26,7 +26,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		test.beforeEach(async function ({ app, interpreter }) {
 			// Set the viewport to a size that ensures all the plots view actions are visible
 			if (process.platform === 'linux') {
-				await app.code.driver.setViewportSize({ width: 1280, height: 800 });
+				await app.code.driver.page.setViewportSize({ width: 1280, height: 800 });
 			}
 
 			await interpreter.set('Python');

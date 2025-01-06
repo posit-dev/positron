@@ -16,7 +16,7 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN] }, () => {
 		test('Verify stacked layout puts stuff in appropriate places [C656294]', async function ({ app }) {
 			const layouts = app.workbench.positronLayouts;
 
-			await app.code.driver.setViewportSize({ width: 1400, height: 1000 });
+			await app.code.driver.page.setViewportSize({ width: 1400, height: 1000 });
 
 			// Enter layout with help pane docked in session panel
 			await layouts.enterLayout('stacked');

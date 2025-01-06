@@ -29,7 +29,7 @@ export class PositronEditor {
 	constructor(private code: Code) { }
 
 	async pressPlay(): Promise<void> {
-		await this.code.driver.getLocator(PLAY_BUTTON).click();
+		await this.code.driver.page.locator(PLAY_BUTTON).click();
 
 		// await appearance and disappearance of the toast
 		await expect(this.code.driver.page.locator('.notifications-toasts')).toBeVisible({ timeout: 30000 });
@@ -40,7 +40,7 @@ export class PositronEditor {
 		const editor = EDITOR(filename);
 		const line = `${editor} .view-lines > .view-line:nth-child(${lineNumber})`;
 
-		const lineLocator = this.code.driver.getLocator(line);
+		const lineLocator = this.code.driver.page.locator(line);
 
 		await lineLocator.press(press);
 	}
@@ -57,7 +57,7 @@ export class PositronEditor {
 		let retries = 20;
 		let topValue: number = NaN;
 
-		const currentLine = this.code.driver.getLocator(CURRENT_LINE);
+		const currentLine = this.code.driver.page.locator(CURRENT_LINE);
 		// Note that '..' is used to get the parent of the current-line div
 		const currentLineParent = currentLine.locator('..');
 
