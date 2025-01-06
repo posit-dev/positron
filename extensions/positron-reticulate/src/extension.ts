@@ -693,6 +693,14 @@ class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 				path.join(CONTEXT.extensionPath, 'resources', 'branding', 'reticulate.svg'),
 				{ encoding: 'base64' }
 			);
+		// Check the kernel supervisor's configuration; if it's enabled and
+		// configured to persist sessions, mark the session location as 'machine'
+		// so that Positron will reattach after close.
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
+		this.sessionLocation = config.get<boolean>('enable', true) &&
+			config.get<string>('persistSessions', 'none') !== 'none' ?
+			positron.LanguageRuntimeSessionLocation.Machine : positron.LanguageRuntimeSessionLocation.Workspace;
+
 	}
 	runtimePath: string = 'Managed by the reticulate package';
 	runtimeName: string = 'Python (reticulate)';
