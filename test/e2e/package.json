@@ -4,11 +4,11 @@
   "license": "MIT",
   "scripts": {
     "compile": "npm run --prefix ../automation compile && node ../../node_modules/typescript/bin/tsc",
-    "watch-automation": "npm run --prefix ../automation watch",
     "watch-e2e": "node ../../node_modules/typescript/bin/tsc --watch --preserveWatchOutput",
-    "watch": "npm-run-all -lp watch-automation watch-e2e"
+    "watch": "npm-run-all -lp watch-e2e"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.722.0",
     "canvas": "^2.11.2",
     "mkdirp": "^1.0.4",
     "ncp": "^2.0.0",
