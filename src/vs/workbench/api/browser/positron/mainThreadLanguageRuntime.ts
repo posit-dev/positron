@@ -1344,6 +1344,15 @@ export class MainThreadLanguageRuntime
 	}
 
 	/**
+	 * Validates a language runtime sesssion.
+	 *
+	 * @param sessionId The session ID to validate
+	 */
+	async validateSession(sessionId: string): Promise<boolean> {
+		return this._proxy.$validateLangaugeRuntimeSession(sessionId);
+	}
+
+	/**
 	 * Creates a new language runtime session adapter, to wrap a new or existing
 	 * runtime session.
 	 *

@@ -88,6 +88,30 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		return Promise.resolve(makeMetadata(inst, positron.LanguageRuntimeStartupBehavior.Immediate));
 	}
 
+	/**
+	 * Validate an existing session for a Jupyter-compatible kernel.
+	 *
+	 * @param sessionId The session ID to validate
+	 * @returns True if the session is valid, false otherwise
+	 */
+	async validateSession(sessionId: string): Promise<boolean> {
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
+		if (config.get<boolean>('enable', true)) {
+			const ext = vscode.extensions.getExtension('positron.positron-supervisor');
+			if (!ext) {
+				throw new Error('Positron Supervisor extension not found');
+			}
+			if (!ext.isActive) {
+				await ext.activate();
+			}
+			return ext.exports.validateSession(sessionId);
+		}
+
+		// When not using the kernel supervisor, sessions are not
+		// persisted.
+		return Promise.resolve(false);
+	}
+
 	restoreSession(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
 		sessionMetadata: positron.RuntimeSessionMetadata): Thenable<positron.LanguageRuntimeSession> {

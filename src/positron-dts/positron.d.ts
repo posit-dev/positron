@@ -683,6 +683,17 @@ declare module 'positron' {
 			Thenable<LanguageRuntimeMetadata>;
 
 		/**
+		 * An optional session validation function. If provided, Positron will
+		 * validate any stored session metadata before reconnecting to the
+		 * session.
+		 *
+		 * @param metadata The metadata to validate
+		 * @returns A Thenable that resolves with true (the session is valid) or
+		 *  false (the session is invalid).
+		 */
+		validateSession?(sessionId: string): Thenable<boolean>;
+
+		/**
 		 * Creates a new runtime session.
 		 *
 		 * @param runtimeMetadata One of the runtime metadata items returned by
