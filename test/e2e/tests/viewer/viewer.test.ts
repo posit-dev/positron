@@ -17,9 +17,9 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 
 	test('Python - Verify Viewer functionality with webbrowser [C784887]', async function ({ app, page, logger, python }) {
 		logger.log('Sending code to console');
-		await app.workbench.positronConsole.pasteCodeToConsole(pythonScript);
-		await app.workbench.positronConsole.sendEnterKey();
-		const theDoc = app.workbench.positronViewer.getViewerLocator('head');
+		await app.workbench.console.pasteCodeToConsole(pythonScript);
+		await app.workbench.console.sendEnterKey();
+		const theDoc = app.workbench.viewer.getViewerLocator('head');
 		await theDoc.waitFor({ state: 'attached' });
 	});
 

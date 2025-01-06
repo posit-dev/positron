@@ -27,10 +27,15 @@ ${contents}
 `;
 
 const srcPath = path.join(path.dirname(__dirname));
-const outPath = path.join(path.dirname(__dirname), 'out');
+const outPath = path.join(__dirname, '..', '..', 'out');
+const infraPath = path.join(outPath, 'infra');
 
 if (!fs.existsSync(outPath)) {
 	fs.mkdirSync(outPath);
 }
+
+if (!fs.existsSync(infraPath)) {
+	fs.mkdirSync(infraPath);
+}
 fs.writeFileSync(path.join(srcPath, 'driver.d.ts'), contents);
-fs.writeFileSync(path.join(outPath, 'driver.d.ts'), contents);
+fs.writeFileSync(path.join(infraPath, 'driver.d.ts'), contents);
