@@ -283,7 +283,7 @@ class ProjectWizardPythonConfigurationStep {
 		// There should be one dropdown item with the interpreterPath.
 		if ((await dropdownItem.count()) !== 1) {
 			// Close the interpreter dropdown.
-			await this.code.driver.getKeyboard().press('Escape');
+			await this.code.driver.page.keyboard.press('Escape');
 
 			// Fail the test.
 			fail(`Could not find interpreter path ("${interpreterPath}") in ("${subtitles}") project wizard dropdown`);

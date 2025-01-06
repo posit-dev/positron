@@ -59,11 +59,18 @@ export class Plots {
 	}
 
 	getWebviewPlotLocator(selector: string): Locator {
-		return this.code.driver.getFrame(OUTER_WEBVIEW_FRAME).last().frameLocator(INNER_WEBVIEW_FRAME).last().locator(selector);
+		return this.code.driver.page
+			.locator(OUTER_WEBVIEW_FRAME).last().contentFrame()
+			.locator(INNER_WEBVIEW_FRAME).last().contentFrame()
+			.locator(selector);
 	}
 
 	getRWebWebviewPlotLocator(selector: string): Locator {
-		return this.code.driver.getFrame(OUTER_WEBVIEW_FRAME).last().frameLocator(INNER_WEBVIEW_FRAME).last().frameLocator('//iframe').last().locator(selector);
+		return this.code.driver.page
+			.locator(OUTER_WEBVIEW_FRAME).last().contentFrame()
+			.locator(INNER_WEBVIEW_FRAME).last().contentFrame()
+			.locator('//iframe').last().contentFrame()
+			.locator(selector);
 	}
 
 	async waitForWebviewPlot(selector: string, state: 'attached' | 'visible' = 'visible', RWeb = false) {

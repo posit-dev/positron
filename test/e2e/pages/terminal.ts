@@ -17,7 +17,7 @@ export class Terminal {
 	}
 
 	async sendKeysToTerminal(key: string) {
-		await this.code.driver.getKeyboard().press(key);
+		await this.code.driver.page.keyboard.press(key);
 	}
 
 	async clickTerminalTab() {

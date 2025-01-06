@@ -145,7 +145,7 @@ export class InterpreterDropdown {
 	 */
 	async closeInterpreterDropdown() {
 		if (await this.interpreterGroups.isVisible()) {
-			await this.code.driver.getKeyboard().press('Escape');
+			await this.code.driver.page.keyboard.press('Escape');
 			await this.interpreterGroups.waitFor({ state: 'detached', timeout: 10_000 });
 		}
 	}

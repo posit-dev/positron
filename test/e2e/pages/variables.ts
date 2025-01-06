@@ -72,7 +72,7 @@ export class Variables {
 		const isMac = os.platform() === 'darwin';
 		const modifier = isMac ? 'Meta' : 'Control';
 
-		await this.code.driver.getKeyboard().press(`${modifier}+Alt+B`);
+		await this.code.driver.page.keyboard.press(`${modifier}+Alt+B`);
 	}
 
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {

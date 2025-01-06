@@ -37,7 +37,7 @@ test.describe('R Fast Execution', { tag: [tags.WEB, tags.EDITOR, tags.WIN] }, ()
 
 			previousTop = currentTop;
 
-			await app.code.driver.getKeyboard().press('Control+Enter');
+			await app.code.driver.page.keyboard.press('Control+Enter');
 		}
 
 		await app.workbench.variables.waitForVariableRow('c');
