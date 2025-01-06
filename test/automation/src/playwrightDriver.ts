@@ -294,7 +294,6 @@ export class PlaywrightDriver {
 }
 
 // --- Start Positron ---
-// Stubbed interface for IWindowDriver
 export interface IWindowDriver {
 	setValue(selector: string, text: string): Promise<void>;
 	isActiveElement(selector: string): Promise<boolean>;
