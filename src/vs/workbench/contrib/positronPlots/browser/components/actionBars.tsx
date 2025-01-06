@@ -182,6 +182,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						{enableEditorPlot ?
 							<OpenInEditorMenuButton
 								tooltip={localize('positron-editor-plot-popout', "Open in editor tab")}
+								ariaLabel={localize('positron-editor-plot-popout', "Open in editor tab")}
 								defaultGroup={positronPlotsContext.positronPlotsService.getPreferredEditorGroup()}
 								commandService={positronPlotsContext.commandService}
 							/>

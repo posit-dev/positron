@@ -14,6 +14,7 @@ import { PlotsEditorAction } from '../positronPlotsActions.js';
 
 interface OpenInEditorMenuButtonProps {
 	tooltip: string;
+	ariaLabel: string;
 	defaultGroup: number;
 	commandService: ICommandService;
 }
@@ -35,7 +36,7 @@ const openInEditorCommands: Array<OpenInEditorCommand> = [
 	},
 	{
 		'editorTarget': SIDE_GROUP,
-		'label': localize('positron-editor-new-tab-right', 'Open in editor tab to the right')
+		'label': localize('positron-editor-new-tab-right', 'Open in editor tab to the Side')
 	},
 ];
 
@@ -78,7 +79,8 @@ export const OpenInEditorMenuButton = (props: OpenInEditorMenuButtonProps) => {
 	return (
 		<ActionBarMenuButton
 			iconId='go-to-file'
-			tooltip={localize('positron-editor-plot-popout', "Open in editor tab")}
+			tooltip={props.tooltip}
+			ariaLabel={props.ariaLabel}
 			actions={() => actions}
 			dropdownIndicator='enabled-split' />
 	);
