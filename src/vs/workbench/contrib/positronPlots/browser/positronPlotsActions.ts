@@ -47,7 +47,7 @@ abstract class AbstractPlotsAction extends Action2 {
 	 * @param notificationService the notification service
 	 */
 	abstract executeQuickPick(quickPick: IQuickPickItem, plotsService: IPositronPlotsService,
-		editorService: IEditorService, notificationService: INotificationService): Promise<void>;
+		editorService: IEditorService, notificationService: INotificationService): void;
 
 	/**
 	 * Executes the action on the target.
@@ -58,7 +58,7 @@ abstract class AbstractPlotsAction extends Action2 {
 	 * @param notificationService the notification service
 	 */
 	abstract executeTargetAction(target: PlotActionTarget, plotsService: IPositronPlotsService,
-		editorService: IEditorService, notificationService: INotificationService): Promise<void>;
+		editorService: IEditorService, notificationService: INotificationService): void;
 
 	async run(accessor: ServicesAccessor, target?: PlotActionTarget): Promise<void> {
 		const plotsService = accessor.get(IPositronPlotsService);
@@ -198,7 +198,7 @@ export class PlotsSaveAction extends AbstractPlotsAction {
 	}
 
 	override executeTargetAction(target: PlotActionTarget, plotsService: IPositronPlotsService,
-		editorService: IEditorService, notificationService: INotificationService): Promise<void> {
+		editorService: IEditorService, notificationService: INotificationService) {
 		if (target === PlotActionTarget.VIEW) {
 			plotsService.saveViewPlot();
 		} else if (target === PlotActionTarget.ACTIVE_EDITOR) {
@@ -207,7 +207,7 @@ export class PlotsSaveAction extends AbstractPlotsAction {
 				try {
 					if (!plotId) {
 						notificationService.error(localize('positronPlotsServicePlotNotFound', 'Plot {0} was not found', plotId));
-						return Promise.resolve();
+						return;
 					}
 					plotsService.saveEditorPlot(plotId);
 				} catch (error) {
@@ -217,23 +217,20 @@ export class PlotsSaveAction extends AbstractPlotsAction {
 		} else {
 			notificationService.info(localize('positronPlots.noPlotSelected', 'No plot selected.'));
 		}
-
-		return Promise.resolve();
 	}
 
 	override executeQuickPick(quickPick: IQuickPickItem, plotsService: IPositronPlotsService,
-		editorService: IEditorService, notificationService: INotificationService): Promise<void> {
+		editorService: IEditorService, notificationService: INotificationService) {
 		if (quickPick.id === PlotActionTarget.VIEW) {
 			plotsService.saveViewPlot();
 		} else {
 			const plotId = quickPick.id;
 			if (!plotId) {
 				notificationService.error(localize('positronPlotsServicePlotNotFound', 'Plot {0} was not found', plotId));
-				return Promise.resolve();
+				return;
 			}
 			plotsService.saveEditorPlot(plotId);
 		}
-		return Promise.resolve();
 	}
 }
 
@@ -263,7 +260,7 @@ export class PlotsCopyAction extends AbstractPlotsAction {
 		}
 	}
 
-	private copyEditorPlotToClipboard(plotsService: IPositronPlotsService, notificationService: INotificationService, editorService: IEditorService, plotId: string) {
+	private copyEditorPlotToClipboard(plotsService: IPositronPlotsService, notificationService: INotificationService, plotId: string) {
 		plotsService.copyEditorPlotToClipboard(plotId)
 			.then(() => {
 				notificationService.info(localize('positronPlots.plotCopied', 'Plot copied to clipboard.'));
@@ -274,32 +271,28 @@ export class PlotsCopyAction extends AbstractPlotsAction {
 	}
 
 	override executeQuickPick(selectedItem: IQuickPickItem, plotsService: IPositronPlotsService,
-		editorService: IEditorService, notificationService: INotificationService): Promise<void> {
+		editorService: IEditorService, notificationService: INotificationService) {
 		if (selectedItem?.id) {
 			if (selectedItem.id === PlotActionTarget.VIEW) {
 				this.copyViewPlotToClipboard(plotsService, notificationService);
 			} else {
-				this.copyEditorPlotToClipboard(plotsService, notificationService, editorService, selectedItem.id);
+				this.copyEditorPlotToClipboard(plotsService, notificationService, selectedItem.id);
 			}
 		}
-
-		return Promise.resolve();
 	}
 
 	override executeTargetAction(target: PlotActionTarget, plotsService: IPositronPlotsService,
-		editorService: IEditorService, notificationService: INotificationService): Promise<void> {
+		editorService: IEditorService, notificationService: INotificationService) {
 		if (target === PlotActionTarget.VIEW) {
 			this.copyViewPlotToClipboard(plotsService, notificationService);
 		} else if (target === PlotActionTarget.ACTIVE_EDITOR) {
 			const plotId = this.getActiveEditorPlotId(editorService);
 			if (plotId) {
-				this.copyEditorPlotToClipboard(plotsService, notificationService, editorService, plotId);
+				this.copyEditorPlotToClipboard(plotsService, notificationService, plotId);
 			} else {
 				notificationService.info(localize('positronPlots.noPlotSelected', 'No plot selected.'));
 			}
 		}
-
-		return Promise.resolve();
 	}
 }
 
