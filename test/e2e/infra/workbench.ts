@@ -1,11 +1,7 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-
-// --- Start Positron ---
-// This entire file has been updated to remove existing vscode imports, properties, POMs, etc
-// Everything has been replaced with Positron code: .positron/<area>
 
 import { Code } from './code';
 import { InterpreterDropdown } from '../pages/interpreterDropdown';
@@ -101,4 +97,4 @@ export class Workbench {
 		this.settings = new Settings(code, this.editors, this.editor, this.quickaccess);
 	}
 }
-// --- End Positron ---
+

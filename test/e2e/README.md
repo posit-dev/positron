@@ -1,6 +1,3 @@
-<!-- Start Positron -->
-<!-- If you are seeking the original Vscode README go here: https://github.com/microsoft/vscode/tree/main/test/smoke -->
-
 # Positron E2E Test Guide
 
 This document provides guidelines and setup instructions for effectively running and managing end-to-end tests in the Positron project.
@@ -226,5 +223,3 @@ In order to get the "golden screenshots" used for plot comparison is CI, you wil
 ## Tests run on PRs
 
 If you think your test should be run when PRs are created, [tag the test with @critical](https://playwright.dev/docs/test-annotations#tag-tests). The existing @critical cases were selected to give good overall coverage while keeping the overall execution time down to ten minutes or less. If your new test functionality covers a part of the application that no other tests cover, it is probably a good idea to include it in the @critical set.
-
-<!-- End Positron -->

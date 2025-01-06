@@ -1,15 +1,13 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { Workbench } from './workbench';
 import { Code, launch, LaunchOptions } from './code';
 import { Logger, measureAndLog } from './logger';
 import { Profiler } from './profiler';
-// --- Start Positron ---
 import { expect } from '@playwright/test';
-// --- End Positron ---
 
 export const enum Quality {
 	Dev,
@@ -73,9 +71,7 @@ export class Application {
 
 	async start(): Promise<void> {
 		await this._start();
-		// --- Start Positron ---
 		await expect(this.code.driver.page.locator('.explorer-folders-view')).toBeVisible();
-		// --- End Positron ---
 	}
 
 	async restart(options?: { workspaceOrFolder?: string; extraArgs?: string[] }): Promise<void> {
@@ -109,11 +105,9 @@ export class Application {
 		await this._code?.startTracing(name);
 	}
 
-	// --- Start Positron ---
 	async stopTracing(name: string, persist: boolean, customPath?: string): Promise<void> {
 		await this._code?.stopTracing(name, persist, customPath);
 	}
-	// --- End Positron ---
 
 	private async startApplication(extraArgs: string[] = []): Promise<Code> {
 		const code = this._code = await launch({
@@ -131,16 +125,12 @@ export class Application {
 
 		// We need a rendered workbench
 		await measureAndLog(() => code.didFinishLoad(), 'Application#checkWindowReady: wait for navigation to be committed', this.logger);
-		// --- Start Positron ---
 		await measureAndLog(() => expect(code.driver.page.locator('.monaco-workbench')).toBeVisible(), 'Application#checkWindowReady: wait for .monaco-workbench element', this.logger);
-		// --- Start Positron ---
 		await measureAndLog(() => code.whenWorkbenchRestored(), 'Application#checkWorkbenchRestored', this.logger);
 
 		// Remote but not web: wait for a remote connection state change
 		if (this.remote) {
-			// --- Start Positron ---
 			await measureAndLog(() => expect(code.driver.page.locator('.monaco-workbench .statusbar-item[id="status.host"]')).not.toContainText('Opening Remote'), 'Application#checkWindowReady: wait for remote indicator', this.logger);
-			// --- End Positron ---
 		}
 	}
 }

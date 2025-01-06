@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as playwright from '@playwright/test';
@@ -21,17 +21,10 @@ export class PlaywrightDriver {
 	private static traceCounter = 1;
 	private static screenShotCounter = 1;
 
-
-	// --- Start Positron ---
-	// Removed declaration
-	// --- End Positron ---
-
 	constructor(
 		private readonly application: playwright.Browser | playwright.ElectronApplication,
-		// --- Start Positron --
 		readonly context: playwright.BrowserContext,
 		readonly page: playwright.Page,
-		// --- End Positron ---
 		private readonly serverProcess: ChildProcess | undefined,
 		private readonly whenLoaded: Promise<unknown>,
 		private readonly options: LaunchOptions
@@ -50,9 +43,7 @@ export class PlaywrightDriver {
 		}
 	}
 
-	// --- Start Positron ---
 	async stopTracing(name: string, persist: boolean = true, customPath?: string): Promise<void> {
-		// --- End Positron ---
 		if (!this.options.tracing) {
 			return; // tracing disabled
 		}
@@ -60,10 +51,8 @@ export class PlaywrightDriver {
 		try {
 			let persistPath: string | undefined = undefined;
 			if (persist) {
-				// --- Start Positron ---
 				// Positron: Windows has issues with long paths, shortened the name
 				persistPath = customPath || join(this.options.logsPath, `trace-${PlaywrightDriver.traceCounter++}-${name.replace(/\s+/g, '-')}.zip`);
-				// --- End Positron ---
 			}
 			await measureAndLog(() => this.context.tracing.stopChunk({ path: persistPath }), `stopTracing for ${name}`, this.options.logger);
 		} catch (error) {
@@ -151,14 +140,11 @@ export class PlaywrightDriver {
 		return await this._cdpSession.send('Runtime.getProperties', parameters);
 	}
 
-	// --- Start Positron ---
 	// Positron: make this method public for access from R/Python fixtures
 	async takeScreenshot(name: string): Promise<void> {
 		try {
 			// Positron: Windows has issues with long paths, shortened the name
 			const persistPath = join(this.options.logsPath, `screenshot-${PlaywrightDriver.screenShotCounter++}-${name.replace(/\s+/g, '-')}.png`);
-			// --- End Positron ---
-
 			await measureAndLog(() => this.page.screenshot({ path: persistPath, type: 'png' }), 'takeScreenshot', this.options.logger);
 		} catch (error) {
 			// Ignore
@@ -224,10 +210,6 @@ export class PlaywrightDriver {
 		}
 	}
 
-	// --- Start Positron ---
-	// Removed functions
-	// --- End Positron ---
-
 	async getLogs() {
 		return this.page.evaluate(([driver]) => driver.getLogs(), [await this.getDriverHandle()] as const);
 	}
@@ -248,7 +230,6 @@ export class PlaywrightDriver {
 		return this.page.evaluateHandle('window.driver');
 	}
 
-	// --- Start Positron ---
 	async typeKeys(locator: string, text: string): Promise<void> {
 		return this.page.locator(locator).pressSequentially(text);
 	}
@@ -290,6 +271,4 @@ export class PlaywrightDriver {
 		await this.page.mouse.move(to.x, to.y);
 		await this.page.mouse.up();
 	}
-
-	// --- End Positron ---
 }

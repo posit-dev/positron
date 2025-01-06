@@ -1,14 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as cp from 'child_process';
 import * as os from 'os';
 import * as treekill from 'tree-kill';
-// --- Start Positron ---
 import { ILogFile } from './driver';
-// --- End Positron ---
 import { Logger, measureAndLog } from './logger';
 import { launch as launchPlaywrightBrowser } from './playwrightBrowser';
 import { PlaywrightDriver } from './playwrightDriver';
@@ -28,9 +26,7 @@ export interface LaunchOptions {
 	readonly remote?: boolean;
 	readonly web?: boolean;
 	readonly tracing?: boolean;
-	// --- Start Positron ---
 	readonly snapshots?: boolean;
-	// --- End Positron ---
 	readonly headless?: boolean;
 	readonly browser?: 'chromium' | 'webkit' | 'firefox';
 }
@@ -126,15 +122,9 @@ export class Code {
 		return await this.driver.startTracing(name);
 	}
 
-	// --- Start Positron ---
 	async stopTracing(name: string, persist: boolean, customPath?: string): Promise<void> {
 		return await this.driver.stopTracing(name, persist, customPath);
 	}
-	// --- End Positron ---
-
-	// --- Start Positron ---
-	// Removed function
-	// --- End Positron ---
 
 	async didFinishLoad(): Promise<void> {
 		return this.driver.didFinishLoad();
@@ -202,17 +192,9 @@ export class Code {
 		}), 'Code#exit()', this.logger);
 	}
 
-	// --- Start Positron ---
-	// Removed functions
-	// --- End Positron ---
-
 	async whenWorkbenchRestored(): Promise<void> {
 		await this.poll(() => this.driver.whenWorkbenchRestored(), () => true, `when workbench restored`);
 	}
-
-	// --- Start Positron ---
-	// Removed functions
-	// --- End Positron ---
 
 	getLogs(): Promise<ILogFile[]> {
 		return this.driver.getLogs();
@@ -258,7 +240,3 @@ export class Code {
 		}
 	}
 }
-
-// --- Start Positron ---
-// Removed functions
-// --- End Positron ---

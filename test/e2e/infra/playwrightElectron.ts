@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as playwright from '@playwright/test';
@@ -45,9 +45,7 @@ async function launchElectron(configuration: IElectronConfiguration, options: La
 
 	if (tracing) {
 		try {
-			// --- Start Positron ---
 			await measureAndLog(() => context.tracing.start({ screenshots: true, snapshots: options.snapshots /* remaining options are off for perf reasons */ }), 'context.tracing.start()', logger);
-			// --- End Positron ---
 		} catch (error) {
 			logger.log(`Playwright (Electron): Failed to start playwright tracing (${error})`); // do not fail the build when this fails
 		}

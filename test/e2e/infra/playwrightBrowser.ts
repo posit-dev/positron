@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as playwright from '@playwright/test';
@@ -30,7 +30,6 @@ export async function launch(options: LaunchOptions): Promise<{ serverProcess: C
 	};
 }
 
-// --- Start Positron ---
 // Modified `launchServer` function to add support for multiple ports to enable parallel test
 // execution of browser tests. Also added helper functions: `getServerArgs`, `resolveServerLocation`,
 // and `startServer` to make this code easier to read.
@@ -136,8 +135,6 @@ async function startServer(
 	logger.log(`Server started (pid: ${serverProcess.pid})`);
 	return serverProcess;
 }
-// --- End Positron ---
-
 
 async function launchBrowser(options: LaunchOptions, endpoint: string) {
 	const { logger, workspacePath, tracing, headless } = options;
@@ -153,9 +150,7 @@ async function launchBrowser(options: LaunchOptions, endpoint: string) {
 
 	if (tracing) {
 		try {
-			// --- Start Positron ---
 			await measureAndLog(() => context.tracing.start({ screenshots: true, snapshots: options.snapshots, /* remaining options are off for perf reasons */ }), 'context.tracing.start()', logger);
-			// --- End Positron ---
 		} catch (error) {
 			logger.log(`Playwright (Browser): Failed to start playwright tracing (${error})`); // do not fail the build when this fails
 		}

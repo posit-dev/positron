@@ -1,21 +1,16 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
 import * as fs from 'fs';
-// -- Start Positron --
-// Removed import
-// -- End Positron --
 import { URI } from 'vscode-uri';
 import { measureAndLog } from './logger';
 import type { LaunchOptions } from './code';
-// -- Start Positron --
 import path = require('path');
 import { promisify } from 'util';
 import { ncp } from 'ncp';
-// -- End Positron --
 
 const root = join(__dirname, '..', '..', '..');
 
@@ -145,7 +140,6 @@ export function getBuildVersion(root: string): string {
 	}
 }
 
-// -- Start Positron --
 export async function copyExtension(repoPath: string, extensionsPath: string, extId: string): Promise<void> {
 	const dest = path.join(extensionsPath, extId);
 	if (!fs.existsSync(dest)) {
@@ -154,4 +148,3 @@ export async function copyExtension(repoPath: string, extensionsPath: string, ex
 		return promisify(ncp)(orig, dest);
 	}
 }
-// -- End Positron --
