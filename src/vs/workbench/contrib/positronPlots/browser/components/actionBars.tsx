@@ -34,6 +34,7 @@ import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { HtmlPlotClient } from '../htmlPlotClient.js';
 import { POSITRON_EDITOR_PLOTS, positronPlotsEditorEnabled } from '../../../positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
 import { IAccessibilityService } from '../../../../../platform/accessibility/common/accessibility.js';
+import { OpenInEditorMenuButton } from './openInEditorMenuButton.js';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -179,16 +180,12 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							: null
 						}
 						{enableEditorPlot ?
-							<ActionBarButton
-								iconId='go-to-file'
-								align='right'
-								tooltip={localize('positron-open-plot-editor', "Open plot in editor")}
-								ariaLabel={localize('positron-open-plot-editor', "Open plot in editor")}
-								onPressed={() => {
-									if (hasPlots) {
-										positronPlotsContext.positronPlotsService.openEditor();
-									}
-								}} />
+							<OpenInEditorMenuButton
+								tooltip={localize('positron-editor-plot-popout', "Open in editor tab")}
+								ariaLabel={localize('positron-editor-plot-popout', "Open in editor tab")}
+								defaultGroup={positronPlotsContext.positronPlotsService.getPreferredEditorGroup()}
+								commandService={positronPlotsContext.commandService}
+							/>
 							: null
 						}
 					</ActionBarRegion>
