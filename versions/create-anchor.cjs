@@ -23,13 +23,11 @@ const version = product.positronVersion;
 const anchorPath = path.resolve(__dirname, version + '.commit');
 if (fs.existsSync(anchorPath)) {
 	console.log(`Anchor file ${anchorPath} already exists for version ${version}.`);
-	return 0;
+} else {
+	// Create the anchor file with the commit hash at the head of the current branch
+	const commit = child_process.execSync('git rev-parse HEAD').toString().trim();
+	fs.writeFileSync(anchorPath, commit);
+
+	// Tell the user what we did
+	console.log(`Created anchor file ${anchorPath} for version ${version} at commit ${commit}.`);
 }
-
-// Create the anchor file with the commit hash at the head of the current branch
-const commit = child_process.execSync('git rev-parse HEAD').toString().trim();
-fs.writeFileSync(anchorPath, commit);
-
-// Tell the user what we did
-console.log(`Created anchor file ${anchorPath} for version ${version} at commit ${commit}.`);
-
