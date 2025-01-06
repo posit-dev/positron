@@ -248,31 +248,6 @@ export class PlaywrightDriver {
 	}
 
 	// --- Start Positron ---
-	async typeKeys(locator: string, text: string): Promise<void> {
-		return this.page.locator(locator).pressSequentially(text);
-	}
-
-	getLocator(selector: string): playwright.Locator {
-		return this.page.locator(selector);
-	}
-
-	getKeyboard() {
-		return this.page.keyboard;
-	}
-
-	getFrame(frameSelector: string): playwright.FrameLocator {
-		return this.page.frameLocator(frameSelector);
-	}
-
-	/**
-	 * Set the size of the browser window for more predicable test results.
-	 * @param opts.width Width in pixels
-	 * @param opts.height Height in pixels
-	 */
-	async setViewportSize(opts: { width: number; height: number }) {
-		await this.page.setViewportSize(opts);
-	}
-
 	/**
 	 * Click and drag from one point to another.
 	 * @param opts.from The starting point of the drag as x-y coordinates
@@ -289,7 +264,6 @@ export class PlaywrightDriver {
 		await this.page.mouse.move(to.x, to.y);
 		await this.page.mouse.up();
 	}
-
 	// --- End Positron ---
 }
 

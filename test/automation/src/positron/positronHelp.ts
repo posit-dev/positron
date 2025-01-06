@@ -24,7 +24,7 @@ export class PositronHelp {
 	constructor(private code: Code) { }
 
 	async getHelpFrame(nth: number): Promise<FrameLocator> {
-		const outerFrame = this.code.driver.getFrame(OUTER_FRAME).nth(nth);
+		const outerFrame = this.code.driver.page.frameLocator(OUTER_FRAME).nth(nth);
 		const innerFrame = outerFrame.frameLocator(MIDDLE_FRAME);
 		const innerInnerFrame = innerFrame.frameLocator(INNER_FRAME);
 		return innerInnerFrame;
