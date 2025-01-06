@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { createLogger, createApp, TestTags } from '../helpers';
+import { createLogger, createApp, TestTags } from '../helpers/test-runner';
 import { Application, Logger, PythonFixtures, RFixtures, UserSetting, UserSettingsFixtures } from '../infra';
 
 // Constants

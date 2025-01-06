@@ -7,7 +7,7 @@ import * as fs from 'fs';
 import { join } from 'path';
 const rimraf = require('rimraf');
 const mkdirp = require('mkdirp');
-import { getBuildElectronPath, getDevElectronPath, Logger } from '../infra';
+import { getBuildElectronPath, getDevElectronPath, Logger } from '../../infra';
 import { createLogger } from './logger';
 import * as os from 'os';
 
