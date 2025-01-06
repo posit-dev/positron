@@ -1193,7 +1193,6 @@ END`;
  */
 export class DataExplorerRpcHandler {
 	private readonly _uriToTableView = new Map<string, DuckDBTableView>();
-
 	private _tableIndex: number = 0;
 
 	constructor(private readonly db: DuckDBInstance) { }
