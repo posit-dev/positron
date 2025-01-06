@@ -64,6 +64,30 @@
           "default": "debug",
           "description": "%configuration.logLevel.description%"
         },
+        "kernelSupervisor.persistSessions": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "none",
+            "4",
+            "8",
+            "12",
+            "24",
+            "168",
+            "indefinitely"
+          ],
+          "enumDescriptions": [
+            "%configuration.persistSessions.none.description%",
+            "%configuration.persistSessions.4.description%",
+            "%configuration.persistSessions.8.description%",
+            "%configuration.persistSessions.12.description%",
+            "%configuration.persistSessions.24.description%",
+            "%configuration.persistSessions.168.description%",
+            "%configuration.persistSessions.indefinitely.description%"
+          ],
+          "default": "none",
+          "description": "%configuration.persistSessions.description%"
+        },
         "kernelSupervisor.attachOnStartup": {
           "scope": "window",
           "type": "boolean",
