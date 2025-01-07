@@ -23,8 +23,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 		await theDoc.waitFor({ state: 'attached' });
 	});
 
-	// This randomly fails only in CI
-	test.skip('Python - Verify Viewer functionality with great-tables [C784888]', async function ({ app, logger, python }) {
+	test('Python - Verify Viewer functionality with great-tables [C784888]', async function ({ app, logger, python }) {
 
 		// extra clean up - https://github.com/posit-dev/positron/issues/4604
 		// without this, on ubuntu, the Enter key send to the console
