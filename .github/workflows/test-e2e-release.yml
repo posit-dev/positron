@@ -48,18 +48,16 @@ jobs:
       - name: Compile tests
         run: |
           rm package.json
-          mkdir -p node_modules/typescript/bin
-          npm install -g typescript
-          TSC_PATH=$(which tsc)
-          ln -s "$TSC_PATH" node_modules/typescript/bin/tsc
+          echo '{"scripts":{"compile":"npx tsc"}}' > package.json
 
+          # Install TypeScript locally
+          npm install typescript
+
+          # Install required dependencies
           npm install @playwright/test@^1.49.0
           npx playwright install
           npm install @currents/playwright@^1.8.0
           npm install @midleman/github-actions-reporter@^1.9.5
-
-          # Manually create a minimal `package.json` for local `npm install`
-          echo '{"scripts":{"compile":"npx tsc"}}' > package.json
 
           cd test/e2e
           npm install
