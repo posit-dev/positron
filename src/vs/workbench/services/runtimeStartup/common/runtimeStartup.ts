@@ -766,25 +766,54 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private async restoreWorkspaceSessions(sessions: SerializedSessionMetadata[]) {
 		this._startupPhase.set(RuntimeStartupPhase.Reconnecting, undefined);
 
+		// Activate any extensions needed for the sessions that are persistent on the machine.
+		let activatedExtensions: Array<ExtensionIdentifier> = [];
+		await Promise.all(sessions.filter(async session =>
+			session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Machine
+		).map(async session => {
+			// If we haven't already activated the extension, activate it now.
+			// We need the extension to be active so that we can ask it to
+			// validate the session before connecting to it.
+			if (activatedExtensions.indexOf(session.runtimeMetadata.extensionId) === -1) {
+				this._logService.debug(`[Runtime startup] Activating extension ` +
+					`${session.runtimeMetadata.extensionId.value} for persisted session ` +
+					`${session.metadata.sessionName} (${session.metadata.sessionId})`);
+				activatedExtensions.push(session.runtimeMetadata.extensionId);
+				return this._extensionService.activateById(session.runtimeMetadata.extensionId,
+					{
+						extensionId: session.runtimeMetadata.extensionId,
+						activationEvent: `onLanguageRuntime:${session.runtimeMetadata.languageId}`,
+						startup: false
+					});
+			}
+		}));
+
 		// Before reconnecting, validate any sessions that need it.
 		const validSessions = await Promise.all(sessions.map(async session => {
 			if (session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Machine) {
 				// If the session is persistent on the machine, we need to
 				// check to see if it is still valid (i.e. still running)
 				// before reconnecting.
-				this._logService.debug(`[Runtime startup] Checking to see if persisted session ${session.metadata.sessionName} (${session.metadata.sessionId}) is still valid.`);
+				this._logService.debug(`[Runtime startup] Checking to see if persisted session ` +
+					`${session.metadata.sessionName} (${session.metadata.sessionId}) is still valid.`);
 				try {
 					// Ask the runtime session service to validate the session.
 					// This call will eventually be proxied through to the
 					// extension that provides the runtime.
-					const valid = await this._runtimeSessionService.validateRuntimeSession(session.runtimeMetadata, session.metadata.sessionId);
+					const valid = await this._runtimeSessionService.validateRuntimeSession(
+						session.runtimeMetadata,
+						session.metadata.sessionId);
 
-					this._logService.debug(`[Runtime startup] Session ${session.metadata.sessionName} (${session.metadata.sessionId}) valid = ${valid}`);
+					this._logService.debug(
+						`[Runtime startup] Session ` +
+						`${session.metadata.sessionName} (${session.metadata.sessionId}) valid = ${valid}`);
 					return valid;
 				} catch (err) {
 					// This is a non-fatal error since we can just avoid reconnecting
 					// to the session.
-					this._logService.error(`Error validating persisted session ${session.metadata.sessionName} (${session.metadata.sessionId}): ${err}`);
+					this._logService.error(
+						`Error validating persisted session ` +
+						`${session.metadata.sessionName} (${session.metadata.sessionId}): ${err}`);
 					return false;
 				}
 			}
