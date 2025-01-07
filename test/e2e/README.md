@@ -96,10 +96,9 @@ Several tests use [QA Content Examples](https://github.com/posit-dev/qa-example-
 
 ### Install
 
-Before compiling the tests, make sure to install dependencies in the following directories:
+Before compiling the tests, make sure to install dependencies:
 
 ```bash
-npm --prefix test/automation install
 npm --prefix test/e2e install
 ```
 
