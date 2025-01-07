@@ -59,6 +59,7 @@ jobs:
           npm install @currents/playwright@^1.8.0
           npm install @midleman/github-actions-reporter@^1.9.5
           npm install @vscode/v8-heap-parser@^0.1.0
+          npm install fs-extra
 
           cd test/e2e
           npm install
