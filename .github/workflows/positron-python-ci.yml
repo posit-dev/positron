@@ -248,7 +248,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: 'microsoft/python-environment-tools'
-          path: ${{ env.special-working-directory-relative }}/python-env-tools
+          path: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR}}/python-env-tools
           sparse-checkout: |
             crates
             Cargo.toml
