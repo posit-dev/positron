@@ -66,7 +66,8 @@ jobs:
             libavif13 \
             libhyphen0 \
             ffmpeg \
-            libx264-dev
+            libx264-dev \
+            libmanette-0.2-0
 
       - name: Compile tests
         run: |
