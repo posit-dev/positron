@@ -58,6 +58,9 @@ jobs:
           npm install @currents/playwright@^1.8.0
           npm install @midleman/github-actions-reporter@^1.9.5
 
+          # Manually create a minimal `package.json` for local `npm install`
+          echo '{}' > test/e2e/package.json
+
           cd test/e2e
           npm install
           npm run compile
