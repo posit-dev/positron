@@ -65,8 +65,9 @@ jobs:
             libgles2-mesa \
             libavif13 \
             libhyphen0 \
-            libx264
-    
+            ffmpeg \
+            libx264-dev
+
       - name: Compile tests
         run: |
           rm package.json
