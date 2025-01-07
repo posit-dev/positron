@@ -34,6 +34,7 @@ runs:
         python -m pip install --upgrade pip
         python -m pip install -r requirements.txt
         python -m pip install ipykernel trcli
+        python -m pip install nox
 
     - name: Verify Python Version
       shell: bash
