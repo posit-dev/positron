@@ -47,6 +47,8 @@ jobs:
 
       - name: Compile tests
         run: |
+          rm package.json
+          rm package-lock.json
           mkdir -p node_modules/typescript/bin
           npm install -g typescript
           TSC_PATH=$(which tsc)
