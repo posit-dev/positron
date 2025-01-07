@@ -8,7 +8,7 @@ const { execSync } = require('child_process');
 const slackSkippedTests = (slackWebhookUrl) => {
 	try {
 		const skippedTests = execSync(
-			`grep -r --include \\*.test.ts -E "describe\\.skip|test\\.skip" test/e2e/areas | sed 's/\\.test\\.ts.*$/.test.ts/'`
+			`grep -r --include \\*.test.ts -E "describe\\.skip|test\\.skip" test/e2e/tests | sed 's/\\.test\\.ts.*$/.test.ts/'`
 		).toString();
 
 		const slackMessage = {

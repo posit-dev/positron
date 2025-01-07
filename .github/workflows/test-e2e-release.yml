@@ -16,6 +16,7 @@ on:
         options:
           - failure
           - always
+          - never
 
 permissions:
   id-token: write
@@ -45,9 +46,7 @@ jobs:
       - name: Compile tests
         run: |
           npm install
-          npm --prefix test/automation install
           npm --prefix test/e2e install
-          npm --prefix test/automation run compile
           npm --prefix test/e2e run compile
 
       - name: Get & install latest release
@@ -111,10 +110,14 @@ jobs:
     needs: [e2e-electron]
     runs-on: ubuntu-latest
     if: always()
+    env:
+      notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
     steps:
+      - run: |
+          echo "Will notify on: ${{ env.notify_on }}"
       - name: Notify Slack
         uses: midleman/slack-workflow-status@master
         with:
           repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
           slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL }}
-          notify_on: ${{ inputs.notify_on }}
+          notify_on: ${{ env.notify_on }}

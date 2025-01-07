@@ -1,6 +1,3 @@
-<!-- Start Positron -->
-<!-- If you are seeking the original Vscode README go here: https://github.com/microsoft/vscode/tree/main/test/smoke -->
-
 # Positron E2E Test Guide
 
 This document provides guidelines and setup instructions for effectively running and managing end-to-end tests in the Positron project.
@@ -20,16 +17,16 @@ This document provides guidelines and setup instructions for effectively running
 
 ### Test Code Location
 
-- `test/e2e/areas`
+- `test/e2e/tests`
 
-For instance, the e2e tests for the help pane are at `test/e2e/areas/help/help.test.ts`
+For instance, the e2e tests for the help pane are at `test/e2e/tests/help/help.test.ts`
 
 ### Test Helpers Location
 
 - General helpers dir: `test/automation/src`
 - Positron helpers dir: `test/automation/src/positron`
 
-For each area under test, there is typically a companion class that assists with locating and interacting with elements (similar to POM pattern). For instance, the e2e tests for the help pane are at `test/e2e/areas/help/help.test.ts`
+For each area under test, there is typically a companion class that assists with locating and interacting with elements (similar to POM pattern). For instance, the e2e tests for the help pane are at `test/e2e/tests/help/help.test.ts`
 
 ### Test Template
 
@@ -205,7 +202,7 @@ To add a test tag:
 1. Use the format `@:tag` in your PR description (e.g., `@:help`, `@:console`).
 2. Once added, a comment will appear on your PR confirming that the tag was found and parsed correctly.
 
-From that point, all E2E tests linked to the specified tag(s) will run during the test job. For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/helpers/test-tags.ts).
+From that point, all E2E tests linked to the specified tag(s) will run during the test job. For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts).
 
 Note: You can update the tags in the PR description at any time. The PR comment will confirm the parsed tags, and the test job will use the tags present in the PR description at the time of execution.
 
@@ -226,5 +223,3 @@ In order to get the "golden screenshots" used for plot comparison is CI, you wil
 ## Tests run on PRs
 
 If you think your test should be run when PRs are created, [tag the test with @critical](https://playwright.dev/docs/test-annotations#tag-tests). The existing @critical cases were selected to give good overall coverage while keeping the overall execution time down to ten minutes or less. If your new test functionality covers a part of the application that no other tests cover, it is probably a good idea to include it in the @critical set.
-
-<!-- End Positron -->

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { defineConfig } from '@playwright/test';
-import { CustomTestOptions } from './test/e2e/areas/_test.setup';
+import { CustomTestOptions } from './test/e2e/tests/_test.setup';
 import type { GitHubActionOptions } from '@midleman/github-actions-reporter';
 import { currentsReporter } from '@currents/playwright';
 
@@ -12,7 +12,7 @@ import { currentsReporter } from '@currents/playwright';
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig<CustomTestOptions>({
-	globalSetup: './test/e2e/areas/_global.setup.ts',
+	globalSetup: './test/e2e/tests/_global.setup.ts',
 	testDir: './test/e2e',
 	testIgnore: '**/example.test.ts',
 	testMatch: '*.test.ts',

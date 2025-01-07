@@ -1271,21 +1271,9 @@ export default tseslint.config(
 				{
 					'target': 'test/e2e/**',
 					'restrictions': [
-						'test/automation',
 						'test/e2e/**',
 						'@vscode/*',
 						'@parcel/*',
-						'@playwright/*',
-						'*' // node modules
-					]
-				},
-				{
-					'target': 'test/automation/**',
-					'restrictions': [
-						'test/automation/**',
-						'@vscode/*',
-						'@parcel/*',
-						'playwright-core/**',
 						'@playwright/*',
 						'*' // node modules
 					]
