@@ -47,12 +47,11 @@ jobs:
 
       - name: Compile tests
         run: |
+          rm package-lock.json
           mkdir -p node_modules/typescript/bin
           npm install -g typescript
           TSC_PATH=$(which tsc)
           ln -s "$TSC_PATH" node_modules/typescript/bin/tsc
-          rm package.json
-          rm package-lock.json
 
           npm install @playwright/test@^1.49.0
           npx playwright install
