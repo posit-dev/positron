@@ -835,46 +835,57 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._onDidReplacePlots.fire(this._plots);
 	}
 
-	savePlot(): void {
+	saveViewPlot(): void {
 		if (this._selectedPlotId) {
 			const plot = this._plots.find(plot => plot.id === this._selectedPlotId);
-			this._fileDialogService.defaultFilePath()
-				.then(defaultPath => {
-					const suggestedPath = defaultPath;
-					if (plot) {
-						let uri = '';
-
-						if (plot instanceof StaticPlotClient) {
-							// if it's a static plot, save the image to disk
-							uri = plot.uri;
-							this.showSavePlotDialog(uri);
-						} else if (plot instanceof PlotClientInstance) {
-							// if it's a dynamic plot, present options dialog
-							showSavePlotModalDialog(
-								this._selectedSizingPolicy,
-								this._layoutService,
-								this._keybindingService,
-								this._modalDialogService,
-								this._fileService,
-								this._fileDialogService,
-								this._logService,
-								this._notificationService,
-								this._labelService,
-								this._pathService,
-								plot,
-								this.savePlotAs,
-								suggestedPath
-							);
-						} else {
-							// if it's a webview plot, do nothing
-							return;
-						}
-					}
-				})
-				.catch((error) => {
-					throw new Error(`Error saving plot: ${error.message}`);
-				});
+			this.savePlot(plot);
 		}
+	}
+
+	saveEditorPlot(plotId: string): void {
+		const plot = this._editorPlots.get(plotId);
+		this.savePlot(plot);
+	}
+
+	private savePlot(plotClient?: IPositronPlotClient) {
+		if (!plotClient) {
+			this._notificationService.error(localize('positronPlots.noPlotSelected', 'No plot selected.'));
+			return;
+		}
+		this._fileDialogService.defaultFilePath()
+			.then(defaultPath => {
+				const suggestedPath = defaultPath;
+				if (plotClient) {
+					if (plotClient instanceof StaticPlotClient) {
+						// if it's a static plot, save the image to disk
+						const uri = plotClient.uri;
+						this.showSavePlotDialog(uri);
+					} else if (plotClient instanceof PlotClientInstance) {
+						// if it's a dynamic plot, present options dialog
+						showSavePlotModalDialog(
+							this._selectedSizingPolicy,
+							this._layoutService,
+							this._keybindingService,
+							this._modalDialogService,
+							this._fileService,
+							this._fileDialogService,
+							this._logService,
+							this._notificationService,
+							this._labelService,
+							this._pathService,
+							plotClient,
+							this.savePlotAs,
+							suggestedPath
+						);
+					} else {
+						// if it's a webview plot, do nothing
+						return;
+					}
+				}
+			})
+			.catch((error) => {
+				throw new Error(`Error saving plot: ${error.message}`);
+			});
 	}
 
 	private savePlotAs = (options: SavePlotOptions) => {
