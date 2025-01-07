@@ -1,10 +1,6 @@
 name: "Setup Python Environment Tools"
 description: "Install and build microsoft/python-environment-tools"
 
-defaults:
- run:
-  working-directory: 'extensions/positron-python'
-
 runs:
   using: "composite"
   steps:
@@ -12,7 +8,7 @@ runs:
         uses: actions/checkout@v4
         with:
           repository: 'microsoft/python-environment-tools'
-          path: 'python-env-tools'
+          path: 'extensions/positron-python/python-env-tools'
           sparse-checkout: |
             crates
             Cargo.toml
@@ -23,5 +19,5 @@ runs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build Native Binaries
-        run: nox --session native_build
+        run: nox --noxfile extensions/positron-python/noxfile.py --session native_build
         shell: bash
