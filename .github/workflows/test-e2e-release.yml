@@ -55,10 +55,9 @@ jobs:
           cd test/e2e
           npm install @playwright/test@^1.49.0
           npx playwright install
-          cd ../..
 
-          npm --prefix test/e2e install
-          npm --prefix test/e2e run compile
+          npm install
+          npm run compile
 
       - name: Get & install latest release
         id: get_latest_release
