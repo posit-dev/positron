@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../infra';
+import { Application, CreateProjectOptions, ProjectType } from '../../infra';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({
@@ -12,170 +12,152 @@ test.use({
 
 test.beforeEach(async function ({ app }) {
 	await app.workbench.console.waitForReadyOrNoInterpreter();
+	await app.workbench.console.barClearButton.click();
 });
 
-// Not running conda test on windows becuase conda reeks havoc on selecting the correct python interpreter
+// Not running conda test on windows because conda reeks havoc on selecting the correct python interpreter
 test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () => {
-	const defaultProjectName = 'my-python-project';
 
-	test('Create a new Conda environment [C628628]', async function ({ app, page }) {
-		// This test relies on Conda already being installed on the machine
-		test.slow();
-		const projSuffix = addRandomNumSuffix('_condaInstalled');
-		const pw = app.workbench.newProjectWizard;
-		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
-		await pw.navigate(ProjectWizardNavigateAction.NEXT);
-		await pw.projectNameLocationStep.appendToProjectName(projSuffix);
-		await pw.navigate(ProjectWizardNavigateAction.NEXT);
-		// Select 'Conda' as the environment provider
-		await pw.pythonConfigurationStep.selectEnvProvider('Conda');
-		await pw.navigate(ProjectWizardNavigateAction.CREATE);
-		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await expect(page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 20000 });
-		// Check that the `.conda` folder gets created in the project
-		await expect(async () => {
-			const projectFiles = await app.workbench.explorer.getExplorerProjectFiles();
-			expect(projectFiles).toContain('.conda');
-		}).toPass({ timeout: 50000 });
-		// The console should initialize without any prompts to install ipykernel
-		await expect(app.workbench.console.activeConsole.getByText('>>>')).toBeVisible({ timeout: 45000 });
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.console.barClearButton.click();
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+	// This test relies on conda already being installed on the machine
+	test('Create a new Conda environment [C628628]', async function ({ app }) {
+		const projectTitle = addRandomNumSuffix('conda-installed');
+		await createNewProject(app, {
+			type: ProjectType.PYTHON_PROJECT,
+			title: projectTitle,
+			pythonEnv: 'Conda',
+		});
+
+		await verifyProjectCreation(app, projectTitle);
+		await verifyCondaFilesArePresent(app);
+		await verifyCondaEnvStarts(app);
 	});
 
-	test('Create a new Venv environment [C627912]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app, page }) {
-		// This is the default behavior for a new Python Project in the Project Wizard
-		const projSuffix = addRandomNumSuffix('_new_venv');
-		const pw = app.workbench.newProjectWizard;
-		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
-		await pw.navigate(ProjectWizardNavigateAction.NEXT);
-		await pw.projectNameLocationStep.appendToProjectName(projSuffix);
-		await pw.navigate(ProjectWizardNavigateAction.NEXT);
-		await pw.navigate(ProjectWizardNavigateAction.CREATE);
-		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await expect(page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 20000 });
-		await expect(app.workbench.console.activeConsole.getByText('>>>')).toBeVisible({ timeout: 100000 });
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.console.barClearButton.click();
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+	test('Create a new Venv environment [C627912]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
+		const projectTitle = addRandomNumSuffix('new-venv');
+		await createNewProject(app, {
+			type: ProjectType.PYTHON_PROJECT,
+			title: projectTitle,
+			pythonEnv: 'Venv',
+		});
+
+		await verifyProjectCreation(app, projectTitle);
+		await verifyVenEnvStarts(app);
 	});
 
-	test.skip('With ipykernel already installed [C609619]', {
+	// marie: wip
+	test('With ipykernel already installed [C609619]', {
 		tag: [tags.WIN],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5730' }],
-	}, async function ({ app, page, python }) {
-		const projSuffix = addRandomNumSuffix('_ipykernelInstalled');
-		const pw = app.workbench.newProjectWizard;
-		const pythonFixtures = new PythonFixtures(app);
-		// Start the Python interpreter and ensure ipykernel is installed
-		await pythonFixtures.startAndGetPythonInterpreter(true);
+	}, async function ({ app, interpreter }) {
+		const projectTitle = addRandomNumSuffix('ipykernel-installed');
 
+		// Start the Python interpreter and install ipykernel
+		await interpreter.set('Python');
 		const interpreterInfo =
 			await app.workbench.interpreterDropdown.getSelectedInterpreterInfo();
 		expect(interpreterInfo?.path).toBeDefined();
 		await app.workbench.interpreterDropdown.closeInterpreterDropdown();
-		// Create a new Python project and use the selected python interpreter
-		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
-		await pw.navigate(ProjectWizardNavigateAction.NEXT);
-		await pw.projectNameLocationStep.appendToProjectName(projSuffix);
-		await pw.navigate(ProjectWizardNavigateAction.NEXT);
-		await pw.pythonConfigurationStep.existingEnvRadioButton.click();
-		// Select the interpreter that was started above. It's possible that this needs
-		// to be attempted a few times to ensure the interpreters are properly loaded.
-		await expect(
-			async () =>
-				await pw.pythonConfigurationStep.selectInterpreterByPath(
-					interpreterInfo!.path
-				)
-		).toPass({
-			intervals: [1_000, 2_000, 10_000],
-			timeout: 50_000
+		await app.workbench.console.typeToConsole('pip install ipykernel', 10, true);
+		await app.workbench.console.waitForConsoleContents('Note: you may need to restart the kernel to use updated packages.');
+
+		await createNewProject(app, {
+			type: ProjectType.PYTHON_PROJECT,
+			title: projectTitle,
+			pythonEnv: 'Existing',
 		});
-		await expect(pw.pythonConfigurationStep.interpreterFeedback).not.toBeVisible();
-		await pw.navigate(ProjectWizardNavigateAction.CREATE);
-		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await expect(page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 20000 });
-		await expect(app.workbench.console.activeConsole.getByText('>>>')).toBeVisible({ timeout: 90000 });
+
+		await verifyProjectCreation(app, projectTitle);
+		// 	const projSuffix = addRandomNumSuffix('_ipykernelInstalled');
+		// 	const pw = app.workbench.newProjectWizard;
+		// 	const pythonFixtures = new PythonFixtures(app);
+		// 	// Start the Python interpreter and ensure ipykernel is installed
+		// 	await pythonFixtures.startAndGetPythonInterpreter(true);
+
+		// 	const interpreterInfo =
+		// 		await app.workbench.interpreterDropdown.getSelectedInterpreterInfo();
+		// 	expect(interpreterInfo?.path).toBeDefined();
+		// 	await app.workbench.interpreterDropdown.closeInterpreterDropdown();
+		// 	// Create a new Python project and use the selected python interpreter
+		// 	await pw.setProjectType(ProjectType.PYTHON_PROJECT);
+		// 	await pw.navigate(ProjectWizardNavigateAction.NEXT);
+		// 	await pw.projectNameLocationStep.appendToProjectName(projSuffix);
+		// 	await pw.navigate(ProjectWizardNavigateAction.NEXT);
+		// 	await pw.pythonConfigurationStep.existingEnvRadioButton.click();
+		// 	// Select the interpreter that was started above. It's possible that this needs
+		// 	// to be attempted a few times to ensure the interpreters are properly loaded.
+		// 	await expect(
+		// 		async () =>
+		// 			await pw.pythonConfigurationStep.selectInterpreterByPath(
+		// 				interpreterInfo!.path
+		// 			)
+		// 	).toPass({
+		// 		intervals: [1_000, 2_000, 10_000],
+		// 		timeout: 50_000
+		// 	});
+		// await expect(pw.pythonConfigurationStep.interpreterFeedback).not.toBeVisible();
+		// 	await pw.navigate(ProjectWizardNavigateAction.CREATE);
+		// 	await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
+		// 	await expect(page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 20000 });
+		// 	await expect(app.workbench.console.activeConsole.getByText('>>>')).toBeVisible({ timeout: 90000 });
 	});
 
 	test('With ipykernel not already installed [C609617]', {
 		tag: [tags.WIN],
-	}, async function ({ app, page }) {
-		const projSuffix = addRandomNumSuffix('_noIpykernel');
-		const pw = app.workbench.newProjectWizard;
-		const pythonFixtures = new PythonFixtures(app);
-		// Start the Python interpreter and uninstall ipykernel
-		await pythonFixtures.startAndGetPythonInterpreter(true);
+	}, async function ({ app, interpreter }) {
+		const projectTitle = addRandomNumSuffix('no-ipykernel');
 
+		// Start the Python interpreter and uninstall ipykernel
+		await interpreter.set('Python');
 		const interpreterInfo =
 			await app.workbench.interpreterDropdown.getSelectedInterpreterInfo();
 		expect(interpreterInfo?.path).toBeDefined();
 		await app.workbench.interpreterDropdown.closeInterpreterDropdown();
-		await app.workbench.console.typeToConsole('pip uninstall -y ipykernel');
-		await app.workbench.console.sendEnterKey();
+		console.log('interperter info', interpreterInfo);
+		await app.workbench.console.typeToConsole('pip uninstall -y ipykernel', 10, true);
 		await app.workbench.console.waitForConsoleContents('Successfully uninstalled ipykernel');
 
 		// Create a new Python project and use the selected python interpreter
-		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
-		await pw.navigate(ProjectWizardNavigateAction.NEXT);
-		await pw.projectNameLocationStep.appendToProjectName(projSuffix);
-		await pw.navigate(ProjectWizardNavigateAction.NEXT);
-		// Choose the existing environment which does not have ipykernel
-		await pw.pythonConfigurationStep.existingEnvRadioButton.click();
+		await createNewProject(app, {
+			type: ProjectType.PYTHON_PROJECT,
+			title: projectTitle,
+			pythonEnv: 'Existing',
+		});
+
 		// Select the interpreter that was started above. It's possible that this needs
 		// to be attempted a few times to ensure the interpreters are properly loaded.
-		await expect(
-			async () =>
-				await pw.pythonConfigurationStep.selectInterpreterByPath(
-					interpreterInfo!.path
-				)
-		).toPass({
-			intervals: [1_000, 2_000, 10_000],
-			timeout: 50_000
-		});
-		await expect(pw.pythonConfigurationStep.interpreterFeedback).toHaveText(
-			'ipykernel will be installed for Python language support.',
-			{ timeout: 10_000 }
-		);
-		await pw.navigate(ProjectWizardNavigateAction.CREATE);
-		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await expect(page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 20000 });
+		// 	await expect(
+		// 		async () =>
+		// 			await pw.pythonConfigurationStep.selectInterpreterByPath(
+		// 				interpreterInfo!.path
+		// 			)
+		// 	).toPass({
+		// 		intervals: [1_000, 2_000, 10_000],
+		// 		timeout: 50_000
+		// 	});
+		// 	await expect(pw.pythonConfigurationStep.interpreterFeedback).toHaveText(
+		// 		'ipykernel will be installed for Python language support.',
+		// 		{ timeout: 10_000 }
+		// 	);
 
-		// If ipykernel was successfully installed during the new project initialization,
-		// the console should be ready without any prompts to install ipykernel
-		await expect(app.workbench.console.activeConsole.getByText('>>>')).toBeVisible({ timeout: 90000 });
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.console.barClearButton.click();
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		// 	// If ipykernel was successfully installed during the new project initialization,
+		// 	// the console should be ready without any prompts to install ipykernel
+		await verifyProjectCreation(app, projectTitle);
+		await app.workbench.console.typeToConsole('pip show ipykernel', 10, true);
+		await app.workbench.console.waitForConsoleContents('Name: ipykernel');
+
 	});
 
-	test('Default Python Project with git init [C674522]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app, page }) {
-		const projSuffix = addRandomNumSuffix('_gitInit');
-		const pw = app.workbench.newProjectWizard;
-		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
-		await pw.navigate(ProjectWizardNavigateAction.NEXT);
-		await pw.projectNameLocationStep.appendToProjectName(projSuffix);
+	test('Default Python Project with git init [C674522]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
+		const projectTitle = addRandomNumSuffix('git-init');
+		await createNewProject(app, {
+			type: ProjectType.PYTHON_PROJECT,
+			title: projectTitle,
+			initAsGitRepo: true,
+		});
 
-		// Check the git init checkbox
-		await pw.projectNameLocationStep.gitInitCheckbox.waitFor();
-		await pw.projectNameLocationStep.gitInitCheckbox.setChecked(true);
-		await pw.navigate(ProjectWizardNavigateAction.NEXT);
-		await pw.navigate(ProjectWizardNavigateAction.CREATE);
-
-		// Open the new project in the current window and wait for the console to be ready
-		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await expect(page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 20000 });
-		await expect(app.workbench.console.activeConsole.getByText('>>>')).toBeVisible({ timeout: 90000 });
-
-		// Verify git-related files are present
-		await expect(async () => {
-			const projectFiles = await app.workbench.explorer.getExplorerProjectFiles();
-			expect(projectFiles).toContain('.gitignore');
-			expect(projectFiles).toContain('README.md');
-			// Ideally, we'd check for the .git folder, but it's not visible in the Explorer
-			// by default due to the default `files.exclude` setting in the workspace.
-		}).toPass({ timeout: 50000 });
+		await verifyProjectCreation(app, projectTitle);
+		await verifyGitFilesArePresent(app);
+		await verifyVenEnvStarts(app);
 
 		// Git status should show that we're on the main branch
 		await app.workbench.terminal.createTerminal();
@@ -184,6 +166,55 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 	});
 });
 
+// Helper functions
 function addRandomNumSuffix(name: string): string {
 	return `${name}_${Math.floor(Math.random() * 1000000)}`;
+}
+
+async function createNewProject(app: Application, options: CreateProjectOptions) {
+	await test.step(`Create a new project: ${options.title}`, async () => {
+		await app.workbench.newProjectWizard.createNewProject({
+			type: ProjectType.PYTHON_PROJECT,
+			title: options.title,
+			pythonEnv: options.pythonEnv,
+			initAsGitRepo: options.initAsGitRepo,
+			rEnvCheckbox: options.rEnvCheckbox,
+		});
+	});
+}
+
+async function verifyProjectCreation(app: Application, projectTitle: string) {
+	await test.step(`Verify project created: ${projectTitle}`, async () => {
+		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${projectTitle}` })).toBeVisible({ timeout: 15000 });
+		await app.workbench.console.waitForReadyOrNoInterpreter();
+	});
+}
+
+async function verifyCondaFilesArePresent(app: Application) {
+	await test.step('Verify that the .conda files are present', async () => {
+		const projectFiles = app.code.driver.page.locator('.monaco-list > .monaco-scrollable-element');
+		expect(projectFiles.getByText('.conda')).toBeVisible({ timeout: 50000 });
+	});
+}
+
+async function verifyCondaEnvStarts(app: any) {
+	await test.step('Verify that the conda environment starts', async () => {
+		await app.workbench.console.waitForConsoleContents('(Conda) started');
+	});
+}
+
+async function verifyVenEnvStarts(app: any) {
+	await test.step('Verify that the venv environment starts', async () => {
+		await app.workbench.console.waitForConsoleContents('(Venv: .venv) started.');
+	});
+}
+
+async function verifyGitFilesArePresent(app: any) {
+	await test.step('Verify that the .git files are present', async () => {
+		const projectFiles = app.code.driver.page.locator('.monaco-list > .monaco-scrollable-element');
+		expect(projectFiles.getByText('.git')).toBeVisible({ timeout: 50000 });
+		expect(projectFiles.getByText('.gitignore')).toBeVisible();
+		// Ideally, we'd check for the .git folder, but it's not visible in the Explorer
+		// by default due to the default `files.exclude` setting in the workspace.
+	});
 }

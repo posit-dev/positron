@@ -22,7 +22,7 @@ const PROJECT_WIZARD_DEFAULT_BUTTON = 'button.positron-button.button.action-bar-
 /**
  * Enum representing the possible navigation actions that can be taken in the project wizard.
  */
-export enum ProjectWizardNavigateAction {
+export enum WizardButton {
 	BACK,
 	NEXT,
 	CANCEL,
@@ -42,9 +42,6 @@ export enum ProjectType {
  *  Reuseable Positron new project wizard functionality for tests to leverage.
  */
 export class NewProjectWizard {
-	projectTypeStep: ProjectWizardProjectTypeStep;
-	projectNameLocationStep: ProjectWizardProjectNameLocationStep;
-	rConfigurationStep: ProjectWizardRConfigurationStep;
 	pythonConfigurationStep: ProjectWizardPythonConfigurationStep;
 	currentOrNewWindowSelectionModal: CurrentOrNewWindowSelectionModal;
 
@@ -52,100 +49,74 @@ export class NewProjectWizard {
 	private cancelButton = this.code.driver.page.locator('div.right-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]');
 	private nextButton = this.code.driver.page.locator(PROJECT_WIZARD_DEFAULT_BUTTON).getByText('Next');
 	private createButton = this.code.driver.page.locator(PROJECT_WIZARD_DEFAULT_BUTTON).getByText('Create');
+	private projectNameInput = this.code.driver.page.getByLabel(/Enter a name for your new/);
 
 	constructor(private code: Code, private quickaccess: QuickAccess) {
-		this.projectTypeStep = new ProjectWizardProjectTypeStep(this.code);
-		this.projectNameLocationStep = new ProjectWizardProjectNameLocationStep(this.code);
-		this.rConfigurationStep = new ProjectWizardRConfigurationStep(this.code);
 		this.pythonConfigurationStep = new ProjectWizardPythonConfigurationStep(this.code);
 		this.currentOrNewWindowSelectionModal = new CurrentOrNewWindowSelectionModal(this.code);
 	}
 
-	/**
-	 * Starts a new project of the specified type in the project wizard.
-	 * @param projectType The type of project to select.
-	 * @returns A promise that resolves once the project wizard is open and the project type is selected.
-	 */
-	async startNewProject(projectType: ProjectType) {
+	async createNewProject({ type, title, rEnvCheckbox, pythonEnv, initAsGitRepo }: CreateProjectOptions) {
 		await this.quickaccess.runCommand(
 			'positron.workbench.action.newProject',
 			{ keepOpen: false }
 		);
-		// Select the specified project type in the project wizard
-		await this.projectTypeStep.selectProjectType(projectType);
+
+		await this.setProjectType(type);
+		await this.setProjectNameLocation(title, initAsGitRepo);
+		await this.setProjectConfiguration(type, rEnvCheckbox, pythonEnv);
+
+		await this.code.driver.page.getByRole('button', { name: 'Current Window' }).click();
+		await expect(this.code.driver.page.getByText('Create New Project')).not.toBeVisible();
+	}
+
+	async setProjectType(projectType: ProjectType) {
+		this.code.driver.page.locator('label').filter({ hasText: projectType }).click({ force: true });
+		await this.clickWizardButton(WizardButton.NEXT);
+	}
+
+	async setProjectNameLocation(projectTitle: string, initAsGitRepo = false) {
+		await this.projectNameInput.fill(projectTitle);
+		if (initAsGitRepo) {
+			await this.code.driver.page.getByText('Initialize project as Git').check();
+		}
+
+		await this.clickWizardButton(WizardButton.NEXT);
+	}
+
+	async setProjectConfiguration(projectType: ProjectType, rEnvCheckbox = false, pythonEnv: 'Conda' | 'Venv' | 'Existing' = 'Venv') {
+		if (projectType === ProjectType.R_PROJECT && rEnvCheckbox) {
+			await this.code.driver.page.getByText('Use `renv` to create a').click();
+		} else if (projectType === ProjectType.PYTHON_PROJECT && pythonEnv === 'Conda') {
+			await this.pythonConfigurationStep.selectEnvProvider('Conda');
+			// await this.pythonConfigurationStep.selectInterpreterByPath('C:\\Users\\user\\.conda\\envs\\base\\python.exe');
+		} else if (projectType === ProjectType.PYTHON_PROJECT && pythonEnv === 'Existing') {
+			await this.pythonConfigurationStep.existingEnvRadioButton.click();
+		}
+		await this.clickWizardButton(WizardButton.CREATE);
 	}
 
 	/**
 	 * Clicks the specified navigation button in the project wizard.
 	 * @param action The navigation action to take in the project wizard.
 	 */
-	async navigate(action: ProjectWizardNavigateAction) {
-		switch (action) {
-			case ProjectWizardNavigateAction.BACK:
-				await this.backButton.waitFor();
-				await this.backButton.click();
-				break;
-			case ProjectWizardNavigateAction.NEXT:
-				await this.nextButton.waitFor();
-				await this.nextButton.isEnabled({ timeout: 5000 });
-				await this.nextButton.click();
-				break;
-			case ProjectWizardNavigateAction.CANCEL:
-				await this.cancelButton.waitFor();
-				await this.cancelButton.click();
-				break;
-			case ProjectWizardNavigateAction.CREATE:
-				await this.createButton.waitFor();
-				await this.createButton.isEnabled({ timeout: 5000 });
-				await this.createButton.click();
-				break;
-			default:
-				throw new Error(
-					`Invalid project wizard navigation action: ${action}`
-				);
+	async clickWizardButton(action: WizardButton) {
+		const buttonMap: Record<WizardButton, () => Promise<void>> = {
+			[WizardButton.BACK]: () => this.backButton.click(),
+			[WizardButton.NEXT]: () => this.nextButton.click(),
+			[WizardButton.CANCEL]: () => this.cancelButton.click(),
+			[WizardButton.CREATE]: () => this.createButton.click(),
+		};
+
+		const clickAction = buttonMap[action];
+		if (!clickAction) {
+			throw new Error(`Invalid project wizard navigation action: ${action}`);
 		}
+
+		await clickAction();
 	}
 }
 
-class ProjectWizardProjectTypeStep {
-	constructor(private code: Code) { }
-
-	cssEscape(value: string): string {
-		return value.replace(/[\s!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g, '\\$&');
-	}
-
-	async selectProjectType(projectType: ProjectType) {
-		const locator = this.code.driver.page.locator('label').filter({ hasText: projectType });
-		await locator.click({ force: true });
-	}
-}
-
-class ProjectWizardProjectNameLocationStep {
-	projectNameInput = this.code.driver.page.locator(
-		'div[id="wizard-sub-step-project-name"] .wizard-sub-step-input input.text-input'
-	);
-	projectOptionCheckboxes = this.code.driver.page.locator(
-		'div[id="wizard-sub-step-misc-proj-options"] div.checkbox'
-	);
-	gitInitCheckbox = this.projectOptionCheckboxes.getByText(
-		'Initialize project as Git repository'
-	);
-
-	constructor(private code: Code) { }
-
-	async appendToProjectName(text: string) {
-		await this.projectNameInput.waitFor();
-		await this.projectNameInput.page().keyboard.type(text);
-	}
-}
-
-class ProjectWizardRConfigurationStep {
-	renvCheckbox = this.code.driver.page.locator(
-		'div.renv-configuration > div.checkbox'
-	);
-
-	constructor(private code: Code) { }
-}
 
 class ProjectWizardPythonConfigurationStep {
 	existingEnvRadioButton = this.code.driver.page.locator(
@@ -194,6 +165,7 @@ class ProjectWizardPythonConfigurationStep {
 					)
 					.getByText(provider)
 					.count()) === 1;
+			console.log('! preselcted', preselected);
 			if (preselected) {
 				return;
 			}
@@ -232,6 +204,7 @@ class ProjectWizardPythonConfigurationStep {
 	 * @returns A promise that resolves once the interpreter is selected, or rejects if the interpreter is not found.
 	 */
 	async selectInterpreterByPath(interpreterPath: string) {
+		console.log('path', interpreterPath);
 		await this.waitForDataLoading();
 
 		try {
@@ -302,4 +275,12 @@ class CurrentOrNewWindowSelectionModal {
 		.getByText('Current Window');
 
 	constructor(private code: Code) { }
+}
+
+export interface CreateProjectOptions {
+	type: ProjectType;
+	title: string;
+	rEnvCheckbox?: boolean;
+	pythonEnv?: 'Conda' | 'Venv' | 'Existing';
+	initAsGitRepo?: boolean;
 }

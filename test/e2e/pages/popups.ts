@@ -145,6 +145,6 @@ export class Popups {
 		await expect(async () => {
 			const textContent = await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_TITLE).textContent();
 			expect(textContent).toContain(title);
-		}).toPass({ timeout: 30000 });
+		}).toPass({ timeout: 10000 });
 	}
 }

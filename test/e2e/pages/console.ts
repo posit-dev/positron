@@ -108,10 +108,14 @@ export class Console {
 		contents.forEach(line => this.code.logger.log(line));
 	}
 
-	async typeToConsole(text: string, delay = 30) {
+	async typeToConsole(text: string, delay = 30, pressEnter = false) {
 		await this.code.driver.page.waitForTimeout(500);
 		await this.activeConsole.click();
 		await this.code.driver.page.keyboard.type(text, { delay });
+
+		if (pressEnter) {
+			await this.code.driver.page.keyboard.press('Enter');
+		}
 	}
 
 	async sendEnterKey() {
