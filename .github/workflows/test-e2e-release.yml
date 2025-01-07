@@ -17,6 +17,8 @@ on:
           - failure
           - always
           - never
+  push:
+    branches: ['cmead/no-build-poitron-for-nightly-release-test']
 
 permissions:
   id-token: write
@@ -33,19 +35,27 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Install Build Dependencies
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            vim curl build-essential clang make cmake git \
-            libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb \
-            libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev \
-            libsdl-pango-dev libjpeg-dev libgif-dev pandoc
+      #- name: Install Build Dependencies
+      #  shell: bash
+      #  run: |
+      #    sudo apt-get update
+      #    sudo apt-get install -y \
+      #      vim curl build-essential clang make cmake git \
+      #      libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb \
+      #      libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev \
+      #      libsdl-pango-dev libjpeg-dev libgif-dev pandoc
 
       - name: Compile tests
         run: |
-          npm install
+          mkdir -p node_modules/typescript/bin
+          npm install -g typescript
+          TSC_PATH=$(which tsc)
+          ln -s "$TSC_PATH" node_modules/typescript/bin/tsc
+
+          cd test/e2e
+          npx playwright install
+          cd ../..
+
           npm --prefix test/e2e install
           npm --prefix test/e2e run compile
 
