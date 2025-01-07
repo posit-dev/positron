@@ -130,6 +130,10 @@ export class TestRuntimeSessionManager implements ILanguageRuntimeSessionManager
 		return metadata;
 	}
 
+	async validateSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionId: string): Promise<boolean> {
+		return true;
+	}
+
 	setValidateMetadata(handler: (metadata: ILanguageRuntimeMetadata) => Promise<ILanguageRuntimeMetadata>): void {
 		this._validateMetadata = handler;
 	}

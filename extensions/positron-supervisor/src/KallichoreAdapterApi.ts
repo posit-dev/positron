@@ -242,8 +242,8 @@ export class KCApi implements KallichoreAdapterApi {
 
 		// Check to see if session persistence is enabled; if it is, we want to run the
 		// server with nohup so it doesn't die when the terminal is closed.
-		const persistSessions = config.get<string>('persistSessions', 'none');
-		if (persistSessions !== 'none') {
+		const shutdownTimeout = config.get<string>('shutdownTimeout', 'immediately');
+		if (shutdownTimeout !== 'immediately') {
 			const kernelWrapper = wrapperPath;
 			if (os.platform() === 'win32') {
 				// Use start /b on Windows to run the server in the background
@@ -275,7 +275,7 @@ export class KCApi implements KallichoreAdapterApi {
 		// they are still running when the user reconnects to the remote host,
 		// but we don't want them to run forever (unless the user wants to and
 		// understands the implications).
-		if (persistSessions === 'none') {
+		if (shutdownTimeout === 'immediately') {
 			// In desktop mode, when not persisting sessions, set the idle
 			// timeout to 1 hour. This is a defensive move since we generally
 			// expect the server to exit when the enclosing terminal closes;
@@ -288,17 +288,17 @@ export class KCApi implements KallichoreAdapterApi {
 			// In web mode, we do not set an idle timeout at all by default,
 			// since it is normal for the front end to be disconnected for long
 			// periods of time.
-		} else if (persistSessions !== 'indefinitely') {
+		} else if (shutdownTimeout !== 'indefinitely') {
 			// All other values of this setting are numbers that we can pass
 			// directly to the supervisor.
 			try {
 				// Attempt to parse the value as an integer
-				const hours = parseInt(persistSessions, 10);
+				const hours = parseInt(shutdownTimeout, 10);
 				shellArgs.push('--idle-shutdown-hours', hours.toString());
 			} catch (err) {
 				// Should never happen since we provide all the values, but log
 				// it if it does.
-				this._log.appendLine(`Invalid hour value for kernelSupervisor.persistSessions: '${persistSessions}'; persisting sessions indefinitely`);
+				this._log.appendLine(`Invalid hour value for kernelSupervisor.shutdownTimeout: '${shutdownTimeout}'; persisting sessions indefinitely`);
 			}
 		}
 

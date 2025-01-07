@@ -64,11 +64,11 @@
           "default": "debug",
           "description": "%configuration.logLevel.description%"
         },
-        "kernelSupervisor.persistSessions": {
+        "kernelSupervisor.shutdownTimeout": {
           "scope": "window",
           "type": "string",
           "enum": [
-            "none",
+            "immediately",
             "4",
             "8",
             "12",
@@ -77,16 +77,16 @@
             "indefinitely"
           ],
           "enumDescriptions": [
-            "%configuration.persistSessions.none.description%",
-            "%configuration.persistSessions.4.description%",
-            "%configuration.persistSessions.8.description%",
-            "%configuration.persistSessions.12.description%",
-            "%configuration.persistSessions.24.description%",
-            "%configuration.persistSessions.168.description%",
-            "%configuration.persistSessions.indefinitely.description%"
+            "%configuration.shutdownTimeout.immediately.description%",
+            "%configuration.shutdownTimeout.4.description%",
+            "%configuration.shutdownTimeout.8.description%",
+            "%configuration.shutdownTimeout.12.description%",
+            "%configuration.shutdownTimeout.24.description%",
+            "%configuration.shutdownTimeout.168.description%",
+            "%configuration.shutdownTimeout.indefinitely.description%"
           ],
-          "default": "none",
-          "description": "%configuration.persistSessions.description%"
+          "default": "immediately",
+          "markdownDescription": "%configuration.shutdownTimeout.description%"
         },
         "kernelSupervisor.attachOnStartup": {
           "scope": "window",

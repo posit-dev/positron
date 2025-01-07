@@ -221,7 +221,7 @@ export async function makeMetadata(
 	// so that Positron will reattach after close.
 	const config = vscode.workspace.getConfiguration('kernelSupervisor');
 	const sessionLocation = config.get<boolean>('enable', true) &&
-		config.get<string>('persistSessions', 'none') !== 'none' ?
+		config.get<string>('shutdownTimeout', 'immediately') !== 'none' ?
 		positron.LanguageRuntimeSessionLocation.Machine : positron.LanguageRuntimeSessionLocation.Workspace;
 
 	const metadata: positron.LanguageRuntimeMetadata = {

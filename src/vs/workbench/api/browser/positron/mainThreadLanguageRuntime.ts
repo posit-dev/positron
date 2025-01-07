@@ -1349,7 +1349,7 @@ export class MainThreadLanguageRuntime
 	 * @param sessionId The session ID to validate
 	 */
 	async validateSession(metadata: ILanguageRuntimeMetadata, sessionId: string): Promise<boolean> {
-		return this._proxy.$validateLangaugeRuntimeSession(metadata, sessionId);
+		return this._proxy.$validateLanguageRuntimeSession(metadata, sessionId);
 	}
 
 	/**

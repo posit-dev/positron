@@ -698,7 +698,7 @@ class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 		// so that Positron will reattach after close.
 		const config = vscode.workspace.getConfiguration('kernelSupervisor');
 		this.sessionLocation = config.get<boolean>('enable', true) &&
-			config.get<string>('persistSessions', 'none') !== 'none' ?
+			config.get<string>('shutdownTimeout', 'immediately') !== 'immediately' ?
 			positron.LanguageRuntimeSessionLocation.Machine : positron.LanguageRuntimeSessionLocation.Workspace;
 
 	}

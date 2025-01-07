@@ -456,7 +456,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return false;
 		}
 
-		return sessionManager.validateSession(sessionId);
+		return sessionManager.validateSession(runtimeMetadata, sessionId);
 	}
 
 	/**
