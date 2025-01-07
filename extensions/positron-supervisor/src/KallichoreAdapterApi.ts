@@ -699,11 +699,30 @@ export class KCApi implements KallichoreAdapterApi {
 			return false;
 		}
 		try {
-			await this._api.getSession(sessionId);
-			// If we got here, the session exists
-			return true;
+			// Get the session status from the server
+			const session = await this._api.getSession(sessionId);
+
+			// The session is valid if it's in one of the running states (i.e.
+			// not 'never started' or 'exited').
+			//
+			// Consider: This creates an edge case for sessions that exit
+			// naturally before the idle shutdown timeout has expired. Those
+			// sessions will be considered invalid, so Positron will not
+			// reconnect to them and there will be no way to see any output
+			// they emitted between the time Positron was closed and the time
+			// the session exited.
+			const status = session.body.status;
+			return status !== Status.Exited && status !== Status.Uninitialized;
 		} catch (e) {
-			// Swallow errors; we're just checking to see if the session exists
+			// Swallow errors; we're just checking to see if the session is
+			// alive.
+			if (e instanceof HttpError && e.response.statusCode === 404) {
+				// This is the expected error if the session is not found
+				return false;
+			}
+
+			// Other errors are unexpected; log them and return false
+			this._log.appendLine(`Error validating session ${sessionId}: ${summarizeError(e)}`);
 		}
 
 		return false;
