@@ -35,9 +35,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-
       - name: Install Build Dependencies
         shell: bash
         run: |
@@ -103,6 +100,9 @@ jobs:
       - name: Transform to Playwright Tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh "e2e-electron" "${{ inputs.grep }}"
         shell: bash
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
 
       - name: Run Tests (Electron)
         if: ${{ !cancelled() }}
