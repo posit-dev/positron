@@ -139,7 +139,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "kallichore": "0.1.26"
+      "kallichore": "0.1.27"
     }
   },
   "dependencies": {
