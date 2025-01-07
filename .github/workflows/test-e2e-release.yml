@@ -45,30 +45,28 @@ jobs:
             libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev \
             libsdl-pango-dev libjpeg-dev libgif-dev pandoc
 
-      - name: Install playwright dependencies
+      - name: Install missing system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             libwoff1 \
-            libvpx6 \
+            libvpx7 \
             libevent-2.1-7 \
-            libgstallocators-1.0-0 \
-            libgstapp-1.0-0 \
-            libgstpbutils-1.0-0 \
-            libgstaudio-1.0-0 \
-            libgstgl-1.0-0 \
-            libgsttag-1.0-0 \
-            libgstvideo-1.0-0 \
-            libgstcodecparsers-1.0-0 \
-            libgstfft-1.0-0 \
+            gstreamer1.0-plugins-base \
+            gstreamer1.0-plugins-good \
+            gstreamer1.0-plugins-bad \
+            gstreamer1.0-plugins-ugly \
+            gstreamer1.0-libav \
+            gstreamer1.0-tools \
+            gstreamer1.0-gl \
+            gstreamer1.0-alsa \
+            gstreamer1.0-pulseaudio \
             libflite1 \
-            libflite-dev \
+            libgles2-mesa \
             libavif13 \
             libhyphen0 \
-            libmanette-0.2-0 \
-            libgles2-mesa \
-            libx264-160
-
+            libx264
+    
       - name: Compile tests
         run: |
           rm package.json
