@@ -244,6 +244,17 @@ jobs:
         with:
           path: ${{ env.special-working-directory-relative }}
 
+      - name: Checkout Python Environment Tools
+        uses: actions/checkout@v4
+        with:
+          repository: 'microsoft/python-environment-tools'
+          path: ${{ env.special-working-directory-relative }}/python-env-tools
+          sparse-checkout: |
+            crates
+            Cargo.toml
+            Cargo.lock
+          sparse-checkout-cone-mode: false
+
       - name: Install Node ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v3
         with:
@@ -268,6 +279,13 @@ jobs:
 
       - name: Install test requirements
         run: python -m pip install --upgrade -r ./build/test-requirements.txt
+
+      - name: Rust Tool Chain setup
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Native Binaries
+        run: nox --session native_build
+        shell: bash
 
       - name: Install functional test requirements
         run: python -m pip install --upgrade -r ./build/functional-test-requirements.txt

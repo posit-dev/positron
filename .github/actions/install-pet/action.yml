@@ -1,0 +1,27 @@
+name: "Setup Python Environment Tools"
+description: "Install and build microsoft/python-environment-tools"
+
+defaults:
+ run:
+  working-directory: 'extensions/positron-python'
+
+runs:
+  using: "composite"
+  steps:
+      - name: Checkout Python Environment Tools
+        uses: actions/checkout@v4
+        with:
+          repository: 'microsoft/python-environment-tools'
+          path: 'python-env-tools'
+          sparse-checkout: |
+            crates
+            Cargo.toml
+            Cargo.lock
+          sparse-checkout-cone-mode: false
+
+      - name: Rust Tool Chain setup
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Native Binaries
+        run: nox --session native_build
+        shell: bash
