@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
 import { Application } from '../../infra';
 import { test, expect, tags } from '../_test.setup';
 

@@ -13,7 +13,6 @@ import { PlaywrightDriver } from './playwrightDriver';
 import { launch as launchPlaywrightElectron } from './playwrightElectron';
 import { teardown } from './processes';
 
-
 export interface LaunchOptions {
 	codePath?: string;
 	readonly workspacePath: string;
