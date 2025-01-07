@@ -17,16 +17,15 @@ This document provides guidelines and setup instructions for effectively running
 
 ### Test Code Location
 
-- `test/e2e/tests`
+All Positron end-to-end (E2E) test code resides in the `test/e2e` directory. For each area under test, there is typically a corresponding Page Object Model (POM) class to assist with locating and interacting with page elements.
 
-For instance, the e2e tests for the help pane are at `test/e2e/tests/help/help.test.ts`
-
-### Test Helpers Location
-
-- General helpers dir: `test/automation/src`
-- Positron helpers dir: `test/automation/src/positron`
-
-For each area under test, there is typically a companion class that assists with locating and interacting with elements (similar to POM pattern). For instance, the e2e tests for the help pane are at `test/e2e/tests/help/help.test.ts`
+```plaintext
+test/
+└── e2e/
+    ├── infra/   <-- contains the driver, browser, electron, test runner, etc. files
+    ├── pages/   <-- contains all the Positron POMs
+    └── tests/   <-- contains all the tests, organized by area
+```
 
 ### Test Template
 
@@ -97,10 +96,9 @@ Several tests use [QA Content Examples](https://github.com/posit-dev/qa-example-
 
 ### Install
 
-Before compiling the tests, make sure to install dependencies in the following directories:
+Before compiling the tests, make sure to install dependencies:
 
 ```bash
-npm --prefix test/automation install
 npm --prefix test/e2e install
 ```
 
