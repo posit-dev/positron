@@ -52,11 +52,12 @@ jobs:
           TSC_PATH=$(which tsc)
           ln -s "$TSC_PATH" node_modules/typescript/bin/tsc
 
-          cp playwright.config.ts test/e2e/playwright.config.ts
-          cd test/e2e
           npm install @playwright/test@^1.49.0
           npx playwright install
+          npm install @currents/playwright@^1.8.0
+          npm install @midleman/github-actions-reporter@^1.9.5
 
+          cd test/e2e
           npm install
           npm run compile
           cd ../..
@@ -109,9 +110,7 @@ jobs:
         id: electron-e2e-tests
         run: |
           export DISPLAY=:10
-          cd test/e2e
           BUILD=/usr/share/positron npx playwright test --project e2e-electron --workers 2 --grep "${{ env.PW_TAGS }}"
-          cd ../..
 
       - name: Upload Playwright Report to S3
         if: ${{ !cancelled() }}
