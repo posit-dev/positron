@@ -1275,22 +1275,22 @@ export class DataExplorerRpcHandler {
 
 		const fileExt = path.extname(filePath);
 
-		if (fileExt === '.parquet' || fileExt === '.parq') {
-			// Always create a view for Parquet files
-			const query = `CREATE VIEW ${catalogName} AS
-			SELECT * FROM parquet_scan('${filePath}');`;
-			await this.db.runQuery(query);
-		} else {
-			// Read the entire contents and register it as a temp file
-			// to avoid file handle caching in duckdb-wasm
-			const fileContents = fs.readFileSync(filePath, { encoding: null });
-			const virtualPath = path.basename(filePath);
-			await this.db.db.registerFileBuffer(virtualPath, fileContents);
-			try {
+		// Read the entire contents and register it as a temp file
+		// to avoid file handle caching in duckdb-wasm
+		const fileContents = fs.readFileSync(filePath, { encoding: null });
+		const virtualPath = path.basename(filePath);
+		await this.db.db.registerFileBuffer(virtualPath, fileContents);
+		try {
+			if (fileExt === '.parquet' || fileExt === '.parq') {
+				// Always create a view for Parquet files
+				const query = `CREATE OR REPLACE TABLE ${catalogName} AS
+				SELECT * FROM parquet_scan('${virtualPath}');`;
+				await this.db.runQuery(query);
+			} else {
 				await importDelimited(virtualPath);
-			} finally {
-				await this.db.db.dropFile(virtualPath);
 			}
+		} finally {
+			await this.db.db.dropFile(virtualPath);
 		}
 	}
 
