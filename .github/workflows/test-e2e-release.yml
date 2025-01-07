@@ -45,6 +45,30 @@ jobs:
             libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev \
             libsdl-pango-dev libjpeg-dev libgif-dev pandoc
 
+      - name: Install playwright dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwoff1 \
+            libvpx6 \
+            libevent-2.1-7 \
+            libgstallocators-1.0-0 \
+            libgstapp-1.0-0 \
+            libgstpbutils-1.0-0 \
+            libgstaudio-1.0-0 \
+            libgstgl-1.0-0 \
+            libgsttag-1.0-0 \
+            libgstvideo-1.0-0 \
+            libgstcodecparsers-1.0-0 \
+            libgstfft-1.0-0 \
+            libflite1 \
+            libflite-dev \
+            libavif13 \
+            libhyphen0 \
+            libmanette-0.2-0 \
+            libgles2-mesa \
+            libx264-160
+
       - name: Compile tests
         run: |
           rm package.json
