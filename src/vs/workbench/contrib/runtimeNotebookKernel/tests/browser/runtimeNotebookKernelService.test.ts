@@ -472,6 +472,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 
 		// Exit the session after the execution started but before the interrupt.
 		await session.shutdown(RuntimeExitReason.Shutdown);
+		await waitForRuntimeState(session, RuntimeState.Exited);
 
 		// Interrupt and wait for the execution to end (it should actually end!).
 		await kernel.cancelNotebookCellExecution(notebookDocument.uri, [0]);
