@@ -56,7 +56,7 @@ export class NewProjectWizard {
 		this.currentOrNewWindowSelectionModal = new CurrentOrNewWindowSelectionModal(this.code);
 	}
 
-	async createNewProject({ type, title, rEnvCheckbox, pythonEnv, initAsGitRepo }: CreateProjectOptions) {
+	async createNewProject({ type, title, rEnvCheckbox, pythonEnv, initAsGitRepo, ipykernelFeedbackExpected }: CreateProjectOptions) {
 		await this.quickaccess.runCommand(
 			'positron.workbench.action.newProject',
 			{ keepOpen: false }
@@ -64,7 +64,7 @@ export class NewProjectWizard {
 
 		await this.setProjectType(type);
 		await this.setProjectNameLocation(title, initAsGitRepo);
-		await this.setProjectConfiguration(type, rEnvCheckbox, pythonEnv);
+		await this.setProjectConfiguration(type, rEnvCheckbox, pythonEnv, ipykernelFeedbackExpected);
 
 		await this.code.driver.page.getByRole('button', { name: 'Current Window' }).click();
 		await expect(this.code.driver.page.locator('.simple-title-bar').filter({ hasText: 'Create New Project' })).not.toBeVisible();
@@ -84,7 +84,7 @@ export class NewProjectWizard {
 		await this.clickWizardButton(WizardButton.NEXT);
 	}
 
-	async setProjectConfiguration(projectType: ProjectType, rEnvCheckbox = false, pythonEnv: 'Conda' | 'Venv' | 'Existing' = 'Venv') {
+	async setProjectConfiguration(projectType: ProjectType, rEnvCheckbox = false, pythonEnv: 'Conda' | 'Venv' | 'Existing' = 'Venv', ipyKernelFeedbackExpected = false) {
 		if (projectType === ProjectType.R_PROJECT && rEnvCheckbox) {
 			await this.code.driver.page.getByText('Use `renv` to create a').click();
 		} else if (projectType === ProjectType.PYTHON_PROJECT && pythonEnv === 'Conda') {
@@ -92,6 +92,12 @@ export class NewProjectWizard {
 			// await this.pythonConfigurationStep.selectInterpreterByPath('C:\\Users\\user\\.conda\\envs\\base\\python.exe');
 		} else if (projectType === ProjectType.PYTHON_PROJECT && pythonEnv === 'Existing') {
 			await this.pythonConfigurationStep.existingEnvRadioButton.click();
+			if (ipyKernelFeedbackExpected) {
+				await expect(this.code.driver.page.getByText('ipykernel will be installed')).toBeVisible();
+			}
+			else {
+				await expect(this.code.driver.page.getByText('ipykernel will be installed')).not.toBeVisible();
+			}
 		}
 		await this.clickWizardButton(WizardButton.CREATE);
 	}
@@ -282,4 +288,5 @@ export interface CreateProjectOptions {
 	rEnvCheckbox?: boolean;
 	pythonEnv?: 'Conda' | 'Venv' | 'Existing';
 	initAsGitRepo?: boolean;
+	ipykernelFeedbackExpected?: boolean;
 }

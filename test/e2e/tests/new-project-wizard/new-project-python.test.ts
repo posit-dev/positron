@@ -13,13 +13,28 @@ test.use({
 // Not running conda test on windows because conda reeks havoc on selecting the correct python interpreter
 test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () => {
 
-	// This test relies on conda already being installed on the machine
+	test('Default Python Project with git init [C674522]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
+		const projectTitle = addRandomNumSuffix('git-init');
+
+		await createNewProject(app, {
+			type: ProjectType.PYTHON_PROJECT,
+			title: projectTitle,
+			initAsGitRepo: true,
+			pythonEnv: 'Venv',
+		});
+
+		await verifyProjectCreation(app, projectTitle);
+		await verifyGitFilesArePresent(app);
+		await verifyVenEnvStarts(app);
+		await verifyGitStatus(app);
+	});
+
 	test('Create a new Conda environment [C628628]', async function ({ app }) {
 		const projectTitle = addRandomNumSuffix('conda-installed');
 		await createNewProject(app, {
 			type: ProjectType.PYTHON_PROJECT,
 			title: projectTitle,
-			pythonEnv: 'Conda',
+			pythonEnv: 'Conda', // test relies on conda already installed on machine
 		});
 
 		await verifyProjectCreation(app, projectTitle);
@@ -40,6 +55,23 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await verifyVenEnvStarts(app);
 	});
 
+	test('With ipykernel not already installed [C609617]', {
+		tag: [tags.WIN],
+	}, async function ({ app, python, packages }) {
+		const projectTitle = addRandomNumSuffix('no-ipykernel');
+
+		await packages.manage('ipykernel', 'uninstall');
+		await createNewProject(app, {
+			type: ProjectType.PYTHON_PROJECT,
+			title: projectTitle,
+			pythonEnv: 'Existing',
+			ipykernelFeedbackExpected: true,
+		});
+
+		await verifyProjectCreation(app, projectTitle);
+		await verifyIpykernelInstalled(app);
+	});
+
 	test('With ipykernel already installed [C609619]', {
 		tag: [tags.WIN],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5730' }],
@@ -51,40 +83,10 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 			type: ProjectType.PYTHON_PROJECT,
 			title: projectTitle,
 			pythonEnv: 'Existing',
+			ipykernelFeedbackExpected: false,
 		});
 
 		await verifyProjectCreation(app, projectTitle);
-	});
-
-	test('With ipykernel not already installed [C609617]', {
-		tag: [tags.WIN],
-	}, async function ({ app, python, packages }) {
-		const projectTitle = addRandomNumSuffix('no-ipykernel');
-
-		await packages.manage('ipykernel', 'uninstall');
-		await createNewProject(app, {
-			type: ProjectType.PYTHON_PROJECT,
-			title: projectTitle,
-			pythonEnv: 'Existing',
-		});
-
-		await verifyProjectCreation(app, projectTitle);
-		await verifyIpykernelInstalled(app);
-	});
-
-	test('Default Python Project with git init [C674522]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
-		const projectTitle = addRandomNumSuffix('git-init');
-
-		await createNewProject(app, {
-			type: ProjectType.PYTHON_PROJECT,
-			title: projectTitle,
-			initAsGitRepo: true,
-		});
-
-		await verifyProjectCreation(app, projectTitle);
-		await verifyGitFilesArePresent(app);
-		await verifyVenEnvStarts(app);
-		await verifyGitStatus(app);
 	});
 });
 
@@ -95,13 +97,7 @@ function addRandomNumSuffix(name: string): string {
 
 async function createNewProject(app: Application, options: CreateProjectOptions) {
 	await test.step(`Create a new project: ${options.title}`, async () => {
-		await app.workbench.newProjectWizard.createNewProject({
-			type: ProjectType.PYTHON_PROJECT,
-			title: options.title,
-			pythonEnv: options.pythonEnv,
-			initAsGitRepo: options.initAsGitRepo,
-			rEnvCheckbox: options.rEnvCheckbox,
-		});
+		await app.workbench.newProjectWizard.createNewProject(options);
 	});
 }
 

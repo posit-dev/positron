@@ -8,11 +8,6 @@ import { Application } from '../../infra';
 
 type PackageAction = 'install' | 'uninstall';
 
-interface Package {
-	name: string;
-	type: 'Python' | 'R';
-}
-
 const Packages = [
 	{ name: 'ipykernel', type: 'Python' },
 	{ name: 'renv', type: 'R' }
@@ -33,12 +28,13 @@ export class PackageManager {
 	 * @param action The action to perform ('install' or 'uninstall').
 	 */
 	async manage(packageName: PackageName, action: PackageAction): Promise<void> {
-		const packageInfo = this.getPackageInfo(packageName);
+		const packageInfo = Packages.find(pkg => pkg.name === packageName);
 		if (!packageInfo) {
-			throw new Error(`Invalid package name: ${packageName}`);
+			throw new Error(`Package ${packageName} not found`);
 		}
 
 		await test.step(`${action}: ${packageName}`, async () => {
+
 			const command = this.getCommand(packageInfo.type, packageName, action);
 			const expectedOutput = this.getExpectedOutput(packageName, action);
 			const prompt = packageInfo.type === 'Python' ? '>>> ' : '> ';
@@ -46,15 +42,6 @@ export class PackageManager {
 			await this.app.workbench.console.executeCode(packageInfo.type, command, prompt);
 			await this.app.workbench.console.waitForConsoleContents(expectedOutput);
 		});
-	}
-
-	/**
-	 * Returns the corresponding package info.
-	 * @param packageName The name of the package.
-	 * @returns The package info (name and type) if valid, otherwise undefined.
-	 */
-	private getPackageInfo(packageName: PackageName): Package | undefined {
-		return Packages.find(pkg => pkg.name === packageName);
 	}
 
 	/**
