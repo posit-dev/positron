@@ -13,7 +13,7 @@ import { currentsReporter } from '@currents/playwright';
  */
 export default defineConfig<CustomTestOptions>({
 	globalSetup: './test/e2e/tests/_global.setup.ts',
-	testDir: './test/e2e/tests/connections',
+	testDir: './test/e2e',
 	testIgnore: '**/example.test.ts',
 	testMatch: '*.test.ts',
 	fullyParallel: false, // Run individual tests w/in a spec in parallel
