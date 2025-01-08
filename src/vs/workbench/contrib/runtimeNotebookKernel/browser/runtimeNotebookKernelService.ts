@@ -37,6 +37,9 @@ enum NotebookKernelAffinity {
 	Preferred = 2
 }
 
+/**
+ * The service responsible for managing {@link RuntimeNotebookKernel}s.
+ */
 export class RuntimeNotebookKernelService extends Disposable implements IRuntimeNotebookKernelService {
 	/** Map of runtime notebook kernels keyed by kernel ID. */
 	private readonly _kernels = new Map<string, RuntimeNotebookKernel>();
@@ -56,8 +59,6 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	) {
 		super();
 
-		// NOTE: These two instances could be services but we'll keep them here for now.
-
 		// Create the notebook execution status bar entry.
 		this._register(this._instantiationService.createInstance(NotebookExecutionStatus));
 
@@ -65,7 +66,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		this._register(this._instantiationService.createInstance(ActiveNotebookHasRunningRuntimeManager));
 
 		// If runtime notebook kernels are disabled, do not proceed.
-		// In that case, the positron-notebook-controllers extension's kernels will be used.
+		// In that case, the positron-notebook-controllers extension will register its own kernels.
 		if (!isRuntimeNotebookKernelEnabled(this._configurationService)) {
 			return;
 		}
@@ -80,8 +81,10 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			this.createRuntimeNotebookKernel(runtime);
 		}
 
-		// When a known kernel is selected for a notebook, select the corresponding runtime for the notebook.
+		// When a known kernel is selected for a notebook, select the corresponding runtime.
 		this._register(this._notebookKernelService.onDidChangeSelectedNotebooks(async e => {
+			// Get the old/new kernel from the map.
+			// These will be undefined if the user switched from/to an unknown kernel.
 			const oldKernel = e.oldKernel && this._kernels.get(e.oldKernel);
 			const newKernel = e.newKernel && this._kernels.get(e.newKernel);
 			if (newKernel) {
@@ -90,9 +93,12 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 				this.updateNotebookLanguage(e.notebook, newKernel.runtime.languageId);
 
 				// Select the corresponding runtime for the notebook.
-				await newKernel.selectRuntime(e.notebook, `Runtime kernel ${newKernel.id} selected for notebook`);
+				await newKernel.selectRuntime(
+					e.notebook,
+					`Runtime kernel ${newKernel.id} selected for notebook`,
+				);
 			} else if (oldKernel && !newKernel) {
-				// The user switched from a known kernel to an unknown kernel, shutdown the existing runtime.
+				// The user switched from a known kernel to an unknown kernel, shutdown the old kernel's runtime.
 				this._runtimeSessionService.shutdownNotebookSession(
 					e.notebook,
 					RuntimeExitReason.Shutdown,
@@ -101,7 +107,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			}
 		}));
 
-		// When a notebook is added, update its kernel affinity.
+		// When a notebook is added, update its kernel affinity for kernel auto-selection.
 		this._register(this._notebookService.onWillAddNotebookDocument(async notebook => {
 			await this.updateKernelNotebookAffinity(notebook);
 		}));
@@ -122,7 +128,8 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		}));
 
 		// Register kernel source action providers. This is how we customize the
-		// kernel selection quickpick. Each command must return a valid runtime ID.
+		// kernel selection quickpick. Each command must return a valid runtime ID
+		// (since kernel IDs have the format `${extension}/{runtimeId}`).
 		this._register(this._notebookKernelService.registerKernelSourceActionProvider(IPYNB_VIEW_TYPE, {
 			viewType: IPYNB_VIEW_TYPE,
 			async provideKernelSourceActions() {
@@ -165,17 +172,24 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	 * @param runtime The language runtime to create a notebook kernel for.
 	 */
 	private createRuntimeNotebookKernel(runtime: ILanguageRuntimeMetadata): void {
-		// TODO: Dispose the kernel when the runtime is disposed/unregistered?
+		// Create the kernel instance.
 		const kernel = this._register(this._instantiationService.createInstance(RuntimeNotebookKernel, runtime));
 
-		// TODO: Error if a kernel is already registered for the ID.
+		// Warn if a kernel with the same ID already exists; that shouldn't happen.
+		if (this._kernels.has(kernel.id)) {
+			this._logService.warn(`Kernel with ID ${kernel.id} already exists, overwriting existing kernel`);
+		}
+
+		// Register the kernel with this service.
 		this._kernels.set(kernel.id, kernel);
 		this._kernelsByRuntimeId.set(runtime.runtimeId, kernel);
+
+		// Register the kernel with the notebook kernel service.
 		this._register(this._notebookKernelService.registerKernel(kernel));
 	}
 
 	/**
-	 * Update the language of a notebook's metadata and cells.
+	 * Update the language in a notebook's metadata and cells.
 	 *
 	 * @param notebookUri URI of the notebook to update.
 	 * @param languageId The language ID.
@@ -183,7 +197,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	private updateNotebookLanguage(notebookUri: URI, languageId: string): void {
 		const notebook = this._notebookService.getNotebookTextModel(notebookUri);
 		if (!notebook) {
-			throw new Error(`No notebook document for '${notebookUri.toString()}'`);
+			throw new Error(`No notebook document for '${notebookUri.fsPath}'`);
 		}
 
 		// Create the edit operation to update the notebook metadata.
@@ -269,7 +283,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			preferredRuntime = this._runtimeStartupService.getPreferredRuntime(languageId);
 		} catch (err) {
 			// It may error if there are no registered runtimes for the language, so log and return.
-			this._logService.debug(`Failed to get preferred runtime for language ${languageId}: ${err}`);
+			this._logService.debug(`Failed to get preferred runtime for language ${languageId}. Reason: ${err.toString()}`);
 			return;
 		}
 		const preferredKernel = this._kernelsByRuntimeId.get(preferredRuntime.runtimeId);
