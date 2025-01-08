@@ -12,17 +12,14 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeStartupService, RuntimeStartupPhase } from './runtimeStartupService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeStartupService } from './runtimeStartupService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
-import { Event } from '../../../../base/common/event.js';
-import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { ILifecycleService, ShutdownReason } from '../../lifecycle/common/lifecycle.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { IPositronNewProjectService } from '../../positronNewProject/common/positronNewProject.js';
@@ -84,17 +81,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// (metadata.languageId) of the runtime.
 	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 
-	// The current startup phase; an observeable value.
-	private _startupPhase: ISettableObservable<RuntimeStartupPhase>;
+	// The current startup phase an observeable value.
+	private _startupPhase: RuntimeStartupPhase;
 
 	// Whether we are shutting down
 	private _shuttingDown = false;
 
-	onDidChangeRuntimeStartupPhase: Event<RuntimeStartupPhase>;
-
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@ICommandService commandService: ICommandService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
@@ -118,13 +112,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._languageRuntimeService.onDidRegisterRuntime(
 				this.onDidRegisterRuntime, this));
 
-		this._startupPhase = observableValue(
-			'runtime-startup-phase', RuntimeStartupPhase.Initializing);
-		this.onDidChangeRuntimeStartupPhase = Event.fromObservable(this._startupPhase);
+		// Register the startup phase event handler.
+		this._startupPhase = _languageRuntimeService.startupPhase;
+		this._register(
+			this._languageRuntimeService.onDidChangeRuntimeStartupPhase(
+				(phase) => {
+					this._logService.debug(`[Runtime startup] Phase changed to '${phase}'`);
+					this._startupPhase = phase;
+				}));
 
-		this._register(this.onDidChangeRuntimeStartupPhase(phase => {
-			this._logService.debug(`[Runtime startup] Phase changed to '${phase}'`);
-		}));
 
 		this._register(this._runtimeSessionService.onWillStartSession(e => {
 			this._register(e.session.onDidEncounterStartupFailure(_exit => {
@@ -164,7 +160,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// When the discovery phase is complete, check to see if we need to
 		// auto-start a runtime.
-		this._register(this.onDidChangeRuntimeStartupPhase(phase => {
+		this._register(this._languageRuntimeService.onDidChangeRuntimeStartupPhase(phase => {
 			if (phase === RuntimeStartupPhase.Complete) {
 				// if no runtimes were found, notify the user about the problem
 				if (this._languageRuntimeService.registeredRuntimes.length === 0) {
@@ -203,7 +199,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// - We have completed the discovery phase of the language runtime
 			//   registration process.
 			if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate &&
-				this.startupPhase === RuntimeStartupPhase.Complete &&
+				this._startupPhase === RuntimeStartupPhase.Complete &&
 				!this._runtimeSessionService.hasStartingOrRunningConsole()) {
 
 				this._runtimeSessionService.autoStartRuntime(runtime,
@@ -219,7 +215,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// - There's no runtime affiliated with the current workspace for this
 			//   language (if there is, we want that runtime to start, not this one)
 			else if (this._encounteredLanguagesByLanguageId.has(runtime.languageId) &&
-				this.startupPhase === RuntimeStartupPhase.Complete &&
+				this._startupPhase === RuntimeStartupPhase.Complete &&
 				!this._runtimeSessionService.hasStartingOrRunningConsole(runtime.languageId) &&
 				runtime.startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
 				!this.getAffiliatedRuntimeMetadata(runtime.languageId)) {
@@ -240,14 +236,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			} else {
 				// If we are not in a trusted workspace, wait for the workspace to become
 				// trusted before starting the startup sequence.
-				this._startupPhase.set(RuntimeStartupPhase.AwaitingTrust, undefined);
+				this.setStartupPhase(RuntimeStartupPhase.AwaitingTrust);
 				this._register(this._workspaceTrustManagementService.onDidChangeTrust((trusted) => {
 					if (!trusted) {
 						return;
 					}
 					// If the workspace becomse trusted while we are awaiting trust,
 					// move on to the startup sequence.
-					if (this.startupPhase === RuntimeStartupPhase.AwaitingTrust) {
+					if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust) {
 						this.startupSequence();
 					}
 				}));
@@ -274,12 +270,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// If we were awaiting trust, and we now have language packs, move on
 			// to the discovery phase if we haven't already and there are now registered
 			// language packs.
-			if (this.startupPhase === RuntimeStartupPhase.AwaitingTrust) {
+			if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust) {
 				if (this._languagePacks.size > 0) {
 					this.discoverAllRuntimes();
 				} else {
 					this._logService.debug(`[Runtime startup] No language packs were found.`);
-					this._startupPhase.set(RuntimeStartupPhase.Complete, undefined);
+					this.setStartupPhase(RuntimeStartupPhase.Complete);
 				}
 			}
 		});
@@ -303,6 +299,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				e.veto(this.clearWorkspaceSessions(), 'positron.runtimeStartup.clearWorkspaceSessions');
 			}
 		}));
+	}
+
+
+	/**
+	 * Convenience method for setting the startup phase.
+	 */
+	private setStartupPhase(phase: RuntimeStartupPhase): void {
+		this._startupPhase = phase;
+		this._languageRuntimeService.setStartupPhase(phase);
 	}
 
 	/**
@@ -337,18 +342,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
-	 * Returns the current startup phase.
-	 */
-	get startupPhase(): RuntimeStartupPhase {
-		return this._startupPhase.get();
-	}
-
-	/**
 	 * Completes the language runtime discovery phase. If no runtimes were
 	 * started or will be started, automatically start one.
 	 */
 	completeDiscovery(): void {
-		this._startupPhase.set(RuntimeStartupPhase.Complete, undefined);
+		this.setStartupPhase(RuntimeStartupPhase.Complete);
 	}
 
 	/**
@@ -406,7 +404,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// If we have no language packs yet, but were awaiting trust, we need to
 		// wait until the language packs are reloaded with the new trust
 		// settings before we can continue.
-		if (this.startupPhase === RuntimeStartupPhase.AwaitingTrust &&
+		if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust &&
 			this._languagePacks.size === 0) {
 
 			// Wait up to 5 seconds for the language packs to be reloaded;
@@ -416,8 +414,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// work to do; mark as complete so we don't hang in the
 			// AwaitingTrust phase forever.
 			setTimeout(() => {
-				if (this.startupPhase === RuntimeStartupPhase.AwaitingTrust) {
-					this._startupPhase.set(RuntimeStartupPhase.Complete, undefined);
+				if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust) {
+					this.setStartupPhase(RuntimeStartupPhase.Complete);
 				}
 			}, 5000);
 			return;
@@ -432,7 +430,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Enter the discovery phase; this triggers us to ask each extension for its
 		// language runtime providers.
-		this._startupPhase.set(RuntimeStartupPhase.Discovering, undefined);
+		this.setStartupPhase(RuntimeStartupPhase.Discovering);
 	}
 
 	/**
@@ -445,7 +443,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private onDidRegisterRuntime(metadata: ILanguageRuntimeMetadata): void {
 
 		// Ignore if we're not in the discovery phase.
-		if (this.startupPhase !== RuntimeStartupPhase.Discovering) {
+		if (this._startupPhase !== RuntimeStartupPhase.Discovering) {
 			return;
 		}
 
@@ -605,7 +603,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * Starts all affiliated runtimes for the workspace.
 	 */
 	private async startAffiliatedLanguageRuntimes(): Promise<void> {
-		this._startupPhase.set(RuntimeStartupPhase.Starting, undefined);
+		this.setStartupPhase(RuntimeStartupPhase.Starting);
 		const languageIds = this.getAffiliatedRuntimeLanguageIds();
 		if (languageIds) {
 			// Activate all the extensions that provide language runtimes for the
@@ -764,10 +762,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * @param sessions The set of sessions to restore.
 	 */
 	private async restoreWorkspaceSessions(sessions: SerializedSessionMetadata[]) {
-		this._startupPhase.set(RuntimeStartupPhase.Reconnecting, undefined);
+		this.setStartupPhase(RuntimeStartupPhase.Reconnecting);
 
 		// Activate any extensions needed for the sessions that are persistent on the machine.
-		let activatedExtensions: Array<ExtensionIdentifier> = [];
+		const activatedExtensions: Array<ExtensionIdentifier> = [];
 		await Promise.all(sessions.filter(async session =>
 			session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Machine
 		).map(async session => {
@@ -918,7 +916,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Ignore if we are still starting up; if a runtime crashes or exits
 		// during startup, we'll usually try to start a better one instead of
 		// booting to a broken REPL.
-		if (this.startupPhase !== RuntimeStartupPhase.Complete) {
+		if (this._startupPhase !== RuntimeStartupPhase.Complete) {
 			return;
 		}
 

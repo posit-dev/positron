@@ -36,10 +36,10 @@ import { ActivityItem, RuntimeItemActivity } from './classes/runtimeItemActivity
 import { ActivityItemInput, ActivityItemInputState } from './classes/activityItemInput.js';
 import { ActivityItemErrorStream, ActivityItemOutputStream } from './classes/activityItemStream.js';
 import { ILanguageRuntimeCodeExecutedEvent, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeStartupPhase, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
-import { IRuntimeStartupService, RuntimeStartupPhase } from '../../runtimeStartup/common/runtimeStartupService.js';
+import { IRuntimeStartupService } from '../../runtimeStartup/common/runtimeStartupService.js';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -185,6 +185,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@ILogService private readonly _logService: ILogService,
 		@IViewsService private readonly _viewsService: IViewsService,
 	) {
@@ -256,13 +257,13 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				this._positronConsoleInstancesBySessionId.set(e.session.sessionId, positronConsoleInstance);
 			} else {
 				// Always activate if no other instance is active
-				let activate = !!this._activePositronConsoleInstance;
+				let activate = !this._activePositronConsoleInstance;
 
 				// We can also activate if runtime startup is complete
 				// (i.e. autostartup is finished, so this is a manually
 				// started runtime)
 				if (!activate) {
-					activate = this._runtimeStartupService.startupPhase === RuntimeStartupPhase.Complete;
+					activate = this._languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete;
 				}
 
 				// New runtime with a new language, so start a new Positron console instance.

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -14,7 +14,7 @@ import { localize } from '../../../../../nls.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { RuntimeStartupPhase } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService';
 
 // Load localized copy for control.
 const initalizing = localize('positron.console.initializing', "Starting up");
@@ -41,7 +41,7 @@ export const StartupStatus = () => {
 	const [discovered, setDiscovered] =
 		useState(positronConsoleContext.languageRuntimeService.registeredRuntimes.length);
 	const [startupPhase, setStartupPhase] =
-		useState(positronConsoleContext.runtimeStartupService.startupPhase);
+		useState(positronConsoleContext.languageRuntimeService.startupPhase);
 
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
@@ -65,7 +65,7 @@ export const StartupStatus = () => {
 
 		// When the startup phase changes, update the phase.
 		disposableStore.add(
-			positronConsoleContext.runtimeStartupService.onDidChangeRuntimeStartupPhase(
+			positronConsoleContext.languageRuntimeService.onDidChangeRuntimeStartupPhase(
 				phase => {
 					setStartupPhase(phase);
 				}));
