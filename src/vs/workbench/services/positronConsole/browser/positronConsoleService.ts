@@ -39,7 +39,7 @@ import { ILanguageRuntimeCodeExecutedEvent, IPositronConsoleInstance, IPositronC
 import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
-import { IRuntimeStartupService } from '../../runtimeStartup/common/runtimeStartupService.js';
+import { IRuntimeStartupService, RuntimeStartupPhase } from '../../runtimeStartup/common/runtimeStartupService.js';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -191,21 +191,29 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Call the disposable constructor.
 		super();
 
-		// Start a Positron console instance for each running runtime.
+		// Start a Positron console instance for each running runtime. Only
+		// activate the first one.
+		let first = true;
 		this._runtimeSessionService.activeSessions.forEach(session => {
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-				this.startPositronConsoleInstance(session, SessionAttachMode.Connected);
+				// The instance should be activated if it is the foreground
+				// session.
+				let activate = false;
+				if (this._runtimeSessionService.foregroundSession &&
+					session.sessionId === this._runtimeSessionService.foregroundSession.sessionId) {
+					activate = true;
+				}
+
+				// The instance should also be activated if it is the first
+				// session and there is no designated foreground session.
+				if (first && !this._runtimeSessionService.foregroundSession) {
+					activate = true;
+				}
+
+				this.startPositronConsoleInstance(session, SessionAttachMode.Connected, activate);
+				first = false;
 			}
 		});
-
-		// Get the foreground session. If there is one, set the active Positron console instance.
-		if (this._runtimeSessionService.foregroundSession) {
-			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(
-				this._runtimeSessionService.foregroundSession.sessionId);
-			if (positronConsoleInstance) {
-				this.setActivePositronConsoleInstance(positronConsoleInstance);
-			}
-		}
 
 		// Register the onWillStartSessiopn event handler so we start a new
 		// Positron console instance before a runtime starts up.
@@ -247,8 +255,18 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				positronConsoleInstance.setRuntimeSession(e.session, attachMode);
 				this._positronConsoleInstancesBySessionId.set(e.session.sessionId, positronConsoleInstance);
 			} else {
+				// Always activate if no other instance is active
+				let activate = !!this._activePositronConsoleInstance;
+
+				// We can also activate if runtime startup is complete
+				// (i.e. autostartup is finished, so this is a manually
+				// started runtime)
+				if (!activate) {
+					activate = this._runtimeStartupService.startupPhase === RuntimeStartupPhase.Complete;
+				}
+
 				// New runtime with a new language, so start a new Positron console instance.
-				this.startPositronConsoleInstance(e.session, attachMode);
+				this.startPositronConsoleInstance(e.session, attachMode, activate);
 			}
 		}));
 
@@ -434,14 +452,15 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * Starts a Positron console instance for the specified runtime session.
 	 *
 	 * @param runtime The runtime for the new Positron console instance.
-	 * @param attachMode A value which indicates the mode in which to attach the
-	 * session.
+	 * @param attachMode A value which indicates the mode in which to attach the session.
+	 * @param activate Whether to activate the console instance immediately
 	 *
 	 * @returns The new Positron console instance.
 	 */
 	private startPositronConsoleInstance(
 		session: ILanguageRuntimeSession,
-		attachMode: SessionAttachMode
+		attachMode: SessionAttachMode,
+		activate: boolean
 	): IPositronConsoleInstance {
 		// Create the new Positron console instance.
 		const positronConsoleInstance = this._register(this._instantiationService.createInstance(
@@ -463,11 +482,13 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Fire the onDidStartPositronConsoleInstance event.
 		this._onDidStartPositronConsoleInstanceEmitter.fire(positronConsoleInstance);
 
-		// Set the active positron console instance.
-		this._activePositronConsoleInstance = positronConsoleInstance;
+		// Set the active positron console instance, if requested
+		if (activate) {
+			this._activePositronConsoleInstance = positronConsoleInstance;
 
-		// Fire the onDidChangeActivePositronConsoleInstance event.
-		this._onDidChangeActivePositronConsoleInstanceEmitter.fire(positronConsoleInstance);
+			// Fire the onDidChangeActivePositronConsoleInstance event.
+			this._onDidChangeActivePositronConsoleInstanceEmitter.fire(positronConsoleInstance);
+		}
 
 		// Listen for console width changes.
 		this._register(positronConsoleInstance.onDidChangeWidthInChars(width => {
