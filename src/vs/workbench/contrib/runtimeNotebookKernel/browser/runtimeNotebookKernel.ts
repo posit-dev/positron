@@ -221,7 +221,8 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		disposables.add(session.onDidChangeRuntimeState(state => {
 			if (state === RuntimeState.Exiting ||
 				state === RuntimeState.Exited ||
-				state === RuntimeState.Restarting) {
+				state === RuntimeState.Restarting ||
+				state === RuntimeState.Uninitialized) {
 				dispose();
 			}
 		}));
@@ -271,33 +272,27 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		this._logService.debug(`[RuntimeNotebookKernel] Interrupting notebook ${notebookUri.toString()}`);
 
 		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
-		if (session &&
-			(session.getRuntimeState() === RuntimeState.Busy ||
-				session.getRuntimeState() === RuntimeState.Interrupting)) {
-			// The session is in an interruptible state, interrupt it.
+		if (session) {
+			// If there is a session for the notebook, interrupt it.
 			session.interrupt();
-		} else {
-			// TODO: Is it possible that a user could interrupt without a RuntimeNotebookKernelSession at all?
-			//       That would leave the executions running atm.
-
-			const execution = this._pendingRuntimeExecution;
-			if (!execution) {
-				// It shouldn't be possible to interrupt an execution without having set a token source.
-				// Log a warning and do nothing.
-				this._logService.warn(`Tried to interrupt notebook ${notebookUri.toString()} with no executing cell.`);
-				return;
-			}
-
-			// It's possible that the session exited after the execution started.
-			// Log a warning and cancel the execution promise.
-			// TODO: Should this be primarily handled in a session.onDidEndSession listener?
-			this._logService.warn(`Tried to interrupt notebook ${notebookUri.toString()} with no running session. Cancelling execution.`);
-			execution.error({
-				// TODO: There may not even have been a session to begin with so this isn't accurate.
-				name: 'Session Exited Unexpectedly',
-				message: 'The session has exited unexpectedly.',
-			});
+			return;
 		}
+
+		const execution = this._pendingRuntimeExecution;
+		if (!execution) {
+			// It shouldn't be possible to interrupt an execution without having set the pending execution,
+			// but there's nothing more we can do so just log a warning.
+			this._logService.warn(`Tried to interrupt notebook ${notebookUri.toString()} with no executing cell.`);
+			return;
+		}
+
+		// It's possible that the session exited after the execution started.
+		// Log a warning and error the execution.
+		this._logService.warn(`Tried to interrupt notebook ${notebookUri.toString()} with no running session. Cancelling execution.`);
+		execution.error({
+			name: 'No Active Session',
+			message: 'There is no active session for this notebook',
+		});
 	}
 
 	provideVariables(notebookUri: URI, parentId: number | undefined, kind: 'named' | 'indexed', start: number, token: CancellationToken): AsyncIterableObject<VariablesResult> {
