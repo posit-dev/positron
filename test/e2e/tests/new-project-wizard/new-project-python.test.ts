@@ -39,10 +39,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await verifyVenEnvStarts(app);
 	});
 
-	test('With ipykernel already installed [C609619]', {
-		tag: [tags.WIN],
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5730' }],
-	}, async function ({ app, python, packages }) {
+	test('With ipykernel already installed [C609619]', { tag: [tags.WIN], }, async function ({ app, python, packages }) {
 		const projectTitle = addRandomNumSuffix('ipykernel-installed');
 
 		await packages.manage('ipykernel', 'install');
@@ -56,9 +53,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await verifyProjectCreation(app, projectTitle);
 	});
 
-	test('With ipykernel not already installed [C609617]', {
-		tag: [tags.WIN],
-	}, async function ({ app, python, packages }) {
+	test('With ipykernel not already installed [C609617]', { tag: [tags.WIN] }, async function ({ app, python, packages }) {
 		const projectTitle = addRandomNumSuffix('no-ipykernel');
 
 		await packages.manage('ipykernel', 'uninstall');
