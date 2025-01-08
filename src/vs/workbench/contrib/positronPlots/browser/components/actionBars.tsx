@@ -29,11 +29,12 @@ import { ZoomPlotMenuButton } from './zoomPlotMenuButton.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
-import { CopyPlotTarget, PlotsClearAction, PlotsCopyAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from '../positronPlotsActions.js';
+import { PlotActionTarget, PlotsClearAction, PlotsCopyAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from '../positronPlotsActions.js';
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { HtmlPlotClient } from '../htmlPlotClient.js';
 import { POSITRON_EDITOR_PLOTS, positronPlotsEditorEnabled } from '../../../positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
 import { IAccessibilityService } from '../../../../../platform/accessibility/common/accessibility.js';
+import { OpenInEditorMenuButton } from './openInEditorMenuButton.js';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -131,11 +132,11 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		props.zoomHandler(zoomLevel);
 	};
 	const savePlotHandler = () => {
-		props.commandService.executeCommand(PlotsSaveAction.ID);
+		props.commandService.executeCommand(PlotsSaveAction.ID, PlotActionTarget.VIEW);
 	};
 
 	const copyPlotHandler = () => {
-		props.commandService.executeCommand(PlotsCopyAction.ID, CopyPlotTarget.VIEW);
+		props.commandService.executeCommand(PlotsCopyAction.ID, PlotActionTarget.VIEW);
 	};
 
 	const popoutPlotHandler = () => {
@@ -179,16 +180,12 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							: null
 						}
 						{enableEditorPlot ?
-							<ActionBarButton
-								iconId='go-to-file'
-								align='right'
-								tooltip={localize('positron-open-plot-editor', "Open plot in editor")}
-								ariaLabel={localize('positron-open-plot-editor', "Open plot in editor")}
-								onPressed={() => {
-									if (hasPlots) {
-										positronPlotsContext.positronPlotsService.openEditor();
-									}
-								}} />
+							<OpenInEditorMenuButton
+								tooltip={localize('positron-editor-plot-popout', "Open in editor tab")}
+								ariaLabel={localize('positron-editor-plot-popout', "Open in editor tab")}
+								defaultGroup={positronPlotsContext.positronPlotsService.getPreferredEditorGroup()}
+								commandService={positronPlotsContext.commandService}
+							/>
 							: null
 						}
 					</ActionBarRegion>

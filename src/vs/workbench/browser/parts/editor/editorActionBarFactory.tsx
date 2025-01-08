@@ -10,18 +10,19 @@ import * as React from 'react';
 import { localize } from '../../../../nls.js';
 import { IEditorGroupView } from './editor.js';
 import { Emitter } from '../../../../base/common/event.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IAction, Separator, SubmenuAction } from '../../../../base/common/actions.js';
 import { actionTooltip } from '../../../../platform/positronActionBar/common/helpers.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { PositronActionBar } from '../../../../platform/positronActionBar/browser/positronActionBar.js';
 import { ActionBarRegion } from '../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarSeparator } from '../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { ActionBarActionButton } from '../../../../platform/positronActionBar/browser/components/actionBarActionButton.js';
 import { ActionBarCommandButton } from '../../../../platform/positronActionBar/browser/components/actionBarCommandButton.js';
-import { IMenu, IMenuActionOptions, IMenuService, MenuId, MenuItemAction } from '../../../../platform/actions/common/actions.js';
+import { IMenu, IMenuActionOptions, IMenuService, MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
 
 // Constants.
 const PADDING_LEFT = 8;
@@ -350,40 +351,65 @@ export class EditorActionBarFactory extends Disposable {
 					processedActions.add(action.id);
 					elements.push(<ActionBarActionButton action={action} />);
 				}
-			} else if (action instanceof SubmenuAction) {
-				// Submenu action. Get the first action.
-				const firstAction = action.actions[0];
-
-				// The first action must be a menu item action.
-				if (firstAction instanceof MenuItemAction) {
-					// Extract the icon ID from the class.
-					const iconIdResult = action.actions[0].class?.match(CODICON_ID);
-					const iconId = iconIdResult?.length === 2 ? iconIdResult[1] : undefined;
+			} else if (action instanceof SubmenuItemAction) {
+				// Process the action.
+				if (!action.item.rememberDefaultAction) {
+					// Get the icon ID. TODO: Deal with non-theme icons.
+					const iconId = ThemeIcon.isThemeIcon(action.item.icon) ?
+						action.item.icon.id :
+						undefined;
 
 					// Push the action bar menu button.
 					elements.push(
 						<ActionBarMenuButton
 							iconId={iconId}
-							text={iconId ? undefined : firstAction.label}
-							ariaLabel={firstAction.label ?? firstAction.tooltip}
-							dropdownAriaLabel={action.label ?? action.tooltip}
+							ariaLabel={action.label ?? action.tooltip}
 							align='left'
 							tooltip={actionTooltip(
-								this._contextKeyService,
-								this._keybindingService,
-								firstAction,
-								false
-							)}
-							dropdownTooltip={actionTooltip(
 								this._contextKeyService,
 								this._keybindingService,
 								action,
 								false
 							)}
-							dropdownIndicator='enabled-split'
+							dropdownIndicator='disabled'
 							actions={() => action.actions}
 						/>
 					);
+				} else {
+					// Submenu action. Get the first action.
+					const firstAction = action.actions[0];
+
+					// The first action must be a menu item action.
+					if (firstAction instanceof MenuItemAction) {
+						// Extract the icon ID from the class.
+						const iconIdResult = action.actions[0].class?.match(CODICON_ID);
+						const iconId = iconIdResult?.length === 2 ? iconIdResult[1] : undefined;
+
+						// Push the action bar menu button.
+						elements.push(
+							<ActionBarMenuButton
+								iconId={iconId}
+								text={iconId ? undefined : firstAction.label}
+								ariaLabel={firstAction.label ?? firstAction.tooltip}
+								dropdownAriaLabel={action.label ?? action.tooltip}
+								align='left'
+								tooltip={actionTooltip(
+									this._contextKeyService,
+									this._keybindingService,
+									firstAction,
+									false
+								)}
+								dropdownTooltip={actionTooltip(
+									this._contextKeyService,
+									this._keybindingService,
+									action,
+									false
+								)}
+								dropdownIndicator='enabled-split'
+								actions={() => action.actions}
+							/>
+						);
+					}
 				}
 			}
 		}

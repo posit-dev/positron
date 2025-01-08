@@ -30,6 +30,7 @@ export interface ActionBarButtonProps {
 	readonly ariaLabel?: string;
 	readonly dropdownAriaLabel?: string;
 	readonly dropdownIndicator?: 'disabled' | 'enabled' | 'enabled-split';
+	readonly mouseTrigger?: MouseTrigger;
 	readonly onMouseEnter?: () => void;
 	readonly onMouseLeave?: () => void;
 	readonly onPressed?: () => void;
@@ -120,7 +121,7 @@ export const ActionBarButton = forwardRef<
 				ariaLabel={ariaLabel}
 				tooltip={props.tooltip}
 				disabled={props.disabled}
-				mouseTrigger={MouseTrigger.MouseDown}
+				mouseTrigger={props.mouseTrigger}
 				onMouseEnter={props.onMouseEnter}
 				onMouseLeave={props.onMouseLeave}
 				onPressed={props.onPressed}
@@ -142,7 +143,7 @@ export const ActionBarButton = forwardRef<
 					ariaLabel={ariaLabel}
 					tooltip={props.tooltip}
 					disabled={props.disabled}
-					mouseTrigger={MouseTrigger.MouseDown}
+					mouseTrigger={props.mouseTrigger}
 					onMouseEnter={props.onMouseEnter}
 					onMouseLeave={props.onMouseLeave}
 					onPressed={props.onPressed}
