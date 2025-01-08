@@ -16,7 +16,7 @@ import { EmptyConsole } from './emptyConsole.js';
 import { ConsoleInstance } from './consoleInstance.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { StartupStatus } from './startupStatus.js';
-import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService';
+import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 // ConsoleCoreProps interface.
 interface ConsoleCoreProps {

@@ -14,7 +14,7 @@ import { localize } from '../../../../../nls.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService';
+import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 // Load localized copy for control.
 const initalizing = localize('positron.console.initializing', "Starting up");

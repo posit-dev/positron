@@ -11,7 +11,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from '../../../../platform/opener/common/opener.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode } from './runtimeSessionService.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -1028,13 +1028,25 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// Process the state change.
 			switch (state) {
 				case RuntimeState.Ready:
+					// If the session is a console session, make it the
+					// foreground session if it isn't already.
 					if (session !== this._foregroundSession &&
 						session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-						// When a new console is ready, activate it. We avoid
-						// re-activation if already active since the resulting
-						// events can cause Positron behave as though a new
-						// runtime were started (e.g. focusing the console)
-						this.foregroundSession = session;
+						// Always activate the first console session that starts.
+						let activate = !this._foregroundSession;
+
+						// If there is already a foreground session, only
+						// activate the new session if we are finished with the
+						// startup sequence (i.e. the session was started
+						// interactively).
+						if (!activate) {
+							activate =
+								this._languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete;
+						}
+
+						if (activate) {
+							this.foregroundSession = session;
+						}
 					}
 
 					// Restore the session in the case of a restart.
