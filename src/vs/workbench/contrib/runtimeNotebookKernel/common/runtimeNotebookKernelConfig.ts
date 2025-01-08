@@ -34,7 +34,7 @@ configurationRegistry.registerConfiguration({
 	properties: {
 		[POSITRON_RUNTIME_NOTEBOOK_KERNEL_ENABLED_KEY]: {
 			type: 'boolean',
-			default: false,
+			default: true,
 			markdownDescription: localize(
 				'positron.runtimeNotebookKernel.enable.description',
 				'**CAUTION**: Enable experimental runtime notebook kernels which may result in unexpected behaviour. Requires a restart to take effect.'
