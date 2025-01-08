@@ -105,7 +105,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		}
 	}));
 
-	registerCommands(context.subscriptions);
+	registerCommands(context, notebookSessionService);
 
 	registerExecutionInfoStatusBar(context.subscriptions, manager);
 }
