@@ -28,15 +28,10 @@ export class NewProjectWizard {
 	 * @param options The options to configure the new project.
 	 */
 	async createNewProject(options: CreateProjectOptions) {
-		const {
-			type,
-			title,
-			initAsGitRepo = false,
-		} = options;
-
 		await this.quickaccess.runCommand('positron.workbench.action.newProject', { keepOpen: false });
-		await this.setProjectType(type);
-		await this.setProjectNameLocation(title, initAsGitRepo);
+
+		await this.setProjectType(options.type);
+		await this.setProjectNameLocation(options);
 		await this.setProjectConfiguration(options);
 
 		await this.code.driver.page.getByRole('button', { name: 'Current Window' }).click();
@@ -57,7 +52,9 @@ export class NewProjectWizard {
 	 * @param projectTitle The title to set for the project.
 	 * @param initAsGitRepo Whether to initialize the project as a Git repository
 	 **/
-	async setProjectNameLocation(projectTitle: string, initAsGitRepo = false) {
+	async setProjectNameLocation(options: CreateProjectOptions) {
+		const { title: projectTitle, initAsGitRepo } = options;
+
 		await this.projectNameInput.fill(projectTitle);
 		if (initAsGitRepo) {
 			await this.code.driver.page.getByText('Initialize project as Git').check();
@@ -71,21 +68,26 @@ export class NewProjectWizard {
 	 * @param options The options to configure the project.
 	 */
 	async setProjectConfiguration(options: CreateProjectOptions) {
-		const { type: projectType, rEnvCheckbox, pythonEnv, ipykernelFeedbackExpected } = options;
+		const { type, rEnvCheckbox, pythonEnv, ipykernelFeedbackExpected } = options;
 
-		if (projectType === ProjectType.R_PROJECT && rEnvCheckbox) {
+		// configure R Project
+		if (type === ProjectType.R_PROJECT && rEnvCheckbox) {
 			await this.code.driver.page.getByText('Use `renv` to create a').click();
-		} else if (projectType === ProjectType.PYTHON_PROJECT && pythonEnv === 'Conda') {
-			await this.selectEnvProvider('Conda');
-		} else if (projectType === ProjectType.PYTHON_PROJECT && pythonEnv === 'Existing') {
-			await this.existingEnvRadioButton.click();
-			if (ipykernelFeedbackExpected) {
-				await expect(this.code.driver.page.getByText('ipykernel will be installed')).toBeVisible();
-			}
-			else {
-				await expect(this.code.driver.page.getByText('ipykernel will be installed')).not.toBeVisible();
+		}
+
+		// configure Python Project
+		if (type === ProjectType.PYTHON_PROJECT) {
+			if (pythonEnv === 'Conda') {
+				await this.selectEnvProvider('Conda');
+			} else if (pythonEnv === 'Existing') {
+				await this.existingEnvRadioButton.click();
+				const ipykernelMessage = this.code.driver.page.getByText('ipykernel will be installed');
+				ipykernelFeedbackExpected
+					? await expect(ipykernelMessage).toBeVisible()
+					: await expect(ipykernelMessage).not.toBeVisible();
 			}
 		}
+
 		await this.clickWizardButton(WizardButton.CREATE);
 	}
 
@@ -113,15 +115,15 @@ export class NewProjectWizard {
 	 * @param providerToSelect The environment provider to select.
 	 */
 	async selectEnvProvider(providerToSelect: string) {
-		await expect(this.code.driver.page.getByText(/Loading/)).toHaveCount(0, { timeout: 30000 }); // Ensure data has finished loading
+		// Wait for loading to finish
+		await expect(this.code.driver.page.getByText(/Loading/)).toHaveCount(0, { timeout: 30000 });
 
-		// Check if the environment provider is already preselected
-		const currentProvider = await this.envProviderDropdownTitle.innerText();
-		if (currentProvider === providerToSelect) {
+		// Skip if the desired provider is already selected
+		if (await this.envProviderDropdownTitle.innerText() === providerToSelect) {
 			return;
 		}
 
-		// Open the dropdown and select the provider
+		// Select the desired provider from the dropdown
 		await this.envProviderDropdown.click();
 		await this.dropDropdownOptions.filter({ hasText: providerToSelect }).click();
 	}
@@ -131,24 +133,17 @@ export class NewProjectWizard {
 	 * @param interpreterPath The path of the interpreter to select in the dropdown.
 	 */
 	async selectInterpreterByPath(interpreterPath: string) {
-		// Selector for the currently open dropdown popup items in the project wizard
-		const PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS =
-			'div.positron-modal-popup-children button.positron-button.item';
+		// Wait for loading to complete
+		await expect(this.code.driver.page.getByText(/Loading/)).toHaveCount(0, { timeout: 30000 });
 
-		await expect(this.code.driver.page.getByText(/Loading/)).toHaveCount(0, { timeout: 30000 }); // Ensure data has finished loading
-
-		// Check if the interpreter is already preselected
-		const currentInterpreter = await this.interpreterDropdownSubtitle.innerText();
-		if (currentInterpreter === interpreterPath) {
+		// Skip if the desired interpreter is already selected
+		if (await this.interpreterDropdownSubtitle.innerText() === interpreterPath) {
 			return;
 		}
 
-		// Open the interpreter dropdown.
+		// Open the dropdown and select the interpreter by path
 		await this.interpreterDropdown.click();
-		await expect(this.code.driver.page.locator(PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS)).toBeVisible();
-
-		// Find the dropdown item with the interpreterPath.
-		this.dropDropdownOptions
+		await this.dropDropdownOptions
 			.locator('div.dropdown-entry-subtitle')
 			.getByText(interpreterPath)
 			.first()
