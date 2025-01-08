@@ -76,6 +76,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 });
 
 test.describe('Jupyter - New Project Wizard', {
+	tag: [tags.NEW_PROJECT_WIZARD],
 	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5914' }], // uncomment line 103 when fixed
 }, () => {
 	test('Jupyter Project Defaults [C629352]', {
@@ -98,7 +99,7 @@ function addRandomNumSuffix(name: string): string {
 async function verifyProjectCreation(app: Application, projectTitle: string) {
 	await test.step(`Verify project created`, async () => {
 		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${projectTitle}` })).toBeVisible({ timeout: 15000 });
-		// await app.workbench.console.waitForReady('>', 90000); // issue 5914 causes this to fail
+		// await app.workbench.console.waitForReady('>', 30000); // issue 5914 causes this to fail
 	});
 }
 

@@ -34,7 +34,6 @@ export class PackageManager {
 		}
 
 		await test.step(`${action}: ${packageName}`, async () => {
-
 			const command = this.getCommand(packageInfo.type, packageName, action);
 			const expectedOutput = this.getExpectedOutput(packageName, action);
 			const prompt = packageInfo.type === 'Python' ? '>>> ' : '> ';
