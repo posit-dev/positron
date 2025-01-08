@@ -29,6 +29,18 @@ test.describe('Headless Data Explorer - Large Data Frame', {
 	test('Verifies headless data explorer functionality with large csv file [C938894]', async function ({ app, logger }) {
 		await testBody(app, logger, 'flights.csv');
 	});
+
+	test('Verifies headless data explorer functionality with large gzipped csv file [C1137087]', async function ({ app, logger }) {
+		await testBody(app, logger, 'flights.csv.gz');
+	});
+
+	test('Verifies headless data explorer functionality with large tsv file [C1137088]', async function ({ app, logger }) {
+		await testBody(app, logger, 'flights.tsv');
+	});
+
+	test('Verifies headless data explorer functionality with large gzipped tsv file [C1137089]', async function ({ app, logger }) {
+		await testBody(app, logger, 'flights.tsv.gz');
+	});
 });
 
 async function testBody(app: Application, logger: Logger, fileName: string) {
