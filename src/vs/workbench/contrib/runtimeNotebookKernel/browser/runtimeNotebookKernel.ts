@@ -193,6 +193,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 					);
 					continue;
 				}
+
 				this._logService.trace(
 					`[RuntimeNotebookKernel] Queuing cell execution ${cell.handle} ` +
 					`for notebook ${notebookUri.fsPath}`
@@ -275,21 +276,34 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		});
 	}
 
+	/**
+	 * Select a runtime for a notebook.
+	 *
+	 * @param notebookUri The URI of the notebook.
+	 * @param source The source of the request to select the runtime, for debugging purposes.
+	 * @returns A promise that resolves with the selected runtime session.
+	 */
 	public async selectRuntime(notebookUri: URI, source: string): Promise<ILanguageRuntimeSession> {
+		// Select the runtime for the notebook.
 		const session = await this.doSelectRuntime(notebookUri, source);
+
+		// Add the session to the sessions map.
 		this._sessionsByNotebookUri.set(notebookUri, session);
 
 		const disposables = this._register(new DisposableStore());
 
+		/** Dispose event listeners and remove the session from the map. */
 		const dispose = () => {
 			disposables.dispose();
 			this._sessionsByNotebookUri.delete(notebookUri);
 		};
 
+		// Dispose when the session ends.
 		disposables.add(session.onDidEndSession(() => {
 			dispose();
 		}));
 
+		// Dispose when the session enters an exiting/exited state.
 		disposables.add(session.onDidChangeRuntimeState(state => {
 			if (state === RuntimeState.Exiting ||
 				state === RuntimeState.Exited ||
@@ -302,19 +316,23 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		return session;
 	}
 
+	/** Internal method to actually select a runtime for a notebook. */
 	private async doSelectRuntime(notebookUri: URI, source: string): Promise<ILanguageRuntimeSession> {
 		try {
+			// Select the runtime for the notebook.
 			await this._runtimeSessionService.selectRuntime(
 				this.runtime.runtimeId,
 				source,
 				notebookUri,
 			);
 
+			// Get the new session.
 			const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 			if (!session) {
 				throw new Error(`Unexpected error, session not found after starting for notebook '${notebookUri}'`);
 			}
 
+			// If the session is still starting, wait for it to be ready.
 			if (session.getRuntimeState() === RuntimeState.Starting) {
 				this._logService.debug(
 					`[RuntimeNotebookKernel] Waiting for session to be ready ` +
@@ -332,6 +350,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 
 			return session;
 		} catch (err) {
+			// Display any errors to the user.
 			this._notificationService.error(localize(
 				"positron.notebook.kernel.starting.failed",
 				"Starting {0} interpreter for '{1}' failed. Reason: {2}",
@@ -343,27 +362,34 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		}
 	}
 
-	async cancelNotebookCellExecution(notebookUri: URI, _cellHandles: number[]): Promise<void> {
+	/**
+	 * Interrupt a notebook execution.
+	 *
+	 * @param notebookUri The URI of the notebook.
+	 * @param cellHandles The handles of the notebook cells to interrupt.
+	 */
+	async cancelNotebookCellExecution(notebookUri: URI, cellHandles: number[]): Promise<void> {
 		this._logService.debug(`[RuntimeNotebookKernel] Interrupting notebook ${notebookUri.fsPath}`);
 
+		// If there is a session for the notebook, interrupt it.
 		const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 		if (session) {
-			// If there is a session for the notebook, interrupt it.
 			session.interrupt();
 			return;
 		}
 
+		// It's possible that the session exited after the execution started.
+		// We should still end the execution.
 		const execution = this._pendingExecutionsByNotebookUri.get(notebookUri);
 		if (!execution) {
-			// It shouldn't be possible to interrupt an execution without having set
-			// the pending execution, but there's nothing more we can do so just log a warning.
+			// It shouldn't be possible to interrupt an execution without a pending execution,
+			// but there's nothing more we can do so just log a warning.
 			this._logService.warn(
 				`Tried to interrupt notebook ${notebookUri.fsPath} with no pending execution`
 			);
 			return;
 		}
 
-		// It's possible that the session exited after the execution started.
 		// Log a warning and error the execution.
 		this._logService.warn(
 			`Tried to interrupt notebook ${notebookUri.fsPath} with no running session. ` +
