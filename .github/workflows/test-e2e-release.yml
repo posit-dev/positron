@@ -45,13 +45,14 @@ jobs:
 
       - name: Setup test dependencies and compile tests
         run: |
+          # Must remove root package.json and provide simple stub to use root dir for test run but not build
           rm package.json
           echo '{"scripts":{"compile":"npx tsc"}}' > package.json
 
           # Install TypeScript locally
           npm install typescript
 
-          # Install required dependencies
+          # Install required dependencies - must keep in sync with root package.json
           npm install @playwright/test@^1.49.0
           npx playwright install
           npx playwright install-deps
@@ -122,18 +123,18 @@ jobs:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
 
-  # slack-notify:
-  #   needs: [e2e-electron]
-  #   runs-on: ubuntu-latest
-  #   if: always()
-  #   env:
-  #     notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
-  #   steps:
-  #     - run: |
-  #         echo "Will notify on: ${{ env.notify_on }}"
-  #     - name: Notify Slack
-  #       uses: midleman/slack-workflow-status@master
-  #       with:
-  #         repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-  #         slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL }}
-  #         notify_on: ${{ env.notify_on }}
+  slack-notify:
+    needs: [e2e-electron]
+    runs-on: ubuntu-latest
+    if: always()
+    env:
+      notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
+    steps:
+      - run: |
+          echo "Will notify on: ${{ env.notify_on }}"
+      - name: Notify Slack
+        uses: midleman/slack-workflow-status@master
+        with:
+          repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL }}
+          notify_on: ${{ env.notify_on }}
