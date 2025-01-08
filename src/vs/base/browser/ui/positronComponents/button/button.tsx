@@ -150,6 +150,11 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 	 * @param e A MouseEvent<HTMLDivElement> that describes a user interaction with the mouse.
 	 */
 	const mouseDownHandler = (e: MouseEvent<HTMLButtonElement>) => {
+		// Consume the event. This addresses https://github.com/posit-dev/positron/issues/5737 and
+		// was borrowed from ActionViewItem.
+		e.preventDefault();
+		e.stopPropagation();
+
 		// If the mouse trigger is mouse down, handle the event.
 		if (props.mouseTrigger === MouseTrigger.MouseDown) {
 			sendOnPressed(e);

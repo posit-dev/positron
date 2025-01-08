@@ -16,6 +16,7 @@ import { AnchorAlignment, AnchorAxisAlignment } from '../../../../base/browser/u
 import { ActionBarButton } from './actionBarButton.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
+import { MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
  * ActionBarMenuButtonProps interface.
@@ -129,6 +130,7 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 			ref={buttonRef}
 			{...props}
 			dropdownIndicator={props.dropdownIndicator ?? 'enabled'}
+			mouseTrigger={MouseTrigger.MouseDown}
 			onPressed={async () => {
 				if (props.dropdownIndicator !== 'enabled-split') {
 					await showMenu();
