@@ -114,8 +114,7 @@ async function verifyProjectCreation(app: Application, projectTitle: string) {
 
 async function verifyCondaFilesArePresent(app: Application) {
 	await test.step('Verify .conda files are present', async () => {
-		const projectFiles = app.code.driver.page.locator('.monaco-list > .monaco-scrollable-element');
-		expect(projectFiles.getByText('.conda')).toBeVisible({ timeout: 50000 });
+		await app.workbench.explorer.verifyProjectFilesExist(['.conda']);
 	});
 }
 

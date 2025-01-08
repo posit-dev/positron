@@ -105,12 +105,8 @@ async function verifyProjectCreation(app: Application, projectTitle: string) {
 }
 
 async function verifyRenvFilesArePresent(app: Application,) {
-	// marie to do: update getProjectFiles()
 	await test.step(`Verify renv files are present`, async () => {
-		const projectFiles = app.code.driver.page.locator('.monaco-list > .monaco-scrollable-element');
-		expect(projectFiles.getByLabel('renv', { exact: true }).locator('a')).toBeVisible({ timeout: 50000 });
-		expect(projectFiles.getByText('.Rprofile')).toBeVisible();
-		expect(projectFiles.getByLabel('renv.lock', { exact: true }).locator('a')).toBeVisible();
+		await app.workbench.explorer.verifyProjectFilesExist(['renv', '.Rprofile', 'renv.lock']);
 	});
 }
 

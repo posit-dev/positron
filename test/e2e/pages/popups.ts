@@ -57,14 +57,21 @@ export class Popups {
 	 * @param action The action to take on the modal dialog box. Either 'install' or 'cancel'.
 	 */
 	async installRenvModal(action: 'install' | 'cancel') {
-		await expect(this.code.driver.page.locator('.simple-title-bar').filter({ hasText: 'Missing R package' })).toBeVisible({ timeout: 30000 });
+		try {
+			await expect(this.code.driver.page.locator('.simple-title-bar').filter({ hasText: 'Missing R package' })).toBeVisible({ timeout: 30000 });
 
-		if (action === 'install') {
-			this.code.logger.log('Install Renv modal detected: clicking `Install now`');
-			await this.code.driver.page.getByRole('button', { name: 'Install now' }).click();
-		} else if (action === 'cancel') {
-			this.code.logger.log('Install Renv modal detected: clicking `Cancel`');
-			await this.code.driver.page.getByRole('button', { name: 'Cancel', exact: true }).click();
+			if (action === 'install') {
+				this.code.logger.log('Install Renv modal detected: clicking `Install now`');
+				await this.code.driver.page.getByRole('button', { name: 'Install now' }).click();
+			} else if (action === 'cancel') {
+				this.code.logger.log('Install Renv modal detected: clicking `Cancel`');
+				await this.code.driver.page.getByRole('button', { name: 'Cancel', exact: true }).click();
+			}
+		} catch (error) {
+			this.code.logger.log('No Renv modal detected');
+			if (process.env.CI) {
+				throw new Error('Renv modal not detected');
+			}
 		}
 	}
 
