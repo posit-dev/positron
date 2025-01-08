@@ -12,7 +12,7 @@ test.use({
 
 test.beforeEach(async function ({ app }) {
 	await app.workbench.console.waitForReadyOrNoInterpreter();
-	await app.workbench.console.barClearButton.click();
+	// await app.workbench.console.barClearButton.click();
 });
 
 // Not running conda test on windows because conda reeks havoc on selecting the correct python interpreter
