@@ -56,20 +56,20 @@ class RuntimeNotebookKernelRestartAction extends Action2 {
 
 	override async run(accessor: ServicesAccessor, context?: INotebookEditorToolbarContext): Promise<void> {
 		const editorService = accessor.get(IEditorService);
-		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 		const progressService = accessor.get(IProgressService);
 		const notificationService = accessor.get(INotificationService);
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
 		// Try to use the notebook URI from the context - set if run via the notebook editor toolbar.
 		let notebookUri = context?.notebookEditor.textModel?.uri;
 
 		// If no context was provided, try to get the active notebook URI.
 		if (!notebookUri) {
-			const activeInput = editorService.activeEditorPane?.input;
-			if (!isNotebookEditorInput(activeInput)) {
+			const activeEditor = editorService.activeEditor;
+			if (!isNotebookEditorInput(activeEditor)) {
 				throw new Error('No active notebook. This command should only be available when a notebook is active.');
 			}
-			notebookUri = activeInput.resource;
+			notebookUri = activeEditor.resource;
 		}
 
 		// Get the session for the active notebook.
