@@ -39,7 +39,9 @@ test.describe('Python Applications', {
 		});
 	});
 
-	test('Python - Verify Basic FastAPI App [C903306]', async function ({ app, python }) {
+	test('Python - Verify Basic FastAPI App [C903306]', {
+		tag: [tags.WIN]
+	}, async function ({ app, python }) {
 		const viewer = app.workbench.viewer;
 
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'fastapi_example', 'fastapi_example.py'));

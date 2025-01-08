@@ -53,6 +53,7 @@ import {
 import * as duckdb from '@duckdb/duckdb-wasm';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as zlib from 'zlib';
 import Worker from 'web-worker';
 import { Table, Vector } from 'apache-arrow';
 import { pathToFileURL } from 'url';
@@ -416,6 +417,7 @@ class ColumnProfileEvaluator {
 
 		const numRows = Number(stats.get('num_rows'));
 		const nullCount = Number(stats.get(`null_count_${field}`));
+
 
 		return {
 			values,
@@ -1221,7 +1223,7 @@ export class DataExplorerRpcHandler {
 				fs.watchFile(filePath, { interval: 1000 }, async () => {
 					const newTableName = `positron_${this._tableIndex++}`;
 
-					await this.createTableFromFilePath(filePath, newTableName, true);
+					await this.createTableFromFilePath(filePath, newTableName);
 
 					const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
 					await tableView.onFileUpdated(newTableName, newSchema);
@@ -1241,11 +1243,14 @@ export class DataExplorerRpcHandler {
 	 * Import data file into DuckDB by creating table or view
 	 * @param filePath The file path on disk.
 	 * @param catalogName The table name to use in the DuckDB catalog.
-	 * @param forceRefresh If true, force an uncached read from disk to circumvent DuckDB's
-	 * file handle caching.
 	 */
-	async createTableFromFilePath(filePath: string, catalogName: string,
-		forceRefresh: boolean = false) {
+	async createTableFromFilePath(filePath: string, catalogName: string) {
+		let fileExt = path.extname(filePath);
+		const isGzipped = fileExt === '.gz';
+
+		if (isGzipped) {
+			fileExt = path.extname(filePath.slice(0, -3));
+		}
 
 		const getCsvImportQuery = (_filePath: string, options: Array<String>) => {
 			return `CREATE OR REPLACE TABLE ${catalogName} AS
@@ -1276,26 +1281,31 @@ export class DataExplorerRpcHandler {
 			}
 		};
 
-		const fileExt = path.extname(filePath);
+		// Read the entire contents and register it as a temp file
+		// to avoid file handle caching in duckdb-wasm
+		let fileContents = fs.readFileSync(filePath, { encoding: null });
+		if (isGzipped) {
+			fileContents = zlib.gunzipSync(fileContents);
+		}
 
-		if (fileExt === '.parquet' || fileExt === '.parq') {
-			// Always create a view for Parquet files
-			const query = `CREATE VIEW ${catalogName} AS
-			SELECT * FROM parquet_scan('${filePath}');`;
-			await this.db.runQuery(query);
-		} else if (forceRefresh) {
-			// For smaller text files, read the entire contents and register it as a temp file
-			// to avoid caching in duckdb-wasm
-			const fileContents = fs.readFileSync(filePath, { encoding: null });
-			const virtualPath = path.basename(filePath);
-			await this.db.db.registerFileBuffer(virtualPath, fileContents);
-			try {
+		// For gzipped files, use the base name without the .gz extension
+		const virtualPath = isGzipped ?
+			path.basename(filePath, '.gz') :
+			path.basename(filePath);
+
+		await this.db.db.registerFileBuffer(virtualPath, fileContents);
+		try {
+			const baseExt = path.extname(virtualPath);
+			if (baseExt === '.parquet' || baseExt === '.parq') {
+				// Always create a view for Parquet files
+				const query = `CREATE OR REPLACE TABLE ${catalogName} AS
+				SELECT * FROM parquet_scan('${virtualPath}');`;
+				await this.db.runQuery(query);
+			} else {
 				await importDelimited(virtualPath);
-			} finally {
-				await this.db.db.dropFile(virtualPath);
 			}
-		} else {
-			await importDelimited(filePath);
+		} finally {
+			await this.db.db.dropFile(virtualPath);
 		}
 	}
 

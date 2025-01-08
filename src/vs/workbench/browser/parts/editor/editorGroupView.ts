@@ -554,6 +554,15 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 				target = (e as GestureEvent).initialTarget as HTMLElement;
 			}
 
+			// --- Start Positron ---
+			// Do not focus the editor if the event is for a Positron action bar. This addresses
+			// https://github.com/posit-dev/positron/issues/5737 and was borrowed from the code
+			// below.
+			if (findParentWithClass(target, 'positron-action-bar', this.titleContainer)) {
+				return;
+			}
+			// --- End Positron ---
+
 			if (findParentWithClass(target, 'monaco-action-bar', this.titleContainer) ||
 				findParentWithClass(target, 'monaco-breadcrumb-item', this.titleContainer)
 			) {

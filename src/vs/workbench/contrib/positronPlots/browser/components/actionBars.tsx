@@ -29,7 +29,7 @@ import { ZoomPlotMenuButton } from './zoomPlotMenuButton.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
-import { CopyPlotTarget, PlotsClearAction, PlotsCopyAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from '../positronPlotsActions.js';
+import { PlotActionTarget, PlotsClearAction, PlotsCopyAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from '../positronPlotsActions.js';
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { HtmlPlotClient } from '../htmlPlotClient.js';
 import { POSITRON_EDITOR_PLOTS, positronPlotsEditorEnabled } from '../../../positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
@@ -132,11 +132,11 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		props.zoomHandler(zoomLevel);
 	};
 	const savePlotHandler = () => {
-		props.commandService.executeCommand(PlotsSaveAction.ID);
+		props.commandService.executeCommand(PlotsSaveAction.ID, PlotActionTarget.VIEW);
 	};
 
 	const copyPlotHandler = () => {
-		props.commandService.executeCommand(PlotsCopyAction.ID, CopyPlotTarget.VIEW);
+		props.commandService.executeCommand(PlotsCopyAction.ID, PlotActionTarget.VIEW);
 	};
 
 	const popoutPlotHandler = () => {
