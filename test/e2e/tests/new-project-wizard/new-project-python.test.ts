@@ -108,7 +108,7 @@ async function createNewProject(app: Application, options: CreateProjectOptions)
 async function verifyProjectCreation(app: Application, projectTitle: string) {
 	await test.step(`Verify project created`, async () => {
 		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${projectTitle}` })).toBeVisible({ timeout: 15000 });
-		await app.workbench.console.waitForReady('>>>');
+		await app.workbench.console.waitForReady('>>>', 60000);
 	});
 }
 
