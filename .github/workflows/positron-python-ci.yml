@@ -460,7 +460,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Build VSIX
-        uses: ./.github/actions/build-vsix
+        uses: ./.github/actions/python-build-vsix
         with:
           node_version: ${{ env.NODE_VERSION}}
           vsix_name: 'positron-python-dev-${{ matrix.vsix-target }}.vsix'
