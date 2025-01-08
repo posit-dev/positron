@@ -67,7 +67,7 @@ export class NewProjectWizard {
 		await this.setProjectConfiguration(type, rEnvCheckbox, pythonEnv);
 
 		await this.code.driver.page.getByRole('button', { name: 'Current Window' }).click();
-		await expect(this.code.driver.page.getByText('Create New Project')).not.toBeVisible();
+		await expect(this.code.driver.page.locator('.simple-title-bar').filter({ hasText: 'Create New Project' })).not.toBeVisible();
 	}
 
 	async setProjectType(projectType: ProjectType) {

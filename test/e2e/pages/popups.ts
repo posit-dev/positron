@@ -54,27 +54,22 @@ export class Popups {
 	/**
 	 * Interacts with the Renv install modal dialog box. This dialog box appears when a user opts to
 	 * use Renv in the Project Wizard and creates a new project, but Renv is not installed.
-	 * @param install Whether to install Renv or not. Default is true.
+	 * @param action The action to take on the modal dialog box. Either 'install' or 'cancel'.
 	 */
-	async installRenv(install: boolean = true) {
-		try {
-			this.code.logger.log('Checking for install Renv modal dialog box');
-			// fail fast if the renv install modal is not present
-			await this.waitForModalDialogTitle('Missing R package');
+	async installRenvModal(action: 'install' | 'cancel') {
+		await expect(this.code.driver.page.locator('.simple-title-bar').filter({ hasText: 'Missing R package' })).toBeVisible({ timeout: 30000 });
 
-			if (install) {
-				this.code.logger.log('Installing Renv');
-				// await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_OK).click();
-				await this.code.driver.page.getByRole('button', { name: 'Install now' }).click();
-				this.code.logger.log('Installed Renv');
-			} else {
-				this.code.logger.log('Skipping Renv installation');
-				await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_CANCEL).click();
-			}
-		} catch {
-			this.code.logger.log('Did not find install Renv modal dialog box');
+		if (action === 'install') {
+			this.code.logger.log('Install Renv modal detected: clicking `Install now`');
+			console.log('Install Renv modal detected: clicking `Install now`');
+			await this.code.driver.page.getByRole('button', { name: 'Install now' }).click();
+		} else if (action === 'cancel') {
+			this.code.logger.log('Install Renv modal detected: clicking `Cancel`');
+			console.log('Install Renv modal detected: clicking `Cancel`');
+			await this.code.driver.page.getByRole('button', { name: 'Cancel', exact: true }).click();
 		}
 	}
+
 	async waitForToastToDisappear() {
 		this.code.logger.log('Waiting for toast to be detacted');
 		await this.toastLocator.waitFor({ state: 'detached', timeout: 20000 });

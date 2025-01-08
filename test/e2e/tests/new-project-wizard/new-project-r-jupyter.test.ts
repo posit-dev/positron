@@ -31,7 +31,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 		// here, but it's timing out in CI, so it is not included for now.
 	});
 
-	test('R - Accept Renv install [C633084]', { tag: [tags.WIN] }, async function ({ app, r }) {
+	test('R - Accept Renv install [C633084]', { tag: [tags.WIN] }, async function ({ app, r, page }) {
 		const projectTitle = addRandomNumSuffix('r-installRenv');
 
 		await app.workbench.newProjectWizard.createNewProject({
@@ -40,15 +40,8 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 			rEnvCheckbox: true,
 		});
 
-		// If this test is running on a machine that is using Renv for the first time, we
-		// may need to interact with the Console to allow the renv installation to complete
-		// An example: https://github.com/posit-dev/positron/pull/3881#issuecomment-2211123610.
-
-		// You should either manually interact with the Console to proceed with the Renv
-		// install or temporarily uncomment the code below to automate the interaction.
-		if (process.env.GITHUB_ACTIONS) {
-			await app.workbench.popups.installRenv();
-		}
+		// Accept the Renv installation
+		await app.workbench.popups.installRenvModal('install');
 
 		await verifyProjectCreation(app, projectTitle);
 		await verifyRenvFilesArePresent(app);
@@ -83,8 +76,8 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 			rEnvCheckbox: true,
 		});
 
-		// Interact with the modal to skip installing renv
-		await app.workbench.popups.installRenv(false);
+		// Cancel the Renv installation
+		await app.workbench.popups.installRenvModal('cancel');
 		await verifyProjectCreation(app, projectTitle);
 	});
 
