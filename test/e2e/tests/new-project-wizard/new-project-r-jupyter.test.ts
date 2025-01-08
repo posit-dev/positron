@@ -59,12 +59,10 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 		await app.workbench.console.waitForConsoleContents('renv activated');
 	});
 
-	test('R - Cancel Renv install [C656252]', { tag: [tags.WIN] }, async function ({ app }) {
+	test('R - Cancel Renv install [C656252]', { tag: [tags.WIN] }, async function ({ app, packages }) {
 		const projectTitle = addRandomNumSuffix('r-cancelRenvInstall');
 
-		await removeRenvPackage(app);
-
-		// Create a new R project - select Renv but opt out of installing
+		await packages.manage('renv', 'uninstall');
 		await createNewProject(app, {
 			type: ProjectType.R_PROJECT,
 			title: projectTitle,
@@ -78,7 +76,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 });
 
 test.describe('Jupyter - New Project Wizard', {
-	annotation: [{ type: 'issue', description: 'console never starts' }], // uncomment line 103 when fixed
+	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5914' }], // uncomment line 103 when fixed
 }, () => {
 	test('Jupyter Project Defaults [C629352]', {
 		tag: [tags.CRITICAL, tags.WIN],
@@ -100,7 +98,7 @@ function addRandomNumSuffix(name: string): string {
 async function verifyProjectCreation(app: Application, projectTitle: string) {
 	await test.step(`Verify project created`, async () => {
 		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${projectTitle}` })).toBeVisible({ timeout: 15000 });
-		// await app.workbench.console.waitForReady('>', 90000);
+		// await app.workbench.console.waitForReady('>', 90000); // issue 5914 causes this to fail
 	});
 }
 
@@ -126,9 +124,3 @@ async function handleRenvInstallModal(app: Application, action: 'install' | 'can
 	});
 }
 
-async function removeRenvPackage(app: Application) {
-	await test.step(`Remove renv package`, async () => {
-		await app.workbench.console.executeCode('R', 'remove.packages("renv")', '>');
-		await app.workbench.console.waitForConsoleContents(`Removing package`);
-	});
-}
