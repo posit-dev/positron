@@ -185,10 +185,11 @@ export class ExtHostConfigProvider {
 			},
 			get: <T>(key: string, defaultValue?: T) => {
 				// --- Start Positron ---
-				// Disable vscode-jupyter's cell decorations, code lenses, and interactive window
-				// entrpoints, preferring Positron alternatives instead.
-				// TODO(seem): We can remove this if we eventually decide to unbundle vscode-jupyter.
+				// TODO(seem): We can remove this block if we eventually decide to unbundle vscode-jupyter.
+
 				if (section === 'jupyter') {
+					// Disable vscode-jupyter's cell decorations, code lenses, and interactive window
+					// entrpoints, preferring Positron alternatives instead.
 					switch (key) {
 						case 'interactiveWindow.cellMarker.decorateCells':
 						case 'interactiveWindow.codeLens.enable':
