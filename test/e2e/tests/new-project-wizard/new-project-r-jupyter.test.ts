@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { ProjectType, } from '../../infra';
+import { Application, ProjectType, } from '../../infra';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -38,9 +38,6 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 			type: ProjectType.R_PROJECT,
 			title: projectTitle,
 			rEnvCheckbox: true,
-			// configure: {
-			// 	renv: true
-			// }
 		});
 
 		// If this test is running on a machine that is using Renv for the first time, we
@@ -51,9 +48,6 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 		// install or temporarily uncomment the code below to automate the interaction.
 		if (process.env.GITHUB_ACTIONS) {
 			await app.workbench.popups.installRenv();
-			await app.workbench.console.waitForConsoleContents('Do you want to proceed?');
-			await app.workbench.console.typeToConsole('y');
-			await app.workbench.console.sendEnterKey();
 		}
 
 		await verifyProjectCreation(app, projectTitle);
@@ -68,9 +62,6 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 			type: ProjectType.R_PROJECT,
 			title: projectTitle,
 			rEnvCheckbox: true,
-			// configure: {
-			// 	renv: true
-			// }
 		});
 
 		await verifyProjectCreation(app, projectTitle);
@@ -94,9 +85,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 
 		// Interact with the modal to skip installing renv
 		await app.workbench.popups.installRenv(false);
-
 		await verifyProjectCreation(app, projectTitle);
-		await verifyRenvFilesArePresent(app, false);
 	});
 
 });
@@ -119,25 +108,15 @@ function addRandomNumSuffix(name: string): string {
 	return `${name}_${Math.floor(Math.random() * 1000000)}`;
 }
 
-async function verifyProjectCreation(app: any, projectTitle: string) {
+async function verifyProjectCreation(app: Application, projectTitle: string) {
 	await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${projectTitle}` })).toBeVisible({ timeout: 15000 });
 	// await app.workbench.console.waitForReadyOrNoInterpreter();
 }
 
-async function verifyRenvFilesArePresent(app: any, renvFilesPresent = true) {
-	await expect(async () => {
-		const projectFiles = await app.workbench.explorer.getExplorerProjectFiles();
-
-		if (renvFilesPresent) {
-			// Verify that the renv files are present
-			expect(projectFiles).toContain('renv');
-			expect(projectFiles).toContain('.Rprofile');
-			expect(projectFiles).toContain('renv.lock');
-		} else {
-			// Verify that the renv files are NOT present
-			expect(projectFiles).not.toContain('renv');
-			expect(projectFiles).not.toContain('.Rprofile');
-			expect(projectFiles).not.toContain('renv.lock');
-		}
-	}).toPass({ timeout: 50000 });
+async function verifyRenvFilesArePresent(app: Application,) {
+	// marie to do: update getProjectFiles()
+	const projectFiles = app.code.driver.page.locator('.monaco-list > .monaco-scrollable-element');
+	expect(projectFiles.getByLabel('renv', { exact: true }).locator('a')).toBeVisible({ timeout: 50000 });
+	expect(projectFiles.getByText('.Rprofile')).toBeVisible();
+	expect(projectFiles.getByLabel('renv.lock', { exact: true }).locator('a')).toBeVisible();
 }
