@@ -42,4 +42,7 @@ export * from './fixtures/python';
 export * from './fixtures/r';
 export * from './fixtures/userSettings';
 
+// test-runner
+export * from './test-runner';
+
 export { getDevElectronPath, getBuildElectronPath, getBuildVersion } from './electron';

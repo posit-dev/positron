@@ -43,10 +43,10 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 	test('With ipykernel already installed [C609619]', {
 		tag: [tags.WIN],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5730' }],
-	}, async function ({ app, python }) {
+	}, async function ({ app, python, packages }) {
 		const projectTitle = addRandomNumSuffix('ipykernel-installed');
 
-		await ipykernel(app, 'install');
+		await packages.manage('ipykernel', 'install');
 		await createNewProject(app, {
 			type: ProjectType.PYTHON_PROJECT,
 			title: projectTitle,
@@ -58,10 +58,10 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 
 	test('With ipykernel not already installed [C609617]', {
 		tag: [tags.WIN],
-	}, async function ({ app, python }) {
+	}, async function ({ app, python, packages }) {
 		const projectTitle = addRandomNumSuffix('no-ipykernel');
 
-		await ipykernel(app, 'uninstall');
+		await packages.manage('ipykernel', 'uninstall');
 		await createNewProject(app, {
 			type: ProjectType.PYTHON_PROJECT,
 			title: projectTitle,
@@ -150,17 +150,6 @@ async function verifyGitStatus(app: any) {
 	});
 }
 
-async function ipykernel(app: any, action: 'install' | 'uninstall') {
-	await test.step(`${action}: ipykernel`, async () => {
-		if (action === 'install') {
-			await app.workbench.console.typeToConsole('pip install ipykernel', 10, true);
-			await app.workbench.console.waitForConsoleContents('Note: you may need to restart the kernel to use updated packages.');
-		} else if (action === 'uninstall') {
-			await app.workbench.console.typeToConsole('pip uninstall -y ipykernel', 10, true);
-			await app.workbench.console.waitForConsoleContents('Successfully uninstalled ipykernel');
-		}
-	});
-}
 
 async function verifyIpykernelInstalled(app: any) {
 	await test.step('Verify ipykernel is installed', async () => {

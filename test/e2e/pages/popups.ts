@@ -61,11 +61,9 @@ export class Popups {
 
 		if (action === 'install') {
 			this.code.logger.log('Install Renv modal detected: clicking `Install now`');
-			console.log('Install Renv modal detected: clicking `Install now`');
 			await this.code.driver.page.getByRole('button', { name: 'Install now' }).click();
 		} else if (action === 'cancel') {
 			this.code.logger.log('Install Renv modal detected: clicking `Cancel`');
-			console.log('Install Renv modal detected: clicking `Cancel`');
 			await this.code.driver.page.getByRole('button', { name: 'Cancel', exact: true }).click();
 		}
 	}
