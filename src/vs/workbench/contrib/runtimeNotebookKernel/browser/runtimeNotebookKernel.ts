@@ -40,8 +40,10 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 
 	public readonly hasVariableProvider = false;
 
-	// TODO: Not sure what we could set this to...
-	public readonly localResourceRoot: URI = URI.parse('');
+	// A kernel's localResourceRoot gets added to the localResourceRoot of the notebook's back layer webview.
+	// MainThreadKernel uses the extensionLocation, but our kernels live in the main thread.
+	// Not sure what to use here.
+	public readonly localResourceRoot = URI.parse('');
 
 	private readonly _onDidChange = this._register(new Emitter<INotebookKernelChangeEvent>());
 
@@ -100,7 +102,8 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 
 			const notebook = this._notebookService.getNotebookTextModel(notebookUri);
 			if (!notebook) {
-				// Copying ExtHostNotebookKernels behavior for now.
+				// Not sure when this happens, so we're copying ExtHostNotebookKernels.$executeCells
+				// and throwing.
 				const error = new Error(`No notebook document for '${notebookUri.toString()}'`);
 				this._logService.error(`[RuntimeNotebookKernel] ${error.message}`);
 				throw error;
@@ -125,8 +128,9 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			const executionPromises: Promise<void>[] = [];
 			for (const cellHandle of cellHandles) {
 				const cell = notebook.cells.find(cell => cell.handle === cellHandle);
-				// TODO: When does this happen?
 				if (!cell) {
+					// Not sure when this happens, so we're copying ExtHostNotebookKernels.$executeCells
+					// and silently skipping the cell.
 					continue;
 				}
 				executionPromises.push(this.queueCellExecution(cell, notebookUri, session));

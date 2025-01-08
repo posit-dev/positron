@@ -320,7 +320,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
  *
  * NOTE: src/vs/workbench/contrib/notebook/common/notebookCommon.ts:CellUri.parseCellOutputUri
  * assumes that output IDs are generated using {@link generateUuid}. If they aren't,
- * opening a truncated cell output in a text editor will not work.
+ * an error will occur when opening a truncated cell output in a text editor.
  */
 function generateNotebookCellOutputId(): string {
 	return generateUuid();
