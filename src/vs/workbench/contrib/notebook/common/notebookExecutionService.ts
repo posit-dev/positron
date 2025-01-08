@@ -10,6 +10,8 @@ import { NotebookCellTextModel } from './model/notebookCellTextModel.js';
 import { INotebookTextModel, IOutputDto, IOutputItemDto } from './notebookCommon.js';
 import { INotebookCellExecution } from './notebookExecutionStateService.js';
 // --- Start Positron ---
+// Add start/end execution events.
+
 import { Event } from '../../../../base/common/event.js';
 
 /** An event that fires when a notebook cells execution is started. */
@@ -53,6 +55,8 @@ export const INotebookExecutionService = createDecorator<INotebookExecutionServi
 export interface INotebookExecutionService {
 	_serviceBrand: undefined;
 	// --- Start Positron ---
+	// Add start/end execution events.
+
 	/** An event that fires when a notebook cells execution is started. */
 	onDidStartNotebookCellsExecution: Event<IDidStartNotebookCellsExecutionEvent>;
 
