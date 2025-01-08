@@ -25,6 +25,36 @@ import { INotebookService } from '../../notebook/common/notebookService.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../common/runtimeNotebookKernelConfig.js';
 import { RuntimeNotebookCellExecution } from './runtimeNotebookCellExecution.js';
 
+/**
+ * A queue for notebook executions, like SequencerByKey but keyed by URIs and stops the queue when
+ * an execution errors.
+ */
+class NotebookExecutionSequencer {
+	/** Map of last queued execution promise, keyed by notebook URI. */
+	private readonly _promisesByNotebookUri = new ResourceMap<Promise<unknown>>();
+
+	queue<T>(key: URI, promiseTask: () => Promise<T>): Promise<T> {
+		// Get the last queued promise for this notebook, if one exists.
+		const lastPromise = this._promisesByNotebookUri.get(key) ?? Promise.resolve();
+
+		// Chain the new promise after the last.
+		const newPromise = lastPromise
+			.then(promiseTask)
+			.finally(() => {
+				// If the last promise in the chain ended, delete the entry for the notebook,
+				// starting a new chain.
+				if (this._promisesByNotebookUri.get(key) === newPromise) {
+					this._promisesByNotebookUri.delete(key);
+				}
+			});
+
+		// Update the last promise for this notebook.
+		this._promisesByNotebookUri.set(key, newPromise);
+
+		return newPromise;
+	}
+}
+
 /** A notebook kernel for Positron's language runtimes. */
 export class RuntimeNotebookKernel extends Disposable implements INotebookKernel {
 	/**
@@ -84,12 +114,12 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	 * Each queued cell execution promise is chained to the previous one for the notebook
 	 * so that cells are executed sequentially.
 	 */
-	private readonly _pendingCellExecutionsByNotebookUri = new ResourceMap<Promise<void>>();
+	private readonly _notebookExecutionSequencer = new NotebookExecutionSequencer();
 
 	/**
 	 * The current pending execution, keyed by notebook URI.
 	 */
-	private _pendingRuntimeExecution = new ResourceMap<RuntimeNotebookCellExecution>();
+	private _pendingExecutionsByNotebookUri = new ResourceMap<RuntimeNotebookCellExecution>();
 
 	private _sessionsByNotebookUri = new ResourceMap<ILanguageRuntimeSession>();
 
@@ -165,7 +195,12 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 					// and silently skipping the cell.
 					continue;
 				}
-				executionPromises.push(this.queueCellExecution(cell, notebookUri, session));
+				this._logService.trace(`[RuntimeNotebookKernel] Queuing cell execution: ${cell.handle} for notebook ${notebookUri.fsPath}`);
+				const executionPromise = this._notebookExecutionSequencer.queue(
+					notebookUri,
+					() => this.executeCell(cell, notebookUri, session),
+				);
+				executionPromises.push(executionPromise);
 			}
 			await Promise.all(executionPromises);
 		} catch (err) {
@@ -173,31 +208,8 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		}
 	}
 
-	private async queueCellExecution(cell: NotebookCellTextModel, notebookUri: URI, session: ILanguageRuntimeSession): Promise<void> {
-		this._logService.debug(`[RuntimeNotebookKernel] Queuing cell execution: ${cell.handle} for notebook ${notebookUri.fsPath}`);
-
-		// Get the pending execution for this notebook, if one exists.
-		const pendingExecution = this._pendingCellExecutionsByNotebookUri.get(notebookUri);
-
-		// Chain this execution after the pending one.
-		const currentExecution = Promise.resolve(pendingExecution)
-			.then(() => this.executeCell(cell, notebookUri, session))
-			.finally(() => {
-				// If this was the last execution in the chain, remove it from the map,
-				// starting a new chain.
-				if (this._pendingCellExecutionsByNotebookUri.get(notebookUri) === currentExecution) {
-					this._pendingCellExecutionsByNotebookUri.delete(notebookUri);
-				}
-			});
-
-		// Update the pending execution for this notebook.
-		this._pendingCellExecutionsByNotebookUri.set(notebookUri, currentExecution);
-
-		return currentExecution;
-	}
-
 	private async executeCell(cell: NotebookCellTextModel, notebookUri: URI, session: ILanguageRuntimeSession): Promise<void> {
-		this._logService.debug(`[RuntimeNotebookKernel] Executing cell: ${cell.handle}`);
+		this._logService.trace(`[RuntimeNotebookKernel] Executing cell: ${cell.handle}`);
 
 		// Don't try to execute raw cells; they're often used to define metadata e.g in Quarto notebooks.
 		if (cell.language === 'raw') {
@@ -219,10 +231,10 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		const execution = this._register(this._instantiationService.createInstance(
 			RuntimeNotebookCellExecution, session, cellExecution, cell
 		));
-		if (this._pendingRuntimeExecution.has(notebookUri)) {
+		if (this._pendingExecutionsByNotebookUri.has(notebookUri)) {
 			this._logService.warn(`Overwriting pending execution for notebook ${notebookUri.fsPath}`);
 		}
-		this._pendingRuntimeExecution.set(notebookUri, execution);
+		this._pendingExecutionsByNotebookUri.set(notebookUri, execution);
 
 		try {
 			session.execute(
@@ -236,8 +248,8 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		}
 
 		return execution.promise.finally(() => {
-			if (this._pendingRuntimeExecution.get(notebookUri) === execution) {
-				this._pendingRuntimeExecution.delete(notebookUri);
+			if (this._pendingExecutionsByNotebookUri.get(notebookUri) === execution) {
+				this._pendingExecutionsByNotebookUri.delete(notebookUri);
 			}
 		});
 	}
@@ -317,7 +329,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			return;
 		}
 
-		const execution = this._pendingRuntimeExecution.get(notebookUri);
+		const execution = this._pendingExecutionsByNotebookUri.get(notebookUri);
 		if (!execution) {
 			// It shouldn't be possible to interrupt an execution without having set the pending execution,
 			// but there's nothing more we can do so just log a warning.
