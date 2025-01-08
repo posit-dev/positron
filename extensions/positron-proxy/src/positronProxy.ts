@@ -26,6 +26,7 @@ const HOST = 'localhost';
  * <style id="identifier">
  * ....
  * </style>
+ * Noted in the resources/scripts_{TYPE}.html files.
  * @param script The script.
  * @param id The element id.
  * @returns The element, if found; otherwise, undefined.
@@ -38,6 +39,7 @@ const getStyleElement = (script: string, id: string) =>
  * <script id="identifier" type="module">
  * ...
  * </script>
+ * Noted in the resources/scripts_{TYPE}.html files.
  * @param script The script.
  * @param id The element id.
  * @returns The element, if found; otherwise, undefined.
