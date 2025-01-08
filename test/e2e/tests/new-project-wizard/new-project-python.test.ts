@@ -29,6 +29,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 
 	test('Create a new Venv environment [C627912]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
 		const projectTitle = addRandomNumSuffix('new-venv');
+
 		await createNewProject(app, {
 			type: ProjectType.PYTHON_PROJECT,
 			title: projectTitle,
@@ -39,19 +40,13 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await verifyVenEnvStarts(app);
 	});
 
-	// marie: wip
 	test('With ipykernel already installed [C609619]', {
 		tag: [tags.WIN],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5730' }],
 	}, async function ({ app, python }) {
 		const projectTitle = addRandomNumSuffix('ipykernel-installed');
 
-		// const interpreterInfo =
-		// 	await app.workbench.interpreterDropdown.getSelectedInterpreterInfo();
-		// expect(interpreterInfo?.path).toBeDefined();
-		// await app.workbench.interpreterDropdown.closeInterpreterDropdown();
 		await ipykernel(app, 'install');
-
 		await createNewProject(app, {
 			type: ProjectType.PYTHON_PROJECT,
 			title: projectTitle,
@@ -59,84 +54,27 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		});
 
 		await verifyProjectCreation(app, projectTitle);
-		// 	const projSuffix = addRandomNumSuffix('_ipykernelInstalled');
-		// 	const pw = app.workbench.newProjectWizard;
-		// 	const pythonFixtures = new PythonFixtures(app);
-		// 	// Start the Python interpreter and ensure ipykernel is installed
-		// 	await pythonFixtures.startAndGetPythonInterpreter(true);
-
-		// 	const interpreterInfo =
-		// 		await app.workbench.interpreterDropdown.getSelectedInterpreterInfo();
-		// 	expect(interpreterInfo?.path).toBeDefined();
-		// 	await app.workbench.interpreterDropdown.closeInterpreterDropdown();
-		// 	// Create a new Python project and use the selected python interpreter
-		// 	await pw.setProjectType(ProjectType.PYTHON_PROJECT);
-		// 	await pw.navigate(ProjectWizardNavigateAction.NEXT);
-		// 	await pw.projectNameLocationStep.appendToProjectName(projSuffix);
-		// 	await pw.navigate(ProjectWizardNavigateAction.NEXT);
-		// 	await pw.pythonConfigurationStep.existingEnvRadioButton.click();
-		// 	// Select the interpreter that was started above. It's possible that this needs
-		// 	// to be attempted a few times to ensure the interpreters are properly loaded.
-		// 	await expect(
-		// 		async () =>
-		// 			await pw.pythonConfigurationStep.selectInterpreterByPath(
-		// 				interpreterInfo!.path
-		// 			)
-		// 	).toPass({
-		// 		intervals: [1_000, 2_000, 10_000],
-		// 		timeout: 50_000
-		// 	});
-		// await expect(pw.pythonConfigurationStep.interpreterFeedback).not.toBeVisible();
-		// 	await pw.navigate(ProjectWizardNavigateAction.CREATE);
-		// 	await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		// 	await expect(page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 20000 });
-		// 	await expect(app.workbench.console.activeConsole.getByText('>>>')).toBeVisible({ timeout: 90000 });
 	});
 
 	test('With ipykernel not already installed [C609617]', {
 		tag: [tags.WIN],
 	}, async function ({ app, python }) {
 		const projectTitle = addRandomNumSuffix('no-ipykernel');
-		// const interpreterInfo =
-		// 	await app.workbench.interpreterDropdown.getSelectedInterpreterInfo();
-		// expect(interpreterInfo?.path).toBeDefined();
-		// await app.workbench.interpreterDropdown.closeInterpreterDropdown();
-		// console.log('interperter info', interpreterInfo);
-		await ipykernel(app, 'uninstall');
 
-		// Create a new Python project and use the selected python interpreter
+		await ipykernel(app, 'uninstall');
 		await createNewProject(app, {
 			type: ProjectType.PYTHON_PROJECT,
 			title: projectTitle,
 			pythonEnv: 'Existing',
 		});
 
-		// Select the interpreter that was started above. It's possible that this needs
-		// to be attempted a few times to ensure the interpreters are properly loaded.
-		// 	await expect(
-		// 		async () =>
-		// 			await pw.pythonConfigurationStep.selectInterpreterByPath(
-		// 				interpreterInfo!.path
-		// 			)
-		// 	).toPass({
-		// 		intervals: [1_000, 2_000, 10_000],
-		// 		timeout: 50_000
-		// 	});
-		// 	await expect(pw.pythonConfigurationStep.interpreterFeedback).toHaveText(
-		// 		'ipykernel will be installed for Python language support.',
-		// 		{ timeout: 10_000 }
-		// 	);
-
-		// 	// If ipykernel was successfully installed during the new project initialization,
-		// 	// the console should be ready without any prompts to install ipykernel
 		await verifyProjectCreation(app, projectTitle);
-		await app.workbench.console.typeToConsole('pip show ipykernel', 10, true);
-		await app.workbench.console.waitForConsoleContents('Name: ipykernel');
-
+		await verifyIpykernelInstalled(app);
 	});
 
 	test('Default Python Project with git init [C674522]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
 		const projectTitle = addRandomNumSuffix('git-init');
+
 		await createNewProject(app, {
 			type: ProjectType.PYTHON_PROJECT,
 			title: projectTitle,
@@ -213,12 +151,20 @@ async function verifyGitStatus(app: any) {
 }
 
 async function ipykernel(app: any, action: 'install' | 'uninstall') {
-	if (action === 'install') {
-		await app.workbench.console.typeToConsole('pip install ipykernel', 10, true);
-		await app.workbench.console.waitForConsoleContents('Note: you may need to restart the kernel to use updated packages.');
-	} else if (action === 'uninstall') {
-		await app.workbench.console.typeToConsole('pip uninstall -y ipykernel', 10, true);
-		await app.workbench.console.waitForConsoleContents('Successfully uninstalled ipykernel');
-		await app.workbench.console.typeToConsole('pip install packaging', 10, true); // why do I need to do this?
-	}
+	await test.step(`${action}: Ipykernel`, async () => {
+		if (action === 'install') {
+			await app.workbench.console.typeToConsole('pip install ipykernel', 10, true);
+			await app.workbench.console.waitForConsoleContents('Note: you may need to restart the kernel to use updated packages.');
+		} else if (action === 'uninstall') {
+			await app.workbench.console.typeToConsole('pip uninstall -y ipykernel', 10, true);
+			await app.workbench.console.waitForConsoleContents('Successfully uninstalled ipykernel');
+		}
+	});
+}
+
+async function verifyIpykernelInstalled(app: any) {
+	await test.step('Verify that ipykernel is installed', async () => {
+		await app.workbench.console.typeToConsole('pip show ipykernel', 10, true);
+		await app.workbench.console.waitForConsoleContents('Name: ipykernel');
+	});
 }
