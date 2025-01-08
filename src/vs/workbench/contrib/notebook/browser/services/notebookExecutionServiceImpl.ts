@@ -18,6 +18,8 @@ import { INotebookKernelHistoryService, INotebookKernelService } from '../../com
 import { INotebookLoggingService } from '../../common/notebookLoggingService.js';
 
 // --- Start Positron ---
+// Imports for the new start/end execution events.
+
 // eslint-disable-next-line no-duplicate-imports
 import { IDidStartNotebookCellsExecutionEvent, IDidEndNotebookCellsExecutionEvent } from '../../common/notebookExecutionService.js';
 import { Emitter } from '../../../../../base/common/event.js';
@@ -27,6 +29,8 @@ export class NotebookExecutionService implements INotebookExecutionService, IDis
 	declare _serviceBrand: undefined;
 	private _activeProxyKernelExecutionToken: CancellationTokenSource | undefined;
 	// --- Start Positron ---
+	// Add new start/end execution events.
+
 	private readonly _onDidStartNotebookCellsExecution = new Emitter<IDidStartNotebookCellsExecutionEvent>();
 	private readonly _onDidEndNotebookCellsExecution = new Emitter<IDidEndNotebookCellsExecutionEvent>();
 
@@ -94,9 +98,7 @@ export class NotebookExecutionService implements INotebookExecutionService, IDis
 
 			this._notebookKernelService.selectKernelForNotebook(kernel, notebook);
 			// --- Start Positron ---
-			// await kernel.executeNotebookCellsRequest(notebook.uri, validCellExecutions.map(c => c.cellHandle));
-
-			// Wrap executeNotebookCellsRequest in a try-finally, and fire the start/end execution events.
+			// Wrap executeNotebookCellsRequest in a try-finally, and fire the new start/end execution events.
 			const startTime = Date.now();
 			const cellHandles = validCellExecutions.map(c => c.cellHandle);
 			this._onDidStartNotebookCellsExecution.fire({ cellHandles });
