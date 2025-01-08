@@ -22,6 +22,7 @@ defaults:
 env:
   NODE_VERSION: '20.12.1'
   PYTHON_VERSION: '3.10'
+  ARTIFACT_NAME_VSIX: positron-python-dev-vsix
   PROJECT_DIR: 'extensions/positron-python'
   PYTHON_SRC_DIR: 'extensions/positron-python/python_files'
   # Force a path with spaces and to test extension works in these scenarios
@@ -424,8 +425,83 @@ jobs:
         run: npm run test:functional
         if: matrix.test-suite == 'functional'
 
-      - name: Run smoke tests
-        env:
-          POSITRON_GITHUB_PAT: ${{ github.token }}
-        run: npx tsc && node ./out/test/smokeTest.js
-        if: matrix.test-suite == 'smoke'
+  build-vsix:
+    name: Create VSIX
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # - os: windows-latest
+          #   target: x86_64-pc-windows-msvc
+          #   vsix-target: win32-x64
+          # - os: windows-latest
+          #   target: aarch64-pc-windows-msvc
+          #   vsix-target: win32-arm64
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            vsix-target: linux-x64
+          # - os: ubuntu-latest
+          #   target: x86_64-unknown-linux-musl
+          #   vsix-target: alpine-x64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkout Python Environment Tools
+        uses: actions/checkout@v4
+        with:
+          repository: 'microsoft/python-environment-tools'
+          path: 'python-env-tools'
+          sparse-checkout: |
+            crates
+            Cargo.toml
+            Cargo.lock
+          sparse-checkout-cone-mode: false
+
+      - name: Build VSIX
+        uses: ./.github/actions/build-vsix
+        with:
+          node_version: ${{ env.NODE_VERSION}}
+          vsix_name: 'positron-python-dev-${{ matrix.vsix-target }}.vsix'
+          artifact_name: '${{ env.ARTIFACT_NAME_VSIX }}-${{ matrix.vsix-target }}'
+          cargo_target: ${{ matrix.target }}
+          vsix_target: ${{ matrix.vsix-target }}
+
+  smoke-tests:
+    name: Smoke tests
+    # The value of runs-on is the OS of the current job (specified in the strategy matrix below) instead of being hardcoded.
+    runs-on: ${{ matrix.os }}
+    needs: [build-vsix]
+    strategy:
+      fail-fast: false
+      matrix:
+        # We're not running CI on macOS for now because it's one less matrix entry to lower the number of runners used,
+        # macOS runners are expensive, and we assume that Ubuntu is enough to cover the UNIX case.
+        include:
+          # - os: windows-latest
+          #   vsix-target: win32-x64
+          - os: ubuntu-latest
+            vsix-target: linux-x64
+
+    steps:
+      # Need the source to have the tests available.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkout Python Environment Tools
+        uses: actions/checkout@v4
+        with:
+          repository: 'microsoft/python-environment-tools'
+          path: python-env-tools
+          sparse-checkout: |
+            crates
+            Cargo.toml
+            Cargo.lock
+          sparse-checkout-cone-mode: false
+
+      - name: Smoke tests
+        uses: ./.github/actions/python-smoke-tests
+        with:
+          node_version: ${{ env.NODE_VERSION }}
+          artifact_name: '${{ env.ARTIFACT_NAME_VSIX }}-${{ matrix.vsix-target }}'
