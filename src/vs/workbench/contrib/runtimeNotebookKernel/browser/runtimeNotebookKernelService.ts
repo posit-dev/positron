@@ -18,7 +18,7 @@ import { CellEditType, CellKind, ICellEditOperation } from '../../notebook/commo
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { ActiveNotebookHasRunningRuntimeManager } from '../common/activeNotebookHasRunningRuntime.js';
-import { registerRuntimeNotebookKernelActions } from '../common/runtimeNotebookKernelActions.js';
+import { registerRuntimeNotebookKernelActions } from './runtimeNotebookKernelActions.js';
 import { isRuntimeNotebookKernelEnabled } from '../common/runtimeNotebookKernelConfig.js';
 import { IRuntimeNotebookKernelService } from './interfaces/runtimeNotebookKernelService.js';
 import { NotebookExecutionStatus } from './notebookExecutionStatus.js';
