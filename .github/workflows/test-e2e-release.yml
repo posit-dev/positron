@@ -61,10 +61,8 @@ jobs:
           npm install @vscode/v8-heap-parser@^0.1.0
           npm install fs-extra
 
-          cd test/e2e
-          npm install
-          npm run compile
-          cd ../..
+          npm --prefix test/e2e install
+          npm --prefix test/e2e run compile
 
       - name: Get & install latest release
         id: get_latest_release
