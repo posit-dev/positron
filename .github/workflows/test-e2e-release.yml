@@ -45,30 +45,6 @@ jobs:
             libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev \
             libsdl-pango-dev libjpeg-dev libgif-dev pandoc
 
-      - name: Install missing system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwoff1 \
-            libvpx7 \
-            libevent-2.1-7 \
-            gstreamer1.0-plugins-base \
-            gstreamer1.0-plugins-good \
-            gstreamer1.0-plugins-bad \
-            gstreamer1.0-plugins-ugly \
-            gstreamer1.0-libav \
-            gstreamer1.0-tools \
-            gstreamer1.0-gl \
-            gstreamer1.0-alsa \
-            gstreamer1.0-pulseaudio \
-            libflite1 \
-            libgles2-mesa \
-            libavif13 \
-            libhyphen0 \
-            ffmpeg \
-            libx264-dev \
-            libmanette-0.2-0
-
       - name: Compile tests
         run: |
           rm package.json
@@ -80,6 +56,7 @@ jobs:
           # Install required dependencies
           npm install @playwright/test@^1.49.0
           npx playwright install
+          npx playwright install-deps
           npm install @currents/playwright@^1.8.0
           npm install @midleman/github-actions-reporter@^1.9.5
           npm install @vscode/v8-heap-parser@^0.1.0
