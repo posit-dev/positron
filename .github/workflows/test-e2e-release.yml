@@ -43,9 +43,24 @@ jobs:
             libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev \
             libsdl-pango-dev libjpeg-dev libgif-dev pandoc
 
-      - name: Compile tests
+      - name: Setup test dependencies and compile tests
         run: |
-          npm install
+          # Must remove root package.json and provide simple stub to use root dir for test run but not build
+          rm package.json
+          echo '{"scripts":{"compile":"npx tsc"}}' > package.json
+
+          # Install TypeScript locally
+          npm install typescript
+
+          # Install required dependencies - must keep in sync with root package.json
+          npm install @playwright/test@^1.49.0
+          npx playwright install
+          npx playwright install-deps
+          npm install @currents/playwright@^1.8.0
+          npm install @midleman/github-actions-reporter@^1.9.5
+          npm install @vscode/v8-heap-parser@^0.1.0
+          npm install fs-extra
+
           npm --prefix test/e2e install
           npm --prefix test/e2e run compile
 
