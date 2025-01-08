@@ -165,7 +165,6 @@ class ProjectWizardPythonConfigurationStep {
 					)
 					.getByText(provider)
 					.count()) === 1;
-			console.log('! preselcted', preselected);
 			if (preselected) {
 				return;
 			}

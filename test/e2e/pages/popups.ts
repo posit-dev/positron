@@ -64,7 +64,8 @@ export class Popups {
 
 			if (install) {
 				this.code.logger.log('Installing Renv');
-				await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_OK).click();
+				// await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_OK).click();
+				await this.code.driver.page.getByRole('button', { name: 'Install now' }).click();
 				this.code.logger.log('Installed Renv');
 			} else {
 				this.code.logger.log('Skipping Renv installation');
