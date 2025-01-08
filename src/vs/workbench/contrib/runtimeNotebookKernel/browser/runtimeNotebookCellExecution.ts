@@ -19,10 +19,7 @@ import { INotebookCellExecution } from '../../notebook/common/notebookExecutionS
 /**
  * The type of a Jupyter notebook cell output.
  *
- * Used by the ipynb notebook serializer (extensions/ipynb/src/serializers.ts) to convert from
- * VSCode notebook cell outputs to Jupyter notebook cell outputs.
- *
- * See: https://jupyter-client.readthedocs.io/en/latest/messaging.html
+ * @link https://jupyter-client.readthedocs.io/en/latest/messaging.html
  */
 enum JupyterNotebookCellOutputType {
 	/** An error occurred during an execution. */
@@ -38,8 +35,13 @@ enum JupyterNotebookCellOutputType {
 	ExecuteResult = 'execute_result',
 }
 
+/**
+ * Updates a wrapped INotebookCellExecution using replies to the parent language runtime message.
+ */
 export class RuntimeNotebookCellExecution extends Disposable {
-	/** The execution ID. */
+	/**
+	 * The execution ID. Only replies to this ID are handled.
+	 */
 	public readonly id = generateUuid();
 
 	/**
@@ -57,7 +59,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 	) {
 		super();
 
-		// Listen for runtime messages.
+		// Handle replies of different types.
 
 		this._register(this._session.onDidReceiveRuntimeMessageInput(async message => {
 			this.handleRuntimeMessageInput(message);
@@ -103,7 +105,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 	 * End the execution successfully.
 	 */
 	public complete(): void {
-		// End the cell execution.
+		// End the cell execution successfully.
 		this._cellExecution.complete({
 			runEndTime: Date.now(),
 			lastRunSuccess: true,
@@ -145,7 +147,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			return;
 		}
 
-		// Update the cell's execution order (usually displayed in notebook UIs).
+		// Update the cell's execution order.
 		this._cellExecution.update([{
 			editType: CellExecutionUpdateType.ExecutionState,
 			executionOrder: message.execution_count,
@@ -259,6 +261,9 @@ export class RuntimeNotebookCellExecution extends Disposable {
 				outputs: [{
 					outputId: generateNotebookCellOutputId(),
 					outputs: [newOutputItem],
+					// Set the outputType, used by by the ipynb notebook serializer
+					// (extensions/ipynb/src/serializers.ts) to convert from VSCode notebook cell
+					// outputs to Jupyter notebook cell outputs.
 					metadata: { outputType: JupyterNotebookCellOutputType.Stream },
 				}]
 			}]);
@@ -286,6 +291,9 @@ export class RuntimeNotebookCellExecution extends Disposable {
 					}, undefined, '\t')),
 					mime: 'application/vnd.code.notebook.error',
 				}],
+				// Set the outputType, used by by the ipynb notebook serializer
+				// (extensions/ipynb/src/serializers.ts) to convert from VSCode notebook cell
+				// outputs to Jupyter notebook cell outputs.
 				metadata: { outputType: JupyterNotebookCellOutputType.Error },
 			}],
 		}]);
@@ -310,6 +318,9 @@ export class RuntimeNotebookCellExecution extends Disposable {
 		}
 	}
 
+	/**
+	 * The promise that resolves when the execution completes, or rejects if the execution errors.
+	 */
 	public get promise(): Promise<void> {
 		return this._deferred.p;
 	}
