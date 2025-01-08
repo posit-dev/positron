@@ -215,9 +215,7 @@ export class PlaywrightDriver {
 	}
 
 	private async evaluateWithDriver<T>(pageFunction: PageFunction<IWindowDriver[], T>) {
-		const driverHandle = await this.getDriverHandle();
-		const driver = await driverHandle.jsonValue(); // Extract the actual `IWindowDriver` object
-		return this.page.evaluate(pageFunction, [driver]);
+		return this.page.evaluate(pageFunction, [await this.getDriverHandle()]);
 	}
 
 	wait(ms: number): Promise<void> {
