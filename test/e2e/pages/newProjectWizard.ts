@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { fail } from 'assert';
 import { expect } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
@@ -15,13 +14,17 @@ export class NewProjectWizard {
 	private createButton = this.code.driver.page.getByRole('button', { name: 'Create', exact: true });
 	private projectNameInput = this.code.driver.page.getByLabel(/Enter a name for your new/);
 	private existingEnvRadioButton = this.code.driver.page.getByText(/Use an existing/);
-	private envProviderDropdown = this.code.driver.page.locator('div[id="wizard-sub-step-python-environment"]').locator('button');
-	private interpreterDropdown = this.code.driver.page.locator('div[id="wizard-sub-step-python-interpreter"]').locator('button');
+	private envProviderDropdown = this.code.driver.page.locator('#wizard-sub-step-python-environment').locator('button');
+	private envProviderDropdownTitle = this.envProviderDropdown.locator('.dropdown-entry-title');
+	private dropDropdownOptions = this.code.driver.page.locator('.positron-modal-popup-children').getByRole('button');
+	private interpreterDropdown = this.code.driver.page.locator('#wizard-sub-step-python-interpreter').locator('button');
+	private interpreterDropdownSubtitle = this.interpreterDropdown.locator('.dropdown-entry-subtitle');
 
 	constructor(private code: Code, private quickaccess: QuickAccess) { }
 
 	/**
-	 * Create a new project via the New Project Wizard
+	 * NEW PROJECT WIZARD:
+	 * Step through the new project wizard in order to create a new project.
 	 * @param options The options to configure the new project.
 	 */
 	async createNewProject(options: CreateProjectOptions) {
@@ -74,7 +77,6 @@ export class NewProjectWizard {
 			await this.code.driver.page.getByText('Use `renv` to create a').click();
 		} else if (projectType === ProjectType.PYTHON_PROJECT && pythonEnv === 'Conda') {
 			await this.selectEnvProvider('Conda');
-			// await this.pythonConfigurationStep.selectInterpreterByPath('C:\\Users\\user\\.conda\\envs\\base\\python.exe');
 		} else if (projectType === ProjectType.PYTHON_PROJECT && pythonEnv === 'Existing') {
 			await this.existingEnvRadioButton.click();
 			if (ipykernelFeedbackExpected) {
@@ -92,52 +94,36 @@ export class NewProjectWizard {
 	 * @param action The navigation action to take in the project wizard.
 	 */
 	async clickWizardButton(action: WizardButton) {
-		const buttonMap: Record<WizardButton, () => Promise<void>> = {
-			[WizardButton.BACK]: () => this.backButton.click(),
-			[WizardButton.NEXT]: () => this.nextButton.click(),
-			[WizardButton.CANCEL]: () => this.cancelButton.click(),
-			[WizardButton.CREATE]: () => this.createButton.click(),
-		};
+		const button = {
+			[WizardButton.BACK]: this.backButton,
+			[WizardButton.NEXT]: this.nextButton,
+			[WizardButton.CANCEL]: this.cancelButton,
+			[WizardButton.CREATE]: this.createButton,
+		}[action];
 
-		const clickAction = buttonMap[action];
-		if (!clickAction) {
-			throw new Error(`Invalid project wizard navigation action: ${action}`);
+		if (!button) {
+			throw new Error(`Invalid wizard button action: ${action}`);
 		}
 
-		await clickAction();
+		await button.click();
 	}
 
 	/**
 	 * Helper: Selects the specified environment provider in the project wizard environment provider dropdown.
-	 * @param provider The environment provider to select.
+	 * @param providerToSelect The environment provider to select.
 	 */
-	async selectEnvProvider(provider: string) {
-		await expect(this.code.driver.page.getByText(/Loading/)).not.toBeVisible({ timeout: 20000 }); // Ensure data has finished loading
+	async selectEnvProvider(providerToSelect: string) {
+		await expect(this.code.driver.page.getByText(/Loading/)).toHaveCount(0, { timeout: 30000 }); // Ensure data has finished loading
 
 		// Check if the environment provider is already preselected
-		const preselected = await this.code.driver.page
-			.locator(`${PROJECT_WIZARD_PRESELECTED_DROPDOWN_ITEM} div.dropdown-entry-title`)
-			.getByText(provider)
-			.count() === 1;
-
-		if (preselected) {
+		const currentProvider = await this.envProviderDropdownTitle.innerText();
+		if (currentProvider === providerToSelect) {
 			return;
 		}
 
 		// Open the dropdown and select the provider
 		await this.envProviderDropdown.click();
-
-		const providerLocator = this.code.driver.page
-			.locator(`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-title`)
-			.getByText(provider);
-
-		await expect(providerLocator.first()).toBeVisible({ timeout: 5000 });
-
-		try {
-			await providerLocator.click();
-		} catch (error) {
-			throw new Error(`Could not select env provider '${provider}': ${error}`);
-		}
+		await this.dropDropdownOptions.filter({ hasText: providerToSelect }).click();
 	}
 
 	/**
@@ -145,66 +131,28 @@ export class NewProjectWizard {
 	 * @param interpreterPath The path of the interpreter to select in the dropdown.
 	 */
 	async selectInterpreterByPath(interpreterPath: string) {
-		console.log('path', interpreterPath);
-		await expect(this.code.driver.page.getByText(/Loading/)).not.toBeVisible({ timeout: 20000 }); // Ensure data has finished loading
+		// Selector for the currently open dropdown popup items in the project wizard
+		const PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS =
+			'div.positron-modal-popup-children button.positron-button.item';
 
-		try {
-			const preselected =
-				(await this.code.driver
-					.page.locator(
-						`${PROJECT_WIZARD_PRESELECTED_DROPDOWN_ITEM} div.dropdown-entry-subtitle`
-					)
-					.getByText(interpreterPath)
-					.count()) === 1;
-			if (preselected) {
-				return;
-			}
-		} catch (error) {
-			// The interpreter isn't pre-selected in the dropdown, so let's try to find it by clicking
-			// the dropdown and then clicking the interpreter
-			this.code.logger.log(
-				`Interpreter '${interpreterPath}' is not pre-selected in the Project Wizard interpreter dropdown.`
-			);
+		await expect(this.code.driver.page.getByText(/Loading/)).toHaveCount(0, { timeout: 30000 }); // Ensure data has finished loading
+
+		// Check if the interpreter is already preselected
+		const currentInterpreter = await this.interpreterDropdownSubtitle.innerText();
+		if (currentInterpreter === interpreterPath) {
+			return;
 		}
 
 		// Open the interpreter dropdown.
 		await this.interpreterDropdown.click();
-
-		// Try to find the interpreterPath in the dropdown and click the entry if found
-		try {
-			await expect(this.code.driver.page.locator(PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS)).toBeVisible();
-		} catch (error) {
-			throw new Error(
-				`Wait for element ${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} failed: ${error}`
-			);
-		}
-
-		// Get all the dropdown entry subtitles and build a comma-separated string of them for
-		// logging purposes.
-		const dropdownEntrySubtitleLocators = await this.code.driver
-			.page.locator(
-				`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`
-			).all();
-		const dropdownEntrySubtitles = dropdownEntrySubtitleLocators.map
-			(async (locator) => await locator.innerText());
-		const subtitles = (await Promise.all(dropdownEntrySubtitles)).join(', ');
+		await expect(this.code.driver.page.locator(PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS)).toBeVisible();
 
 		// Find the dropdown item with the interpreterPath.
-		const dropdownItem = this.code.driver
-			.page.locator(`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`)
-			.getByText(interpreterPath);
-
-		// There should be one dropdown item with the interpreterPath.
-		if ((await dropdownItem.count()) !== 1) {
-			// Close the interpreter dropdown.
-			await this.code.driver.page.keyboard.press('Escape');
-
-			// Fail the test.
-			fail(`Could not find interpreter path ("${interpreterPath}") in ("${subtitles}") project wizard dropdown`);
-		}
-
-		// Click the interpreter.
-		await dropdownItem.click();
+		this.dropDropdownOptions
+			.locator('div.dropdown-entry-subtitle')
+			.getByText(interpreterPath)
+			.first()
+			.click();
 	}
 }
 
@@ -235,11 +183,3 @@ export enum ProjectType {
 	R_PROJECT = 'R Project',
 	JUPYTER_NOTEBOOK = 'Jupyter Notebook',
 }
-
-// Selector for the pre-selected dropdown item in the project wizard
-const PROJECT_WIZARD_PRESELECTED_DROPDOWN_ITEM =
-	'button.drop-down-list-box div.title';
-
-// Selector for the currently open dropdown popup items in the project wizard
-const PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS =
-	'div.positron-modal-popup-children button.positron-button.item';
