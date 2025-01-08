@@ -21,10 +21,6 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Update working directory
-      run: cd extensions/positron-python
-      shell: bash
-
     - name: Install Node
       uses: actions/setup-node@v4
       with:
@@ -41,8 +37,8 @@ runs:
         python-version: 3.8
         cache: 'pip'
         cache-dependency-path: |
-          requirements.txt
-          python_files/jedilsp_requirements/requirements.txt
+          extensions/positron-python/requirements.txt
+          extensions/positron-python/python_files/jedilsp_requirements/requirements.txt
 
     - name: Upgrade Pip
       run: python -m pip install -U pip
@@ -54,7 +50,7 @@ runs:
       shell: bash
 
     - name: Install Python Extension dependencies (jedi, etc.)
-      run: nox --session install_python_libs
+      run: nox --noxfile extensions/positron-python/noxfile.py --session install_python_libs
       shell: bash
 
     - name: Add Rustup target
@@ -62,32 +58,41 @@ runs:
       shell: bash
 
     - name: Build Native Binaries
-      run: nox --session native_build
+      run: nox --noxfile extensions/positron-python/noxfile.py --session native_build
       shell: bash
       env:
         CARGO_TARGET: ${{ inputs.cargo_target }}
 
     - name: Run npm ci
-      run: npm ci --prefer-offline
+      run: |
+      cd extensions/positron-python
+      npm ci --prefer-offline
       shell: bash
 
     - name: Update optional extension dependencies
-      run: npm run addExtensionPackDependencies
+      run: |
+      cd extensions/positron-python
+      npm run addExtensionPackDependencies
       shell: bash
 
     - name: Build Webpack
       run: |
+        cd extensions/positron-python
         npx gulp clean
         npx gulp prePublishBundle
       shell: bash
 
     - name: Build VSIX
-      run: npx vsce package --target ${{ inputs.vsix_target }} --out ms-python-insiders.vsix --pre-release
+      run: |
+      cd extensions/positron-python
+      npx vsce package --target ${{ inputs.vsix_target }} --out positron-python-dev.vsix --pre-release
       shell: bash
 
     - name: Rename VSIX
       # Move to a temp name in case the specified name happens to match the default name.
-      run: mv ms-python-insiders.vsix ms-python-temp.vsix && mv ms-python-temp.vsix ${{ inputs.vsix_name }}
+      run: |
+      cd extensions/positron-python
+      mv positron-python-dev.vsix positron-python-dev-temp.vsix && mv positron-python-dev.vsix ${{ inputs.vsix_name }}
       shell: bash
 
     - name: Upload VSIX
@@ -96,4 +101,4 @@ runs:
         name: ${{ inputs.artifact_name }}
         path: ${{ inputs.vsix_name }}
         if-no-files-found: error
-        retention-days: 7
+        retention-days: 2
