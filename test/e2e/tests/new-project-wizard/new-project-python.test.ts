@@ -106,27 +106,27 @@ async function createNewProject(app: Application, options: CreateProjectOptions)
 }
 
 async function verifyProjectCreation(app: Application, projectTitle: string) {
-	await test.step(`Verify project created: ${projectTitle}`, async () => {
+	await test.step(`Verify project created`, async () => {
 		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${projectTitle}` })).toBeVisible({ timeout: 15000 });
-		await app.workbench.console.waitForReadyOrNoInterpreter();
+		await app.workbench.console.waitForReady('>>>');
 	});
 }
 
 async function verifyCondaFilesArePresent(app: Application) {
-	await test.step('Verify that the .conda files are present', async () => {
+	await test.step('Verify .conda files are present', async () => {
 		const projectFiles = app.code.driver.page.locator('.monaco-list > .monaco-scrollable-element');
 		expect(projectFiles.getByText('.conda')).toBeVisible({ timeout: 50000 });
 	});
 }
 
 async function verifyCondaEnvStarts(app: any) {
-	await test.step('Verify that the conda environment starts', async () => {
+	await test.step('Verify conda environment starts', async () => {
 		await app.workbench.console.waitForConsoleContents('(Conda) started');
 	});
 }
 
 async function verifyVenEnvStarts(app: any) {
-	await test.step('Verify that the venv environment starts', async () => {
+	await test.step('Verify venv environment starts', async () => {
 		await app.workbench.console.waitForConsoleContents('(Venv: .venv) started.');
 	});
 }
@@ -151,7 +151,7 @@ async function verifyGitStatus(app: any) {
 }
 
 async function ipykernel(app: any, action: 'install' | 'uninstall') {
-	await test.step(`${action}: Ipykernel`, async () => {
+	await test.step(`${action}: ipykernel`, async () => {
 		if (action === 'install') {
 			await app.workbench.console.typeToConsole('pip install ipykernel', 10, true);
 			await app.workbench.console.waitForConsoleContents('Note: you may need to restart the kernel to use updated packages.');
@@ -163,7 +163,7 @@ async function ipykernel(app: any, action: 'install' | 'uninstall') {
 }
 
 async function verifyIpykernelInstalled(app: any) {
-	await test.step('Verify that ipykernel is installed', async () => {
+	await test.step('Verify ipykernel is installed', async () => {
 		await app.workbench.console.typeToConsole('pip show ipykernel', 10, true);
 		await app.workbench.console.waitForConsoleContents('Name: ipykernel');
 	});

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { Application, ProjectType, } from '../../infra';
+import { Application, CreateProjectOptions, ProjectType, } from '../../infra';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -22,27 +22,24 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 	test('R - Project Defaults [C627913]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
 		const projectTitle = addRandomNumSuffix('r-defaults');
 
-		await app.workbench.newProjectWizard.createNewProject({
+		await createNewProject(app, {
 			type: ProjectType.R_PROJECT,
 			title: projectTitle
 		});
 
 		await verifyProjectCreation(app, projectTitle);
-		// here, but it's timing out in CI, so it is not included for now.
 	});
 
 	test('R - Accept Renv install [C633084]', { tag: [tags.WIN] }, async function ({ app, r, page }) {
 		const projectTitle = addRandomNumSuffix('r-installRenv');
 
-		await app.workbench.newProjectWizard.createNewProject({
+		await createNewProject(app, {
 			type: ProjectType.R_PROJECT,
 			title: projectTitle,
 			rEnvCheckbox: true,
 		});
 
-		// Accept the Renv installation
-		await app.workbench.popups.installRenvModal('install');
-
+		await handleRenvInstallModal(app, 'install');
 		await verifyProjectCreation(app, projectTitle);
 		await verifyRenvFilesArePresent(app);
 		await app.workbench.console.waitForConsoleContents('renv activated');
@@ -51,7 +48,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 	test('R - Renv already installed [C656251]', { tag: [tags.WIN] }, async function ({ app }) {
 		// Renv will already be installed from the previous test - which is why tests are marked as "serial"
 		const projectTitle = addRandomNumSuffix('r-renvAlreadyInstalled');
-		await app.workbench.newProjectWizard.createNewProject({
+		await createNewProject(app, {
 			type: ProjectType.R_PROJECT,
 			title: projectTitle,
 			rEnvCheckbox: true,
@@ -65,19 +62,16 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () =
 	test('R - Cancel Renv install [C656252]', { tag: [tags.WIN] }, async function ({ app }) {
 		const projectTitle = addRandomNumSuffix('r-cancelRenvInstall');
 
-		// Remove renv package so we are prompted to install it again
-		await app.workbench.console.executeCode('R', 'remove.packages("renv")', '>');
-		await app.workbench.console.waitForConsoleContents(`Removing package`);
+		await removeRenvPackage(app);
 
 		// Create a new R project - select Renv but opt out of installing
-		await app.workbench.newProjectWizard.createNewProject({
+		await createNewProject(app, {
 			type: ProjectType.R_PROJECT,
 			title: projectTitle,
 			rEnvCheckbox: true,
 		});
 
-		// Cancel the Renv installation
-		await app.workbench.popups.installRenvModal('cancel');
+		await handleRenvInstallModal(app, 'cancel');
 		await verifyProjectCreation(app, projectTitle);
 	});
 
@@ -102,14 +96,41 @@ function addRandomNumSuffix(name: string): string {
 }
 
 async function verifyProjectCreation(app: Application, projectTitle: string) {
-	await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${projectTitle}` })).toBeVisible({ timeout: 15000 });
-	// await app.workbench.console.waitForReadyOrNoInterpreter();
+	await test.step(`Verify project created`, async () => {
+		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${projectTitle}` })).toBeVisible({ timeout: 15000 });
+		await app.workbench.console.waitForReady('>');
+	});
 }
 
 async function verifyRenvFilesArePresent(app: Application,) {
 	// marie to do: update getProjectFiles()
-	const projectFiles = app.code.driver.page.locator('.monaco-list > .monaco-scrollable-element');
-	expect(projectFiles.getByLabel('renv', { exact: true }).locator('a')).toBeVisible({ timeout: 50000 });
-	expect(projectFiles.getByText('.Rprofile')).toBeVisible();
-	expect(projectFiles.getByLabel('renv.lock', { exact: true }).locator('a')).toBeVisible();
+	await test.step(`Verify renv files are present`, async () => {
+		const projectFiles = app.code.driver.page.locator('.monaco-list > .monaco-scrollable-element');
+		expect(projectFiles.getByLabel('renv', { exact: true }).locator('a')).toBeVisible({ timeout: 50000 });
+		expect(projectFiles.getByText('.Rprofile')).toBeVisible();
+		expect(projectFiles.getByLabel('renv.lock', { exact: true }).locator('a')).toBeVisible();
+	});
+}
+
+async function createNewProject(app: Application, options: CreateProjectOptions) {
+	await test.step(`Create new project: ${options.title}`, async () => {
+		await app.workbench.newProjectWizard.createNewProject({
+			type: ProjectType.R_PROJECT,
+			title: options.title,
+			rEnvCheckbox: options.rEnvCheckbox,
+		});
+	});
+}
+
+async function handleRenvInstallModal(app: Application, action: 'install' | 'cancel') {
+	await test.step(`Handle Renv modal: ${action}`, async () => {
+		await app.workbench.popups.installRenvModal(action);
+	});
+}
+
+async function removeRenvPackage(app: Application) {
+	await test.step(`Remove renv package`, async () => {
+		await app.workbench.console.executeCode('R', 'remove.packages("renv")', '>');
+		await app.workbench.console.waitForConsoleContents(`Removing package`);
+	});
 }
