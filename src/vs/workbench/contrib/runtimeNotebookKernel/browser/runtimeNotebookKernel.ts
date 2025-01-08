@@ -19,6 +19,7 @@ import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavio
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
+import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
 import { INotebookKernel, INotebookKernelChangeEvent, VariablesResult } from '../../notebook/common/notebookKernelService.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
@@ -92,6 +93,9 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	 */
 	private _pendingExecutionsByNotebookUri = new ResourceMap<RuntimeNotebookCellExecution>();
 
+	/**
+	 * A map of active sessions, keyed by notebook URI.
+	 */
 	private _sessionsByNotebookUri = new ResourceMap<ILanguageRuntimeSession>();
 
 	constructor(
@@ -107,43 +111,59 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		super();
 	}
 
+	/** The kernel's ID. */
 	get id(): string {
 		// This kernel ID format is assumed by a few services and should be changed carefully.
 		return `${this.extension.value}/${this.runtime.runtimeId}`;
 	}
 
+	/** The kernel's label, displayed in the UI. */
 	get label(): string {
 		return this.runtime.runtimeName;
 	}
 
+	/** The kernel's description, displayed in the UI. */
 	get description(): string {
 		return this.runtime.runtimePath;
 	}
 
+	/** The kernel's detail, displayed in the UI. */
 	get detail(): string | undefined {
 		return undefined;
 	}
 
+	/** Languages supported by the kernel. */
 	get supportedLanguages(): string[] {
 		return [this.runtime.languageId, 'raw'];
 	}
 
+	/**
+	 * Execute cells for a notebook.
+	 *
+	 * @param notebookUri The URI of the notebook.
+	 * @param cellHandles The handles of the notebook cells to execute.
+	 * @returns A promise that resolves when the cells have been executed.
+	 */
 	async executeNotebookCellsRequest(notebookUri: URI, cellHandles: number[]): Promise<void> {
 		// NOTE: This method should not throw to avoid undefined behavior in the notebook UI.
 		try {
-			this._logService.debug(`[RuntimeNotebookKernel] Executing cells: ${cellHandles.join(', ')} for notebook ${notebookUri.fsPath}`);
+			this._logService.debug(
+				`[RuntimeNotebookKernel] Executing cells: ${cellHandles.join(', ')} ` +
+				`for notebook ${notebookUri.fsPath}`
+			);
 
+			// Get the notebook text model.
 			const notebook = this._notebookService.getNotebookTextModel(notebookUri);
 			if (!notebook) {
 				// Not sure when this happens, so we're copying ExtHostNotebookKernels.$executeCells
 				// and throwing.
-				const error = new Error(`No notebook document for '${notebookUri.fsPath}'`);
-				this._logService.error(`[RuntimeNotebookKernel] ${error.message}`);
-				throw error;
+				throw new Error(`No notebook document for '${notebookUri.fsPath}'`);
 			}
 
+			// Get the notebook's session.
 			let session = this._sessionsByNotebookUri.get(notebookUri);
 			if (!session) {
+				// There's no active session for the notebook, start one.
 				session = await this._progressService.withProgress({
 					location: ProgressLocation.Notification,
 					title: localize(
@@ -153,33 +173,57 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 						notebookUri.fsPath,
 					),
 				}, async () => {
-					return await this.selectRuntime(notebookUri, `Runtime kernel ${this.id} executed cells for notebook`);
+					return await this.selectRuntime(
+						notebookUri,
+						`Runtime kernel ${this.id} executed cells for notebook`,
+					);
 				});
 			}
 
-			// Execute the cells.
+			// Queue the cell executions.
 			const executionPromises: Promise<void>[] = [];
 			for (const cellHandle of cellHandles) {
 				const cell = notebook.cells.find(cell => cell.handle === cellHandle);
 				if (!cell) {
 					// Not sure when this happens, so we're copying ExtHostNotebookKernels.$executeCells
-					// and silently skipping the cell.
+					// and skipping the cell.
+					this._logService.warn(
+						`[RuntimeNotebookKernel] Cell handle ${cellHandle} not found in notebook ` +
+						`${notebookUri.fsPath}; skipping cell execution`
+					);
 					continue;
 				}
-				this._logService.trace(`[RuntimeNotebookKernel] Queuing cell execution: ${cell.handle} for notebook ${notebookUri.fsPath}`);
+				this._logService.trace(
+					`[RuntimeNotebookKernel] Queuing cell execution ${cell.handle} ` +
+					`for notebook ${notebookUri.fsPath}`
+				);
 				const executionPromise = this._notebookExecutionSequencer.queue(
 					notebookUri,
-					() => this.executeCell(cell, notebookUri, session),
+					() => this.executeCell(cell, notebook, session),
 				);
 				executionPromises.push(executionPromise);
 			}
+
+			// Wait for all cell executions to end.
 			await Promise.all(executionPromises);
 		} catch (err) {
 			this._logService.error(`Error executing cells: ${err.stack ?? err.toString()}`);
 		}
 	}
 
-	private async executeCell(cell: NotebookCellTextModel, notebookUri: URI, session: ILanguageRuntimeSession): Promise<void> {
+	/**
+	 * Execute a notebook cell.
+	 *
+	 * @param cell The notebook cell text model.
+	 * @param notebook The notebook text model.
+	 * @param session
+	 * @returns
+	 */
+	private async executeCell(
+		cell: NotebookCellTextModel,
+		notebook: NotebookTextModel,
+		session: ILanguageRuntimeSession,
+	): Promise<void> {
 		this._logService.trace(`[RuntimeNotebookKernel] Executing cell: ${cell.handle}`);
 
 		// Don't try to execute raw cells; they're often used to define metadata e.g in Quarto notebooks.
@@ -194,19 +238,24 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			return;
 		}
 
+		// Get the cell execution.
 		const cellExecution = this._notebookExecutionStateService.getCellExecution(cell.uri);
 		if (!cellExecution) {
-			throw new Error(`NO execution for cell '${cell.uri}'`);
+			throw new Error(`No execution for cell '${cell.uri.toString()}'`);
 		}
 
+		// Create the runtime notebook cell execution.
 		const execution = this._register(this._instantiationService.createInstance(
 			RuntimeNotebookCellExecution, session, cellExecution, cell
 		));
-		if (this._pendingExecutionsByNotebookUri.has(notebookUri)) {
-			this._logService.warn(`Overwriting pending execution for notebook ${notebookUri.fsPath}`);
-		}
-		this._pendingExecutionsByNotebookUri.set(notebookUri, execution);
 
+		// Set the pending execution for the notebook.
+		if (this._pendingExecutionsByNotebookUri.has(notebook.uri)) {
+			this._logService.warn(`Overwriting pending execution for notebook ${notebook.uri.fsPath}`);
+		}
+		this._pendingExecutionsByNotebookUri.set(notebook.uri, execution);
+
+		// Execute the code.
 		try {
 			session.execute(
 				code,
@@ -219,8 +268,9 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 		}
 
 		return execution.promise.finally(() => {
-			if (this._pendingExecutionsByNotebookUri.get(notebookUri) === execution) {
-				this._pendingExecutionsByNotebookUri.delete(notebookUri);
+			// When the execution ends, remove it from the pending executions map.
+			if (this._pendingExecutionsByNotebookUri.get(notebook.uri) === execution) {
+				this._pendingExecutionsByNotebookUri.delete(notebook.uri);
 			}
 		});
 	}
@@ -266,7 +316,10 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			}
 
 			if (session.getRuntimeState() === RuntimeState.Starting) {
-				this._logService.debug(`[RuntimeNotebookKernel] Waiting for session to be ready for notebook ${notebookUri.fsPath}`);
+				this._logService.debug(
+					`[RuntimeNotebookKernel] Waiting for session to be ready ` +
+					`for notebook ${notebookUri.fsPath}`
+				);
 				await new Promise<void>(resolve => {
 					const disposable = this._register(session.onDidChangeRuntimeState(state => {
 						if (state === RuntimeState.Ready) {
@@ -302,15 +355,20 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 
 		const execution = this._pendingExecutionsByNotebookUri.get(notebookUri);
 		if (!execution) {
-			// It shouldn't be possible to interrupt an execution without having set the pending execution,
-			// but there's nothing more we can do so just log a warning.
-			this._logService.warn(`Tried to interrupt notebook ${notebookUri.fsPath} with no pending execution.`);
+			// It shouldn't be possible to interrupt an execution without having set
+			// the pending execution, but there's nothing more we can do so just log a warning.
+			this._logService.warn(
+				`Tried to interrupt notebook ${notebookUri.fsPath} with no pending execution`
+			);
 			return;
 		}
 
 		// It's possible that the session exited after the execution started.
 		// Log a warning and error the execution.
-		this._logService.warn(`Tried to interrupt notebook ${notebookUri.fsPath} with no running session. Cancelling execution.`);
+		this._logService.warn(
+			`Tried to interrupt notebook ${notebookUri.fsPath} with no running session. ` +
+			`Cancelling execution`
+		);
 		execution.error({
 			name: 'No Active Session',
 			message: 'There is no active session for this notebook',
