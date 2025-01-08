@@ -16,7 +16,7 @@ test.beforeEach(async function ({ app }) {
 	await app.workbench.layouts.enterLayout("stacked");
 });
 
-test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () => {
+test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD, tags.WEB] }, () => {
 	test.describe.configure({ mode: 'serial' });
 
 	test('R - Project Defaults [C627913]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
