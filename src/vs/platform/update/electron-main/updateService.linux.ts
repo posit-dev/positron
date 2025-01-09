@@ -41,6 +41,7 @@ export class LinuxUpdateService extends AbstractUpdateService {
 	}
 	// --- End Positron ---
 
+	// Unused for Positron
 	protected doCheckForUpdates(context: any): void {
 		if (!this.url) {
 			return;

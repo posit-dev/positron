@@ -81,8 +81,12 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		// --- Start Positron ---
 		@IProductService protected readonly productService: IProductService,
 		@INativeHostMainService protected readonly nativeHostMainService: INativeHostMainService
+		// --- End Positron ---
 	) {
+		// --- Start Positron ---
 		this.enableAutoUpdate = process.env.POSITRON_AUTO_UPDATE === '1';
+		// --- End Positron ---
+
 		lifecycleMainService.when(LifecycleMainPhase.AfterWindowOpen)
 			.finally(() => this.initialize());
 	}
@@ -91,8 +95,9 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	 * This must be called before any other call. This is a performance
 	 * optimization, to avoid using extra CPU cycles before first window open.
 	 * https://github.com/microsoft/vscode/issues/89784
-	 */
+	*/
 	protected async initialize(): Promise<void> {
+		// --- Start Positron ---
 		const updateChannel = process.env.POSITRON_UPDATE_CHANNEL ?? UpdateChannel.Prereleases;
 		const autoUpdateFlag = this.configurationService.getValue<boolean>('update.autoUpdateExperimental');
 
@@ -124,12 +129,13 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		}
 
 		this.url = this.buildUpdateFeedUrl(updateChannel);
+		this.logService.debug('update#ctor - update URL is', this.url);
+		// --- End Positron ---
 		if (!this.url) {
 			this.setState(State.Disabled(DisablementReason.InvalidConfiguration));
 			this.logService.info('update#ctor - updates are disabled as the update URL is badly formed');
 			return;
 		}
-		this.logService.debug('update#ctor - update URL is', this.url);
 
 		// hidden setting
 		if (this.configurationService.getValue<boolean>('_update.prss')) {
@@ -156,6 +162,13 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		}
 	}
 
+	// --- Start Positron ---
+	// @ts-ignore
+	private getProductQuality(updateMode: string): string | undefined {
+		return updateMode === 'none' ? undefined : this.productService.quality;
+	}
+	// --- End Positron ---
+
 	private scheduleCheckForUpdates(delay = 60 * 60 * 1000): Promise<void> {
 		return timeout(delay)
 			.then(() => this.checkForUpdates(false))
@@ -172,6 +185,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 			return;
 		}
 
+		// --- Start Positron ---
 		this.setState(State.CheckingForUpdates(explicit));
 
 		this.requestService.request({ url: this.url }, CancellationToken.None)
@@ -198,7 +212,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 				const message: string | undefined = !!explicit ? (err.message || err) : undefined;
 				this.setState(State.Idle(this.getUpdateType(), message));
 			});
-
+		// --- End Positron ---
 	}
 
 	async downloadUpdate(): Promise<void> {
@@ -212,6 +226,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	}
 
 	protected async doDownloadUpdate(state: AvailableForDownload): Promise<void> {
+		// --- Start Positron ---
 		if (this.productService.downloadUrl && this.productService.downloadUrl.length > 0) {
 			// Use the download URL if available as we don't currently detect the package type that was
 			// installed and the website download page is more useful than the tarball generally.
@@ -301,6 +316,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		// noop
 	}
 
+	protected abstract doCheckForUpdates(context: any): void;
 	// --- Start Positron ---
 	protected abstract buildUpdateFeedUrl(channel: string): string | undefined;
 	protected updateAvailable(context: IUpdate): void {
