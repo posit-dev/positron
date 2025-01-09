@@ -4,25 +4,57 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect, Locator } from '@playwright/test';
-import { Code } from '../infra/code';
+import test, { expect, Locator } from '@playwright/test';
+import { Code, Console } from '../infra';
 import { getInterpreterType, InterpreterInfo, InterpreterType } from './utils/interpreterInfo';
 
+// const primaryInterpreter = '.primary-interpreter';
 const INTERPRETER_INFO_LINE = '.info .container .line';
 const INTERPRETER_ACTIONS_SELECTOR = `.interpreter-actions .action-button`;
+
 
 /*
  *  Reuseable Positron interpreter selection functionality for tests to leverage.
  */
 export class InterpreterDropdown {
-	private interpreterGroups = this.code.driver.page.locator(
-		'.positron-modal-popup .interpreter-groups'
-	);
-	private interpreterDropdown = this.code.driver.page.locator(
-		'.top-action-bar-interpreters-manager .left'
-	);
+	private interpreterGroups = this.code.driver.page.locator('.positron-modal-popup .interpreter-groups');
+	private interpreterDropdown = this.code.driver.page.locator('.top-action-bar-interpreters-manager .left');
+	private primaryInterpreter = this.code.driver.page.locator('.primary-interpreter');
+	private secondaryInterpreter = this.code.driver.page.locator('.secondary-interpreter');
 
-	constructor(private code: Code) { }
+	constructor(private code: Code, private console: Console) { }
+
+	/**
+	 * Open the interpreter dropdown in the top action bar.
+	 */
+	async openInterpreterDropdown() {
+		// await test.step(`Open interpreter dropdown`, async () => {
+		// If the interpreter dropdown is already open, return. This is a necessary check because
+		// clicking an open interpreter dropdown will close it.
+		if (await this.interpreterGroups.isVisible()) {
+			return;
+		}
+
+		// Open the interpreter dropdown.
+
+		await expect(async () => {
+			await this.interpreterDropdown.click({ timeout: 10_000 });
+			await expect(this.interpreterGroups).toBeVisible();
+		}).toPass();
+		// });
+	}
+
+	/**
+	 * Close the interpreter dropdown in the top action bar.
+	 */
+	async closeInterpreterDropdown() {
+		// await test.step(`Open interpreter dropdown`, async () => {
+		if (await this.interpreterGroups.isVisible()) {
+			await this.code.driver.page.keyboard.press('Escape');
+			await expect(this.interpreterGroups).not.toBeVisible();
+		}
+		// });
+	}
 
 	/**
 	 * Get the interpreter name from the interpreter element.
@@ -59,96 +91,11 @@ export class InterpreterDropdown {
 	 * @returns The primary interpreter element if found, otherwise undefined.
 	 */
 	private async getPrimaryInterpreter(description: string | InterpreterType) {
-		// Wait for the primary interpreters to load
-		expect(await this.code.driver.page.locator('.primary-interpreter').count()).toBeGreaterThan(0);
-		this.code.logger.log('Primary interpreters loaded: ', this.code.driver.page.locator('.primary-interpreter').count());
-
-		// Look for a primary interpreter that matches the provided description
-		const allPrimaryInterpreters = await this.code.driver.page.locator('.primary-interpreter').all();
-
-		for (const interpreter of allPrimaryInterpreters) {
-			// Try to match on interpreter name
-			const interpreterName = await this.getInterpreterName(interpreter);
-
-			if (!interpreterName) {
-				// Shouldn't happen, but if it does, proceed to the next interpreter
-				continue;
-			}
-			if (description in InterpreterType) {
-				// Examples:
-				// - starts with Python - 'Python 3.10.4 (Pyenv)'
-				// - starts with R - 'R 4.4.0'
-				if (interpreterName.startsWith(`${description} `)) {
-					return interpreter;
-				}
-			}
-			if (interpreterName.includes(description)) {
-				// Example: includes 3.10.4 - 'Python 3.10.4 (Pyenv)'
-				return interpreter;
-			}
-
-			// Try to match on interpreter path
-			const interpreterPath = await this.getInterpreterPath(interpreter);
-			if (!interpreterPath) {
-				// Shouldn't happen, but if it does, proceed to the next interpreter
-				continue;
-			}
-			if (interpreterPath.includes(description)) {
-				// Example: includes /opt/homebrew/bin/python3
-				return interpreter;
-			}
-		}
-
-		// No primary interpreters match the provided description
-		this.code.logger.log(`No primary interpreters match the provided description: ${description}`);
-		return undefined;
+		const expectedInterpreter = this.primaryInterpreter.filter({ hasText: description });
+		await expect(expectedInterpreter).toBeVisible();
+		return expectedInterpreter.first();
 	}
 
-	/**
-	 * Get the secondary interpreters for the primary interpreter locator.
-	 * @param primaryInterpreter The locator for the primary interpreter element.
-	 * @returns The secondary interpreter elements if found, otherwise an empty array.
-	 */
-	private async getSecondaryInterpreters(primaryInterpreter: Locator) {
-		// Click the 'Show all versions' ... button for the primary interpreter group
-		const showAllVersionsButton = primaryInterpreter
-			.locator(INTERPRETER_ACTIONS_SELECTOR)
-			.getByTitle('Show all versions');
-		await showAllVersionsButton.click();
-
-		// Wait for the secondary interpreters to load
-		await expect(this.code.driver.page.locator('.secondary-interpreter')).toBeVisible();
-		return await this.interpreterGroups
-			.locator('.secondary-interpreter')
-			.all();
-	}
-
-	/**
-	 * Open the interpreter dropdown in the top action bar.
-	 * @returns A promise that resolves once the interpreter dropdown is open.
-	 */
-	async openInterpreterDropdown() {
-		// If the interpreter dropdown is already open, return. This is a necessary check because
-		// clicking an open interpreter dropdown will close it.
-		if (await this.interpreterGroups.isVisible()) {
-			return;
-		}
-
-		// Open the interpreter dropdown.
-		await this.interpreterDropdown.click({ timeout: 10_000 });
-		await this.interpreterGroups.waitFor({ state: 'attached', timeout: 10_000 });
-	}
-
-	/**
-	 * Close the interpreter dropdown in the top action bar.
-	 * @returns A promise that resolves once the interpreter dropdown is closed.
-	 */
-	async closeInterpreterDropdown() {
-		if (await this.interpreterGroups.isVisible()) {
-			await this.code.driver.page.keyboard.press('Escape');
-			await this.interpreterGroups.waitFor({ state: 'detached', timeout: 10_000 });
-		}
-	}
 
 	/**
 	 * Restart the primary interpreter corresponding to the interpreter type or a descriptive string.
@@ -157,18 +104,18 @@ export class InterpreterDropdown {
 	 * Note: This assumes the interpreter is already running.
 	 */
 	async restartPrimaryInterpreter(description: string | InterpreterType) {
+		// await test.step(`Restart interpreter: ${description}`, async () => {
 		await this.openInterpreterDropdown();
-
 		const primaryInterpreter = await this.getPrimaryInterpreter(description);
-		if (!primaryInterpreter) {
-			await this.closeInterpreterDropdown();
-			throw new Error(`Could not find primary interpreter with description '${description}'`);
-		}
 
-		const restartButton = primaryInterpreter
+		// click the restart button
+		await primaryInterpreter
 			.locator(INTERPRETER_ACTIONS_SELECTOR)
-			.getByTitle('Restart the interpreter');
-		await restartButton.click();
+			.getByTitle('Restart the interpreter')
+			.click();
+
+		await this.closeInterpreterDropdown();
+		// });
 	}
 
 	/**
@@ -178,76 +125,50 @@ export class InterpreterDropdown {
 	 * Note: This expects the interpreter to already running.
 	 */
 	async stopPrimaryInterpreter(description: string | InterpreterType) {
+		// // await test.step(`Stop interpreter: ${description}`, async () => {
+
 		await this.openInterpreterDropdown();
 
 		const primaryInterpreter = await this.getPrimaryInterpreter(description);
-		if (!primaryInterpreter) {
-			await this.closeInterpreterDropdown();
-			throw new Error(`Could not find primary interpreter with description '${description}'`);
-		}
 
-		if (await this.primaryInterpreterShowsRunning(description)) {
-			const stopButton = primaryInterpreter
-				.locator(INTERPRETER_ACTIONS_SELECTOR)
-				.getByTitle('Stop the interpreter');
-			await stopButton.click();
-			return;
-		}
-
-		await this.closeInterpreterDropdown();
-		throw new Error(`Interpreter '${description}' is not running -- cannot stop an inactive interpreter`);
+		const stopButton = primaryInterpreter
+			.locator(INTERPRETER_ACTIONS_SELECTOR)
+			.getByTitle('Stop the interpreter');
+		await stopButton.click();
+		// return;
 	}
 
 	/**
 	 * Check if the primary interpreter shows as running with a green dot and shows a restart button.
 	 * @param description The descriptive string of the interpreter to check.
-	 * @returns True if the primary interpreter shows the expected running UI elements, otherwise false.
 	 */
-	async primaryInterpreterShowsRunning(
-		description: string | InterpreterType
-	) {
-		await this.openInterpreterDropdown();
+	async verifyInterpreterIsRunning(description: string | InterpreterType) {
+		await test.step(`Verify interpreter is running: ${description}`, async () => {
+			// Get primary interpreter element
+			await this.openInterpreterDropdown();
+			const primaryInterpreter = await this.getPrimaryInterpreter(description);
 
-		const primaryInterpreter = await this.getPrimaryInterpreter(
-			description
-		);
-		if (!primaryInterpreter) {
-			throw new Error(`Could not find primary interpreter with description '${description}'`);
-		}
+			// Fail if green dot running indicator missing
+			await expect(primaryInterpreter.locator('.running-icon')).toBeVisible();
 
-		// Fail if green dot running indicator missing
-		const runningIndicator = primaryInterpreter.locator('.running-icon');
-		if (!(await runningIndicator.isVisible())) {
-			this.code.logger.log('Green dot running indicator missing');
-			return false;
-		}
+			// Fail if restart button not visible and enabled
+			const restartButton = primaryInterpreter
+				.locator(INTERPRETER_ACTIONS_SELECTOR)
+				.getByTitle('Restart the interpreter');
 
-		// Fail if restart button not visible and enabled
-		const restartButton = primaryInterpreter
-			.locator(INTERPRETER_ACTIONS_SELECTOR)
-			.getByTitle('Restart the interpreter');
-		if (
-			!(await restartButton.isVisible()) ||
-			!(await restartButton.isEnabled())
-		) {
-			this.code.logger.log('Restart button not visible and enabled');
-			return false;
-		}
+			await expect(restartButton).toBeVisible();
+			await expect(restartButton).toBeEnabled();
 
-		// Fail if stop button not visible and enabled
-		const stopButton = primaryInterpreter
-			.locator(INTERPRETER_ACTIONS_SELECTOR)
-			.getByTitle('Stop the interpreter');
-		if (
-			!(await stopButton.isVisible()) ||
-			!(await stopButton.isEnabled())
-		) {
-			this.code.logger.log('Stop button not visible and enabled');
-			return false;
-		}
+			// Fail if stop button not visible and enabled
+			const stopButton = primaryInterpreter
+				.locator(INTERPRETER_ACTIONS_SELECTOR)
+				.getByTitle('Stop the interpreter');
 
-		// Success if all checks pass
-		return true;
+			await expect(stopButton).toBeVisible();
+			await expect(stopButton).toBeEnabled();
+
+			await this.closeInterpreterDropdown();
+		});
 	}
 
 	/**
@@ -255,140 +176,68 @@ export class InterpreterDropdown {
 	 * @param description The descriptive string of the interpreter to check.
 	 * @returns True if the primary interpreter shows the expected inactive UI elements, otherwise false.
 	 */
-	async primaryInterpreterShowsInactive(
-		description: string | InterpreterType
-	) {
+	async verifyInterpreterIsInactive(description: string | InterpreterType) {
+		// await test.step(`Verify interpreter is inactive: ${description}`, async () => {
+		// Get primary interpreter element
 		await this.openInterpreterDropdown();
-
-		const primaryInterpreter = await this.getPrimaryInterpreter(
-			description
-		);
-		if (!primaryInterpreter) {
-			await this.closeInterpreterDropdown();
-			throw new Error(`Could not find primary interpreter with description '${description}'`);
-		}
+		const primaryInterpreter = await this.getPrimaryInterpreter(description);
 
 		// Fail if green dot running indicator not missing
 		const runningIndicator = primaryInterpreter.locator('.running-icon');
-		if (await runningIndicator.isVisible()) {
-			return false;
-		}
+		await expect(runningIndicator).not.toBeVisible();
 
 		// Fail if restart button not disabled or missing
-		const restartButton = primaryInterpreter
-			.locator(INTERPRETER_ACTIONS_SELECTOR)
-			.getByTitle('Restart the interpreter');
-		if (
-			(await restartButton.isVisible()) &&
-			!(await restartButton.isDisabled())
-		) {
-			return false;
-		}
+		// const restartButton = primaryInterpreter
+		// 	.locator(INTERPRETER_ACTIONS_SELECTOR)
+		// 	.getByTitle('Restart the interpreter');
+
+		// await expect(restartButton).toBeVisible();
+		// await expect(restartButton).toBeDisabled();
 
 		// Fail if start button not visible or enabled
 		const startButton = primaryInterpreter
 			.locator(INTERPRETER_ACTIONS_SELECTOR)
-			.getByTitle(
-				'Start the interpreter',
-				{
-					// Because 'Start the interpreter` is a substring of `Restart the interpreter`,
-					// and, by default, getByTitle performs a case-insensitive / partial match,
-					// specify that an exact match is required so we don't return multiple buttons.
-					exact: true
-				}
-			);
-		if (!(await startButton.isVisible()) || !(await startButton.isEnabled())) {
-			return false;
-		}
+			.getByTitle('Start the interpreter', { exact: true });
 
-		// Success if all checks pass
-		return true;
+		await expect(startButton).toBeVisible();
+		await expect(startButton).toBeEnabled();
+
+		await this.closeInterpreterDropdown();
+		// });
 	}
 
 	/**
 	 * Select an interpreter from the dropdown by the interpreter type and a descriptive string.
 	 * The interpreter type could be 'Python', 'R', etc.
 	 * The string could be 'Python 3.10.4 (Pyenv)', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
-	 * @param desiredInterpreterType The interpreter type to select.
-	 * @param desiredInterpreterString The descriptive string of the interpreter to select.
+	 * @param type The interpreter type to select.
+	 * @param description The descriptive string of the interpreter to select.
 	 * @returns A promise that resolves once the interpreter is selected.
 	 */
-	async selectInterpreter(
-		desiredInterpreterType: string,
-		desiredInterpreterString: string
-	) {
-		// Open the interpreter dropdown
+	async selectInterpreter(type: 'Python' | 'R', description: string) {
+		// await test.step(`Select interpreter: ${description}`, async () => {
 		await this.openInterpreterDropdown();
+		const matchingPrimary = this.primaryInterpreter.filter({ hasText: description });
+		const matchingSecondary = this.secondaryInterpreter.filter({ hasText: description });
 
-		// Get the primary interpreter element corresponding to the desired interpreter type
-		const primaryInterpreter = await this.getPrimaryInterpreter(
-			desiredInterpreterType
-		);
-		if (!primaryInterpreter) {
-			// No primary interpreters match the language runtime
-			throw new Error(
-				`Could not find primary interpreter with type ${desiredInterpreterType}`
-			);
-		}
-		const primaryInterpreterName = await this.getInterpreterName(
-			primaryInterpreter
-		);
-		if (!primaryInterpreterName) {
-			throw new Error(
-				`Could not retrieve interpreter name for ${desiredInterpreterType}`
-			);
-		}
+		if (await matchingPrimary.count() > 0) {
+			// desired interpreter is already primary interpreter
+			await matchingPrimary.first().click();
+		} else {
+			// find the desired interpreter in the secondary interpreters
+			const ellipsisButtons = this.primaryInterpreter.getByRole('button', { name: '' });
+			const count = await ellipsisButtons.count();
 
-		// If the primary interpreter matches the desired interpreter string, select the interpreter
-		if (primaryInterpreterName.includes(desiredInterpreterString)) {
-			this.code.logger.log(
-				`Found primary interpreter: ${primaryInterpreterName}`
-			);
-			await primaryInterpreter.click();
-			return;
-		}
-
-		// If the primary interpreter does not match the desired interpreter string, look for a matching secondary interpreter
-		this.code.logger.log(
-			'Primary interpreter did not match. Looking for secondary interpreters...'
-		);
-		const secondaryInterpreters = await this.getSecondaryInterpreters(
-			primaryInterpreter
-		);
-		if (secondaryInterpreters.length === 0) {
-			throw new Error(
-				`Could not find secondary interpreters for ${desiredInterpreterType}`
-			);
-		}
-		// Look for the desired interpreter string in the secondary interpreters
-		for (const secondaryInterpreter of secondaryInterpreters) {
-			const secondaryInterpreterName = await this.getInterpreterName(
-				secondaryInterpreter
-			);
-			if (!secondaryInterpreterName) {
-				// This shouldn't happen, but if it does, warn and proceed to the next secondary interpreter
-				this.code.logger.log(
-					'WARNING: could not retrieve interpreter name for secondary interpreter'
-				);
-				continue;
+			for (let i = 0; i < count; i++) {
+				await ellipsisButtons.nth(i).click();
 			}
-			// If the secondary interpreter matches the desired interpreter string, select the interpreter
-			if (secondaryInterpreterName.includes(desiredInterpreterString)) {
-				this.code.logger.log(
-					`Found secondary interpreter: ${secondaryInterpreterName}`
-				);
-				await secondaryInterpreter.scrollIntoViewIfNeeded();
-				await secondaryInterpreter.isVisible();
-				await secondaryInterpreter.click();
-				return;
-			}
+			await matchingSecondary.click();
 		}
 
-		// None of the primary nor secondary interpreters match the desired interpreter
-		await this.closeInterpreterDropdown();
-		throw new Error(
-			`Could not find interpreter ${desiredInterpreterString} for ${desiredInterpreterType}`
-		);
+		type === 'Python'
+			? await this.console.waitForReady('>>>', 10000)
+			: await this.console.waitForReady('>', 10000);
+		// });
 	}
 
 	/**
@@ -396,44 +245,41 @@ export class InterpreterDropdown {
 	 * @returns The interpreter info for the selected interpreter if found, otherwise undefined.
 	 */
 	async getSelectedInterpreterInfo(): Promise<InterpreterInfo | undefined> {
+		// return await test.step('Get selected interpreter info', async () => {
+
 		// Get the label for the selected interpreter, e.g. Python 3.10.4 (Pyenv)
-		const selectedInterpreterLabel = await this.code.driver
+		const currentInterpreterLabel = await this.code.driver
 			.page.locator('.top-action-bar-interpreters-manager')
 			.getAttribute('aria-label');
-		if (!selectedInterpreterLabel) {
+		if (!currentInterpreterLabel) {
 			throw new Error('There is no selected interpreter');
 		}
 
 		// Open the interpreter manager
 		await this.openInterpreterDropdown();
 
-		// Wait for the desired primary interpreter group to load
-		const selectedInterpreter = await this.getPrimaryInterpreter(
-			selectedInterpreterLabel
+		// Get the primary interpreter element
+		const currentInterpreter = await this.getPrimaryInterpreter(
+			currentInterpreterLabel
 		);
-		if (!selectedInterpreter) {
-			throw new Error(
-				`Something went wrong while trying to load the info for ${selectedInterpreterLabel}`
-			);
-		}
 
 		// Get the interpreter name
 		const interpreterName = await this.getInterpreterName(
-			selectedInterpreter
+			currentInterpreter
 		);
 		if (!interpreterName) {
 			throw new Error(
-				`Could not retrieve interpreter name for ${selectedInterpreterLabel}`
+				`Could not retrieve interpreter name for ${currentInterpreterLabel}`
 			);
 		}
 
 		// Get the interpreter path
 		const interpreterPath = await this.getInterpreterPath(
-			selectedInterpreter
+			currentInterpreter
 		);
 		if (!interpreterPath) {
 			throw new Error(
-				`Could not retrieve interpreter path for ${selectedInterpreterLabel}`
+				`Could not retrieve interpreter path for ${currentInterpreterLabel}`
 			);
 		}
 
@@ -441,7 +287,7 @@ export class InterpreterDropdown {
 		const interpreterType = getInterpreterType(interpreterName);
 		if (!interpreterType) {
 			throw new Error(
-				`Could not determine interpreter type for ${selectedInterpreterLabel}`
+				`Could not determine interpreter type for ${currentInterpreterLabel}`
 			);
 		}
 
@@ -454,5 +300,6 @@ export class InterpreterDropdown {
 			version: interpreterName,
 			path: interpreterPath,
 		} satisfies InterpreterInfo;
+		// });
 	}
 }

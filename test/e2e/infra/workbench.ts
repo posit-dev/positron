@@ -69,7 +69,7 @@ export class Workbench {
 	constructor(code: Code) {
 
 		this.popups = new Popups(code);
-		this.interpreterDropdown = new InterpreterDropdown(code);
+
 		this.variables = new Variables(code);
 		this.dataExplorer = new DataExplorer(code, this);
 		this.sideBar = new SideBar(code);
@@ -85,6 +85,7 @@ export class Workbench {
 		this.newProjectWizard = new NewProjectWizard(code, this.quickaccess);
 		this.output = new Output(code, this.quickaccess, this.quickInput);
 		this.console = new Console(code, this.quickaccess, this.quickInput);
+		this.interpreterDropdown = new InterpreterDropdown(code, this.console);
 		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess);
 		this.welcome = new Welcome(code);
 		this.terminal = new Terminal(code, this.quickaccess);
