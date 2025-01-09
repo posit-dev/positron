@@ -773,28 +773,6 @@
                         "preview"
                     ]
                 },
-                "python.REPL.enableREPLSmartSend": {
-                    "default": true,
-                    "description": "%python.EnableREPLSmartSend.description%",
-                    "scope": "resource",
-                    "type": "boolean"
-                },
-                "python.REPL.sendToNativeREPL": {
-                    "default": false,
-                    "description": "%python.REPL.sendToNativeREPL.description%",
-                    "scope": "resource",
-                    "type": "boolean",
-                    "tags": [
-                        "onExP",
-                        "preview"
-                    ]
-                },
-                "python.REPL.provideVariables": {
-                    "default": true,
-                    "description": "%python.REPL.provideVariables.description%",
-                    "scope": "resource",
-                    "type": "boolean"
-                },
                 "python.testing.autoTestDiscoverOnSaveEnabled": {
                     "default": true,
                     "description": "%python.testing.autoTestDiscoverOnSaveEnabled.description%",
