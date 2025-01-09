@@ -23,7 +23,6 @@ import { IWorkspaceTrustManagementService } from '../../../../platform/workspace
 import { URI } from '../../../../base/common/uri.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { IPositronNewProjectService } from '../../positronNewProject/common/positronNewProject.js';
-import { Event } from '../../../../base/common/event.js';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
@@ -831,25 +830,31 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Remove all the sessions that are no longer valid.
 		sessions = sessions.filter((_, i) => validSessions[i]);
 
+		// Sort the sessions by last used time, so that we reconnect to the
+		// most recently used sessions first.
+		sessions.sort((a, b) => b.lastUsed - a.lastUsed);
+
 		// Reconnect to the remaining sessions.
 		this._logService.debug(`Reconnecting to sessions: ` +
 			sessions.map(session => session.metadata.sessionName).join(', '));
 
-		await Promise.all(sessions.map(async session => {
+		await Promise.all(sessions.map(async (session, idx) => {
+			const marker =
+				`[Reconnect ${session.metadata.sessionId} (${idx + 1}/${sessions.length})]`;
+
 			// Activate the extension that provides the runtime. Note that this
 			// waits for the extension service to signal the extension but does
 			// not wait for the extension to activate.
-			this._logService.debug(`[Reconnect ${session.metadata.sessionId}]: ` +
-				`Activating extension ${session.runtimeMetadata.extensionId.value}`);
-			await this._extensionService.activateById(session.runtimeMetadata.extensionId,
-				{
-					extensionId: session.runtimeMetadata.extensionId,
-					activationEvent: `onLanguageRuntime:${session.runtimeMetadata.languageId}`,
-					startup: false
-				});
+			if (!activatedExtensions.includes(session.runtimeMetadata.extensionId)) {
+				await this._extensionService.activateById(session.runtimeMetadata.extensionId,
+					{
+						extensionId: session.runtimeMetadata.extensionId,
+						activationEvent: `onLanguageRuntime:${session.runtimeMetadata.languageId}`,
+						startup: false
+					});
+			}
 
-			this._logService.debug(`[Reconnect ${session.metadata.sessionId}]: ` +
-				`Restoring session for ${session.metadata.sessionName}`);
+			this._logService.debug(`${marker}: Restoring session for ${session.metadata.sessionName}`);
 			await this._runtimeSessionService.restoreRuntimeSession(
 				session.runtimeMetadata, session.metadata);
 		}));
