@@ -40,7 +40,7 @@ else
     echo "Found @:win tag in PR body. Removing it from tags."
     PR_BODY=$(echo "$PR_BODY" | sed 's/@:win//g')
     # Set a variable to indicate @:win was found
-    echo "win_tag_found=true" >> "$GITHUB_ENV"
+    echo "win_tag_found=true" >> "$GITHUB_OUTPUT"
   fi
 
   # Parse tags starting with '@:' and convert to '@'
