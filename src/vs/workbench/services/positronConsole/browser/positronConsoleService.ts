@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -545,7 +545,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Gets or sets the disposable store. This contains things that are disposed when a runtime is
 	 * detached.
 	 */
-	private _runtimeDisposableStore = this._register(new DisposableStore());
+	private readonly _runtimeDisposableStore = new DisposableStore();
 
 	/**
 	 * Gets or sets the runtime state.
@@ -1876,8 +1876,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			}
 
 			// Dispose of the runtime event handlers.
-			this._runtimeDisposableStore.dispose();
-			this._runtimeDisposableStore = new DisposableStore();
+			this._runtimeDisposableStore.clear();
 		} else {
 			// We are not currently attached; warn.
 			console.warn(`Attempt to detach already detached session ${this._session.metadata.sessionName}.`);
