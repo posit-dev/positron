@@ -17,6 +17,7 @@ import { PositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { registerPositronDataExplorerActions } from './positronDataExplorerActions.js';
 import { extname } from '../../../../base/common/resources.js';
+import { posix } from '../../../../base/common/path.js';
 import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 
@@ -76,7 +77,7 @@ class PositronDataExplorerContribution extends Disposable {
 			}
 		));
 
-		const DUCKDB_SUPPORTED_EXTENSIONS = ['parquet', 'parq', 'csv', 'tsv'];
+		const DUCKDB_SUPPORTED_EXTENSIONS = ['parquet', 'parq', 'csv', 'tsv', 'gz'];
 
 		this._register(editorResolverService.registerEditor(
 			`*.{${DUCKDB_SUPPORTED_EXTENSIONS.join(',')}}`,
@@ -84,7 +85,12 @@ class PositronDataExplorerContribution extends Disposable {
 			{
 				singlePerResource: true,
 				canSupportResource: resource => {
-					return DUCKDB_SUPPORTED_EXTENSIONS.includes(extname(resource).substring(1));
+					let fileExt = extname(resource).substring(1);
+					if (fileExt === 'gz') {
+						// Strip the .gz and get the actual extension
+						fileExt = posix.extname(resource.path.slice(0, -3)).substring(1);
+					}
+					return DUCKDB_SUPPORTED_EXTENSIONS.includes(fileExt);
 				}
 			},
 			{

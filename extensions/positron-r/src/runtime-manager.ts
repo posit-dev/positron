@@ -109,7 +109,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 		// When not using the kernel supervisor, sessions are not
 		// persisted.
-		return Promise.resolve(false);
+		return false;
 	}
 
 	restoreSession(

@@ -88,9 +88,9 @@ def verify_inspector(
                 assert inspector.equals(copied)
 
                 # Mutate the copied object, and check that the original object was not mutated.
-                assert (
-                    mutate is not None
-                ), "mutate function must be provided to test mutable objects"
+                assert mutate is not None, (
+                    "mutate function must be provided to test mutable objects"
+                )
                 mutate(copied)
                 assert not inspector.equals(copied)
             else:

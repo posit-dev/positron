@@ -530,7 +530,7 @@ class SQLite3Connection(Connection):
         self.host = self._find_path(conn)
         self.type = "SQLite"
         self.code = (
-            "import sqlite3\n" f'conn = sqlite3.connect("{self.host}")\n' "%connection_show conn\n"
+            f'import sqlite3\nconn = sqlite3.connect("{self.host}")\n%connection_show conn\n'
         )
 
     def _find_path(self, conn: sqlite3.Connection):

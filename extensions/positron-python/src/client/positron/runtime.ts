@@ -107,7 +107,7 @@ export async function createPythonRuntimeMetadata(
 
     // Check the kernel supervisor's configuration; if it's enabled and
     // configured to persist sessions, mark the session location as 'machine'
-    // so that Positron will reattach after close.
+    // so that Positron will reattach to the session after Positron is reopened.
     const config = vscode.workspace.getConfiguration('kernelSupervisor');
     const sessionLocation =
         config.get<boolean>('enable', true) && config.get<string>('shutdownTimeout', 'immediately') !== 'immediately'

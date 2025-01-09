@@ -14,7 +14,8 @@ const NEXT_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positr
 const PREVIOUS_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Show previous plot"]';
 const CLEAR_PLOTS_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Clear all plots"]';
 const PLOT_SIZE_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Auto"]';
-const SAVE_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Save plot"]';
+const SAVE_PLOT_FROM_PLOTS_PANE_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Save plot"]';
+const SAVE_PLOT_FROM_EDITOR_BUTTON = '.editor-actions .codicon-positron-save';
 const COPY_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Copy plot to clipboard"]';
 const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Fit"]';
 const OUTER_WEBVIEW_FRAME = '.webview';
@@ -30,7 +31,8 @@ export class Plots {
 	previousPlotButton: Locator;
 	clearPlotsButton: Locator;
 	plotSizeButton: Locator;
-	savePlotButton: Locator;
+	savePlotFromPlotsPaneButton: Locator;
+	savePlotFromEditorButton: Locator;
 	copyPlotButton: Locator;
 	zoomPlotButton: Locator;
 	currentPlot: Locator;
@@ -42,7 +44,8 @@ export class Plots {
 		this.previousPlotButton = this.code.driver.page.locator(PREVIOUS_PLOT_BUTTON);
 		this.clearPlotsButton = this.code.driver.page.locator(CLEAR_PLOTS_BUTTON);
 		this.plotSizeButton = this.code.driver.page.locator(PLOT_SIZE_BUTTON);
-		this.savePlotButton = this.code.driver.page.locator(SAVE_PLOT_BUTTON);
+		this.savePlotFromPlotsPaneButton = this.code.driver.page.locator(SAVE_PLOT_FROM_PLOTS_PANE_BUTTON);
+		this.savePlotFromEditorButton = this.code.driver.page.locator(SAVE_PLOT_FROM_EDITOR_BUTTON);
 		this.copyPlotButton = this.code.driver.page.locator(COPY_PLOT_BUTTON);
 		this.zoomPlotButton = this.code.driver.page.locator(ZOOM_PLOT_BUTTON);
 		this.currentPlot = this.code.driver.page.locator(CURRENT_PLOT);
@@ -110,9 +113,19 @@ export class Plots {
 		await this.code.wait(500);
 	}
 
-	async savePlot({ name, format, overwrite = true }: { name: string; format: 'JPEG' | 'PNG' | 'SVG' | 'PDF' | 'TIFF'; overwrite?: boolean }) {
+	async savePlotFromPlotsPane({ name, format, overwrite = true }: { name: string; format: 'JPEG' | 'PNG' | 'SVG' | 'PDF' | 'TIFF'; overwrite?: boolean }) {
 		// click save and wait for save plot modal
-		await this.savePlotButton.click();
+		await this.savePlotFromPlotsPaneButton.click();
+		await this.savePlot({ name, format, overwrite });
+	}
+
+	async savePlotFromEditor({ name, format, overwrite = true }: { name: string; format: 'JPEG' | 'PNG' | 'SVG' | 'PDF' | 'TIFF'; overwrite?: boolean }) {
+		// click save and wait for save plot modal
+		await this.savePlotFromEditorButton.click();
+		await this.savePlot({ name, format, overwrite });
+	}
+
+	private async savePlot({ name, format, overwrite = true }: { name: string; format: 'JPEG' | 'PNG' | 'SVG' | 'PDF' | 'TIFF'; overwrite?: boolean }) {
 		await expect(this.savePlotModal).toBeVisible();
 
 		// enter new name and select format

@@ -7,7 +7,7 @@
 	"configuration.logLevel.debug.description": "Debug messages",
 	"configuration.logLevel.trace.description": "Verbose tracing messages",
 	"configuration.logLevel.description": "Log level for the kernel supervisor (restart Positron to apply)",
-	"configuration.shutdownTimeout.description": "When should kernels be shut down after Positron is closed?\n\nTimes are in hours, and don't start until the kernel is idle, even after Positron is closed. Restart Positron to apply.",
+	"configuration.shutdownTimeout.description": "When should kernels be shut down after Positron is closed?\n\nTimeouts are in hours and start once the kernel is idle. Restart Positron to apply.",
 	"configuration.shutdownTimeout.immediately.description": "Shut down kernels immediately when Positron is closed",
 	"configuration.shutdownTimeout.4.description": "After 4 hours",
 	"configuration.shutdownTimeout.8.description": "After 8 hours",

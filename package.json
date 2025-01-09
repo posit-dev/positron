@@ -39,6 +39,7 @@
     "update-grammars": "node build/npm/update-all-grammars.mjs",
     "update-localization-extension": "node build/npm/update-localization-extension.js",
     "e2e": "npm run e2e-electron",
+    "e2e-watch": "npm run --prefix test/e2e watch",
     "e2e-electron": "npx playwright test --project e2e-electron",
     "e2e-browser": "npx playwright test --project e2e-browser",
     "e2e-pr": "npx playwright test --project e2e-electron --grep @critical",

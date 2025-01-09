@@ -108,7 +108,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			// default plot pane state for action bar
 			await expect(plots.plotSizeButton).not.toBeVisible();
-			await expect(plots.savePlotButton).not.toBeVisible();
+			await expect(plots.savePlotFromPlotsPaneButton).not.toBeVisible();
 			await expect(plots.copyPlotButton).not.toBeVisible();
 			await expect(plots.zoomPlotButton).not.toBeVisible();
 
@@ -124,7 +124,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await expect(plots.nextPlotButton).toBeDisabled();
 			await expect(plots.previousPlotButton).not.toBeDisabled();
 			await expect(plots.plotSizeButton).not.toBeDisabled();
-			await expect(plots.savePlotButton).not.toBeDisabled();
+			await expect(plots.savePlotFromPlotsPaneButton).not.toBeDisabled();
 			await expect(plots.copyPlotButton).not.toBeDisabled();
 
 			// switch to fixed size plot
@@ -151,14 +151,29 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test('Python - Verifies saving a Python plot [C557005]', { tag: [tags.WIN] }, async function ({ app, logger }) {
-			logger.log('Sending code to console');
-			await app.workbench.console.executeCode('Python', savePlot, '>>>');
-			await app.workbench.plots.waitForCurrentPlot();
-			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+			await test.step('Sending code to console to create plot', async () => {
+				await app.workbench.console.executeCode('Python', pythonDynamicPlot, '>>>');
+				await app.workbench.plots.waitForCurrentPlot();
+				await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+			});
 
-			await app.workbench.plots.savePlot({ name: 'Python-scatter', format: 'JPEG' });
-			await app.workbench.layouts.enterLayout('stacked');
-			await app.workbench.explorer.waitForProjectFileToAppear('Python-scatter.jpeg');
+			await test.step('Save plot', async () => {
+				await app.workbench.plots.savePlotFromPlotsPane({ name: 'Python-scatter', format: 'JPEG' });
+				await app.workbench.layouts.enterLayout('stacked');
+				await app.workbench.explorer.verifyProjectFilesExist(['Python-scatter.jpeg']);
+			});
+
+			await test.step('Open plot in editor', async () => {
+				await app.workbench.plots.openPlotInEditor();
+				await app.workbench.plots.waitForPlotInEditor();
+			});
+
+			await test.step('Save plot from editor', async () => {
+				await app.workbench.plots.savePlotFromEditor({ name: 'Python-scatter-editor', format: 'JPEG' });
+				await app.workbench.explorer.verifyProjectFilesExist(['Python-scatter-editor.jpeg']);
+				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+			});
+
 		});
 
 		test('Python - Verifies bqplot Python widget [C720869]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
@@ -307,16 +322,31 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test('R - Verifies saving an R plot [C557006]', { tag: [tags.WIN] }, async function ({ app, logger }) {
-			logger.log('Sending code to console');
+			await test.step('Sending code to console to create plot', async () => {
+				await app.workbench.console.executeCode('R', rSavePlot, '>');
+				await app.workbench.plots.waitForCurrentPlot();
+			});
 
-			await app.workbench.console.executeCode('R', rSavePlot, '>');
-			await app.workbench.plots.waitForCurrentPlot();
+			await test.step('Save plot as PNG', async () => {
+				await app.workbench.plots.savePlotFromPlotsPane({ name: 'plot', format: 'PNG' });
+				await app.workbench.explorer.verifyProjectFilesExist(['plot.png']);
+			});
 
-			await app.workbench.plots.savePlot({ name: 'plot', format: 'PNG' });
-			await app.workbench.explorer.waitForProjectFileToAppear('plot.png');
+			await test.step('Save plot as SVG', async () => {
+				await app.workbench.plots.savePlotFromPlotsPane({ name: 'R-cars', format: 'SVG' });
+				await app.workbench.explorer.verifyProjectFilesExist(['R-cars.svg']);
+			});
 
-			await app.workbench.plots.savePlot({ name: 'R-cars', format: 'SVG' });
-			await app.workbench.explorer.waitForProjectFileToAppear('R-cars.svg');
+			await test.step('Open plot in editor', async () => {
+				await app.workbench.plots.openPlotInEditor();
+				await app.workbench.plots.waitForPlotInEditor();
+			});
+
+			await test.step('Save plot from editor as JPEG', async () => {
+				await app.workbench.plots.savePlotFromEditor({ name: 'R-cars', format: 'JPEG' });
+				await app.workbench.explorer.verifyProjectFilesExist(['R-cars.jpeg']);
+				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+			});
 		});
 
 		test('R - Verifies rplot plot [C720873]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
@@ -467,27 +497,6 @@ plt.title('My first graph!')
 
 # function to show the plot
 plt.show()`;
-
-// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
-const savePlot = `import pandas as pd
-import matplotlib.pyplot as plt
-data_dict = {'name': ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
-				'age': [20, 20, 21, 20, 21, 20],
-				'math_marks': [100, 90, 91, 98, 92, 95],
-				'physics_marks': [90, 100, 91, 92, 98, 95],
-				'chem_marks': [93, 89, 99, 92, 94, 92]
-				}
-
-df = pd.DataFrame(data_dict)
-
-df.plot(kind='scatter',
-		x='math_marks',
-		y='physics_marks',
-		color='red')
-
-plt.title('ScatterPlot')
-plt.show()`;
-
 
 const bgplot = `import bqplot.pyplot as bplt
 import numpy as np
