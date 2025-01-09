@@ -184,12 +184,13 @@ export interface IPositronPlotsService {
 	saveEditorPlot(plotId: string): void;
 
 	/**
-	 * Opens the currently selected plot in an editor.
+	 * Opens the given plot in an editor.
 	 *
+	 * @param plotId The id of the plot to open in an editor tab.
 	 * @param groupType Specify where the editor tab will be opened. Defaults to the preferred
 	 *   editor group.
 	 */
-	openEditor(groupType?: number): Promise<void>;
+	openEditor(plotId: string, groupType?: number): Promise<void>;
 
 	/**
 	 * Gets the preferred editor group for opening the plot in an editor tab.

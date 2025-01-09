@@ -60,6 +60,9 @@ export interface IPositronPlotMetadata {
 		id: string;
 		size?: IPlotSize;
 	};
+
+	/** The plot's location for display. */
+	location?: PlotClientLocation;
 }
 
 /**
