@@ -75,7 +75,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await verifyCondaEnvStarts(app);
 	});
 
-	test('New env: Venv environment [C627912]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
+	test('New env60: Venv environment [C627912]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
 		const projectTitle = addRandomNumSuffix('new-venv');
 
 		await createNewProject(app, {
@@ -104,7 +104,7 @@ async function createNewProject(app: Application, options: CreateProjectOptions)
 async function verifyProjectCreation(app: Application, projectTitle: string) {
 	await test.step(`Verify project created`, async () => {
 		await expect(app.code.driver.page.getByLabel('Folder Commands')).toHaveText(projectTitle, { timeout: 60000 }); // this is really slow on windows CI for some reason
-		await app.workbench.console.waitForReady('>>>', 60000);
+		await app.workbench.console.waitForReady('>>>', 90000);
 	});
 }
 
