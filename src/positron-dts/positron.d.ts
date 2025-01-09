@@ -1530,82 +1530,103 @@ declare module 'positron' {
 	 */
 	namespace ai {
 		/**
-		 * An assistant (experimental)
+		 * A language model provider
 		 */
-		export interface Assistant {
-			/**
-			 * The display name for the assistant.
-			 */
-			readonly name: string;
+		export interface LanguageModelChatProvider {
+			name: string;
+			identifier: string;
 
 			/**
-			 * Assistant identifier.
+			 * Handle a request with streaming chat responses.
 			 */
-			readonly identifier: string;
-
-			/**
-			 * Handle a chat request from the user.
-			 */
-			readonly chatResponseProvider: (request: ai.ChatRequest, response: ai.ChatResponse,
-				token: vscode.CancellationToken) => Thenable<void>;
-
-			/**
-			 * Handle a terminal chat request.
-			 */
-			readonly terminalResponseProvider: (request: ai.ChatRequest, response: ai.ChatResponse,
-				token: vscode.CancellationToken) => Thenable<void>;
-
-			/**
-			 * Handle an editor chat request.
-			 */
-			readonly editorResponseProvider: (request: ai.ChatRequest, response: ai.ChatResponse,
-				token: vscode.CancellationToken) => Thenable<void>;
+			provideChatResponse: (
+				messages: vscode.LanguageModelChatMessage[],
+				options: { [key: string]: any },
+				response: vscode.ChatResponseStream,
+				token: vscode.CancellationToken
+			) => Thenable<void>;
 		}
 
 		/**
-		 * Register an assistant.
+		 * The location from which the chat request originates.
 		 */
-		export function registerAssistant(extension: vscode.Extension<any>,
-			assistant: Assistant): vscode.Disposable;
-
-		/**
-		 * A chat message.
-		 */
-		export interface ChatMessage {
-			/**
-			 * Role of message author.
-			 */
-			role: 'system' | 'assistant' | 'user';
-
-			/**
-			 * Message content.
-			 */
-			content: string;
+		export enum ChatLocation {
+			Panel = 1,
+			Terminal = 2,
+			Notebook = 3,
+			Editor = 4,
+			EditingSession = 5,
 		}
 
 		/**
-		 * A chat request.
+		 * A positron chat participant.
 		 */
-		export interface ChatRequest {
-			/**
-			 * User prompt.
-			 */
-			message: string;
-			attempt?: number;
-			location: string;
-			locationData?: any;
-			userSelectedModelId?: string;
+		export interface ChatParticipant {
+			id: string;
+			name: string;
+			fullName?: string;
+			isDefault: boolean;
+			locations: ChatLocation[];
+			metadata: ChatParticipantMetadata;
+			requestHandler: (
+				request: vscode.ChatRequest,
+				context: ChatContext,
+				response: vscode.ChatResponseStream,
+				token: vscode.CancellationToken
+			) => Thenable<vscode.ChatResult | void>;
+		}
 
-			/**
-			 * Histroy for this chat thread.
-			 */
-			history: ChatMessage[];
+		/**
+		 * Positron chat participant metadata.
+		 */
+		export interface ChatParticipantMetadata {
+			helpTextPrefix?: string | vscode.MarkdownString;
+			helpTextVariablesPrefix?: string | vscode.MarkdownString;
+			helpTextPostfix?: string | vscode.MarkdownString;
+			isSecondary?: boolean;
+			icon?: vscode.Uri;
+			iconDark?: vscode.Uri;
+			themeIcon?: vscode.ThemeIcon;
+			sampleRequest?: string;
+			supportIssueReporting?: boolean;
+			followupPlaceholder?: string;
+			isSticky?: boolean;
+			supportsSlowVariables?: boolean;
+			hasFollowups?: boolean;
+		}
 
-			/**
-			 * Other context to be provided to the assistant.
-			 */
-			context?: {
-				value: {
+		/**
+		 * Register a language model.
+		 */
+		export function registerLanguageModel(model: LanguageModelChatProvider): vscode.Disposable;
+
+		/**
+		 * Register a chat participant.
+		 */
+		export function registerChatParticipant(participant: ChatParticipant): vscode.Disposable;
+
+		/**
+		 * Request the current plot data.
+		 */
+		export function getCurrentPlotUri(): Thenable<string | undefined>;
+
+		/**
+		 * Send a chat request to a registered Language Model.
+		 */
+		export function sendChatRequest(
+			id: string,
+			messages: vscode.LanguageModelChatMessage[],
+			options: { [key: string]: any },
+			response: vscode.ChatResponseStream,
+			token: vscode.CancellationToken,
+		): Thenable<void>;
+
+		/**
+		 * The context in which a chat request is made.
+		 */
+		export interface ChatContext extends vscode.ChatContext {
+			positron: {
+				context: {
 					console?: {
 						language: string;
 						version: string;
@@ -1616,27 +1637,8 @@ declare module 'positron' {
 						type: string;
 					}[];
 					shell?: string;
-					selection?: string;
-				};
-				additional: {
-					plotUri?: string;
 				};
 			};
-		}
-
-		/**
-		 * Methods provided to stream content back to the user.
-		 */
-		export interface ChatResponse {
-			/**
-			 * Write text content to the response stream.
-			 */
-			write: (content: string | vscode.MarkdownString) => void;
-
-			/**
-			 * Write a text edit to the response stream.
-			 */
-			writeTextEdit: (uri: vscode.Uri, edits: vscode.TextEdit | vscode.TextEdit[]) => void;
 		}
 	}
 }

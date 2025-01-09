@@ -6,25 +6,32 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { getModelConfigurations } from './config';
-import { newAssistant } from './assistants';
+import { newLanguageModel } from './models';
+import participants from './participants';
 
-let assistantDisposables: vscode.Disposable[] = [];
+let modelDisposables: vscode.Disposable[] = [];
+let participantDisposables: vscode.Disposable[] = [];
 
-function disposeAssistants() {
-	assistantDisposables.forEach(d => d.dispose());
-	assistantDisposables = [];
+function disposeModels() {
+	modelDisposables.forEach(d => d.dispose());
+	modelDisposables = [];
 }
 
-function registerAssistants(context: vscode.ExtensionContext) {
-	// Dispose of existing assistants
-	disposeAssistants();
+function disposeParticipants() {
+	participantDisposables.forEach(d => d.dispose());
+	participantDisposables = [];
+}
+
+function registerModels(context: vscode.ExtensionContext) {
+	// Dispose of existing models
+	disposeModels();
 
 	try {
 		const modelConfigs = getModelConfigurations();
 		modelConfigs.forEach(config => {
-			const assistant = newAssistant(config);
-			const disposable = positron.ai.registerAssistant(context.extension, assistant);
-			assistantDisposables.push(disposable);
+			const languageModel = newLanguageModel(config);
+			const disposable = positron.ai.registerLanguageModel(languageModel);
+			modelDisposables.push(disposable);
 		});
 	} catch (e) {
 		vscode.window.showErrorMessage(
@@ -33,20 +40,32 @@ function registerAssistants(context: vscode.ExtensionContext) {
 	}
 }
 
+function registerParticipants() {
+	Object.keys(participants).forEach(key => {
+		positron.ai.registerChatParticipant(participants[key]);
+	});
+}
+
 export function activate(context: vscode.ExtensionContext) {
-	// Register configured assistants
-	registerAssistants(context);
+	// Register chat participants
+	registerParticipants();
+
+	// Register configured language models
+	registerModels(context);
 
 	// Listen for configuration changes
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('positron.assistant.models')) {
-				registerAssistants(context);
+				registerModels(context);
 			}
 		})
 	);
 
 	context.subscriptions.push({
-		dispose: () => disposeAssistants(),
+		dispose: () => {
+			disposeModels();
+			disposeParticipants();
+		}
 	});
 }

@@ -10,10 +10,13 @@ import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatPro
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
 import { RuntimeClientType } from './extHostTypes.positron.js';
-import { LanguageRuntimeDynState, RuntimeSessionMetadata, ai } from 'positron';
+import { LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { IPositronChatContext, IPositronChatParticipant } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
+import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../../../contrib/chat/common/chatAgents.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -125,13 +128,16 @@ export interface ExtHostConnectionsShape {
 }
 
 export interface MainThreadAiFeaturesShape {
-	$registerAssistant(id: string, name: string): void;
-	$unregisterAssistant(id: string): void;
-	$taskResponse(id: string, content: IChatProgressDto): void;
+	$registerChatParticipant(extension: IExtensionDescription, participant: IPositronChatParticipant): void;
+	$registerLanguageModel(id: string, extension: IExtensionDescription, name: string): void;
+	$unregisterLanguageModel(id: string): void;
+	$unregisterChatParticipant(id: string): void;
+	$chatTaskResponse(id: string, content: IChatProgressDto): void;
+	$getCurrentPlotUri(): Promise<string | undefined>;
 }
 
 export interface ExtHostAiFeaturesShape {
-	$provideChatResponse(assistantId: string, request: ai.ChatRequest, taskId: string, token: CancellationToken): Promise<void>;
+	$provideResponse(request: IChatAgentRequest, history: IChatAgentHistoryEntry[], context: IPositronChatContext, taskId: string, token: CancellationToken): Promise<IChatAgentResult>;
 }
 
 /**

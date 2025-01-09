@@ -7,30 +7,24 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { IPositronAssistantService } from './interfaces/positronAssistantService.js';
-import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId, MenuRegistry, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { localize2 } from '../../../../nls.js';
-import { CONTEXT_CHAT_ENABLED } from '../../chat/common/chatContextKeys.js';
+import { CONTEXT_CHAT_ENABLED, CONTEXT_CHAT_LOCATION, CONTEXT_LANGUAGE_MODELS_ARE_USER_SELECTABLE } from '../../chat/common/chatContextKeys.js';
 import { codiconsLibrary } from '../../../../base/common/codiconsLibrary.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
 import { ICodeBlockActionContext } from '../../chat/browser/codeBlockPart.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { ChatAgentLocation } from '../../chat/common/chatAgents.js';
 
 class PositronAssistantContribution extends Disposable implements IWorkbenchContribution {
 	constructor(
-		@IInstantiationService instantiationService: IInstantiationService,
-		@IPositronAssistantService assistantService: IPositronAssistantService,
 		@IPositronConsoleService private readonly _consoleService: IPositronConsoleService,
 	) {
 		super();
-		this.registerActions();
-	}
 
-	private registerActions(): void {
+		// Add "play" button to sidebar chat code block actions
 		const consoleService = this._consoleService;
-
-		// Add "play" button to chat code block actions
 		registerAction2(class RunInConsoleAction extends Action2 {
 			constructor() {
 				super({
@@ -44,6 +38,7 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 						id: MenuId.ChatCodeBlock,
 						group: 'navigation',
 						order: 5,
+						when: ContextKeyExpr.equals(CONTEXT_CHAT_LOCATION.key, ChatAgentLocation.Panel)
 					},
 				});
 			}
@@ -51,6 +46,17 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 			run(_: ServicesAccessor, context: ICodeBlockActionContext): void | Promise<void> {
 				consoleService.activePositronConsoleInstance?.executeCode(context.code);
 			}
+		});
+
+		// Add "pick model" button to terminal chat input editor
+		MenuRegistry.appendMenuItem(MenuId.for('terminalChatInput'), {
+			command: {
+				id: 'workbench.action.chat.pickModel',
+				title: localize2('chat.pickModel.label', "Pick Model"),
+			},
+			order: 3,
+			group: 'navigation',
+			when: CONTEXT_LANGUAGE_MODELS_ARE_USER_SELECTABLE,
 		});
 	}
 }

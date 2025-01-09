@@ -6,11 +6,11 @@
 import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { revive } from '../../../../base/common/marshalling.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
-import { ChatAgentLocation, IChatAgentService } from '../../../contrib/chat/common/chatAgents.js';
+import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
+import { IChatAgentService } from '../../../contrib/chat/common/chatAgents.js';
 import { IChatProgress } from '../../../contrib/chat/common/chatService.js';
 import { ILanguageModelChatResponse, ILanguageModelsService } from '../../../contrib/chat/common/languageModels.js';
-import { IPositronAssistantChatTask, IPositronAssistantProvider, IPositronAssistantService } from '../../../contrib/positronAssistant/browser/interfaces/positronAssistantService.js';
+import { IPositronChatTask, IPositronAssistantService, IPositronChatParticipant } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IChatProgressDto } from '../../common/extHost.protocol.js';
 import { ExtHostAiFeaturesShape, ExtHostPositronContext, MainPositronContext, MainThreadAiFeaturesShape } from '../../common/positron/extHost.positron.protocol.js';
@@ -20,8 +20,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 
 	private readonly _proxy: ExtHostAiFeaturesShape;
 	private readonly _registrations = this._register(new DisposableMap<string>());
-	private readonly _tasks = new Map<string, IPositronAssistantChatTask>();
-	private _agentRegistered = false;
+	private readonly _tasks = new Map<string, IPositronChatTask>();
 
 	constructor(
 		extHostContext: IExtHostContext,
@@ -35,115 +34,116 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	}
 
 	/**
-	 * Register our own custom default agent with the built-in IChatAgentService.
+	 * Register a chat participant from the extension host.
 	 */
-	registerPositronAssistantAgent(): void {
-		if (this._agentRegistered) {
-			return;
-		}
-
-		this._register(
-			this._chatAgentService.registerAgent('positron-assistant', {
-				id: 'positron-assistant',
-				name: 'Positron Assistant',
-				extensionDisplayName: 'Positron Assistant',
-				extensionId: new ExtensionIdentifier('positron-assistant'),
-				extensionPublisherId: '',
-				isDefault: true,
+	$registerChatParticipant(extension: IExtensionDescription, participant: IPositronChatParticipant): void {
+		const agent = this._register(
+			this._chatAgentService.registerAgent(participant.id, {
+				id: participant.id,
+				name: participant.name,
+				fullName: participant.fullName,
+				isDefault: participant.isDefault,
+				locations: participant.locations,
+				metadata: revive(participant.metadata),
+				extensionId: extension.identifier,
+				extensionPublisherId: extension.publisher,
+				extensionDisplayName: extension.displayName ?? extension.name,
 				isDynamic: true,
-				metadata: {
-					themeIcon: { id: 'robot' },
-					supportIssueReporting: false,
-				},
 				slashCommands: [],
-				locations: [ChatAgentLocation.Terminal, ChatAgentLocation.Editor, ChatAgentLocation.Notebook, ChatAgentLocation.Panel],
 				disambiguation: [],
 			})
 		);
 
-		this._register(
-			this._chatAgentService.registerAgentImplementation(
-				'positron-assistant',
-				{
-					invoke: async (request, progress, history, token) => {
-						return this._positronAssistantService.provideResponse(request, progress, history, token);
+		const agentImpl = this._register(
+			this._chatAgentService.registerAgentImplementation(participant.id, {
+				invoke: async (request, progress, history, token) => {
+					const taskId = generateUuid();
+					this._tasks.set(taskId, { progress });
+					try {
+						const context = this._positronAssistantService.buildChatContext(request);
+						return await this._proxy.$provideResponse(request, history, context, taskId, token);
+					} finally {
+						this._tasks.delete(taskId);
 					}
-				}
-			)
+				},
+			})
 		);
 
-		this._agentRegistered = true;
+		const store = new DisposableStore();
+		store.add(agent);
+		store.add(agentImpl);
+		this._registrations.set(participant.id, store);
 	}
 
 	/**
-	 * Register a Positron Assistant from the extension host.
+	 * Register a language model from the extension host.
 	 */
-	$registerAssistant(id: string, name: string): void {
-		// Set this as the default if there are no other assistants registered yet
-		const isDefault = this._positronAssistantService.registeredProviders.size === 0;
+	$registerLanguageModel(id: string, extension: IExtensionDescription, name: string): void {
+		// We need at least one default and one non-default model for the dropdown to appear.
+		const isFirst = this._languageModelsService.getLanguageModelIds().length === 0;
 
 		// Register with the language model service so that our provider appears in the selector UI
 		const model = this._languageModelsService.registerLanguageModelChat(id, {
 			metadata: {
 				name,
 				id,
-				isDefault,
-				extension: new ExtensionIdentifier('positron-assistant'),
-				vendor: 'positron',
-				version: '0.0.0',
-				family: 'positron',
+				isDefault: isFirst,
+				extension: extension.identifier,
+				vendor: extension.publisher,
+				family: extension.publisher,
+				version: extension.version,
 				maxInputTokens: 0,
 				maxOutputTokens: 4096,
 				isUserSelectable: true,
 			},
-			// We don't need to implement these methods since we have our own custom chat agent
+			/*
+			 * Right now we don't need to implement these methods since we use our own custom chat
+			 * participants that talk to the LLM models via a new Positron Assistant API, rather
+			 * than through the existing Language Model API. In the future we'll need to implement
+			 * these if we want to support extensions that use the Language Model API directly.
+			 */
 			sendChatRequest: function (): Promise<ILanguageModelChatResponse> {
-				throw new Error('Function not implemented.');
+				throw new Error('Method not implemented.');
 			},
 			provideTokenCount: function (): Promise<number> {
-				throw new Error('Function not implemented.');
+				throw new Error('Method not implemented.');
 			}
 		});
-
-		// Register the assistant with the Positron Assistant Service
-		const provider: IPositronAssistantProvider = {
-			name,
-			provideChatResponse: async (request, handler, token) => {
-				const taskId = generateUuid();
-				this._tasks.set(taskId, { handler });
-				try {
-					return await this._proxy.$provideChatResponse(id, request, taskId, token);
-				} finally {
-					this._tasks.delete(taskId);
-				}
-			},
-		};
-		const assistant = this._positronAssistantService.registerAssistant(id, provider);
-
 		const store = new DisposableStore();
 		store.add(model);
-		store.add(assistant);
 		this._registrations.set(id, store);
-
-		this.registerPositronAssistantAgent();
 	}
 
 	/*
-	 * Deregister an assistant.
+	 * Deregister a language model.
 	 */
-	$unregisterAssistant(id: string): void {
+	$unregisterLanguageModel(id: string): void {
+		this._registrations.deleteAndDispose(id);
+	}
+
+	/*
+	 * Deregister a chat participant.
+	 */
+	$unregisterChatParticipant(id: string): void {
 		this._registrations.deleteAndDispose(id);
 	}
 
 	/*
 	 * Respond from the extension host to a chat response task with some streaming content.
 	 */
-	$taskResponse(id: string, content: IChatProgressDto) {
+	$chatTaskResponse(id: string, content: IChatProgressDto) {
 		const task = this._tasks.get(id);
 		const revivedContent = revive(content) as IChatProgress;
 		if (!task) {
 			throw new Error('Chat response task not found.');
 		}
-		task.handler(revivedContent);
+		task.progress(revivedContent);
+	}
+
+	/**
+	 * Respond to a request from the extension host to send the current plot data.
+	 */
+	async $getCurrentPlotUri(): Promise<string | undefined> {
+		return this._positronAssistantService.getCurrentPlotUri();
 	}
 }

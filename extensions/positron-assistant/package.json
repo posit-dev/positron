@@ -3,7 +3,7 @@
   "displayName": "Assistant",
   "description": "Positron Assistant",
   "version": "0.0.1",
-  "publisher": "vscode",
+  "publisher": "positron",
   "engines": {
     "vscode": "^1.65.0"
   },
@@ -71,8 +71,8 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "yarn run compile",
-    "pretest": "yarn run compile && yarn run lint",
+    "vscode:prepublish": "npm run compile",
+    "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts"
   },
   "devDependencies": {
