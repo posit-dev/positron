@@ -23,7 +23,9 @@ import { INativeHostMainService } from '../../native/electron-main/nativeHostMai
 import { IProductService } from '../../product/common/productService.js';
 import { asJson, IRequestService } from '../../request/common/request.js';
 import { ITelemetryService } from '../../telemetry/common/telemetry.js';
-import { AvailableForDownload, DisablementReason, IUpdate, State, StateType, UpdateType } from '../common/update.js';
+// --- Start Positron ---
+import { DisablementReason, IUpdate, State, StateType, UpdateType } from '../common/update.js';
+// --- End Positron ---
 import { AbstractUpdateService, createUpdateURL, UpdateErrorClassification, UpdateNotAvailableClassification } from './abstractUpdateService.js';
 
 async function pollUntil(fn: () => boolean, millis = 1000): Promise<void> {
@@ -66,10 +68,10 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		@IRequestService requestService: IRequestService,
 		@ILogService logService: ILogService,
 		@IFileService private readonly fileService: IFileService,
-		@INativeHostMainService private readonly nativeHostMainService: INativeHostMainService,
-		@IProductService productService: IProductService
+		@IProductService productService: IProductService,
+		@INativeHostMainService nativeHostMainService: INativeHostMainService
 	) {
-		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, productService);
+		super(lifecycleMainService, configurationService, environmentMainService, requestService, logService, productService, nativeHostMainService);
 
 		lifecycleMainService.setRelaunchHandler(this);
 	}
@@ -99,18 +101,20 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		await super.initialize();
 	}
 
-	protected buildUpdateFeedUrl(quality: string): string | undefined {
-		let platform = `win32-${process.arch}`;
+	// --- Start Positron ---
+	protected buildUpdateFeedUrl(channel: string): string | undefined {
+		const platform = `win/${process.arch === 'x64' ? 'x86_64' : 'arm64'}`;
+		const prefix = getUpdateType() === UpdateType.Setup ? 'system-' : 'user-';
+		const baseUrl = createUpdateURL(platform, channel, this.productService);
 
-		if (getUpdateType() === UpdateType.Archive) {
-			platform += '-archive';
-		} else if (this.productService.target === 'user') {
-			platform += '-user';
-		}
+		// TODO: properly determine if this is a user or system install
+		const url = `${baseUrl}/${prefix}releases.json`;
 
-		return createUpdateURL(platform, quality, this.productService);
+		return url;
 	}
+	// --- End Positron ---
 
+	// Unused for Positron
 	protected doCheckForUpdates(context: any): void {
 		if (!this.url) {
 			return;
@@ -177,12 +181,48 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 			});
 	}
 
-	protected override async doDownloadUpdate(state: AvailableForDownload): Promise<void> {
-		if (state.update.url) {
-			this.nativeHostMainService.openExternal(undefined, state.update.url);
+	// --- Start Positron ---
+	protected override updateAvailable(update: IUpdate): void {
+		// Notify about updates for now. Do not download or install them.
+		if (!this.enableAutoUpdate) {
+			this.setState(State.AvailableForDownload(update));
+			return;
 		}
-		this.setState(State.Idle(getUpdateType()));
+
+		// TODO: Code for installing updates is disabled due to this.enableAutoUpdate being false
+		this.setState(State.Downloading);
+
+		this.cleanup(update.version).then(() => {
+			return this.getUpdatePackagePath(update.version).then(updatePackagePath => {
+				return pfs.Promises.exists(updatePackagePath).then(exists => {
+					if (exists) {
+						return Promise.resolve(updatePackagePath);
+					}
+
+					const downloadPath = `${updatePackagePath}.tmp`;
+
+					return this.requestService.request({ url: update.url }, CancellationToken.None)
+						.then(context => this.fileService.writeFile(URI.file(downloadPath), context.stream))
+						.then(update.sha256hash ? () => checksum(downloadPath, update.sha256hash) : () => undefined)
+						.then(() => pfs.Promises.rename(downloadPath, updatePackagePath, false /* no retry */))
+						.then(() => updatePackagePath);
+				});
+			}).then(packagePath => {
+				this.availableUpdate = { packagePath };
+				this.setState(State.Downloaded(update));
+
+				const fastUpdatesEnabled = this.configurationService.getValue('update.enableWindowsBackgroundUpdates');
+				if (fastUpdatesEnabled) {
+					if (this.productService.target === 'user') {
+						this.doApplyUpdate();
+					}
+				} else {
+					this.setState(State.Ready(update));
+				}
+			});
+		});
 	}
+	// --- End Positron ---
 
 	private async getUpdatePackagePath(version: string): Promise<string> {
 		const cachePath = await this.cachePath;

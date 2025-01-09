@@ -9,6 +9,7 @@ import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurati
 import { Registry } from '../../registry/common/platform.js';
 
 const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
+// --- Start Positron ---
 configurationRegistry.registerConfiguration({
 	id: 'update',
 	order: 15,
@@ -20,7 +21,7 @@ configurationRegistry.registerConfiguration({
 			enum: ['none', 'manual', 'start', 'default'],
 			default: 'default',
 			scope: ConfigurationScope.APPLICATION,
-			description: localize('updateMode', "Configure whether you receive automatic updates. Requires a restart after change. The updates are fetched from a Microsoft online service."),
+			description: localize('updateMode', "Configure whether you receive automatic updates. Requires a restart after change to take effect."),
 			tags: ['usesOnlineServices'],
 			enumDescriptions: [
 				localize('none', "Disable updates."),
@@ -30,14 +31,21 @@ configurationRegistry.registerConfiguration({
 			],
 			policy: {
 				name: 'UpdateMode',
-				minimumVersion: '1.67',
+				minimumVersion: '2025.1.0',
 			}
+		},
+		'update.autoUpdateExperimental': {
+			type: 'boolean',
+			default: false,
+			scope: ConfigurationScope.APPLICATION,
+			description: localize('experimentalAutoUpdate', "CAUTION: Enable automatic update checking. Requires a restart after change to take effect."),
+			tags: ['usesOnlineServices'],
 		},
 		'update.channel': {
 			type: 'string',
 			default: 'default',
 			scope: ConfigurationScope.APPLICATION,
-			description: localize('updateMode', "Configure whether you receive automatic updates. Requires a restart after change. The updates are fetched from a Microsoft online service."),
+			description: localize('updateMode', "Configure whether you receive automatic updates. Requires a restart after change to take effect."),
 			deprecationMessage: localize('deprecated', "This setting is deprecated, please use '{0}' instead.", 'update.mode')
 		},
 		'update.enableWindowsBackgroundUpdates': {
@@ -50,10 +58,12 @@ configurationRegistry.registerConfiguration({
 		},
 		'update.showReleaseNotes': {
 			type: 'boolean',
-			default: true,
+			default: false,
 			scope: ConfigurationScope.APPLICATION,
-			description: localize('showReleaseNotes', "Show Release Notes after an update. The Release Notes are fetched from a Microsoft online service."),
-			tags: ['usesOnlineServices']
+			description: localize('showReleaseNotes', "Show Release Notes after an update."),
+			tags: ['usesOnlineServices'],
+			included: false
 		}
 	}
+	// --- End Positron ---
 });

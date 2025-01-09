@@ -14,8 +14,24 @@ import { IProductService } from '../../product/common/productService.js';
 import { IRequestService } from '../../request/common/request.js';
 import { AvailableForDownload, DisablementReason, IUpdateService, State, StateType, UpdateType } from '../common/update.js';
 
-export function createUpdateURL(platform: string, quality: string, productService: IProductService): string {
-	return `${productService.updateUrl}/api/update/${platform}/${quality}/${productService.commit}`;
+//--- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { asJson } from '../../request/common/request.js';
+// eslint-disable-next-line no-duplicate-imports
+import { IUpdate } from '../common/update.js';
+import { hasUpdate } from '../electron-main/positronVersion.js';
+import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
+
+export const enum UpdateChannel {
+	Releases = 'releases',
+	Prereleases = 'prereleases',
+	Dailies = 'dailies',
+	Staging = 'staging',
+}
+
+export function createUpdateURL(platform: string, channel: string, productService: IProductService): string {
+	return `${productService.updateUrl}/${channel}/${platform}`;
+	//--- End Positron ---
 }
 
 export type UpdateNotAvailableClassification = {
@@ -35,6 +51,11 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	declare readonly _serviceBrand: undefined;
 
 	protected url: string | undefined;
+
+	// --- Start Positron ---
+	// enable the service to download and apply updates automatically
+	protected enableAutoUpdate: boolean;
+	// --- End Positron ---
 
 	private _state: State = State.Uninitialized;
 
@@ -57,8 +78,15 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		@IEnvironmentMainService private readonly environmentMainService: IEnvironmentMainService,
 		@IRequestService protected requestService: IRequestService,
 		@ILogService protected logService: ILogService,
-		@IProductService protected readonly productService: IProductService
+		// --- Start Positron ---
+		@IProductService protected readonly productService: IProductService,
+		@INativeHostMainService protected readonly nativeHostMainService: INativeHostMainService
+		// --- End Positron ---
 	) {
+		// --- Start Positron ---
+		this.enableAutoUpdate = process.env.POSITRON_AUTO_UPDATE === '1';
+		// --- End Positron ---
+
 		lifecycleMainService.when(LifecycleMainPhase.AfterWindowOpen)
 			.finally(() => this.initialize());
 	}
@@ -67,35 +95,42 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	 * This must be called before any other call. This is a performance
 	 * optimization, to avoid using extra CPU cycles before first window open.
 	 * https://github.com/microsoft/vscode/issues/89784
-	 */
+	*/
 	protected async initialize(): Promise<void> {
-		if (!this.environmentMainService.isBuilt) {
+		// --- Start Positron ---
+		const updateChannel = process.env.POSITRON_UPDATE_CHANNEL ?? UpdateChannel.Prereleases;
+		const autoUpdateFlag = this.configurationService.getValue<boolean>('update.autoUpdateExperimental');
+
+		if (!this.environmentMainService.isBuilt && !autoUpdateFlag) {
 			this.setState(State.Disabled(DisablementReason.NotBuilt));
 			return; // updates are never enabled when running out of sources
+		} else if (!this.environmentMainService.isBuilt && updateChannel && autoUpdateFlag) {
+			this.logService.warn('update#ctor - updates enabled in dev environment; attempted update installs will fail');
 		}
 
-		if (this.environmentMainService.disableUpdates) {
+		if (this.environmentMainService.disableUpdates || !autoUpdateFlag) {
 			this.setState(State.Disabled(DisablementReason.DisabledByEnvironment));
 			this.logService.info('update#ctor - updates are disabled by the environment');
 			return;
 		}
 
-		if (!this.productService.updateUrl || !this.productService.commit) {
+		if ((!this.productService.updateUrl || !this.productService.commit) && !updateChannel) {
 			this.setState(State.Disabled(DisablementReason.MissingConfiguration));
 			this.logService.info('update#ctor - updates are disabled as there is no update URL');
 			return;
 		}
 
 		const updateMode = this.configurationService.getValue<'none' | 'manual' | 'start' | 'default'>('update.mode');
-		const quality = this.getProductQuality(updateMode);
 
-		if (!quality) {
+		if (updateMode === 'none') {
 			this.setState(State.Disabled(DisablementReason.ManuallyDisabled));
 			this.logService.info('update#ctor - updates are disabled by user preference');
 			return;
 		}
 
-		this.url = this.buildUpdateFeedUrl(quality);
+		this.url = this.buildUpdateFeedUrl(updateChannel);
+		this.logService.debug('update#ctor - update URL is', this.url);
+		// --- End Positron ---
 		if (!this.url) {
 			this.setState(State.Disabled(DisablementReason.InvalidConfiguration));
 			this.logService.info('update#ctor - updates are disabled as the update URL is badly formed');
@@ -127,9 +162,14 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		}
 	}
 
+	// --- Start Positron ---
+	// This is essentially the update 'channel' (aka insiders, stable, etc.). VS Code sets it through the
+	// product.json. Positron will have it configurable for now.
+	// @ts-ignore
 	private getProductQuality(updateMode: string): string | undefined {
 		return updateMode === 'none' ? undefined : this.productService.quality;
 	}
+	// --- End Positron ---
 
 	private scheduleCheckForUpdates(delay = 60 * 60 * 1000): Promise<void> {
 		return timeout(delay)
@@ -147,7 +187,34 @@ export abstract class AbstractUpdateService implements IUpdateService {
 			return;
 		}
 
-		this.doCheckForUpdates(explicit);
+		// --- Start Positron ---
+		this.setState(State.CheckingForUpdates(explicit));
+
+		this.requestService.request({ url: this.url }, CancellationToken.None)
+			.then<IUpdate | null>(asJson)
+			.then(update => {
+				if (!update || !update.url || !update.version) {
+					this.setState(State.Idle(this.getUpdateType()));
+					return Promise.resolve(null);
+				}
+
+				if (hasUpdate(update, this.productService.positronVersion)) {
+					this.logService.info(`update#checkForUpdates, ${update.version} is available`);
+					this.updateAvailable(update);
+				} else {
+					this.logService.info(`update#checkForUpdates, ${this.productService.positronVersion} is the latest version`);
+					this.setState(State.Idle(this.getUpdateType()));
+				}
+				return Promise.resolve(update);
+			})
+			.then(undefined, err => {
+				this.logService.error(err);
+
+				// only show message when explicitly checking for updates
+				const message: string | undefined = !!explicit ? (err.message || err) : undefined;
+				this.setState(State.Idle(this.getUpdateType(), message));
+			});
+		// --- End Positron ---
 	}
 
 	async downloadUpdate(): Promise<void> {
@@ -160,9 +227,19 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		await this.doDownloadUpdate(this.state);
 	}
 
+	// --- Start Positron ---
 	protected async doDownloadUpdate(state: AvailableForDownload): Promise<void> {
-		// noop
+		if (this.productService.downloadUrl && this.productService.downloadUrl.length > 0) {
+			// Use the download URL if available as we don't currently detect the package type that was
+			// installed and the website download page is more useful than the tarball generally.
+			this.nativeHostMainService.openExternal(undefined, this.productService.downloadUrl);
+		} else if (state.update.url) {
+			this.nativeHostMainService.openExternal(undefined, state.update.url);
+		}
+
+		this.setState(State.Idle(this.getUpdateType()));
 	}
+	// --- End Positron ---
 
 	async applyUpdate(): Promise<void> {
 		this.logService.trace('update#applyUpdate, state = ', this.state.type);
@@ -211,17 +288,22 @@ export abstract class AbstractUpdateService implements IUpdateService {
 			return false;
 		}
 
+		// --- Start Positron ---
 		try {
-			const context = await this.requestService.request({ url: this.url }, CancellationToken.None);
-			// The update server replies with 204 (No Content) when no
-			// update is available - that's all we want to know.
-			return context.res.statusCode === 204;
-
+			return this.requestService.request({ url: this.url }, CancellationToken.None)
+				.then<IUpdate | null>(asJson)
+				.then(update => {
+					if (!update || !update.version) {
+						return Promise.resolve(false);
+					}
+					return Promise.resolve(hasUpdate(update, this.productService.positronVersion));
+				});
 		} catch (error) {
 			this.logService.error('update#isLatestVersion(): failed to check for updates');
 			this.logService.error(error);
 			return undefined;
 		}
+		// --- End Positron ---
 	}
 
 	async _applySpecificUpdate(packagePath: string): Promise<void> {
@@ -236,6 +318,12 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		// noop
 	}
 
-	protected abstract buildUpdateFeedUrl(quality: string): string | undefined;
+	// --- Start Positron ---
+	// This isn't actually used for Positron updates but is kept to make future merges from upstream easier
 	protected abstract doCheckForUpdates(context: any): void;
+	protected abstract buildUpdateFeedUrl(channel: string): string | undefined;
+	protected updateAvailable(context: IUpdate): void {
+		this.setState(State.AvailableForDownload(context));
+	}
+	// --- End Positron ---
 }
