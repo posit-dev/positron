@@ -84,6 +84,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// (metadata.languageId) of the runtime.
 	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 
+	// A map of each extension host and its runtime discovery completion state.
+	// This is keyed by the the extension host's mainThreadLanguageRuntime's id
+	// This map is used to determine if runtime discovery has been completed
+	// across all extension hosts.
+	private readonly _extensionHostDiscoveryCompleteByMainThreadLanguageRuntimeId = new Map<number, boolean>();
+
 	// The current startup phase; an observeable value.
 	private _startupPhase: ISettableObservable<RuntimeStartupPhase>;
 
@@ -344,11 +350,59 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
-	 * Completes the language runtime discovery phase. If no runtimes were
-	 * started or will be started, automatically start one.
+	 * Signals that the runtime discovery phase is completed only after all
+	 * extension hosts have completed runtime discovery.
+	 *
+	 * If no runtimes were started or will be started, automatically start one.
 	 */
-	completeDiscovery(): void {
-		this._startupPhase.set(RuntimeStartupPhase.Complete, undefined);
+	public completeDiscovery(id: number): void {
+		// Update the extension host's runtime discovery state to 'Complete'
+		this._extensionHostDiscoveryCompleteByMainThreadLanguageRuntimeId.set(id, true);
+
+		// Determine if all extension hosts have completed discovery
+		let discoveryCompletedByAllExtensionHosts = true;
+		for (const disoveryCompleted of this._extensionHostDiscoveryCompleteByMainThreadLanguageRuntimeId.values()) {
+			if (!disoveryCompleted) {
+				discoveryCompletedByAllExtensionHosts = false;
+				break;
+			}
+		}
+
+		// The 'Discovery' phase is considered complete only after all extension hosts
+		// have signalled they have completed discovery
+		if (discoveryCompletedByAllExtensionHosts) {
+			this._startupPhase.set(RuntimeStartupPhase.Complete, undefined);
+		}
+	}
+
+	/**
+	 * Used to register an instance of a MainThreadLanguageRuntime.
+	 *
+	 * This is required because there can be multiple extension hosts
+	 * and the startup service needs to know of all of them to track
+	 * the startup phase across all extension hosts.
+	 *
+	 * @param id The id of the MainThreadLanguageRuntime instance being registered.
+	 */
+	public registerMainThreadLanguageRuntime(id: number): void {
+		// Add the mainThreadLanguageRuntime instance id to the set of mainThreadLanguageRuntimes.
+		this._extensionHostDiscoveryCompleteByMainThreadLanguageRuntimeId.set(id, false);
+		this._logService.debug(`[Runtime startup] Registered mainThreadLanguageRuntime with id: ${id}.`);
+	}
+
+	/**
+	 * Used to un-registers an instance of a MainThreadLanguageRuntime.
+	 *
+	 * This is required because there can be multiple extension hosts
+	 * and the startup service needs to know of all of them to track
+	 * the startup phase across all extension hosts.
+	 *
+	 * @param id The id of the MainThreadLanguageRuntime instance being un-registered.
+	 */
+	public unregisterMainThreadLanguageRuntime(id: number): void {
+		// Remove the mainThreadLanguageRuntime instance id to the set of mainThreadLanguageRuntimes.
+		this._extensionHostDiscoveryCompleteByMainThreadLanguageRuntimeId.delete(id);
+		this._logService.debug(`[Runtime startup] Unregistered mainThreadLanguageRuntime with id: ${id}.`);
 	}
 
 	/**
