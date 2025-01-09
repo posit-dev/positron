@@ -225,8 +225,8 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		await this.doDownloadUpdate(this.state);
 	}
 
+	// --- Start Positron ---
 	protected async doDownloadUpdate(state: AvailableForDownload): Promise<void> {
-		// --- Start Positron ---
 		if (this.productService.downloadUrl && this.productService.downloadUrl.length > 0) {
 			// Use the download URL if available as we don't currently detect the package type that was
 			// installed and the website download page is more useful than the tarball generally.
@@ -286,8 +286,8 @@ export abstract class AbstractUpdateService implements IUpdateService {
 			return false;
 		}
 
+		// --- Start Positron ---
 		try {
-			// --- Start Positron ---
 			return this.requestService.request({ url: this.url }, CancellationToken.None)
 				.then<IUpdate | null>(asJson)
 				.then(update => {
@@ -296,12 +296,12 @@ export abstract class AbstractUpdateService implements IUpdateService {
 					}
 					return Promise.resolve(hasUpdate(update, this.productService.positronVersion));
 				});
-			// --- End Positron ---
 		} catch (error) {
 			this.logService.error('update#isLatestVersion(): failed to check for updates');
 			this.logService.error(error);
 			return undefined;
 		}
+		// --- End Positron ---
 	}
 
 	async _applySpecificUpdate(packagePath: string): Promise<void> {
@@ -316,8 +316,9 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		// noop
 	}
 
-	protected abstract doCheckForUpdates(context: any): void;
 	// --- Start Positron ---
+	// This isn't actually used for Positron updates but is kept to make future merges from upstream easier
+	protected abstract doCheckForUpdates(context: any): void;
 	protected abstract buildUpdateFeedUrl(channel: string): string | undefined;
 	protected updateAvailable(context: IUpdate): void {
 		this.setState(State.AvailableForDownload(context));

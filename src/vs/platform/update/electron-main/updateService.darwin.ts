@@ -93,6 +93,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		}
 		return url;
 	}
+	// --- End Positron ---
 
 	// Unused for Positron
 	protected doCheckForUpdates(context: any): void {
@@ -100,6 +101,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		electron.autoUpdater.checkForUpdates();
 	}
 
+	// --- Start Positron ---
 	/**
 	 * Manually check for updates and call Electron to install the update if an update is available.
 	 */
