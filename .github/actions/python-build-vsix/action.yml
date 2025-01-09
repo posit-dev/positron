@@ -93,7 +93,7 @@ runs:
       run: |
         cd extensions/positron-python
         ls
-        mv positron-python-dev.vsix positron-python-dev-temp.vsix && mv positron-python-dev.vsix ${{ inputs.vsix_name }}
+        mv "positron-python-dev.vsix" "positron-python-dev-temp.vsix" && mv "positron-python-dev.vsix" "${{ inputs.vsix_name }}"
       shell: bash
 
     - name: Upload VSIX
