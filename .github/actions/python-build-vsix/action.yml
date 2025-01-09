@@ -88,6 +88,10 @@ runs:
         npx vsce package --target ${{ inputs.vsix_target }} --out positron-python-dev.vsix --pre-release
       shell: bash
 
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+      timeout-minutes: 30
+
     - name: Rename VSIX
       # Move to a temp name in case the specified name happens to match the default name.
       run: |
