@@ -13,35 +13,7 @@ test.use({
 // Not running conda test on windows because conda reeks havoc on selecting the correct python interpreter
 test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () => {
 
-	test('Create a new Conda environment [C628628]', async function ({ app }) {
-		const projectTitle = addRandomNumSuffix('conda-installed');
-		await createNewProject(app, {
-			type: ProjectType.PYTHON_PROJECT,
-			title: projectTitle,
-			status: 'new',
-			pythonEnv: 'conda', // test relies on conda already installed on machine
-		});
-
-		await verifyProjectCreation(app, projectTitle);
-		await verifyCondaFilesArePresent(app);
-		await verifyCondaEnvStarts(app);
-	});
-
-	test('Create a new Venv environment [C627912]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
-		const projectTitle = addRandomNumSuffix('new-venv');
-
-		await createNewProject(app, {
-			type: ProjectType.PYTHON_PROJECT,
-			title: projectTitle,
-			status: 'new',
-			pythonEnv: 'venv',
-		});
-
-		await verifyProjectCreation(app, projectTitle);
-		await verifyVenEnvStarts(app);
-	});
-
-	test('With ipykernel already installed [C609619]', { tag: [tags.WIN], }, async function ({ app, python, packages }) {
+	test('Existing env: ipykernel already installed [C609619]', { tag: [tags.WIN], }, async function ({ app, python, packages }) {
 		const projectTitle = addRandomNumSuffix('ipykernel-installed');
 
 		await packages.manage('ipykernel', 'install');
@@ -56,7 +28,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await verifyProjectCreation(app, projectTitle);
 	});
 
-	test('With ipykernel not already installed [C609617]', { tag: [tags.WIN] }, async function ({ app, python, packages }) {
+	test('Existing env: ipykernel not already installed [C609617]', { tag: [tags.WIN] }, async function ({ app, python, packages }) {
 		const projectTitle = addRandomNumSuffix('no-ipykernel');
 
 		await packages.manage('ipykernel', 'uninstall');
@@ -72,7 +44,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await verifyIpykernelInstalled(app);
 	});
 
-	test('Default Python Project with git init [C674522]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
+	test('New env: Git intialized [C674522]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
 		const projectTitle = addRandomNumSuffix('git-init');
 
 		await createNewProject(app, {
@@ -87,6 +59,34 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await verifyGitFilesArePresent(app);
 		await verifyVenEnvStarts(app);
 		await verifyGitStatus(app);
+	});
+
+	test('New env: Conda environment [C628628]', async function ({ app }) {
+		const projectTitle = addRandomNumSuffix('conda-installed');
+		await createNewProject(app, {
+			type: ProjectType.PYTHON_PROJECT,
+			title: projectTitle,
+			status: 'new',
+			pythonEnv: 'conda', // test relies on conda already installed on machine
+		});
+
+		await verifyProjectCreation(app, projectTitle);
+		await verifyCondaFilesArePresent(app);
+		await verifyCondaEnvStarts(app);
+	});
+
+	test('New env: Venv environment [C627912]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
+		const projectTitle = addRandomNumSuffix('new-venv');
+
+		await createNewProject(app, {
+			type: ProjectType.PYTHON_PROJECT,
+			title: projectTitle,
+			status: 'new',
+			pythonEnv: 'venv',
+		});
+
+		await verifyProjectCreation(app, projectTitle);
+		await verifyVenEnvStarts(app);
 	});
 });
 
