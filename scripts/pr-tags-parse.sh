@@ -54,19 +54,6 @@ else
 		fi
 	fi
 fi
-else
-  # Parse tags starting with '@:' and convert to '@'
-  TAGS=$(echo "$PR_BODY" | grep -o "@:[a-zA-Z0-9_-]*" | sed 's/@://g' | sed 's/^/@/' | tr '\n' ',' | sed 's/,$//')
-
-  # Always add @critical if not already included
-  if [[ ! "$TAGS" =~ "@critical" ]]; then
-    if [[ -n "$TAGS" ]]; then
-      TAGS="@critical,$TAGS"
-    else
-      TAGS="@critical"
-    fi
-  fi
-fi
 
 # Output the tags
 echo "Extracted Tags: $TAGS"
