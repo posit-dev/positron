@@ -4,21 +4,26 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * This file is derived from the event handlers in the `index.html` file next
- * door. Its job is to absorb events from the inner iframe and forward them to
- * the host as window messages.
+ * This file is derived from the event handlers in the `index.html` file from
+ * src/vs/workbench/contrib/webview/browser/pre/index.html. Its job is to absorb
+ * vents from the inner iframe and forward them to the host as window messages.
  *
- * This allows the host to dispatch events that can't be handled natively in
- * the frame on Electron, such as copy/cut/paste commands and context menus.
+ * This allows the host to dispatch events such as copy/cut/paste commands and
+ * context menus to the webview.
  *
- * The other side of the communication is in `index-external.html`; it receives
+ * The other side of the communication is in `index.html`; it receives
  * messages sent from this file and forwards them to the webview host, where
  * they are processed and dispatched.
  *
- * NOTE: Please propagate updates from this file to extensions/positron-proxy/resources/webview-events.js
- * if they are relevant. The Positron Proxy copy of this file contains some modifications to handle
- * events in a web browser context (as opposed to an Electron context, which this file is
- * involved in).
+ * Differences between this file and the original are code-fenced with the comment format:
+ * // --- Start Positron Proxy Changes ---
+ * ...
+ * // --- End Positron Proxy Changes ---
+ *
+ * Original: src/vs/workbench/contrib/webview/browser/pre/webview-events.js
+ *
+ * This file is intended for the browser context of Positron, and should not used in the
+ * Electron context. Please see the original webview-events.js file for the Electron context.
  */
 
 /**
@@ -85,7 +90,10 @@ const handleAuxClick = (event) => {
 	}
 };
 
+// --- Start Positron Proxy Changes ---
 /**
+ * This is a copy of the handleInnerKeydown function from src/vs/workbench/contrib/webview/browser/pre/index.html,
+ * with some modifications for Positron in a browser context.
  * @param {KeyboardEvent} e
  */
 const handleInnerKeydown = (e) => {
@@ -93,9 +101,16 @@ const handleInnerKeydown = (e) => {
 	// make sure we block the browser from dispatching it. Instead VS Code
 	// handles these events and will dispatch a copy/paste back to the webview
 	// if needed
-	if (isUndoRedo(e) || isPrint(e) || isFindEvent(e) || isSaveEvent(e) || isCopyPasteOrCut(e)) {
+	if (isPrint(e) || isFindEvent(e) || isSaveEvent(e)) {
+		e.preventDefault();
+	} else if (isUndoRedo(e) || isCopyPasteOrCut(e)) {
+		return; // let the browser handle this
+	} else if (isCloseTab(e) || isNewWindow(e) || isHelp(e) || isRefresh(e)) {
+		// Prevent Ctrl+W closing window / Ctrl+N opening new window in PWA.
+		// (No effect in a regular browser tab.)
 		e.preventDefault();
 	}
+
 	hostMessaging.postMessage('did-keydown', {
 		key: e.key,
 		keyCode: e.keyCode,
@@ -104,9 +119,11 @@ const handleInnerKeydown = (e) => {
 		altKey: e.altKey,
 		ctrlKey: e.ctrlKey,
 		metaKey: e.metaKey,
-		repeat: e.repeat,
+		repeat: e.repeat
 	});
 };
+// --- End Positron Proxy Changes ---
+
 /**
  * @param {KeyboardEvent} e
  */

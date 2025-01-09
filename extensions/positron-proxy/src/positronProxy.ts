@@ -7,13 +7,14 @@ import * as vscode from 'vscode';
 import fs = require('fs');
 import path = require('path');
 import express from 'express';
-import { AddressInfo, Server } from 'net';
+import { Server } from 'net';
 import { log, ProxyServerStyles } from './extension';
 // eslint-disable-next-line no-duplicate-imports
 import { Disposable, ExtensionContext } from 'vscode';
 import { createProxyMiddleware, responseInterceptor } from 'http-proxy-middleware';
 import { HtmlProxyServer } from './htmlProxy';
-import { htmlContentRewriter, rewriteUrlsWithProxyPath } from './util';
+import { helpContentRewriter, htmlContentRewriter } from './util';
+import { ContentRewriter, isAddressInfo, MaybeAddressInfo, PendingProxyServer, ProxyServerHtml, ProxyServerHtmlConfig, ProxyServerType } from './types';
 
 /**
  * Constants.
@@ -25,6 +26,7 @@ const HOST = 'localhost';
  * <style id="identifier">
  * ....
  * </style>
+ * Noted in the resources/scripts_{TYPE}.html files.
  * @param script The script.
  * @param id The element id.
  * @returns The element, if found; otherwise, undefined.
@@ -37,49 +39,13 @@ const getStyleElement = (script: string, id: string) =>
  * <script id="identifier" type="module">
  * ...
  * </script>
+ * Noted in the resources/scripts_{TYPE}.html files.
  * @param script The script.
  * @param id The element id.
  * @returns The element, if found; otherwise, undefined.
  */
 const getScriptElement = (script: string, id: string) =>
 	script.match(new RegExp(`<script id="${id}" type="module">.*?<\/script>`, 'gs'))?.[0];
-
-/**
- * ContentRewriter type.
- */
-type ContentRewriter = (
-	serverOrigin: string,
-	proxyPath: string,
-	url: string,
-	contentType: string,
-	responseBuffer: Buffer
-) => Promise<Buffer | string>;
-
-/**
- * PendingProxyServer type.
- */
-type PendingProxyServer = {
-	externalUri: vscode.Uri;
-	proxyPath: string;
-	finishProxySetup: (targetOrigin: string) => Promise<void>;
-};
-
-/**
- * MaybeAddressInfo type.
- */
-type MaybeAddressInfo = AddressInfo | string | null | undefined;
-
-/**
- * Custom type guard for AddressInfo.
- * @param addressInfo The value to type guard.
- * @returns true if the value is an AddressInfo; otherwise, false.
- */
-export const isAddressInfo = (
-	addressInfo: MaybeAddressInfo
-): addressInfo is AddressInfo =>
-	(addressInfo as AddressInfo).address !== undefined &&
-	(addressInfo as AddressInfo).family !== undefined &&
-	(addressInfo as AddressInfo).port !== undefined;
 
 /**
  * ProxyServer class.
@@ -95,6 +61,7 @@ export class ProxyServer implements Disposable {
 		readonly serverOrigin: string,
 		readonly targetOrigin: string,
 		private readonly server: Server,
+		readonly serverType: ProxyServerType,
 	) {
 	}
 
@@ -113,29 +80,9 @@ export class PositronProxy implements Disposable {
 	//#region Private Properties
 
 	/**
-	 * Gets or sets a value which indicates whether the resources/scripts_{TYPE}.html files have been loaded.
+	 * Stores the proxy server HTML configurations.
 	 */
-	private _scriptsFileLoaded = false;
-
-	/**
-	 * Gets or sets the help styles.
-	 */
-	private _helpStyles?: ProxyServerStyles;
-
-	/**
-	 * Gets or sets the help style defaults.
-	 */
-	private _helpStyleDefaults?: string;
-
-	/**
-	 * Gets or sets the help style overrides.
-	 */
-	private _helpStyleOverrides?: string;
-
-	/**
-	 * Gets or sets the help script.
-	 */
-	private _helpScript?: string;
+	private _proxyServerHtmlConfigs: ProxyServerHtmlConfig;
 
 	/**
 	 * Gets or sets the proxy servers, keyed by target origin.
@@ -159,26 +106,10 @@ export class PositronProxy implements Disposable {
 	constructor(private readonly context: ExtensionContext) {
 		// Try to load the resources/scripts_{TYPE}.html files and the elements within them. This will either
 		// work or it will not work, but there's not sense in trying it again, if it doesn't.
-
-		// Load the scripts_help.html file for the help proxy server.
-		try {
-			// Load the resources/scripts_help.html scripts file.
-			const scriptsPath = path.join(this.context.extensionPath, 'resources', 'scripts_help.html');
-			const scripts = fs.readFileSync(scriptsPath).toString('utf8');
-
-			// Get the elements from the scripts file.
-			this._helpStyleDefaults = getStyleElement(scripts, 'help-style-defaults');
-			this._helpStyleOverrides = getStyleElement(scripts, 'help-style-overrides');
-			this._helpScript = getScriptElement(scripts, 'help-script');
-
-			// Set the scripts file loaded flag if everything appears to have worked.
-			this._scriptsFileLoaded =
-				this._helpStyleDefaults !== undefined &&
-				this._helpStyleOverrides !== undefined &&
-				this._helpScript !== undefined;
-		} catch (error) {
-			log.error(`Failed to load the resources/scripts_help.html file: ${JSON.stringify(error)}`);
-		}
+		this._proxyServerHtmlConfigs = {
+			help: this.loadHelpResources(),
+			preview: this.loadPreviewResources(),
+		};
 	}
 
 	/**
@@ -206,51 +137,7 @@ export class PositronProxy implements Disposable {
 		log.debug(`Starting a help proxy server for target: ${targetOrigin}...`);
 
 		// Start the proxy server.
-		return this.startProxyServer(
-			targetOrigin,
-			async (_serverOrigin, proxyPath, _url, contentType, responseBuffer) => {
-				// If this isn't 'text/html' content, just return the response buffer.
-				if (!contentType.includes('text/html')) {
-					return responseBuffer;
-				}
-
-				// Build the help vars.
-				let helpVars = '';
-				if (this._helpStyles) {
-					helpVars += '<style id="help-vars">\n';
-					helpVars += '    body {\n';
-					for (const style in this._helpStyles) {
-						helpVars += `        --${style}: ${this._helpStyles[style]};\n`;
-					}
-					helpVars += '    }\n';
-					helpVars += '</style>\n';
-				}
-
-				// Get the response.
-				let response = responseBuffer.toString('utf8');
-
-				// Inject the help style defaults for unstyled help documents and the help vars.
-				response = response.replace(
-					'<head>',
-					`<head>\n
-					${helpVars}\n
-					${this._helpStyleDefaults}`
-				);
-
-				// Inject the help style overrides and the help script.
-				response = response.replace(
-					'</head>',
-					`${this._helpStyleOverrides}\n
-					${this._helpScript}\n
-					</head>`
-				);
-
-				// Rewrite the URLs with the proxy path.
-				response = rewriteUrlsWithProxyPath(response, proxyPath);
-
-				// Return the response.
-				return response;
-			});
+		return this.startProxyServer(targetOrigin, helpContentRewriter, ProxyServerType.Help);
 	}
 
 	/**
@@ -278,7 +165,7 @@ export class PositronProxy implements Disposable {
 	}
 
 	/**
-	 * Starts a proxy server to server local HTML content.
+	 * Starts a proxy server to serve local HTML content.
 	 * @param targetPath The target path
 	 * @returns The server URL.
 	 */
@@ -288,7 +175,11 @@ export class PositronProxy implements Disposable {
 		if (!this._htmlProxyServer) {
 			this._htmlProxyServer = new HtmlProxyServer();
 		}
-		return this._htmlProxyServer.createHtmlProxy(targetPath);
+
+		return this._htmlProxyServer.createHtmlProxy(
+			targetPath,
+			this._proxyServerHtmlConfigs.preview
+		);
 	}
 
 	/**
@@ -297,7 +188,7 @@ export class PositronProxy implements Disposable {
 	 */
 	setHelpProxyServerStyles(styles: ProxyServerStyles) {
 		// Set the help styles.
-		this._helpStyles = styles;
+		this._proxyServerHtmlConfigs.help.styles = styles;
 	}
 
 	/**
@@ -308,7 +199,7 @@ export class PositronProxy implements Disposable {
 	startHttpProxyServer(targetOrigin: string): Promise<string> {
 		log.debug(`Starting an HTTP proxy server for target: ${targetOrigin}...`);
 		// Start the proxy server.
-		return this.startProxyServer(targetOrigin, htmlContentRewriter);
+		return this.startProxyServer(targetOrigin, htmlContentRewriter, ProxyServerType.Preview);
 	}
 
 	/**
@@ -323,7 +214,7 @@ export class PositronProxy implements Disposable {
 		log.debug('Starting a pending HTTP proxy server...');
 		// Start the proxy server and return the pending proxy server info. The caller will need to
 		// call finishProxySetup to complete the proxy setup.
-		return this.startNewProxyServer(htmlContentRewriter);
+		return this.startNewProxyServer(htmlContentRewriter, ProxyServerType.Preview);
 	}
 
 	//#endregion Public Methods
@@ -331,12 +222,78 @@ export class PositronProxy implements Disposable {
 	//#region Private Methods
 
 	/**
+	 * Loads the help HTML resources and constructs the help HTML config.
+	 * @returns The help HTML config or an empty object if something went wrong while loading resources.
+	 */
+	private loadHelpResources(): ProxyServerHtml {
+		try {
+			// Load the resources/scripts_help.html scripts file.
+			const scriptsPath = path.join(this.context.extensionPath, 'resources', 'scripts_help.html');
+			const scripts = fs.readFileSync(scriptsPath).toString('utf8');
+
+			// Construct the help HTML config.
+			const helpHtmlConfig = new ProxyServerHtml(
+				getStyleElement(scripts, 'help-style-defaults'),
+				getStyleElement(scripts, 'help-style-overrides'),
+				getScriptElement(scripts, 'help-script')
+			);
+
+			// Return the help HTML config.
+			return helpHtmlConfig;
+		} catch (error) {
+			log.error(`Failed to load the resources/scripts_help.html file: ${JSON.stringify(error)}`);
+		}
+
+		// Return an empty help HTML config.
+		return new ProxyServerHtml();
+	}
+
+	/**
+	 * Loads the preview HTML resources and constructs the preview HTML config when running in the Web.
+	 * @returns The preview HTML config or an empty object if something went wrong while loading resources.
+	 */
+	private loadPreviewResources(): ProxyServerHtml {
+		// Load the preview resources only when running in the Web.
+		if (vscode.env.uiKind === vscode.UIKind.Web) {
+			try {
+				// Load the resources/scripts_preview.html scripts file.
+				const scriptsPath = path.join(this.context.extensionPath, 'resources', 'scripts_preview.html');
+				const scripts = fs.readFileSync(scriptsPath).toString('utf8');
+
+				// Inject the webview events script.
+				const scriptEl = getScriptElement(scripts, 'preview-script');
+				let previewScript;
+				if (scriptEl) {
+					const webviewEventsScriptPath = path.join(this.context.extensionPath, 'resources', 'webview-events.js');
+					const webviewEventsScript = fs.readFileSync(webviewEventsScriptPath).toString('utf8');
+					previewScript = scriptEl.replace('// webviewEventsScript placeholder', webviewEventsScript);
+				}
+
+				// Construct the preview HTML config.
+				const previewHtmlConfig = new ProxyServerHtml(
+					getStyleElement(scripts, 'preview-style-defaults'),
+					getStyleElement(scripts, 'preview-style-overrides'),
+					previewScript,
+				);
+
+				// Return the preview HTML config.
+				return previewHtmlConfig;
+			} catch (error) {
+				log.error(`Failed to load the resources/scripts_preview.html file: ${JSON.stringify(error)}`);
+			}
+		}
+
+		// Return an empty preview HTML config.
+		return new ProxyServerHtml();
+	}
+
+	/**
 	 * Starts a proxy server.
 	 * @param targetOrigin The target origin.
 	 * @param contentRewriter The content rewriter.
 	 * @returns The server origin, resolved to an external uri if applicable.
 	 */
-	private async startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
+	private async startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter, serverType: ProxyServerType): Promise<string> {
 		// See if we have an existing proxy server for target origin. If there is, return the
 		// server origin.
 		const proxyServer = this._proxyServers.get(targetOrigin);
@@ -348,7 +305,7 @@ export class PositronProxy implements Disposable {
 		let pendingProxy: PendingProxyServer;
 		try {
 			// We don't have an existing proxy server for the target origin, so start a new one.
-			pendingProxy = await this.startNewProxyServer(contentRewriter);
+			pendingProxy = await this.startNewProxyServer(contentRewriter, serverType);
 		} catch (error) {
 			log.error(`Failed to start a proxy server for ${targetOrigin}: ${JSON.stringify(error)}`);
 			throw error;
@@ -372,7 +329,7 @@ export class PositronProxy implements Disposable {
 	 * This is used to create a server and app that will be used to add middleware later.
 	 * @returns The server origin and the proxy path.
 	 */
-	private async startNewProxyServer(contentRewriter: ContentRewriter): Promise<PendingProxyServer> {
+	private async startNewProxyServer(contentRewriter: ContentRewriter, serverType: ProxyServerType): Promise<PendingProxyServer> {
 		// Create the app and start listening on a random port.
 		const app = express();
 		let address: MaybeAddressInfo;
@@ -412,6 +369,7 @@ export class PositronProxy implements Disposable {
 					serverOrigin,
 					externalUri,
 					server,
+					serverType,
 					app,
 					contentRewriter
 				);
@@ -425,6 +383,7 @@ export class PositronProxy implements Disposable {
 	 * @param serverOrigin The server origin.
 	 * @param externalUri The external URI.
 	 * @param server The server.
+	 * @param serverType The server type.
 	 * @param app The express app.
 	 * @param contentRewriter The content rewriter.
 	 * @returns A promise that resolves when the proxy setup is complete.
@@ -434,6 +393,7 @@ export class PositronProxy implements Disposable {
 		serverOrigin: string,
 		externalUri: vscode.Uri,
 		server: Server,
+		serverType: ProxyServerType,
 		app: express.Express,
 		contentRewriter: ContentRewriter
 	) {
@@ -446,7 +406,8 @@ export class PositronProxy implements Disposable {
 		this._proxyServers.set(targetOrigin, new ProxyServer(
 			serverOrigin,
 			targetOrigin,
-			server
+			server,
+			serverType
 		));
 
 		// Add the proxy middleware.
@@ -477,16 +438,51 @@ export class PositronProxy implements Disposable {
 				// content rewriter. Also, the scripts must be loaded.
 				const url = req.url;
 				const contentType = proxyRes.headers['content-type'];
-				if (!url || !contentType || !this._scriptsFileLoaded) {
+				const serverType = this._proxyServers.get(targetOrigin)?.serverType;
+				const scriptsLoaded = this.resourcesLoadedForServerType(serverType);
+				if (!url || !contentType || !scriptsLoaded) {
 					log.trace(`onProxyRes - skipping response processing for ${serverOrigin}${url}`);
 					// Don't process the response.
 					return responseBuffer;
 				}
 
+				// Get the HTML configuration.
+				const htmlConfig = serverType === ProxyServerType.Help
+					? this._proxyServerHtmlConfigs.help
+					: this._proxyServerHtmlConfigs.preview;
+
 				// Rewrite the content.
-				return contentRewriter(serverOrigin, externalUri.path, url, contentType, responseBuffer);
+				return contentRewriter(
+					serverOrigin,
+					externalUri.path,
+					url,
+					contentType,
+					responseBuffer,
+					htmlConfig
+				);
 			})
 		}));
+	}
+
+	/**
+	 * Checks if the resources are loaded for the server type.
+	 * @param serverType The server type.
+	 * @returns Whether the scripts are loaded.
+	 */
+	private resourcesLoadedForServerType(serverType: ProxyServerType | undefined): boolean {
+		switch (serverType) {
+			case ProxyServerType.Help:
+				return this._proxyServerHtmlConfigs.help.resourcesLoaded();
+			case ProxyServerType.Preview:
+				// Check if the resources are loaded when running in the Web.
+				if (vscode.env.uiKind === vscode.UIKind.Web) {
+					return this._proxyServerHtmlConfigs.preview.resourcesLoaded();
+				}
+				return true;
+			default:
+				console.log(`Can't check if resources are loaded for unknown server type: ${serverType}`);
+				return false;
+		}
 	}
 
 	//#endregion Private Methods
