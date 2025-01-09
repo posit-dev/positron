@@ -14,7 +14,7 @@ import { IProductService } from '../../product/common/productService.js';
 import { IRequestService } from '../../request/common/request.js';
 import { AvailableForDownload, DisablementReason, IUpdateService, State, StateType, UpdateType } from '../common/update.js';
 
-//--- START POSITRON
+//--- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { asJson } from '../../request/common/request.js';
 // eslint-disable-next-line no-duplicate-imports
@@ -31,7 +31,7 @@ export const enum UpdateChannel {
 
 export function createUpdateURL(platform: string, channel: string, productService: IProductService): string {
 	return `${productService.updateUrl}/${channel}/${platform}`;
-	//--- END POSITRON
+	//--- End Positron ---
 }
 
 export type UpdateNotAvailableClassification = {
@@ -52,10 +52,10 @@ export abstract class AbstractUpdateService implements IUpdateService {
 
 	protected url: string | undefined;
 
-	// --- START POSITRON ---
+	// --- Start Positron ---
 	// enable the service to download and apply updates automatically
 	protected enableAutoUpdate: boolean;
-	// --- END POSITRON ---
+	// --- End Positron ---
 
 	private _state: State = State.Uninitialized;
 
@@ -78,7 +78,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		@IEnvironmentMainService private readonly environmentMainService: IEnvironmentMainService,
 		@IRequestService protected requestService: IRequestService,
 		@ILogService protected logService: ILogService,
-		// --- START POSITRON ---
+		// --- Start Positron ---
 		@IProductService protected readonly productService: IProductService,
 		@INativeHostMainService protected readonly nativeHostMainService: INativeHostMainService
 	) {
@@ -222,7 +222,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 
 		this.setState(State.Idle(this.getUpdateType()));
 	}
-	// --- END POSITRON ---
+	// --- End Positron ---
 
 	async applyUpdate(): Promise<void> {
 		this.logService.trace('update#applyUpdate, state = ', this.state.type);
@@ -272,7 +272,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		}
 
 		try {
-			// --- START POSITRON
+			// --- Start Positron ---
 			return this.requestService.request({ url: this.url }, CancellationToken.None)
 				.then<IUpdate | null>(asJson)
 				.then(update => {
@@ -281,7 +281,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 					}
 					return Promise.resolve(hasUpdate(update, this.productService.positronVersion));
 				});
-			// --- END POSITRON
+			// --- End Positron ---
 		} catch (error) {
 			this.logService.error('update#isLatestVersion(): failed to check for updates');
 			this.logService.error(error);
@@ -301,10 +301,10 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		// noop
 	}
 
-	// --- START POSITRON ---
+	// --- Start Positron ---
 	protected abstract buildUpdateFeedUrl(channel: string): string | undefined;
 	protected updateAvailable(context: IUpdate): void {
 		this.setState(State.AvailableForDownload(context));
 	}
-	// --- END POSITRON ---
+	// --- End Positron ---
 }

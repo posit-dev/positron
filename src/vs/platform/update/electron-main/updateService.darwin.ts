@@ -80,7 +80,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 		this.setState(State.Idle(UpdateType.Archive, message));
 	}
 
-	//--- START POSITRON
+	//--- Start Positron ---
 	protected buildUpdateFeedUrl(channel: string): string | undefined {
 		const platform = 'mac/universal';
 		const url = createUpdateURL(platform, channel, this.productService) + '/releases.json';
@@ -111,7 +111,7 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 			electron.autoUpdater.checkForUpdates();
 		}
 	}
-	//--- END POSITRON
+	//--- End Positron ---
 
 	private onUpdateAvailable(): void {
 		if (this.state.type !== StateType.CheckingForUpdates) {

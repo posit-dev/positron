@@ -9,7 +9,7 @@ import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurati
 import { Registry } from '../../registry/common/platform.js';
 
 const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
-// --- START POSITRON ---
+// --- Start Positron ---
 configurationRegistry.registerConfiguration({
 	id: 'update',
 	order: 15,
@@ -65,5 +65,5 @@ configurationRegistry.registerConfiguration({
 			included: false
 		}
 	}
-	// --- END POSITRON ---
+	// --- End Positron ---
 });

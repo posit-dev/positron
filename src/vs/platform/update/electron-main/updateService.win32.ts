@@ -99,7 +99,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		await super.initialize();
 	}
 
-	// --- START POSITRON ---
+	// --- Start Positron ---
 	protected buildUpdateFeedUrl(channel: string): string | undefined {
 		const platform = `win/${process.arch === 'x64' ? 'x86_64' : 'arm64'}`;
 		const prefix = getUpdateType() === UpdateType.Setup ? 'system-' : 'user-';
@@ -151,7 +151,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 			});
 		});
 	}
-	// --- END POSITRON ---
+	// --- End Positron ---
 
 	private async getUpdatePackagePath(version: string): Promise<string> {
 		const cachePath = await this.cachePath;
