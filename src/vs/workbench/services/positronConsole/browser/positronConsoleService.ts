@@ -415,7 +415,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				LanguageRuntimeSessionMode.Console,
 				undefined, // No notebook URI (console sesion)
 				`User executed code in language ${languageId}, and no running runtime was found ` +
-				`for the language.`);
+				`for the language.`,
+				RuntimeStartMode.Starting,
+				true);
 		}
 
 		// Get the Positron console instance for the language ID.

@@ -182,7 +182,7 @@ suite('Positron - RuntimeSessionService', () => {
 	async function restoreSession(
 		sessionMetadata: IRuntimeSessionMetadata, runtimeMetadata = runtime,
 	) {
-		await runtimeSessionService.restoreRuntimeSession(runtimeMetadata, sessionMetadata);
+		await runtimeSessionService.restoreRuntimeSession(runtimeMetadata, sessionMetadata, true);
 
 		// Ensure that the session gets disposed after the test.
 		const session = runtimeSessionService.getSession(sessionMetadata.sessionId);
@@ -217,7 +217,7 @@ suite('Positron - RuntimeSessionService', () => {
 	}
 
 	async function autoStartSession(runtimeMetadata = runtime) {
-		const sessionId = await runtimeSessionService.autoStartRuntime(runtimeMetadata, startReason);
+		const sessionId = await runtimeSessionService.autoStartRuntime(runtimeMetadata, startReason, true);
 		assert.ok(sessionId);
 		const session = runtimeSessionService.getSession(sessionId);
 		assert.ok(session instanceof TestLanguageRuntimeSession);
@@ -624,7 +624,7 @@ suite('Positron - RuntimeSessionService', () => {
 	test('auto start console does nothing if automatic startup is disabled', async () => {
 		configService.setUserConfiguration('interpreters.automaticStartup', false);
 
-		const sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason);
+		const sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason, true);
 
 		assert.strictEqual(sessionId, '');
 		assertServiceState();
@@ -636,10 +636,10 @@ suite('Positron - RuntimeSessionService', () => {
 
 			let sessionId: string;
 			if (action === 'auto start') {
-				sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason);
+				sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason, true);
 			} else {
 				sessionId = await runtimeSessionService.startNewRuntimeSession(
-					runtime.runtimeId, sessionName, LanguageRuntimeSessionMode.Console, undefined, startReason);
+					runtime.runtimeId, sessionName, LanguageRuntimeSessionMode.Console, undefined, startReason, RuntimeStartMode.Starting, true);
 			}
 
 			assert.strictEqual(sessionId, '');
