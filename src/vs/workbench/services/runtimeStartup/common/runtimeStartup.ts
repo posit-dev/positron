@@ -28,6 +28,9 @@ interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
 }
 
+/**
+ * The serialization format for affiliated runtime metadata.
+ */
 interface IAffiliatedRuntimeMetadata {
 	metadata: ILanguageRuntimeMetadata;
 	lastUsed: number;
@@ -531,6 +534,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * @returns The runtime metadata.
 	 */
 	public getAffiliatedRuntimeMetadata(languageId: string): ILanguageRuntimeMetadata | undefined {
+		const affiliated = this.getAffiliatedRuntime(languageId);
+		if (!affiliated) {
+			return undefined;
+		}
+		return affiliated.metadata;
+	}
+
+	private getAffiliatedRuntime(languageId: string): IAffiliatedRuntimeMetadata | undefined {
 		const stored = this._storageService.get(`${this.storageKey}.${languageId}`,
 			this.affiliationStorageScope());
 		if (!stored) {
@@ -538,7 +549,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 		try {
 			const affiliated = JSON.parse(stored) as IAffiliatedRuntimeMetadata;
-			return affiliated.metadata;
+			return affiliated;
 		} catch (err) {
 			this._logService.error(`Error parsing JSON for ${this.storageKey}: ${err}`);
 			return undefined;
@@ -630,14 +641,32 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private async startAffiliatedLanguageRuntimes(): Promise<void> {
 		this.setStartupPhase(RuntimeStartupPhase.Starting);
 		const languageIds = this.getAffiliatedRuntimeLanguageIds();
-		if (languageIds) {
-			// TODO: only activate one of these
 
-			// Activate all the extensions that provide language runtimes for the
-			// affiliated languages.
-			await this.activateExtensionsForLanguages(languageIds);
-			languageIds.map(languageId => this.startAffiliatedRuntime(languageId, true));
+		// No affiliated runtimes; move on to the next phase.
+		if (!languageIds) {
+			return;
 		}
+
+		// Activate all the extensions that provide language runtimes for the
+		// affiliated languages.
+		await this.activateExtensionsForLanguages(languageIds);
+
+		// Start the affiliated runtimes.
+		languageIds.map(languageId => {
+			// Get the affiliated runtime metadata.
+			return this.getAffiliatedRuntime(languageId);
+		}).filter(affiliation => {
+			// Filter out any affiliations that didn't deserialize properly.
+			return affiliation !== undefined;
+		}).sort((a, b) => {
+			// Sort the affiliations by last used time, so that the most recently
+			// used runtime is started first
+			return b.lastUsed - a.lastUsed;
+		}).map((affiliation, idx) => {
+			// Start each runtime. Activate the first one as soon as it's
+			// ready; let the others start in the background.
+			this.startAffiliatedRuntime(affiliation.metadata, idx === 0);
+		});
 	}
 
 	/**
@@ -695,41 +724,42 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/**
 	 * Starts an affiliated runtime for a single language.
 	 *
-	 * @param languageId The language to start
+	 * @param affiliatedRuntimeMetadata The metadata for the affiliated runtime.
 	 * @param activate Whether to activate/focus the new session
 	 */
 	private startAffiliatedRuntime(
-		languageId: string,
+		affiliatedRuntimeMetadata: ILanguageRuntimeMetadata,
 		activate: boolean
 	): void {
-		const affiliatedRuntimeMetadata =
-			this.getAffiliatedRuntimeMetadata(languageId);
 
-		if (affiliatedRuntimeMetadata) {
-			// Check the setting to see if we should be auto-starting.
-			const autoStart = this._configurationService.getValue<boolean>(
-				'interpreters.automaticStartup');
+		// No-op if no affiliated runtime metadata.
+		if (!affiliatedRuntimeMetadata) {
+			return;
+		}
 
-			if (autoStart) {
+		// Check the setting to see if we should be auto-starting.
+		const autoStart = this._configurationService.getValue<boolean>(
+			'interpreters.automaticStartup');
 
-				if (affiliatedRuntimeMetadata.startupBehavior === LanguageRuntimeStartupBehavior.Manual) {
-					this._logService.info(`Language runtime ` +
-						`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
-						`is affiliated with this workspace, but won't be started because it's startup ` +
-						`behavior is manual.`);
-					return;
-				}
+		if (autoStart) {
 
-				this._runtimeSessionService.autoStartRuntime(affiliatedRuntimeMetadata,
-					`Affiliated ${languageId} runtime for workspace`,
-					activate);
-			} else {
+			if (affiliatedRuntimeMetadata.startupBehavior === LanguageRuntimeStartupBehavior.Manual) {
 				this._logService.info(`Language runtime ` +
 					`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
-					`is affiliated with this workspace, but won't be started because automatic ` +
-					`startup is disabled in configuration.`);
+					`is affiliated with this workspace, but won't be started because it's startup ` +
+					`behavior is manual.`);
 				return;
 			}
+
+			this._runtimeSessionService.autoStartRuntime(affiliatedRuntimeMetadata,
+				`Affiliated ${affiliatedRuntimeMetadata.languageName} runtime for workspace`,
+				activate);
+		} else {
+			this._logService.info(`Language runtime ` +
+				`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
+				`is affiliated with this workspace, but won't be started because automatic ` +
+				`startup is disabled in configuration.`);
+			return;
 		}
 	}
 
