@@ -831,8 +831,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		sessions = sessions.filter((_, i) => validSessions[i]);
 
 		// Sort the sessions by last used time, so that we reconnect to the
-		// most recently used sessions first.
-		sessions.sort((a, b) => b.lastUsed - a.lastUsed);
+		// most recently used sessions first. Default 0 so we can restore
+		// sessions that didn't persist this information.
+		sessions.sort((a, b) => (b.lastUsed ?? 0) - (a.lastUsed ?? 0));
 
 		// Reconnect to the remaining sessions.
 		this._logService.debug(`Reconnecting to sessions: ` +
