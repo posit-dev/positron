@@ -767,7 +767,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		this._startupPhase.set(RuntimeStartupPhase.Reconnecting, undefined);
 
 		// Activate any extensions needed for the sessions that are persistent on the machine.
-		let activatedExtensions: Array<ExtensionIdentifier> = [];
+		const activatedExtensions: Array<ExtensionIdentifier> = [];
 		await Promise.all(sessions.filter(async session =>
 			session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Machine
 		).map(async session => {
