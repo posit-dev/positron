@@ -33,8 +33,27 @@ echo "Parsing tags from PR body..."
 
 # Check if @:all is present in the PR body
 if echo "$PR_BODY" | grep -q "@:all"; then
-  echo "Found @:all tag in PR body. Setting tags to run all tests."
-  TAGS="" # Set to an empty string to indicate all tests should run
+	echo "Found @:all tag in PR body. Setting tags to run all tests."
+	TAGS="" # Set to an empty string to indicate all tests should run
+elif echo "$PR_BODY" | grep -q "@:win"; then
+	echo "Found @:win tag in PR body. Removing it from tags."
+	PR_BODY=$(echo "$PR_BODY" | sed 's/@:win//g')
+	TAGS=$(echo "$PR_BODY" | grep -o "@:[a-zA-Z0-9_-]*" | sed 's/@://g' | sed 's/^/@/' | tr '\n' ',' | sed 's/,$//')
+	# Set a variable to indicate @:win was found
+	echo "win_tag_found=true" >> "$GITHUB_ENV"
+else
+	# Parse tags starting with '@:' and convert to '@'
+	TAGS=$(echo "$PR_BODY" | grep -o "@:[a-zA-Z0-9_-]*" | sed 's/@://g' | sed 's/^/@/' | tr '\n' ',' | sed 's/,$//')
+
+	# Always add @critical if not already included
+	if [[ ! "$TAGS" =~ "@critical" ]]; then
+		if [[ -n "$TAGS" ]]; then
+			TAGS="@critical,$TAGS"
+		else
+			TAGS="@critical"
+		fi
+	fi
+fi
 else
   # Parse tags starting with '@:' and convert to '@'
   TAGS=$(echo "$PR_BODY" | grep -o "@:[a-zA-Z0-9_-]*" | sed 's/@://g' | sed 's/^/@/' | tr '\n' ',' | sed 's/,$//')
