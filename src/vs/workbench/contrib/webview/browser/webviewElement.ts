@@ -217,10 +217,10 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 			if (message.__positron_preview_message) {
 				const handlers = this._messageHandlers.get(message.channel);
 				if (handlers) {
-					handlers?.forEach(handler => handler(message.data, message));
+					handlers.forEach(handler => handler(message.data, message));
 					return;
 				} else {
-					console.log(`No handlers found for Positron Preview message: '${message.channel}'`);
+					this._logService.error(`No handlers found for Positron Preview message: '${message.channel}'`);
 					// Fall through to fire the generic message event
 				}
 			}
