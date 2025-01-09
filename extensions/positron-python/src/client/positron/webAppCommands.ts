@@ -313,8 +313,7 @@ function pathToModule(p: string): string {
     }
 
     // Otherwise, convert the path to a Python module format.
-    const parts = relativeDir.split(path.sep);
-
+    const parts = relativeDir.split(/[/\\]/);
     return parts.concat(mod).join('.');
 }
 

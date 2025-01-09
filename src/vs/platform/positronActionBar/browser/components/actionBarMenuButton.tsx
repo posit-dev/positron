@@ -7,7 +7,7 @@
 import './actionBarMenuButton.css';
 
 // React.
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { IAction } from '../../../../base/common/actions.js';
@@ -16,6 +16,7 @@ import { AnchorAlignment, AnchorAxisAlignment } from '../../../../base/browser/u
 import { ActionBarButton } from './actionBarButton.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
+import { MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
  * ActionBarMenuButtonProps interface.
@@ -36,6 +37,11 @@ interface ActionBarMenuButtonProps {
 
 /**
  * ActionBarCommandButton component.
+ *
+ * Actions can be set as checked. If `enabled-split` is set then a default action is allowed to run
+ * when the button is clicked. The default action is the first action that is checked or the first
+ * action if none are checked.
+ *
  * @param props An ActionBarMenuButtonProps that contains the component properties.
  * @returns The rendered component.
  */
@@ -45,6 +51,10 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
+
+	// State hooks.
+	const [actions, setActions] = useState<readonly IAction[]>([]);
+	const [defaultAction, setDefaultAction] = useState<IAction | undefined>(undefined);
 
 	// Manage the aria-haspopup and aria-expanded attributes.
 	useEffect(() => {
@@ -60,6 +70,20 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 		}
 	}, [positronActionBarContext.menuShowing]);
 
+	const getMenuActions = React.useCallback(async () => {
+		const actions = await props.actions();
+		const defaultAction = actions.find(action => action.checked);
+
+		setDefaultAction(defaultAction);
+		setActions(actions);
+
+		return actions;
+	}, [props]);
+
+	useEffect(() => {
+		getMenuActions();
+	}, [getMenuActions]);
+
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([buttonRef]);
 
@@ -69,7 +93,6 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 	 */
 	const showMenu = async () => {
 		// Get the actions. If there are no actions, return.
-		const actions = await props.actions();
 		if (!actions.length) {
 			return;
 		}
@@ -107,15 +130,13 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 			ref={buttonRef}
 			{...props}
 			dropdownIndicator={props.dropdownIndicator ?? 'enabled'}
+			mouseTrigger={MouseTrigger.MouseDown}
 			onPressed={async () => {
 				if (props.dropdownIndicator !== 'enabled-split') {
 					await showMenu();
 				} else {
-					// Get the actions and run the first action.
-					const actions = await props.actions();
-					if (actions.length) {
-						actions[0].run();
-					}
+					// Run the preferred action.
+					defaultAction ? defaultAction.run() : actions[0].run();
 				}
 			}}
 			onDropdownPressed={async () => await showMenu()}
