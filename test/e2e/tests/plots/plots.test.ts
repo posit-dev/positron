@@ -160,7 +160,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await test.step('Save plot', async () => {
 				await app.workbench.plots.savePlotFromPlotsPane({ name: 'Python-scatter', format: 'JPEG' });
 				await app.workbench.layouts.enterLayout('stacked');
-				await app.workbench.explorer.waitForProjectFileToAppear('Python-scatter.jpeg');
+				await app.workbench.explorer.verifyProjectFilesExist(['Python-scatter.jpeg']);
 			});
 
 			await test.step('Open plot in editor', async () => {
@@ -170,7 +170,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await test.step('Save plot from editor', async () => {
 				await app.workbench.plots.savePlotFromEditor({ name: 'Python-scatter-editor', format: 'JPEG' });
-				await app.workbench.explorer.waitForProjectFileToAppear('Python-scatter-editor.jpeg');
+				await app.workbench.explorer.verifyProjectFilesExist(['Python-scatter-editor.jpeg']);
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 			});
 
@@ -329,12 +329,12 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await test.step('Save plot as PNG', async () => {
 				await app.workbench.plots.savePlotFromPlotsPane({ name: 'plot', format: 'PNG' });
-				await app.workbench.explorer.waitForProjectFileToAppear('plot.png');
+				await app.workbench.explorer.verifyProjectFilesExist(['plot.png']);
 			});
 
 			await test.step('Save plot as SVG', async () => {
 				await app.workbench.plots.savePlotFromPlotsPane({ name: 'R-cars', format: 'SVG' });
-				await app.workbench.explorer.waitForProjectFileToAppear('R-cars.svg');
+				await app.workbench.explorer.verifyProjectFilesExist(['R-cars.svg']);
 			});
 
 			await test.step('Open plot in editor', async () => {
@@ -344,7 +344,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await test.step('Save plot from editor as JPEG', async () => {
 				await app.workbench.plots.savePlotFromEditor({ name: 'R-cars', format: 'JPEG' });
-				await app.workbench.explorer.waitForProjectFileToAppear('R-cars.jpeg');
+				await app.workbench.explorer.verifyProjectFilesExist(['R-cars.jpeg']);
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 			});
 		});

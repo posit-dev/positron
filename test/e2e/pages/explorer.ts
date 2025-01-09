@@ -8,7 +8,6 @@ import { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 
 const POSITRON_EXPLORER_PROJECT_TITLE = 'div[id="workbench.view.explorer"] h3.title';
-const POSITRON_EXPLORER_PROJECT_FILES = 'div[id="workbench.view.explorer"] span[class="monaco-highlighted-label"]';
 
 
 /*
@@ -20,23 +19,12 @@ export class Explorer {
 
 	constructor(protected code: Code) { }
 
-	/**
-	 * Constructs a string array of the top-level project files/directories in the explorer.
-	 * @param locator - The locator for the project files/directories in the explorer.
-	 * @returns Promise<string[]> Array of strings representing the top-level project files/directories in the explorer.
-	 */
-	async getExplorerProjectFiles(locator: string = POSITRON_EXPLORER_PROJECT_FILES): Promise<string[]> {
-		const explorerProjectFiles = this.code.driver.page.locator(locator);
-		const filesList = await explorerProjectFiles.all();
-		const fileNames = filesList.map(async file => {
-			const fileText = await file.textContent();
-			return fileText || '';
-		});
-		return await Promise.all(fileNames);
-	}
+	async verifyProjectFilesExist(files: string[]) {
+		const projectFiles = this.code.driver.page.locator('.monaco-list > .monaco-scrollable-element');
 
-	async waitForProjectFileToAppear(filename: string) {
-		const escapedFilename = filename.replace(/\./g, '\\.').toLowerCase();
-		await expect(this.code.driver.page.locator(`.${escapedFilename}-name-file-icon`)).toBeVisible({ timeout: 30000 });
+		for (let i = 0; i < files.length; i++) {
+			const timeout = i === 0 ? 50000 : undefined;  // 50s for the first check, default for the rest as sometimes waiting for project to load
+			await expect(projectFiles.getByLabel(files[i], { exact: true }).locator('a')).toBeVisible({ timeout });
+		}
 	}
 }
