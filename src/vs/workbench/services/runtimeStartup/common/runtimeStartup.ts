@@ -28,6 +28,11 @@ interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
 }
 
+interface IAffiliatedRuntimeMetadata {
+	metadata: ILanguageRuntimeMetadata;
+	lastUsed: number;
+}
+
 /**
  * Metadata for serialized runtime sessions.
  */
@@ -77,7 +82,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// Needed for service branding in dependency injector.
 	declare readonly _serviceBrand: undefined;
 
-	private readonly storageKey = 'positron.affiliatedRuntimeMetadata';
+	private readonly storageKey = 'positron.affiliatedRuntimeMetadata.v1';
 
 	// The language packs; a map of language ID to a list of extensions that provide the language.
 	private readonly _languagePacks: Map<string, Array<ExtensionIdentifier>> = new Map();
@@ -332,8 +337,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		await this._newProjectService.initTasksComplete.wait();
 		const newRuntime = this._newProjectService.newProjectRuntimeMetadata;
 		if (newRuntime) {
+			const newAffiliation: IAffiliatedRuntimeMetadata = {
+				metadata: newRuntime,
+				lastUsed: Date.now()
+			};
 			this._storageService.store(this.storageKeyForRuntime(newRuntime),
-				JSON.stringify(newRuntime),
+				JSON.stringify(newAffiliation),
 				StorageScope.WORKSPACE,
 				StorageTarget.MACHINE);
 		}
@@ -373,8 +382,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 
 		// Save this runtime as the affiliated runtime for the current workspace.
+		const affiliated: IAffiliatedRuntimeMetadata = {
+			metadata: session.runtimeMetadata,
+			lastUsed: Date.now()
+		};
 		this._storageService.store(this.storageKeyForRuntime(session.runtimeMetadata),
-			JSON.stringify(session.runtimeMetadata),
+			JSON.stringify(affiliated),
 			this.affiliationStorageScope(),
 			StorageTarget.MACHINE);
 
@@ -386,13 +399,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			if (newState === RuntimeState.Exiting) {
 				// Just to be safe, check that the runtime is still affiliated
 				// before removing the affiliation
-				const affiliatedRuntimeMetadata = this._storageService.get(
+				const serializedMetadata = this._storageService.get(
 					this.storageKeyForRuntime(session.runtimeMetadata),
 					this.affiliationStorageScope());
-				if (!affiliatedRuntimeMetadata) {
+				if (!serializedMetadata) {
 					return;
 				}
-				const affiliatedRuntimeId = JSON.parse(affiliatedRuntimeMetadata).runtimeId;
+				const affiliated = JSON.parse(serializedMetadata) as IAffiliatedRuntimeMetadata;
+				const affiliatedRuntimeId = affiliated.metadata.runtimeId;
 				if (session.runtimeMetadata.runtimeId === affiliatedRuntimeId) {
 					// Remove the affiliation
 					this._storageService.remove(this.storageKeyForRuntime(session.runtimeMetadata),
@@ -466,8 +480,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		if (!affiliatedRuntimeMetadataStr) {
 			return;
 		}
-		const affiliatedRuntimeMetadata = JSON.parse(affiliatedRuntimeMetadataStr);
-		const affiliatedRuntimeId = affiliatedRuntimeMetadata.runtimeId;
+		const affiliated = JSON.parse(affiliatedRuntimeMetadataStr) as IAffiliatedRuntimeMetadata;
+		const affiliatedRuntimeId = affiliated.metadata.runtimeId;
 
 		// If the runtime is affiliated with this workspace, start it.
 		if (metadata.runtimeId === affiliatedRuntimeId) {
@@ -478,7 +492,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					'interpreters.automaticStartup');
 				if (!autoStart) {
 					this._logService.info(`Language runtime ` +
-						`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
+						`${formatLanguageRuntimeMetadata(affiliated.metadata)} ` +
 						`is affiliated with this workspace, but won't be started because automatic ` +
 						`startup is disabled in configuration.`);
 					return;
@@ -486,7 +500,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 				if (metadata.startupBehavior === LanguageRuntimeStartupBehavior.Manual) {
 					this._logService.info(`Language runtime ` +
-						`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
+						`${formatLanguageRuntimeMetadata(affiliated.metadata)} ` +
 						`is affiliated with this workspace, but won't be started because its ` +
 						`startup behavior is manual.`);
 					return;
@@ -523,7 +537,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return undefined;
 		}
 		try {
-			return JSON.parse(stored) as ILanguageRuntimeMetadata;
+			const affiliated = JSON.parse(stored) as IAffiliatedRuntimeMetadata;
+			return affiliated.metadata;
 		} catch (err) {
 			this._logService.error(`Error parsing JSON for ${this.storageKey}: ${err}`);
 			return undefined;

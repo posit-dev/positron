@@ -944,6 +944,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const evt: IRuntimeSessionWillStartEvent = {
 			session,
 			startMode,
+			activate
 		};
 		this._onWillStartRuntimeEmitter.fire(evt);
 
@@ -1088,6 +1089,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						this._onWillStartRuntimeEmitter.fire({
 							session,
 							startMode: RuntimeStartMode.Restarting,
+							activate: false
 						});
 					}
 					break;

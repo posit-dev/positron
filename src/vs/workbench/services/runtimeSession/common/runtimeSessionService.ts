@@ -46,6 +46,9 @@ export interface IRuntimeSessionWillStartEvent {
 	/** The mode in which the session is starting. */
 	startMode: RuntimeStartMode;
 
+	/** Whether the runtime should be activated when it starts */
+	activate: boolean;
+
 	/** The session about to start */
 	session: ILanguageRuntimeSession;
 }

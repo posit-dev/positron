@@ -299,7 +299,7 @@ suite('Positron - RuntimeSessionService', () => {
 				} else {
 					startMode = RuntimeStartMode.Starting;
 				}
-				sinon.assert.calledOnceWithExactly(target, { startMode, session });
+				sinon.assert.calledOnceWithExactly(target, { startMode, session, activate: true });
 
 				assert.ifError(error);
 			});
