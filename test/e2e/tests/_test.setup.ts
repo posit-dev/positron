@@ -21,8 +21,8 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { createLogger, createApp, TestTags } from '../infra/test-runner';
-import { Application, Logger, PythonFixtures, RFixtures, UserSetting, UserSettingsFixtures } from '../infra';
+import { Application, Logger, PythonFixtures, RFixtures, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags } from '../infra';
+import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
 const TEMP_DIR = `temp-${randomUUID()}`;
@@ -138,6 +138,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			await use();
 		},
 		{ scope: 'test' }],
+
+	packages: [async ({ app }, use) => {
+		const packageManager = new PackageManager(app);
+		await use(packageManager);
+	}, { scope: 'test' }],
 
 	devTools: [async ({ app }, use) => {
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');
@@ -334,6 +339,7 @@ interface TestFixtures {
 	interpreter: { set: (interpreterName: 'Python' | 'R') => Promise<void> };
 	r: void;
 	python: void;
+	packages: PackageManager;
 	autoTestFixture: any;
 	devTools: void;
 }

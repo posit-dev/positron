@@ -3,26 +3,178 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { fail } from 'assert';
 import { expect } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 
-// Selector for the pre-selected dropdown item in the project wizard
-const PROJECT_WIZARD_PRESELECTED_DROPDOWN_ITEM =
-	'button.drop-down-list-box div.title';
+export class NewProjectWizard {
+	private backButton = this.code.driver.page.getByRole('button', { name: 'Back', exact: true });
+	private cancelButton = this.code.driver.page.getByRole('button', { name: 'Cancel' });
+	private nextButton = this.code.driver.page.getByRole('button', { name: 'Next', exact: true });
+	private createButton = this.code.driver.page.getByRole('button', { name: 'Create', exact: true });
+	private projectNameInput = this.code.driver.page.getByLabel(/Enter a name for your new/);
+	private existingEnvRadioButton = this.code.driver.page.getByText(/Use an existing/);
+	private envProviderDropdown = this.code.driver.page.locator('#wizard-sub-step-python-environment').locator('button');
+	private envProviderDropdownTitle = this.envProviderDropdown.locator('.dropdown-entry-title');
+	private dropDropdownOptions = this.code.driver.page.locator('.positron-modal-popup-children').getByRole('button');
+	private interpreterDropdown = this.code.driver.page.locator('#wizard-sub-step-python-interpreter').locator('button');
+	private interpreterDropdownSubtitle = this.interpreterDropdown.locator('.dropdown-entry-subtitle');
 
-// Selector for the currently open dropdown popup items in the project wizard
-const PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS =
-	'div.positron-modal-popup-children button.positron-button.item';
+	constructor(private code: Code, private quickaccess: QuickAccess) { }
 
-// Selector for the default button in the project wizard, which will either be 'Next' or 'Create'
-const PROJECT_WIZARD_DEFAULT_BUTTON = 'button.positron-button.button.action-bar-button.default[tabindex="0"][role="button"]';
+	/**
+	 * NEW PROJECT WIZARD:
+	 * Step through the new project wizard in order to create a new project.
+	 * @param options The options to configure the new project.
+	 */
+	async createNewProject(options: CreateProjectOptions) {
+		await this.quickaccess.runCommand('positron.workbench.action.newProject', { keepOpen: false });
+
+		await this.setProjectType(options.type);
+		await this.setProjectNameLocation(options);
+		await this.setProjectConfiguration(options);
+
+		await this.code.driver.page.getByRole('button', { name: 'Current Window' }).click();
+		await expect(this.code.driver.page.locator('.simple-title-bar').filter({ hasText: 'Create New Project' })).not.toBeVisible();
+	}
+
+	/**
+	 * Step 1. Select the project type in the project wizard.
+	 * @param projectType The project type to select.
+	 */
+	async setProjectType(projectType: ProjectType) {
+		this.code.driver.page.locator('label').filter({ hasText: projectType }).click({ force: true });
+		await this.clickWizardButton(WizardButton.NEXT);
+	}
+
+	/**
+	 * Step 2. Set the project name and location in the project wizard.
+	 * @param projectTitle The title to set for the project.
+	 * @param initAsGitRepo Whether to initialize the project as a Git repository
+	 **/
+	async setProjectNameLocation(options: CreateProjectOptions) {
+		const { title: projectTitle, initAsGitRepo } = options;
+
+		await this.projectNameInput.fill(projectTitle);
+		if (initAsGitRepo) {
+			await this.code.driver.page.getByText('Initialize project as Git').check();
+		}
+
+		await this.clickWizardButton(WizardButton.NEXT);
+	}
+
+	/**
+	 * Step 3. Set the project configuration in the project wizard.
+	 * @param options The options to configure the project.
+	 */
+	async setProjectConfiguration(options: CreateProjectOptions) {
+		const { type, rEnvCheckbox, pythonEnv, ipykernelFeedback, interpreterPath, status } = options;
+
+		// configure R Project
+		if (type === ProjectType.R_PROJECT && rEnvCheckbox) {
+			await this.code.driver.page.getByText('Use `renv` to create a').click();
+		}
+
+		// configure Python Project
+		if (type === ProjectType.PYTHON_PROJECT) {
+			if (status === 'existing') {
+				await this.existingEnvRadioButton.click();
+			}
+
+			if (pythonEnv) {
+				await this.selectEnvProvider(pythonEnv);
+			}
+
+			if (interpreterPath) {
+				await this.selectInterpreterByPath(interpreterPath);
+			}
+
+			if (ipykernelFeedback) {
+				const ipykernelMessage = this.code.driver.page.getByText('ipykernel will be installed');
+				ipykernelFeedback === 'show'
+					? await expect(ipykernelMessage).toBeVisible()
+					: await expect(ipykernelMessage).not.toBeVisible();
+			}
+		}
+
+		await this.clickWizardButton(WizardButton.CREATE);
+	}
+
+	/**
+	 * Helper: Clicks the specified navigation button in the project wizard.
+	 * @param action The navigation action to take in the project wizard.
+	 */
+	async clickWizardButton(action: WizardButton) {
+		const button = {
+			[WizardButton.BACK]: this.backButton,
+			[WizardButton.NEXT]: this.nextButton,
+			[WizardButton.CANCEL]: this.cancelButton,
+			[WizardButton.CREATE]: this.createButton,
+		}[action];
+
+		if (!button) {
+			throw new Error(`Invalid wizard button action: ${action}`);
+		}
+
+		await button.click();
+	}
+
+	/**
+	 * Helper: Selects the specified environment provider in the project wizard environment provider dropdown.
+	 * @param providerToSelect The environment provider to select.
+	 */
+	async selectEnvProvider(providerToSelect: string) {
+		// Wait for loading to finish
+		await expect(this.code.driver.page.getByText(/Loading/)).toHaveCount(0, { timeout: 30000 });
+
+		// Skip if the desired provider is already selected
+		if (await this.envProviderDropdownTitle.innerText() === providerToSelect) {
+			return;
+		}
+
+		// Select the desired provider from the dropdown
+		await this.envProviderDropdown.click();
+		await this.dropDropdownOptions.filter({ hasText: providerToSelect }).click();
+	}
+
+	/**
+	 * Helper: Selects the interpreter corresponding to the given path in the project wizard interpreter dropdown.
+	 * @param interpreterPath The path of the interpreter to select in the dropdown.
+	 */
+	async selectInterpreterByPath(interpreterPath: string) {
+		// Wait for loading to complete
+		await expect(this.code.driver.page.getByText(/Loading/)).toHaveCount(0, { timeout: 30000 });
+
+		// Skip if the desired interpreter is already selected
+		if (await this.interpreterDropdownSubtitle.innerText() === interpreterPath) {
+			return;
+		}
+
+		// Open the dropdown and select the interpreter by path
+		await this.interpreterDropdown.click();
+		await this.dropDropdownOptions
+			.locator('div.dropdown-entry-subtitle')
+			.getByText(interpreterPath)
+			.first()
+			.click();
+	}
+}
+
+export interface CreateProjectOptions {
+	type: ProjectType;
+	title: string;
+	status?: 'new' | 'existing';
+	rEnvCheckbox?: boolean;
+	pythonEnv?: 'conda' | 'venv';
+	initAsGitRepo?: boolean;
+	ipykernelFeedback?: 'show' | 'hide';
+	interpreterPath?: string;
+}
 
 /**
  * Enum representing the possible navigation actions that can be taken in the project wizard.
  */
-export enum ProjectWizardNavigateAction {
+export enum WizardButton {
 	BACK,
 	NEXT,
 	CANCEL,
@@ -36,270 +188,4 @@ export enum ProjectType {
 	PYTHON_PROJECT = 'Python Project',
 	R_PROJECT = 'R Project',
 	JUPYTER_NOTEBOOK = 'Jupyter Notebook',
-}
-
-/*
- *  Reuseable Positron new project wizard functionality for tests to leverage.
- */
-export class NewProjectWizard {
-	projectTypeStep: ProjectWizardProjectTypeStep;
-	projectNameLocationStep: ProjectWizardProjectNameLocationStep;
-	rConfigurationStep: ProjectWizardRConfigurationStep;
-	pythonConfigurationStep: ProjectWizardPythonConfigurationStep;
-	currentOrNewWindowSelectionModal: CurrentOrNewWindowSelectionModal;
-
-	private backButton = this.code.driver.page.locator('div.left-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]');
-	private cancelButton = this.code.driver.page.locator('div.right-actions > button.positron-button.button.action-bar-button[tabindex="0"][role="button"]');
-	private nextButton = this.code.driver.page.locator(PROJECT_WIZARD_DEFAULT_BUTTON).getByText('Next');
-	private createButton = this.code.driver.page.locator(PROJECT_WIZARD_DEFAULT_BUTTON).getByText('Create');
-
-	constructor(private code: Code, private quickaccess: QuickAccess) {
-		this.projectTypeStep = new ProjectWizardProjectTypeStep(this.code);
-		this.projectNameLocationStep = new ProjectWizardProjectNameLocationStep(this.code);
-		this.rConfigurationStep = new ProjectWizardRConfigurationStep(this.code);
-		this.pythonConfigurationStep = new ProjectWizardPythonConfigurationStep(this.code);
-		this.currentOrNewWindowSelectionModal = new CurrentOrNewWindowSelectionModal(this.code);
-	}
-
-	/**
-	 * Starts a new project of the specified type in the project wizard.
-	 * @param projectType The type of project to select.
-	 * @returns A promise that resolves once the project wizard is open and the project type is selected.
-	 */
-	async startNewProject(projectType: ProjectType) {
-		await this.quickaccess.runCommand(
-			'positron.workbench.action.newProject',
-			{ keepOpen: false }
-		);
-		// Select the specified project type in the project wizard
-		await this.projectTypeStep.selectProjectType(projectType);
-	}
-
-	/**
-	 * Clicks the specified navigation button in the project wizard.
-	 * @param action The navigation action to take in the project wizard.
-	 */
-	async navigate(action: ProjectWizardNavigateAction) {
-		switch (action) {
-			case ProjectWizardNavigateAction.BACK:
-				await this.backButton.waitFor();
-				await this.backButton.click();
-				break;
-			case ProjectWizardNavigateAction.NEXT:
-				await this.nextButton.waitFor();
-				await this.nextButton.isEnabled({ timeout: 5000 });
-				await this.nextButton.click();
-				break;
-			case ProjectWizardNavigateAction.CANCEL:
-				await this.cancelButton.waitFor();
-				await this.cancelButton.click();
-				break;
-			case ProjectWizardNavigateAction.CREATE:
-				await this.createButton.waitFor();
-				await this.createButton.isEnabled({ timeout: 5000 });
-				await this.createButton.click();
-				break;
-			default:
-				throw new Error(
-					`Invalid project wizard navigation action: ${action}`
-				);
-		}
-	}
-}
-
-class ProjectWizardProjectTypeStep {
-	constructor(private code: Code) { }
-
-	cssEscape(value: string): string {
-		return value.replace(/[\s!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g, '\\$&');
-	}
-
-	async selectProjectType(projectType: ProjectType) {
-		const locator = this.code.driver.page.locator('label').filter({ hasText: projectType });
-		await locator.click({ force: true });
-	}
-}
-
-class ProjectWizardProjectNameLocationStep {
-	projectNameInput = this.code.driver.page.locator(
-		'div[id="wizard-sub-step-project-name"] .wizard-sub-step-input input.text-input'
-	);
-	projectOptionCheckboxes = this.code.driver.page.locator(
-		'div[id="wizard-sub-step-misc-proj-options"] div.checkbox'
-	);
-	gitInitCheckbox = this.projectOptionCheckboxes.getByText(
-		'Initialize project as Git repository'
-	);
-
-	constructor(private code: Code) { }
-
-	async appendToProjectName(text: string) {
-		await this.projectNameInput.waitFor();
-		await this.projectNameInput.page().keyboard.type(text);
-	}
-}
-
-class ProjectWizardRConfigurationStep {
-	renvCheckbox = this.code.driver.page.locator(
-		'div.renv-configuration > div.checkbox'
-	);
-
-	constructor(private code: Code) { }
-}
-
-class ProjectWizardPythonConfigurationStep {
-	existingEnvRadioButton = this.code.driver.page.locator(
-		'div[id="wizard-step-set-up-python-environment"] div[id="wizard-sub-step-pythonenvironment-howtosetupenv"] .radio-button-input[id="existingEnvironment"]'
-	);
-	envProviderDropdown = this.code.driver.page.locator(
-		'div[id="wizard-sub-step-python-environment"] .wizard-sub-step-input button.drop-down-list-box'
-	);
-	interpreterFeedback = this.code.driver.page.locator(
-		'div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-feedback .wizard-formatted-text'
-	);
-	interpreterDropdown = this.code.driver.page.locator(
-		'div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-input button.drop-down-list-box'
-	);
-
-	constructor(private code: Code) { }
-
-	private async waitForDataLoading() {
-		// The env provider dropdown is only visible when New Environment is selected
-		if (await this.envProviderDropdown.isVisible()) {
-			await expect(this.envProviderDropdown).not.toContainText(
-				'Loading environment providers...',
-				{ timeout: 5000 }
-			);
-		}
-
-		// The interpreter dropdown is always visible
-		await expect(this.interpreterDropdown).not.toContainText(
-			'Loading interpreters...',
-			{ timeout: 5000 }
-		);
-	}
-
-	/**
-	 * Selects the specified environment provider in the project wizard environment provider dropdown.
-	 * @param provider The environment provider to select.
-	 */
-	async selectEnvProvider(provider: string) {
-		await this.waitForDataLoading();
-
-		try {
-			const preselected =
-				(await this.code.driver
-					.page.locator(
-						`${PROJECT_WIZARD_PRESELECTED_DROPDOWN_ITEM} div.dropdown-entry-title`
-					)
-					.getByText(provider)
-					.count()) === 1;
-			if (preselected) {
-				return;
-			}
-		} catch (error) {
-			// The env provider isn't pre-selected in the dropdown, so let's try to find it by clicking
-			// the dropdown and then clicking the env provider
-			this.code.logger.log(
-				`Environment provider '${provider}' is not pre-selected in the Project Wizard environment provider dropdown.`
-			);
-		}
-
-		// Open the dropdown
-		await this.envProviderDropdown.click();
-
-		// Try to find the env provider in the dropdown
-		try {
-			await expect(this.code.driver.page.locator(PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS).first()).toBeVisible();
-			await this.code.driver
-				.page.locator(
-					`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-title`
-				)
-				.getByText(provider)
-				.click();
-			return;
-		} catch (error) {
-			throw new Error(
-				`Could not find env provider in project wizard dropdown: ${error}`
-			);
-		}
-	}
-
-	/**
-	 * Selects the interpreter corresponding to the given path in the project wizard interpreter
-	 * dropdown.
-	 * @param interpreterPath The path of the interpreter to select in the dropdown.
-	 * @returns A promise that resolves once the interpreter is selected, or rejects if the interpreter is not found.
-	 */
-	async selectInterpreterByPath(interpreterPath: string) {
-		await this.waitForDataLoading();
-
-		try {
-			const preselected =
-				(await this.code.driver
-					.page.locator(
-						`${PROJECT_WIZARD_PRESELECTED_DROPDOWN_ITEM} div.dropdown-entry-subtitle`
-					)
-					.getByText(interpreterPath)
-					.count()) === 1;
-			if (preselected) {
-				return;
-			}
-		} catch (error) {
-			// The interpreter isn't pre-selected in the dropdown, so let's try to find it by clicking
-			// the dropdown and then clicking the interpreter
-			this.code.logger.log(
-				`Interpreter '${interpreterPath}' is not pre-selected in the Project Wizard interpreter dropdown.`
-			);
-		}
-
-		// Open the interpreter dropdown.
-		await this.interpreterDropdown.click();
-
-		// Try to find the interpreterPath in the dropdown and click the entry if found
-		try {
-			await expect(this.code.driver.page.locator(PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS)).toBeVisible();
-		} catch (error) {
-			throw new Error(
-				`Wait for element ${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} failed: ${error}`
-			);
-		}
-
-		// Get all the dropdown entry subtitles and build a comma-separated string of them for
-		// logging purposes.
-		const dropdownEntrySubtitleLocators = await this.code.driver
-			.page.locator(
-				`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`
-			).all();
-		const dropdownEntrySubtitles = dropdownEntrySubtitleLocators.map
-			(async (locator) => await locator.innerText());
-		const subtitles = (await Promise.all(dropdownEntrySubtitles)).join(', ');
-
-		// Find the dropdown item with the interpreterPath.
-		const dropdownItem = this.code.driver
-			.page.locator(`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`)
-			.getByText(interpreterPath);
-
-		// There should be one dropdown item with the interpreterPath.
-		if ((await dropdownItem.count()) !== 1) {
-			// Close the interpreter dropdown.
-			await this.code.driver.page.keyboard.press('Escape');
-
-			// Fail the test.
-			fail(`Could not find interpreter path ("${interpreterPath}") in ("${subtitles}") project wizard dropdown`);
-		}
-
-		// Click the interpreter.
-		await dropdownItem.click();
-	}
-}
-
-class CurrentOrNewWindowSelectionModal {
-	currentWindowButton = this.code.driver
-		.page.locator(
-			'button.positron-button.button.action-bar-button[tabindex="0"][role="button"]'
-		)
-		.getByText('Current Window');
-
-	constructor(private code: Code) { }
 }

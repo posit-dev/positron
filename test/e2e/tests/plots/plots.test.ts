@@ -158,7 +158,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await app.workbench.plots.savePlot({ name: 'Python-scatter', format: 'JPEG' });
 			await app.workbench.layouts.enterLayout('stacked');
-			await app.workbench.explorer.waitForProjectFileToAppear('Python-scatter.jpeg');
+			await app.workbench.explorer.verifyProjectFilesExist(['Python-scatter.jpeg']);
 		});
 
 		test('Python - Verifies bqplot Python widget [C720869]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
@@ -313,10 +313,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.waitForCurrentPlot();
 
 			await app.workbench.plots.savePlot({ name: 'plot', format: 'PNG' });
-			await app.workbench.explorer.waitForProjectFileToAppear('plot.png');
+			await app.workbench.explorer.verifyProjectFilesExist(['plot.png']);
 
 			await app.workbench.plots.savePlot({ name: 'R-cars', format: 'SVG' });
-			await app.workbench.explorer.waitForProjectFileToAppear('R-cars.svg');
+			await app.workbench.explorer.verifyProjectFilesExist(['R-cars.svg']);
 		});
 
 		test('R - Verifies rplot plot [C720873]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {

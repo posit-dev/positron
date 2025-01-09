@@ -35,21 +35,12 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER] }, () => {
 			await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
 			await app.workbench.quickInput.waitForQuickInputOpened();
 			await app.workbench.quickInput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
-			// Had to add a positron class, because Microsoft did not have this:
 			await app.workbench.quickInput.clickOkOnQuickInput();
-
-			// Wait for the console to be ready
 			await app.workbench.console.waitForReady('>', 10000);
 		}).toPass({ timeout: 50000 });
 
-		await expect(async () => {
-			await app.workbench.testExplorer.clickTestExplorerIcon();
-
-			const projectFiles = await app.workbench.testExplorer.getTestExplorerFiles();
-
-			// test-mathstuff.R is the last section of tests in https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
-			expect(projectFiles).toContain('test-mathstuff.R');
-		}).toPass({ timeout: 50000 });
+		await app.workbench.testExplorer.clickTestExplorerIcon();
+		await app.workbench.testExplorer.verifyTestFilesExist(['test-mathstuff.R']);
 
 		await app.workbench.testExplorer.runAllTests();
 

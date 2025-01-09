@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
+import { expect } from '@playwright/test';
 import { Explorer } from './explorer';
 
 const TEST_RESULT_ITEM = '.monaco-list-row[aria-level="2"] .test-peek-item';
@@ -54,12 +54,13 @@ export class TestExplorer extends Explorer {
 		await this.code.driver.page.locator(TEST_EXPLORER_ICON).click();
 	}
 
-	/**
-	 * Gets the top level tests from the test explorer
-	 * @returns Promise<string[]> Array of test names.
-	 */
-	async getTestExplorerFiles(): Promise<string[]> {
-		return await this.getExplorerProjectFiles('.test-explorer .monaco-list-row .label');
+	async verifyTestFilesExist(files: string[]) {
+		const projectFiles = this.code.driver.page.locator('.test-explorer');
+
+		for (let i = 0; i < files.length; i++) {
+			const timeout = i === 0 ? 50000 : undefined;  // 50s for the first check, default for the rest as sometimes waiting for project to load
+			await expect(projectFiles.getByLabel(files[i])).toBeVisible({ timeout });
+		}
 	}
 
 	/**
