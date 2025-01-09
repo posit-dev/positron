@@ -91,7 +91,7 @@ runs:
     - name: Rename VSIX
       # Move to a temp name in case the specified name happens to match the default name.
       run: |
-        pwd
+        cd extensions/positron-python
         ls
         mv positron-python-dev.vsix positron-python-dev-temp.vsix && mv positron-python-dev.vsix ${{ inputs.vsix_name }}
       shell: bash
