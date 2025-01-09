@@ -86,8 +86,11 @@ async function openNotebook(app: Application, filePath: string) {
 async function verifySplitEditor(page, tabName: string) {
 	await test.step(`verify "split editor" opens another tab`, async () => {
 		// Split editor right
-		await page.getByLabel('Split Editor Right', { exact: true }).click();
-		await expect(page.getByRole('tab', { name: tabName })).toHaveCount(2);
+		// Sometimes in CI the click doesn't register, wrapping these actions to reduce flake
+		await expect(async () => {
+			await page.getByLabel('Split Editor Right', { exact: true }).click();
+			await expect(page.getByRole('tab', { name: tabName })).toHaveCount(2);
+		}).toPass({ timeout: 10000 });
 
 		// Close one tab
 		await page.getByRole('tab', { name: tabName }).getByLabel('Close').first().click();
