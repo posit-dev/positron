@@ -756,7 +756,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         # Add the module's __version__ to the heading
         if len(version) > 0:
             pkg_version = self.escape(version)
-            text = f'<div class="package-version">{"v"+pkg_version}</div>'
+            text = f'<div class="package-version">{"v" + pkg_version}</div>'
             return text
         else:
             return ""
