@@ -23,6 +23,7 @@ import { IWorkspaceTrustManagementService } from '../../../../platform/workspace
 import { URI } from '../../../../base/common/uri.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { IPositronNewProjectService } from '../../positronNewProject/common/positronNewProject.js';
+import { Event } from '../../../../base/common/event.js';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
@@ -32,8 +33,16 @@ interface ILanguageRuntimeProviderMetadata {
  * Metadata for serialized runtime sessions.
  */
 interface SerializedSessionMetadata {
+	/// The metadata for the runtime session itself.
 	metadata: IRuntimeSessionMetadata;
+
+	/// The state of the runtime, at the time it was serialized.
 	sessionState: RuntimeState;
+
+	/// The time at which the session was last used, in milliseconds since the epoch.
+	lastUsed: number;
+
+	/// The metadata of the runtime associated with the session.
 	runtimeMetadata: ILanguageRuntimeMetadata;
 }
 
@@ -300,7 +309,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 		}));
 	}
-
 
 	/**
 	 * Convenience method for setting the startup phase.
@@ -878,7 +886,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				const metadata: SerializedSessionMetadata = {
 					metadata: session.metadata,
 					sessionState: session.getRuntimeState(),
-					runtimeMetadata: session.runtimeMetadata
+					runtimeMetadata: session.runtimeMetadata,
+					lastUsed: session.lastUsed,
 				};
 				return metadata;
 			});

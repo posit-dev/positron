@@ -104,6 +104,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	private readonly _onDidCreateClientInstanceEmitter = new Emitter<ILanguageRuntimeClientCreatedEvent>();
 
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
+	private _lastUsed: number = Date.now();
 	private _clients: Map<string, ExtHostRuntimeClientInstance<any, any>> =
 		new Map<string, ExtHostRuntimeClientInstance<any, any>>();
 
@@ -324,6 +325,13 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 
 	/**
+	 * Returns the last time this session was used (currently, "used" means "executed code")
+	 */
+	get lastUsed(): number {
+		return this._lastUsed;
+	}
+
+	/**
 	 * Convenience method to get the session's ID without having to access the
 	 * the metadata directly.
 	 */
@@ -395,6 +403,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 
 	execute(code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): void {
+		this._lastUsed = Date.now();
 		this._proxy.$executeCode(this.handle, code, id, mode, errorBehavior);
 	}
 

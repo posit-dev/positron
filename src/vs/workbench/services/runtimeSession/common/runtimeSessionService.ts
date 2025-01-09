@@ -139,6 +139,9 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	/** The current state of the runtime (tracks events above) */
 	getRuntimeState(): RuntimeState;
 
+	/** Timestamp of when the runtime was last used */
+	get lastUsed(): number;
+
 	/**
 	 * The (cached) current set of client instances that are known to Positron.
 	 * Note that this list may not reflect the full set of clients that are
