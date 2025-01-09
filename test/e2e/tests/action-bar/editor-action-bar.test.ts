@@ -96,10 +96,14 @@ async function verifySplitEditor(page, tabName: string) {
 		await page.getByRole('tab', { name: tabName }).getByLabel('Close').first().click();
 
 		// Split editor down
-		await page.keyboard.down('Alt');
-		await page.getByLabel('Split Editor Down').nth(1).click();
-		await page.keyboard.up('Alt');
-		await expect(page.getByRole('tab', { name: tabName })).toHaveCount(2);
+		// Sometimes in CI the click doesn't register, wrapping these actions to reduce flake
+		await expect(async () => {
+			await page.keyboard.down('Alt');
+			await page.getByLabel('Split Editor Down').nth(1).click();
+			await page.keyboard.up('Alt');
+			await expect(page.getByRole('tab', { name: tabName })).toHaveCount(2);
+		}).toPass({ timeout: 10000 });
+
 	});
 }
 
