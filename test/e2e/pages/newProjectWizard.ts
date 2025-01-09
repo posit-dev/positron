@@ -68,7 +68,7 @@ export class NewProjectWizard {
 	 * @param options The options to configure the project.
 	 */
 	async setProjectConfiguration(options: CreateProjectOptions) {
-		const { type, rEnvCheckbox, pythonEnv, ipykernelFeedbackExpected } = options;
+		const { type, rEnvCheckbox, pythonEnv, ipykernelFeedback, interpreterPath, status } = options;
 
 		// configure R Project
 		if (type === ProjectType.R_PROJECT && rEnvCheckbox) {
@@ -77,12 +77,21 @@ export class NewProjectWizard {
 
 		// configure Python Project
 		if (type === ProjectType.PYTHON_PROJECT) {
-			if (pythonEnv === 'Conda') {
-				await this.selectEnvProvider('Conda');
-			} else if (pythonEnv === 'Existing') {
+			if (status === 'existing') {
 				await this.existingEnvRadioButton.click();
+			}
+
+			if (pythonEnv) {
+				await this.selectEnvProvider(pythonEnv);
+			}
+
+			if (interpreterPath) {
+				await this.selectInterpreterByPath(interpreterPath);
+			}
+
+			if (ipykernelFeedback) {
 				const ipykernelMessage = this.code.driver.page.getByText('ipykernel will be installed');
-				ipykernelFeedbackExpected
+				ipykernelFeedback === 'show'
 					? await expect(ipykernelMessage).toBeVisible()
 					: await expect(ipykernelMessage).not.toBeVisible();
 			}
@@ -154,10 +163,12 @@ export class NewProjectWizard {
 export interface CreateProjectOptions {
 	type: ProjectType;
 	title: string;
+	status?: 'new' | 'existing';
 	rEnvCheckbox?: boolean;
-	pythonEnv?: 'Conda' | 'Venv' | 'Existing';
+	pythonEnv?: 'conda' | 'venv';
 	initAsGitRepo?: boolean;
-	ipykernelFeedbackExpected?: boolean;
+	ipykernelFeedback?: 'show' | 'hide';
+	interpreterPath?: string;
 }
 
 /**

@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import test from '@playwright/test';
+import test, { expect } from '@playwright/test';
 import { Application } from '../../infra';
 
 type PackageAction = 'install' | 'uninstall';
@@ -39,7 +39,7 @@ export class PackageManager {
 			const prompt = packageInfo.type === 'Python' ? '>>> ' : '> ';
 
 			await this.app.workbench.console.executeCode(packageInfo.type, command, prompt);
-			await this.app.workbench.console.waitForConsoleContents(expectedOutput);
+			await expect(this.app.code.driver.page.getByText(expectedOutput)).toBeVisible();
 		});
 	}
 
@@ -66,18 +66,14 @@ export class PackageManager {
 	 * @param packageName The name of the package.
 	 * @param action The action to perform ('install' or 'uninstall').
 	 */
-	private getExpectedOutput(packageName: PackageName, action: PackageAction): string {
+	private getExpectedOutput(packageName: PackageName, action: PackageAction): RegExp {
 		switch (packageName) {
 			case 'ipykernel':
 				return action === 'install'
-					? `Note: you may need to restart the kernel to use updated packages.`
-					: `Successfully uninstalled ipykernel`;
-			case 'renv':
-				return action === 'install'
-					? `Installing package`
-					: `Removing package`;
+					? /Note: you may need to restart the kernel to use updated packages/
+					: /Successfully uninstalled ipykernel|Skipping ipykernel as it is not installed/;
 			default:
-				return action === 'install' ? `Installing` : `Removing`;
+				return action === 'install' ? /Installing/ : /Removing/;
 		}
 	}
 }

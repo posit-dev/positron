@@ -111,11 +111,7 @@ async function verifyRenvFilesArePresent(app: Application,) {
 
 async function createNewProject(app: Application, options: CreateProjectOptions) {
 	await test.step(`Create new project: ${options.title}`, async () => {
-		await app.workbench.newProjectWizard.createNewProject({
-			type: ProjectType.R_PROJECT,
-			title: options.title,
-			rEnvCheckbox: options.rEnvCheckbox,
-		});
+		await app.workbench.newProjectWizard.createNewProject(options);
 	});
 }
 

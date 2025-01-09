@@ -18,7 +18,8 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await createNewProject(app, {
 			type: ProjectType.PYTHON_PROJECT,
 			title: projectTitle,
-			pythonEnv: 'Conda', // test relies on conda already installed on machine
+			status: 'new',
+			pythonEnv: 'conda', // test relies on conda already installed on machine
 		});
 
 		await verifyProjectCreation(app, projectTitle);
@@ -32,7 +33,8 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await createNewProject(app, {
 			type: ProjectType.PYTHON_PROJECT,
 			title: projectTitle,
-			pythonEnv: 'Venv',
+			status: 'new',
+			pythonEnv: 'venv',
 		});
 
 		await verifyProjectCreation(app, projectTitle);
@@ -46,8 +48,9 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await createNewProject(app, {
 			type: ProjectType.PYTHON_PROJECT,
 			title: projectTitle,
-			pythonEnv: 'Existing',
-			ipykernelFeedbackExpected: false,
+			status: 'existing',
+			ipykernelFeedback: 'hide',
+			interpreterPath: await getInterpreterPath(app),
 		});
 
 		await verifyProjectCreation(app, projectTitle);
@@ -60,8 +63,9 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await createNewProject(app, {
 			type: ProjectType.PYTHON_PROJECT,
 			title: projectTitle,
-			pythonEnv: 'Existing',
-			ipykernelFeedbackExpected: true,
+			status: 'existing',
+			interpreterPath: await getInterpreterPath(app),
+			ipykernelFeedback: 'show'
 		});
 
 		await verifyProjectCreation(app, projectTitle);
@@ -75,7 +79,8 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 			type: ProjectType.PYTHON_PROJECT,
 			title: projectTitle,
 			initAsGitRepo: true,
-			pythonEnv: 'Venv',
+			status: 'new',
+			pythonEnv: 'venv',
 		});
 
 		await verifyProjectCreation(app, projectTitle);
@@ -109,19 +114,19 @@ async function verifyCondaFilesArePresent(app: Application) {
 	});
 }
 
-async function verifyCondaEnvStarts(app: any) {
+async function verifyCondaEnvStarts(app: Application) {
 	await test.step('Verify conda environment starts', async () => {
 		await app.workbench.console.waitForConsoleContents('(Conda) started');
 	});
 }
 
-async function verifyVenEnvStarts(app: any) {
+async function verifyVenEnvStarts(app: Application) {
 	await test.step('Verify venv environment starts', async () => {
 		await app.workbench.console.waitForConsoleContents('(Venv: .venv) started.');
 	});
 }
 
-async function verifyGitFilesArePresent(app: any) {
+async function verifyGitFilesArePresent(app: Application) {
 	await test.step('Verify that the .git files are present', async () => {
 		const projectFiles = app.code.driver.page.locator('.monaco-list > .monaco-scrollable-element');
 		expect(projectFiles.getByText('.git')).toBeVisible({ timeout: 50000 });
@@ -131,7 +136,7 @@ async function verifyGitFilesArePresent(app: any) {
 	});
 }
 
-async function verifyGitStatus(app: any) {
+async function verifyGitStatus(app: Application) {
 	await test.step('Verify git status', async () => {
 		// Git status should show that we're on the main branch
 		await app.workbench.terminal.createTerminal();
@@ -141,9 +146,27 @@ async function verifyGitStatus(app: any) {
 }
 
 
-async function verifyIpykernelInstalled(app: any) {
+async function verifyIpykernelInstalled(app: Application) {
 	await test.step('Verify ipykernel is installed', async () => {
 		await app.workbench.console.typeToConsole('pip show ipykernel', 10, true);
 		await app.workbench.console.waitForConsoleContents('Name: ipykernel');
 	});
+}
+
+async function getInterpreterPath(app: Application): Promise<string> {
+	let interpreterPath: string | undefined;
+
+	await test.step('Get the interpreter path', async () => {
+		const interpreterInfo =
+			await app.workbench.interpreterDropdown.getSelectedInterpreterInfo();
+
+		expect(interpreterInfo?.path).toBeDefined();
+		interpreterPath = interpreterInfo?.path;
+	});
+
+	if (!interpreterPath) {
+		throw new Error('Interpreter path is undefined');
+	}
+
+	return interpreterPath;
 }
