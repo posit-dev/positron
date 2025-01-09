@@ -163,6 +163,8 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	}
 
 	// --- Start Positron ---
+	// This is essentially the update 'channel' (aka insiders, stable, etc.). VS Code sets it through the
+	// product.json. Positron will have it configurable for now.
 	// @ts-ignore
 	private getProductQuality(updateMode: string): string | undefined {
 		return updateMode === 'none' ? undefined : this.productService.quality;
