@@ -75,7 +75,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] },
 		await verifyCondaEnvStarts(app);
 	});
 
-	test('New env60: Venv environment [C627912]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
+	test('New env: Venv environment [C627912]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
 		const projectTitle = addRandomNumSuffix('new-venv');
 
 		await createNewProject(app, {
