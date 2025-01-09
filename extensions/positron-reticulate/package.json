@@ -36,8 +36,7 @@
   },
   "extensionDependencies": [
     "ms-python.python",
-    "positron.positron-r",
-    "positron.jupyter-adapter"
+    "positron.positron-r"
   ],
   "devDependencies": {
     "@types/glob": "^7.2.0",
