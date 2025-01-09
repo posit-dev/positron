@@ -14,7 +14,7 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType } from '../../common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType, RuntimeStartMode } from '../../common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageRuntimeSession.js';
 import { createRuntimeServices, createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
 import { TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
@@ -60,7 +60,7 @@ suite('Positron - RuntimeSessionService', () => {
 		unregisteredRuntime = { runtimeId: 'unregistered-runtime-id' } as ILanguageRuntimeMetadata;
 
 		// Enable automatic startup.
-		configService.setUserConfiguration('positron.interpreters.automaticStartup', true);
+		configService.setUserConfiguration('interpreters.automaticStartup', true);
 
 		// Trust the workspace.
 		workspaceTrustManagementService.setWorkspaceTrust(true);
@@ -278,18 +278,11 @@ suite('Positron - RuntimeSessionService', () => {
 				assertSingleSessionIsStarting(session);
 			});
 
-			// TODO: Should onWillStartSession only fire once?
-			//       It currently fires twice. Before the session is started and when the session
-			//       enters the ready state.
 			test(`${action} ${mode} fires onWillStartSession`, async () => {
 				let error: Error | undefined;
 				const target = sinon.spy(({ session }: IRuntimeSessionWillStartEvent) => {
 					try {
-						if (target.callCount > 1) {
-							return;
-						}
 						assert.strictEqual(session.getRuntimeState(), RuntimeState.Uninitialized);
-
 						assertSingleSessionWillStart(mode);
 					} catch (e) {
 						error = e;
@@ -298,10 +291,16 @@ suite('Positron - RuntimeSessionService', () => {
 				disposables.add(runtimeSessionService.onWillStartSession(target));
 				const session = await start();
 
-				sinon.assert.calledTwice(target);
-				// When restoring a session, the first event is fired with isNew: false.
-				sinon.assert.calledWith(target.getCall(0), { isNew: action !== 'restore', session });
-				sinon.assert.calledWith(target.getCall(1), { isNew: true, session });
+				let startMode: RuntimeStartMode;
+				if (action === 'restore') {
+					startMode = RuntimeStartMode.Reconnecting;
+				} else if (action === 'select') {
+					startMode = RuntimeStartMode.Switching;
+				} else {
+					startMode = RuntimeStartMode.Starting;
+				}
+				sinon.assert.calledOnceWithExactly(target, { startMode, session });
+
 				assert.ifError(error);
 			});
 
@@ -623,7 +622,7 @@ suite('Positron - RuntimeSessionService', () => {
 	});
 
 	test('auto start console does nothing if automatic startup is disabled', async () => {
-		configService.setUserConfiguration('positron.interpreters.automaticStartup', false);
+		configService.setUserConfiguration('interpreters.automaticStartup', false);
 
 		const sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason);
 
@@ -754,6 +753,9 @@ suite('Positron - RuntimeSessionService', () => {
 					session.setRuntimeState(state);
 				}
 
+				const willStartSession = sinon.spy();
+				disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
+
 				await restartSession(session.sessionId);
 
 				assert.strictEqual(session.getRuntimeState(), RuntimeState.Restarting);
@@ -761,6 +763,11 @@ suite('Positron - RuntimeSessionService', () => {
 
 				await waitForRuntimeState(session, RuntimeState.Ready);
 				assertSingleSessionIsReady(session);
+
+				sinon.assert.calledOnceWithExactly(willStartSession, {
+					session,
+					startMode: RuntimeStartMode.Restarting,
+				});
 			});
 		}
 
@@ -772,9 +779,12 @@ suite('Positron - RuntimeSessionService', () => {
 				await session.shutdown(RuntimeExitReason.Shutdown);
 				await waitForRuntimeState(session, RuntimeState.Exited);
 
+				const willStartSession = sinon.spy();
+				disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
+
 				await restartSession(session.sessionId);
 
-				// The existing sessino should remain exited.
+				// The existing session should remain exited.
 				assert.strictEqual(session.getRuntimeState(), RuntimeState.Exited);
 
 				// A new session should be starting.
@@ -786,6 +796,12 @@ suite('Positron - RuntimeSessionService', () => {
 				}
 				assert.ok(newSession);
 				disposables.add(newSession);
+
+				sinon.assert.calledOnceWithExactly(willStartSession, {
+					session: newSession,
+					// Since we restarted from an exited state, the start mode is 'starting'.
+					startMode: RuntimeStartMode.Starting,
+				});
 
 				assert.strictEqual(newSession.getRuntimeState(), RuntimeState.Starting);
 				assert.strictEqual(newSession.metadata.sessionName, session.metadata.sessionName);

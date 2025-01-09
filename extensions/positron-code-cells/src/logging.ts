@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 
 let channel: vscode.OutputChannel | undefined;
 export function initializeLogging() {
-	channel = vscode.window.createOutputChannel('Positron Code Cells');
+	channel = vscode.window.createOutputChannel('Code Cells');
 }
 
 export function trace(message: string) {

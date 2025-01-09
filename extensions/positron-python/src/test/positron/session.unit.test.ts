@@ -45,11 +45,11 @@ suite('Python Runtime Session', () => {
         } as PythonEnvironment;
 
         runtimeMetadata = {
-            extraRuntimeData: { pythonEnvironmentId: interpreter.id },
+            extraRuntimeData: { pythonPath: interpreter.path },
         } as positron.LanguageRuntimeMetadata;
 
         const interpreterService = {
-            getInterpreters: () => [interpreter],
+            getInterpreterDetails: (_pythonPath, _resource) => Promise.resolve(interpreter),
         } as IInterpreterService;
 
         const installer = ({

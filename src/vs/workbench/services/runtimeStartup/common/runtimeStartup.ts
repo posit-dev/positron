@@ -294,6 +294,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// before reloading the browser.
 				e.veto(this.saveWorkspaceSessions(),
 					'positron.runtimeStartup.saveWorkspaceSessions');
+			} else if (e.reason === ShutdownReason.CLOSE || e.reason === ShutdownReason.QUIT) {
+				// Clear the workspace sessions. In most cases this is not
+				// necessary since the sessions are stored in ephemeral
+				// storage, but it is possible that this workspace will be
+				// re-opened without an interleaving quit (e.g. if multiple
+				// Positron windows are open).
+				e.veto(this.clearWorkspaceSessions(), 'positron.runtimeStartup.clearWorkspaceSessions');
 			}
 		}));
 	}
@@ -462,7 +469,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 				// Check the setting to see if we should be auto-starting.
 				const autoStart = this._configurationService.getValue<boolean>(
-					'positron.interpreters.automaticStartup');
+					'interpreters.automaticStartup');
 				if (!autoStart) {
 					this._logService.info(`Language runtime ` +
 						`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
@@ -670,7 +677,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		if (affiliatedRuntimeMetadata) {
 			// Check the setting to see if we should be auto-starting.
 			const autoStart = this._configurationService.getValue<boolean>(
-				'positron.interpreters.automaticStartup');
+				'interpreters.automaticStartup');
 
 			if (autoStart) {
 
@@ -734,8 +741,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				await this.restoreWorkspaceSessions(sessions);
 			}
 		} catch (err) {
-			this._logService.error(`Could not restore workspace sessions: ${err} ` +
-				`(data: ${storedSessions})`);
+			this._logService.error(`Could not restore workspace sessions: ${err?.stack ?? err} ` +
+				`(data: ${JSON.stringify(storedSessions)})`);
 		}
 	}
 
@@ -768,6 +775,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			await this._runtimeSessionService.restoreRuntimeSession(
 				session.runtimeMetadata, session.metadata);
 		}));
+	}
+
+	/**
+	 * Clear the set of workspace sessions in the workspace storage.
+	 */
+	private async clearWorkspaceSessions(): Promise<boolean> {
+		// Clear the sessions.
+		await this._ephemeralStateService.removeItem(this.getPersistentWorkspaceSessionsKey());
+
+		// Always return false (don't veto shutdown)
+		return false;
 	}
 
 	/**
@@ -828,7 +846,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 
 		const restartOnCrash =
-			this._configurationService.getValue<boolean>('positron.interpreters.restartOnCrash');
+			this._configurationService.getValue<boolean>('interpreters.restartOnCrash');
 
 		let action;
 

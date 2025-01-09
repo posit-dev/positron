@@ -69,7 +69,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The current state of the runtime */
     private _state: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 
-    /** The service for getting the Python extension interpreter path */
+    /** The service for managing Python environments */
+    private _interpreterService: IInterpreterService;
+
+    /** The service for managing the active Python interpreter path */
     private _interpreterPathService: IInterpreterPathService;
 
     /**
@@ -82,9 +85,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
      */
     private _parentIdsByOutputCommId = new Map<string, string>();
 
-    dynState: positron.LanguageRuntimeDynState;
+    /** The Python interpreter executable path */
+    private _pythonPath: string;
 
-    private readonly interpreter: PythonEnvironment;
+    dynState: positron.LanguageRuntimeDynState;
 
     constructor(
         readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
@@ -92,27 +96,17 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         readonly serviceContainer: IServiceContainer,
         readonly kernelSpec?: JupyterKernelSpec | undefined,
     ) {
-        const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
-
         this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
         this.onDidChangeRuntimeState = this._stateEmitter.event;
         this.onDidEndSession = this._exitEmitter.event;
 
         // Extract the extra data from the runtime metadata; it contains the
-        // environment ID that was saved when the metadata was created.
+        // Python path that was saved when the metadata was created.
         const extraData: PythonRuntimeExtraData = runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
-        if (!extraData || !extraData.pythonEnvironmentId) {
-            throw new Error(`Runtime metadata missing Python environment ID: ${JSON.stringify(runtimeMetadata)}`);
+        if (!extraData || !extraData.pythonPath) {
+            throw new Error(`Runtime metadata missing Python path: ${JSON.stringify(runtimeMetadata)}`);
         }
-
-        const interpreter = interpreterService.getInterpreters().find((i) => i.id === extraData.pythonEnvironmentId);
-        if (!interpreter) {
-            const interpreterIds = interpreterService.getInterpreters().map((i) => `\n- ${i.id}`);
-            throw new Error(
-                `Interpreter ${extraData.pythonEnvironmentId} (path: ${extraData.pythonPath}) not found in available Python interpreters: ${interpreterIds}`,
-            );
-        }
-        this.interpreter = interpreter;
+        this._pythonPath = extraData.pythonPath;
 
         this._queue = new PQueue({ concurrency: 1 });
 
@@ -125,6 +119,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this.onStateChange(state);
         });
 
+        this._interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
         this._interpreterPathService = serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
     }
 
@@ -234,7 +229,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
-    private async _installIpykernel(): Promise<void> {
+    private async _installIpykernel(interpreter: PythonEnvironment): Promise<void> {
         // Get the installer service
         const installer = this.serviceContainer.get<IInstaller>(IInstaller);
 
@@ -246,16 +241,16 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         const hasCompatibleKernel = await installer.isProductVersionCompatible(
             Product.ipykernel,
             IPYKERNEL_VERSION,
-            this.interpreter,
+            interpreter,
         );
 
         if (hasCompatibleKernel !== ProductInstallStatus.Installed) {
             // Check if sqlite3 if installed before attempting to install ipykernel
             // https://github.com/posit-dev/positron/issues/4698
-            const hasSqlite3 = await installer.isInstalled(Product.sqlite3, this.interpreter);
+            const hasSqlite3 = await installer.isInstalled(Product.sqlite3, interpreter);
             if (!hasSqlite3) {
                 throw new Error(
-                    `The Python sqlite3 extension is required but not installed for interpreter: ${this.interpreter?.displayName}. Missing the system library for SQLite?`,
+                    `The Python sqlite3 extension is required but not installed for interpreter: ${interpreter?.displayName}. Missing the system library for SQLite?`,
                 );
             }
 
@@ -280,7 +275,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
             const response = await installer.promptToInstall(
                 product,
-                this.interpreter,
+                interpreter,
                 installerToken,
                 undefined,
                 installOptions,
@@ -289,12 +284,12 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
             switch (response) {
                 case InstallerResponse.Installed:
-                    traceInfo(`Successfully installed ipykernel for ${this.interpreter?.displayName}`);
+                    traceInfo(`Successfully installed ipykernel for ${interpreter?.displayName}`);
                     break;
                 case InstallerResponse.Ignore:
                 case InstallerResponse.Disabled:
                     throw new Error(
-                        `Could not start runtime: failed to install ipykernel for ${this.interpreter?.displayName}.`,
+                        `Could not start runtime: failed to install ipykernel for ${interpreter?.displayName}.`,
                     );
                 default:
                     throw new Error(`Unknown installer response type: ${response}`);
@@ -303,9 +298,14 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     async start(): Promise<positron.LanguageRuntimeInfo> {
+        const interpreter = await this._interpreterService.getInterpreterDetails(this._pythonPath);
+        if (!interpreter) {
+            throw new Error(`Could not start runtime: failed to resolve interpreter ${this._pythonPath}`);
+        }
+
         // Ensure the LSP client instance is created
         if (!this._lsp) {
-            await this.createLsp();
+            await this.createLsp(interpreter);
         }
 
         // Ensure the Jupyter kernel instance is created
@@ -314,14 +314,14 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
 
         // Ensure that the ipykernel module is installed for the interpreter.
-        await this._installIpykernel();
+        await this._installIpykernel(interpreter);
 
         if (this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
             // Update the active environment in the Python extension.
             this._interpreterPathService.update(
                 undefined,
                 vscode.ConfigurationTarget.WorkspaceFolder,
-                this.interpreter.path,
+                interpreter.path,
             );
         }
 
@@ -371,7 +371,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     // Keep track of LSP init to avoid stopping in the middle of startup
     private _lspStarting: Thenable<void> = Promise.resolve();
 
-    private async createLsp() {
+    private async createLsp(interpreter: PythonEnvironment): Promise<void> {
         traceInfo(`createPythonSession: resolving LSP services`);
         const environmentService = this.serviceContainer.get<IEnvironmentVariablesProvider>(
             IEnvironmentVariablesProvider,
@@ -389,7 +389,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         );
 
         const resource = workspaceService.workspaceFolders?.[0].uri;
-        await analysisOptions.initialize(resource, this.interpreter);
+        await analysisOptions.initialize(resource, interpreter);
         const languageClientOptions = await analysisOptions.getAnalysisOptions();
 
         this._lsp = new PythonLsp(
@@ -467,8 +467,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
-        const config = vscode.workspace.getConfiguration('positronKernelSupervisor');
-        if (config.get<boolean>('enable', true) && this.runtimeMetadata.runtimeId !== 'reticulate') {
+        const config = vscode.workspace.getConfiguration('kernelSupervisor');
+        if (config.get<boolean>('enable', true)) {
             // Use the Positron kernel supervisor if enabled
             const ext = vscode.extensions.getExtension('positron.positron-supervisor');
             if (!ext) {

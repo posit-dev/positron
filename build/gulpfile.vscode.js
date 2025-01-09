@@ -104,6 +104,11 @@ const vscodeResourceIncludes = [
 	// Process Explorer
 	'out-build/vs/code/electron-sandbox/processExplorer/processExplorer.html',
 
+	// --- Start Positron ---
+	// Positron Help
+	'out-build/vs/workbench/contrib/positronHelp/browser/resources/help.html',
+	// --- End Positron ---
+
 	// Tree Sitter highlights
 	'out-build/vs/editor/common/languages/highlights/*.scm',
 
@@ -331,7 +336,6 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		// --- Start Positron ---
 
 		// External modules (React, etc.)
-		const externalModules = gulp.src('out-build/bootstrap-external.js').pipe(rename('out/bootstrap-external.js'));
 		const moduleSources = gulp.src('src/esm-package-dependencies/**').pipe(rename(function (p) { p.dirname = path.join('out', 'esm-package-dependencies', p.dirname) }));
 
 		// Positron API
@@ -403,7 +407,6 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			// --- Start Positron ---
 			positronApi,
 			quarto,
-			externalModules,
 			moduleSources,
 			// --- End Positron ---
 			telemetry,

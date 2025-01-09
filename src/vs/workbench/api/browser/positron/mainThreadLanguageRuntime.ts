@@ -40,7 +40,7 @@ import { IRuntimeStartupService, RuntimeStartupPhase } from '../../../services/r
 import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { isWebviewReplayMessage } from '../../../contrib/positronWebviewPreloads/browser/utils.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { IPositronConnectionsService } from '../../../services/positronConnections/browser/interfaces/positronConnectionsService.js';
+import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)

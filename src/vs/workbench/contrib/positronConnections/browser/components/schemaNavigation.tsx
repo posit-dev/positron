@@ -8,7 +8,6 @@ import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { usePositronConnectionsContext } from '../positronConnectionsContext.js';
 import * as DOM from '../../../../../base/browser/dom.js';
-import { IPositronConnectionEntry } from '../../../../services/positronConnections/browser/positronConnectionsUtils.js';
 import { ActionBar, ACTION_BAR_HEIGHT } from './schemaNavigationActionBar.js';
 import { FixedSizeList as List } from 'react-window';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
@@ -16,6 +15,7 @@ import './schemaNavigation.css';
 import { ViewsProps } from '../positronConnections.js';
 import Severity from '../../../../../base/common/severity.js';
 import { localize } from '../../../../../nls.js';
+import { IPositronConnectionEntry } from '../../../../services/positronConnections/common/interfaces/positronConnectionsInstance.js';
 
 export interface SchemaNavigationProps extends ViewsProps { }
 

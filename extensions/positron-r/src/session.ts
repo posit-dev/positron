@@ -575,7 +575,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
-		const config = vscode.workspace.getConfiguration('positronKernelSupervisor');
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
 		if (config.get<boolean>('enable', true)) {
 			// Use the Positron kernel supervisor if enabled
 			const ext = vscode.extensions.getExtension('positron.positron-supervisor');

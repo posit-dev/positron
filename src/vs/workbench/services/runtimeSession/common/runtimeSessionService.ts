@@ -23,11 +23,28 @@ export interface ILanguageRuntimeGlobalEvent {
 }
 
 /**
+ * The mode in which a runtime session is starting.
+ */
+export enum RuntimeStartMode {
+	/** A new runtime is starting. */
+	Starting = 'starting',
+
+	/** An existing runtime is restarting. */
+	Restarting = 'restarting',
+
+	/** An existing runtime is reconnecting. */
+	Reconnecting = 'reconnecting',
+
+	/** The previous runtime is being switched to a new runtime. */
+	Switching = 'switching',
+}
+
+/**
  * Event that fires when a runtime session is about to start.
  */
 export interface IRuntimeSessionWillStartEvent {
-	/** Whether this is a new session or an existing session (a reconnect) */
-	isNew: boolean;
+	/** The mode in which the session is starting. */
+	startMode: RuntimeStartMode;
 
 	/** The session about to start */
 	session: ILanguageRuntimeSession;

@@ -57,11 +57,6 @@ const vscodeWebResourceIncludes = [
 	// Webview
 	'out-build/vs/workbench/contrib/webview/browser/pre/*.{js,html}',
 
-	// --- Start Positron ---
-	// Positron Help
-	'out-build/vs/workbench/contrib/positronHelp/browser/resources/help.html',
-	// --- End Positron ---
-
 	// Tree Sitter highlights
 	'out-build/vs/editor/common/languages/highlights/*.scm',
 

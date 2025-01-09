@@ -30,18 +30,18 @@ const positronRuntimeSessionsViewIcon = registerIcon(
 );
 
 // The configuration key for showing the sessions view.
-const SHOW_SESSIONS_CONFIG_KEY = 'positron.interpreters.showSessions';
+const SHOW_SESSIONS_CONFIG_KEY = 'interpreters.showSessions';
 
 // Register configuration options for the runtime service
 const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
 configurationRegistry.registerConfiguration({
 	...positronConfigurationNodeBase,
 	properties: {
-		'positron.interpreters.showSessions': {
+		'interpreters.showSessions': {
 			scope: ConfigurationScope.MACHINE,
 			type: 'boolean',
 			default: false,
-			description: nls.localize('positron.interpreters.showSessions', "Enable debug Runtimes pane listing active interpreter sessions.")
+			description: nls.localize('interpreters.showSessions', "Enable debug Runtimes pane listing active interpreter sessions.")
 		},
 	}
 });

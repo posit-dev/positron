@@ -17,6 +17,21 @@ runs:
         curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | sudo tar xz -C /usr/local
         rig add "$R_VERSION"
 
+    - name: Configure Posit PPM for Ubuntu 22.04 with Custom HTTP User-Agent
+      shell: bash
+      run: |
+        echo "Configuring R to use Posit Package Manager for Jammy..."
+        cat <<EOF > ~/.Rprofile
+        options(
+          repos = c(RSPM = "https://packagemanager.posit.co/cran/__linux__/jammy/latest"),
+          HTTPUserAgent = sprintf(
+            "R/%s (%s) R (%s)",
+            getRversion(), "ubuntu-2404",
+            paste(getRversion(), R.version\$platform, R.version\$arch, R.version\$os)
+          )
+        )
+        EOF
+
     - name: Check R Installation
       shell: bash
       run: |
@@ -26,8 +41,6 @@ runs:
       shell: bash
       run: |
         echo "Installing R development packages..."
-        # Download a sample DESCRIPTION file if not provided
         curl -s https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-        # Install development dependencies using pak
         Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://cran.rstudio.com')"
-        Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+        Rscript -e "options(pak.install_binary = TRUE); pak::local_install_dev_deps(ask = FALSE)"

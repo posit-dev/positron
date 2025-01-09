@@ -235,8 +235,8 @@
 		if (Array.isArray(configuration.cssModules) && configuration.cssModules.length > 0) {
 
 			// Create import maps for React and other dependencies. This is for
-			// development mode only; for release builds, import maps are
-			// loaded earlier, in bootstrap-external.js.
+			// development mode only; for release builds, the importmap is inlined
+			// in workbench.html.
 			const style = document.createElement('style');
 			style.type = 'text/css';
 			style.media = 'screen';
@@ -256,12 +256,6 @@
 			addModule('react-dom');
 			addModule('react-dom/client');
 			addModule('react-window');
-
-			// importMap.imports['he'] = new URL('https://esm.sh/he').href;
-			// importMap.imports['react'] = new URL('https://esm.sh/react').href;
-			// importMap.imports['react-dom'] = new URL('https://esm.sh/react-dom').href;
-			// importMap.imports['react-dom/client'] = new URL('https://esm.sh/react-dom/client').href;
-			// importMap.imports['react-window'] = new URL('https://esm.sh/react-window').href;
 
 			// DEV ---------------------------------------------------------------------------------------
 			// DEV: This is for development and enables loading CSS via import-statements via import-maps.

@@ -91,6 +91,10 @@
 	grid-column: title / sparkline;
 }
 
+.data-grid-row-cell .content .column-summary .basic-info .column-name .whitespace {
+	opacity: 50%;
+}
+
 /* column-sparkline */
 
 .data-grid-row-cell .content .column-summary .basic-info .column-sparkline {

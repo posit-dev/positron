@@ -112,8 +112,26 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 	// as a temporary workaround.
 
 	// --- Start Positron ---
+
+	// As noted above in the TODO, the upstream strategy is currently to ignore
+	// external dependencies, and some built-in extensions (e.g. git) do not
+	// package correctly with the Npm strategy. However, several Positron
+	// extensions have npm dependencies that need to be packaged. This list is
+	// used to determine which extensions should be packaged with the Npm
+	// strategy.
+	const extensionsWithNpmDeps = [
+		'positron-proxy',
+		'positron-duckdb'
+	];
+
+	// If the extension has npm dependencies, use the Npm package manager
+	// dependency strategy.
+	const packageManger = extensionsWithNpmDeps.includes(packageJsonConfig.name) ?
+		vsce.PackageManager.Npm :
+		vsce.PackageManager.None;
+
 	// Replace vsce.listFiles with listExtensionFiles to queue the work
-	listExtensionFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.None, packagedDependencies }).then(fileNames => {
+	listExtensionFiles({ cwd: extensionPath, packageManager: packageManger, packagedDependencies }).then(fileNames => {
 		const files = fileNames
 			.map(fileName => path.join(extensionPath, fileName))
 			.map(filePath => new File({
@@ -409,14 +427,34 @@ export function packageLocalExtensionsStream(forWeb: boolean, disableMangle: boo
 			.filter(({ name }) => builtInExtensions.every(b => b.name !== name))
 			.filter(({ manifestPath }) => (forWeb ? isWebExtension(require(manifestPath)) : true))
 	);
-	const localExtensionsStream = minifyExtensionResources(
-		es.merge(
-			...localExtensionsDescriptions.map(extension => {
-				return fromLocal(extension.path, forWeb, disableMangle)
-					.pipe(rename(p => p.dirname = `extensions/${extension.name}/${p.dirname}`));
-			})
-		)
-	);
+
+	// --- Start Positron ---
+
+	// Process the local extensions serially to avoid running out of file
+	// descriptors (EMFILE) when building.
+
+	const localExtensionsStream = es.through();
+	const queue = [...localExtensionsDescriptions];
+
+	function processNext() {
+		if (queue.length === 0) {
+			localExtensionsStream.end();
+			return;
+		}
+
+		const extension = queue.shift();
+		if (!extension) {
+			return;
+		}
+		const stream = fromLocal(extension.path, forWeb, disableMangle)
+			.pipe(rename(p => p.dirname = `extensions/${extension.name}/${p.dirname}`))
+			.pipe(es.through(undefined, processNext));
+
+		stream.pipe(localExtensionsStream, { end: false });
+	}
+
+	processNext();
+	// --- End Positron ---
 
 	let result: Stream;
 	if (forWeb) {

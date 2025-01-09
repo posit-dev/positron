@@ -1,6 +1,3 @@
-<!-- Start Positron -->
-<!-- If you are seeking the original Vscode README go here: https://github.com/microsoft/vscode/tree/main/test/smoke -->
-
 # Positron E2E Test Guide
 
 This document provides guidelines and setup instructions for effectively running and managing end-to-end tests in the Positron project.
@@ -20,16 +17,15 @@ This document provides guidelines and setup instructions for effectively running
 
 ### Test Code Location
 
-- `test/e2e/features`
+All Positron end-to-end (E2E) test code resides in the `test/e2e` directory. For each area under test, there is typically a corresponding Page Object Model (POM) class to assist with locating and interacting with page elements.
 
-For instance, the e2e tests for the help pane are at `test/e2e/features/help/help.test.ts`
-
-### Test Helpers Location
-
-- General helpers dir: `test/automation/src`
-- Positron helpers dir: `test/automation/src/positron`
-
-For each area under test, there is typically a companion class that assists with locating and interacting with elements (similar to POM pattern). For instance, the e2e tests for the help pane are at `test/e2e/features/help/help.test.ts`
+```plaintext
+test/
+└── e2e/
+    ├── infra/   <-- contains the driver, browser, electron, test runner, etc. files
+    ├── pages/   <-- contains all the Positron POMs
+    └── tests/   <-- contains all the tests, organized by area
+```
 
 ### Test Template
 
@@ -100,11 +96,10 @@ Several tests use [QA Content Examples](https://github.com/posit-dev/qa-example-
 
 ### Install
 
-Before compiling the tests, make sure to install dependencies in the following directories:
+Before compiling the tests, make sure to install dependencies:
 
 ```bash
-yarn --cwd test/automation install
-yarn --cwd test/e2e install
+npm --prefix test/e2e install
 ```
 
 ### Build
@@ -112,7 +107,7 @@ yarn --cwd test/e2e install
 The tests are written in TypeScript, but unlike the main Positron code, these files aren’t automatically transpiled by the build daemons. To run the tests, you’ll need to start the build watcher:
 
 ```bash
-yarn --cwd test/e2e watch
+npm run --prefix test/e2e watch
 ```
 
 _You may see errors in test files before you run this builder step once, as it's looking for types in the not-yet-existing build artifacts._
@@ -148,16 +143,16 @@ Run tests directly from the CLI with these scripts:
 
 ```shell
 # run entire electron test suite
-yarn e2e
+npm run e2e
 
 # run entire web test suite
-yarn e2e-browser
+npm run e2e-browser
 
 # run entire pr test suite
-yarn e2e-pr
+npm run e2e-pr
 
 # re-run only failed tests from last run
-yarn e2e-failed
+npm run e2e-failed
 
 # craft your own custom command
 npx playwright test <testName> --project e2e-electron --grep <someTag> --workers 3
@@ -168,7 +163,7 @@ npx playwright test <testName> --project e2e-electron --grep <someTag> --workers
 Launch Playwright’s UI mode for a graphical view of test traces, making debugging easier for complex interactions:
 
 ```shell
-yarn e2e-ui
+npm run e2e-ui
 ```
 
 #### Target a Positron Build
@@ -177,10 +172,10 @@ To test against a specific build, set the BUILD environment variable:
 
 ```bash
 # Run all tests
-BUILD=/Applications/Positron.app yarn e2e
+BUILD=/Applications/Positron.app npm run e2e
 
 # Run PR-tagged tests
-BUILD=/Applications/Positron.app yarn e2e-pr
+BUILD=/Applications/Positron.app npm run e2e-pr
 ```
 
 **Note:** During the setup phase, the script will automatically detect and display the version of Positron being tested. This helps verify that the correct build is being used.
@@ -205,7 +200,7 @@ To add a test tag:
 1. Use the format `@:tag` in your PR description (e.g., `@:help`, `@:console`).
 2. Once added, a comment will appear on your PR confirming that the tag was found and parsed correctly.
 
-From that point, all E2E tests linked to the specified tag(s) will run during the test job. For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/helpers/test-tags.ts).
+From that point, all E2E tests linked to the specified tag(s) will run during the test job. For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts).
 
 Note: You can update the tags in the PR description at any time. The PR comment will confirm the parsed tags, and the test job will use the tags present in the PR description at the time of execution.
 
@@ -226,5 +221,3 @@ In order to get the "golden screenshots" used for plot comparison is CI, you wil
 ## Tests run on PRs
 
 If you think your test should be run when PRs are created, [tag the test with @critical](https://playwright.dev/docs/test-annotations#tag-tests). The existing @critical cases were selected to give good overall coverage while keeping the overall execution time down to ten minutes or less. If your new test functionality covers a part of the application that no other tests cover, it is probably a good idea to include it in the @critical set.
-
-<!-- End Positron -->

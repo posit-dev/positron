@@ -22,7 +22,7 @@ import { ILayoutService } from '../../../../platform/layout/browser/layoutServic
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IPositronConnectionsService } from '../../../services/positronConnections/browser/interfaces/positronConnectionsService.js';
+import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 

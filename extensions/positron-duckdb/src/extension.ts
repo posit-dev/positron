@@ -53,6 +53,7 @@ import {
 import * as duckdb from '@duckdb/duckdb-wasm';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as zlib from 'zlib';
 import Worker from 'web-worker';
 import { Table, Vector } from 'apache-arrow';
 import { pathToFileURL } from 'url';
@@ -416,6 +417,7 @@ class ColumnProfileEvaluator {
 
 		const numRows = Number(stats.get('num_rows'));
 		const nullCount = Number(stats.get(`null_count_${field}`));
+
 
 		return {
 			values,
@@ -1237,53 +1239,73 @@ export class DataExplorerRpcHandler {
 		return {};
 	}
 
+	/**
+	 * Import data file into DuckDB by creating table or view
+	 * @param filePath The file path on disk.
+	 * @param catalogName The table name to use in the DuckDB catalog.
+	 */
 	async createTableFromFilePath(filePath: string, catalogName: string) {
-		// Depending on the size of the file, we use CREATE VIEW (less memory,
-		// but slower) vs CREATE TABLE (more memory but faster). We may tweak this threshold,
-		// and especially given that Parquet files may materialize much larger than that appear
-		// on disk.
-		const VIEW_THRESHOLD = 25_000_000;
-		const fileStats = fs.statSync(filePath);
+		let fileExt = path.extname(filePath);
+		const isGzipped = fileExt === '.gz';
 
-		const getCtasQuery = (filePath: string, catalogType: string = 'TABLE') => {
-			const fileExt = path.extname(filePath);
-			let scanOperation;
-			switch (fileExt) {
-				case '.parquet':
-				case '.parq':
-					scanOperation = `parquet_scan('${filePath}')`;
-					break;
-				// TODO: Will need to be able to pass CSV / TSV options from the
-				// UI at some point.
-				case '.csv':
-					scanOperation = `read_csv('${filePath}')`;
-					break;
-				case '.tsv':
-					scanOperation = `read_csv('${filePath}', delim='\t')`;
-					break;
-				default:
-					throw new Error(`Unsupported file extension: ${fileExt}`);
-			}
-			return `CREATE ${catalogType} ${catalogName} AS
-			SELECT * FROM ${scanOperation};`;
+		if (isGzipped) {
+			fileExt = path.extname(filePath.slice(0, -3));
+		}
+
+		const getCsvImportQuery = (_filePath: string, options: Array<String>) => {
+			return `CREATE OR REPLACE TABLE ${catalogName} AS
+			SELECT * FROM read_csv_auto('${_filePath}'${options.length ? ', ' : ''}${options.join(' ,')});`;
 		};
 
-		if (fileStats.size < VIEW_THRESHOLD) {
-			// For smaller files, read the entire contents and register it as a temp file to avoid
-			// caching in duckdb-wasm
-			const fileContents = fs.readFileSync(filePath, { encoding: null });
-			const virtualPath = path.basename(filePath);
-			await this.db.db.registerFileBuffer(virtualPath, fileContents);
-
-			const ctasQuery = getCtasQuery(virtualPath);
-			try {
-				await this.db.runQuery(ctasQuery);
-			} finally {
-				await this.db.db.dropFile(virtualPath);
+		const importDelimited = async (filePath: string, catalogType: string = 'TABLE',
+			extraParams: string = '') => {
+			// TODO: Will need to be able to pass CSV / TSV options from the
+			// UI at some point.
+			const options: Array<string> = [];
+			if (fileExt === '.csv') {
+				options.push('delim=\',\'');
+			} else if (fileExt === '.tsv') {
+				options.push('delim=\'\t\'');
+			} else {
+				throw new Error(`Unsupported file extension: ${fileExt}`);
 			}
-		} else {
-			const ctasQuery = getCtasQuery(filePath);
-			await this.db.runQuery(ctasQuery);
+
+			let query = getCsvImportQuery(filePath, options);
+			try {
+				await this.db.runQuery(query);
+			} catch (error) {
+				// Retry with sample_size=-1 to disable sampling if type inference fails
+				options.push('sample_size=-1');
+				query = getCsvImportQuery(filePath, options);
+				await this.db.runQuery(query);
+			}
+		};
+
+		// Read the entire contents and register it as a temp file
+		// to avoid file handle caching in duckdb-wasm
+		let fileContents = fs.readFileSync(filePath, { encoding: null });
+		if (isGzipped) {
+			fileContents = zlib.gunzipSync(fileContents);
+		}
+
+		// For gzipped files, use the base name without the .gz extension
+		const virtualPath = isGzipped ?
+			path.basename(filePath, '.gz') :
+			path.basename(filePath);
+
+		await this.db.db.registerFileBuffer(virtualPath, fileContents);
+		try {
+			const baseExt = path.extname(virtualPath);
+			if (baseExt === '.parquet' || baseExt === '.parq') {
+				// Always create a view for Parquet files
+				const query = `CREATE OR REPLACE TABLE ${catalogName} AS
+				SELECT * FROM parquet_scan('${virtualPath}');`;
+				await this.db.runQuery(query);
+			} else {
+				await importDelimited(virtualPath);
+			}
+		} finally {
+			await this.db.db.dropFile(virtualPath);
 		}
 	}
 

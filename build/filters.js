@@ -106,9 +106,7 @@ module.exports.indentationFilter = [
 	'!product.overrides.json',
 
 	// except specific folders
-	'!test/automation/out/**',
 	'!test/monaco/out/**',
-	'!test/smoke/out/**',
 	'!test/e2e/out/**',
 	'!extensions/typescript-language-features/test-workspace/**',
 	'!extensions/typescript-language-features/resources/walkthroughs/**',

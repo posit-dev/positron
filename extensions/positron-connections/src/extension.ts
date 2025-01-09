@@ -7,9 +7,12 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { ConnectionItem, ConnectionItemsProvider, isActiveConnectionItem, DatabaseConnectionItem, DisconnectedConnectionItem } from './connection';
 import { PositronConnectionsComm } from './comms/ConnectionsComms';
+import { registerConnectionDrivers } from './drivers';
 
 
 export function activate(context: vscode.ExtensionContext) {
+	// We always register the drivers.
+	registerConnectionDrivers(context);
 
 	const config = vscode.workspace.getConfiguration('positron');
 	const enabled = !config.get<boolean>('connections', false);

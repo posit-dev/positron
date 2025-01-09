@@ -37,7 +37,7 @@ import { ActivityItemInput, ActivityItemInputState } from './classes/activityIte
 import { ActivityItemErrorStream, ActivityItemOutputStream } from './classes/activityItemStream.js';
 import { ILanguageRuntimeCodeExecutedEvent, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
 import { IRuntimeStartupService } from '../../runtimeStartup/common/runtimeStartupService.js';
 
@@ -215,7 +215,18 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				return;
 			}
 
-			const attachMode = e.isNew ? SessionAttachMode.Starting : SessionAttachMode.Reconnecting;
+			let attachMode: SessionAttachMode;
+			if (e.startMode === RuntimeStartMode.Starting) {
+				attachMode = SessionAttachMode.Starting;
+			} else if (e.startMode === RuntimeStartMode.Restarting) {
+				attachMode = SessionAttachMode.Restarting;
+			} else if (e.startMode === RuntimeStartMode.Reconnecting) {
+				attachMode = SessionAttachMode.Reconnecting;
+			} else if (e.startMode === RuntimeStartMode.Switching) {
+				attachMode = SessionAttachMode.Switching;
+			} else {
+				throw new Error(`Unexpected runtime start mode: ${e.startMode}`);
+			}
 
 			// If there is already a Positron console instance for the runtime,
 			// just reattach
@@ -237,8 +248,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				this._positronConsoleInstancesBySessionId.set(e.session.sessionId, positronConsoleInstance);
 			} else {
 				// New runtime with a new language, so start a new Positron console instance.
-				this.startPositronConsoleInstance(e.session,
-					e.isNew ? SessionAttachMode.Starting : SessionAttachMode.Reconnecting);
+				this.startPositronConsoleInstance(e.session, attachMode);
 			}
 		}));
 
@@ -1226,6 +1236,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 								// tense of the attach mode.
 								switch (runtimeItem.attachMode) {
 									case SessionAttachMode.Starting:
+									case SessionAttachMode.Switching:
 										msg = localize('positronConsole.started', "{0} started.", this._session.metadata.sessionName);
 										break;
 									case SessionAttachMode.Restarting:
@@ -1281,42 +1292,33 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param attachMode A value which indicates the attachment mode.
 	 */
 	private emitStartRuntimeItems(attachMode: SessionAttachMode) {
-		// Set the state and add the appropriate runtime item to indicate whether the Positron
-		// console instance is is starting or is reconnected.
-		if (attachMode === SessionAttachMode.Starting ||
-			attachMode === SessionAttachMode.Reconnecting) {
-			let switchingRuntime = false;
-			for (let i = 0; i < this._runtimeItems.length; i++) {
-				if (this._runtimeItems[i] instanceof RuntimeItemExited) {
-					const runtimeItem = this._runtimeItems[i] as RuntimeItemExited;
-					switchingRuntime =
-						runtimeItem.reason === RuntimeExitReason.SwitchRuntime ||
-						runtimeItem.reason === RuntimeExitReason.ExtensionHost;
-				}
-			}
-			const restart = this._state === PositronConsoleState.Exited && !switchingRuntime;
+		// Set the state and add the appropriate runtime item indicating the session attach mode.
+		if (attachMode === SessionAttachMode.Restarting ||
+			// Consider starting from an exited state a restart.
+			(attachMode === SessionAttachMode.Starting && this._state === PositronConsoleState.Exited)) {
 			this.setState(PositronConsoleState.Starting);
-			if (restart) {
-				this.addRuntimeItem(new RuntimeItemStarting(
-					generateUuid(),
-					localize('positronConsole.starting.restart', "{0} restarting.", this._session.metadata.sessionName),
-					SessionAttachMode.Restarting));
-			} else if (attachMode === SessionAttachMode.Starting) {
-				this.addRuntimeItem(new RuntimeItemStarting(
-					generateUuid(),
-					localize('positronConsole.starting.start', "{0} starting.", this._session.metadata.sessionName),
-					attachMode));
-			} else if (attachMode === SessionAttachMode.Reconnecting) {
-				this.addRuntimeItem(new RuntimeItemStarting(
-					generateUuid(),
-					localize('positronConsole.starting.reconnect', "{0} reconnecting.", this._session.metadata.sessionName),
-					attachMode));
-			}
-		} else {
+			this.addRuntimeItem(new RuntimeItemStarting(
+				generateUuid(),
+				localize('positronConsole.starting.restart', "{0} restarting.", this._session.metadata.sessionName),
+				SessionAttachMode.Restarting));
+		} else if (attachMode === SessionAttachMode.Starting ||
+			attachMode === SessionAttachMode.Switching) {
+			this.setState(PositronConsoleState.Starting);
+			this.addRuntimeItem(new RuntimeItemStarting(
+				generateUuid(),
+				localize('positronConsole.starting.start', "{0} starting.", this._session.metadata.sessionName),
+				attachMode));
+		} else if (attachMode === SessionAttachMode.Reconnecting) {
+			this.setState(PositronConsoleState.Starting);
+			this.addRuntimeItem(new RuntimeItemStarting(
+				generateUuid(),
+				localize('positronConsole.starting.reconnect', "{0} reconnecting.", this._session.metadata.sessionName),
+				attachMode));
+		} else if (attachMode === SessionAttachMode.Connected) {
 			this.setState(PositronConsoleState.Ready);
 			this.addRuntimeItem(new RuntimeItemReconnected(
 				generateUuid(),
-				`${this._session.metadata.sessionName} reconnected.`
+				localize('positronConsole.starting.reconnected', "{0} reconnected.", this._session.metadata.sessionName),
 			));
 		}
 	}
@@ -1723,7 +1725,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 			// Show restart button if crashed and user has disabled automatic restarts
 			const crashedAndNeedRestartButton = exit.reason === RuntimeExitReason.Error &&
-				!this._configurationService.getValue<boolean>('positron.interpreters.restartOnCrash');
+				!this._configurationService.getValue<boolean>('interpreters.restartOnCrash');
 
 			// In the case of a forced quit, normal shutdown, or unknown shutdown where the exit
 			// code was `0`, we don't attempt to automatically start the runtime again. In this

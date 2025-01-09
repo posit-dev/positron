@@ -8,20 +8,21 @@ import * as React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
+import { IEditorGroupView } from './editor.js';
 import { Emitter } from '../../../../base/common/event.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IAction, Separator, SubmenuAction } from '../../../../base/common/actions.js';
-import { IEditorGroupView } from './editor.js';
 import { actionTooltip } from '../../../../platform/positronActionBar/common/helpers.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { PositronActionBar } from '../../../../platform/positronActionBar/browser/positronActionBar.js';
-import { IMenu, IMenuService, MenuId, MenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { ActionBarRegion } from '../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarSeparator } from '../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { ActionBarActionButton } from '../../../../platform/positronActionBar/browser/components/actionBarActionButton.js';
 import { ActionBarCommandButton } from '../../../../platform/positronActionBar/browser/components/actionBarCommandButton.js';
+import { IMenu, IMenuActionOptions, IMenuService, MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
 
 // Constants.
 const PADDING_LEFT = 8;
@@ -68,14 +69,14 @@ export class EditorActionBarFactory extends Disposable {
 	//#region Private Properties
 
 	/**
-	 * Gets the menu disposable store.
+	 * Gets the menu disposable stores.
 	 */
-	private readonly _menuDisposableStore = this._register(new DisposableStore());
+	private readonly _menuDisposableStores = new Map<MenuId, DisposableStore>();
 
 	/**
-	 * Gets or sets the editor title menu.
+	 * Gets the menus.
 	 */
-	private _editorTitleMenu: IMenu;
+	private readonly _menus = new Map<MenuId, IMenu>();
 
 	/**
 	 * Gets the onDidActionsChange event emitter.
@@ -92,6 +93,20 @@ export class EditorActionBarFactory extends Disposable {
 	readonly onDidActionsChange = this._onDidActionsChangeEmitter.event;
 
 	//#endregion Public Events
+
+	//#region Private Properties
+
+	/**
+	 * Gets the context key service.
+	 */
+	private get contextKeyService() {
+		// If there is an active editor pane, use its scoped context key service, if possible.
+		// Otherwise, use the editor group's scoped context key service.
+		return this._editorGroup.activeEditorPane?.scopedContextKeyService ??
+			this._editorGroup.scopedContextKeyService;
+	}
+
+	//#endregion Private Properties
 
 	//#region Constructor
 
@@ -112,48 +127,22 @@ export class EditorActionBarFactory extends Disposable {
 		super();
 
 		/**
-		 * Creates the editor title menu.
-		 * @returns The editor title menu.
+		 * Creates the menus.
 		 */
-		const createEditorTitleMenu = () => {
-			// Clear the menu disposable store.
-			this._menuDisposableStore.clear();
-
-			// If there is an active editor pane, use its scoped context key service, if possible.
-			// Otherwise, use the editor group's scoped context key service.
-			const contextKeyService = this._editorGroup.activeEditorPane?.scopedContextKeyService ??
-				this._editorGroup.scopedContextKeyService;
-
-			// Create the menu.
-			const editorTitleMenu = this._menuDisposableStore.add(this._menuService.createMenu(
-				MenuId.EditorTitle,
-				contextKeyService,
-				{
-					emitEventsForSubmenuChanges: true,
-					eventDebounceDelay: 0
-				}
-			));
-
-			// Add the onDidChange event handler.
-			this._menuDisposableStore.add(editorTitleMenu.onDidChange(() => {
-				// Create the menu.
-				this._editorTitleMenu = createEditorTitleMenu();
-
-				// Raise the onDidActionsChange event.
-				this._onDidActionsChangeEmitter.fire();
-			}));
-
-			// Return the menu.
-			return editorTitleMenu;
+		const createMenus = () => {
+			this.createMenu(MenuId.EditorActionsLeft);
+			this.createMenu(MenuId.EditorActionsCenter);
+			this.createMenu(MenuId.EditorActionsRight);
+			this.createMenu(MenuId.EditorTitle);
 		};
 
-		// Create the menu.
-		this._editorTitleMenu = createEditorTitleMenu();
+		// Create the menus.
+		createMenus();
 
 		// Add the onDidActiveEditorChange event handler.
-		this._register(this._editorGroup.onDidActiveEditorChange(() => {
-			// Create the menu.
-			this._editorTitleMenu = createEditorTitleMenu();
+		this._register(this._editorGroup.onDidActiveEditorChange(e => {
+			// Recreate the menus.
+			createMenus();
 
 			// Raise the onDidActionsChange event.
 			this._onDidActionsChangeEmitter.fire();
@@ -161,17 +150,6 @@ export class EditorActionBarFactory extends Disposable {
 	}
 
 	//#endregion Constructor
-
-	//#region Public Properties
-
-	/**
-	 * Gets the menu.
-	 */
-	get menu() {
-		return this._editorTitleMenu;
-	}
-
-	//#endregion Public Properties
 
 	//#region Public Methods
 
@@ -181,13 +159,150 @@ export class EditorActionBarFactory extends Disposable {
 	 * @returns The action bar.
 	 */
 	create(auxiliaryWindow?: boolean) {
-		// Break the actions into primary actions, secondary actions, and submenu descriptors.
+		// Create the set of processed actions.
+		const processedActions = new Set<string>();
+
+		// Build the left action bar elements from the editor actions left menu.
+		const leftActionBarElements = this.buildActionBarElements(
+			processedActions,
+			MenuId.EditorActionsLeft,
+			false
+		);
+
+		// Build the center action bar elements from the editor actions center menu.
+		const centerActionBarElements = this.buildActionBarElements(
+			processedActions,
+			MenuId.EditorActionsCenter,
+			false
+		);
+
+		// Build the right action bar elements from the editor actions right menu and the editor
+		// title menu.
+		let rightActionBarElements = [
+			// Build the right action bar elements from the editor actions right menu.
+			...this.buildActionBarElements(
+				processedActions,
+				MenuId.EditorActionsRight,
+				false
+			),
+			// Build the right action bar elements from the editor title menu.
+			...this.buildActionBarElements(
+				processedActions,
+				MenuId.EditorTitle,
+				true
+			)
+		];
+
+		// Splice the move editor to new window command button into the right action bar elements.
+		if (auxiliaryWindow !== undefined) {
+			rightActionBarElements.splice(
+				rightActionBarElements.length - 1,
+				0,
+				<ActionBarCommandButton
+					disabled={auxiliaryWindow}
+					iconId='positron-open-in-new-window'
+					tooltip={positronMoveIntoNewWindowTooltip}
+					ariaLabel={positronMoveIntoNewWindowAriaLabel}
+					commandId='workbench.action.moveEditorToNewWindow'
+				/>
+			);
+		}
+
+		// Return the action bar.
+		return (
+			<PositronActionBar
+				size='small'
+				borderTop={false}
+				borderBottom={true}
+				paddingLeft={PADDING_LEFT}
+				paddingRight={PADDING_RIGHT}
+			>
+				{leftActionBarElements.length > 0 &&
+					<ActionBarRegion location='left'>
+						{leftActionBarElements}
+					</ActionBarRegion>
+				}
+				{centerActionBarElements.length > 0 &&
+					<ActionBarRegion location='center'>
+						{centerActionBarElements}
+					</ActionBarRegion>
+				}
+				{rightActionBarElements.length > 0 &&
+					<ActionBarRegion location='right'>
+						{rightActionBarElements}
+					</ActionBarRegion>
+				}
+			</PositronActionBar>
+		);
+	}
+
+	//#endregion Public Methods
+
+	//#region Private Methods
+
+	/**
+	 * Creates a menu.
+	 * @param menuId The menu ID.
+	 */
+	private createMenu(menuId: MenuId) {
+		// Dispose the current menu disposable store.
+		this._menuDisposableStores.get(menuId)?.dispose();
+
+		// Add the menu disposable store.
+		const disposableStore = new DisposableStore();
+		this._menuDisposableStores.set(menuId, disposableStore);
+
+		// Create the menu.
+		const menu = disposableStore.add(this._menuService.createMenu(
+			menuId,
+			this.contextKeyService,
+			{
+				emitEventsForSubmenuChanges: true,
+				eventDebounceDelay: 0
+			}
+		));
+		this._menus.set(menuId, menu);
+
+		// Add the onDidChange event handler to the menu.
+		disposableStore.add(menu.onDidChange(() => {
+			// Recreate the menu.
+			this.createMenu(menuId);
+
+			// Raise the onDidActionsChange event.
+			this._onDidActionsChangeEmitter.fire();
+		}));
+	}
+
+	/**
+	 * Builds action bar elements for a menu.
+	 * @param processedActions The processed actions.
+	 * @param menuId The menu ID.
+	 * @param buildSecondaryActions A value which indicates whether to build secondary actions.
+	 */
+	private buildActionBarElements(
+		processedActions: Set<string>,
+		menuId: MenuId,
+		buildSecondaryActions: boolean
+	) {
+		// Get the menu.
+		const menu = this._menus.get(menuId);
+		if (!menu) {
+			return [];
+		}
+
+		// Process the menu actions.
 		const primaryActions: IAction[] = [];
 		const secondaryActions: IAction[] = [];
 		const submenuDescriptors = new Set<SubmenuDescriptor>();
-		for (const [group, actions] of this._editorTitleMenu.getActions()) {
+		const options = {
+			arg: this._editorGroup.activeEditor?.resource,
+			shouldForwardArgs: true
+		} satisfies IMenuActionOptions;
+		for (const [group, actions] of menu.getActions(options)) {
 			// Determine the target actions.
-			const targetActions = this.isPrimaryGroup(group) ? primaryActions : secondaryActions;
+			const targetActions = !buildSecondaryActions || this.isPrimaryGroup(group) ?
+				primaryActions :
+				secondaryActions;
 
 			// Push a separator between groups.
 			if (targetActions.length > 0) {
@@ -213,7 +328,9 @@ export class EditorActionBarFactory extends Disposable {
 		// Inline submenus, where possible.
 		for (const { group, action, index } of submenuDescriptors) {
 			// Set the target.
-			const target = this.isPrimaryGroup(group) ? primaryActions : secondaryActions;
+			const target = !buildSecondaryActions || this.isPrimaryGroup(group) ?
+				primaryActions :
+				secondaryActions;
 
 			// Inline the submenu, if possible.
 			if (this.shouldInlineSubmenuAction(group, action)) {
@@ -230,56 +347,71 @@ export class EditorActionBarFactory extends Disposable {
 				elements.push(<ActionBarSeparator />);
 			} else if (action instanceof MenuItemAction) {
 				// Menu item action.
-				elements.push(<ActionBarActionButton action={action} />);
-			} else if (action instanceof SubmenuAction) {
-				// Submenu action. Get the first action.
-				const firstAction = action.actions[0];
-
-				// The first action must be a menu item action.
-				if (firstAction instanceof MenuItemAction) {
-					// Extract the icon ID from the class.
-					const iconIdResult = action.actions[0].class?.match(CODICON_ID);
-					const iconId = iconIdResult?.length === 2 ? iconIdResult[1] : undefined;
+				if (!processedActions.has(action.id)) {
+					processedActions.add(action.id);
+					elements.push(<ActionBarActionButton action={action} />);
+				}
+			} else if (action instanceof SubmenuItemAction) {
+				// Process the action.
+				if (!action.item.rememberDefaultAction) {
+					// Get the icon ID. TODO: Deal with non-theme icons.
+					const iconId = ThemeIcon.isThemeIcon(action.item.icon) ?
+						action.item.icon.id :
+						undefined;
 
 					// Push the action bar menu button.
 					elements.push(
 						<ActionBarMenuButton
 							iconId={iconId}
-							text={iconId ? undefined : firstAction.label}
-							ariaLabel={firstAction.label ?? firstAction.tooltip}
-							dropdownAriaLabel={action.label ?? action.tooltip}
+							ariaLabel={action.label ?? action.tooltip}
 							align='left'
 							tooltip={actionTooltip(
-								this._contextKeyService,
-								this._keybindingService,
-								firstAction,
-								false
-							)}
-							dropdownTooltip={actionTooltip(
 								this._contextKeyService,
 								this._keybindingService,
 								action,
 								false
 							)}
-							dropdownIndicator='enabled-split'
+							dropdownIndicator='disabled'
 							actions={() => action.actions}
 						/>
 					);
+				} else {
+					// Submenu action. Get the first action.
+					const firstAction = action.actions[0];
+
+					// The first action must be a menu item action.
+					if (firstAction instanceof MenuItemAction) {
+						// Extract the icon ID from the class.
+						const iconIdResult = action.actions[0].class?.match(CODICON_ID);
+						const iconId = iconIdResult?.length === 2 ? iconIdResult[1] : undefined;
+
+						// Push the action bar menu button.
+						elements.push(
+							<ActionBarMenuButton
+								iconId={iconId}
+								text={iconId ? undefined : firstAction.label}
+								ariaLabel={firstAction.label ?? firstAction.tooltip}
+								dropdownAriaLabel={action.label ?? action.tooltip}
+								align='left'
+								tooltip={actionTooltip(
+									this._contextKeyService,
+									this._keybindingService,
+									firstAction,
+									false
+								)}
+								dropdownTooltip={actionTooltip(
+									this._contextKeyService,
+									this._keybindingService,
+									action,
+									false
+								)}
+								dropdownIndicator='enabled-split'
+								actions={() => action.actions}
+							/>
+						);
+					}
 				}
 			}
-		}
-
-		// If we know whether we're in an auxiliary window, add the move into new window button.
-		if (auxiliaryWindow !== undefined) {
-			elements.push(
-				<ActionBarCommandButton
-					disabled={auxiliaryWindow}
-					iconId='positron-open-in-new-window'
-					tooltip={positronMoveIntoNewWindowTooltip}
-					ariaLabel={positronMoveIntoNewWindowAriaLabel}
-					commandId='workbench.action.moveEditorToNewWindow'
-				/>
-			);
 		}
 
 		// If there are secondary actions, add the more actions button. Note that the normal
@@ -297,25 +429,9 @@ export class EditorActionBarFactory extends Disposable {
 			);
 		}
 
-		// Return the elements.
-		return (
-			<PositronActionBar
-				size='small'
-				borderTop={false}
-				borderBottom={true}
-				paddingLeft={PADDING_LEFT}
-				paddingRight={PADDING_RIGHT}
-			>
-				<ActionBarRegion location='right'>
-					{elements}
-				</ActionBarRegion>
-			</PositronActionBar>
-		);
+		// Return the action bar elements.
+		return elements;
 	}
-
-	//#endregion Public Methods
-
-	//#region Private Methods
 
 	/**
 	 * Determines whether a group is the primary group.
