@@ -61,20 +61,10 @@ test.describe('Reticulate', {
 
 	});
 
-	test('R - Verify Reticulate Stop/Restart Functionality [C...]', async function ({ app, r, interpreter }) {
+	test('R - Verify Reticulate Stop/Restart Functionality [C...]', async function ({ app, interpreter }) {
 
-		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()');
-		await app.workbench.console.sendEnterKey();
+		await app.workbench.interpreter.selectInterpreter('Python', 'Python (reticulate)');
 
-		try {
-			await app.workbench.console.waitForConsoleContents('Yes/no/cancel');
-			await app.workbench.console.typeToConsole('no');
-			await app.workbench.console.sendEnterKey();
-		} catch {
-			// Prompt did not appear
-		}
-
-		await app.workbench.console.waitForReady('>>>');
 		await app.workbench.console.pasteCodeToConsole('x=100');
 		await app.workbench.console.sendEnterKey();
 
@@ -88,6 +78,25 @@ test.describe('Reticulate', {
 			const variablesMap = await app.workbench.variables.getFlatVariables();
 			expect(variablesMap.get('y')).toStrictEqual({ value: '100', type: 'int' });
 		}).toPass({ timeout: 60000 });
+
+		await app.workbench.layouts.enterLayout('stacked');
+
+		await app.workbench.console.barPowerButton.click();
+
+		await app.workbench.console.waitForConsoleContents('shut down successfully');
+
+		await app.code.driver.page.locator('.positron-console').getByRole('button', { name: 'Restart R' }).click();
+
+		await app.workbench.interpreter
+
+		// await app.code.driver.page.locator('.positron-console').locator('.action-bar-button-drop-down-arrow').click();
+
+		// await app.code.driver.page.locator('.action-label', { hasText: 'Python (reticulate)' }).hover();
+		// await app.code.driver.page.locator('.action-label', { hasText: 'Python (reticulate)' }).click({ force: true });
+
+		// await app.code.driver.page.locator('.positron-console').getByRole('button', { name: 'Restart Python' }).click();
+
+		console.log('test');
 
 	});
 });
