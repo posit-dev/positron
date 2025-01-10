@@ -11,7 +11,7 @@ export * from './workbench';
 // pages
 export * from '../pages/console';
 export * from '../pages/popups';
-export * from '../pages/interpreter';
+export * from '../pages/interpreterDropdown';
 export * from '../pages/variables';
 export * from '../pages/dataExplorer';
 export * from '../pages/sideBar';
