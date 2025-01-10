@@ -4,6 +4,7 @@
 #
 
 import os
+import time
 from typing import Any, Dict, List, Optional, cast
 from unittest.mock import Mock
 
@@ -16,6 +17,7 @@ from positron_ipykernel._vendor.jedi_language_server import jedi_utils
 from positron_ipykernel._vendor.lsprotocol.types import (
     CompletionItem,
     CompletionParams,
+    DidCloseTextDocumentParams,
     MarkupContent,
     MarkupKind,
     Position,
@@ -29,6 +31,7 @@ from positron_ipykernel.positron_jedilsp import (
     _publish_diagnostics,
     positron_completion,
     positron_completion_item_resolve,
+    positron_did_close_diagnostics,
     positron_help_topic_request,
 )
 
@@ -300,3 +303,26 @@ def test_publish_diagnostics(source: str, messages: List[str]):
     actual_messages = [diagnostic.message for diagnostic in actual_diagnostics]
     assert actual_uri == uri
     assert actual_messages == messages
+
+
+def test_close_notebook_cell_clears_diagnostics():
+    # See: https://github.com/posit-dev/positron/issues/4160
+    code = """\
+---
+echo: false
+---
+"""
+    params = DidCloseTextDocumentParams(
+        TextDocumentIdentifier("vscode-notebook-cell:/foo.ipynb#W0sZmlsZQ%3D%3D")
+    )
+    server = mock_server(params.text_document.uri, code, {})
+
+    positron_did_close_diagnostics(server, params)
+
+    # Wait for the diagnostics to be published
+    for _ in range(25):
+        if server.publish_diagnostics.call_count > 0:
+            break
+        time.sleep(0.05)
+
+    server.publish_diagnostics.assert_called_once_with(params.text_document.uri, [])
