@@ -37,7 +37,7 @@ configurationRegistry.registerConfiguration({
 			default: true,
 			markdownDescription: localize(
 				'positron.runtimeNotebookKernel.enable.description',
-				'**CAUTION**: Enable experimental runtime notebook kernels which may result in unexpected behaviour. Requires a restart to take effect.'
+				'Enable runtime notebook kernels which live in the main thread instead of in the extension host. Requires a restart to take effect.'
 			),
 		},
 		[NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY]: {
