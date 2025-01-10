@@ -24,7 +24,26 @@ import { RuntimeClientType } from '../../../../services/runtimeSession/common/ru
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { PositronTestServiceAccessor, positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
-import { TestNotebookService } from '../../../../test/common/positronWorkbenchTestServices.js';
+import { INotebookRendererInfo, INotebookStaticPreloadInfo } from '../../../notebook/common/notebookCommon.js';
+import { NotebookOutputRendererInfo } from '../../../notebook/common/notebookOutputRenderer.js';
+import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
+
+class TestNotebookService implements Partial<INotebookService> {
+	getRenderers(): INotebookRendererInfo[] {
+		return [];
+	}
+
+	getPreferredRenderer(_mimeType: string): NotebookOutputRendererInfo | undefined {
+		return <NotebookOutputRendererInfo>{
+			id: 'positron-ipywidgets',
+			extensionId: new ExtensionIdentifier('positron.positron-ipywidgets'),
+		};
+	}
+
+	*getStaticPreloads(_viewType: string): Iterable<INotebookStaticPreloadInfo> {
+		// Yield nothing.
+	}
+}
 
 interface TestNotebookEditor extends INotebookEditor {
 	changeModel(uri: URI): void;

@@ -60,8 +60,8 @@ export class ActiveRuntimeSession extends Disposable {
 	 * Register a disposable to be cleaned up when this object is disposed.
 	 * @param disposable
 	 */
-	public register(disposable: IDisposable): void {
-		this._register(disposable);
+	public register<T extends IDisposable>(disposable: T): T {
+		return this._register(disposable);
 	}
 
 	/**

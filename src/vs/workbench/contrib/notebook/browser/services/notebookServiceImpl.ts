@@ -540,7 +540,10 @@ export class NotebookService extends Disposable implements INotebookService {
 	) {
 		super();
 
-		notebookRendererExtensionPoint.setHandler((renderers) => {
+		// --- Start Positron ---
+		// Register leaked disposable.
+		this._register(notebookRendererExtensionPoint.setHandler((renderers) => {
+			// --- End Positron ---
 			this._notebookRenderersInfoStore.clear();
 
 			for (const extension of renderers) {
@@ -577,9 +580,15 @@ export class NotebookService extends Disposable implements INotebookService {
 			}
 
 			this._onDidChangeOutputRenderers.fire();
-		});
+			// --- Start Positron ---
+			// Register leaked disposable.
+		}));
+		// --- End Positron ---
 
-		notebookPreloadExtensionPoint.setHandler(extensions => {
+		// --- Start Positron ---
+		// Register leaked disposable.
+		this._register(notebookPreloadExtensionPoint.setHandler(extensions => {
+			// --- End Positron ---
 			this._notebookStaticPreloadInfoStore.clear();
 
 			for (const extension of extensions) {
@@ -623,7 +632,10 @@ export class NotebookService extends Disposable implements INotebookService {
 					}));
 				}
 			}
-		});
+			// --- Start Positron ---
+			// Register leaked disposable.
+		}));
+		// --- End Positron ---
 
 		const updateOrder = () => {
 			this._displayOrder = new MimeTypeDisplayOrder(

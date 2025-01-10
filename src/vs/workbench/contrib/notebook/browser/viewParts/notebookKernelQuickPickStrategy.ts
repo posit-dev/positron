@@ -38,6 +38,7 @@ import { EnablementState } from '../../../../services/extensionManagement/common
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { DeferredPromise } from '../../../../../base/common/async.js';
+import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../../runtimeNotebookKernel/common/runtimeNotebookKernelConfig.js';
 // --- End Positron ---
 type KernelPick = IQuickPickItem & { kernel: INotebookKernel };
 function isKernelPick(item: QuickPickInput<IQuickPickItem>): item is KernelPick {
@@ -586,7 +587,8 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 						// --- Start Positron ---
 						// Enable kernel source action providers for Positron kernels
 						const kernel = all.find(kernel => kernel.id === `ms-toolsai.jupyter/${selectedKernelId}` ||
-							kernel.id === `positron.positron-notebook-controllers/${selectedKernelId}`);
+							kernel.id === `positron.positron-notebook-controllers/${selectedKernelId}` ||
+							kernel.id === `${POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID}/${selectedKernelId}`);
 						// --- End Positron ---
 						if (kernel) {
 							await this._selecteKernel(notebook, kernel);
@@ -648,9 +650,10 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 		}
 
 		// --- Start Positron ---
-		// Remove the "Positron Notebook Controllers" quickpick item in favor of kernel source action providers
+		// Remove Positron quickpick items in favor of kernel source action providers
 		const others = matchResult.all.filter(item => item.extension.value !== JUPYTER_EXTENSION_ID &&
-			item.extension.value !== 'positron.positron-notebook-controllers');
+			item.extension.value !== 'positron.positron-notebook-controllers' &&
+			item.extension.value !== POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID);
 		// --- End Positron ---
 		const quickPickItems: QuickPickInput<KernelQuickPickItem>[] = [];
 
