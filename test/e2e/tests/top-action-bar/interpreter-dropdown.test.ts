@@ -12,11 +12,9 @@ test.use({
 const desiredPython = process.env.POSITRON_PY_VER_SEL!;
 const desiredR = process.env.POSITRON_R_VER_SEL!;
 
-test.describe('Interpreter Dropdown in Top Action Bar', { tag: [tags.WEB, tags.TOP_ACTION_BAR, tags.CRITICAL] }, () => {
-
-	test.beforeAll(async function ({ app }) {
-		await app.workbench.console.waitForReadyOrNoInterpreter();
-	});
+test.describe('Interpreter Dropdown in Top Action Bar', {
+	tag: [tags.WEB, tags.TOP_ACTION_BAR, tags.INTERPRETER, tags.CRITICAL]
+}, () => {
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.console.barClearButton.click();
