@@ -358,6 +358,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	public completeDiscovery(id: number): void {
 		// Update the extension host's runtime discovery state to 'Complete'
 		this._discoveryCompleteByExtHostId.set(id, true);
+		this._logService.debug(`[Runtime startup] Discovery completed for extension host with id: ${id}.`);
 
 		// Determine if all extension hosts have completed discovery
 		let discoveryCompletedByAllExtensionHosts = true;
@@ -369,9 +370,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 
 		// The 'Discovery' phase is considered complete only after all extension hosts
-		// have signalled they have completed discovery
+		// have signaled they have completed their own runtime discovery
 		if (discoveryCompletedByAllExtensionHosts) {
 			this._startupPhase.set(RuntimeStartupPhase.Complete, undefined);
+			// Reset the discovery state for each ext host so we are ready
+			// for possible re-discovery of runtimes
+			this._discoveryCompleteByExtHostId.forEach((_, extHostId, m) => {
+				m.set(extHostId, false);
+			});
 		}
 	}
 
@@ -387,7 +393,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	public registerMainThreadLanguageRuntime(id: number): void {
 		// Add the mainThreadLanguageRuntime instance id to the set of mainThreadLanguageRuntimes.
 		this._discoveryCompleteByExtHostId.set(id, false);
-		this._logService.debug(`[Runtime startup] Registered mainThreadLanguageRuntime with id: ${id}.`);
+		this._logService.debug(`[Runtime startup] Registered extension host with id: ${id}.`);
 	}
 
 	/**
@@ -402,7 +408,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	public unregisterMainThreadLanguageRuntime(id: number): void {
 		// Remove the mainThreadLanguageRuntime instance id to the set of mainThreadLanguageRuntimes.
 		this._discoveryCompleteByExtHostId.delete(id);
-		this._logService.debug(`[Runtime startup] Unregistered mainThreadLanguageRuntime with id: ${id}.`);
+		this._logService.debug(`[Runtime startup] Unregistered extension host with id: ${id}.`);
 	}
 
 	/**
