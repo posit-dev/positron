@@ -13,7 +13,7 @@ const desiredPython = process.env.POSITRON_PY_VER_SEL!;
 const desiredR = process.env.POSITRON_R_VER_SEL!;
 
 test.describe('Top Action Bar - Interpreter Dropdown', {
-	tag: [tags.WEB, tags.TOP_ACTION_BAR, tags.INTERPRETER, tags.CRITICAL]
+	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.TOP_ACTION_BAR, tags.INTERPRETER]
 }, () => {
 
 	test.afterEach(async function ({ app }) {
