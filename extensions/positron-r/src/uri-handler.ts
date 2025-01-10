@@ -72,8 +72,7 @@ export async function prepCliEnvVars(session?: RSession): Promise<EnvVar> {
 		R_CLI_HYPERLINKS: 'TRUE',
 		R_CLI_HYPERLINK_FILE_URL_FORMAT: 'positron://file{path}:{line}:{column}',
 		// TODO: I'd like to request POSIX compliant hyperlinks in the future, but currently
-		// cli's tests implicitly assume the default and there are more important changes to
-		// propose in cli, such as tweaks to file hyperlinks. Leave this alone for now.
+		// cli's tests implicitly assume the default. Doesn't seem worth the fuss at this time.
 		// R_CLI_HYPERLINK_MODE: "posix",
 		R_CLI_HYPERLINK_RUN: 'TRUE',
 		R_CLI_HYPERLINK_RUN_URL_FORMAT: 'positron://positron.positron-r/cli?command=x-r-run:{code}',
