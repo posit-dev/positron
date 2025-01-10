@@ -3,141 +3,43 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
-import { InterpreterDropdown, Console } from '../../infra';
-import { test, expect, tags } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe.skip('Interpreter Dropdown in Top Action Bar', { tag: [tags.WEB, tags.TOP_ACTION_BAR] }, () => {
-	let interpreterDropdown: InterpreterDropdown;
-	let console: Console;
+const desiredPython = process.env.POSITRON_PY_VER_SEL!;
+const desiredR = process.env.POSITRON_R_VER_SEL!;
 
-	test.beforeAll(async function ({ app }) {
-		interpreterDropdown = app.workbench.interpreterDropdown;
-		console = app.workbench.console;
+test.describe('Top Action Bar - Interpreter Dropdown', {
+	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.TOP_ACTION_BAR, tags.INTERPRETER]
+}, () => {
+
+	test.afterEach(async function ({ app }) {
+		await app.workbench.console.barClearButton.click();
 	});
 
-	test('Python interpreter starts and shows running [C707212]', async function ({ app }) {
-		const desiredPython = process.env.POSITRON_PY_VER_SEL!;
-
-
-		// Start a Python interpreter using the interpreter dropdown
-		await expect(
-			async () =>
-				await interpreterDropdown.selectInterpreter('Python', desiredPython)
-		).toPass({ timeout: 30_000 });
-
-		// Install ipykernel if prompted
-		if (await app.workbench.popups.popupCurrentlyOpen()) {
-			await app.workbench.popups.installIPyKernel();
-		}
-
-		// Wait for the console to be ready
-		await console.waitForReady('>>>', 10_000);
-
-		// The interpreter selected in the dropdown matches the desired interpreter
-		const interpreterInfo =
-			await interpreterDropdown.getSelectedInterpreterInfo();
-		expect(interpreterInfo?.version).toBeDefined();
-		expect(interpreterInfo!.version).toContain(desiredPython);
-		expect(interpreterInfo!.path).toBeDefined();
-
-		// The interpreter dropdown should show the expected running indicators
-		await expect(async () => {
-			expect(
-				await interpreterDropdown.primaryInterpreterShowsRunning(
-					interpreterInfo!.path
-				)
-			).toBe(true);
-		}).toPass({ timeout: 30_000 });
-
-		// Close the interpreter dropdown.
-		await interpreterDropdown.closeInterpreterDropdown();
+	test('Python - starts and shows running [C707212]', async function ({ app }) {
+		await app.workbench.interpreter.selectInterpreter('Python', desiredPython);
+		await app.workbench.interpreter.verifyInterpreterIsSelected(desiredPython);
+		await app.workbench.interpreter.verifyInterpreterIsRunning(desiredPython);
 	});
 
-	test('Python interpreter restarts and shows running [C707213]', async function ({ python }) {
-		// Restart the active Python interpreter
-		await interpreterDropdown.restartPrimaryInterpreter('Python');
-
-		// Close the interpreter dropdown.
-		await interpreterDropdown.closeInterpreterDropdown();
-
-		// The console should indicate that the interpreter is restarting
-		await console.waitForConsoleContents('preparing for restart');
-		await console.waitForConsoleContents('restarted');
-
-		// Wait for the console to be ready
-		await console.waitForReady('>>>', 10_000);
-
-		// The interpreter dropdown should show the expected running indicators
-		await expect(async () => {
-			expect(
-				await interpreterDropdown.primaryInterpreterShowsRunning('Python')
-			).toBe(true);
-		}).toPass({ timeout: 30_000 });
-
-		// Close the interpreter dropdown.
-		await interpreterDropdown.closeInterpreterDropdown();
+	test('Python - restarts and shows running [C707213]', async function ({ app, python }) {
+		await app.workbench.interpreter.restartPrimaryInterpreter('Python');
+		await app.workbench.interpreter.verifyInterpreterRestarted('Python');
+		await app.workbench.interpreter.verifyInterpreterIsRunning(desiredPython);
 	});
 
-	test('R interpreter starts and shows running [C707214]', async function () {
-		const desiredR = process.env.POSITRON_R_VER_SEL!;
-
-		// Start an R interpreter using the interpreter dropdown
-		await expect(
-			async () => await interpreterDropdown.selectInterpreter('R', desiredR)
-		).toPass({ timeout: 30_000 });
-
-		// Close the interpreter dropdown.
-		await interpreterDropdown.closeInterpreterDropdown();
-
-		// Wait for the console to be ready
-		await console.waitForReady('>', 10_000);
-
-		// The interpreter selected in the dropdown matches the desired interpreter
-		const interpreterInfo =
-			await interpreterDropdown.getSelectedInterpreterInfo();
-		expect(interpreterInfo?.version).toBeDefined();
-		expect(interpreterInfo!.version).toContain(desiredR);
-		expect(interpreterInfo!.path).toBeDefined();
-
-		// Close the interpreter dropdown.
-		await interpreterDropdown.closeInterpreterDropdown();
-
-		// The interpreter dropdown should show the expected running indicators
-		await expect(async () => {
-			expect(
-				await interpreterDropdown.primaryInterpreterShowsRunning(
-					interpreterInfo!.path
-				)
-			).toBe(true);
-		}).toPass({ timeout: 30_000 });
-
-		// Close the interpreter dropdown.
-		await interpreterDropdown.closeInterpreterDropdown();
+	test('R - starts and shows running [C707214]', async function ({ app }) {
+		await app.workbench.interpreter.selectInterpreter('R', desiredR);
+		await app.workbench.interpreter.verifyInterpreterIsSelected(desiredR);
+		await app.workbench.interpreter.verifyInterpreterIsRunning(desiredR);
 	});
 
-	test('R interpreter stops and shows inactive [C707215]', async function ({ r }) {
-		// Stop the active R interpreter
-		expect(async () => {
-			await interpreterDropdown.stopPrimaryInterpreter('R');
-		}).toPass({ timeout: 15_000 });
-
-		// Close the interpreter dropdown.
-		await interpreterDropdown.closeInterpreterDropdown();
-
-		// The console should indicate that the interpreter is shutting down
-		await console.waitForInterpreterShutdown();
-
-		// The interpreter dropdown should no longer show the running indicators
-		expect(
-			await interpreterDropdown.primaryInterpreterShowsInactive('R')
-		).toBe(true);
-
-		// Close the interpreter dropdown.
-		await interpreterDropdown.closeInterpreterDropdown();
+	test('R - stops and shows inactive [C707215]', async function ({ app, r }) {
+		await app.workbench.interpreter.stopPrimaryInterpreter(desiredR);
+		await app.workbench.interpreter.verifyInterpreterIsInactive(desiredR);
 	});
 });
