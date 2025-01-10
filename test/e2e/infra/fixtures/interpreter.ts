@@ -44,8 +44,8 @@ export class Interpreter {
 	async selectInterpreter(
 		interpreterType: 'Python' | 'R',
 		interpreterDescription = interpreterType === 'Python' ? DESIRED_PYTHON : DESIRED_R,
-		waitForInterpreterReady = true) {
-
+		waitForInterpreterReady = true
+	) {
 		if (!DESIRED_PYTHON || !DESIRED_R) {
 			throw new Error('Please set env vars: POSITRON_PYTHON_VER_SEL, POSITRON_R_VER_SEL');
 		}
