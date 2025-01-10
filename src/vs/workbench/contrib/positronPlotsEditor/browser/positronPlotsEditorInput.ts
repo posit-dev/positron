@@ -23,7 +23,7 @@ export class PositronPlotsEditorInput extends EditorInput {
 	override dispose(): void {
 		const plotClient = this._positronPlotsService.getEditorInstance(this.resource.path);
 		if (plotClient) {
-			this._positronPlotsService.unregisterPlotClient(plotClient);
+			this._positronPlotsService.removeEditorPlot(plotClient.id);
 		}
 		super.dispose();
 	}
