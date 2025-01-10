@@ -121,7 +121,7 @@ export class Interpreter {
 		}
 
 		await expect(async () => {
-			await this.interpreterDropdown.click({ timeout: 10000 });
+			await this.interpreterDropdown.click();
 			await expect(this.interpreterGroups).toBeVisible();
 		}).toPass();
 	}
@@ -144,53 +144,23 @@ export class Interpreter {
 	 */
 	async getSelectedInterpreterInfo(): Promise<InterpreterInfo> {
 		// Get the label for the selected interpreter, e.g. Python 3.10.4 (Pyenv)
-		const currentInterpreterLabel = await this.code.driver
+		const selectedInterpreterLabel = await this.code.driver
 			.page.locator('.top-action-bar-interpreters-manager')
 			.getAttribute('aria-label');
-		if (!currentInterpreterLabel) {
+		if (!selectedInterpreterLabel) {
 			throw new Error('There is no selected interpreter');
 		}
 
-		// Open the interpreter manager
 		await this.openInterpreterDropdown();
 
-		// Get the primary interpreter element
-		const currentInterpreter = await this.getPrimaryInterpreterElement(
-			currentInterpreterLabel
-		);
-
-		// Get the interpreter name
-		const interpreterName = await this.getInterpreterName(
-			currentInterpreter
-		);
-		if (!interpreterName) {
-			throw new Error(
-				`Could not retrieve interpreter name for ${currentInterpreterLabel}`
-			);
-		}
-
-		// Get the interpreter path
-		const interpreterPath = await this.getInterpreterPath(
-			currentInterpreter
-		);
-		if (!interpreterPath) {
-			throw new Error(
-				`Could not retrieve interpreter path for ${currentInterpreterLabel}`
-			);
-		}
-
-		// Determine the interpreter type for the selected interpreter
+		// Get the selected interpreter info: name, path, type
+		const selectedInterpreter = await this.getPrimaryInterpreterElement(selectedInterpreterLabel);
+		const interpreterName = await this.getInterpreterName(selectedInterpreter);
+		const interpreterPath = await this.getInterpreterPath(selectedInterpreter);
 		const interpreterType = this.getInterpreterType(interpreterName);
-		if (!interpreterType) {
-			throw new Error(
-				`Could not determine interpreter type for ${currentInterpreterLabel}`
-			);
-		}
 
-		// Close the interpreter dropdown
 		await this.closeInterpreterDropdown();
 
-		// Return the interpreter info
 		return {
 			type: interpreterType,
 			version: interpreterName,
@@ -216,16 +186,21 @@ export class Interpreter {
 		return expectedInterpreter.first();
 	}
 
+
 	/**
 	 * Helper: Get the interpreter name from the interpreter element.
 	 * Examples: 'Python 3.10.4 (Pyenv)', 'R 4.4.0'.
 	 * @param interpreterLocator The locator for the interpreter element.
 	 */
 	private async getInterpreterName(interpreterLocator: Locator) {
-		return await interpreterLocator
+		const name = await interpreterLocator
 			.locator(INTERPRETER_INFO_LINE)
 			.first() // first line is the interpreter name
 			.textContent();
+		if (!name) {
+			throw new Error('Could not retrieve interpreter name');
+		}
+		return name;
 	}
 
 	/**
@@ -234,25 +209,33 @@ export class Interpreter {
 	 * @param interpreterLocator The locator for the interpreter element.
 	 */
 	private async getInterpreterPath(interpreterLocator: Locator) {
-		return await interpreterLocator
+		const path = await interpreterLocator
 			.locator(INTERPRETER_INFO_LINE)
 			.last() // last line is the interpreter path
 			.textContent();
+		if (!path) {
+			throw new Error('Could not retrieve interpreter path');
+		}
+		return path;
 	}
 
 	/**
 	 * Helper: Determines the interpreter type based on an interpreter version string.
 	 * @param version The version string to extract the interpreter type from.
 	 */
-	getInterpreterType = (version: string): InterpreterType | undefined => {
+	getInterpreterType = (version: string): InterpreterType => {
+		let type: InterpreterType | undefined;
 		for (const [key, value] of Object.entries(InterpreterType)) {
 			// Check if the versions starts with the interpreter type followed by a space
 			// e.g. version = Python 3.10.4 (Pyenv) would result in InterpreterType.Python
 			if (version.startsWith(`${key} `)) {
-				return value;
+				type = value;
 			}
 		}
-		return undefined;
+		if (!type) {
+			throw new Error(`Could not determine interpreter type from version: ${version}`);
+		}
+		return type;
 	};
 
 	// --- Verifications ---
