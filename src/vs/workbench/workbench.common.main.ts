@@ -445,6 +445,7 @@ import './contrib/positronNewProject/browser/positronNewProject.contribution.js'
 import './services/languageRuntime/common/languageRuntime.js';
 import './services/runtimeSession/common/runtimeSession.js';
 import './services/runtimeStartup/common/runtimeStartup.js';
+import './contrib/runtimeNotebookKernel/browser/runtimeNotebookKernelService.js';
 import './services/positronConsole/browser/positronConsoleService.js';
 import './contrib/positronHelp/browser/positronHelpService.js';
 import './services/positronVariables/common/positronVariablesService.js';

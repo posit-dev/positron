@@ -8,7 +8,7 @@ import { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
-import { InterpreterType } from './utils/interpreterInfo';
+import { InterpreterType } from '../infra';
 
 const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
@@ -45,12 +45,10 @@ export class Console {
 		this.suggestionList = this.code.driver.page.locator(SUGGESTION_LIST);
 	}
 
-	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string, skipWait: boolean = false): Promise<undefined> {
+	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string, waitForReady: boolean = true): Promise<undefined> {
 
 		// don't try to start a new interpreter if one is currently starting up
-		if (!skipWait) {
-			await this.waitForReadyOrNoInterpreter();
-		}
+		await this.waitForReadyOrNoInterpreter();
 
 		let command: string;
 		if (desiredInterpreterType === InterpreterType.Python) {
@@ -70,6 +68,12 @@ export class Console {
 		// may include additional items above the desired interpreter string.
 		await this.quickinput.selectQuickInputElementContaining(desiredInterpreterString);
 		await this.quickinput.waitForQuickInputClosed();
+
+		if (waitForReady) {
+			desiredInterpreterType === InterpreterType.Python
+				? await this.waitForReady('>>>', 40000)
+				: await this.waitForReady('>', 40000);
+		}
 		return;
 	}
 

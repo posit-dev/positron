@@ -22,6 +22,7 @@ import { IExtensionService } from '../../extensions/common/extensions.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
+import { basename } from '../../../../base/common/resources.js';
 
 /**
  * Get a map key corresponding to a session.
@@ -75,6 +76,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// A map of sessions currently shutting down to promises that resolve when the session
 	// has shut down. This is keyed by the session ID.
 	private readonly _shuttingDownRuntimesBySessionId = new Map<string, Promise<void>>();
+
+	/** A map of notebooks currently shutting down to promises that resolve when the notebook
+	 * has exited, keyed by notebook URI. */
+	private readonly _shuttingDownNotebooksByNotebookUri = new ResourceMap<DeferredPromise<void>>();
 
 	// A map of the currently active console sessions. Since we can currently
 	// only have one console session per language, this is keyed by the
@@ -276,46 +281,88 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	getNotebookSessionForNotebookUri(notebookUri: URI): ILanguageRuntimeSession | undefined {
 		const session = this._notebookSessionsByNotebookUri.get(notebookUri);
 		this._logService.info(`Lookup notebook session for notebook URI ${notebookUri.toString()}: ${session ? session.metadata.sessionId : 'not found'}`);
-		return this._notebookSessionsByNotebookUri.get(notebookUri);
+		return session;
 	}
 
 	/**
 	 * Selects and starts a new runtime session, after shutting down any currently active
-	 * sessions for the language.
+	 * sessions for the console or notebook.
 	 *
 	 * @param runtimeId The ID of the runtime to select
 	 * @param source The source of the selection
+	 * @param notebookUri The URI of the notebook selecting the runtime, if any
 	 *
 	 * @returns A promise that resolves to the session ID when the runtime is started
 	 */
-	async selectRuntime(runtimeId: string, source: string): Promise<void> {
+	async selectRuntime(runtimeId: string, source: string, notebookUri?: URI): Promise<void> {
 		const runtime = this._languageRuntimeService.getRegisteredRuntime(runtimeId);
 		if (!runtime) {
 			throw new Error(`No language runtime with id '${runtimeId}' was found.`);
 		}
 
-		// Shut down any other runtime consoles for the language.
-		const activeSession =
-			this.getConsoleSessionForLanguage(runtime.languageId);
-		if (activeSession) {
-			// Is this, by chance, the runtime that's already running?
-			if (activeSession.runtimeMetadata.runtimeId === runtime.runtimeId) {
-				// Set it as the foreground session and return.
-				this.foregroundSession = activeSession;
-				return;
-			}
+		const sessionMode = notebookUri ? LanguageRuntimeSessionMode.Notebook : LanguageRuntimeSessionMode.Console;
 
-			await this.shutdownRuntimeSession(activeSession, RuntimeExitReason.SwitchRuntime);
+		// If a start request is already in progress, wait for it to complete.
+		const startingPromise = this._startingSessionsBySessionMapKey.get(
+			getSessionMapKey(sessionMode, runtimeId, notebookUri));
+		if (startingPromise && !startingPromise.isSettled) {
+			await startingPromise.p;
 		}
 
-		// Wait for the selected runtime to start.
-		await this.startNewRuntimeSession(runtime.runtimeId,
-			runtime.runtimeName,
-			LanguageRuntimeSessionMode.Console,
-			undefined, // No notebook URI (console session)
-			source,
-			RuntimeStartMode.Switching,
-			true);
+		if (notebookUri) {
+			// If a session is already shutting down for this notebook, wait for it to complete.
+			const shuttingDownPromise = this._shuttingDownNotebooksByNotebookUri.get(notebookUri);
+			if (shuttingDownPromise && !shuttingDownPromise.isSettled) {
+				try {
+					await shuttingDownPromise.p;
+				} catch (error) {
+					// Continue anyway; we assume the error is handled elsewhere.
+				}
+			}
+
+			// Shut down any other sessions for the notebook.
+			const activeSession =
+				this.getNotebookSessionForNotebookUri(notebookUri);
+			if (activeSession) {
+				if (activeSession.runtimeMetadata.runtimeId === runtime.runtimeId) {
+					return;
+				}
+
+				await this.shutdownRuntimeSession(activeSession, RuntimeExitReason.SwitchRuntime);
+			}
+
+			// Wait for the selected runtime to start.
+			await this.startNewRuntimeSession(runtime.runtimeId,
+				basename(notebookUri),
+				sessionMode,
+				notebookUri,
+				source,
+				RuntimeStartMode.Switching,
+				true);
+		} else {
+			// Shut down any other runtime consoles for the language.
+			const activeSession =
+				this.getConsoleSessionForLanguage(runtime.languageId);
+			if (activeSession) {
+				// Is this, by chance, the runtime that's already running?
+				if (activeSession.runtimeMetadata.runtimeId === runtime.runtimeId) {
+					// Set it as the foreground session and return.
+					this.foregroundSession = activeSession;
+					return;
+				}
+
+				await this.shutdownRuntimeSession(activeSession, RuntimeExitReason.SwitchRuntime);
+			}
+
+			// Wait for the selected runtime to start.
+			await this.startNewRuntimeSession(runtime.runtimeId,
+				runtime.runtimeName,
+				sessionMode,
+				undefined, // No notebook URI (console session)
+				source,
+				RuntimeStartMode.Switching,
+				true);
+		}
 	}
 
 	/**
@@ -354,8 +401,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// We wait for `onDidEndSession()` rather than `RuntimeState.Exited`, because the former
 		// generates some Console output that must finish before starting up a new runtime:
-		const disposables = new DisposableStore();
-		activeSession.register(disposables);
+		const disposables = activeSession.register(new DisposableStore());
 		const promise = new Promise<void>((resolve, reject) => {
 			disposables.add(session.onDidEndSession((exit) => {
 				disposables.dispose();
@@ -403,8 +449,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// are, return the promise that resolves when the session is ready to
 		// use. This makes it possible for multiple requests to start the same
 		// session to be coalesced.
-		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(
-			getSessionMapKey(sessionMode, runtimeId, notebookUri));
+		const sessionMapKey = getSessionMapKey(sessionMode, runtimeId, notebookUri);
+		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
 		if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
 			return startingRuntimePromise.p;
 		}
@@ -480,8 +526,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// are, return the promise that resolves when the session is ready to
 		// use. This makes it possible for multiple requests to start the same
 		// session to be coalesced.
-		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(
-			getSessionMapKey(sessionMetadata.sessionMode, runtimeMetadata.runtimeId, sessionMetadata.notebookUri));
+		const sessionMapKey = getSessionMapKey(
+			sessionMetadata.sessionMode, runtimeMetadata.runtimeId, sessionMetadata.notebookUri);
+		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
 		if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
 			return startingRuntimePromise.p.then(() => { });
 		}
@@ -503,8 +550,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Create a promise that resolves when the runtime is ready to use.
 		const startPromise = new DeferredPromise<string>();
-		const sessionMapKey = getSessionMapKey(
-			sessionMetadata.sessionMode, runtimeMetadata.runtimeId, sessionMetadata.notebookUri);
 		this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
 
 		// It's possible that startPromise is never awaited, so we log any errors here
@@ -612,7 +657,201 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._logService.info(
 			`Restarting session '` +
 			`${formatLanguageRuntimeSession(session)}' (Source: ${source})`);
-		await this.doRestartRuntime(session);
+
+		const state = session.getRuntimeState();
+		if (state === RuntimeState.Busy ||
+			state === RuntimeState.Idle ||
+			state === RuntimeState.Ready) {
+			// The runtime looks like it could handle a restart request, so send
+			// one over.
+			return this.doRestartRuntime(session);
+		} else if (state === RuntimeState.Uninitialized ||
+			state === RuntimeState.Exited) {
+			// The runtime has never been started, or is no longer running. Just
+			// tell it to start.
+			await this.startNewRuntimeSession(session.runtimeMetadata.runtimeId,
+				session.metadata.sessionName,
+				session.metadata.sessionMode,
+				session.metadata.notebookUri,
+				`'Restart Interpreter' command invoked`,
+				RuntimeStartMode.Restarting,
+				true);
+			return;
+		} else if (state === RuntimeState.Starting ||
+			state === RuntimeState.Restarting) {
+			// The runtime is already starting or restarting. We could show an
+			// error, but this is probably just the result of a user mashing the
+			// restart when we already have one in flight.
+			return;
+		} else {
+			// The runtime is not in a state where it can be restarted.
+			throw new Error(`The ${session.runtimeMetadata.languageName} session is '${state}' ` +
+				`and cannot be restarted.`);
+		}
+	}
+
+	/**
+	 * Internal method to restart a runtime session.
+	 *
+	 * @param session The runtime to restart.
+	 */
+	private async doRestartRuntime(session: ILanguageRuntimeSession): Promise<void> {
+		// If there is already a runtime starting for the session, return its promise.
+		const sessionMapKey = getSessionMapKey(
+			session.metadata.sessionMode, session.runtimeMetadata.runtimeId, session.metadata.notebookUri);
+		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
+		if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
+			return startingRuntimePromise.p.then(() => { });
+		}
+
+		const activeSession = this._activeSessionsBySessionId.get(session.sessionId);
+		if (!activeSession) {
+			throw new Error(`No active session '${session.sessionId}'`);
+		}
+
+		// Create a promise that resolves when the runtime is ready to use.
+		const startPromise = new DeferredPromise<string>();
+		this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
+
+		// Mark the session as starting.
+		this.setStartingSessionMaps(
+			session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
+
+		// Mark the session as ready when it reaches the ready state,
+		// or after a timeout.
+		awaitStateChange(activeSession, [RuntimeState.Ready], 10)
+			.then(() => {
+				this.clearStartingSessionMaps(
+					session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
+				startPromise.complete(session.sessionId);
+			})
+			.catch((err) => startPromise.error(err));
+
+		// Ask the runtime to restart.
+		try {
+			await session.restart();
+		} catch (err) {
+			startPromise.error(err);
+			this.clearStartingSessionMaps(
+				session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
+		}
+
+		return startPromise.p.then(() => { });
+	}
+
+	/**
+	 * Shutdown a runtime session for a notebook.
+	 *
+	 * @param notebookUri The notebook's URI.
+	 * @param exitReason The reason for exiting.
+	 * @param source The source of the request to shutdown the session, for debugging purposes.
+	 * @returns A promise that resolves when the session has exited.
+	 */
+	async shutdownNotebookSession(notebookUri: URI, exitReason: RuntimeExitReason, source: string): Promise<void> {
+		this._logService.info(`Shutting down notebook ${notebookUri.toString()}. Source: ${source}`);
+
+		// If there is a pending shutdown request for this notebook, return the existing promise.
+		const shuttingDownPromise = this._shuttingDownNotebooksByNotebookUri.get(notebookUri);
+		if (shuttingDownPromise && !shuttingDownPromise.isSettled) {
+			this._logService.debug(`Notebook ${notebookUri.toString()} is already shutting down. Returning existing promise`);
+			return shuttingDownPromise.p;
+		}
+
+		// Create a promise that resolves when the runtime has exited.
+		const shutdownPromise = new DeferredPromise<void>();
+		this._shuttingDownNotebooksByNotebookUri.set(notebookUri, shutdownPromise);
+
+		// Remove the promise from the map of shutting down notebooks when it completes.
+		shutdownPromise.p.finally(() => {
+			if (this._shuttingDownNotebooksByNotebookUri.get(notebookUri) === shutdownPromise) {
+				this._shuttingDownNotebooksByNotebookUri.delete(notebookUri);
+			}
+		});
+
+		// Get the session to shutdown.
+		const session = await this.getActiveOrStartingNotebook(notebookUri);
+		if (!session) {
+			this._logService.debug(
+				`Aborting shutdown request for notebook ${notebookUri.toString()}. ` +
+				`No active session found`
+			);
+			shutdownPromise.complete();
+			return;
+		}
+
+		// Actually shutdown the session.
+		try {
+			await this.shutdownRuntimeSession(session, exitReason);
+			shutdownPromise.complete();
+			this._logService.debug(`Notebook ${notebookUri.toString()} has been shut down`);
+		} catch (error) {
+			this._logService.error(`Failed to shutdown notebook ${notebookUri.toString()}. Reason: ${error}`);
+			shutdownPromise.error(error);
+		}
+
+		return shutdownPromise.p;
+	}
+
+	/**
+	 * Helper to get an active or starting session for a notebook URI. Returns undefined if there is
+	 * no active session or if an error was encountered while the session was starting.
+	 */
+	private async getActiveOrStartingNotebook(notebookUri: URI): Promise<ILanguageRuntimeSession | undefined> {
+		// Check if there is an active session for the notebook.
+		const session = this._notebookSessionsByNotebookUri.get(notebookUri);
+		if (session) {
+			this._logService.debug(`Found an active session for notebook ${notebookUri.toString()}`);
+			return session;
+		}
+
+		// Check if there is a starting session for the notebook.
+		const startingRuntime = this._startingNotebooksByNotebookUri.get(notebookUri);
+		if (!startingRuntime) {
+			this._logService.debug(`No starting session for notebook ${notebookUri.toString()}`);
+			return undefined;
+		}
+
+		// Get the starting promise.
+		const sessionMapKey = getSessionMapKey(
+			LanguageRuntimeSessionMode.Notebook, startingRuntime.runtimeId, notebookUri);
+		const startingPromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
+		if (!startingPromise) {
+			this._logService.debug(`No starting session for notebook ${notebookUri.toString()}`);
+			return undefined;
+		}
+
+		// Wait for the session to start.
+		this._logService.debug(`Waiting for session to start before shutting down notebook ${notebookUri.toString()}`);
+		let sessionId: string;
+		try {
+			sessionId = await startingPromise.p;
+		} catch (error) {
+			// We assume that the error is handled elsewhere but log for debugging purposes.
+			this._logService.debug(
+				`Error while waiting for session to start for notebook ${notebookUri.toString()}. Reason: ${error.toString()}`
+			);
+			return undefined;
+		}
+
+		// Get the session object.
+		const activeSession = this._activeSessionsBySessionId.get(sessionId);
+		if (!activeSession) {
+			// This should not happen, log an error.
+			this._logService.error(`Session '${sessionId}' was started, but no active session was found`);
+			return undefined;
+		}
+
+		// Wait for the session to be ready.
+		if (activeSession.session.getRuntimeState() === RuntimeState.Starting) {
+			try {
+				await awaitStateChange(activeSession, [RuntimeState.Ready], 10);
+			} catch (err) {
+				// Continue even though the session isn't yet ready.
+				// We assume the underlying error is handled elsewhere.
+			}
+		}
+
+		return activeSession.session;
 	}
 
 	/**
@@ -1294,59 +1533,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
-	 * Restarts a runtime session.
-	 *
-	 * @param session The runtime to restart.
-	 */
-	private async doRestartRuntime(session: ILanguageRuntimeSession): Promise<void> {
-		const state = session.getRuntimeState();
-		if (state === RuntimeState.Busy ||
-			state === RuntimeState.Idle ||
-			state === RuntimeState.Ready) {
-			// The runtime looks like it could handle a restart request, so send
-			// one over.
-
-			// Mark the session as starting until the restart sequence completes.
-			this.setStartingSessionMaps(
-				session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
-			const disposable = this._register(session.onDidChangeRuntimeState((state) => {
-				if (state === RuntimeState.Ready) {
-					disposable.dispose();
-					this.clearStartingSessionMaps(
-						session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
-				}
-			}));
-
-			// Restart the session.
-			return session.restart();
-		} else if (state === RuntimeState.Uninitialized ||
-			state === RuntimeState.Exited) {
-			// The runtime has never been started, or is no longer running. Just
-			// tell it to start.
-			await this.startNewRuntimeSession(session.runtimeMetadata.runtimeId,
-				session.metadata.sessionName,
-				session.metadata.sessionMode,
-				session.metadata.notebookUri,
-				`'Restart Interpreter' command invoked`,
-				RuntimeStartMode.Restarting,
-				false);
-			return;
-		} else if (state === RuntimeState.Starting ||
-			state === RuntimeState.Restarting) {
-			// The runtime is already starting or restarting. We could show an
-			// error, but this is probably just the result of a user mashing the
-			// restart when we already have one in flight.
-			return;
-		} else {
-			// The runtime is not in a state where it can be restarted.
-			return Promise.reject(
-				new Error(`The ${session.runtimeMetadata.languageName} session is '${state}' ` +
-					`and cannot be restarted.`)
-			);
-		}
-	}
-
-	/**
 	 * Waits for the runtime to report that interrupt processing is complete (by
 	 * returning to the idle state). If the runtime does not return to the idle
 	 * state within 10 seconds, the user is given the option to force-quit the
@@ -1483,3 +1669,49 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 }
 registerSingleton(IRuntimeSessionService, RuntimeSessionService, InstantiationType.Eager);
+
+/**
+ * Wait for a session to change to one of the target states.
+ *
+ * @param activeSession The session to watch.
+ * @param targetStates The target states for the session to enter.
+ * @param seconds The number of seconds to wait for the session to change to the target state
+ * 	before timing out.
+ * @returns A promise that resolves when the session enters one of the target states, or rejects
+ *  after a timeout.
+ */
+function awaitStateChange(
+	activeSession: ActiveRuntimeSession,
+	targetStates: RuntimeState[],
+	seconds: number,
+): Promise<void> {
+	const { session } = activeSession;
+	return new Promise<void>((resolve, reject) => {
+		const disposables = activeSession.register(new DisposableStore());
+
+		// Reject after a timeout.
+		disposables.add(disposableTimeout(() => {
+			disposables.dispose();
+			const formattedTargetStates = targetStates.map(s => `'${s}'`).join(' or ');
+			reject(new Error(`Timed out waiting for runtime ` +
+				`${formatLanguageRuntimeSession(session)} to be ${formattedTargetStates}.`));
+		}, seconds * 1000));
+
+		// Listen for state changes.
+		disposables.add(session.onDidChangeRuntimeState((state) => {
+			if (targetStates.includes(state)) {
+				disposables.dispose();
+				resolve();
+			}
+		}));
+
+		// Listen for the session to end. This should be treated as an exit
+		// for the purposes of waiting for the session to exit.
+		if (targetStates.includes(RuntimeState.Exited)) {
+			disposables.add(session.onDidEndSession(() => {
+				disposables.dispose();
+				resolve();
+			}));
+		}
+	});
+}

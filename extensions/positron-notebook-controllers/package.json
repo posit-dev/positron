@@ -24,23 +24,6 @@
         "enablement": "positron.hasRunningNotebookSession"
       }
     ],
-    "configuration": [
-      {
-        "title": "Notebook Controllers",
-        "properties": {
-          "notebook.experimental.showExecutionInfo": {
-            "type": "boolean",
-            "default": false,
-            "description": "%notebook.experimental.showExecutionInfo.description%"
-          },
-          "python.languageServer": {
-            "type": "string",
-            "default": "Default",
-            "description": "%python.languageServer.description%"
-          }
-        }
-      }
-    ],
     "menus": {
       "notebook/toolbar": [
         {

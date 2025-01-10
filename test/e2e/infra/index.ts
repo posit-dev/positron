@@ -11,7 +11,6 @@ export * from './workbench';
 // pages
 export * from '../pages/console';
 export * from '../pages/popups';
-export * from '../pages/interpreterDropdown';
 export * from '../pages/variables';
 export * from '../pages/dataExplorer';
 export * from '../pages/sideBar';
@@ -38,9 +37,8 @@ export * from '../pages/editors';
 export * from '../pages/settings';
 
 // fixtures
-export * from './fixtures/python';
-export * from './fixtures/r';
 export * from './fixtures/userSettings';
+export * from './fixtures/interpreter';
 
 // test-runner
 export * from './test-runner';
