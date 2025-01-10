@@ -17,6 +17,8 @@ jobs:
     outputs:
       tags: ${{ steps.pr-tags.outputs.tags }}
       win_tag_found: ${{ steps.pr-tags.outputs.win_tag_found }}
+      web_tag_found: ${{ steps.pr-tags.outputs.web_tag_found }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -42,6 +44,18 @@ jobs:
   e2e-windows-electron:
     needs: pr-tags
     if: ${{ needs.pr-tags.outputs.win_tag_found == 'true' }}
+    name: e2e
+    uses: ./.github/workflows/test-e2e-windows.yml
+    with:
+      grep: ${{ needs.pr-tags.outputs.tags }}
+      display_name: "electron (windows)"
+      currents_tags: "pull-request,electron/windows,${{ needs.pr-tags.outputs.tags }}"
+      report_testrail: false
+    secrets: inherit
+
+  e2e-linux-web:
+    needs: pr-tags
+    if: ${{ needs.pr-tags.outputs.web_tag_found == 'true' }}
     name: e2e
     uses: ./.github/workflows/test-e2e-windows.yml
     with:

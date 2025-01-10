@@ -42,7 +42,10 @@ else
     # Set a variable to indicate @:win was found
     echo "win_tag_found=true" >> "$GITHUB_OUTPUT"
   fi
-
+  if echo "$PR_BODY" | grep -q "@:web"; then
+    echo "Found @:web tag in PR body. Setting to run web tests."
+    echo "web_tag_found=true" >> "$GITHUB_OUTPUT"
+  fi
   # Parse tags starting with '@:' and convert to '@'
   TAGS=$(echo "$PR_BODY" | grep -o "@:[a-zA-Z0-9_-]*" | sed 's/@://g' | sed 's/^/@/' | tr '\n' ',' | sed 's/,$//')
 
