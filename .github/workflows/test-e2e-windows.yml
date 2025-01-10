@@ -146,6 +146,7 @@ jobs:
         if: ${{ !cancelled() }}
 
       - name: Run Tests on Windows (Electron)
+        shell: bash
         env:
           POSITRON_PY_VER_SEL: 3.10.10
           POSITRON_R_VER_SEL: 4.4.0
