@@ -9,8 +9,11 @@
  * Each tag corresponds to a specific feature, functionality, or area of the application. Use them
  * thoughtfully to ensure your tests align with the intended scope.
  *
- * Avoid using `@:web` and `@:win` tags, as these are reserved for web and Windows platform-specific tests,
- * which are not currently configured to run in PR workflows.
+ * Add `@:win` tag to enable the tests to run on windows as well. The default will only run
+ * Linux electron e2e tests.
+ *
+ * Avoid using `@:web` tag, as this is reserved for web platform-specific tests,
+ * which is not currently configured to run in PR workflows.
  */
 export enum TestTags {
 	EDITOR_ACTION_BAR = '@editor-action-bar',
