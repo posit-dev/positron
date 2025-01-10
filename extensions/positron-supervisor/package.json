@@ -69,6 +69,7 @@
           "type": "string",
           "enum": [
             "immediately",
+            "when idle",
             "4",
             "8",
             "12",
@@ -78,6 +79,7 @@
           ],
           "enumDescriptions": [
             "%configuration.shutdownTimeout.immediately.description%",
+            "%configuration.shutdownTimeout.whenIdle.description%",
             "%configuration.shutdownTimeout.4.description%",
             "%configuration.shutdownTimeout.8.description%",
             "%configuration.shutdownTimeout.12.description%",
