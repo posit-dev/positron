@@ -1,10 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 /* eslint-disable global-require */
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
+import * as vscode from 'vscode';
 import * as fs from 'fs-extra';
 import * as os from 'os';
 import * as path from 'path';
@@ -104,6 +105,15 @@ export async function createPythonRuntimeMetadata(
         pythonEnvironmentId: interpreter.id || '',
     };
 
+    // Check the kernel supervisor's configuration; if it's enabled and
+    // configured to persist sessions, mark the session location as 'machine'
+    // so that Positron will reattach to the session after Positron is reopened.
+    const config = vscode.workspace.getConfiguration('kernelSupervisor');
+    const sessionLocation =
+        config.get<boolean>('enable', true) && config.get<string>('shutdownTimeout', 'immediately') !== 'immediately'
+            ? positron.LanguageRuntimeSessionLocation.Machine
+            : positron.LanguageRuntimeSessionLocation.Workspace;
+
     // Create the metadata for the language runtime
     const metadata: positron.LanguageRuntimeMetadata = {
         runtimeId,
@@ -119,7 +129,7 @@ export async function createPythonRuntimeMetadata(
             .readFileSync(path.join(EXTENSION_ROOT_DIR, 'resources', 'branding', 'python-icon.svg'))
             .toString('base64'),
         startupBehavior,
-        sessionLocation: positron.LanguageRuntimeSessionLocation.Workspace,
+        sessionLocation,
         extraRuntimeData,
     };
 

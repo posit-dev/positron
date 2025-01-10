@@ -492,8 +492,17 @@ export enum LanguageRuntimeMessageType {
  */
 export enum LanguageRuntimeSessionLocation {
 	/**
+	 * The runtime session is persistent on the machine; it should be
+	 * restored when the workspace is re-opened, and may persist across
+	 * Positron sessions.
+	 */
+	Machine = 'machine',
+
+	/**
 	 * The runtime session is located in the current workspace (usually a
-	 * terminal); it should be restored when the workspace is re-opened.
+	 * terminal); it should be restored when the workspace is re-opened in
+	 * the same Positron session (e.g. during a browser reload or
+	 * reconnect)
 	 */
 	Workspace = 'workspace',
 

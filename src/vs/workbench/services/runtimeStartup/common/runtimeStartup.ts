@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -48,7 +48,7 @@ interface SerializedSessionMetadata {
  * Amended with the workspace ID to allow for multiple workspaces to store their
  * sessions separately.
  */
-const PERSISTENT_WORKSPACE_SESSIONS_PREFIX = 'positron.workspaceSessionList';
+const PERSISTENT_WORKSPACE_SESSIONS = 'positron.workspaceSessionList';
 
 const languageRuntimeExtPoint =
 	ExtensionsRegistry.registerExtensionPoint<ILanguageRuntimeProviderMetadata[]>({
@@ -772,17 +772,28 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// open, and attempt to reconnect to them.
 		let storedSessions: Array<SerializedSessionMetadata> = new Array();
 		try {
-			const sessions = await this._ephemeralStateService.getItem<Array<SerializedSessionMetadata>>(this.getPersistentWorkspaceSessionsKey());
+			const sessions = await this._ephemeralStateService.getItem<Array<SerializedSessionMetadata>>(this.getEphemeralWorkspaceSessionsKey());
 			if (sessions) {
 				storedSessions = sessions;
 			}
 		} catch (err) {
-			this._logService.warn(`Can't read workspace sessions from ${this.getPersistentWorkspaceSessionsKey()}: ${err}. No sessions will be restored.`);
+			this._logService.warn(`Can't read workspace sessions from ${this.getEphemeralWorkspaceSessionsKey()}: ${err}. No sessions will be restored.`);
 		}
 
 		if (!storedSessions) {
 			this._logService.debug(`[Runtime startup] No sessions to resume found in ephemeral storage.`);
-			return;
+		}
+
+		// Next, check for any sessions persisted in the workspace storage.
+		const sessions = this._storageService.get(PERSISTENT_WORKSPACE_SESSIONS,
+			StorageScope.WORKSPACE);
+		if (sessions) {
+			try {
+				const stored = JSON.parse(sessions) as Array<SerializedSessionMetadata>;
+				storedSessions.push(...stored);
+			} catch (err) {
+				this._logService.error(`Error parsing persisted workspace sessions: ${err} (sessions: '${sessions}')`);
+			}
 		}
 
 		try {
@@ -814,6 +825,67 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private async restoreWorkspaceSessions(sessions: SerializedSessionMetadata[]) {
 		this._startupPhase.set(RuntimeStartupPhase.Reconnecting, undefined);
+
+		// Activate any extensions needed for the sessions that are persistent on the machine.
+		const activatedExtensions: Array<ExtensionIdentifier> = [];
+		await Promise.all(sessions.filter(async session =>
+			session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Machine
+		).map(async session => {
+			// If we haven't already activated the extension, activate it now.
+			// We need the extension to be active so that we can ask it to
+			// validate the session before connecting to it.
+			if (activatedExtensions.indexOf(session.runtimeMetadata.extensionId) === -1) {
+				this._logService.debug(`[Runtime startup] Activating extension ` +
+					`${session.runtimeMetadata.extensionId.value} for persisted session ` +
+					`${session.metadata.sessionName} (${session.metadata.sessionId})`);
+				activatedExtensions.push(session.runtimeMetadata.extensionId);
+				return this._extensionService.activateById(session.runtimeMetadata.extensionId,
+					{
+						extensionId: session.runtimeMetadata.extensionId,
+						activationEvent: `onLanguageRuntime:${session.runtimeMetadata.languageId}`,
+						startup: false
+					});
+			}
+		}));
+
+		// Before reconnecting, validate any sessions that need it.
+		const validSessions = await Promise.all(sessions.map(async session => {
+			if (session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Machine) {
+				// If the session is persistent on the machine, we need to
+				// check to see if it is still valid (i.e. still running)
+				// before reconnecting.
+				this._logService.debug(`[Runtime startup] Checking to see if persisted session ` +
+					`${session.metadata.sessionName} (${session.metadata.sessionId}) is still valid.`);
+				try {
+					// Ask the runtime session service to validate the session.
+					// This call will eventually be proxied through to the
+					// extension that provides the runtime.
+					const valid = await this._runtimeSessionService.validateRuntimeSession(
+						session.runtimeMetadata,
+						session.metadata.sessionId);
+
+					this._logService.debug(
+						`[Runtime startup] Session ` +
+						`${session.metadata.sessionName} (${session.metadata.sessionId}) valid = ${valid}`);
+					return valid;
+				} catch (err) {
+					// This is a non-fatal error since we can just avoid reconnecting
+					// to the session.
+					this._logService.error(
+						`Error validating persisted session ` +
+						`${session.metadata.sessionName} (${session.metadata.sessionId}): ${err}`);
+					return false;
+				}
+			}
+
+			// Sessions stored in other locations are always valid.
+			return true;
+		}));
+
+		// Remove all the sessions that are no longer valid.
+		sessions = sessions.filter((_, i) => validSessions[i]);
+
+		// Reconnect to the remaining sessions.
 		this._logService.debug(`Reconnecting to sessions: ` +
 			sessions.map(session => session.metadata.sessionName).join(', '));
 
@@ -838,11 +910,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
-	 * Clear the set of workspace sessions in the workspace storage.
+	 * Clear the set of workspace sessions in the ephemeral workspace storage.
 	 */
 	private async clearWorkspaceSessions(): Promise<boolean> {
-		// Clear the sessions.
-		await this._ephemeralStateService.removeItem(this.getPersistentWorkspaceSessionsKey());
+		// Clear the sessions. Note that we only ever clear the sessions from
+		// the ephemeral storage, since the persisted sessions are meant to be
+		// restored later.
+		await this._ephemeralStateService.removeItem(this.getEphemeralWorkspaceSessionsKey());
 
 		// Always return false (don't veto shutdown)
 		return false;
@@ -855,13 +929,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * process.
 	 */
 	private async saveWorkspaceSessions(): Promise<boolean> {
-		// Derive the set of sessions that are currently active and workspace scoped.
-		const workspaceSessions = this._runtimeSessionService.activeSessions
+		// Derive the set of sessions that are currently active
+		const activeSessions = this._runtimeSessionService.activeSessions
 			.filter(session =>
 				session.getRuntimeState() !== RuntimeState.Uninitialized &&
 				session.getRuntimeState() !== RuntimeState.Initializing &&
-				session.getRuntimeState() !== RuntimeState.Exited &&
-				session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Workspace
+				session.getRuntimeState() !== RuntimeState.Exited
 			)
 			.map(session => {
 				const metadata: SerializedSessionMetadata = {
@@ -873,13 +946,25 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			});
 
 		// Diagnostic logs: what are we saving?
-		this._logService.trace(`Saving workspace sessions: ${workspaceSessions.map(session =>
-			`${session.metadata.sessionName} (${session.metadata.sessionId})`).join(', ')}`);
+		this._logService.trace(`Saving workspace sessions: ${activeSessions.map(session =>
+			`${session.metadata.sessionName} (${session.metadata.sessionId}, ${session.runtimeMetadata.sessionLocation})`).join(', ')}`);
 
-		// Save the sessions to the workspace storage.
-		this._logService.debug(`[Runtime startup] Saving workspace sessions (${workspaceSessions.length})`);
-		this._ephemeralStateService.setItem(this.getPersistentWorkspaceSessionsKey(),
+		// Save the ephemeral sessions to the workspace storage.
+		const workspaceSessions = activeSessions.filter(session =>
+			session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Workspace);
+		this._logService.debug(`[Runtime startup] Saving ephemeral workspace sessions (${workspaceSessions.length})`);
+		this._ephemeralStateService.setItem(this.getEphemeralWorkspaceSessionsKey(),
 			workspaceSessions);
+
+		// Save the persisted sessions to the workspace storage.
+		const machineSessions = activeSessions.filter(session =>
+			session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Machine);
+		this._logService.debug(`[Runtime startup] Saving machine-persisted workspace sessions (${machineSessions.length})`);
+		this._storageService.store(
+			PERSISTENT_WORKSPACE_SESSIONS,
+			JSON.stringify(machineSessions),
+			StorageScope.WORKSPACE, StorageTarget.MACHINE);
+
 		return false;
 	}
 
@@ -945,8 +1030,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	}
 
-	private getPersistentWorkspaceSessionsKey(): string {
-		return `${PERSISTENT_WORKSPACE_SESSIONS_PREFIX}.${this._workspaceContextService.getWorkspace().id}`;
+	/**
+	 * Gets the storage key used to store the set of workspace sessions in
+	 * ephemeral storage.
+	 */
+	private getEphemeralWorkspaceSessionsKey(): string {
+		// We include the workspace ID in the key since ephemeral storage can
+		// be shared among workspaces in e.g. Positron Server.
+		return `${PERSISTENT_WORKSPACE_SESSIONS}.${this._workspaceContextService.getWorkspace().id}`;
 	}
 }
 
