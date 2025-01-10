@@ -412,4 +412,9 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		this.scheduleRender(req, 0);
 		return req.promise;
 	}
+
+	override dispose(): void {
+		this._closeEmitter.fire();
+		super.dispose();
+	}
 }

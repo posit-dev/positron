@@ -122,6 +122,13 @@ export interface IPositronPlotsService {
 	removePlot(id: string): void;
 
 	/**
+	 * Remove an editor plot.
+	 *
+	 * @param id The ID of the plot to remove.
+	 */
+	removeEditorPlot(id: string): void;
+
+	/**
 	 * Removes the selected plot.
 	 */
 	removeSelectedPlot(): void;
