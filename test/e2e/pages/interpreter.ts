@@ -223,7 +223,7 @@ export class Interpreter {
 	 * Helper: Determines the interpreter type based on an interpreter version string.
 	 * @param version The version string to extract the interpreter type from.
 	 */
-	getInterpreterType = (version: string): InterpreterType => {
+	private getInterpreterType = (version: string): InterpreterType => {
 		let type: InterpreterType | undefined;
 		for (const [key, value] of Object.entries(InterpreterType)) {
 			// Check if the versions starts with the interpreter type followed by a space
