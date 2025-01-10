@@ -69,6 +69,10 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Transform to Playwright tags $PW_TAGS
+        run: bash scripts/pr-tags-transform.sh "e2e-windows" "${{ inputs.grep }}"
+        shell: bash
+
       - name: Install System Level Python
         uses: actions/setup-python@v5
         with:
@@ -136,10 +140,6 @@ jobs:
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
-
-      - name: Transform to Playwright tags $PW_TAGS
-        run: bash scripts/pr-tags-transform.sh "e2e-windows" "${{ inputs.grep }}"
-        shell: bash
 
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
