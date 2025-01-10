@@ -100,8 +100,31 @@ export interface IRuntimeStartupService {
 	getAffiliatedRuntimeMetadata(languageId: string): ILanguageRuntimeMetadata | undefined;
 
 	/**
-	 * Signal that discovery of language runtimes is complete. Called from the
-	 * extension host.
+	 * Signal that discovery of language runtimes is completed for an extension host.
+	 *
+	 * @param id the id of the MainThreadLanguageRuntime instance for the extension host
 	 */
-	completeDiscovery(): void;
+	completeDiscovery(id: number): void;
+
+	/**
+	 * Used to register an instance of a MainThreadLanguageRuntime.
+	 *
+	 * This is required because there can be multiple extension hosts
+	 * and the startup service needs to know of all of them to track
+	 * the startup phase across all extension hosts.
+	 *
+	 * @param id The id of the MainThreadLanguageRuntime instance for the extension host.
+	 */
+	registerMainThreadLanguageRuntime(id: number): void;
+
+	/**
+	 * Used to un-register an instance of a MainThreadLanguageRuntime.
+	 *
+	 * This is required because there can be multiple extension hosts
+	 * and the startup service needs to know of all of them to track
+	 * the startup phase across all extension hosts.
+	 *
+	 * @param id The id of the MainThreadLanguageRuntime instance for the extension host.
+	 */
+	unregisterMainThreadLanguageRuntime(id: number): void;
 }
