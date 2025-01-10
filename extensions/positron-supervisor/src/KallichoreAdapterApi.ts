@@ -288,6 +288,10 @@ export class KCApi implements KallichoreAdapterApi {
 			// In web mode, we do not set an idle timeout at all by default,
 			// since it is normal for the front end to be disconnected for long
 			// periods of time.
+		} else if (shutdownTimeout === 'when idle') {
+			// Set the idle timeout to 0 hours, which causes the server to exit
+			// 30 seconds after the last session becomes idle.
+			shellArgs.push('--idle-shutdown-hours', '0');
 		} else if (shutdownTimeout !== 'indefinitely') {
 			// All other values of this setting are numbers that we can pass
 			// directly to the supervisor.
