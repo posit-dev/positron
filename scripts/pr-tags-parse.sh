@@ -37,8 +37,8 @@ if echo "$PR_BODY" | grep -q "@:all"; then
   TAGS="" # Set to an empty string to indicate all tests should run
 else
   if echo "$PR_BODY" | grep -q "@:win"; then
-    echo "Found @:win tag in PR body. Removing it from tags."
-    PR_BODY=$(echo "$PR_BODY" | sed 's/@:win//g')
+    echo "Found @:win tag in PR body. Setting to run windows tests."
+    # PR_BODY=$(echo "$PR_BODY" | sed 's/@:win//g')
     # Set a variable to indicate @:win was found
     echo "win_tag_found=true" >> "$GITHUB_OUTPUT"
   fi
