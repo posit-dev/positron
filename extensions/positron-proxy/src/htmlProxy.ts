@@ -94,7 +94,8 @@ export class HtmlProxyServer implements Disposable {
 				const filePath = path.join(targetPath, req.path);
 				if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
 					let content = fs.readFileSync(filePath, 'utf8');
-					const isHtmlFile = path.extname(filePath).toLowerCase() === '.html';
+					const fileExt = path.extname(filePath).toLowerCase();
+					const isHtmlFile = ['.html', '.htm'].includes(fileExt);
 
 					// If the file is an HTML file and we have an HTML configuration, inject the
 					// preview resources into the HTML content.
