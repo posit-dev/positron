@@ -19,10 +19,7 @@ test.describe('Reticulate', {
 }, () => {
 	test.beforeAll(async function ({ app, userSettings }) {
 		try {
-			// remove this once https://github.com/posit-dev/positron/issues/5226
-			// is resolved
 			await userSettings.set([
-				['kernelSupervisor.enable', 'false'],
 				['positron.reticulate.enabled', 'true']
 			]);
 
@@ -31,6 +28,10 @@ test.describe('Reticulate', {
 			throw e;
 		}
 	});
+
+	// if running tests in sequence, we will need to skip waiting for ready because interpreters
+	// will already be running
+	let sequential = false;
 
 	test('R - Verify Basic Reticulate Functionality [C...]', async function ({ app, r, interpreter }) {
 
@@ -46,19 +47,69 @@ test.describe('Reticulate', {
 		}
 
 		await app.workbench.console.waitForReady('>>>');
-		await app.workbench.console.pasteCodeToConsole('x=100');
-		await app.workbench.console.sendEnterKey();
 
-		await interpreter.set('R');
+		await verifyReticulateFunctionality(app, interpreter, false);
 
-		await app.workbench.console.pasteCodeToConsole('y<-reticulate::py$x');
-		await app.workbench.console.sendEnterKey();
-		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+		sequential = true;
 
-		await expect(async () => {
-			const variablesMap = await app.workbench.variables.getFlatVariables();
-			expect(variablesMap.get('y')).toStrictEqual({ value: '100', type: 'int' });
-		}).toPass({ timeout: 60000 });
+	});
+
+	test('R - Verify Reticulate Stop/Restart Functionality [C...]', async function ({ app, interpreter }) {
+
+		// web only test but we don't have another way to skip electron tests
+		if (!app.web) {
+			return;
+		}
+
+		await app.workbench.interpreter.selectInterpreter('Python', 'Python (reticulate)', !sequential);
+
+		await verifyReticulateFunctionality(app, interpreter, sequential);
+
+		await app.workbench.layouts.enterLayout('stacked');
+
+		await app.workbench.console.barPowerButton.click();
+
+		await app.workbench.console.waitForConsoleContents('shut down successfully');
+
+		await app.code.driver.page.locator('.positron-console').getByRole('button', { name: 'Restart R' }).click();
+
+		await app.workbench.console.waitForReady('>');
+
+		await app.code.driver.page.locator('.positron-console').locator('.action-bar-button-drop-down-arrow').click();
+
+		await app.code.driver.page.locator('.action-label', { hasText: 'Python (reticulate)' }).hover();
+
+		await app.code.driver.page.keyboard.press('Enter');
+
+		await app.code.driver.page.locator('.positron-console').getByRole('button', { name: 'Restart Python' }).click();
+
+		await app.workbench.console.waitForReady('>>>');
+
+		await verifyReticulateFunctionality(app, interpreter, sequential);
 
 	});
 });
+
+async function verifyReticulateFunctionality(app, interpreter, sequential) {
+
+	await app.workbench.console.pasteCodeToConsole('x=100');
+	await app.workbench.console.sendEnterKey();
+
+	await app.workbench.console.barClearButton.click();
+
+	await interpreter.set('R', !sequential);
+
+	await app.workbench.console.pasteCodeToConsole('y<-reticulate::py$x');
+	await app.workbench.console.sendEnterKey();
+
+	await app.workbench.console.barClearButton.click();
+
+	await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+
+	await expect(async () => {
+		const variablesMap = await app.workbench.variables.getFlatVariables();
+		expect(variablesMap.get('y')).toStrictEqual({ value: '100', type: 'int' });
+	}).toPass({ timeout: 60000 });
+
+	await app.workbench.layouts.enterLayout('stacked');
+};
