@@ -4,10 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import test, { expect, Locator } from '@playwright/test';
-import { Code, Console } from '../infra';
+import { Console } from '../../pages/console';
+import { Code } from '../code';
 
 const INTERPRETER_INFO_LINE = '.info .container .line';
 const INTERPRETER_ACTIONS_SELECTOR = `.interpreter-actions .action-button`;
+const DESIRED_PYTHON = process.env.POSITRON_PY_VER_SEL;
+const DESIRED_R = process.env.POSITRON_R_VER_SEL;
 
 export enum InterpreterType {
 	Python = 'Python',
@@ -38,7 +41,15 @@ export class Interpreter {
 	 * @param interpreterType The type of the interpreter to select.
 	 * @param description The descriptive string of the interpreter to select.
 	 */
-	async selectInterpreter(interpreterType: 'Python' | 'R', interpreterDescription: string, waitForInterpreterReady = true) {
+	async selectInterpreter(
+		interpreterType: 'Python' | 'R',
+		interpreterDescription = interpreterType === 'Python' ? DESIRED_PYTHON : DESIRED_R,
+		waitForInterpreterReady = true) {
+
+		if (!DESIRED_PYTHON || !DESIRED_R) {
+			throw new Error('Please set env vars: POSITRON_PYTHON_VER_SEL, POSITRON_R_VER_SEL');
+		}
+
 		await test.step(`Select interpreter: ${interpreterDescription}`, async () => {
 			await this.openInterpreterDropdown();
 

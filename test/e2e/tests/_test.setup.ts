@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Logger, PythonFixtures, RFixtures, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags } from '../infra';
+import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -112,11 +112,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		const setInterpreter = async (interpreterName: 'Python' | 'R') => {
 			const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
 
-			if (!currentInterpreter.includes(interpreterName)) {
+			if (!currentInterpreter.startsWith(interpreterName)) {
 				if (interpreterName === 'Python') {
-					await PythonFixtures.SetupFixtures(app, false);
+					await app.workbench.interpreter.selectInterpreter('Python');
 				} else if (interpreterName === 'R') {
-					await RFixtures.SetupFixtures(app, false);
+					await app.workbench.interpreter.selectInterpreter('R');
 				}
 			}
 		};
