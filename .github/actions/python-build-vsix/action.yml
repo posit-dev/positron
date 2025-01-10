@@ -92,7 +92,7 @@ runs:
       working-directory: extensions/positron-python
       # Move to a temp name in case the specified name happens to match the default name.
       run: |
-        mv positron-python-dev.vsix positron-python-dev-temp.vsix && mv positron-python-dev.vsix ${{ inputs.vsix_name }}
+        cp positron-python-dev.vsix positron-python-dev-temp.vsix && mv positron-python-dev-temp.vsix ${{ inputs.vsix_name }}
       shell: bash
 
     - name: Upload VSIX
