@@ -114,8 +114,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 			if (!currentInterpreter.startsWith(desiredInterpreter)) {
 				desiredInterpreter === 'Python'
-					? await app.workbench.interpreter.selectInterpreterViaQuickAccess('Python')
-					: await app.workbench.interpreter.selectInterpreterViaQuickAccess('R');
+					? await app.workbench.interpreter.startInterpreterViaQuickAccess('Python')
+					: await app.workbench.interpreter.startInterpreterViaQuickAccess('R');
 			}
 		};
 

@@ -34,7 +34,7 @@ export class Interpreter {
 
 	// --- Actions ---
 
-	selectInterpreterViaQuickAccess = async (interpreterType: 'Python' | 'R', waitForReady = true) => {
+	startInterpreterViaQuickAccess = async (interpreterType: 'Python' | 'R', waitForReady = true) => {
 		await test.step(`Select interpreter via Quick Access: ${interpreterType}`, async () => {
 			if (!DESIRED_PYTHON || !DESIRED_R) {
 				throw new Error('Please set env vars: POSITRON_PYTHON_VER_SEL, POSITRON_R_VER_SEL');
@@ -50,13 +50,6 @@ export class Interpreter {
 					: await this.console.waitForReady('>', 30000);
 			}
 		});
-		// Do I need this?
-		// if (
-		// 	installIPyKernelIfPrompted &&
-		// 	(await this.app.workbench.popups.popupCurrentlyOpen())
-		// ) {
-		// 	await this.app.workbench.popups.installIPyKernel();
-		// }
 	};
 
 	/**
