@@ -212,10 +212,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				this.storePlotMetadata(plot.metadata);
 			});
 
-			this._editorPlots.forEach((plot) => {
-				this.storePlotMetadata(plot.metadata);
-			});
-
 			this._storageService.store(
 				HistoryPolicyStorageKey,
 				this._selectedHistoryPolicy,
@@ -499,7 +495,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							const commProxy = this.createCommProxy(client, metadata);
 							plotClients.push(this.createRuntimePlotClient(commProxy));
 							registered = true;
-							this.restoreEditorPlot(metadata.id, session.sessionId, commProxy);
+							const editorPlot = this.restoreEditorPlot(metadata.id, session.sessionId, commProxy);
+							if (editorPlot) {
+								plotClients.push(editorPlot);
+							}
 						} catch (error) {
 							console.warn(`Error parsing plot metadata: ${error}`);
 						}
@@ -513,6 +512,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							session_id: session.sessionId,
 							parent_id: '',
 							code: '',
+							location: PlotClientLocation.View,
 						};
 						const commProxy = this.createCommProxy(client, metadata);
 						plotClients.push(this.createRuntimePlotClient(commProxy));
@@ -536,7 +536,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			// Register each plot client with the plots service, but don't fire the
 			// events.
 			plotClients.forEach((client) => {
-				this.registerPlotClient(client, false);
+				if (client.metadata.location === PlotClientLocation.View) {
+					this.registerPlotClient(client, false);
+				}
 			});
 
 			// Re-sort the plots by creation time since we may have added new ones that are
@@ -593,7 +595,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				// Register the plot client
 				const commProxy = this.createCommProxy(event.client, metadata);
 				const plotClient = this.createRuntimePlotClient(commProxy);
-				this.storePlotMetadata(metadata);
 				this.registerPlotClient(plotClient, true);
 
 				// Raise the Plots pane so the plot is visible.
@@ -636,7 +637,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/**
 	 * Check if the stored metadata has a plot for an editor and restore it.
 	 */
-	private restoreEditorPlot(plotId: string, sessionId: string, commProxy: PositronPlotCommProxy) {
+	private restoreEditorPlot(plotId: string, sessionId: string, commProxy: PositronPlotCommProxy): PlotClientInstance | null {
 		const metadataKey = this.generateStorageKey(sessionId, plotId, PlotClientLocation.Editor);
 		const storedMetadata = this._storageService.get(metadataKey, StorageScope.WORKSPACE);
 
@@ -645,14 +646,23 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				const metadata = JSON.parse(storedMetadata) as IPositronPlotMetadata;
 				this._plotCommProxies.get(metadata.id);
 				// TODO: check if proxy exists and create one if it does not
-				const plot = this.createRuntimePlotClient(commProxy);
+				const plot = this.createRuntimePlotClient(commProxy, PlotClientLocation.Editor);
 				this._editorPlots.set(plotId, plot);
 
 				this.openEditor(plotId);
+
+				plot.onDidClose(() => {
+					this._editorPlots.delete(plotId);
+					this._storageService.remove(metadataKey, StorageScope.WORKSPACE);
+				});
+
+				return plot;
 			} catch (error) {
 				console.warn(`Error parsing plot metadata: ${error}`);
 			}
 		}
+
+		return null;
 	}
 
 	/**
@@ -690,14 +700,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Remove the plot from our list when it is closed
 		this._register(plotClient.onDidClose(() => {
-			this.unregisterPlotClient(plotClient);
 			const index = this._plots.indexOf(plotClient);
 			if (index >= 0) {
 				this._plots.splice(index, 1);
 			}
 			// Clear the plot's metadata from storage
 			this._storageService.remove(
-				this.generateStorageKey(plotClient.metadata.session_id, plotClient.metadata.id),
+				this.generateStorageKey(plotClient.metadata.session_id, plotClient.metadata.id, plotClient.metadata.location),
 				StorageScope.WORKSPACE);
 		}));
 
@@ -838,6 +847,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Fire the event notifying subscribers
 		this._onDidRemovePlot.fire(id);
+	}
+
+	removeEditorPlot(id: string): void {
+		const plot = this._editorPlots.get(id);
+		if (plot) {
+			this.unregisterPlotClient(plot);
+			this._editorPlots.delete(id);
+		}
 	}
 
 	/**
@@ -1215,6 +1232,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 
 		plotClients.push(plotClient);
+
+		this.storePlotMetadata({ ...comm.metadata, location });
 
 		return plotClient;
 	}
