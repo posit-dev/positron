@@ -144,6 +144,11 @@ export interface IPositronPlotsService {
 	selectSizingPolicy(id: string): void;
 
 	/**
+	 * Sets the sizing policy for the plot.
+	 */
+	setEditorSizingPolicy(plotId: string, policyId: string): void;
+
+	/**
 	 * Sets a custom plot size (and selects the custom sizing policy)
 	 */
 	setCustomPlotSize(size: IPlotSize): void;

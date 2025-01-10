@@ -405,6 +405,20 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 	}
 
+	setEditorSizingPolicy(plotId: string, policyId: string): void {
+		const plot = this._editorPlots.get(plotId);
+		if (plot instanceof PlotClientInstance) {
+			const policy = this._sizingPolicies.find(policy => policy.id === policyId);
+			if (policy) {
+				plot.sizingPolicy = policy;
+			} else {
+				this._notificationService.error(localize('positronPlots.sizing.invalidSizingPolicy', 'Invalid sizing policy: {0}', policyId));
+			}
+		} else {
+			this._notificationService.error(localize('positronPlots.sizing.invalidPlotType', 'Cannot set size for this plot type'));
+		}
+	}
+
 	/**
 	 * Sets a custom plot size and applies it as a custom sizing policy.
 	 *
