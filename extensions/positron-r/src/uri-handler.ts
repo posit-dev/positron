@@ -5,24 +5,11 @@
 
 import * as vscode from 'vscode';
 
-import { LOGGER } from './extension';
 import { RSessionManager } from './session-manager';
 import { EnvVar, RSession } from './session';
 
 export async function registerUriHandler() {
 	vscode.window.registerUriHandler({ handleUri });
-}
-
-// Temporary feature flag to finesse the fact that cli hyperlinks are either all ON or all OFF.
-// cli 3.6.3.9001 gained support for configuring the URL format of run/help/vignette hyperlinks.
-// But file hyperlinks are not yet configurable and will delegate to operating system.
-// If the user still has RStudio as the app associated with .R files, it will open in RStudio.
-// Flag will be removed once cli can be configured to emit positron://file/... hyperlinks.
-function taskHyperlinksEnabled(): boolean {
-	const extConfig = vscode.workspace.getConfiguration('positron.r');
-	const taskHyperlinksEnabled = extConfig.get<boolean>('taskHyperlinks');
-
-	return taskHyperlinksEnabled === true;
 }
 
 // Example of a URI we expect to handle:
@@ -72,11 +59,10 @@ export async function prepCliEnvVars(session?: RSession): Promise<EnvVar> {
 		return {};
 	}
 
-	const taskHyperlinks = taskHyperlinksEnabled();
-	const cliPkg = await session.packageVersion('cli', '3.6.3.9001');
+	const cliPkg = await session.packageVersion('cli', '3.6.3.9002');
 	const cliSupportsHyperlinks = cliPkg?.compatible ?? false;
 
-	if (!taskHyperlinks || !cliSupportsHyperlinks) {
+	if (!cliSupportsHyperlinks) {
 		// eslint-disable-next-line @typescript-eslint/naming-convention
 		return { R_CLI_HYPERLINKS: 'FALSE' };
 	}
@@ -84,9 +70,9 @@ export async function prepCliEnvVars(session?: RSession): Promise<EnvVar> {
 	return {
 		/* eslint-disable @typescript-eslint/naming-convention */
 		R_CLI_HYPERLINKS: 'TRUE',
+		R_CLI_HYPERLINK_FILE_URL_FORMAT: 'positron://file{path}:{line}:{column}',
 		// TODO: I'd like to request POSIX compliant hyperlinks in the future, but currently
-		// cli's tests implicitly assume the default and there are more important changes to
-		// propose in cli, such as tweaks to file hyperlinks. Leave this alone for now.
+		// cli's tests implicitly assume the default. Doesn't seem worth the fuss at this time.
 		// R_CLI_HYPERLINK_MODE: "posix",
 		R_CLI_HYPERLINK_RUN: 'TRUE',
 		R_CLI_HYPERLINK_RUN_URL_FORMAT: 'positron://positron.positron-r/cli?command=x-r-run:{code}',
