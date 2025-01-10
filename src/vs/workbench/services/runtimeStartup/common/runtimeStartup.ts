@@ -88,7 +88,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// This is keyed by the the extension host's mainThreadLanguageRuntime's id
 	// This map is used to determine if runtime discovery has been completed
 	// across all extension hosts.
-	private readonly _extensionHostDiscoveryCompleteByMainThreadLanguageRuntimeId = new Map<number, boolean>();
+	private readonly _discoveryCompleteByExtHostId = new Map<number, boolean>();
 
 	// The current startup phase; an observeable value.
 	private _startupPhase: ISettableObservable<RuntimeStartupPhase>;
@@ -357,11 +357,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	public completeDiscovery(id: number): void {
 		// Update the extension host's runtime discovery state to 'Complete'
-		this._extensionHostDiscoveryCompleteByMainThreadLanguageRuntimeId.set(id, true);
+		this._discoveryCompleteByExtHostId.set(id, true);
 
 		// Determine if all extension hosts have completed discovery
 		let discoveryCompletedByAllExtensionHosts = true;
-		for (const disoveryCompleted of this._extensionHostDiscoveryCompleteByMainThreadLanguageRuntimeId.values()) {
+		for (const disoveryCompleted of this._discoveryCompleteByExtHostId.values()) {
 			if (!disoveryCompleted) {
 				discoveryCompletedByAllExtensionHosts = false;
 				break;
@@ -386,7 +386,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	public registerMainThreadLanguageRuntime(id: number): void {
 		// Add the mainThreadLanguageRuntime instance id to the set of mainThreadLanguageRuntimes.
-		this._extensionHostDiscoveryCompleteByMainThreadLanguageRuntimeId.set(id, false);
+		this._discoveryCompleteByExtHostId.set(id, false);
 		this._logService.debug(`[Runtime startup] Registered mainThreadLanguageRuntime with id: ${id}.`);
 	}
 
@@ -401,7 +401,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	public unregisterMainThreadLanguageRuntime(id: number): void {
 		// Remove the mainThreadLanguageRuntime instance id to the set of mainThreadLanguageRuntimes.
-		this._extensionHostDiscoveryCompleteByMainThreadLanguageRuntimeId.delete(id);
+		this._discoveryCompleteByExtHostId.delete(id);
 		this._logService.debug(`[Runtime startup] Unregistered mainThreadLanguageRuntime with id: ${id}.`);
 	}
 

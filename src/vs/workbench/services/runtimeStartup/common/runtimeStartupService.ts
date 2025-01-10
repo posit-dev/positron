@@ -118,7 +118,7 @@ export interface IRuntimeStartupService {
 	registerMainThreadLanguageRuntime(id: number): void;
 
 	/**
-	 * Used to un-registers an instance of a MainThreadLanguageRuntime.
+	 * Used to un-register an instance of a MainThreadLanguageRuntime.
 	 *
 	 * This is required because there can be multiple extension hosts
 	 * and the startup service needs to know of all of them to track
