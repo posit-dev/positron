@@ -202,7 +202,7 @@ To add a test tag:
 
 From that point, all E2E tests linked to the specified tag(s) will run during the test job. For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts).
 
-To include Windows and Web Browser testing:
+To include Windows and Web Browser testing: 
 
 By default, only Linuxe e2e test will run.  You can optionally add `@:win` to your PR description and this will run test on windows as well. As of now, windows tests do take longer to run, so the overall PR test job will take longer to complete. You can also ass `@:web` to run the browser tests.
 
