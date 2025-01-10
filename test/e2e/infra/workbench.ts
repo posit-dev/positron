@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Code } from './code';
-import { Interpreter } from '../pages/interpreter';
+import { Interpreter } from '../infra/fixtures/interpreter';
 import { Popups } from '../pages/popups';
 import { Console } from '../pages/console';
 import { Variables } from '../pages/variables';
