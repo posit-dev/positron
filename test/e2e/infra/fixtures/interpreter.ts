@@ -46,14 +46,8 @@ export class Interpreter {
 
 		await test.step(`Select interpreter via Quick Access: ${interpreterType}`, async () => {
 			interpreterType === 'Python'
-				? await this.console.selectInterpreter(InterpreterType.Python, DESIRED_PYTHON)
-				: await this.console.selectInterpreter(InterpreterType.R, DESIRED_R);
-
-			if (waitForReady) {
-				interpreterType === 'Python'
-					? await this.console.waitForReady('>>>', 30000)
-					: await this.console.waitForReady('>', 30000);
-			}
+				? await this.console.selectInterpreter(InterpreterType.Python, DESIRED_PYTHON, waitForReady)
+				: await this.console.selectInterpreter(InterpreterType.R, DESIRED_R, waitForReady);
 		});
 	};
 
