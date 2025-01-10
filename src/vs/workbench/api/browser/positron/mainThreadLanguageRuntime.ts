@@ -1177,11 +1177,15 @@ export class MainThreadLanguageRuntime
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 		this._id = MainThreadLanguageRuntime.MAX_ID++;
 
-		this._languageRuntimeService.onDidChangeRuntimeStartupPhase((phase) => {
-			if (phase === RuntimeStartupPhase.Discovering) {
-				this._proxy.$discoverLanguageRuntimes();
-			}
-		});
+		this._runtimeStartupService.registerMainThreadLanguageRuntime(this._id);
+
+		this._disposables.add(
+			this._languageRuntimeService.onDidChangeRuntimeStartupPhase((phase) => {
+				if (phase === RuntimeStartupPhase.Discovering) {
+					this._proxy.$discoverLanguageRuntimes();
+				}
+			})
+		);
 
 		this._disposables.add(this._runtimeSessionService.registerSessionManager(this));
 	}
@@ -1259,7 +1263,7 @@ export class MainThreadLanguageRuntime
 
 	// Signals that language runtime discovery is complete.
 	$completeLanguageRuntimeDiscovery(): void {
-		this._runtimeStartupService.completeDiscovery();
+		this._runtimeStartupService.completeDiscovery(this._id);
 	}
 
 	$unregisterLanguageRuntime(handle: number): void {
@@ -1289,6 +1293,8 @@ export class MainThreadLanguageRuntime
 				session.emitExit(exit);
 			}
 		});
+
+		this._runtimeStartupService.unregisterMainThreadLanguageRuntime(this._id);
 		this._disposables.dispose();
 	}
 

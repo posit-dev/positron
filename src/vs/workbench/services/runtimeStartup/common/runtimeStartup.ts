@@ -97,7 +97,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// (metadata.languageId) of the runtime.
 	private readonly _mostRecentlyStartedRuntimesByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 
-	// The current startup phase an observeable value.
+	// A map of each extension host and its runtime discovery completion state.
+	// This is keyed by the the extension host's mainThreadLanguageRuntime's id
+	// This map is used to determine if runtime discovery has been completed
+	// across all extension hosts.
+	private readonly _discoveryCompleteByExtHostId = new Map<number, boolean>();
+
+	// The current startup phase
 	private _startupPhase: RuntimeStartupPhase;
 
 	// Whether we are shutting down
@@ -362,11 +368,66 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
-	 * Completes the language runtime discovery phase. If no runtimes were
-	 * started or will be started, automatically start one.
+	/**
+	 * Signals that the runtime discovery phase is completed only after all
+	 * extension hosts have completed runtime discovery.
+	 *
+	 * If no runtimes were started or will be started, automatically start one.
 	 */
-	completeDiscovery(): void {
-		this.setStartupPhase(RuntimeStartupPhase.Complete);
+	public completeDiscovery(id: number): void {
+		// Update the extension host's runtime discovery state to 'Complete'
+		this._discoveryCompleteByExtHostId.set(id, true);
+		this._logService.debug(`[Runtime startup] Discovery completed for extension host with id: ${id}.`);
+
+		// Determine if all extension hosts have completed discovery
+		let discoveryCompletedByAllExtensionHosts = true;
+		for (const disoveryCompleted of this._discoveryCompleteByExtHostId.values()) {
+			if (!disoveryCompleted) {
+				discoveryCompletedByAllExtensionHosts = false;
+				break;
+			}
+		}
+
+		// The 'Discovery' phase is considered complete only after all extension hosts
+		// have signaled they have completed their own runtime discovery
+		if (discoveryCompletedByAllExtensionHosts) {
+			this.setStartupPhase(RuntimeStartupPhase.Complete);
+			// Reset the discovery state for each ext host so we are ready
+			// for possible re-discovery of runtimes
+			this._discoveryCompleteByExtHostId.forEach((_, extHostId, m) => {
+				m.set(extHostId, false);
+			});
+		}
+	}
+
+	/**
+	 * Used to register an instance of a MainThreadLanguageRuntime.
+	 *
+	 * This is required because there can be multiple extension hosts
+	 * and the startup service needs to know of all of them to track
+	 * the startup phase across all extension hosts.
+	 *
+	 * @param id The id of the MainThreadLanguageRuntime instance being registered.
+	 */
+	public registerMainThreadLanguageRuntime(id: number): void {
+		// Add the mainThreadLanguageRuntime instance id to the set of mainThreadLanguageRuntimes.
+		this._discoveryCompleteByExtHostId.set(id, false);
+		this._logService.debug(`[Runtime startup] Registered extension host with id: ${id}.`);
+	}
+
+	/**
+	 * Used to un-registers an instance of a MainThreadLanguageRuntime.
+	 *
+	 * This is required because there can be multiple extension hosts
+	 * and the startup service needs to know of all of them to track
+	 * the startup phase across all extension hosts.
+	 *
+	 * @param id The id of the MainThreadLanguageRuntime instance being un-registered.
+	 */
+	public unregisterMainThreadLanguageRuntime(id: number): void {
+		// Remove the mainThreadLanguageRuntime instance id to the set of mainThreadLanguageRuntimes.
+		this._discoveryCompleteByExtHostId.delete(id);
+		this._logService.debug(`[Runtime startup] Unregistered extension host with id: ${id}.`);
 	}
 
 	/**
@@ -826,6 +887,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * @param sessions The set of sessions to restore.
 	 */
 	private async restoreWorkspaceSessions(sessions: SerializedSessionMetadata[]) {
+
 		this.setStartupPhase(RuntimeStartupPhase.Reconnecting);
 
 		// Activate any extensions needed for the sessions that are persistent on the machine.
