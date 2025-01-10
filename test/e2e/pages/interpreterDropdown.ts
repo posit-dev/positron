@@ -8,7 +8,6 @@ import test, { expect, Locator } from '@playwright/test';
 import { Code, Console } from '../infra';
 import { getInterpreterType, InterpreterInfo, InterpreterType } from './utils/interpreterInfo';
 
-// const primaryInterpreter = '.primary-interpreter';
 const INTERPRETER_INFO_LINE = '.info .container .line';
 const INTERPRETER_ACTIONS_SELECTOR = `.interpreter-actions .action-button`;
 
@@ -16,7 +15,7 @@ const INTERPRETER_ACTIONS_SELECTOR = `.interpreter-actions .action-button`;
 /*
  *  Reuseable Positron interpreter selection functionality for tests to leverage.
  */
-export class InterpreterDropdown {
+export class Interpreter {
 	private interpreterGroups = this.code.driver.page.locator('.positron-modal-popup .interpreter-groups');
 	private interpreterDropdown = this.code.driver.page.locator('.top-action-bar-interpreters-manager .left');
 	private primaryInterpreter = this.code.driver.page.locator('.primary-interpreter');
@@ -136,6 +135,8 @@ export class InterpreterDropdown {
 			.getByTitle('Stop the interpreter');
 		await stopButton.click();
 		// return;
+
+		await this.closeInterpreterDropdown();
 	}
 
 	/**
@@ -171,6 +172,15 @@ export class InterpreterDropdown {
 		});
 	}
 
+	async verifyInterpreterRestarted(interpreterType: 'Python' | 'R') {
+		await this.console.waitForConsoleContents('preparing for restart');
+		await this.console.waitForConsoleContents('restarted');
+
+		interpreterType === 'Python'
+			? await this.console.waitForReady('>>>', 10000)
+			: await this.console.waitForReady('>', 10000);
+	}
+
 	/**
 	 * Check if the primary interpreter shows as inactive with a restart button and a start button.
 	 * @param description The descriptive string of the interpreter to check.
@@ -204,6 +214,15 @@ export class InterpreterDropdown {
 
 		await this.closeInterpreterDropdown();
 		// });
+	}
+
+	/**
+	 * Verify the selected interpreter is the expected interpreter.
+	 * @param description The descriptive string of the interpreter to verify.
+	 */
+	async verifyInterpreterIsSelected(description: string | InterpreterType) {
+		const interpreterInfo = await this.getSelectedInterpreterInfo();
+		expect(interpreterInfo!.version).toContain(description);
 	}
 
 	/**
