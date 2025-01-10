@@ -134,7 +134,6 @@ export class Interpreter {
 			.locator(INTERPRETER_ACTIONS_SELECTOR)
 			.getByTitle('Stop the interpreter');
 		await stopButton.click();
-		// return;
 
 		await this.closeInterpreterDropdown();
 	}
@@ -192,17 +191,16 @@ export class Interpreter {
 		await this.openInterpreterDropdown();
 		const primaryInterpreter = await this.getPrimaryInterpreter(description);
 
-		// Fail if green dot running indicator not missing
+		// Assert green running indicator is not visible
 		const runningIndicator = primaryInterpreter.locator('.running-icon');
 		await expect(runningIndicator).not.toBeVisible();
 
-		// Fail if restart button not disabled or missing
-		// const restartButton = primaryInterpreter
-		// 	.locator(INTERPRETER_ACTIONS_SELECTOR)
-		// 	.getByTitle('Restart the interpreter');
+		// Assert restart button is not visible
+		const restartButton = primaryInterpreter
+			.locator(INTERPRETER_ACTIONS_SELECTOR)
+			.getByTitle('Restart the interpreter');
 
-		// await expect(restartButton).toBeVisible();
-		// await expect(restartButton).toBeDisabled();
+		await expect(restartButton).not.toBeVisible();
 
 		// Fail if start button not visible or enabled
 		const startButton = primaryInterpreter
