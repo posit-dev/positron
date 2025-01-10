@@ -34,12 +34,17 @@ export class Interpreter {
 
 	// --- Actions ---
 
+	/**
+	 * Action: Start an interpreter via the Quick Access bar.
+	 * @param interpreterType The type of the interpreter to start.
+	 * @param waitForReady Wait for the interpreter to be ready after starting.
+	 */
 	startInterpreterViaQuickAccess = async (interpreterType: 'Python' | 'R', waitForReady = true) => {
-		await test.step(`Select interpreter via Quick Access: ${interpreterType}`, async () => {
-			if (!DESIRED_PYTHON || !DESIRED_R) {
-				throw new Error('Please set env vars: POSITRON_PYTHON_VER_SEL, POSITRON_R_VER_SEL');
-			}
+		if (!DESIRED_PYTHON || !DESIRED_R) {
+			throw new Error('Please set env vars: POSITRON_PYTHON_VER_SEL, POSITRON_R_VER_SEL');
+		}
 
+		await test.step(`Select interpreter via Quick Access: ${interpreterType}`, async () => {
 			interpreterType === 'Python'
 				? await this.console.selectInterpreter(InterpreterType.Python, DESIRED_PYTHON)
 				: await this.console.selectInterpreter(InterpreterType.R, DESIRED_R);
@@ -54,21 +59,20 @@ export class Interpreter {
 
 	/**
 	 * Action: Select an interpreter from the dropdown by the interpreter type and a descriptive string.
-	 * The interpreter type could be 'Python', 'R', etc.
-	 * The string could be 'Python 3.10.4 (Pyenv)', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
 	 * @param interpreterType The type of the interpreter to select.
-	 * @param description The descriptive string of the interpreter to select.
+	 * @param description Description of interpreter to select: 'Python', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
+	 * @param waitForReady Wait for the interpreter to be ready after selecting.
 	 */
 	async selectInterpreter(
 		interpreterType: 'Python' | 'R',
 		interpreterDescription = interpreterType === 'Python' ? DESIRED_PYTHON : DESIRED_R,
-		waitForInterpreterReady = true
+		waitForReady = true
 	) {
 		if (!DESIRED_PYTHON || !DESIRED_R) {
 			throw new Error('Please set env vars: POSITRON_PYTHON_VER_SEL, POSITRON_R_VER_SEL');
 		}
 
-		await test.step(`Select interpreter: ${interpreterDescription}`, async () => {
+		await test.step(`Select interpreter via UI: ${interpreterDescription}`, async () => {
 			await this.openInterpreterDropdown();
 
 			const selectedPrimaryInterpreter = this.primaryInterpreter.filter({ hasText: interpreterDescription });
@@ -87,7 +91,7 @@ export class Interpreter {
 				await secondaryInterpreterOption.click();
 			}
 
-			if (waitForInterpreterReady) {
+			if (waitForReady) {
 				interpreterType === 'Python'
 					? await this.console.waitForReady('>>>', 30000)
 					: await this.console.waitForReady('>', 30000);
@@ -97,8 +101,7 @@ export class Interpreter {
 
 	/**
 	 * Action: Restart the primary interpreter
-	 * The interpreter type could be 'Python', 'R', etc.
-	 * The string could be 'Python 3.10.4 (Pyenv)', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
+	 * @param description The description of interpreter to restart: 'Python', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
 	 */
 	async restartPrimaryInterpreter(description: string | InterpreterType) {
 		await test.step(`Restart interpreter: ${description}`, async () => {
@@ -119,8 +122,7 @@ export class Interpreter {
 
 	/**
 	 * Action: Stop the primary interpreter
-	 * The interpreter type could be 'Python', 'R', etc.
-	 * The string could be 'Python 3.10.4 (Pyenv)', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
+	 * @param description The description of interpreter to stop: 'Python', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
 	 */
 	async stopPrimaryInterpreter(description: string | InterpreterType, waitForInterpreterShutdown = true) {
 		await test.step(`Stop interpreter: ${description}`, async () => {
@@ -202,8 +204,7 @@ export class Interpreter {
 
 	/**
 	 * Helper: Get the primary interpreter element by a descriptive string or interpreter type.
-	 * The string could be 'Python 3.10.4 (Pyenv)', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
-	 * @param descriptionOrType The descriptive string of the interpreter to get.
+	 * @param descriptionOrType The descriptive string or interpreter type to filter the primary interpreter by.
 	 * @returns The primary interpreter element
 	 */
 	private async getPrimaryInterpreterElement(descriptionOrType: string | InterpreterType) {
@@ -218,7 +219,6 @@ export class Interpreter {
 
 	/**
 	 * Helper: Get the interpreter name from the interpreter element.
-	 * Examples: 'Python 3.10.4 (Pyenv)', 'R 4.4.0'.
 	 * @param interpreterLocator The locator for the interpreter element.
 	 */
 	private async getInterpreterName(interpreterLocator: Locator) {
