@@ -158,7 +158,7 @@ async function getInterpreterPath(app: Application): Promise<string> {
 
 	await test.step('Get the interpreter path', async () => {
 		const interpreterInfo =
-			await app.workbench.interpreterDropdown.getSelectedInterpreterInfo();
+			await app.workbench.interpreter.getSelectedInterpreterInfo();
 
 		expect(interpreterInfo?.path).toBeDefined();
 		interpreterPath = interpreterInfo?.path;

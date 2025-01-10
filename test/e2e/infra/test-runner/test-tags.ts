@@ -22,6 +22,7 @@ export enum TestTags {
 	DUCK_DB = '@duck-db',
 	HELP = '@help',
 	HTML = '@html',
+	INTERPRETER = '@interpreter',
 	LAYOUTS = '@layouts',
 	VIEWER = '@viewer',
 	EDITOR = '@editor',
