@@ -34,6 +34,31 @@ export class Interpreter {
 
 	// --- Actions ---
 
+	selectInterpreterViaQuickAccess = async (interpreterType: 'Python' | 'R', waitForReady = true) => {
+		await test.step(`Select interpreter via Quick Access: ${interpreterType}`, async () => {
+			if (!DESIRED_PYTHON || !DESIRED_R) {
+				throw new Error('Please set env vars: POSITRON_PYTHON_VER_SEL, POSITRON_R_VER_SEL');
+			}
+
+			interpreterType === 'Python'
+				? await this.console.selectInterpreter(InterpreterType.Python, DESIRED_PYTHON)
+				: await this.console.selectInterpreter(InterpreterType.R, DESIRED_R);
+
+			if (waitForReady) {
+				interpreterType === 'Python'
+					? await this.console.waitForReady('>>>', 30000)
+					: await this.console.waitForReady('>', 30000);
+			}
+		});
+		// Do I need this?
+		// if (
+		// 	installIPyKernelIfPrompted &&
+		// 	(await this.app.workbench.popups.popupCurrentlyOpen())
+		// ) {
+		// 	await this.app.workbench.popups.installIPyKernel();
+		// }
+	};
+
 	/**
 	 * Action: Select an interpreter from the dropdown by the interpreter type and a descriptive string.
 	 * The interpreter type could be 'Python', 'R', etc.

@@ -109,15 +109,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	}, { scope: 'worker', auto: true, timeout: 60000 }],
 
 	interpreter: [async ({ app, page }, use) => {
-		const setInterpreter = async (interpreterName: 'Python' | 'R') => {
+		const setInterpreter = async (desiredInterpreter: 'Python' | 'R') => {
 			const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
 
-			if (!currentInterpreter.startsWith(interpreterName)) {
-				if (interpreterName === 'Python') {
-					await app.workbench.interpreter.selectInterpreter('Python');
-				} else if (interpreterName === 'R') {
-					await app.workbench.interpreter.selectInterpreter('R');
-				}
+			if (!currentInterpreter.startsWith(desiredInterpreter)) {
+				desiredInterpreter === 'Python'
+					? await app.workbench.interpreter.selectInterpreterViaQuickAccess('Python')
+					: await app.workbench.interpreter.selectInterpreterViaQuickAccess('R');
 			}
 		};
 
