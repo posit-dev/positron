@@ -13,12 +13,12 @@ export class RFixtures {
 
 	constructor(private app: Application) { }
 
-	static async SetupFixtures(app: Application, waitForReady: boolean = true) {
+	static async SetupFixtures(app: Application, waitForReady = true) {
 		const fixtures = new RFixtures(app);
 		await fixtures.startRInterpreter(waitForReady);
 	}
 
-	async startRInterpreter(waitForReady: boolean = true) {
+	async startRInterpreter(waitForReady = true) {
 
 		const desiredR = process.env.POSITRON_R_VER_SEL;
 		if (desiredR === undefined) {

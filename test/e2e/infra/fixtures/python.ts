@@ -14,12 +14,12 @@ export class PythonFixtures {
 
 	constructor(private app: Application) { }
 
-	static async SetupFixtures(app: Application, skipReadinessCheck: boolean = false) {
+	static async SetupFixtures(app: Application, waitForReady = true) {
 		const fixtures = new PythonFixtures(app);
-		await fixtures.startPythonInterpreter(skipReadinessCheck);
+		await fixtures.startPythonInterpreter(waitForReady);
 	}
 
-	async startPythonInterpreter(skipReadinessCheck: boolean = false) {
+	async startPythonInterpreter(waitForReady = true) {
 
 		const desiredPython = process.env.POSITRON_PY_VER_SEL;
 		if (desiredPython === undefined) {
@@ -27,7 +27,7 @@ export class PythonFixtures {
 		}
 
 		try {
-			await this.app.workbench.console.selectInterpreter(InterpreterType.Python, desiredPython, skipReadinessCheck);
+			await this.app.workbench.console.selectInterpreter(InterpreterType.Python, desiredPython, waitForReady);
 			await this.app.workbench.console.waitForReady('>>>', 40000);
 		} catch (e) {
 			await this.app.code.driver.takeScreenshot('startPythonInterpreter');
