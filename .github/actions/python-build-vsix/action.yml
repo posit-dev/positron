@@ -99,6 +99,6 @@ runs:
       uses: actions/upload-artifact@v4
       with:
         name: ${{ inputs.artifact_name }}
-        path: ${{ inputs.vsix_name }}
+        path: extensions/positron-python/${{ inputs.vsix_name }}
         if-no-files-found: error
         retention-days: 2
