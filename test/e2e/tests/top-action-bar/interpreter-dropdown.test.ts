@@ -12,7 +12,7 @@ test.use({
 const desiredPython = process.env.POSITRON_PY_VER_SEL!;
 const desiredR = process.env.POSITRON_R_VER_SEL!;
 
-test.describe('Interpreter Dropdown in Top Action Bar', {
+test.describe('Top Action Bar - Interpreter Dropdown', {
 	tag: [tags.WEB, tags.TOP_ACTION_BAR, tags.INTERPRETER, tags.CRITICAL]
 }, () => {
 
@@ -40,7 +40,6 @@ test.describe('Interpreter Dropdown in Top Action Bar', {
 
 	test('R - stops and shows inactive [C707215]', async function ({ app, r }) {
 		await app.workbench.interpreter.stopPrimaryInterpreter(desiredR);
-		await app.workbench.console.waitForInterpreterShutdown();
 		await app.workbench.interpreter.verifyInterpreterIsInactive(desiredR);
 	});
 });

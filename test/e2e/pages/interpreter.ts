@@ -6,15 +6,28 @@
 
 import test, { expect, Locator } from '@playwright/test';
 import { Code, Console } from '../infra';
-import { getInterpreterType, InterpreterInfo, InterpreterType } from './utils/interpreterInfo';
 
 const INTERPRETER_INFO_LINE = '.info .container .line';
 const INTERPRETER_ACTIONS_SELECTOR = `.interpreter-actions .action-button`;
 
-
-/*
- *  Reuseable Positron interpreter selection functionality for tests to leverage.
+/**
+ * Enum representing types of interpreters.
  */
+export enum InterpreterType {
+	Python = 'Python',
+	R = 'R'
+}
+
+/**
+ * Interface describing interpreter information.
+ */
+export interface InterpreterInfo {
+	type: InterpreterType;
+	version: string; // e.g. Python 3.12.4 64-bit or Python 3.9.19 64-bit ('3.9.19') or R 4.4.0
+	path: string;    // e.g. /usr/local/bin/python3 or ~/.pyenv/versions/3.9.19/bin/python or /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/bin/R
+	source?: string; // e.g. Pyenv, Global, Conda, or System
+}
+
 export class Interpreter {
 	private interpreterGroups = this.code.driver.page.locator('.positron-modal-popup .interpreter-groups');
 	private interpreterDropdown = this.code.driver.page.locator('.top-action-bar-interpreters-manager .left');
@@ -23,247 +36,120 @@ export class Interpreter {
 
 	constructor(private code: Code, private console: Console) { }
 
-	/**
-	 * Open the interpreter dropdown in the top action bar.
-	 */
-	async openInterpreterDropdown() {
-		// await test.step(`Open interpreter dropdown`, async () => {
-		// If the interpreter dropdown is already open, return. This is a necessary check because
-		// clicking an open interpreter dropdown will close it.
-		if (await this.interpreterGroups.isVisible()) {
-			return;
-		}
-
-		// Open the interpreter dropdown.
-
-		await expect(async () => {
-			await this.interpreterDropdown.click({ timeout: 10_000 });
-			await expect(this.interpreterGroups).toBeVisible();
-		}).toPass();
-		// });
-	}
+	// --- Actions ---
 
 	/**
-	 * Close the interpreter dropdown in the top action bar.
-	 */
-	async closeInterpreterDropdown() {
-		// await test.step(`Open interpreter dropdown`, async () => {
-		if (await this.interpreterGroups.isVisible()) {
-			await this.code.driver.page.keyboard.press('Escape');
-			await expect(this.interpreterGroups).not.toBeVisible();
-		}
-		// });
-	}
-
-	/**
-	 * Get the interpreter name from the interpreter element.
-	 * Examples: 'Python 3.10.4 (Pyenv)', 'R 4.4.0'.
-	 * @param interpreterLocator The locator for the interpreter element.
-	 * @returns The interpreter name if found, otherwise undefined.
-	 */
-	private async getInterpreterName(interpreterLocator: Locator) {
-		// The first line element in the interpreter group contains the interpreter name.
-		return await interpreterLocator
-			.locator(INTERPRETER_INFO_LINE)
-			.first()
-			.textContent();
-	}
-
-	/**
-	 * Get the interpreter path from the interpreter element.
-	 * Examples: '/opt/homebrew/bin/python3', '/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/bin/R'.
-	 * @param interpreterLocator The locator for the interpreter element.
-	 * @returns The interpreter path if found, otherwise undefined.
-	 */
-	private async getInterpreterPath(interpreterLocator: Locator) {
-		// The last line element in the interpreter group contains the interpreter path.
-		return await interpreterLocator
-			.locator(INTERPRETER_INFO_LINE)
-			.last()
-			.textContent();
-	}
-
-	/**
-	 * Get the primary interpreter element by a descriptive string or interpreter type.
-	 * The string could be 'Python 3.10.4 (Pyenv)', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
-	 * @param description The descriptive string of the interpreter to get.
-	 * @returns The primary interpreter element if found, otherwise undefined.
-	 */
-	private async getPrimaryInterpreter(description: string | InterpreterType) {
-		const expectedInterpreter = this.primaryInterpreter.filter({ hasText: description });
-		await expect(expectedInterpreter).toBeVisible();
-		return expectedInterpreter.first();
-	}
-
-
-	/**
-	 * Restart the primary interpreter corresponding to the interpreter type or a descriptive string.
+	 * Action: Select an interpreter from the dropdown by the interpreter type and a descriptive string.
 	 * The interpreter type could be 'Python', 'R', etc.
 	 * The string could be 'Python 3.10.4 (Pyenv)', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
-	 * Note: This assumes the interpreter is already running.
+	 * @param interpreterType The type of the interpreter to select.
+	 * @param description The descriptive string of the interpreter to select.
+	 */
+	async selectInterpreter(interpreterType: 'Python' | 'R', interpreterDescription: string, waitForInterpreterReady = true) {
+		await test.step(`Select interpreter: ${interpreterDescription}`, async () => {
+			await this.openInterpreterDropdown();
+
+			const selectedPrimaryInterpreter = this.primaryInterpreter.filter({ hasText: interpreterDescription });
+			const secondaryInterpreterOption = this.secondaryInterpreter.filter({ hasText: interpreterDescription });
+			const primaryInterpreterByType = this.primaryInterpreter.filter({ hasText: new RegExp(`^${interpreterType}`, 'i') });
+
+			// Wait for the primary interpreter type/group to load and be visible
+			await expect(primaryInterpreterByType).toBeVisible();
+
+			// Check if the desired interpreter is already selected in the primary group
+			// Otherwise, expand the primary interpreter options and select from the secondary list
+			if (await selectedPrimaryInterpreter.count() === 1) {
+				await selectedPrimaryInterpreter.click();
+			} else {
+				primaryInterpreterByType.getByRole('button', { name: '' }).click();
+				await secondaryInterpreterOption.click();
+			}
+
+			if (waitForInterpreterReady) {
+				interpreterType === 'Python'
+					? await this.console.waitForReady('>>>', 30000)
+					: await this.console.waitForReady('>', 30000);
+			}
+		});
+	}
+
+	/**
+	 * Action: Restart the primary interpreter
+	 * The interpreter type could be 'Python', 'R', etc.
+	 * The string could be 'Python 3.10.4 (Pyenv)', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
 	 */
 	async restartPrimaryInterpreter(description: string | InterpreterType) {
-		// await test.step(`Restart interpreter: ${description}`, async () => {
-		await this.openInterpreterDropdown();
-		const primaryInterpreter = await this.getPrimaryInterpreter(description);
+		await test.step(`Restart interpreter: ${description}`, async () => {
+			await this.console.barClearButton.click();
 
-		// click the restart button
-		await primaryInterpreter
-			.locator(INTERPRETER_ACTIONS_SELECTOR)
-			.getByTitle('Restart the interpreter')
-			.click();
-
-		await this.closeInterpreterDropdown();
-		// });
-	}
-
-	/**
-	 * Stop the primary interpreter corresponding to the interpreter type or a descriptive string.
-	 * The interpreter type could be 'Python', 'R', etc.
-	 * The string could be 'Python 3.10.4 (Pyenv)', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
-	 * Note: This expects the interpreter to already running.
-	 */
-	async stopPrimaryInterpreter(description: string | InterpreterType) {
-		// // await test.step(`Stop interpreter: ${description}`, async () => {
-
-		await this.openInterpreterDropdown();
-
-		const primaryInterpreter = await this.getPrimaryInterpreter(description);
-
-		const stopButton = primaryInterpreter
-			.locator(INTERPRETER_ACTIONS_SELECTOR)
-			.getByTitle('Stop the interpreter');
-		await stopButton.click();
-
-		await this.closeInterpreterDropdown();
-	}
-
-	/**
-	 * Check if the primary interpreter shows as running with a green dot and shows a restart button.
-	 * @param description The descriptive string of the interpreter to check.
-	 */
-	async verifyInterpreterIsRunning(description: string | InterpreterType) {
-		await test.step(`Verify interpreter is running: ${description}`, async () => {
-			// Get primary interpreter element
 			await this.openInterpreterDropdown();
-			const primaryInterpreter = await this.getPrimaryInterpreter(description);
+			const primaryInterpreter = await this.getPrimaryInterpreterElement(description);
 
-			// Fail if green dot running indicator missing
-			await expect(primaryInterpreter.locator('.running-icon')).toBeVisible();
-
-			// Fail if restart button not visible and enabled
-			const restartButton = primaryInterpreter
+			// click the restart button
+			await primaryInterpreter
 				.locator(INTERPRETER_ACTIONS_SELECTOR)
-				.getByTitle('Restart the interpreter');
-
-			await expect(restartButton).toBeVisible();
-			await expect(restartButton).toBeEnabled();
-
-			// Fail if stop button not visible and enabled
-			const stopButton = primaryInterpreter
-				.locator(INTERPRETER_ACTIONS_SELECTOR)
-				.getByTitle('Stop the interpreter');
-
-			await expect(stopButton).toBeVisible();
-			await expect(stopButton).toBeEnabled();
+				.getByTitle('Restart the interpreter')
+				.click();
 
 			await this.closeInterpreterDropdown();
 		});
 	}
 
-	async verifyInterpreterRestarted(interpreterType: 'Python' | 'R') {
-		await this.console.waitForConsoleContents('preparing for restart');
-		await this.console.waitForConsoleContents('restarted');
-
-		interpreterType === 'Python'
-			? await this.console.waitForReady('>>>', 10000)
-			: await this.console.waitForReady('>', 10000);
-	}
-
 	/**
-	 * Check if the primary interpreter shows as inactive with a restart button and a start button.
-	 * @param description The descriptive string of the interpreter to check.
-	 * @returns True if the primary interpreter shows the expected inactive UI elements, otherwise false.
-	 */
-	async verifyInterpreterIsInactive(description: string | InterpreterType) {
-		// await test.step(`Verify interpreter is inactive: ${description}`, async () => {
-		// Get primary interpreter element
-		await this.openInterpreterDropdown();
-		const primaryInterpreter = await this.getPrimaryInterpreter(description);
-
-		// Assert green running indicator is not visible
-		const runningIndicator = primaryInterpreter.locator('.running-icon');
-		await expect(runningIndicator).not.toBeVisible();
-
-		// Assert restart button is not visible
-		const restartButton = primaryInterpreter
-			.locator(INTERPRETER_ACTIONS_SELECTOR)
-			.getByTitle('Restart the interpreter');
-
-		await expect(restartButton).not.toBeVisible();
-
-		// Fail if start button not visible or enabled
-		const startButton = primaryInterpreter
-			.locator(INTERPRETER_ACTIONS_SELECTOR)
-			.getByTitle('Start the interpreter', { exact: true });
-
-		await expect(startButton).toBeVisible();
-		await expect(startButton).toBeEnabled();
-
-		await this.closeInterpreterDropdown();
-		// });
-	}
-
-	/**
-	 * Verify the selected interpreter is the expected interpreter.
-	 * @param description The descriptive string of the interpreter to verify.
-	 */
-	async verifyInterpreterIsSelected(description: string | InterpreterType) {
-		const interpreterInfo = await this.getSelectedInterpreterInfo();
-		expect(interpreterInfo!.version).toContain(description);
-	}
-
-	/**
-	 * Select an interpreter from the dropdown by the interpreter type and a descriptive string.
+	 * Action: Stop the primary interpreter
 	 * The interpreter type could be 'Python', 'R', etc.
 	 * The string could be 'Python 3.10.4 (Pyenv)', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
-	 * @param type The interpreter type to select.
-	 * @param description The descriptive string of the interpreter to select.
-	 * @returns A promise that resolves once the interpreter is selected.
 	 */
-	async selectInterpreter(type: 'Python' | 'R', description: string) {
-		// await test.step(`Select interpreter: ${description}`, async () => {
-		await this.openInterpreterDropdown();
-		const matchingPrimary = this.primaryInterpreter.filter({ hasText: description });
-		const matchingSecondary = this.secondaryInterpreter.filter({ hasText: description });
+	async stopPrimaryInterpreter(description: string | InterpreterType, waitForInterpreterShutdown = true) {
+		await test.step(`Stop interpreter: ${description}`, async () => {
+			await this.openInterpreterDropdown();
+			const primaryInterpreter = await this.getPrimaryInterpreterElement(description);
 
-		if (await matchingPrimary.count() > 0) {
-			// desired interpreter is already primary interpreter
-			await matchingPrimary.first().click();
-		} else {
-			// find the desired interpreter in the secondary interpreters
-			const ellipsisButtons = this.primaryInterpreter.getByRole('button', { name: '' });
-			const count = await ellipsisButtons.count();
+			// click the stop button
+			await primaryInterpreter
+				.locator(INTERPRETER_ACTIONS_SELECTOR)
+				.getByTitle('Stop the interpreter')
+				.click();
 
-			for (let i = 0; i < count; i++) {
-				await ellipsisButtons.nth(i).click();
+			await this.closeInterpreterDropdown();
+
+			if (waitForInterpreterShutdown) {
+				await this.console.waitForInterpreterShutdown();
 			}
-			await matchingSecondary.click();
-		}
-
-		type === 'Python'
-			? await this.console.waitForReady('>>>', 10000)
-			: await this.console.waitForReady('>', 10000);
-		// });
+		});
 	}
 
 	/**
-	 * Get the interpreter info for the currently selected interpreter in the dropdown.
+	 * Action: Open the interpreter dropdown in the top action bar.
+	 */
+	async openInterpreterDropdown() {
+		if (await this.interpreterGroups.isVisible()) {
+			return;
+		}
+
+		await expect(async () => {
+			await this.interpreterDropdown.click({ timeout: 10000 });
+			await expect(this.interpreterGroups).toBeVisible();
+		}).toPass();
+	}
+
+	/**
+	 * Action: Close the interpreter dropdown in the top action bar.
+	 */
+	async closeInterpreterDropdown() {
+		if (await this.interpreterGroups.isVisible()) {
+			await this.code.driver.page.keyboard.press('Escape');
+			await expect(this.interpreterGroups).not.toBeVisible();
+		}
+	}
+
+	// --- Utils ---
+
+	/**
+	 * Util: Get the interpreter info for the currently selected interpreter in the dropdown.
 	 * @returns The interpreter info for the selected interpreter if found, otherwise undefined.
 	 */
 	async getSelectedInterpreterInfo(): Promise<InterpreterInfo | undefined> {
-		// return await test.step('Get selected interpreter info', async () => {
-
 		// Get the label for the selected interpreter, e.g. Python 3.10.4 (Pyenv)
 		const currentInterpreterLabel = await this.code.driver
 			.page.locator('.top-action-bar-interpreters-manager')
@@ -276,7 +162,7 @@ export class Interpreter {
 		await this.openInterpreterDropdown();
 
 		// Get the primary interpreter element
-		const currentInterpreter = await this.getPrimaryInterpreter(
+		const currentInterpreter = await this.getPrimaryInterpreterElement(
 			currentInterpreterLabel
 		);
 
@@ -301,7 +187,7 @@ export class Interpreter {
 		}
 
 		// Determine the interpreter type for the selected interpreter
-		const interpreterType = getInterpreterType(interpreterName);
+		const interpreterType = this.getInterpreterType(interpreterName);
 		if (!interpreterType) {
 			throw new Error(
 				`Could not determine interpreter type for ${currentInterpreterLabel}`
@@ -317,6 +203,156 @@ export class Interpreter {
 			version: interpreterName,
 			path: interpreterPath,
 		} satisfies InterpreterInfo;
-		// });
+	}
+
+
+	// --- Helpers ---
+
+	/**
+	 * Helper: Get the primary interpreter element by a descriptive string or interpreter type.
+	 * The string could be 'Python 3.10.4 (Pyenv)', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
+	 * @param descriptionOrType The descriptive string of the interpreter to get.
+	 * @returns The primary interpreter element
+	 */
+	private async getPrimaryInterpreterElement(descriptionOrType: string | InterpreterType) {
+		const expectedInterpreter = typeof descriptionOrType === 'string'
+			? this.primaryInterpreter.filter({ hasText: descriptionOrType })
+			: this.primaryInterpreter.filter({ hasText: new RegExp(`^${descriptionOrType}`, 'i') });
+
+		await expect(expectedInterpreter).toBeVisible();
+		return expectedInterpreter.first();
+	}
+
+	/**
+	 * Helper: Get the interpreter name from the interpreter element.
+	 * Examples: 'Python 3.10.4 (Pyenv)', 'R 4.4.0'.
+	 * @param interpreterLocator The locator for the interpreter element.
+	 */
+	private async getInterpreterName(interpreterLocator: Locator) {
+		return await interpreterLocator
+			.locator(INTERPRETER_INFO_LINE)
+			.first() // first line is the interpreter name
+			.textContent();
+	}
+
+	/**
+	 * Helper: Get the interpreter path from the interpreter element.
+	 * Examples: '/opt/homebrew/bin/python3', '/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/bin/R'.
+	 * @param interpreterLocator The locator for the interpreter element.
+	 */
+	private async getInterpreterPath(interpreterLocator: Locator) {
+		return await interpreterLocator
+			.locator(INTERPRETER_INFO_LINE)
+			.last() // last line is the interpreter path
+			.textContent();
+	}
+
+	/**
+	 * Helper: Determines the interpreter type based on an interpreter version string.
+	 * @param version The version string to extract the interpreter type from.
+	 */
+	getInterpreterType = (version: string): InterpreterType | undefined => {
+		for (const [key, value] of Object.entries(InterpreterType)) {
+			// Check if the versions starts with the interpreter type followed by a space
+			// e.g. version = Python 3.10.4 (Pyenv) would result in InterpreterType.Python
+			if (version.startsWith(`${key} `)) {
+				return value;
+			}
+		}
+		return undefined;
+	};
+
+	// --- Verifications ---
+
+	/**
+	 * Verify: Check if the primary interpreter shows as running with a green dot and shows a restart button.
+	 * @param description The descriptive string of the interpreter to check.
+	 */
+	async verifyInterpreterIsRunning(description: string | InterpreterType) {
+		await test.step(`Verify interpreter is running: ${description}`, async () => {
+			// Get primary interpreter element
+			await this.openInterpreterDropdown();
+			const primaryInterpreter = await this.getPrimaryInterpreterElement(description);
+
+			// Verify green running indicator is visible
+			await expect(primaryInterpreter.locator('.running-icon')).toBeVisible();
+
+			// Verify restart button is visible and enabled
+			const restartButton = primaryInterpreter
+				.locator(INTERPRETER_ACTIONS_SELECTOR)
+				.getByTitle('Restart the interpreter');
+
+			await expect(restartButton).toBeVisible();
+			await expect(restartButton).toBeEnabled();
+
+			// Verify stop button is visible and enabled
+			const stopButton = primaryInterpreter
+				.locator(INTERPRETER_ACTIONS_SELECTOR)
+				.getByTitle('Stop the interpreter');
+
+			await expect(stopButton).toBeVisible();
+			await expect(stopButton).toBeEnabled();
+
+			await this.closeInterpreterDropdown();
+		});
+	}
+
+	/**
+	 * Verify: Check if the primary interpreter has output restart info in console and is ready.
+	 * @param description The descriptive string of the interpreter to check.
+	 */
+	async verifyInterpreterRestarted(interpreterType: 'Python' | 'R') {
+		await test.step(`Verify interpreter restarted`, async () => {
+			await this.console.waitForConsoleContents('preparing for restart');
+			await this.console.waitForConsoleContents('restarted');
+
+			interpreterType === 'Python'
+				? await this.console.waitForReady('>>>', 10000)
+				: await this.console.waitForReady('>', 10000);
+		});
+	}
+
+	/**
+	 * Verify: Check if the primary interpreter shows as inactive: no green dot running indicator, no restart button, and a start button.
+	 * @param description The descriptive string of the interpreter to check.
+	 */
+	async verifyInterpreterIsInactive(description: string | InterpreterType) {
+		await test.step(`Verify interpreter is inactive: ${description}`, async () => {
+			// Get primary interpreter element
+			await this.openInterpreterDropdown();
+			const primaryInterpreter = await this.getPrimaryInterpreterElement(description);
+
+			// Assert green running indicator is not visible
+			const runningIndicator = primaryInterpreter.locator('.running-icon');
+			await expect(runningIndicator).not.toBeVisible();
+
+			// Assert restart button is not visible
+			const restartButton = primaryInterpreter
+				.locator(INTERPRETER_ACTIONS_SELECTOR)
+				.getByTitle('Restart the interpreter');
+
+			await expect(restartButton).not.toBeVisible();
+
+			// Assert start button is visible and enabled
+			const startButton = primaryInterpreter
+				.locator(INTERPRETER_ACTIONS_SELECTOR)
+				.getByTitle('Start the interpreter', { exact: true });
+
+			await expect(startButton).toBeVisible();
+			await expect(startButton).toBeEnabled();
+
+			await this.closeInterpreterDropdown();
+		});
+	}
+
+	/**
+	 * Verify: the selected interpreter is the expected interpreter.
+	 * @param description The descriptive string of the interpreter to verify.
+	 */
+	async verifyInterpreterIsSelected(description: string | InterpreterType) {
+		await test.step(`Verify interpreter is selected: ${description}`, async () => {
+			const interpreterInfo = await this.getSelectedInterpreterInfo();
+			expect(interpreterInfo!.version).toContain(description);
+		});
 	}
 }

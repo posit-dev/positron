@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { fail } from 'assert';
-import { Application } from '..';
-import { InterpreterType } from '../../pages/utils/interpreterInfo';
+import { Application, InterpreterType } from '..';
 
 /*
  *  Reuseable Positron R fixture tests can leverage to get an R interpreter selected.
@@ -14,12 +13,12 @@ export class RFixtures {
 
 	constructor(private app: Application) { }
 
-	static async SetupFixtures(app: Application, skipReadinessCheck: boolean = false) {
+	static async SetupFixtures(app: Application, waitForReady: boolean = true) {
 		const fixtures = new RFixtures(app);
-		await fixtures.startRInterpreter(skipReadinessCheck);
+		await fixtures.startRInterpreter(waitForReady);
 	}
 
-	async startRInterpreter(skipReadinessCheck: boolean = false) {
+	async startRInterpreter(waitForReady: boolean = true) {
 
 		const desiredR = process.env.POSITRON_R_VER_SEL;
 		if (desiredR === undefined) {
@@ -29,7 +28,7 @@ export class RFixtures {
 
 		// We currently don't capture fixtures in the Playwright trace, so take a screenshot on failure
 		try {
-			await this.app.workbench.console.selectInterpreter(InterpreterType.R, desiredR, skipReadinessCheck);
+			await this.app.workbench.console.selectInterpreter(InterpreterType.R, desiredR, waitForReady);
 			await this.app.workbench.console.waitForReady('>', 40000);
 		} catch (e) {
 			await this.app.code.driver.takeScreenshot('startRInterpreter');

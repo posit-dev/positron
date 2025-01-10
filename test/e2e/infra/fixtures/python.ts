@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { fail } from 'assert';
-import { Application } from '..';
-import { InterpreterType } from '../../pages/utils/interpreterInfo';
+import { Application, InterpreterType } from '..';
 import { expect } from '@playwright/test';
 
 /*
