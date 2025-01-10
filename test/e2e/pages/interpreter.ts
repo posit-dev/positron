@@ -3,24 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
 import test, { expect, Locator } from '@playwright/test';
 import { Code, Console } from '../infra';
 
 const INTERPRETER_INFO_LINE = '.info .container .line';
 const INTERPRETER_ACTIONS_SELECTOR = `.interpreter-actions .action-button`;
 
-/**
- * Enum representing types of interpreters.
- */
 export enum InterpreterType {
 	Python = 'Python',
 	R = 'R'
 }
 
-/**
- * Interface describing interpreter information.
- */
 export interface InterpreterInfo {
 	type: InterpreterType;
 	version: string; // e.g. Python 3.12.4 64-bit or Python 3.9.19 64-bit ('3.9.19') or R 4.4.0
@@ -149,7 +142,7 @@ export class Interpreter {
 	 * Util: Get the interpreter info for the currently selected interpreter in the dropdown.
 	 * @returns The interpreter info for the selected interpreter if found, otherwise undefined.
 	 */
-	async getSelectedInterpreterInfo(): Promise<InterpreterInfo | undefined> {
+	async getSelectedInterpreterInfo(): Promise<InterpreterInfo> {
 		// Get the label for the selected interpreter, e.g. Python 3.10.4 (Pyenv)
 		const currentInterpreterLabel = await this.code.driver
 			.page.locator('.top-action-bar-interpreters-manager')
