@@ -674,7 +674,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				session.metadata.sessionMode,
 				session.metadata.notebookUri,
 				`'Restart Interpreter' command invoked`,
-				RuntimeStartMode.Restarting,
+				RuntimeStartMode.Starting,
 				true);
 			return;
 		} else if (state === RuntimeState.Starting ||
