@@ -47,6 +47,9 @@ runs:
       with:
         version: "3.10"
 
+    - name: Setup Python Environment Tools
+      uses: ./.github/actions/install-pet
+
     - name: Setup R
       uses: ./.github/actions/install-r
       with:
