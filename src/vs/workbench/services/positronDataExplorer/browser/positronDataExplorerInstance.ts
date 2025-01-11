@@ -102,6 +102,11 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 */
 	private readonly _onDidExpandSummaryEmitter = this._register(new Emitter<void>());
 
+	/**
+	 * The onDidChangeColumnSorting event emitter.
+	 */
+	private readonly _onDidChangeColumnSortingEmitter = this._register(new Emitter<boolean>());
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -175,6 +180,13 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 			this._tableDataDataGridInstance.scrollToColumn(columnIndex);
 		}));
 
+		// Add the onDidChangeColumnSorting event handler.
+		this._register(
+			this._tableDataDataGridInstance.onDidChangeColumnSorting(isColumnSorting =>
+				this._onDidChangeColumnSortingEmitter.fire(isColumnSorting)
+			)
+		);
+
 		// Add the onDidRequestFocus event handler.
 		this._register(this.onDidRequestFocus(() => {
 			const uri = PositronDataExplorerUri.generate(this._dataExplorerClientInstance.identifier);
@@ -245,6 +257,13 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
+	 * Gets a value which indicates whether one or more columns are sorted.
+	 */
+	get isColumnSorting() {
+		return this._tableDataDataGridInstance.isColumnSorting;
+	}
+
+	/**
 	 * Requests focus.
 	 */
 	requestFocus(): void {
@@ -263,6 +282,14 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 */
 	expandSummary(): void {
 		this._onDidExpandSummaryEmitter.fire();
+	}
+
+	/**
+	 * Clears column sorting.
+	 * @returns A Promise<void> that resolves when column sorting has been cleared.
+	 */
+	async clearColumnSorting(): Promise<void> {
+		await this._tableDataDataGridInstance.clearColumnSortKeys();
 	}
 
 	/**
@@ -411,6 +438,11 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * onDidExpandSummary event.
 	 */
 	readonly onDidExpandSummary = this._onDidExpandSummaryEmitter.event;
+
+	/**
+	 * The onDidChangeColumnSorting event.
+	 */
+	readonly onDidChangeColumnSorting = this._onDidChangeColumnSortingEmitter.event;
 
 	//#endregion IPositronDataExplorerInstance Implementation
 }

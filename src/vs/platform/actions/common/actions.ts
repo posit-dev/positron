@@ -513,6 +513,14 @@ export class MenuItemAction implements IAction {
 	readonly enabled: boolean;
 	readonly checked?: boolean;
 
+	// --- Start Positron ---
+	/**
+	 * Gets a value which indicates whether to display the title for the action when it appears on
+	 * an action bar.
+	 */
+	readonly displayTitleOnActionBar?: boolean = true;
+	// --- End Positron ---
+
 	constructor(
 		item: ICommandAction,
 		alt: ICommandAction | undefined,
@@ -527,6 +535,10 @@ export class MenuItemAction implements IAction {
 		this.tooltip = (typeof item.tooltip === 'string' ? item.tooltip : item.tooltip?.value) ?? '';
 		this.enabled = !item.precondition || contextKeyService.contextMatchesRules(item.precondition);
 		this.checked = undefined;
+
+		// --- Start Positron ---
+		this.displayTitleOnActionBar = item.displayTitleOnActionBar;
+		// --- End Positron ---
 
 		let icon: ThemeIcon | undefined;
 

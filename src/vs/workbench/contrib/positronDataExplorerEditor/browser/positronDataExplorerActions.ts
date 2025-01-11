@@ -8,7 +8,7 @@ import { IEditorPane } from '../../../common/editor.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
-import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { PositronDataExplorerFocused } from '../../../common/contextkeys.js';
 import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
@@ -18,6 +18,8 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { IPositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
+import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING } from './positronDataExplorerContextKeys.js';
+import { Codicon } from '../../../../base/common/codicons.js';
 
 /**
  * Positron data explorer action category.
@@ -43,15 +45,8 @@ export const enum PositronDataExplorerCommandId {
 	CopyTableDataAction = 'workbench.action.positronDataExplorer.copyTableData',
 	CollapseSummaryAction = 'workbench.action.positronDataExplorer.collapseSummary',
 	ExpandSummaryAction = 'workbench.action.positronDataExplorer.expandSummary',
+	ClearColumnSortingAction = 'workbench.action.positronDataExplorer.clearColumnSorting'
 }
-
-/**
- * A ContextKeyExpression that is true when the active editor is a Positron data explorer editor.
- */
-export const POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR = ContextKeyExpr.equals(
-	'activeEditor',
-	PositronDataExplorerEditorInput.EditorID
-);
 
 /**
  * Gets the IPositronDataExplorerEditor for the specified editor pane.
@@ -382,6 +377,100 @@ class PositronDataExplorerExpandSummaryAction extends Action2 {
 }
 
 /**
+ * PositronDataExplorerClearColumnSortingAction action.
+ */
+class PositronDataExplorerClearColumnSortingAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.ClearColumnSortingAction,
+			title: {
+				value: localize('positronDataExplorer.clearColumnSorting', 'Clear Column Sorting'),
+				original: 'Clear Column Sorting'
+			},
+			displayTitleOnActionBar: true,
+			category,
+			f1: true,
+			precondition: ContextKeyExpr.and(
+				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING
+			),
+			icon: Codicon.positronClearSorting,
+			menu: [
+				{
+					id: MenuId.EditorActionsLeft,
+					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+					group: '1_data_explorer',
+					order: 1
+				},
+			]
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Access the services we need.
+		const editorService = accessor.get(IEditorService);
+		const notificationService = accessor.get(INotificationService);
+		const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
+
+		// Get the Positron data explorer editor.
+		const positronDataExplorerEditor = getPositronDataExplorerEditorFromEditorPane(
+			editorService.activeEditorPane
+		);
+
+		/**
+		 * Notifies the user that clear sorting failed.
+		 */
+		const notifyUserThatClearSortingFailed = () => {
+			// Notify the user.
+			notificationService.notify({
+				severity: Severity.Error,
+				message: localize(
+					'positron.dataExplorer.clearSorting.noActiveEditor',
+					"Cannot Clear Sorting. A Positron Data Explorer is not active."
+				),
+				sticky: false
+			});
+		};
+
+		// Make sure that the Positron data explorer editor was returned.
+		if (!positronDataExplorerEditor) {
+			notifyUserThatClearSortingFailed();
+			return;
+		}
+
+		// Get the identifier.
+		const identifier = positronDataExplorerEditor.identifier;
+
+		// Make sure the identifier was returned.
+		if (!identifier) {
+			notifyUserThatClearSortingFailed();
+			return;
+		}
+
+		// Get the Positron data explorer instance.
+		const positronDataExplorerInstance = positronDataExplorerService.getInstance(
+			identifier
+		);
+
+		// Make sure the Positron data explorer instance was returned.
+		if (!positronDataExplorerInstance) {
+			notifyUserThatClearSortingFailed();
+			return;
+		}
+
+		// Clear column sorting.
+		await positronDataExplorerInstance.clearColumnSorting();
+	}
+}
+
+/**
  * Registers Positron data explorer actions.
  */
 export function registerPositronDataExplorerActions() {
@@ -389,4 +478,5 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerCopyTableDataAction);
 	registerAction2(PositronDataExplorerCollapseSummaryAction);
 	registerAction2(PositronDataExplorerExpandSummaryAction);
+	registerAction2(PositronDataExplorerClearColumnSortingAction);
 }

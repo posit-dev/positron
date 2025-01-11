@@ -741,6 +741,11 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	protected readonly _onDidUpdateEmitter = this._register(new Emitter<void>);
 
+	/**
+	 * The onDidChangeColumnSorting event emitter.
+	 */
+	protected readonly _onDidChangeColumnSortingEmitter = this._register(new Emitter<boolean>);
+
 	//#endregion Protected Events
 
 	//#region Constructor & Dispose
@@ -1178,6 +1183,13 @@ export abstract class DataGridInstance extends Disposable {
 		return this._cursorRowIndex;
 	}
 
+	/**
+	 * Gets a value which indicates whether column sorting is active.
+	 */
+	get isColumnSorting() {
+		return this._columnSortKeys.size > 0;
+	}
+
 	//#endregion Public Properties
 
 	//#region Public Events
@@ -1186,6 +1198,11 @@ export abstract class DataGridInstance extends Disposable {
 	 * onDidUpdate event.
 	 */
 	readonly onDidUpdate = this._onDidUpdateEmitter.event;
+
+	/**
+	 * onDidChangeColumnSorting event.
+	 */
+	readonly onDidChangeColumnSorting = this._onDidChangeColumnSortingEmitter.event;
 
 	//#endregion Public Events
 
@@ -1433,25 +1450,22 @@ export abstract class DataGridInstance extends Disposable {
 				columnIndex,
 				new ColumnSortKeyDescriptor(this._columnSortKeys.size, columnIndex, ascending)
 			);
-
-			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
-
-			// Sort the data.
-			await this.doSortData();
+		} else if (ascending !== columnSortKey.ascending) {
+			// Update the column sort key.
+			columnSortKey.ascending = ascending;
 		} else {
-			// If the sort order has changed, update the column sort key.
-			if (ascending !== columnSortKey.ascending) {
-				// Update the sort order.
-				columnSortKey.ascending = ascending;
-
-				// Fire the onDidUpdate event.
-				this._onDidUpdateEmitter.fire();
-
-				// Sort the data.
-				await this.doSortData();
-			}
+			// Sorting has not unchanged. Do nothing.
+			return;
 		}
+
+		// Fire the onDidChangeColumnSorting event.
+		this._onDidChangeColumnSortingEmitter.fire(true);
+
+		// Fire the onDidUpdate event.
+		this._onDidUpdateEmitter.fire();
+
+		// Sort the data.
+		await this.doSortData();
 	}
 
 	/**
@@ -1476,6 +1490,9 @@ export abstract class DataGridInstance extends Disposable {
 				}
 			});
 
+			// Fire the onDidChangeColumnSorting event.
+			this._onDidChangeColumnSortingEmitter.fire(this._columnSortKeys.size > 0);
+
 			// Fire the onDidUpdate event.
 			this._onDidUpdateEmitter.fire();
 
@@ -1491,6 +1508,9 @@ export abstract class DataGridInstance extends Disposable {
 	async clearColumnSortKeys(): Promise<void> {
 		// Clear column sort keys.
 		this._columnSortKeys.clear();
+
+		// Fire the onDidChangeColumnSorting event.
+		this._onDidChangeColumnSortingEmitter.fire(false);
 
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
