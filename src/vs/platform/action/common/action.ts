@@ -96,6 +96,14 @@ export interface ICommandAction {
 	 * or define toggle-info including an icon and a title that goes well with a checkmark.
 	 */
 	toggled?: ContextKeyExpression | ICommandActionToggleInfo;
+
+	// --- Start Positron
+	/**
+	 * Gets or sets a value which indicates whether to display the title for the action when it
+	 * appears on an action bar.
+	 */
+	displayTitleOnActionBar?: boolean;
+	// --- End Positron
 }
 
 export type ISerializableCommandAction = UriDto<ICommandAction>;
