@@ -20,12 +20,28 @@ OUTPUT=""
 if [[ "$PROJECT" == "e2e-windows" ]]; then
   # Remove @win from the tags
   TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@win" | sort -u | tr '\n' ',' | sed 's/,$//')
+	# If @web is present, remove it
+	if echo "$TAGS" | grep -q "@web"; then
+    TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@web" | sort -u | tr '\n' ',' | sed 's/,$//')
+  fi
 elif [[ "$PROJECT" == "e2e-browser" ]]; then
   # Remove @web from the tags
   TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@web" | sort -u | tr '\n' ',' | sed 's/,$//')
+	# If @win is present, remove it
+	if echo "$TAGS" | grep -q "@win"; then
+    TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@win" | sort -u | tr '\n' ',' | sed 's/,$//')
+  fi
 else
   # Deduplicate for other projects
   TAGS=$(echo "$TAGS" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
+	# If @web is present, remove it
+	if echo "$TAGS" | grep -q "@web"; then
+    TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@web" | sort -u | tr '\n' ',' | sed 's/,$//')
+  fi
+	# If @win is present, remove it
+	if echo "$TAGS" | grep -q "@win"; then
+    TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@win" | sort -u | tr '\n' ',' | sed 's/,$//')
+  fi
 fi
 
 # Determine prefix based on PROJECT
