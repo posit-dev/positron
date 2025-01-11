@@ -61,6 +61,7 @@ jobs:
     with:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "browser (linux)"
+      project: "e2e-browser"
       currents_tags: "pull-request,browser/linux,${{ needs.pr-tags.outputs.tags }}"
       report_testrail: false
     secrets: inherit
