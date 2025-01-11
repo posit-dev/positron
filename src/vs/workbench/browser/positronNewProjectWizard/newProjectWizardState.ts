@@ -5,9 +5,9 @@
 
 // Other dependencies.
 import { IFileDialogService } from '../../../platform/dialogs/common/dialogs.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeStartupPhase } from '../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionService } from '../../services/runtimeSession/common/runtimeSessionService.js';
-import { IRuntimeStartupService, RuntimeStartupPhase } from '../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IRuntimeStartupService } from '../../services/runtimeStartup/common/runtimeStartupService.js';
 import { EnvironmentSetupType, NewProjectWizardStep, PythonEnvironmentProvider } from './interfaces/newProjectWizardEnums.js';
 import { IWorkbenchLayoutService } from '../../services/layout/browser/layoutService.js';
 import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
@@ -163,7 +163,7 @@ export class NewProjectWizardStateManager
 		this._condaPythonVersionInfo = undefined;
 		this._minimumRVersion = undefined;
 
-		if (this._services.runtimeStartupService.startupPhase === RuntimeStartupPhase.Complete) {
+		if (this._services.languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete) {
 			// If the runtime startup is already complete, initialize the wizard state and update
 			// the interpreter-related state.
 			this._initDefaultsFromExtensions()
@@ -174,7 +174,7 @@ export class NewProjectWizardStateManager
 		} else {
 			// Register disposables.
 			this._register(
-				this._services.runtimeStartupService.onDidChangeRuntimeStartupPhase(
+				this._services.languageRuntimeService.onDidChangeRuntimeStartupPhase(
 					async (phase) => {
 						if (phase === RuntimeStartupPhase.Discovering) {
 							// At this phase, the extensions that provide language runtimes will

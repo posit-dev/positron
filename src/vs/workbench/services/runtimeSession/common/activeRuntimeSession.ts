@@ -21,6 +21,7 @@ import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeS
  * active language runtime session.
  */
 export class ActiveRuntimeSession extends Disposable {
+
 	public state: RuntimeState;
 
 	// The event emitter for the onDidReceiveRuntimeEvent event.

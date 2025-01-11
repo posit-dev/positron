@@ -90,6 +90,10 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		return this._currentState;
 	}
 
+	get lastUsed(): number {
+		return 0;
+	}
+
 	openResource(_resource: URI | string): Promise<boolean> {
 		throw new Error('Not implemented.');
 	}

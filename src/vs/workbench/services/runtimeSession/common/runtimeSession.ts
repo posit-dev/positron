@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -164,7 +164,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// one to start.
 			this._logService.trace(`Language runtime ${formatLanguageRuntimeMetadata(languageRuntimeInfos[0])} automatically starting`);
 			this.autoStartRuntime(languageRuntimeInfos[0],
-				`A file with the language ID ${languageId} was opened.`);
+				`A file with the language ID ${languageId} was opened.`,
+				true);
 		}));
 
 		// When an extension activates, check to see if we have any disconnected
@@ -180,7 +181,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						// Attempt to reconnect the session.
 						this._logService.debug(`Extension ${extensionId.value} has been reloaded; ` +
 							`attempting to reconnect session ${session.sessionId}`);
-						this.restoreRuntimeSession(session.runtimeMetadata, session.metadata);
+						this.restoreRuntimeSession(session.runtimeMetadata, session.metadata, false);
 					}
 				}
 			}
@@ -336,7 +337,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				sessionMode,
 				notebookUri,
 				source,
-				RuntimeStartMode.Switching);
+				RuntimeStartMode.Switching,
+				true);
 		} else {
 			// Shut down any other runtime consoles for the language.
 			const activeSession =
@@ -358,7 +360,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				sessionMode,
 				undefined, // No notebook URI (console session)
 				source,
-				RuntimeStartMode.Switching);
+				RuntimeStartMode.Switching,
+				true);
 		}
 	}
 
@@ -433,13 +436,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param notebookUri The notebook URI to attach to the session, if any.
 	 * @param source The source of the request to start the runtime.
 	 * @param startMode The mode in which to start the runtime.
+	 * @param activate Whether to activate/focus the session after it is started.
 	 */
 	async startNewRuntimeSession(runtimeId: string,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
 		source: string,
-		startMode = RuntimeStartMode.Starting): Promise<string> {
+		startMode = RuntimeStartMode.Starting,
+		activate: boolean): Promise<string> {
 		// See if we are already starting the requested session. If we
 		// are, return the promise that resolves when the session is ready to
 		// use. This makes it possible for multiple requests to start the same
@@ -465,7 +470,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// workspace is trusted.
 		if (!this._workspaceTrustManagementService.isWorkspaceTrusted()) {
 			if (sessionMode === LanguageRuntimeSessionMode.Console) {
-				return this.autoStartRuntime(languageRuntime, source, startMode);
+				return this.autoStartRuntime(languageRuntime, source, activate);
 			} else {
 				throw new Error(`Cannot start a ${sessionMode} session in an untrusted workspace.`);
 			}
@@ -475,7 +480,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._logService.info(
 			`Starting session for language runtime ` +
 			`${formatLanguageRuntimeMetadata(languageRuntime)} (Source: ${source})`);
-		return this.doCreateRuntimeSession(languageRuntime, sessionName, sessionMode, source, startMode, notebookUri);
+		return this.doCreateRuntimeSession(languageRuntime, sessionName, sessionMode, source, startMode, activate, notebookUri);
 	}
 
 	/**
@@ -509,10 +514,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *
 	 * @param runtimeMetadata The metadata of the runtime to start.
 	 * @param sessionMetadata The metadata of the session to start.
+	 * @param activate Whether to activate/focus the session after it is
+	 * reconnected.
 	 */
 	async restoreRuntimeSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionMetadata: IRuntimeSessionMetadata): Promise<void> {
+		sessionMetadata: IRuntimeSessionMetadata,
+		activate: boolean): Promise<void> {
 
 		// See if we are already starting the requested session. If we
 		// are, return the promise that resolves when the session is ready to
@@ -586,7 +594,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Actually reconnect the session.
 		try {
-			await this.doStartRuntimeSession(session, sessionManager, RuntimeStartMode.Reconnecting);
+			await this.doStartRuntimeSession(session, sessionManager, RuntimeStartMode.Reconnecting, activate);
 			startPromise.complete(sessionMetadata.sessionId);
 		} catch (err) {
 			startPromise.error(err);
@@ -665,7 +673,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				session.metadata.sessionName,
 				session.metadata.sessionMode,
 				session.metadata.notebookUri,
-				`'Restart Interpreter' command invoked`);
+				`'Restart Interpreter' command invoked`,
+				RuntimeStartMode.Starting,
+				true);
 			return;
 		} else if (state === RuntimeState.Starting ||
 			state === RuntimeState.Restarting) {
@@ -865,7 +875,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *
 	 * @param runtime The runtime to start.
 	 * @param source The source of the request to start the runtime.
-	 * @param startMode The mode in which to start the runtime.
+	 * @param activate Whether to activate/focus the new session after it
+	 * starts.
 	 *
 	 * @returns A promise that resolves with a session ID for the new session,
 	 * if one was started.
@@ -873,7 +884,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	async autoStartRuntime(
 		metadata: ILanguageRuntimeMetadata,
 		source: string,
-		startMode = RuntimeStartMode.Starting,
+		activate: boolean
 	): Promise<string> {
 		// Check the setting to see if we should be auto-starting.
 		const autoStart = this._configurationService.getValue<boolean>(
@@ -892,7 +903,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`${formatLanguageRuntimeMetadata(metadata)} ` +
 				`automatically starting. Source: ${source}`);
 
-			return this.doAutoStartRuntime(metadata, source, startMode);
+			return this.doAutoStartRuntime(metadata, source, activate);
 		} else {
 			this._logService.debug(`Deferring the start of language runtime ` +
 				`${formatLanguageRuntimeMetadata(metadata)} (Source: ${source}) ` +
@@ -909,7 +920,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					`${formatLanguageRuntimeMetadata(metadata)} ` +
 					`automatically starting after workspace trust was granted. ` +
 					`Source: ${source}`);
-				this.doAutoStartRuntime(metadata, source, startMode);
+				this.doAutoStartRuntime(metadata, source, activate);
 			}));
 		}
 
@@ -961,12 +972,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *
 	 * @param metadata The metadata for the runtime to start.
 	 * @param source The source of the request to start the runtime.
-	 * @param startMode The mode in which to start the runtime.
+	 * @param activate Whether to activate/focus the new session after it is
+	 * started.
 	 */
 	private async doAutoStartRuntime(
 		metadata: ILanguageRuntimeMetadata,
 		source: string,
-		startMode: RuntimeStartMode): Promise<string> {
+		activate: boolean): Promise<string> {
 
 		// Auto-started runtimes are (currently) always console sessions.
 		const sessionMode = LanguageRuntimeSessionMode.Console;
@@ -1069,7 +1081,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		}
 
-		return this.doCreateRuntimeSession(metadata, metadata.runtimeName, sessionMode, source, startMode, notebookUri);
+		return this.doCreateRuntimeSession(metadata, metadata.runtimeName, sessionMode, source, RuntimeStartMode.Starting, activate, notebookUri);
 	}
 
 	/**
@@ -1080,6 +1092,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param sessionMode The mode for the new session.
 	 * @param source The source of the request to start the runtime.
 	 * @param startMode The mode in which to start the runtime.
+	 * @param activate Whether to activate/focus the session after it is started.
 	 * @param notebookDocument The notebook document to attach to the session, if any.
 	 *
 	 * Returns a promise that resolves with the session ID when the runtime is
@@ -1090,6 +1103,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		sessionMode: LanguageRuntimeSessionMode,
 		source: string,
 		startMode: RuntimeStartMode,
+		activate: boolean,
 		notebookUri?: URI): Promise<string> {
 		this.setStartingSessionMaps(sessionMode, runtimeMetadata, notebookUri);
 
@@ -1142,7 +1156,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Actually start the session.
 		try {
-			await this.doStartRuntimeSession(session, sessionManager, startMode);
+			await this.doStartRuntimeSession(session, sessionManager, startMode, activate);
 			startPromise.complete(sessionId);
 		} catch (err) {
 			startPromise.error(err);
@@ -1157,21 +1171,24 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param session The session to start.
 	 * @param manager The session manager for the session.
 	 * @param startMode The mode in which the session is starting.
+	 * @param activate Whether to activate/focus the session after it is started.
 	 */
 	private async doStartRuntimeSession(session: ILanguageRuntimeSession,
 		manager: ILanguageRuntimeSessionManager,
-		startMode: RuntimeStartMode):
+		startMode: RuntimeStartMode,
+		activate: boolean):
 		Promise<void> {
 
 		// Fire the onWillStartRuntime event.
 		const evt: IRuntimeSessionWillStartEvent = {
 			session,
 			startMode,
+			activate
 		};
 		this._onWillStartRuntimeEmitter.fire(evt);
 
 		// Attach event handlers to the newly provisioned session.
-		this.attachToSession(session, manager);
+		this.attachToSession(session, manager, activate);
 
 		try {
 			// Attempt to start, or reconnect to, the session.
@@ -1240,9 +1257,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *
 	 * @param session The session to attach.
 	 * @param manager The session's manager.
+	 * @param activate Whether to activate/focus the session after it is started.
 	 */
-	private attachToSession(session: ILanguageRuntimeSession,
-		manager: ILanguageRuntimeSessionManager): void {
+	private attachToSession(
+		session: ILanguageRuntimeSession,
+		manager: ILanguageRuntimeSessionManager,
+		activate: boolean): void {
 
 		// Clean up any previous active session info for this session.
 		const oldSession = this._activeSessionsBySessionId.get(session.sessionId);
@@ -1264,12 +1284,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// Process the state change.
 			switch (state) {
 				case RuntimeState.Ready:
+					// If the session is a console session, make it the
+					// foreground session if it isn't already.
 					if (session !== this._foregroundSession &&
-						session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-						// When a new console is ready, activate it. We avoid
-						// re-activation if already active since the resulting
-						// events can cause Positron behave as though a new
-						// runtime were started (e.g. focusing the console)
+						session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
+						activate) {
 						this.foregroundSession = session;
 					}
 
@@ -1309,6 +1328,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						this._onWillStartRuntimeEmitter.fire({
 							session,
 							startMode: RuntimeStartMode.Restarting,
+							activate: false
 						});
 					}
 					break;
