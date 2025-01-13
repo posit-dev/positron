@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -16,7 +16,7 @@ import { EmptyConsole } from './emptyConsole.js';
 import { ConsoleInstance } from './consoleInstance.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { StartupStatus } from './startupStatus.js';
-import { RuntimeStartupPhase } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 // ConsoleCoreProps interface.
 interface ConsoleCoreProps {
@@ -35,11 +35,11 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 	const positronConsoleContext = usePositronConsoleContext();
 
 	const [startupPhase, setStartupPhase] = useState(
-		positronConsoleContext.runtimeStartupService.startupPhase);
+		positronConsoleContext.languageRuntimeService.startupPhase);
 
 	useEffect(() => {
 		const disposables =
-			positronConsoleContext.runtimeStartupService.onDidChangeRuntimeStartupPhase(
+			positronConsoleContext.languageRuntimeService.onDidChangeRuntimeStartupPhase(
 				e => {
 					setStartupPhase(e);
 				});

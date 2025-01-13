@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -198,7 +198,7 @@ suite('Positron - RuntimeSessionService', () => {
 	async function restoreSession(
 		sessionMetadata: IRuntimeSessionMetadata, runtimeMetadata = runtime,
 	) {
-		await runtimeSessionService.restoreRuntimeSession(runtimeMetadata, sessionMetadata);
+		await runtimeSessionService.restoreRuntimeSession(runtimeMetadata, sessionMetadata, true);
 
 		// Ensure that the session gets disposed after the test.
 		const session = runtimeSessionService.getSession(sessionMetadata.sessionId);
@@ -233,7 +233,7 @@ suite('Positron - RuntimeSessionService', () => {
 	}
 
 	async function autoStartSession(runtimeMetadata = runtime) {
-		const sessionId = await runtimeSessionService.autoStartRuntime(runtimeMetadata, startReason);
+		const sessionId = await runtimeSessionService.autoStartRuntime(runtimeMetadata, startReason, true);
 		assert.ok(sessionId);
 		const session = runtimeSessionService.getSession(sessionId);
 		assert.ok(session instanceof TestLanguageRuntimeSession);
@@ -320,7 +320,7 @@ suite('Positron - RuntimeSessionService', () => {
 				} else {
 					startMode = RuntimeStartMode.Starting;
 				}
-				sinon.assert.calledOnceWithExactly(target, { startMode, session });
+				sinon.assert.calledOnceWithExactly(target, { startMode, session, activate: true });
 
 				assert.ifError(error);
 			});
@@ -627,7 +627,7 @@ suite('Positron - RuntimeSessionService', () => {
 	test('auto start console does nothing if automatic startup is disabled', async () => {
 		configService.setUserConfiguration('interpreters.automaticStartup', false);
 
-		const sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason);
+		const sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason, true);
 
 		assert.strictEqual(sessionId, '');
 		assertServiceState();
@@ -639,10 +639,10 @@ suite('Positron - RuntimeSessionService', () => {
 
 			let sessionId: string;
 			if (action === 'auto start') {
-				sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason);
+				sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason, true);
 			} else {
 				sessionId = await runtimeSessionService.startNewRuntimeSession(
-					runtime.runtimeId, sessionName, LanguageRuntimeSessionMode.Console, undefined, startReason);
+					runtime.runtimeId, sessionName, LanguageRuntimeSessionMode.Console, undefined, startReason, RuntimeStartMode.Starting, true);
 			}
 
 			assert.strictEqual(sessionId, '');
@@ -760,6 +760,7 @@ suite('Positron - RuntimeSessionService', () => {
 				sinon.assert.calledOnceWithExactly(willStartSession, {
 					session,
 					startMode: RuntimeStartMode.Restarting,
+					activate: false
 				});
 			});
 
@@ -841,6 +842,7 @@ suite('Positron - RuntimeSessionService', () => {
 					session: newSession,
 					// Since we restarted from an exited state, the start mode is 'starting'.
 					startMode: RuntimeStartMode.Starting,
+					activate: true
 				});
 
 				assert.strictEqual(newSession.metadata.sessionName, session.metadata.sessionName);

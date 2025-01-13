@@ -17,7 +17,7 @@ const REMOTE = process.env.REMOTE;
 const BUILD = process.env.BUILD;
 
 /**
- * Prepares the test environment for Electron or Web smoke tests.
+ * Prepares the test environment for Electron or E2E Web tests.
  *   1. creates logger instance `test-setup`
  *   2. initializes the test environment
  *   3. prepares the test data directory
@@ -28,7 +28,7 @@ export function prepareTestEnv(rootPath = process.env.ROOT_PATH || 'ROOT_PATH no
 
 	try {
 		initializeTestEnvironment(rootPath, logger);
-		console.log('Test environment setup completed successfully.');
+		console.log('Test environment ready.');
 
 		// Disabling this section of code for now. It's used to download a stable version of VSCode
 		// Maybe we would want to update this to download a stable version of Positron some day?
@@ -46,13 +46,13 @@ export function prepareTestEnv(rootPath = process.env.ROOT_PATH || 'ROOT_PATH no
 }
 
 /**
- * Sets up the test environment for Electron or Web smoke tests.
+ * Sets up the test environment for Electron or Web e2e tests.
  */
 function initializeTestEnvironment(rootPath = process.env.ROOT_PATH || 'ROOT_PATH not set initTestEnv', logger: Logger): string | null {
 	let version: string | null = null;
 
 	//
-	// #### Electron Smoke Tests ####
+	// #### E2E: Electron Tests ####
 	//
 
 	if (!WEB) {
@@ -72,18 +72,18 @@ function initializeTestEnvironment(rootPath = process.env.ROOT_PATH || 'ROOT_PAT
 		}
 
 		if (!fs.existsSync(electronPath || '')) {
-			throw new Error(`Cannot find VSCode at ${electronPath}. Please run VSCode once first (scripts/code.sh, scripts\\code.bat) and try again.`);
+			throw new Error(`Cannot find Positron at ${electronPath}. Please run Positron once first (scripts/code.sh, scripts\\code.bat) and try again.`);
 		}
 
 		if (REMOTE) {
-			logger.log(`Running desktop remote smoke tests against ${electronPath}`);
+			logger.log(`Running desktop E2E Remote tests against ${electronPath}`);
 		} else {
-			logger.log(`Running desktop smoke tests against ${electronPath}`);
+			logger.log(`Running E2E Desktop tests against ${electronPath}`);
 		}
 	}
 
 	//
-	// #### Web Smoke Tests ####
+	// #### Web E2E Tests ####
 	//
 	else {
 		const testCodeServerPath = BUILD || process.env.VSCODE_REMOTE_SERVER_PATH;
@@ -92,7 +92,7 @@ function initializeTestEnvironment(rootPath = process.env.ROOT_PATH || 'ROOT_PAT
 			if (!fs.existsSync(testCodeServerPath)) {
 				throw new Error(`Cannot find Code server at ${testCodeServerPath}.`);
 			} else {
-				logger.log(`Running web smoke tests against ${testCodeServerPath}`);
+				logger.log(`Running E2E Web tests against ${testCodeServerPath}`);
 			}
 		}
 
@@ -101,7 +101,7 @@ function initializeTestEnvironment(rootPath = process.env.ROOT_PATH || 'ROOT_PAT
 			process.env.VSCODE_DEV = '1';
 			process.env.VSCODE_CLI = '1';
 
-			logger.log(`Running web smoke out of sources`);
+			logger.log(`Running E2E Web out of sources`);
 		}
 	}
 	return version;

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -45,6 +45,9 @@ export enum RuntimeStartMode {
 export interface IRuntimeSessionWillStartEvent {
 	/** The mode in which the session is starting. */
 	startMode: RuntimeStartMode;
+
+	/** Whether the runtime should be activated when it starts */
+	activate: boolean;
 
 	/** The session about to start */
 	session: ILanguageRuntimeSession;
@@ -138,6 +141,9 @@ export interface ILanguageRuntimeSession extends IDisposable {
 
 	/** The current state of the runtime (tracks events above) */
 	getRuntimeState(): RuntimeState;
+
+	/** Timestamp of when the runtime was last used */
+	get lastUsed(): number;
 
 	/**
 	 * The (cached) current set of client instances that are known to Positron.
@@ -346,6 +352,9 @@ export interface IRuntimeSessionService {
 	 * @param sessionMode The mode of the session to start.
 	 * @param source The source of the request to start the runtime, for debugging purposes
 	 *  (not displayed to the user)
+	 * @param startMode The mode in which to start the runtime.
+	 * @param activate Whether to activate/focus the session after it is
+	 * started.
 	 *
 	 * Returns a promise that resolves to the session ID of the new session.
 	 */
@@ -353,13 +362,15 @@ export interface IRuntimeSessionService {
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
-		source: string): Promise<string>;
+		source: string,
+		startMode: RuntimeStartMode,
+		activate: boolean): Promise<string>;
 
 	/**
 	 * Validates a persisted runtime session before reconnecting to it.
 	 *
 	 * @param runtimeMetadata The metadata of the runtime.
-	 * @param sesionId The ID of the session to validate.
+	 * @param sessionId The ID of the session to validate.
 	 */
 	validateRuntimeSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
@@ -370,23 +381,28 @@ export interface IRuntimeSessionService {
 	 *
 	 * @param runtimeMetadata The metadata of the runtime to start.
 	 * @param sessionMetadata The metadata of the session to start.
+	 * @param activate Whether to activate/focus the session after it is reconnected.
 	 */
 	restoreRuntimeSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionMetadata: IRuntimeSessionMetadata): Promise<void>;
+		sessionMetadata: IRuntimeSessionMetadata,
+		activate: boolean): Promise<void>;
 
 	/**
 	 * Automatically starts a runtime.
 	 *
 	 * @param runtime The runtime to start.
 	 * @param source The source of the request to start the runtime.
+	 * @param activate Whether to activate/focus the session after it is
+	 * started.
 	 *
 	 * @returns A promise that resolves with a session ID for the new session,
 	 * if one was started.
 	 */
 	autoStartRuntime(
 		metadata: ILanguageRuntimeMetadata,
-		source: string): Promise<string>;
+		source: string,
+		activate: boolean): Promise<string>;
 
 	/**
 	 * Selects a previously registered runtime as the active runtime.
