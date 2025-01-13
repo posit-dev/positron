@@ -98,15 +98,10 @@ export class CodeExecutionHelper implements ICodeExecutionHelper {
             const startLineVal = activeEditor?.selection?.start.line ?? 0;
             const endLineVal = activeEditor?.selection?.end.line ?? 0;
             const emptyHighlightVal = activeEditor?.selection?.isEmpty ?? true;
-            let smartSendSettingsEnabledVal = true;
-            const configuration = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
-            if (configuration) {
-                // --- Start Positron ---
-                // This setting is hidden in favor of the Positron console.
-                // const pythonSettings = configuration.getSettings(this.activeResourceService.getActiveResource());
-                // smartSendSettingsEnabledVal = pythonSettings.REPL.enableREPLSmartSend;
-                // --- End Positron ---
-            }
+            // --- Start Positron ---
+            // This setting is hidden in favor of the Positron console.
+            const smartSendSettingsEnabledVal = true;
+            // --- End Positron ---
 
             const input = JSON.stringify({
                 code,
