@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -24,7 +24,7 @@ import { LanguageRuntimeService } from '../../../languageRuntime/common/language
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IPositronModalDialogsService } from '../../../positronModalDialogs/common/positronModalDialogs.js';
 import { RuntimeSessionService } from '../../common/runtimeSession.js';
-import { IRuntimeSessionService } from '../../common/runtimeSessionService.js';
+import { IRuntimeSessionService, RuntimeStartMode } from '../../common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession } from './testLanguageRuntimeSession.js';
 import { TestOpenerService, TestPositronModalDialogService, TestCommandService, TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { TestExtensionService, TestStorageService, TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
@@ -107,6 +107,8 @@ export async function startTestLanguageRuntimeSession(
 		options?.sessionMode ?? LanguageRuntimeSessionMode.Console,
 		options?.notebookUri,
 		options?.startReason ?? 'Test requested to start a runtime session',
+		RuntimeStartMode.Starting,
+		true
 	);
 
 	// Get the session.
