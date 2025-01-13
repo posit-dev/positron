@@ -20,6 +20,7 @@ import { PositronPlotsEditorInput } from '../../positronPlotsEditor/browser/posi
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
 
 export enum PlotActionTarget {
 	VIEW = 'view',
@@ -560,6 +561,8 @@ export class PlotsSizingPolicyAction extends AbstractPlotsAction {
 				id: policy.id,
 				label: policy.getName(plotClient),
 				ariaLabel: policy.getName(plotClient),
+				iconClass: plotClient.sizingPolicy.id === policy.id ? ThemeIcon.asClassName(Codicon.positronCheckMark)
+					: ThemeIcon.asClassName(Codicon.blank),
 			});
 		});
 
