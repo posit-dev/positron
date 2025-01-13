@@ -447,7 +447,10 @@ export class BaseIssueReporterService extends Disposable {
 			// Only search for extension issues on title change
 			if (this.issueReporterModel.fileOnExtension() === false) {
 				const title = (<HTMLInputElement>this.getElementById('issue-title')).value;
-				this.searchVSCodeIssues(title, issueDescription);
+				// --- Start Positron ---
+				// this.searchVSCodeIssues(title, issueDescription);
+				this.searchPositronIssues(title, issueDescription);
+				// --- End Positron ---
 			}
 		});
 
@@ -627,13 +630,34 @@ export class BaseIssueReporterService extends Disposable {
 		return selectedExtension && selectedExtension.bugsUrl;
 	}
 
-	public searchVSCodeIssues(title: string, issueDescription?: string): void {
+	// --- Start Positron ---
+	/*
+	private getExtensionData(): string | undefined {
+		return this.issueReporterModel.getData().selectedExtension?.extensionData;
+	}
+
+	private searchVSCodeIssues(title: string, issueDescription?: string): void {
 		if (title) {
 			this.searchDuplicates(title, issueDescription);
 		} else {
 			this.clearSearchResults();
 		}
 	}
+	*/
+
+	private searchPositronIssues(_title: string, _description: string | undefined): void {
+		// TODO: While positron repositories are private, they cannot be searched.
+		// if (title) {
+		// 	const gitHubInfo = this.parseGitHubUrl(this.configuration.product.reportIssueUrl!);
+		// 	if (gitHubInfo) {
+		// 		return this.searchGitHub(`${gitHubInfo.owner}/${gitHubInfo.repositoryName}`, title);
+		// 	}
+		// } else {
+		// 	this.clearSearchResults();
+		// }
+		this.clearSearchResults();
+	}
+	// --- End Positron ---
 
 	public searchIssues(title: string, fileOnExtension: boolean | undefined, fileOnMarketplace: boolean | undefined): void {
 		if (fileOnExtension) {
@@ -645,7 +669,10 @@ export class BaseIssueReporterService extends Disposable {
 		}
 
 		const description = this.issueReporterModel.getData().issueDescription;
-		this.searchVSCodeIssues(title, description);
+		// --- Start Positron ---
+		// this.searchVSCodeIssues(title, description);
+		this.searchPositronIssues(title, description);
+		// --- End Positron ---
 	}
 
 	private searchExtensionIssues(title: string): void {
@@ -721,6 +748,8 @@ export class BaseIssueReporterService extends Disposable {
 		});
 	}
 
+	// --- Start Positron ---
+	/*
 	@debounce(300)
 	private searchDuplicates(title: string, body?: string): void {
 		const url = 'https://vscode-probot.westus.cloudapp.azure.com:7890/duplicate_candidates';
@@ -751,6 +780,8 @@ export class BaseIssueReporterService extends Disposable {
 			// Ignore
 		});
 	}
+	*/
+	// --- End Positron ---
 
 	private displaySearchResults(results: SearchResult[]) {
 		const similarIssues = this.getElementById('similar-issues')!;
