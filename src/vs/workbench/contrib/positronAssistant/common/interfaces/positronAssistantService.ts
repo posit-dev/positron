@@ -3,15 +3,22 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { AsyncIterableSource, DeferredPromise } from '../../../../../base/common/async.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ChatAgentLocation, IChatAgentMetadata, IChatAgentRequest } from '../../../chat/common/chatAgents.js';
 import { IChatProgress } from '../../../chat/common/chatService.js';
+import { IChatResponseFragment } from '../../../chat/common/languageModels.js';
 
 // Create the decorator for the Positron assistant service (used in dependency injection).
 export const IPositronAssistantService = createDecorator<IPositronAssistantService>('positronAssistantService');
 
 export interface IPositronChatTask {
-	progress: (content: IChatProgress) => void;
+	handler: (content: IChatProgress) => void;
+}
+
+export interface IPositronLanguageModelTask {
+	stream: AsyncIterableSource<IChatResponseFragment>;
+	defer: DeferredPromise<any>;
 }
 
 export interface IPositronChatContext {

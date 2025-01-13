@@ -13,12 +13,19 @@ import { createOllama } from 'ollama-ai-provider';
 import { toAIMessage } from './utils';
 
 class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
-
 	readonly name = 'Error Language Model';
 	readonly identifier = 'error-language-model';
 	private readonly _message = 'This language model always throws an error message.';
 
 	async provideChatResponse(): Promise<void> {
+		throw new Error(this._message);
+	}
+
+	provideLanguageModelResponse(): Thenable<any> {
+		throw new Error(this._message);
+	}
+
+	provideTokenCount(): Thenable<number> {
 		throw new Error(this._message);
 	}
 }
@@ -42,6 +49,32 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			}
 		}
 	}
+
+	async provideLanguageModelResponse(
+		messages: vscode.LanguageModelChatMessage[],
+		options: { [name: string]: any },
+		extensionId: string,
+		progress: vscode.Progress<vscode.ChatResponseFragment>,
+		token: vscode.CancellationToken
+	): Promise<any> {
+		const _messages = toAIMessage(messages);
+		for await (const i of _messages[_messages.length - 1].content.split('')) {
+			await new Promise(resolve => setTimeout(resolve, 10));
+			progress.report({ index: 0, part: i });
+			if (token.isCancellationRequested) {
+				return;
+			}
+		}
+	}
+
+	async provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Promise<number> {
+		if (typeof text === 'string') {
+			return text.length;
+		} else {
+			const _text = toAIMessage([text]);
+			return _text.length > 0 ? _text[0].content.length : 0;
+		}
+	}
 }
 
 abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -50,10 +83,11 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	protected abstract model: ai.LanguageModelV1;
 
 	constructor(protected readonly _config: ModelConfig) {
-		this.identifier = _config.name.toLowerCase().replace(/\s+/g, '-');
+		this.identifier = _config.id;
 		this.name = _config.name;
 	}
 
+	// Rich response to `positron.ai.sendChatRequest` API.
 	async provideChatResponse(
 		messages: vscode.LanguageModelChatMessage[],
 		options: { [key: string]: any },
@@ -76,6 +110,31 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 			response.markdown(delta);
 		}
+	}
+
+	// Basic response for `vscode.lm` API.
+	async provideLanguageModelResponse(
+		messages: vscode.LanguageModelChatMessage[],
+		options: { [name: string]: any },
+		extensionId: string,
+		progress: vscode.Progress<vscode.ChatResponseFragment>,
+		token: vscode.CancellationToken
+	): Promise<any> {
+		const _messages = toAIMessage(messages);
+		const result = ai.streamText({ model: this.model, messages: _messages });
+
+		for await (const delta of result.textStream) {
+			if (token.isCancellationRequested) {
+				break;
+			}
+			progress.report({ index: 0, part: delta });
+		}
+	}
+
+	// Also required for `vscode.lm` API.
+	async provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Promise<number> {
+		// TODO: This is a very naive approximation, a model specific tokenizer should be used.
+		return typeof text === 'string' ? text.length : JSON.stringify(text.content).length;
 	}
 }
 

@@ -13,13 +13,15 @@ import * as typeConvert from '../extHostTypeConverters.js';
 import { ExtHostDocuments } from '../extHostDocuments.js';
 import { revive } from '../../../../base/common/marshalling.js';
 import { IPositronChatContext } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
+import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { ChatAgentLocation, IChatAgentRequest, IChatAgentResult } from '../../../contrib/chat/common/chatAgents.js';
 import { CommandsConverter, ExtHostCommands } from '../extHostCommands.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Dto } from '../../../services/extensions/common/proxyIdentifier.js';
 import { IChatAgentHistoryEntryDto } from '../extHost.protocol.js';
 import { ExtHostLanguageModels } from '../extHostLanguageModels.js';
+import { IChatMessage } from '../../../contrib/chat/common/languageModels.js';
+import { SerializedError } from '../../../../base/common/errors.js';
 
 class ChatResponse {
 	private _isClosed: boolean;
@@ -131,6 +133,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	private async buildChatParticipantRequest(request: Dto<IChatAgentRequest>): Promise<vscode.ChatRequest> {
 		const _request = revive<IChatAgentRequest>(request);
 
+		// Convert additional provided location data for use in extension
 		let location2: vscode.ChatRequestEditorData | vscode.ChatRequestNotebookData | undefined;
 		if (_request.locationData?.type === ChatAgentLocation.Editor) {
 			const document = this._documents.getDocument(_request.locationData.document);
@@ -204,6 +207,49 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		} finally {
 			response.close();
 		}
+	}
+
+	async $provideTokenCount(id: string, message: string | IChatMessage, token: vscode.CancellationToken): Promise<number> {
+		const model = this._registeredLanguageModels.get(id);
+		if (!model) {
+			throw new Error('Requested language model not found.');
+		}
+
+		const _message = typeof message === 'string'
+			? message
+			: typeConvert.LanguageModelChatMessage.to(message);
+
+		return await model.provider.provideTokenCount(_message, token);
+	}
+
+	async $provideLanguageModelResponse(id: string, taskId: string, messages: IChatMessage[], from: ExtensionIdentifier, options: { [name: string]: any }, token: vscode.CancellationToken): Promise<any> {
+		const model = this._registeredLanguageModels.get(id);
+		if (!model) {
+			throw new Error('Requested language model not found.');
+		}
+
+		const _messages = messages.map((message) => typeConvert.LanguageModelChatMessage.to(message));
+
+		const promise = model.provider.provideLanguageModelResponse(_messages, options, from.value, {
+			report: (content) => this._proxy.$languageModelTaskResponse(taskId, {
+				index: 0,
+				part: { type: 'text', value: content.part },
+			}),
+		}, token);
+
+		promise.then((res) => {
+			this._proxy.$languageModelTaskResolve(taskId, res);
+		}, err => {
+			const { name, message } = err as Error;
+			const error: SerializedError = {
+				name,
+				message,
+				stack: err.stacktrace || err.stack,
+				$isError: true,
+				noTelemetry: true,
+			};
+			this._proxy.$languageModelTaskResolve(taskId, undefined, error);
+		});
 	}
 
 	async getCurrentPlotUri(): Promise<string | undefined> {
