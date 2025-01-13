@@ -52,7 +52,7 @@ function initializeTestEnvironment(rootPath = process.env.ROOT_PATH || 'ROOT_PAT
 	let version: string | null = null;
 
 	//
-	// #### Electron Smoke Tests ####
+	// #### E2E: Electron Tests ####
 	//
 
 	if (!WEB) {
@@ -72,13 +72,13 @@ function initializeTestEnvironment(rootPath = process.env.ROOT_PATH || 'ROOT_PAT
 		}
 
 		if (!fs.existsSync(electronPath || '')) {
-			throw new Error(`Cannot find VSCode at ${electronPath}. Please run VSCode once first (scripts/code.sh, scripts\\code.bat) and try again.`);
+			throw new Error(`Cannot find Positron at ${electronPath}. Please run Positron once first (scripts/code.sh, scripts\\code.bat) and try again.`);
 		}
 
 		if (REMOTE) {
-			logger.log(`Running desktop remote smoke tests against ${electronPath}`);
+			logger.log(`Running desktop remote e2e tests against ${electronPath}`);
 		} else {
-			logger.log(`Running desktop smoke tests against ${electronPath}`);
+			logger.log(`Running desktop e2e tests against ${electronPath}`);
 		}
 	}
 

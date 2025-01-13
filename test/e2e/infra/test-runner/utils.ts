@@ -5,43 +5,71 @@
 
 import * as cp from 'child_process';
 import * as fs from 'fs';
-const rimraf = require('rimraf');
+import * as path from 'path';
+import rimraf from 'rimraf';
+import * as os from 'os';
 
-const TEST_REPO = process.env.TEST_REPO;
-
-/**
- * Clones or copies the test repository based on options.
- */
 export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH is not set cloneRepo') {
 	const testRepoUrl = 'https://github.com/posit-dev/qa-example-content.git';
+	const cacheDir = path.join(os.tmpdir(), 'qa-example-content-cache');
+	const cachedCommitFile = path.join(cacheDir, '.cached-commit');
+	const branch = 'main';
 
-	if (TEST_REPO) {
-		console.log('Copying test project repository from:', TEST_REPO);
-		// Remove the existing workspace path if the option is provided
+	if (process.env.FORCE_CLONE === 'true') {
+		console.log('FORCE_CLONE is set. Downloading a fresh repo...');
+		rimraf.sync(cacheDir);
+	}
+
+	try {
+		console.log(`Preparing workspace at: ${workspacePath}`);
+
+		// Get the latest commit hash from the remote repo
+		const remoteCommitHash = cp.execSync(`git ls-remote ${testRepoUrl} refs/heads/${branch}`).toString().split('\t')[0].trim();
+
+		// Check if cache exists and matches the latest commit hash
+		if (fs.existsSync(cacheDir) && fs.existsSync(cachedCommitFile)) {
+			const cachedCommitHash = fs.readFileSync(cachedCommitFile, 'utf-8').trim();
+			if (remoteCommitHash === cachedCommitHash) {
+				console.log('Cache is up to date. Copying cached repo to workspace...');
+				rimraf.sync(workspacePath);
+				fs.mkdirSync(workspacePath, { recursive: true });
+				copyDirectory(cacheDir, workspacePath);
+				console.log('Workspace updated from cache.');
+				return;
+			}
+		}
+
+		// If cache is missing or outdated, download a fresh copy
+		console.log('Cloning fresh repository as cache is outdated or missing...');
+		rimraf.sync(cacheDir);
+		cp.spawnSync('git', ['clone', '--depth=1', '--branch', branch, testRepoUrl, cacheDir], { stdio: 'inherit' });
+
+		// Store the latest commit hash in the cache
+		fs.writeFileSync(cachedCommitFile, remoteCommitHash);
+
+		// Copy fresh repo to the workspace
 		rimraf.sync(workspacePath);
+		fs.mkdirSync(workspacePath, { recursive: true });
+		copyDirectory(cacheDir, workspacePath);
+		console.log('Workspace updated with a fresh clone.');
+	} catch (error) {
+		console.error(`Error while cloning/updating repository: ${(error as Error).message}`);
+		throw error;
+	}
+}
 
-		// Copy the repository based on the platform (Windows vs. non-Windows)
-		if (process.platform === 'win32') {
-			cp.execSync(`xcopy /E "${TEST_REPO}" "${workspacePath}\\*"`);
-		} else {
-			cp.execSync(`cp -R "${TEST_REPO}" "${workspacePath}"`);
+function copyDirectory(source: string, destination: string): void {
+	if (process.platform === 'win32') {
+		// Use robocopy for Windows (robust for large directories and faster than xcopy)
+		const result = cp.spawnSync('robocopy', [source, destination, '/E', '/COPYALL', '/R:0', '/W:0'], { stdio: 'inherit' });
+		if (result.status !== null && result.status > 1) {
+			throw new Error(`Failed to copy directory from ${source} to ${destination} using robocopy.`);
 		}
 	} else {
-		// If no test-repo is specified, clone the repository if it doesn't exist
-		if (!fs.existsSync(workspacePath)) {
-			console.log('Cloning test project repository from:', testRepoUrl);
-			const res = cp.spawnSync('git', ['clone', testRepoUrl, workspacePath], { stdio: 'inherit' });
-
-			// Check if cloning failed by verifying if the workspacePath was created
-			if (!fs.existsSync(workspacePath)) {
-				throw new Error(`Clone operation failed: ${res.stderr?.toString()}`);
-			}
-		} else {
-			console.log('Cleaning and updating test project repository...');
-			// Fetch the latest changes, reset to the latest commit, and clean the repo
-			cp.spawnSync('git', ['fetch'], { cwd: workspacePath, stdio: 'inherit' });
-			cp.spawnSync('git', ['reset', '--hard', 'FETCH_HEAD'], { cwd: workspacePath, stdio: 'inherit' });
-			cp.spawnSync('git', ['clean', '-xdf'], { cwd: workspacePath, stdio: 'inherit' });
+		// Use cp -R for Linux/macOS
+		const result = cp.spawnSync('cp', ['-R', `${source}/.`, destination], { stdio: 'inherit' });
+		if (result.status !== 0) {
+			throw new Error(`Failed to copy directory from ${source} to ${destination} using cp.`);
 		}
 	}
 }
