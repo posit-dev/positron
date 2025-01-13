@@ -165,6 +165,7 @@ suite('Positron - RuntimeNotebookKernel', () => {
 			runEndTime: sinon.match.number,
 			lastRunSuccess: false,
 			error: {
+				name: error.name,
 				message: error.message,
 				stack: error.traceback.join('\n'),
 				uri: cell.uri,
