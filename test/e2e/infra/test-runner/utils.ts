@@ -58,10 +58,10 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 
 function copyDirectory(source: string, destination: string): void {
 	if (process.platform === 'win32') {
-		// Use robocopy for Windows (robust for large directories and faster than xcopy)
-		const result = cp.spawnSync('robocopy', [source, destination, '/E', '/COPYALL', '/R:0', '/W:0'], { stdio: 'inherit' });
-		if (result.status !== null && result.status > 1) {
-			throw new Error(`Failed to copy directory from ${source} to ${destination} using robocopy.`);
+		// Use xcopy for Windows
+		const result = cp.spawnSync('xcopy', [source, destination, '/E', '/I', '/Y'], { stdio: 'inherit' });
+		if (result.status !== 0) {
+			throw new Error(`Failed to copy directory from ${source} to ${destination} using xcopy.`);
 		}
 	} else {
 		// Use cp -R for Linux/macOS
