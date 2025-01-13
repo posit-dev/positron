@@ -1,8 +1,8 @@
 #!/bin/bash
 # Usage:
-# bash scripts/playwright-tags.sh <project> <tags>
+# bash scripts/pr-tags-transform.sh <project> <tags>
 # Example:
-# bash scripts/playwright-tags.sh "e2e-browser" "@feat1,@feat2"
+# bash scripts/pr-tags-transform.sh "e2e-browser" "@feat1,@feat2"
 
 # Input parameters
 PROJECT="$1"  # The PROJECT (e.g., e2e-electron, e2e-browser, e2e-windows)

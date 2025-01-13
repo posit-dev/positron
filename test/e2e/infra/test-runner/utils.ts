@@ -33,7 +33,7 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 				rimraf.sync(workspacePath);
 				fs.mkdirSync(workspacePath, { recursive: true });
 				copyDirectory(cacheDir, workspacePath);
-				console.log('Cache is up to date. Workspace updated from cache.');
+				console.log('Workspace updated from cache.');
 				return;
 			}
 		}
