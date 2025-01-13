@@ -773,9 +773,6 @@
                         "preview"
                     ]
                 },
-                // --- Start Positron ---
-                // Removed python.REPL.* settings
-                // --- End Positron ---
                 "python.testing.autoTestDiscoverOnSaveEnabled": {
                     "default": true,
                     "description": "%python.testing.autoTestDiscoverOnSaveEnabled.description%",

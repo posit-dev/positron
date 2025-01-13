@@ -83,9 +83,6 @@
     "python.poetryPath.description": "Path to the poetry executable.",
     "python.quietMode.description": "Start Positron's IPython shell in quiet mode, to suppress initial version and help messages (restart Positron to apply).",
     "python.pixiToolPath.description": "Path to the pixi executable.",
-    // --- Start Positron ---
-    // Removed python.REPL.* settings
-    // --- End Positron ---
     "python.tensorBoard.logDirectory.description": "Set this setting to your preferred TensorBoard log directory to skip log directory prompt when starting TensorBoard.",
     "python.tensorBoard.logDirectory.markdownDeprecationMessage": "Tensorboard support has been moved to the extension [Tensorboard extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.tensorboard). Instead use the setting `tensorBoard.logDirectory`.",
     "python.tensorBoard.logDirectory.deprecationMessage": "Tensorboard support has been moved to the extension Tensorboard extension. Instead use the setting `tensorBoard.logDirectory`.",
