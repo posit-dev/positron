@@ -55,8 +55,8 @@
 		},
 		{
 			"name": "ms-vscode.js-debug",
-			"version": "1.95.1",
-			"sha256": "0ac296e94c66fb31e8ca12af11cd5f1373627028c9e12e0dc6531f10bbe05f7e",
+			"version": "1.96.0",
+			"sha256": "278cd8b129c133d834a8105d0e0699f2f940c5c159fa5c821c7b9a4f7ffd3581",
 			"repo": "https://github.com/microsoft/vscode-js-debug",
 			"metadata": {
 				"id": "25629058-ddac-4e17-abba-74678e126c5d",
@@ -223,10 +223,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.5.16",
-			"s3Bucket": "rsw-vscode-extension",
+			"version": "1.5.27",
+			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "520c252f9147ee87483cc698369659c58f52ee39a5e72df4bc557bd4f29d9272",
+			"sha256": "fae58a6177875f9bbaa71641a2294e21164fa4606aae0e8ce1cb94cbcd585f27",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
