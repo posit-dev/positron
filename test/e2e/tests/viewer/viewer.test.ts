@@ -65,7 +65,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 		logger.log('Sending code to console');
 		await app.workbench.console.executeCode('R', rReprexScript, '>');
 
-		const rnorm = app.workbench.viewer.getViewerLocator('code.sourceCode').filter({ hasText: 'x <- rnorm(100)' });
+		const rnorm = app.workbench.viewer.getViewerLocator('code.sourceCode').filter({ hasText: 'rbinom' });
 
 		await rnorm.waitFor({ state: 'attached' });
 
@@ -90,8 +90,4 @@ modelsummary(m1)`;
 const rReactableScript = `library(reactable)
 mtcars |> reactable::reactable()`;
 
-
-const rReprexScript = `reprex::reprex({
-	x <- rnorm(100)
-	plot(x, sin(x))
-	})`;
+const rReprexScript = `reprex::reprex(rbinom(3, size = 10, prob = 0.5), comment = "#;-)")`;
