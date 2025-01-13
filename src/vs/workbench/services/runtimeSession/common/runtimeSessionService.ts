@@ -370,17 +370,7 @@ export interface IRuntimeSessionService {
 	 * Validates a persisted runtime session before reconnecting to it.
 	 *
 	 * @param runtimeMetadata The metadata of the runtime.
-	 * @param sesionId The ID of the session to validate.
-	 */
-	validateRuntimeSession(
-		runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionId: string): Promise<boolean>;
-
-	/**
-	 * Validates a persisted runtime session before reconnecting to it.
-	 *
-	 * @param runtimeMetadata The metadata of the runtime.
-	 * @param sesionId The ID of the session to validate.
+	 * @param sessionId The ID of the session to validate.
 	 */
 	validateRuntimeSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
