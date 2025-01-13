@@ -29,7 +29,7 @@ runs:
         cache: 'pip'
         cache-dependency-path: |
           extensions/positron-python/build/test-requirements.txt
-          extensions/positron-python/equirements.txt
+          extensions/positron-python/requirements.txt
 
     - name: Install dependencies (npm ci)
       run: npm ci --prefer-offline
