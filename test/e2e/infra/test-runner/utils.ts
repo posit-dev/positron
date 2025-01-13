@@ -16,7 +16,7 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 	const branch = 'main';
 
 	if (process.env.FORCE_CLONE === 'true') {
-		console.log('FORCE_CLONE is set. Downloading a fresh repo...');
+		console.log('FORCE_CLONE is set.');
 		rimraf.sync(cacheDir);
 	}
 
@@ -30,17 +30,16 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 		if (fs.existsSync(cacheDir) && fs.existsSync(cachedCommitFile)) {
 			const cachedCommitHash = fs.readFileSync(cachedCommitFile, 'utf-8').trim();
 			if (remoteCommitHash === cachedCommitHash) {
-				console.log('Cache is up to date. Copying cached repo to workspace...');
 				rimraf.sync(workspacePath);
 				fs.mkdirSync(workspacePath, { recursive: true });
 				copyDirectory(cacheDir, workspacePath);
-				console.log('Workspace updated from cache.');
+				console.log('Cache is up to date. Workspace updated from cache.');
 				return;
 			}
 		}
 
 		// If cache is missing or outdated, download a fresh copy
-		console.log('Cloning fresh repository as cache is outdated or missing...');
+		console.log('Cache outdated or missing. Cloning fresh repo.');
 		rimraf.sync(cacheDir);
 		cp.spawnSync('git', ['clone', '--depth=1', '--branch', branch, testRepoUrl, cacheDir], { stdio: 'inherit' });
 
@@ -51,7 +50,6 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 		rimraf.sync(workspacePath);
 		fs.mkdirSync(workspacePath, { recursive: true });
 		copyDirectory(cacheDir, workspacePath);
-		console.log('Workspace updated with a fresh clone.');
 	} catch (error) {
 		console.error(`Error while cloning/updating repository: ${(error as Error).message}`);
 		throw error;
