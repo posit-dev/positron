@@ -1,6 +1,9 @@
 name: "Setup Python Environment Tools"
 description: "Install and build microsoft/python-environment-tools"
 
+env:
+  PET_BRANCH: "release/latest"
+
 runs:
   using: "composite"
   steps:
@@ -9,6 +12,7 @@ runs:
         with:
           repository: 'microsoft/python-environment-tools'
           path: 'extensions/positron-python/python-env-tools'
+          branch: ${{ env.PET_BRANCH }}
           sparse-checkout: |
             crates
             Cargo.toml
