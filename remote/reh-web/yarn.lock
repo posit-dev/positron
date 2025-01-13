@@ -73,10 +73,10 @@
   resolved "https://registry.npmjs.org/@vscode/iconv-lite-umd/-/iconv-lite-umd-0.7.0.tgz"
   integrity sha512-bRRFxLfg5dtAyl5XyiVWz/ZBPahpOpPrNYnnHpOpUZvam4tKH35wdhP4Kj6PbM0+KdliOsPzbGWpkxcdpNB/sg==
 
-"@vscode/proxy-agent@^0.22.0":
-  version "0.22.0"
-  resolved "https://registry.npmjs.org/@vscode/proxy-agent/-/proxy-agent-0.22.0.tgz"
-  integrity sha512-TQrv456pbrjmD6G+iOoXE1Mflm+8Ic/Kny4QU7ioiYe2+0HisvqzJM/CUa3Am5SWrNjMbntTHISjgmSaSlorrA==
+"@vscode/proxy-agent@^0.27.0":
+  version "0.27.0"
+  resolved "https://registry.npmjs.org/@vscode/proxy-agent/-/proxy-agent-0.27.0.tgz"
+  integrity sha512-ID1MOlynRkVN121n85Hs1enjW16B5Z1O6bMDkSPqvAMVD6eHUOqmgPZuEkBbRI43PfA6boUEY9Ndjp+0wPKtsg==
   dependencies:
     "@tootallnate/once" "^3.0.0"
     agent-base "^7.0.1"
@@ -84,6 +84,7 @@
     http-proxy-agent "^7.0.0"
     https-proxy-agent "^7.0.2"
     socks-proxy-agent "^8.0.1"
+    undici "^6.20.1"
   optionalDependencies:
     "@vscode/windows-ca-certs" "^0.3.1"
 
@@ -127,44 +128,52 @@
   resolved "https://registry.npmjs.org/@vscode/windows-registry/-/windows-registry-1.1.0.tgz"
   integrity sha512-5AZzuWJpGscyiMOed0IuyEwt6iKmV5Us7zuwCDCFYMIq7tsvooO9BUiciywsvuthGz6UG4LSpeDeCxvgMVhnIw==
 
-"@xterm/addon-clipboard@^0.2.0-beta.48":
+"@xterm/addon-clipboard@^0.2.0-beta.53":
   version "0.2.0-beta.53"
   resolved "https://registry.npmjs.org/@xterm/addon-clipboard/-/addon-clipboard-0.2.0-beta.53.tgz"
   integrity sha512-kCcBuGvF8mwzExU+Tm9eylPvp1kXTkvm+kO0V4qP7HI3ZCw5vfKmnlRn41FvNIylsK2hnmrFtxauPHEGBy/dfA==
   dependencies:
     js-base64 "^3.7.5"
 
-"@xterm/addon-image@^0.9.0-beta.65":
+"@xterm/addon-image@^0.9.0-beta.70":
   version "0.9.0-beta.70"
   resolved "https://registry.npmjs.org/@xterm/addon-image/-/addon-image-0.9.0-beta.70.tgz"
   integrity sha512-QLhy77i0sjnffkLuxj1yB/mBUJI64bbL86eMW+1g5XEsZnSevY8YwU/cEJg02PAGK0ggwQNNfiRwoO6VBCdYFg==
 
-"@xterm/addon-search@^0.16.0-beta.65":
+"@xterm/addon-ligatures@^0.10.0-beta.70":
+  version "0.10.0-beta.96"
+  resolved "https://registry.npmjs.org/@xterm/addon-ligatures/-/addon-ligatures-0.10.0-beta.96.tgz"
+  integrity sha512-uI86EDxCab345YR/Piwzs3R82DptKp/PC+sMKSX24hehhvWVAkpZus0toGhYwLZxF1r0U6yw4Oq0aCEzW362dQ==
+  dependencies:
+    font-finder "^1.1.0"
+    font-ligatures "^1.4.1"
+
+"@xterm/addon-search@^0.16.0-beta.70":
   version "0.16.0-beta.70"
   resolved "https://registry.npmjs.org/@xterm/addon-search/-/addon-search-0.16.0-beta.70.tgz"
   integrity sha512-uaNBf77cr5Jikj69TDkTfe3V3wHA+4tDTFcv8DwJ/KGORPLUfBk8cn9HpbIJ+0jc1kOZr5xDrEjaYNwEVDkGeQ==
 
-"@xterm/addon-serialize@^0.14.0-beta.65":
+"@xterm/addon-serialize@^0.14.0-beta.70":
   version "0.14.0-beta.70"
   resolved "https://registry.npmjs.org/@xterm/addon-serialize/-/addon-serialize-0.14.0-beta.70.tgz"
   integrity sha512-4ijqHU7xDRcZ4Gm6yN/tKsZzovUwzttE9/pPfhxpWIgSdm9c8i5R4rGyOAlAZCnuU3DT5vPplQO7W/0zwAmJsQ==
 
-"@xterm/addon-unicode11@^0.9.0-beta.65":
+"@xterm/addon-unicode11@^0.9.0-beta.70":
   version "0.9.0-beta.70"
   resolved "https://registry.npmjs.org/@xterm/addon-unicode11/-/addon-unicode11-0.9.0-beta.70.tgz"
   integrity sha512-9UE4v2SpWtqd85Hqvk8LW4QA9Phe93RMVltrNtt9jCUmkAok/QLFOEbLqoq2JUOvlmfsYfXmIl11Wg4CYIsvwA==
 
-"@xterm/addon-webgl@^0.19.0-beta.65":
+"@xterm/addon-webgl@^0.19.0-beta.70":
   version "0.19.0-beta.70"
   resolved "https://registry.npmjs.org/@xterm/addon-webgl/-/addon-webgl-0.19.0-beta.70.tgz"
   integrity sha512-3BkmF24i66SHCfAkcHy1VC6H715qyelfOIjd6n7sTqHon56J1bUO782Q1al/MK0vSvplElBRKVdR31SDvITzpg==
 
-"@xterm/headless@^5.6.0-beta.65":
+"@xterm/headless@^5.6.0-beta.70":
   version "5.6.0-beta.70"
   resolved "https://registry.npmjs.org/@xterm/headless/-/headless-5.6.0-beta.70.tgz"
   integrity sha512-npSJzmtJq8LLAzV3nwD9KkBQLNWSusi+cOBPyc3zlYYE63Vkqbtbp/iQS27zH2GxJ95rzCzDwnX6VOn0OoUPYQ==
 
-"@xterm/xterm@^5.6.0-beta.65":
+"@xterm/xterm@^5.6.0-beta.70":
   version "5.6.0-beta.70"
   resolved "https://registry.npmjs.org/@xterm/xterm/-/xterm-5.6.0-beta.70.tgz"
   integrity sha512-qviQMVWhRtgPn4z8PHNH6D/ffSKkNBHmUX1HyJxl325QM2xF8M8met83uFv7JZm7a5OQYScnLGsFAoTreSgdew==
@@ -292,6 +301,23 @@ follow-redirects@^1.0.0:
   resolved "https://registry.npmjs.org/follow-redirects/-/follow-redirects-1.15.9.tgz"
   integrity sha512-gew4GsXizNgdoRyqmyfMHyAmXsZDk6mHkSxZFCzW9gwlbtOW44CDtYavM+y+72qD/Vq2l550kMF52DT8fOLJqQ==
 
+font-finder@^1.0.3, font-finder@^1.1.0:
+  version "1.1.0"
+  resolved "https://registry.npmjs.org/font-finder/-/font-finder-1.1.0.tgz"
+  integrity sha512-wpCL2uIbi6GurJbU7ZlQ3nGd61Ho+dSU6U83/xJT5UPFfN35EeCW/rOtS+5k+IuEZu2SYmHzDIPL9eA5tSYRAw==
+  dependencies:
+    get-system-fonts "^2.0.0"
+    promise-stream-reader "^1.0.1"
+
+font-ligatures@^1.4.1:
+  version "1.4.1"
+  resolved "https://registry.npmjs.org/font-ligatures/-/font-ligatures-1.4.1.tgz"
+  integrity sha512-7W6zlfyhvCqShZ5ReUWqmSd9vBaUudW0Hxis+tqUjtHhsPU+L3Grf8mcZAtCiXHTzorhwdRTId2WeH/88gdFkw==
+  dependencies:
+    font-finder "^1.0.3"
+    lru-cache "^6.0.0"
+    opentype.js "^0.8.0"
+
 fs-constants@^1.0.0:
   version "1.0.0"
   resolved "https://registry.npmjs.org/fs-constants/-/fs-constants-1.0.0.tgz"
@@ -305,6 +331,11 @@ fs-extra@^11.2.0:
     graceful-fs "^4.2.0"
     jsonfile "^6.0.1"
     universalify "^2.0.0"
+
+get-system-fonts@^2.0.0:
+  version "2.0.2"
+  resolved "https://registry.npmjs.org/get-system-fonts/-/get-system-fonts-2.0.2.tgz"
+  integrity sha512-zzlgaYnHMIEgHRrfC7x0Qp0Ylhw/sHpM6MHXeVBTYIsvGf5GpbnClB+Q6rAPdn+0gd2oZZIo6Tj3EaWrt4VhDQ==
 
 github-from-package@0.0.0:
   version "0.0.0"
@@ -431,6 +462,13 @@ loose-envify@^1.1.0:
   dependencies:
     js-tokens "^3.0.0 || ^4.0.0"
 
+lru-cache@^6.0.0:
+  version "6.0.0"
+  resolved "https://registry.npmjs.org/lru-cache/-/lru-cache-6.0.0.tgz"
+  integrity sha512-Jo6dJ04CmSjuznwJSS3pUeWmd/H0ffTlkXXgwZi+eq1UCmqQwCh+eLsYOYCwY991i2Fah4h1BEMCx4qThGbsiA==
+  dependencies:
+    yallist "^4.0.0"
+
 "memoize-one@>=3.1.1 <6":
   version "5.2.1"
   resolved "https://registry.npmjs.org/memoize-one/-/memoize-one-5.2.1.tgz"
@@ -515,6 +553,13 @@ once@^1.3.1, once@^1.4.0:
   dependencies:
     wrappy "1"
 
+opentype.js@^0.8.0:
+  version "0.8.0"
+  resolved "https://registry.npmjs.org/opentype.js/-/opentype.js-0.8.0.tgz"
+  integrity sha512-FQHR4oGP+a0m/f6yHoRpBOIbn/5ZWxKd4D/djHVJu8+KpBTYrJda0b7mLcgDEMWXE9xBCJm+qb0yv6FcvPjukg==
+  dependencies:
+    tiny-inflate "^1.0.2"
+
 pend@~1.2.0:
   version "1.2.0"
   resolved "https://registry.npmjs.org/pend/-/pend-1.2.0.tgz"
@@ -542,6 +587,11 @@ prebuild-install@^7.1.2:
     simple-get "^4.0.0"
     tar-fs "^2.0.0"
     tunnel-agent "^0.6.0"
+
+promise-stream-reader@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.npmjs.org/promise-stream-reader/-/promise-stream-reader-1.0.1.tgz"
+  integrity sha512-Tnxit5trUjBAqqZCGWwjyxhmgMN4hGrtpW3Oc/tRI4bpm/O2+ej72BB08l6JBnGQgVDGCLvHFGjGgQS6vzhwXg==
 
 proxy-from-env@^1.1.0:
   version "1.1.0"
@@ -704,6 +754,11 @@ tas-client-umd@0.2.0:
   resolved "https://registry.npmjs.org/tas-client-umd/-/tas-client-umd-0.2.0.tgz"
   integrity sha512-oezN7mJVm5qZDVEby7OzxCLKUpUN5of0rY4dvOWaDF2JZBlGpd3BXceFN8B53qlTaIkVSzP65aAMT0Vc+/N25Q==
 
+tiny-inflate@^1.0.2:
+  version "1.0.3"
+  resolved "https://registry.npmjs.org/tiny-inflate/-/tiny-inflate-1.0.3.tgz"
+  integrity sha512-pkY1fj1cKHb2seWDy0B16HeWyczlJA9/WW3u3c4z/NiWDsO3DOU5D7nhTLE9CF0yXv/QZFY7sEJmj24dK+Rrqw==
+
 to-regex-range@^5.0.1:
   version "5.0.1"
   resolved "https://registry.npmjs.org/to-regex-range/-/to-regex-range-5.0.1.tgz"
@@ -717,6 +772,11 @@ tunnel-agent@^0.6.0:
   integrity sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==
   dependencies:
     safe-buffer "^5.0.1"
+
+undici@^6.20.1:
+  version "6.21.0"
+  resolved "https://registry.npmjs.org/undici/-/undici-6.21.0.tgz"
+  integrity sha512-BUgJXc752Kou3oOIuU1i+yZZypyZRqNPW0vqoMPl8VaoalSfeR0D8/t4iAS3yirs79SSMTxTag+ZC86uswv+Cw==
 
 universalify@^2.0.0:
   version "2.0.1"
@@ -752,6 +812,11 @@ wrappy@1:
   version "1.0.2"
   resolved "https://registry.npmjs.org/wrappy/-/wrappy-1.0.2.tgz"
   integrity sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==
+
+yallist@^4.0.0:
+  version "4.0.0"
+  resolved "https://registry.npmjs.org/yallist/-/yallist-4.0.0.tgz"
+  integrity sha512-3wdGidZyq5PB084XLES5TpOSRA3wjXAlIWMhum2kRcv/41Sn2emQ0dycQW4uZXLejwKvg6EsvbdlVL+FYEct7A==
 
 yauzl@^2.9.2:
   version "2.10.0"
