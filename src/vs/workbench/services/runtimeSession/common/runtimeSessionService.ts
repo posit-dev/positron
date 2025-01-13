@@ -234,6 +234,11 @@ export interface ILanguageRuntimeSessionManager {
 		Promise<ILanguageRuntimeSession>;
 
 	/**
+	 * Validates an existing (persisted) session.
+	 */
+	validateSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionId: string): Promise<boolean>;
+
+	/**
 	 * Restore (reconnect to) an existing session.
 	 *
 	 * @param runtimeMetadata The metadata of the runtime for which a session is
@@ -349,6 +354,16 @@ export interface IRuntimeSessionService {
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
 		source: string): Promise<string>;
+
+	/**
+	 * Validates a persisted runtime session before reconnecting to it.
+	 *
+	 * @param runtimeMetadata The metadata of the runtime.
+	 * @param sesionId The ID of the session to validate.
+	 */
+	validateRuntimeSession(
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionId: string): Promise<boolean>;
 
 	/**
 	 * Restores (reconnects to) a runtime session that was previously started.

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -80,6 +80,12 @@ export class KCApi implements KallichoreAdapterApi {
 	 * existing server doesn't give us the terminal.
 	 */
 	private _terminal: vscode.Terminal | undefined;
+
+	/**
+	 * Whether the server is a new server that was just started in this
+	 * Positron session.
+	 */
+	private _newSupervisor = true;
 
 	/**
 	 * Create a new Kallichore API object.
@@ -227,21 +233,85 @@ export class KCApi implements KallichoreAdapterApi {
 
 		// Determine the path to the wrapper script.
 		const wrapperName = os.platform() === 'win32' ? 'supervisor-wrapper.bat' : 'supervisor-wrapper.sh';
-		const wrapperPath = path.join(this._context.extensionPath, 'resources', wrapperName);
+		let wrapperPath = path.join(this._context.extensionPath, 'resources', wrapperName);
+
+		// The first argument to the wrapper script is the path to the log file
+		const shellArgs = [
+			outFile
+		];
+
+		// Check to see if session persistence is enabled; if it is, we want to run the
+		// server with nohup so it doesn't die when the terminal is closed.
+		const shutdownTimeout = config.get<string>('shutdownTimeout', 'immediately');
+		if (shutdownTimeout !== 'immediately') {
+			const kernelWrapper = wrapperPath;
+			if (os.platform() === 'win32') {
+				// Use start /b on Windows to run the server in the background
+				this._log.appendLine(`Running Kallichore server with 'start /b' to persist sessions`);
+				wrapperPath = 'start';
+				shellArgs.unshift('/b', kernelWrapper);
+			} else {
+				// Use nohup as the wrapper on Unix-like systems
+				this._log.appendLine(`Running Kallichore server with nohup to persist sessions`);
+				wrapperPath = 'nohup';
+				shellArgs.unshift(kernelWrapper);
+			}
+		}
+
+		// Add the path to Kallichore itself
+		shellArgs.push(shellPath);
+		shellArgs.push(...[
+			'--port', port.toString(),
+			'--token', tokenPath,
+			'--log-level', logLevel,
+			'--log-file', logFile,
+		]);
+
+		// Compute the appropriate value for the idle shutdown hours setting.
+		//
+		// This setting is primarily used in Remote SSH mode to allow kernel
+		// sessions to persist even when Positron itself is closed. In this
+		// scenario, we want keep the sessions alive for a period of time so
+		// they are still running when the user reconnects to the remote host,
+		// but we don't want them to run forever (unless the user wants to and
+		// understands the implications).
+		if (shutdownTimeout === 'immediately') {
+			// In desktop mode, when not persisting sessions, set the idle
+			// timeout to 1 hour. This is a defensive move since we generally
+			// expect the server to exit when the enclosing terminal closes;
+			// the 1 hour idle timeout ensures that it will eventually exit if
+			// the process is orphaned for any reason.
+			if (vscode.env.uiKind === vscode.UIKind.Desktop) {
+				shellArgs.push('--idle-shutdown-hours', '1');
+			}
+
+			// In web mode, we do not set an idle timeout at all by default,
+			// since it is normal for the front end to be disconnected for long
+			// periods of time.
+		} else if (shutdownTimeout === 'when idle') {
+			// Set the idle timeout to 0 hours, which causes the server to exit
+			// 30 seconds after the last session becomes idle.
+			shellArgs.push('--idle-shutdown-hours', '0');
+		} else if (shutdownTimeout !== 'indefinitely') {
+			// All other values of this setting are numbers that we can pass
+			// directly to the supervisor.
+			try {
+				// Attempt to parse the value as an integer
+				const hours = parseInt(shutdownTimeout, 10);
+				shellArgs.push('--idle-shutdown-hours', hours.toString());
+			} catch (err) {
+				// Should never happen since we provide all the values, but log
+				// it if it does.
+				this._log.appendLine(`Invalid hour value for kernelSupervisor.shutdownTimeout: '${shutdownTimeout}'; persisting sessions indefinitely`);
+			}
+		}
 
 		// Start the server in a new terminal
 		this._log.appendLine(`Starting Kallichore server ${shellPath} on port ${port}`);
 		const terminal = vscode.window.createTerminal({
 			name: 'Kallichore',
 			shellPath: wrapperPath,
-			shellArgs: [
-				outFile,
-				shellPath,
-				'--port', port.toString(),
-				'--token', tokenPath,
-				'--log-level', logLevel,
-				'--log-file', logFile,
-			],
+			shellArgs,
 			env,
 			message: `*** Kallichore Server (${shellPath}) ***`,
 			hideFromUser: !showTerminal,
@@ -444,6 +514,10 @@ export class KCApi implements KallichoreAdapterApi {
 		const status = await this._api.serverStatus();
 		this._started.open();
 		this._log.appendLine(`Kallichore ${status.body.version} server reconnected with ${status.body.sessions} sessions`);
+
+		// Mark this a restored server
+		this._newSupervisor = false;
+
 		return true;
 	}
 
@@ -614,6 +688,48 @@ export class KCApi implements KallichoreAdapterApi {
 
 		// The server did exit.
 		return true;
+	}
+
+	/**
+	 * Validate an existing session for a Jupyter-compatible kernel.
+	 */
+	async validateSession(sessionId: string): Promise<boolean> {
+		// Wait for the server to start if it's not already running
+		await this.ensureStarted();
+
+		// If we started a new server instance, no sessions will be running, so
+		// save the round trip and just return false.
+		if (this._newSupervisor) {
+			return false;
+		}
+		try {
+			// Get the session status from the server
+			const session = await this._api.getSession(sessionId);
+
+			// The session is valid if it's in one of the running states (i.e.
+			// not 'never started' or 'exited').
+			//
+			// Consider: This creates an edge case for sessions that exit
+			// naturally before the idle shutdown timeout has expired. Those
+			// sessions will be considered invalid, so Positron will not
+			// reconnect to them and there will be no way to see any output
+			// they emitted between the time Positron was closed and the time
+			// the session exited.
+			const status = session.body.status;
+			return status !== Status.Exited && status !== Status.Uninitialized;
+		} catch (e) {
+			// Swallow errors; we're just checking to see if the session is
+			// alive.
+			if (e instanceof HttpError && e.response.statusCode === 404) {
+				// This is the expected error if the session is not found
+				return false;
+			}
+
+			// Other errors are unexpected; log them and return false
+			this._log.appendLine(`Error validating session ${sessionId}: ${summarizeError(e)}`);
+		}
+
+		return false;
 	}
 
 	/**

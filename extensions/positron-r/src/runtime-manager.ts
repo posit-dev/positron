@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -86,6 +86,30 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 		// Looks like a valid R installation.
 		return Promise.resolve(makeMetadata(inst, positron.LanguageRuntimeStartupBehavior.Immediate));
+	}
+
+	/**
+	 * Validate an existing session for a Jupyter-compatible kernel.
+	 *
+	 * @param sessionId The session ID to validate
+	 * @returns True if the session is valid, false otherwise
+	 */
+	async validateSession(sessionId: string): Promise<boolean> {
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
+		if (config.get<boolean>('enable', true)) {
+			const ext = vscode.extensions.getExtension('positron.positron-supervisor');
+			if (!ext) {
+				throw new Error('Positron Supervisor extension not found');
+			}
+			if (!ext.isActive) {
+				await ext.activate();
+			}
+			return ext.exports.validateSession(sessionId);
+		}
+
+		// When not using the kernel supervisor, sessions are not
+		// persisted.
+		return false;
 	}
 
 	restoreSession(

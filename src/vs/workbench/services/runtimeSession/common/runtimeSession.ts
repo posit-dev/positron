@@ -478,6 +478,31 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		return this.doCreateRuntimeSession(languageRuntime, sessionName, sessionMode, source, startMode, notebookUri);
 	}
 
+	/**
+	 * Validates that a runtime session can be restored.
+	 *
+	 * @param runtimeMetadata
+	 * @param sessionId
+	 */
+	async validateRuntimeSession(
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionId: string): Promise<boolean> {
+
+		// Get the runtime's manager.
+		let sessionManager: ILanguageRuntimeSessionManager;
+		try {
+			sessionManager = await this.getManagerForRuntime(runtimeMetadata);
+		} catch (err) {
+			// This shouldn't happen, but could in unusual circumstances, e.g.
+			// the extension that supplies the runtime was uninstalled and this
+			// is a stale session that it owned the last time we were running.
+			this._logService.error(`Error getting manager for runtime ${formatLanguageRuntimeMetadata(runtimeMetadata)}: ${err}`);
+			// Treat the session as invalid if we can't get the manager.
+			return false;
+		}
+
+		return sessionManager.validateSession(runtimeMetadata, sessionId);
+	}
 
 	/**
 	 * Restores (reconnects to) a runtime session that was previously started.

@@ -534,8 +534,17 @@ declare module 'positron' {
 	 */
 	export enum LanguageRuntimeSessionLocation {
 		/**
+		 * The runtime session is persistent on the machine; it should be
+		 * restored when the workspace is re-opened, and may persist across
+		 * Positron sessions.
+		 */
+		Machine = 'machine',
+
+		/**
 		 * The runtime session is located in the current workspace (usually a
-		 * terminal); it should be restored when the workspace is re-opened.
+		 * terminal); it should be restored when the workspace is re-opened in
+		 * the same Positron session (e.g. during a browser reload or
+		 * reconnect)
 		 */
 		Workspace = 'workspace',
 
@@ -672,6 +681,17 @@ declare module 'positron' {
 		 */
 		validateMetadata?(metadata: LanguageRuntimeMetadata):
 			Thenable<LanguageRuntimeMetadata>;
+
+		/**
+		 * An optional session validation function. If provided, Positron will
+		 * validate any stored session metadata before reconnecting to the
+		 * session.
+		 *
+		 * @param metadata The metadata to validate
+		 * @returns A Thenable that resolves with true (the session is valid) or
+		 *  false (the session is invalid).
+		 */
+		validateSession?(sessionId: string): Thenable<boolean>;
 
 		/**
 		 * Creates a new runtime session.

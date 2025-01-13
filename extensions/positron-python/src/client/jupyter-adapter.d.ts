@@ -145,6 +145,11 @@ export interface JupyterAdapterApi extends vscode.Disposable {
     ): Promise<JupyterLanguageRuntimeSession>;
 
     /**
+     * Validate an existing session for a Jupyter-compatible kernel.
+     */
+    validateSession(sessionId: string): Promise<boolean>;
+
+    /**
      * Restore a session for a Jupyter-compatible kernel.
      *
      * @param runtimeMetadata The metadata for the language runtime to be

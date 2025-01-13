@@ -1168,11 +1168,15 @@ export class MainThreadLanguageRuntime
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 		this._id = MainThreadLanguageRuntime.MAX_ID++;
 
-		this._runtimeStartupService.onDidChangeRuntimeStartupPhase((phase) => {
-			if (phase === RuntimeStartupPhase.Discovering) {
-				this._proxy.$discoverLanguageRuntimes();
-			}
-		});
+		this._runtimeStartupService.registerMainThreadLanguageRuntime(this._id);
+
+		this._disposables.add(
+			this._runtimeStartupService.onDidChangeRuntimeStartupPhase((phase) => {
+				if (phase === RuntimeStartupPhase.Discovering) {
+					this._proxy.$discoverLanguageRuntimes();
+				}
+			})
+		);
 
 		this._disposables.add(this._runtimeSessionService.registerSessionManager(this));
 	}
@@ -1248,7 +1252,7 @@ export class MainThreadLanguageRuntime
 
 	// Signals that language runtime discovery is complete.
 	$completeLanguageRuntimeDiscovery(): void {
-		this._runtimeStartupService.completeDiscovery();
+		this._runtimeStartupService.completeDiscovery(this._id);
 	}
 
 	$unregisterLanguageRuntime(handle: number): void {
@@ -1278,6 +1282,8 @@ export class MainThreadLanguageRuntime
 				session.emitExit(exit);
 			}
 		});
+
+		this._runtimeStartupService.unregisterMainThreadLanguageRuntime(this._id);
 		this._disposables.dispose();
 	}
 
@@ -1343,7 +1349,16 @@ export class MainThreadLanguageRuntime
 	 * @param metadata The metadata to validate
 	 */
 	async validateMetadata(metadata: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeMetadata> {
-		return this._proxy.$validateLangaugeRuntimeMetadata(metadata);
+		return this._proxy.$validateLanguageRuntimeMetadata(metadata);
+	}
+
+	/**
+	 * Validates a language runtime sesssion.
+	 *
+	 * @param sessionId The session ID to validate
+	 */
+	async validateSession(metadata: ILanguageRuntimeMetadata, sessionId: string): Promise<boolean> {
+		return this._proxy.$validateLanguageRuntimeSession(metadata, sessionId);
 	}
 
 	/**
