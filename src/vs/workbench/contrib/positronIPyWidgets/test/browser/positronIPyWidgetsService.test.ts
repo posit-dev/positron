@@ -137,6 +137,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 			getId() { return 'test-notebook-editor-id'; },
 			onDidChangeModel: onDidChangeModel.event,
 			textModel: { uri: notebookUri },
+			getViewModel() { return undefined; },
 			changeModel(uri) { onDidChangeModel.fire(<NotebookTextModel>{ uri }); },
 		};
 		notebookEditorService.addNotebookEditor(notebookEditor);
