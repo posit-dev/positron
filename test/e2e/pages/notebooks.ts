@@ -7,7 +7,7 @@ import { Code } from '../infra/code';
 import { QuickInput } from './quickInput';
 import { QuickAccess } from './quickaccess';
 import { basename } from 'path';
-import { expect } from '@playwright/test';
+import test, { expect } from '@playwright/test';
 
 
 const KERNEL_LABEL = '.kernel-label';
@@ -37,24 +37,33 @@ export class Notebooks {
 	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess) { }
 
 	async selectInterpreter(kernelGroup: string, desiredKernel: string) {
-		await expect(this.notebookProgressBar).not.toBeVisible({ timeout: 30000 });
-		await expect(this.code.driver.page.locator(DETECTING_KERNELS_TEXT)).not.toBeVisible({ timeout: 30000 });
+		await test.step(`Select notebook interpreter: ${desiredKernel}`, async () => {
+			await expect(this.notebookProgressBar).not.toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.page.locator(DETECTING_KERNELS_TEXT)).not.toBeVisible({ timeout: 30000 });
 
-		// Wait for either "select kernel" or "the desired kernel" to appear in KERNEL_LABEL
-		const kernelRegex = new RegExp(`${SELECT_KERNEL_TEXT}|${desiredKernel}`);
-		const kernelLabelLocator = this.code.driver.page.locator(KERNEL_LABEL);
-		await expect(kernelLabelLocator).toHaveText(kernelRegex, { timeout: 10000 });
+			// Wait for the desired kernel to populate in dropdown, if no show then wait for "Select Kernel"
+			const kernelLabelLocator = this.code.driver.page.locator(KERNEL_LABEL);
+			try {
+				await expect(kernelLabelLocator).toHaveText(new RegExp(desiredKernel), { timeout: 10000 });
+			} catch (e) {
+				await expect(kernelLabelLocator).toHaveText(new RegExp(SELECT_KERNEL_TEXT), { timeout: 10000 });
+			}
 
-		// Retrieve the matched text for conditional logic
-		const matchedText = await kernelLabelLocator.textContent() || '';
+			// Retrieve the matched text for conditional logic
+			const matchedText = await kernelLabelLocator.textContent() || '';
 
-		if (!new RegExp(desiredKernel).test(matchedText)) {
-			await this.code.driver.page.locator(KERNEL_ACTION).click();
-			await this.quickinput.waitForQuickInputOpened();
-			await this.quickinput.selectQuickInputElementContaining(kernelGroup);
-			await this.quickinput.selectQuickInputElementContaining(desiredKernel);
-			await this.quickinput.waitForQuickInputClosed();
-		}
+			this.code.logger.log(`Matched text: ${matchedText}, Desired kernel: ${desiredKernel}`);
+			if (!new RegExp(desiredKernel).test(matchedText)) {
+				await this.code.driver.page.locator(KERNEL_ACTION).click();
+				await this.quickinput.waitForQuickInputOpened();
+				await this.quickinput.selectQuickInputElementContaining(kernelGroup);
+				await this.quickinput.selectQuickInputElementContaining(desiredKernel);
+				await this.quickinput.waitForQuickInputClosed();
+			}
+
+			// wait for the kernel to load
+			await expect(this.code.driver.page.locator('.kernel-action-view-item').locator('.codicon-modifier-spin')).not.toBeVisible({ timeout: 30000 });
+		});
 	}
 
 	async createNewNotebook() {
@@ -63,22 +72,28 @@ export class Notebooks {
 
 	// Opens a Notebook that lives in the current workspace
 	async openNotebook(path: string) {
-		await this.quickaccess.openFileQuickAccessAndWait(basename(path), 1);
-		await this.quickinput.selectQuickInputElement(0);
+		await test.step(`Open notebook: ${path}`, async () => {
+			await this.quickaccess.openFileQuickAccessAndWait(basename(path), 1);
+			await this.quickinput.selectQuickInputElement(0);
 
-		await expect(this.code.driver.page.locator(ACTIVE_ROW_SELECTOR)).toBeVisible();
-		await this.focusFirstCell();
+			await expect(this.code.driver.page.locator(ACTIVE_ROW_SELECTOR)).toBeVisible();
+			await this.focusFirstCell();
+		});
 	}
 
 	async addCodeToFirstCell(code: string) {
-		await this.code.driver.page.locator(CELL_LINE).first().click();
-		await this.waitForTypeInEditor(code);
-		await this.waitForActiveCellEditorContents(code);
+		await test.step('Add code to first cell', async () => {
+			await this.code.driver.page.locator(CELL_LINE).first().click();
+			await this.typeInEditor(code);
+			await this.waitForActiveCellEditorContents(code);
+		});
 	}
 
 	async executeCodeInCell() {
-		await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
-		await expect(this.code.driver.page.locator(EXECUTE_CELL_SPINNER), 'execute cell spinner to not be visible').not.toBeVisible({ timeout: 30000 });
+		await test.step('Execute code in cell', async () => {
+			await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
+			await expect(this.code.driver.page.locator(EXECUTE_CELL_SPINNER), 'execute cell spinner to not be visible').not.toBeVisible({ timeout: 30000 });
+		});
 	}
 
 	async assertCellOutput(text: string): Promise<void> {
@@ -96,27 +111,31 @@ export class Notebooks {
 	}
 
 	async runAllCells(timeout: number = 30000) {
-		await this.code.driver.page.getByLabel('Run All').click();
-		const stopExecutionLocator = this.code.driver.page.locator('a').filter({ hasText: /Stop Execution|Interrupt/ });
-		await expect(stopExecutionLocator).toBeVisible();
-		await expect(stopExecutionLocator).not.toBeVisible({ timeout: timeout });
+		await test.step('Run all cells', async () => {
+			await this.code.driver.page.getByLabel('Run All').click();
+			const stopExecutionLocator = this.code.driver.page.locator('a').filter({ hasText: /Stop Execution|Interrupt/ });
+			await expect(stopExecutionLocator).toBeVisible();
+			await expect(stopExecutionLocator).not.toBeVisible({ timeout: timeout });
+		});
 	}
 
 	async focusFirstCell() {
 		await this.quickaccess.runCommand('notebook.focusTop');
 	}
 
-	async waitForTypeInEditor(text: string): Promise<any> {
-		const editor = `${ACTIVE_ROW_SELECTOR} .monaco-editor`;
+	async typeInEditor(text: string): Promise<any> {
+		await test.step(`Type in editor: ${text}`, async () => {
+			const editor = `${ACTIVE_ROW_SELECTOR} .monaco-editor`;
 
-		await this.code.driver.page.locator(editor).isVisible();
+			await this.code.driver.page.locator(editor).isVisible();
 
-		const textarea = `${editor} textarea`;
-		await expect(this.code.driver.page.locator(textarea)).toBeFocused();
+			const textarea = `${editor} textarea`;
+			await expect(this.code.driver.page.locator(textarea)).toBeFocused();
 
-		await this.code.driver.page.locator(textarea).fill(text);
+			await this.code.driver.page.locator(textarea).fill(text);
 
-		await this._waitForActiveCellEditorContents(c => c.indexOf(text) > -1);
+			await this._waitForActiveCellEditorContents(c => c.indexOf(text) > -1);
+		});
 	}
 
 	private async _waitForActiveCellEditorContents(accept: (contents: string) => boolean): Promise<string> {

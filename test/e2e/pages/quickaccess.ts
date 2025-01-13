@@ -6,7 +6,7 @@
 import { Code } from '../infra/code';
 import { basename, isAbsolute } from 'path';
 import { QuickInput } from './quickInput';
-import { expect } from '@playwright/test';
+import test, { expect } from '@playwright/test';
 import { Editors } from './editors';
 
 enum QuickAccessKind {
@@ -92,25 +92,27 @@ export class QuickAccess {
 	}
 
 	async openFile(path: string): Promise<void> {
-		if (!isAbsolute(path)) {
-			// we require absolute paths to get a single
-			// result back that is unique and avoid hitting
-			// the search process to reduce chances of
-			// search needing longer.
-			throw new Error('QuickAccess.openFile requires an absolute path');
-		}
+		await test.step('Open file', async () => {
+			if (!isAbsolute(path)) {
+				// we require absolute paths to get a single
+				// result back that is unique and avoid hitting
+				// the search process to reduce chances of
+				// search needing longer.
+				throw new Error('QuickAccess.openFile requires an absolute path');
+			}
 
-		const fileName = basename(path);
+			const fileName = basename(path);
 
-		// quick access shows files with the basename of the path
-		await this.openFileQuickAccessAndWait(path, basename(path));
+			// quick access shows files with the basename of the path
+			await this.openFileQuickAccessAndWait(path, basename(path));
 
-		// open first element
-		await this.quickInput.selectQuickInputElement(0);
+			// open first element
+			await this.quickInput.selectQuickInputElement(0);
 
-		// wait for editor being focused
-		await this.editors.waitForActiveTab(fileName);
-		await this.editors.selectTab(fileName);
+			// wait for editor being focused
+			await this.editors.waitForActiveTab(fileName);
+			await this.editors.selectTab(fileName);
+		});
 	}
 
 	private async openQuickAccessWithRetry(kind: QuickAccessKind, value?: string): Promise<void> {
@@ -151,39 +153,44 @@ export class QuickAccess {
 
 
 	async runCommand(commandId: string, options?: { keepOpen?: boolean; exactLabelMatch?: boolean }): Promise<void> {
-		const keepOpen = options?.keepOpen;
-		const exactLabelMatch = options?.exactLabelMatch;
-
-		const openCommandPalletteAndTypeCommand = async (): Promise<boolean> => {
-			// open commands picker
-			await this.openQuickAccessWithRetry(QuickAccessKind.Commands, `>${commandId}`);
-
-			// wait for quick input element text
-			const text = await this.quickInput.waitForQuickInputElementText();
-
-			if (text === 'No matching commands' || (exactLabelMatch && text !== commandId)) {
-				return false;
+		const stepWrapper = (label: string, fn: () => Promise<void>) => {
+			try {
+				// Check if running in a test context
+				if (test.info().title) {
+					return test.step(label, fn); // Use test.step if inside a test
+				}
+			} catch (e) {
+				// Catch errors if not in a test context
 			}
-
-			return true;
+			return fn(); // Run directly if not in a test
 		};
 
-		await expect(async () => {
-			const hasCommandFound = await openCommandPalletteAndTypeCommand();
-			if (!hasCommandFound) {
-				this.code.logger.log(`QuickAccess: No matching commands, retrying...`);
-				await this.quickInput.closeQuickInput();
-				throw new Error('Command not found'); // Signal to retry
-			}
-		}).toPass({
-			timeout: 15000,
-			intervals: [1000],
+		await stepWrapper(`Run command: ${commandId}`, async () => {
+			const keepOpen = options?.keepOpen;
+			const exactLabelMatch = options?.exactLabelMatch;
+
+			const openCommandPalletteAndTypeCommand = async (): Promise<boolean> => {
+				await this.openQuickAccessWithRetry(QuickAccessKind.Commands, `>${commandId}`);
+				const text = await this.quickInput.waitForQuickInputElementText();
+
+				return !(text === 'No matching commands' || (exactLabelMatch && text !== commandId));
+			};
+
+			await expect(async () => {
+				const hasCommandFound = await openCommandPalletteAndTypeCommand();
+				if (!hasCommandFound) {
+					this.code.logger.log(`QuickAccess: No matching commands, retrying...`);
+					await this.quickInput.closeQuickInput();
+					throw new Error('Command not found');
+				}
+			}).toPass({
+				timeout: 15000,
+				intervals: [1000],
+			});
+
+			this.code.logger.log('QuickAccess: Command found and successfully executed.');
+			await this.quickInput.selectQuickInputElement(0, keepOpen);
 		});
-
-		this.code.logger.log('QuickAccess: Command found and successfully executed.');
-
-		// wait and click on best choice
-		await this.quickInput.selectQuickInputElement(0, keepOpen);
 	}
 
 	async openQuickOutline({ timeout = 30000 }): Promise<void> {
