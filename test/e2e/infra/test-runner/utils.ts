@@ -9,7 +9,7 @@ import * as path from 'path';
 import rimraf from 'rimraf';
 import * as os from 'os';
 
-export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH is not set cloneRepo') {
+export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH is not set in cloneTestRepo'): void {
 	const testRepoUrl = 'https://github.com/posit-dev/qa-example-content.git';
 	const cacheDir = path.join(os.tmpdir(), 'qa-example-content-cache');
 	const cachedCommitFile = path.join(cacheDir, '.cached-commit');
@@ -57,9 +57,10 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 }
 
 function copyDirectory(source: string, destination: string): void {
+	// copy contents of source to destination
 	if (process.platform === 'win32') {
-		cp.execSync(`xcopy /E "${source}" "${destination}\\*"`);
+		cp.execSync(`xcopy /E "${source}\\*" "${destination}\\*"`);
 	} else {
-		cp.execSync(`cp -R "${source}" "${destination}"`);
+		cp.execSync(`cp -R "${source}/." "${destination}"`);
 	}
 }
