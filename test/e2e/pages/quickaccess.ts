@@ -6,7 +6,7 @@
 import { Code } from '../infra/code';
 import { basename, isAbsolute } from 'path';
 import { QuickInput } from './quickInput';
-import { expect } from '@playwright/test';
+import test, { expect } from '@playwright/test';
 import { Editors } from './editors';
 
 enum QuickAccessKind {
@@ -151,39 +151,41 @@ export class QuickAccess {
 
 
 	async runCommand(commandId: string, options?: { keepOpen?: boolean; exactLabelMatch?: boolean }): Promise<void> {
-		const keepOpen = options?.keepOpen;
-		const exactLabelMatch = options?.exactLabelMatch;
+		await test.step(`Run command: ${commandId}`, async () => {
+			const keepOpen = options?.keepOpen;
+			const exactLabelMatch = options?.exactLabelMatch;
 
-		const openCommandPalletteAndTypeCommand = async (): Promise<boolean> => {
-			// open commands picker
-			await this.openQuickAccessWithRetry(QuickAccessKind.Commands, `>${commandId}`);
+			const openCommandPalletteAndTypeCommand = async (): Promise<boolean> => {
+				// open commands picker
+				await this.openQuickAccessWithRetry(QuickAccessKind.Commands, `>${commandId}`);
 
-			// wait for quick input element text
-			const text = await this.quickInput.waitForQuickInputElementText();
+				// wait for quick input element text
+				const text = await this.quickInput.waitForQuickInputElementText();
 
-			if (text === 'No matching commands' || (exactLabelMatch && text !== commandId)) {
-				return false;
-			}
+				if (text === 'No matching commands' || (exactLabelMatch && text !== commandId)) {
+					return false;
+				}
 
-			return true;
-		};
+				return true;
+			};
 
-		await expect(async () => {
-			const hasCommandFound = await openCommandPalletteAndTypeCommand();
-			if (!hasCommandFound) {
-				this.code.logger.log(`QuickAccess: No matching commands, retrying...`);
-				await this.quickInput.closeQuickInput();
-				throw new Error('Command not found'); // Signal to retry
-			}
-		}).toPass({
-			timeout: 15000,
-			intervals: [1000],
+			await expect(async () => {
+				const hasCommandFound = await openCommandPalletteAndTypeCommand();
+				if (!hasCommandFound) {
+					this.code.logger.log(`QuickAccess: No matching commands, retrying...`);
+					await this.quickInput.closeQuickInput();
+					throw new Error('Command not found'); // Signal to retry
+				}
+			}).toPass({
+				timeout: 15000,
+				intervals: [1000],
+			});
+
+			this.code.logger.log('QuickAccess: Command found and successfully executed.');
+
+			// wait and click on best choice
+			await this.quickInput.selectQuickInputElement(0, keepOpen);
 		});
-
-		this.code.logger.log('QuickAccess: Command found and successfully executed.');
-
-		// wait and click on best choice
-		await this.quickInput.selectQuickInputElement(0, keepOpen);
 	}
 
 	async openQuickOutline({ timeout = 30000 }): Promise<void> {

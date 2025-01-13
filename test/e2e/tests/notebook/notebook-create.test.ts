@@ -33,7 +33,7 @@ test.describe('Notebooks', {
 			const randomText = Math.random().toString(36).substring(7);
 
 			await app.workbench.notebooks.insertNotebookCell('markdown');
-			await app.workbench.notebooks.waitForTypeInEditor(`## ${randomText} `);
+			await app.workbench.notebooks.typeInEditor(`## ${randomText} `);
 			await app.workbench.notebooks.stopEditingCell();
 			await app.workbench.notebooks.assertMarkdownText('h2', randomText);
 		});
@@ -60,7 +60,7 @@ test.describe('Notebooks', {
 			const randomText = Math.random().toString(36).substring(7);
 
 			await app.workbench.notebooks.insertNotebookCell('markdown');
-			await app.workbench.notebooks.waitForTypeInEditor(`## ${randomText} `);
+			await app.workbench.notebooks.typeInEditor(`## ${randomText} `);
 			await app.workbench.notebooks.stopEditingCell();
 			await app.workbench.notebooks.assertMarkdownText('h2', randomText);
 		});
