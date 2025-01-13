@@ -58,8 +58,8 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 
 function copyDirectory(source: string, destination: string): void {
 	if (process.platform === 'win32') {
-		cp.execSync(`xcopy /E /I /Y "${source}" "${destination}\\*"`, { stdio: 'inherit' });
+		cp.execSync(`xcopy /E "${source}" "${destination}\\*"`);
 	} else {
-		cp.execSync(`cp -R "${source}" "${destination}"`, { stdio: 'inherit' });
+		cp.execSync(`cp -R "${source}" "${destination}"`);
 	}
 }
