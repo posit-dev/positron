@@ -23,7 +23,6 @@ from typing import (
     Dict,
     List,
     Optional,
-    ParamSpec,
     Set,
     Tuple,
     TypeVar,
@@ -457,19 +456,14 @@ def is_local_html_file(url: str) -> bool:
         return False
 
 
-P = ParamSpec("P")
-
-
-def debounce(
-    interval_s: int, keyed_by: Optional[str] = None
-) -> Callable[[Callable[P, None]], Callable[P, None]]:
+def debounce(interval_s: int, keyed_by: Optional[str] = None):
     """
     Debounce calls to a function until `interval_s` seconds have passed.
 
     Adapted from https://github.com/python-lsp/python-lsp-server.
     """
 
-    def wrapper(func: Callable[P, None]) -> Callable[P, None]:
+    def wrapper(func: Callable):
         # Dict of Timers, keyed by call values of the keyed_by argument.
         timers: Dict[Any, threading.Timer] = {}
 
@@ -477,7 +471,7 @@ def debounce(
         lock = threading.Lock()
 
         @functools.wraps(func)
-        def debounced(*args: P.args, **kwargs: P.kwargs) -> None:
+        def debounced(*args, **kwargs) -> None:
             # Get the value of the keyed_by argument, if any.
             sig = inspect.signature(func)
             call_args = sig.bind(*args, **kwargs)
