@@ -6,43 +6,56 @@
 /**
  * Use the tags listed below to selectively run e2e tests against your PR.
  *
- * Each tag corresponds to a specific feature, functionality, or area of the application. Use them
+ * Feature tags:
+ * Each tag corresponds to a specific feature, functionality of the application. Use them
  * thoughtfully to ensure your tests align with the intended scope.
  *
+ * Platform tags:
+ * By default PRs will only run e2e tests against Linux / Electron.
  * Add `@:win` tag to enable the tests to run on windows. Add the `@:web` tag to enable a web run.
- * The default will only run Linux electron e2e tests.
  *
- * DON'T FORGET TO ADD THE COLON `:` AFTER THE `@` SYMBOL when tagging tests in a PR description.
- *   -> Correct:   `@:tag`
- *   -> Incorrect: `@tag`
 */
+
 export enum TestTags {
-	EDITOR_ACTION_BAR = '@editor-action-bar',
-	APPS = '@apps',
-	CONNECTIONS = '@connections',
-	CONSOLE = '@console',
-	CRITICAL = '@critical',
-	DATA_EXPLORER = '@data-explorer',
-	DUCK_DB = '@duck-db',
-	HELP = '@help',
-	HTML = '@html',
-	INTERPRETER = '@interpreter',
-	LAYOUTS = '@layouts',
-	VIEWER = '@viewer',
-	EDITOR = '@editor',
-	QUARTO = '@quarto',
-	NEW_PROJECT_WIZARD = '@new-project-wizard',
-	NOTEBOOK = '@notebook',
-	OUTLINE = '@outline',
-	OUTPUT = '@output',
-	PLOTS = '@plots',
-	R_MARKDOWN = '@r-markdown',
-	R_PKG_DEVELOPMENT = '@r-pkg-development',
-	RETICULATE = '@reticulate',
-	TEST_EXPLORER = '@test-explorer',
-	TOP_ACTION_BAR = '@top-action-bar',
-	VARIABLES = '@variables',
-	WEB = '@web',
-	WELCOME = '@welcome',
-	WIN = '@win'
+
+	// feature tags
+	EDITOR_ACTION_BAR = '@::editor-action-bar',
+	APPS = '@:apps',
+	CONNECTIONS = '@:connections',
+	CONSOLE = '@:console',
+	CRITICAL = '@:critical',
+	DATA_EXPLORER = '@:data-explorer',
+	DUCK_DB = '@:duck-db',
+	HELP = '@:help',
+	HTML = '@:html',
+	INTERPRETER = '@:interpreter',
+	LAYOUTS = '@:layouts',
+	VIEWER = '@:viewer',
+	EDITOR = '@:editor',
+	QUARTO = '@:quarto',
+	NEW_PROJECT_WIZARD = '@:new-project-wizard',
+	NOTEBOOK = '@:notebook',
+	OUTLINE = '@:outline',
+	OUTPUT = '@:output',
+	PLOTS = '@:plots',
+	R_MARKDOWN = '@:r-markdown',
+	R_PKG_DEVELOPMENT = '@:r-pkg-development',
+	RETICULATE = '@:reticulate',
+	TEST_EXPLORER = '@:test-explorer',
+	TOP_ACTION_BAR = '@:top-action-bar',
+	VARIABLES = '@:variables',
+	WELCOME = '@:welcome',
+
+	// platform tags
+	WEB = '@:web',
+	WIN = '@:win'
 }
+
+
+type TestTagValue = `@:${string}`;
+
+function validateTags(tags: Record<string, TestTagValue>): void {
+	// This enforces that all tags conform to the @: pattern
+}
+
+validateTags(TestTags);
