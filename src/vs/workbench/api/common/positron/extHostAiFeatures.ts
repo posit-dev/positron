@@ -65,6 +65,16 @@ class ChatResponse {
 		this._proxy.$chatTaskResponse(this._id, dto);
 	}
 
+	progress(value: string, task?: ((progress: vscode.Progress<vscode.ChatResponseWarningPart>) => Thenable<string | void>)) {
+		if (this._isClosed) {
+			throw new Error('Response stream is closed');
+		}
+		const part = new extHostTypes.ChatResponseProgressPart2(value, task);
+		const dto = task ? typeConvert.ChatTask.from(part) : typeConvert.ChatResponseProgressPart.from(part);
+		this._proxy.$chatTaskResponse(this._id, dto);
+		return this;
+	}
+
 	// TODO: Implment more vscode.ChatResponseStream methods.
 
 	close(): void {

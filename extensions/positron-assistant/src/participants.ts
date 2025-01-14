@@ -47,7 +47,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 					if (!matches || !uri) {
 						return 'No plot visible';
 					}
-
+					response.progress('Analysing visible plot...');
 					return {
 						type: 'image' as const,
 						mimeType: matches[1],
@@ -73,7 +73,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 
 		// If the user has explicitly attached files as context, add them to the message thread
 		if (request.references.length > 0) {
-			let referencesText = 'The user has attached the following reference:\n';
+			let referencesText = fs.readFileSync(`${promptsDir}/default/attachments.md`, 'utf8');
 
 			for (const reference of request.references) {
 				const value = reference.value as vscode.Uri | vscode.Location;
