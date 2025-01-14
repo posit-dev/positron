@@ -134,7 +134,7 @@ df2 = pd.DataFrame(data)`;
 
 		const filename = 'pandas-update-dataframe.ipynb';
 		await app.workbench.notebooks.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', filename));
-		await app.workbench.notebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
+		await app.workbench.notebooks.selectInterpreter('Python', process.env.POSITRON_PY_VER_SEL!);
 		await app.workbench.notebooks.focusFirstCell();
 		await app.workbench.notebooks.executeActiveCell();
 

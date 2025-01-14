@@ -18,6 +18,7 @@
 
 export enum TestTags {
 
+<<<<<<< HEAD
 	// feature tags
 	EDITOR_ACTION_BAR = '@::editor-action-bar',
 	APPS = '@:apps',
@@ -49,6 +50,39 @@ export enum TestTags {
 	// platform tags
 	WEB = '@:web',
 	WIN = '@:win'
+=======
+	// features and functionality
+	EDITOR_ACTION_BAR = '@editor-action-bar',
+	APPS = '@apps',
+	CONNECTIONS = '@connections',
+	CONSOLE = '@console',
+	CRITICAL = '@critical',
+	DATA_EXPLORER = '@data-explorer',
+	DUCK_DB = '@duck-db',
+	HELP = '@help',
+	HTML = '@html',
+	INTERPRETER = '@interpreter',
+	LAYOUTS = '@layouts',
+	VIEWER = '@viewer',
+	EDITOR = '@editor',
+	QUARTO = '@quarto',
+	NEW_PROJECT_WIZARD = '@new-project-wizard',
+	NOTEBOOKS = '@notebooks',
+	OUTLINE = '@outline',
+	OUTPUT = '@output',
+	PLOTS = '@plots',
+	R_MARKDOWN = '@r-markdown',
+	R_PKG_DEVELOPMENT = '@r-pkg-development',
+	RETICULATE = '@reticulate',
+	TEST_EXPLORER = '@test-explorer',
+	TOP_ACTION_BAR = '@top-action-bar',
+	VARIABLES = '@variables',
+	WELCOME = '@welcome',
+
+	// platform
+	WEB = '@web',
+	WIN = '@win'
+>>>>>>> main
 }
 
 
