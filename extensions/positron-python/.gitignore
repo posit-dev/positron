@@ -53,6 +53,7 @@ tags
 # --- Start Positron ---
 python_files/positron/positron_ipykernel/tests/images
 python_files/positron/positron_ipykernel/_vendor/**
+scripts/*.js
 # --- End Positron ---
 python-env-tools/**
 # coverage files produced as test output

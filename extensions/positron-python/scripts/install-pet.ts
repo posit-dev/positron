@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -28,7 +28,7 @@ const existsAsync = promisify(fs.exists);
 
 // Create a promisified version of https.get. We can't use the built-in promisify
 // because the callback doesn't follow the promise convention of (error, result).
-const httpsGetAsync = (opts: https.RequestOptions) => {
+export const httpsGetAsync = (opts: https.RequestOptions) => {
 	return new Promise<IncomingMessage>((resolve, reject) => {
 		const req = https.get(opts, resolve);
 		req.once('error', reject);
