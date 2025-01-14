@@ -518,7 +518,7 @@ export class MenuItemAction implements IAction {
 	 * Gets a value which indicates whether to display the title for the action when it appears on
 	 * an action bar.
 	 */
-	readonly displayTitleOnActionBar?: boolean = true;
+	readonly displayTitleOnActionBar?: boolean;
 	// --- End Positron ---
 
 	constructor(

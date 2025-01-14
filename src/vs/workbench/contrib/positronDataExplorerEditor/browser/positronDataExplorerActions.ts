@@ -16,9 +16,9 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IPositronDataExplorerEditor } from './positronDataExplorerEditor.js';
-import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
-import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 
 /**
@@ -45,6 +45,8 @@ export const enum PositronDataExplorerCommandId {
 	CopyTableDataAction = 'workbench.action.positronDataExplorer.copyTableData',
 	CollapseSummaryAction = 'workbench.action.positronDataExplorer.collapseSummary',
 	ExpandSummaryAction = 'workbench.action.positronDataExplorer.expandSummary',
+	SummaryOnLeftAction = 'workbench.action.positronDataExplorer.summaryOnLeft',
+	SummaryOnRightAction = 'workbench.action.positronDataExplorer.summaryOnRight',
 	ClearColumnSortingAction = 'workbench.action.positronDataExplorer.clearColumnSorting'
 }
 
@@ -112,7 +114,10 @@ class PositronDataExplorerCopyAction extends Action2 {
 			// Notify the user.
 			notificationService.notify({
 				severity: Severity.Error,
-				message: localize('positron.dataExplorer.copy.noActiveEditor', "Cannot copy. A Positron Data Explorer is not active."),
+				message: localize(
+					'positron.dataExplorer.copy.noActiveEditor',
+					"Cannot copy. A Positron Data Explorer is not active."
+				),
 				sticky: false
 			});
 		};
@@ -190,7 +195,10 @@ class PositronDataExplorerCopyTableDataAction extends Action2 {
 			// Notify the user.
 			notificationService.notify({
 				severity: Severity.Error,
-				message: localize('positron.dataExplorer.copyTableData.noActiveEditor', "Cannot copy table data. A Positron Data Explorer is not active."),
+				message: localize(
+					'positron.dataExplorer.copyTableData.noActiveEditor',
+					"Cannot copy table data. A Positron Data Explorer is not active."
+				),
 				sticky: false
 			});
 		};
@@ -265,7 +273,10 @@ class PositronDataExplorerCollapseSummaryAction extends Action2 {
 			// Notify the user.
 			notificationService.notify({
 				severity: Severity.Error,
-				message: localize('positron.dataExplorer.collapseSummary.noActiveEditor', "Cannot Collapse Summary. A Positron Data Explorer is not active."),
+				message: localize(
+					'positron.dataExplorer.collapseSummary.noActiveEditor',
+					"Cannot Collapse Summary. A Positron Data Explorer is not active."
+				),
 				sticky: false
 			});
 		};
@@ -340,7 +351,10 @@ class PositronDataExplorerExpandSummaryAction extends Action2 {
 			// Notify the user.
 			notificationService.notify({
 				severity: Severity.Error,
-				message: localize('positron.dataExplorer.expandSummary.noActiveEditor', "Cannot Expand Summary. A Positron Data Explorer is not active."),
+				message: localize(
+					'positron.dataExplorer.expandSummary.noActiveEditor',
+					"Cannot Expand Summary. A Positron Data Explorer is not active."
+				),
 				sticky: false
 			});
 		};
@@ -377,6 +391,198 @@ class PositronDataExplorerExpandSummaryAction extends Action2 {
 }
 
 /**
+ * PositronDataExplorerSummaryOnLeftAction action.
+ */
+class PositronDataExplorerSummaryOnLeftAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.SummaryOnLeftAction,
+			title: {
+				value: localize('positronDataExplorer.summaryOnLeft', 'Summary on Left'),
+				original: 'Summary on Left'
+			},
+			category,
+			f1: false,
+			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+			icon: Codicon.positronDataExplorerSummaryOnLeft,
+			toggled: ContextKeyExpr.and(
+				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				POSITRON_DATA_EXPLORER_LAYOUT.isEqualTo(
+					PositronDataExplorerLayout.SummaryOnLeft
+				)
+			),
+			menu: [
+				{
+					id: MenuId.EditorTitle,
+					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+					group: '1_data_explorer',
+					order: 1
+				},
+			]
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Access the services we need.
+		const editorService = accessor.get(IEditorService);
+		const notificationService = accessor.get(INotificationService);
+		const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
+
+		// Get the Positron data explorer editor.
+		const positronDataExplorerEditor = getPositronDataExplorerEditorFromEditorPane(
+			editorService.activeEditorPane
+		);
+
+		/**
+		 * Notifies the user that layout failed.
+		 */
+		const notifyUserThatLayoutFailed = () => {
+			// Notify the user.
+			notificationService.notify({
+				severity: Severity.Error,
+				message: localize(
+					'positron.dataExplorer.changeLayout.noActiveEditor',
+					"Cannot Change Layout. A Positron Data Explorer is not active."
+				),
+				sticky: false
+			});
+		};
+
+		// Make sure that the Positron data explorer editor was returned.
+		if (!positronDataExplorerEditor) {
+			notifyUserThatLayoutFailed();
+			return;
+		}
+
+		// Get the identifier.
+		const identifier = positronDataExplorerEditor.identifier;
+
+		// Make sure the identifier was returned.
+		if (!identifier) {
+			notifyUserThatLayoutFailed();
+			return;
+		}
+
+		// Get the Positron data explorer instance.
+		const positronDataExplorerInstance = positronDataExplorerService.getInstance(
+			identifier
+		);
+
+		// Make sure the Positron data explorer instance was returned.
+		if (!positronDataExplorerInstance) {
+			notifyUserThatLayoutFailed();
+			return;
+		}
+
+		// Change layout.
+		positronDataExplorerInstance.layout = PositronDataExplorerLayout.SummaryOnLeft;
+	}
+}
+
+/**
+ * PositronDataExplorerSummaryOnRightAction action.
+ */
+class PositronDataExplorerSummaryOnRightAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.SummaryOnRightAction,
+			title: {
+				value: localize('positronDataExplorer.summaryOnRight', 'Summary on Right'),
+				original: 'Summary on Right'
+			},
+			category,
+			f1: false,
+			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+			icon: Codicon.positronDataExplorerSummaryOnRight,
+			toggled: ContextKeyExpr.and(
+				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				POSITRON_DATA_EXPLORER_LAYOUT.isEqualTo(
+					PositronDataExplorerLayout.SummaryOnRight
+				)
+			),
+			menu: [
+				{
+					id: MenuId.EditorTitle,
+					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+					group: '1_data_explorer',
+					order: 2
+				},
+			]
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Access the services we need.
+		const editorService = accessor.get(IEditorService);
+		const notificationService = accessor.get(INotificationService);
+		const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
+
+		// Get the Positron data explorer editor.
+		const positronDataExplorerEditor = getPositronDataExplorerEditorFromEditorPane(
+			editorService.activeEditorPane
+		);
+
+		/**
+		 * Notifies the user that layout failed.
+		 */
+		const notifyUserThatLayoutFailed = () => {
+			// Notify the user.
+			notificationService.notify({
+				severity: Severity.Error,
+				message: localize(
+					'positron.dataExplorer.changeLayout.noActiveEditor',
+					"Cannot Change Layout. A Positron Data Explorer is not active."
+				),
+				sticky: false
+			});
+		};
+
+		// Make sure that the Positron data explorer editor was returned.
+		if (!positronDataExplorerEditor) {
+			notifyUserThatLayoutFailed();
+			return;
+		}
+
+		// Get the identifier.
+		const identifier = positronDataExplorerEditor.identifier;
+
+		// Make sure the identifier was returned.
+		if (!identifier) {
+			notifyUserThatLayoutFailed();
+			return;
+		}
+
+		// Get the Positron data explorer instance.
+		const positronDataExplorerInstance = positronDataExplorerService.getInstance(
+			identifier
+		);
+
+		// Make sure the Positron data explorer instance was returned.
+		if (!positronDataExplorerInstance) {
+			notifyUserThatLayoutFailed();
+			return;
+		}
+
+		// Change layout.
+		positronDataExplorerInstance.layout = PositronDataExplorerLayout.SummaryOnRight;
+	}
+}
+
+/**
  * PositronDataExplorerClearColumnSortingAction action.
  */
 class PositronDataExplorerClearColumnSortingAction extends Action2 {
@@ -402,8 +608,6 @@ class PositronDataExplorerClearColumnSortingAction extends Action2 {
 				{
 					id: MenuId.EditorActionsLeft,
 					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-					group: '1_data_explorer',
-					order: 1
 				},
 			]
 		});
@@ -478,5 +682,7 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerCopyTableDataAction);
 	registerAction2(PositronDataExplorerCollapseSummaryAction);
 	registerAction2(PositronDataExplorerExpandSummaryAction);
+	registerAction2(PositronDataExplorerSummaryOnLeftAction);
+	registerAction2(PositronDataExplorerSummaryOnRightAction);
 	registerAction2(PositronDataExplorerClearColumnSortingAction);
 }
