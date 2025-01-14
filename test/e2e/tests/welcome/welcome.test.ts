@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
+test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 	test.beforeEach(async function ({ app }) {
 		await app.workbench.quickaccess.runCommand('Help: Welcome');
 	});
@@ -30,9 +30,17 @@ test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
 		});
 
 		test('Verify Welcome page content [C610960]', async function ({ app }) {
-			const OPEN_BUTTONS_LABELS = process.platform === 'darwin' ?
-				['Open...', 'New Folder...', 'New Folder from Git...']
-				: ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...'];
+
+			let OPEN_BUTTONS_LABELS;
+			if (!app.web) {
+				if (process.platform === 'darwin') {
+					OPEN_BUTTONS_LABELS = ['Open...', 'New Folder...', 'New Folder from Git...'];
+				} else {
+					OPEN_BUTTONS_LABELS = ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...'];
+				}
+			} else {
+				OPEN_BUTTONS_LABELS = ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...'];
+			}
 
 			await expect(app.workbench.welcome.startTitle).toHaveText('Start');
 
