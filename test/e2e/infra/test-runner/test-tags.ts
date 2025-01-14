@@ -12,6 +12,9 @@
  * Add `@:win` tag to enable the tests to run on windows. Add the `@:web` tag to enable a web run.
  * The default will only run Linux electron e2e tests.
  *
+ * DON'T FORGET TO ADD THE COLON `:` AFTER THE `@` SYMBOL when tagging tests in a PR description.
+ *   -> Correct:   `@:tag`
+ *   -> Incorrect: `@tag`
 */
 export enum TestTags {
 	EDITOR_ACTION_BAR = '@editor-action-bar',
