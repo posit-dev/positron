@@ -46,8 +46,7 @@ else
   fi
 
   # Parse tags starting with '@:'
-  TAGS=$(echo "$PR_BODY" | grep -o "@:[a-zA-Z0-9_-]*" | sed 's/^/@/' | tr '\n' ',' | sed 's/,$//')
-  echo $TAGS
+  TAGS=$(echo "$PR_BODY" | grep -o "@:[a-zA-Z0-9_-]*" | tr '\n' ',' | sed 's/,$//')
 
   # Always add @:critical if not already included
   if [[ ! "$TAGS" =~ "@:critical" ]]; then
