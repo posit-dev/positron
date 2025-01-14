@@ -28,12 +28,23 @@ from positron_ipykernel.help_comm import ShowHelpTopicParams
 from positron_ipykernel.jedi import PositronInterpreter
 from positron_ipykernel.positron_jedilsp import (
     HelpTopicParams,
+    _clear_diagnostics_debounced,
     _publish_diagnostics,
+    _publish_diagnostics_debounced,
     positron_completion,
     positron_completion_item_resolve,
     positron_did_close_diagnostics,
     positron_help_topic_request,
 )
+
+
+@pytest.fixture(autouse=True)
+def _reduce_debounce_time(monkeypatch):
+    """
+    Reduce the debounce time for diagnostics to be published to speed up tests.
+    """
+    monkeypatch.setattr(_clear_diagnostics_debounced, "interval_s", 0.05)
+    monkeypatch.setattr(_publish_diagnostics_debounced, "interval_s", 0.05)
 
 
 def mock_server(uri: str, source: str, namespace: Dict[str, Any]) -> Mock:
@@ -320,9 +331,6 @@ echo: false
     positron_did_close_diagnostics(server, params)
 
     # Wait for the diagnostics to be published
-    for _ in range(25):
-        if server.publish_diagnostics.call_count > 0:
-            break
-        time.sleep(0.05)
-
+    server.publish_diagnostics.assert_not_called()
+    time.sleep(0.06)
     server.publish_diagnostics.assert_called_once_with(params.text_document.uri, [])

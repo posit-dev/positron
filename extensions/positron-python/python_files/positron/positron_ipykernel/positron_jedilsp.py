@@ -10,7 +10,7 @@ import re
 import threading
 import warnings
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, ParamSpec, Type, Union, cast
 
 from comm.base_comm import BaseComm
 
@@ -89,6 +89,7 @@ from ._vendor.pygls.workspace.text_document import TextDocument
 from .help_comm import ShowHelpTopicParams
 from .inspectors import BaseColumnInspector, BaseTableInspector, get_inspector
 from .jedi import PositronInterpreter, get_python_object
+from .utils import debounce
 
 if TYPE_CHECKING:
     from .positron_ipkernel import PositronShell
@@ -676,7 +677,7 @@ def positron_did_close_diagnostics(
     return did_close_diagnostics(server, params)
 
 
-@jedi_utils.debounce(1, keyed_by="uri")
+@debounce(1, keyed_by="uri")
 def _clear_diagnostics_debounced(server: PositronJediLanguageServer, uri: str) -> None:
     # Catch and log any exceptions. Exceptions should be handled by pygls, but the debounce
     # decorator causes the function to run in a separate thread thus a separate stack from pygls'
@@ -687,7 +688,7 @@ def _clear_diagnostics_debounced(server: PositronJediLanguageServer, uri: str) -
         logger.exception(f"Failed to clear diagnostics for uri {uri}", exc_info=True)
 
 
-@jedi_utils.debounce(1, keyed_by="uri")
+@debounce(1, keyed_by="uri")
 def _publish_diagnostics_debounced(server: PositronJediLanguageServer, uri: str) -> None:
     # Catch and log any exceptions. Exceptions should be handled by pygls, but the debounce
     # decorator causes the function to run in a separate thread thus a separate stack from pygls'
