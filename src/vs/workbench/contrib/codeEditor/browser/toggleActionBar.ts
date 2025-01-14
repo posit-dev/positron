@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize, localize2 } from '../../../../nls.js';
-import { Action2, MenuId } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
@@ -27,8 +27,8 @@ export class ToggleActionBarAction extends Action2 {
 		super({
 			id: ToggleActionBarAction.ID,
 			title: {
-				...localize2('toggleActionBar', "Toggle Editor Action Bar"),
-				mnemonicTitle: localize({ key: 'miActionBar', comment: ['&& denotes a mnemonic'] }, "&&Editor Action Bar"),
+				...localize2('toggleActionBar', "Toggle Action Bar"),
+				mnemonicTitle: localize({ key: 'miActionBar', comment: ['&& denotes a mnemonic'] }, "&&Action Bar"),
 			},
 			category: Categories.View,
 			f1: true,
@@ -49,8 +49,8 @@ export class ToggleActionBarAction extends Action2 {
 		// Get the configuration service.
 		const configurationService = accessor.get(IConfigurationService);
 
-		// Update the value.
-		return configurationService.updateValue(
+		// Update the action bar enabled state.
+		await configurationService.updateValue(
 			'editor.actionBar.enabled',
 			!configurationService.getValue('editor.actionBar.enabled')
 		);
@@ -60,5 +60,4 @@ export class ToggleActionBarAction extends Action2 {
 /**
  * Registers the action.
  */
-// At the moment, do not register the ToggleActionBarAction because it is still experimental.
-// registerAction2(ToggleActionBarAction);
+registerAction2(ToggleActionBarAction);
