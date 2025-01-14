@@ -223,8 +223,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			registerChatParticipant(participant: positron.ai.ChatParticipant): vscode.Disposable {
 				return extHostAiFeatures.registerChatParticipant(extension, participant);
 			},
-			sendChatRequest(id: string, messages: vscode.LanguageModelChatMessage[], options: { [key: string]: any }, response: vscode.ChatResponseStream, token: vscode.CancellationToken): Thenable<void> {
-				return extHostAiFeatures.sendChatRequest(id, messages, options, response, token);
+			sendLanguageModelRequest(id: string, messages: vscode.LanguageModelChatMessage[], options: { [key: string]: any }, token: vscode.CancellationToken): Thenable<vscode.LanguageModelChatResponse> {
+				return extHostAiFeatures.sendLanguageModelRequest(extension, id, messages, options, token);
 			}
 		};
 

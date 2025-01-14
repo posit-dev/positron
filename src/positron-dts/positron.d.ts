@@ -1530,23 +1530,15 @@ declare module 'positron' {
 	 */
 	namespace ai {
 		/**
-		 * A language model provider
+		 * A language model provider, c.f. vscode.LanguageModelChatProvider.
 		 */
 		export interface LanguageModelChatProvider {
 			name: string;
 			identifier: string;
 
 			/**
-			 * Handle a request to `positron.ai.sendChatRequest` with streaming chat responses.
+			 * Handle a language model request with streaming chat responses.
 			 */
-			provideChatResponse: (
-				messages: vscode.LanguageModelChatMessage[],
-				options: { [key: string]: any },
-				response: vscode.ChatResponseStream,
-				token: vscode.CancellationToken
-			) => Thenable<void>;
-
-			// Handle additional `vscode.lm` API requests, c.f. vscode.LanguageModelChatProvider.
 			provideLanguageModelResponse(
 				messages: vscode.LanguageModelChatMessage[],
 				options: { [name: string]: any },
@@ -1554,6 +1546,10 @@ declare module 'positron' {
 				progress: vscode.Progress<{ index: number; part: string }>,
 				token: vscode.CancellationToken,
 			): Thenable<any>;
+
+			/**
+			 * Calculate the token count for a given string.
+			 */
 			provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Thenable<number>;
 		}
 
@@ -1621,15 +1617,14 @@ declare module 'positron' {
 		export function getCurrentPlotUri(): Thenable<string | undefined>;
 
 		/**
-		 * Send a chat request to a registered Language Model.
+		 * Send a request to a Positron registered Language Model.
 		 */
-		export function sendChatRequest(
+		export function sendLanguageModelRequest(
 			id: string,
 			messages: vscode.LanguageModelChatMessage[],
-			options: { [key: string]: any },
-			response: vscode.ChatResponseStream,
+			options: vscode.LanguageModelChatRequestOptions,
 			token: vscode.CancellationToken,
-		): Thenable<void>;
+		): Thenable<vscode.LanguageModelChatResponse>;
 
 		/**
 		 * The context in which a chat request is made.

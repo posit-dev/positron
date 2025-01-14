@@ -115,10 +115,10 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 				vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
 			]);
 
-			tools['revise'] = ai.tool({
-				description: 'Output a revised version of the code selection.',
+			tools['textEdit'] = ai.tool({
+				description: 'Output an edited version of the code selection.',
 				parameters: z.object({
-					code: z.string().describe('The entire revised code selection.'),
+					code: z.string().describe('The entire edited code selection.'),
 				}),
 				execute: async ({ code }) => {
 					response.textEdit(
@@ -141,7 +141,18 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 			throw new Error('Language model not selected.');
 		}
 
-		return positron.ai.sendChatRequest(request.model.id, messages, { system, tools }, response, token);
+		// Send messages to selected langauge model and stream back response
+		const modelResponse = await positron.ai.sendLanguageModelRequest(
+			request.model.id,
+			messages,
+			{
+				modelOptions: { tools, system }
+			},
+			token);
+
+		for await (const fragment of modelResponse.text) {
+			response.markdown(fragment);
+		}
 	}
 }
 

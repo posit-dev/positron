@@ -17,15 +17,11 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly identifier = 'error-language-model';
 	private readonly _message = 'This language model always throws an error message.';
 
-	async provideChatResponse(): Promise<void> {
+	provideLanguageModelResponse(): Promise<any> {
 		throw new Error(this._message);
 	}
 
-	provideLanguageModelResponse(): Thenable<any> {
-		throw new Error(this._message);
-	}
-
-	provideTokenCount(): Thenable<number> {
+	provideTokenCount(): Promise<number> {
 		throw new Error(this._message);
 	}
 }
@@ -33,22 +29,6 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly name = 'Echo Language Model';
 	readonly identifier = 'echo-language-model';
-
-	async provideChatResponse(
-		messages: vscode.LanguageModelChatMessage[],
-		options: { [key: string]: any },
-		response: vscode.ChatResponseStream,
-		token: vscode.CancellationToken
-	) {
-		const _messages = toAIMessage(messages);
-		for await (const i of _messages[_messages.length - 1].content.split('')) {
-			await new Promise(resolve => setTimeout(resolve, 10));
-			response.markdown(i);
-			if (token.isCancellationRequested) {
-				return;
-			}
-		}
-	}
 
 	async provideLanguageModelResponse(
 		messages: vscode.LanguageModelChatMessage[],
@@ -87,51 +67,38 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		this.name = _config.name;
 	}
 
-	// Rich response to `positron.ai.sendChatRequest` API.
-	async provideChatResponse(
+	/*
+	 * Handler for for vscode.lm `sendRequest` API and `positron.ai.sendLanguageModelRequest` API.
+	 */
+	async provideLanguageModelResponse(
 		messages: vscode.LanguageModelChatMessage[],
 		options: { [key: string]: any },
-		response: vscode.ChatResponseStream,
+		extensionId: string,
+		progress: vscode.Progress<vscode.ChatResponseFragment>,
 		token: vscode.CancellationToken
 	) {
 		const _messages = toAIMessage(messages);
+		const controller = new AbortController();
+		const signal = controller.signal;
 
 		const result = ai.streamText({
 			model: this.model,
-			system: options.system,
+			system: options.system ?? undefined,
 			messages: _messages,
 			maxSteps: options.maxSteps ?? 5,
-			tools: options.tools,
+			tools: options.tools ?? undefined,
+			abortSignal: signal,
 		});
 
 		for await (const delta of result.textStream) {
 			if (token.isCancellationRequested) {
-				break;
-			}
-			response.markdown(delta);
-		}
-	}
-
-	// Basic response for `vscode.lm` API.
-	async provideLanguageModelResponse(
-		messages: vscode.LanguageModelChatMessage[],
-		options: { [name: string]: any },
-		extensionId: string,
-		progress: vscode.Progress<vscode.ChatResponseFragment>,
-		token: vscode.CancellationToken
-	): Promise<any> {
-		const _messages = toAIMessage(messages);
-		const result = ai.streamText({ model: this.model, messages: _messages });
-
-		for await (const delta of result.textStream) {
-			if (token.isCancellationRequested) {
+				controller.abort();
 				break;
 			}
 			progress.report({ index: 0, part: delta });
 		}
 	}
 
-	// Also required for `vscode.lm` API.
 	async provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Promise<number> {
 		// TODO: This is a very naive approximation, a model specific tokenizer should be used.
 		return typeof text === 'string' ? text.length : JSON.stringify(text.content).length;

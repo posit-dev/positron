@@ -22,6 +22,7 @@ import { IChatAgentHistoryEntryDto } from '../extHost.protocol.js';
 import { ExtHostLanguageModels } from '../extHostLanguageModels.js';
 import { IChatMessage } from '../../../contrib/chat/common/languageModels.js';
 import { SerializedError } from '../../../../base/common/errors.js';
+import { AsyncIterableObject, AsyncIterableSource } from '../../../../base/common/async.js';
 
 class ChatResponse {
 	private _isClosed: boolean;
@@ -124,20 +125,43 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		});
 	}
 
-	async sendChatRequest(
+	async sendLanguageModelRequest(
+		extension: IExtensionDescription,
 		id: string,
 		messages: vscode.LanguageModelChatMessage[],
 		options: { [key: string]: any },
-		response: vscode.ChatResponseStream,
 		token: vscode.CancellationToken
-	): Promise<void> {
+	): Promise<vscode.LanguageModelChatResponse> {
 		const model = this._registeredLanguageModels.get(id);
-
 		if (!model) {
 			throw new Error('Requested language model not found.');
 		}
 
-		return model.provider.provideChatResponse(messages, options, response, token);
+		const stream = new AsyncIterableSource<vscode.LanguageModelTextPart>();
+		const promise = model.provider.provideLanguageModelResponse(messages, options.modelOptions,
+			extension.name, {
+			report: (fragment) => {
+				// TODO: Handle multiple stream indices and LanguageModelToolCallPart types.
+				if (typeof fragment.part === 'string') {
+					const out = new extHostTypes.LanguageModelTextPart(fragment.part);
+					stream.emitOne(out);
+				}
+			}
+		}, token);
+
+		promise.then(
+			() => stream.resolve(),
+			(e: any) => stream.reject(e)
+		);
+
+		return {
+			get stream() {
+				return stream.asyncIterable;
+			},
+			get text() {
+				return AsyncIterableObject.map(stream.asyncIterable, part => part.value);
+			},
+		};
 	}
 
 	private async buildChatParticipantRequest(request: Dto<IChatAgentRequest>): Promise<vscode.ChatRequest> {
