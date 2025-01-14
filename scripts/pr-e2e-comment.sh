@@ -41,7 +41,7 @@ COMMENT_ID=$(echo "$COMMENTS" | jq -r ".[] | select(.body | contains(\"$COMMENT_
 FORMATTED_TAGS=$(echo "$TAGS" | sed 's/,/` `/g' | sed 's/^/`/' | sed 's/$/`/')
 
 # Add the "🚨 RED ALERT!" note
-RED_ALERT_NOTE="<!-- \n🚨 RED ALERT! ✋ Rule breaker detected! Tags don’t go here—they belong above ^ in the PR description using this proper format: \`@:tag\`. Changing them here is a no-go (trust us, we’ve tried). Confused? Check out the link below before the sirens get louder!\n-->"
+RED_ALERT_NOTE="<!-- \n🚨 RED ALERT! ✋ Rule breaker detected! Tags don’t go here, they belong above ^ in the PR description using this proper format: \`@:tag\`. Changing them here won't do anything (trust us, we’ve tried). Confused? Check out the README hyperlink.\n-->"
 
 # Build the new comment body with proper newlines
 NEW_COMMENT=$(printf "${COMMENT_MARKER}\n${RED_ALERT_NOTE}\n\n**E2E Tests** 🚀\nThis PR will run tests tagged with: %s\n\n<sup>[readme](https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#pull-requests-and-test-tags)</sup>&nbsp;&nbsp;<sup>[valid tags](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts)</sup>" "$FORMATTED_TAGS")
