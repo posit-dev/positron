@@ -5,9 +5,10 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { getModelConfigurations } from './config';
+import { getModelConfigurations, showConfigurationDialog } from './config';
 import { newLanguageModel } from './models';
 import participants from './participants';
+import { newCompletionProvider } from './completion';
 
 let modelDisposables: vscode.Disposable[] = [];
 let participantDisposables: vscode.Disposable[] = [];
@@ -22,16 +23,24 @@ function disposeParticipants() {
 	participantDisposables = [];
 }
 
-function registerModels(context: vscode.ExtensionContext) {
+async function registerModels(context: vscode.ExtensionContext) {
 	// Dispose of existing models
 	disposeModels();
 
 	try {
-		const modelConfigs = getModelConfigurations();
-		modelConfigs.forEach(config => {
+		const modelConfigs = await getModelConfigurations(context);
+		// Register with Positron Assistant API
+		modelConfigs.filter(config => config.type === 'chat').forEach(config => {
 			const languageModel = newLanguageModel(config);
-			const disposable = positron.ai.registerLanguageModel(languageModel);
-			modelDisposables.push(disposable);
+			const modelDisp = positron.ai.registerLanguageModel(languageModel);
+			modelDisposables.push(modelDisp);
+		});
+
+		// Register with VS Code completions API
+		modelConfigs.filter(config => config.type === 'completion').forEach(config => {
+			const completionProvider = newCompletionProvider(config);
+			const complDisp = vscode.languages.registerInlineCompletionItemProvider({ pattern: '**/*.*' }, completionProvider);
+			modelDisposables.push(complDisp);
 		});
 	} catch (e) {
 		vscode.window.showErrorMessage(

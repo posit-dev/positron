@@ -138,9 +138,9 @@ export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModel
 		'ollama': OllamaAssistant,
 	};
 
-	if (!providerClasses[config.provider]) {
-		throw new Error(`Unsupported provider: ${config.provider}`);
+	if (!(config.provider in providerClasses)) {
+		throw new Error(`Unsupported chat provider: ${config.provider}`);
 	}
 
-	return new providerClasses[config.provider](config);
+	return new providerClasses[config.provider as keyof typeof providerClasses](config);
 }
