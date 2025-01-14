@@ -40,7 +40,7 @@ export class Notebooks {
 			? process.env.POSITRON_PY_VER_SEL!
 			: process.env.POSITRON_R_VER_SEL!
 	) {
-		await test.step(`Select notebook interpreter: ${desiredKernel}`, async () => {
+		await test.step(`Select kernel: ${desiredKernel}`, async () => {
 			await expect(this.notebookProgressBar).not.toBeVisible({ timeout: 30000 });
 			await expect(this.code.driver.page.locator(DETECTING_KERNELS_TEXT)).not.toBeVisible({ timeout: 30000 });
 
