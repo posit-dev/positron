@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Console ANSI styling', { tag: [tags.CRITICAL, tags.CONSOLE, tags.WIN] }, () => {
+test.describe('Console ANSI styling', { tag: [tags.CRITICAL, tags.CONSOLE, tags.WIN, tags.WEB] }, () => {
 	test.beforeEach(async function ({ app }) {
 		await app.workbench.layouts.enterLayout('fullSizedPanel');
 	});

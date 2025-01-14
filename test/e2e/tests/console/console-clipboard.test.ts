@@ -11,7 +11,7 @@ test.use({
 	suiteId: __filename
 });
 
-
+// web disabled because of security dialog playwright cannot interact with
 test.describe('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN] }, () => {
 	test('Python - Copy from console & paste to console [C608100]', async ({ app, python }) => {
 		await testConsoleClipboard(app);

@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Help', { tag: [tags.HELP] }, () => {
+test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
 		// Enable reduced motion so we don't have to wait for animations of expanding
