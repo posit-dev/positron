@@ -10,7 +10,7 @@ import re
 import threading
 import warnings
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, ParamSpec, Type, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Union, cast
 
 from comm.base_comm import BaseComm
 
