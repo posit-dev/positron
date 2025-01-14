@@ -34,7 +34,7 @@ export enum TestTags {
 	EDITOR = '@:editor',
 	QUARTO = '@:quarto',
 	NEW_PROJECT_WIZARD = '@:new-project-wizard',
-	NOTEBOOK = '@:notebook',
+	NOTEBOOKS = '@:notebooks',
 	OUTLINE = '@:outline',
 	OUTPUT = '@:output',
 	PLOTS = '@:plots',
@@ -46,7 +46,7 @@ export enum TestTags {
 	VARIABLES = '@:variables',
 	WELCOME = '@:welcome',
 
-	// platform tags
+	// platform  tags
 	WEB = '@:web',
 	WIN = '@:win'
 }
