@@ -41,6 +41,7 @@ export enum TestTags {
 	TEST_EXPLORER = '@test-explorer',
 	TOP_ACTION_BAR = '@top-action-bar',
 	VARIABLES = '@variables',
+	WELCOME = '@welcome',
 
 	// platform
 	WEB = '@web',
