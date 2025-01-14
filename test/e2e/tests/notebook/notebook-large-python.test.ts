@@ -22,7 +22,7 @@ test.describe('Large Python Notebook', {
 
 
 		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
-		await notebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
+		await notebooks.selectInterpreter('Python');
 
 		await notebooks.runAllCells(120000);
 

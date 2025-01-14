@@ -16,7 +16,7 @@ test.describe('Notebooks', {
 		test.beforeEach(async function ({ app, python }) {
 			await app.workbench.layouts.enterLayout('notebook');
 			await app.workbench.notebooks.createNewNotebook();
-			await app.workbench.notebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
+			await app.workbench.notebooks.selectInterpreter('Python');
 		});
 
 		test.afterEach(async function ({ app }) {
@@ -43,7 +43,7 @@ test.describe('Notebooks', {
 		test.beforeEach(async function ({ app, r }) {
 			await app.workbench.layouts.enterLayout('notebook');
 			await app.workbench.notebooks.createNewNotebook();
-			await app.workbench.notebooks.selectInterpreter('R Environments', process.env.POSITRON_R_VER_SEL!);
+			await app.workbench.notebooks.selectInterpreter('R');
 		});
 
 		test.afterEach(async function ({ app }) {

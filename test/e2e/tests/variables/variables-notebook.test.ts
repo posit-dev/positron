@@ -23,7 +23,7 @@ test.describe('Variables Pane - Notebook', {
 		// workaround issue where starting multiple interpreters in quick succession can cause startup failure
 		await app.code.wait(1000);
 
-		await app.workbench.notebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
+		await app.workbench.notebooks.selectInterpreter('Python');
 		await app.workbench.notebooks.addCodeToFirstCell('y = [2, 3, 4, 5]');
 		await app.workbench.notebooks.executeCodeInCell();
 
@@ -41,7 +41,7 @@ test.describe('Variables Pane - Notebook', {
 	test('R - Verifies Variables pane basic function for notebook [C669189]', async function ({ app, r }) {
 		await app.workbench.notebooks.createNewNotebook();
 
-		await app.workbench.notebooks.selectInterpreter('R Environments', process.env.POSITRON_R_VER_SEL!);
+		await app.workbench.notebooks.selectInterpreter('R');
 		await app.workbench.notebooks.addCodeToFirstCell('y <- c(2, 3, 4, 5)');
 		await app.workbench.notebooks.executeCodeInCell();
 

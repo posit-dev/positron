@@ -21,7 +21,7 @@ test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.NOTEBOOK] }, () =>
 
 		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'matplotlib', 'interact.ipynb'));
 
-		await notebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
+		await notebooks.selectInterpreter('Python');
 
 		await notebooks.runAllCells();
 
