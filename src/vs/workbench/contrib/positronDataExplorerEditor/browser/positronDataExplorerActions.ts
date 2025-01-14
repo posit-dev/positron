@@ -405,7 +405,7 @@ class PositronDataExplorerSummaryOnLeftAction extends Action2 {
 				original: 'Summary on Left'
 			},
 			category,
-			f1: false,
+			f1: true,
 			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
 			icon: Codicon.positronDataExplorerSummaryOnLeft,
 			toggled: ContextKeyExpr.and(
@@ -501,7 +501,7 @@ class PositronDataExplorerSummaryOnRightAction extends Action2 {
 				original: 'Summary on Right'
 			},
 			category,
-			f1: false,
+			f1: true,
 			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
 			icon: Codicon.positronDataExplorerSummaryOnRight,
 			toggled: ContextKeyExpr.and(
