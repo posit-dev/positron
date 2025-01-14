@@ -10,7 +10,7 @@ import { basename } from 'path';
 import test, { expect } from '@playwright/test';
 
 
-const KERNEL_LABEL = '.kernel-label';
+const KERNEL_LABEL = '.codicon-notebook-kernel-select';
 const KERNEL_ACTION = '.kernel-action-view-item';
 const SELECT_KERNEL_TEXT = 'Select Kernel';
 const DETECTING_KERNELS_TEXT = 'Detecting Kernels';
@@ -38,31 +38,38 @@ export class Notebooks {
 
 	async selectInterpreter(kernelGroup: string, desiredKernel: string) {
 		await test.step(`Select notebook interpreter: ${desiredKernel}`, async () => {
+			// Ensure the notebook is ready
 			await expect(this.notebookProgressBar).not.toBeVisible({ timeout: 30000 });
 			await expect(this.code.driver.page.locator(DETECTING_KERNELS_TEXT)).not.toBeVisible({ timeout: 30000 });
 
-			// Wait for the desired kernel to populate in dropdown, if no show then wait for "Select Kernel"
+			const kernelByText = this.code.driver.page.locator('.kernel-label').filter({ hasText: desiredKernel });
 			const kernelLabelLocator = this.code.driver.page.locator(KERNEL_LABEL);
+
 			try {
-				await expect(kernelLabelLocator).toHaveText(new RegExp(desiredKernel), { timeout: 10000 });
-			} catch (e) {
-				await expect(kernelLabelLocator).toHaveText(new RegExp(SELECT_KERNEL_TEXT), { timeout: 10000 });
+				// Attempt to find the desired kernel by visible text
+				await expect(kernelByText).toBeVisible({ timeout: 10000 });
+				this.code.logger.log(`Kernel found by text: ${desiredKernel}`);
+			} catch {
+				// Fallback to selecting the kernel by label
+				const ariaLabel = (await kernelLabelLocator.getAttribute('aria-label')) || '';
+
+				if (new RegExp(desiredKernel).test(ariaLabel)) {
+					this.code.logger.log(`Kernel found by label: "${ariaLabel}"`);
+				} else {
+					this.code.logger.log(`Kernel label does not match. Found: "${ariaLabel}", Expected: "${desiredKernel}"`);
+					await expect(kernelLabelLocator).toHaveAttribute('aria-label', new RegExp(SELECT_KERNEL_TEXT), { timeout: 10000 });
+
+					// Open dropdown to select kernel
+					await this.code.driver.page.locator(KERNEL_ACTION).click();
+					await this.quickinput.waitForQuickInputOpened();
+					await this.quickinput.selectQuickInputElementContaining(kernelGroup);
+					await this.quickinput.selectQuickInputElementContaining(desiredKernel);
+					await this.quickinput.waitForQuickInputClosed();
+				}
 			}
 
-			// Retrieve the matched text for conditional logic
-			const matchedText = await kernelLabelLocator.textContent() || '';
-
-			this.code.logger.log(`Matched text: ${matchedText}, Desired kernel: ${desiredKernel}`);
-			if (!new RegExp(desiredKernel).test(matchedText)) {
-				await this.code.driver.page.locator(KERNEL_ACTION).click();
-				await this.quickinput.waitForQuickInputOpened();
-				await this.quickinput.selectQuickInputElementContaining(kernelGroup);
-				await this.quickinput.selectQuickInputElementContaining(desiredKernel);
-				await this.quickinput.waitForQuickInputClosed();
-			}
-
-			// wait for the kernel to load
-			await expect(this.code.driver.page.locator('.kernel-action-view-item').locator('.codicon-modifier-spin')).not.toBeVisible({ timeout: 30000 });
+			// Wait for kernel initialization
+			await expect(this.code.driver.page.locator('.kernel-action-view-item .codicon-modifier-spin')).not.toBeVisible({ timeout: 30000 });
 		});
 	}
 
