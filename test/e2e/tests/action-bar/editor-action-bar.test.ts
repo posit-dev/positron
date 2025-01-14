@@ -52,7 +52,7 @@ test.describe('Editor Action Bar', {
 	});
 
 	test('Jupyter Notebook [C1080702]', {
-		tag: [tags.NOTEBOOK],
+		tag: [tags.NOTEBOOKS],
 		annotation: [{ type: 'info', description: 'electron test unable to interact with dropdown native menu' }],
 	}, async function ({ app, page }) {
 		await openNotebook(app, 'workspaces/large_r_notebook/spotify.ipynb');

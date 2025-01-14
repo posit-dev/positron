@@ -60,7 +60,7 @@ test.describe('F1 Help', {
 		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_r_notebook', 'spotify.ipynb'));
 
 		// workaround
-		await app.workbench.notebooks.selectInterpreter('R Environments', process.env.POSITRON_R_VER_SEL!);
+		await app.workbench.notebooks.selectInterpreter('R', process.env.POSITRON_R_VER_SEL!);
 
 		await app.code.driver.page.locator('span').filter({ hasText: 'options(digits = 2)' }).locator('span').first().dblclick();
 

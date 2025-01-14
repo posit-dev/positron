@@ -96,7 +96,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
 
 			const expectedInterpreterVersion = new RegExp(`Python ${process.env.POSITRON_PY_VER_SEL}`, 'i');
-			await expect(app.workbench.notebooks.kernelLabel).toHaveText(expectedInterpreterVersion);
+			await expect(app.workbench.notebooks.kernelDropdown).toHaveText(expectedInterpreterVersion);
 		});
 
 		test('Click on Python console from the Welcome page [C684754]', async function ({ app, python }) {
@@ -146,7 +146,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
 
 			const expectedInterpreterVersion = new RegExp(`R ${process.env.POSITRON_R_VER_SEL}`, 'i');
-			await expect(app.workbench.notebooks.kernelLabel).toHaveText(expectedInterpreterVersion);
+			await expect(app.workbench.notebooks.kernelDropdown).toHaveText(expectedInterpreterVersion);
 		});
 	});
 });

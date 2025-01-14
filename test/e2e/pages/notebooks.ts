@@ -9,10 +9,8 @@ import { QuickAccess } from './quickaccess';
 import { basename } from 'path';
 import test, { expect } from '@playwright/test';
 
-
-const KERNEL_LABEL = '.kernel-label';
-const KERNEL_ACTION = '.kernel-action-view-item';
-const SELECT_KERNEL_TEXT = 'Select Kernel';
+const KERNEL_DROPDOWN = 'a.kernel-label';
+const KERNEL_LABEL = '.codicon-notebook-kernel-select';
 const DETECTING_KERNELS_TEXT = 'Detecting Kernels';
 const NEW_NOTEBOOK_COMMAND = 'ipynb.newUntitledIpynb';
 const CELL_LINE = '.cell div.view-lines';
@@ -24,45 +22,59 @@ const REVERT_AND_CLOSE = 'workbench.action.revertAndCloseActiveEditor';
 const MARKDOWN_TEXT = '#preview';
 const ACTIVE_ROW_SELECTOR = `.notebook-editor .monaco-list-row.focused`;
 
-
 /*
  *  Reuseable Positron notebook functionality for tests to leverage.  Includes selecting the notebook's interpreter.
  */
 export class Notebooks {
 	kernelLabel = this.code.driver.page.locator(KERNEL_LABEL);
+	kernelDropdown = this.code.driver.page.locator(KERNEL_DROPDOWN);
 	frameLocator = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
 	notebookProgressBar = this.code.driver.page.locator('[id="workbench\\.parts\\.editor"]').getByRole('progressbar');
 
 
 	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess) { }
 
-	async selectInterpreter(kernelGroup: string, desiredKernel: string) {
-		await test.step(`Select notebook interpreter: ${desiredKernel}`, async () => {
+	async selectInterpreter(
+		kernelGroup: 'Python' | 'R',
+		desiredKernel = kernelGroup === 'Python'
+			? process.env.POSITRON_PY_VER_SEL!
+			: process.env.POSITRON_R_VER_SEL!
+	) {
+		await test.step(`Select kernel: ${desiredKernel}`, async () => {
 			await expect(this.notebookProgressBar).not.toBeVisible({ timeout: 30000 });
 			await expect(this.code.driver.page.locator(DETECTING_KERNELS_TEXT)).not.toBeVisible({ timeout: 30000 });
 
-			// Wait for the desired kernel to populate in dropdown, if no show then wait for "Select Kernel"
-			const kernelLabelLocator = this.code.driver.page.locator(KERNEL_LABEL);
 			try {
-				await expect(kernelLabelLocator).toHaveText(new RegExp(desiredKernel), { timeout: 10000 });
+				// 1. Try finding by text
+				await expect(this.kernelDropdown.filter({ hasText: desiredKernel })).toBeVisible({ timeout: 5000 });
+				this.code.logger.log(`Kernel: found by text: ${desiredKernel}`);
+				return;
 			} catch (e) {
-				await expect(kernelLabelLocator).toHaveText(new RegExp(SELECT_KERNEL_TEXT), { timeout: 10000 });
+				this.code.logger.log(`Kernel: not found by text: ${desiredKernel}`);
 			}
 
-			// Retrieve the matched text for conditional logic
-			const matchedText = await kernelLabelLocator.textContent() || '';
-
-			this.code.logger.log(`Matched text: ${matchedText}, Desired kernel: ${desiredKernel}`);
-			if (!new RegExp(desiredKernel).test(matchedText)) {
-				await this.code.driver.page.locator(KERNEL_ACTION).click();
-				await this.quickinput.waitForQuickInputOpened();
-				await this.quickinput.selectQuickInputElementContaining(kernelGroup);
-				await this.quickinput.selectQuickInputElementContaining(desiredKernel);
-				await this.quickinput.waitForQuickInputClosed();
+			try {
+				// 2. Try finding by label
+				const kernelLabelLocator = this.code.driver.page.locator(KERNEL_LABEL);
+				await expect(kernelLabelLocator).toHaveAttribute('aria-label', new RegExp(desiredKernel), { timeout: 5000 });
+				this.code.logger.log(`Kernel: found by label: ${desiredKernel}`);
+				return;
+			} catch (e) {
+				this.code.logger.log(`Kernel: not found by label: ${desiredKernel}`);
 			}
 
-			// wait for the kernel to load
-			await expect(this.code.driver.page.locator('.kernel-action-view-item').locator('.codicon-modifier-spin')).not.toBeVisible({ timeout: 30000 });
+			// 3. Open dropdown to select kernel
+			this.code.logger.log(`Kernel: opening dropdown to select: ${desiredKernel}`);
+
+			await this.code.driver.page.locator(KERNEL_DROPDOWN).click();
+			await this.quickinput.waitForQuickInputOpened();
+			await this.code.driver.page.getByText('Select Another Kernel...').click();
+			await this.quickinput.selectQuickInputElementContaining(`${kernelGroup} Environments...`);
+			await this.quickinput.selectQuickInputElementContaining(desiredKernel);
+			await this.quickinput.waitForQuickInputClosed();
+
+			// Wait for kernel initialization
+			await expect(this.code.driver.page.locator('.kernel-action-view-item .codicon-modifier-spin')).not.toBeVisible({ timeout: 30000 });
 		});
 	}
 

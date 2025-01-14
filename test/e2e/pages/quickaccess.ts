@@ -188,7 +188,7 @@ export class QuickAccess {
 				intervals: [1000],
 			});
 
-			this.code.logger.log('QuickAccess: Command found and successfully executed.');
+			this.code.logger.log(`QuickAccess: ${commandId}  ✓ success`);
 			await this.quickInput.selectQuickInputElement(0, keepOpen);
 		});
 	}
