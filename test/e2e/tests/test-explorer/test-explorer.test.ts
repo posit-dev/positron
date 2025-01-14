@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER] }, () => {
+test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 	test.beforeAll(async function ({ app, r, userSettings }) {
 		try {
 			// don't use native file picker
@@ -43,6 +43,8 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER] }, () => {
 		await app.workbench.testExplorer.verifyTestFilesExist(['test-mathstuff.R']);
 
 		await app.workbench.testExplorer.runAllTests();
+
+		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 
 		await expect(async () => {
 			const testResults = await app.workbench.testExplorer.getTestResults();
