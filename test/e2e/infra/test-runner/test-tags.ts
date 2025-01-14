@@ -14,6 +14,8 @@
  *
 */
 export enum TestTags {
+
+	// features and functionality
 	EDITOR_ACTION_BAR = '@editor-action-bar',
 	APPS = '@apps',
 	CONNECTIONS = '@connections',
@@ -29,7 +31,7 @@ export enum TestTags {
 	EDITOR = '@editor',
 	QUARTO = '@quarto',
 	NEW_PROJECT_WIZARD = '@new-project-wizard',
-	NOTEBOOK = '@notebook',
+	NOTEBOOKS = '@notebooks',
 	OUTLINE = '@outline',
 	OUTPUT = '@output',
 	PLOTS = '@plots',
@@ -39,7 +41,8 @@ export enum TestTags {
 	TEST_EXPLORER = '@test-explorer',
 	TOP_ACTION_BAR = '@top-action-bar',
 	VARIABLES = '@variables',
+
+	// platform
 	WEB = '@web',
-	WELCOME = '@welcome',
 	WIN = '@win'
 }

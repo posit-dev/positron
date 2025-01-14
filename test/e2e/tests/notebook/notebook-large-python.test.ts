@@ -13,7 +13,7 @@ test.use({
 
 // Note that this test is too heavy to pass on web and windows
 test.describe('Large Python Notebook', {
-	tag: [tags.NOTEBOOK, tags.WIN]
+	tag: [tags.NOTEBOOKS, tags.WIN]
 }, () => {
 
 	test('Python - Large notebook execution [C983592]', async function ({ app, python }) {

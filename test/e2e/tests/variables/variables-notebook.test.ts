@@ -15,7 +15,7 @@ test.afterEach(async function ({ app }) {
 });
 
 test.describe('Variables Pane - Notebook', {
-	tag: [tags.CRITICAL, tags.WEB, tags.VARIABLES, tags.NOTEBOOK]
+	tag: [tags.CRITICAL, tags.WEB, tags.VARIABLES, tags.NOTEBOOKS]
 }, () => {
 	test('Python - Verifies Variables pane basic function for notebook [C669188]', async function ({ app, python }) {
 		await app.workbench.notebooks.createNewNotebook();

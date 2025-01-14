@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Notebooks', {
-	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.NOTEBOOK]
+	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.NOTEBOOKS]
 }, () => {
 	test.describe('Python Notebooks', () => {
 		test.beforeEach(async function ({ app, python }) {
