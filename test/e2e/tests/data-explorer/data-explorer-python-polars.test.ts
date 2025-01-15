@@ -112,7 +112,7 @@ test.describe('Data Explorer - Python Polars', {
 			expect(tableData.length).toBe(2);
 		}).toPass({ timeout: 60000 });
 
-		await app.workbench.dataExplorer.clearSortingButton.click();
+		await app.workbench.dataExplorer.selectColumnMenuItem(1, 'Clear Sorting');
 
 		await expect(async () => {
 			tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
