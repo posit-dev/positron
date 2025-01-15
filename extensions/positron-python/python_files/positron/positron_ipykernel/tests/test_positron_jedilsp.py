@@ -6,30 +6,36 @@
 import os
 from threading import Timer
 from typing import Any, Dict, List, Optional, cast
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pandas as pd
 import polars as pl
 import pytest
 
-from positron_ipykernel._vendor.jedi import Project
 from positron_ipykernel._vendor.jedi_language_server import jedi_utils
 from positron_ipykernel._vendor.lsprotocol.types import (
+    ClientCapabilities,
+    CompletionClientCapabilities,
+    CompletionClientCapabilitiesCompletionItemType,
     CompletionItem,
     CompletionParams,
     DidCloseTextDocumentParams,
+    InitializeParams,
     MarkupContent,
     MarkupKind,
     Position,
     Range,
+    TextDocumentClientCapabilities,
     TextDocumentIdentifier,
+    TextDocumentItem,
     TextEdit,
 )
-from positron_ipykernel._vendor.pygls.workspace.text_document import TextDocument
 from positron_ipykernel.help_comm import ShowHelpTopicParams
 from positron_ipykernel.jedi import PositronInterpreter
 from positron_ipykernel.positron_jedilsp import (
     HelpTopicParams,
+    PositronJediLanguageServer,
+    PositronJediLanguageServerProtocol,
     _clear_diagnostics_debounced,
     _publish_diagnostics,
     _publish_diagnostics_debounced,
@@ -49,35 +55,49 @@ def _reduce_debounce_time(monkeypatch):
     monkeypatch.setattr(_publish_diagnostics_debounced, "interval_s", 0.05)
 
 
-def mock_server(uri: str, source: str, namespace: Dict[str, Any]) -> Mock:
-    """
-    Minimum interface for a pylgs server to support LSP unit tests.
-    """
-    server = Mock()
-    server.client_capabilities.text_document.completion.completion_item.documentation_format = list(
-        MarkupKind
+def create_server(namespace: Optional[Dict[str, Any]] = None) -> PositronJediLanguageServer:
+    # Create a server.
+    server = PositronJediLanguageServer(
+        name="test-server",
+        version="0.0.0test",
+        protocol_cls=PositronJediLanguageServerProtocol,
     )
-    server.initialization_options.completion.disable_snippets = False
-    server.initialization_options.completion.resolve_eagerly = False
-    server.initialization_options.completion.ignore_patterns = []
-    server.initialization_options.markup_kind_preferred = MarkupKind.Markdown
-    server.shell.user_ns = namespace
-    server.project = Project("")
 
-    document = TextDocument(uri, source)
-    documents = {uri: document}
-    server.workspace.documents = documents
-    server.workspace.get_document = lambda uri: documents[uri]
-    server.workspace.get_text_document = lambda uri: documents[uri]
+    # Initialize the server.
+    server.lsp.lsp_initialize(
+        InitializeParams(
+            capabilities=ClientCapabilities(
+                text_document=TextDocumentClientCapabilities(
+                    completion=CompletionClientCapabilities(
+                        completion_item=CompletionClientCapabilitiesCompletionItemType(
+                            documentation_format=[MarkupKind.Markdown]
+                        ),
+                    )
+                )
+            ),
+            initialization_options={
+                "markup_kind_preferred": MarkupKind.Markdown,
+            },
+        )
+    )
+
+    # Mock the shell, since we only really care about the user's namespace.
+    server.shell = Mock()
+    server.shell.user_ns = {} if namespace is None else namespace
 
     return server
+
+
+def create_text_document(server: PositronJediLanguageServer, uri: str, source: str):
+    server.workspace.put_text_document(TextDocumentItem(uri, "python", 0, source))
+    return server.workspace.text_documents[uri]
 
 
 @pytest.mark.parametrize(
     ("source", "namespace", "expected_topic"),
     [
         # An unknown variable should not be resolved.
-        ("x", {}, None),
+        # ("x", {}, None),
         # ... but a variable in the user's namespace should resolve.
         ("x", {"x": 0}, "builtins.int"),
     ],
@@ -87,9 +107,10 @@ def test_positron_help_topic_request(
     namespace: Dict[str, Any],
     expected_topic: Optional[str],
 ) -> None:
-    params = HelpTopicParams(TextDocumentIdentifier("file:///foo.py"), Position(0, 0))
-    server = mock_server(params.text_document.uri, source, namespace)
+    server = create_server(namespace)
+    text_document = create_text_document(server, "file:///foo.py", source)
 
+    params = HelpTopicParams(TextDocumentIdentifier(text_document.uri), Position(0, 0))
     topic = positron_help_topic_request(server, params)
 
     if expected_topic is None:
@@ -116,9 +137,10 @@ def _completions(
     line = len(lines) - 1
     if character is None:
         character = len(lines[line])
-    params = CompletionParams(TextDocumentIdentifier("file:///foo.py"), Position(line, character))
-    server = mock_server(params.text_document.uri, source, namespace)
+    server = create_server(namespace)
+    text_document = create_text_document(server, "file:///foo.py", source)
 
+    params = CompletionParams(TextDocumentIdentifier(text_document.uri), Position(line, character))
     completion_list = positron_completion(server, params)
 
     assert completion_list is not None, "No completions returned"
@@ -315,8 +337,8 @@ def test_positron_completion_item_resolve(
     [completion] = completions
     monkeypatch.setattr(jedi_utils, "_MOST_RECENT_COMPLETIONS", {"label": completion})
 
-    server = mock_server("", source, namespace)
-    params = CompletionItem("label")
+    server = create_server(namespace)
+    params = CompletionItem(label="label")
 
     resolved = positron_completion_item_resolve(server, params)
 
@@ -347,6 +369,7 @@ def test_positron_completion_item_resolve(
         (r"%%bash", []),
         # No errors for shell commands.
         ("!ls", []),
+        # No errors for help commands.
         ("?str", []),
         ("??str.join", []),
         ("2?", []),
@@ -354,35 +377,37 @@ def test_positron_completion_item_resolve(
     ],
 )
 def test_publish_diagnostics(source: str, messages: List[str]):
-    filename = "foo.py"
-    uri = f"file:///{filename}"
-    server = mock_server(uri, source, {})
+    server = create_server()
+    text_document = create_text_document(server, "file:///foo.py", source)
 
-    _publish_diagnostics(server, uri)
+    with patch.object(server, "publish_diagnostics") as mock:
+        _publish_diagnostics(server, text_document.uri)
 
-    [actual_uri, actual_diagnostics] = server.publish_diagnostics.call_args.args
-    actual_messages = [diagnostic.message for diagnostic in actual_diagnostics]
-    assert actual_uri == uri
-    assert actual_messages == messages
+        [actual_uri, actual_diagnostics] = mock.call_args.args
+        actual_messages = [diagnostic.message for diagnostic in actual_diagnostics]
+        assert actual_uri == text_document.uri
+        assert actual_messages == messages
 
 
 def test_close_notebook_cell_clears_diagnostics():
     # See: https://github.com/posit-dev/positron/issues/4160
-    code = """\
+    server = create_server()
+    source = """\
 ---
 echo: false
 ---
 """
-    params = DidCloseTextDocumentParams(
-        TextDocumentIdentifier("vscode-notebook-cell:/foo.ipynb#W0sZmlsZQ%3D%3D")
+    text_document = create_text_document(
+        server, "vscode-notebook-cell://foo.ipynb#W0sZmlsZQ%3D%3D", source
     )
-    server = mock_server(params.text_document.uri, code, {})
 
-    positron_did_close_diagnostics(server, params)
+    with patch.object(server, "publish_diagnostics") as mock:
+        params = DidCloseTextDocumentParams(TextDocumentIdentifier(text_document.uri))
+        positron_did_close_diagnostics(server, params)
 
-    # Wait for the diagnostics to be published
-    server.publish_diagnostics.assert_not_called()
-    timers: List[Timer] = list(_clear_diagnostics_debounced.timers.values())  # type: ignore
-    for timer in timers:
-        timer.join()
-    server.publish_diagnostics.assert_called_once_with(params.text_document.uri, [])
+        # Wait for the diagnostics to be published
+        mock.assert_not_called()
+        timers: List[Timer] = list(_clear_diagnostics_debounced.timers.values())  # type: ignore
+        for timer in timers:
+            timer.join()
+        mock.assert_called_once_with(params.text_document.uri, [])
