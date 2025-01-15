@@ -14,7 +14,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Quarto', { tag: [tags.WEB, tags.QUARTO] }, () => {
+test.describe('Quarto', { tag: [tags.WEB, tags.WIN, tags.QUARTO] }, () => {
 	test.beforeAll(async function ({ app, browserName }) {
 		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 		isWeb = browserName === 'chromium';

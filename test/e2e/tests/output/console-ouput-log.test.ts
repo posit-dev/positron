@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Console Output Log', { tag: [tags.WEB, tags.OUTPUT, tags.CONSOLE] }, () => {
+test.describe('Console Output Log', { tag: [tags.WEB, tags.WIN, tags.OUTPUT, tags.CONSOLE] }, () => {
 	test.beforeEach(async function ({ app }) {
 		await app.workbench.layouts.enterLayout('stacked');
 	});

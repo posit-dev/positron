@@ -14,7 +14,7 @@ test.use({
 });
 
 test.describe('Editor Action Bar', {
-	tag: [tags.WEB, tags.EDITOR_ACTION_BAR, tags.EDITOR]
+	tag: [tags.WEB, tags.WIN, tags.EDITOR_ACTION_BAR, tags.EDITOR]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
