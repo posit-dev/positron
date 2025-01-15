@@ -111,26 +111,30 @@ suite('ReplVariablesProvider', () => {
         assert.equal(results[0].variable.expression, 'myObject');
     });
 
-    test('No variables are returned when variable provider is disabled', async () => {
-        enabled = false;
-        setVariablesForParent(undefined, [objectVariable]);
+    // --- Start Positron ---
+    // The setting for disabling the variable provider is hidden, so it's always enabled.
 
-        const results = await provideVariables(undefined);
+    // test('No variables are returned when variable provider is disabled', async () => {
+    //     enabled = false;
+    //     setVariablesForParent(undefined, [objectVariable]);
 
-        assert.isEmpty(results);
-    });
+    //     const results = await provideVariables(undefined);
 
-    test('No change event from provider when disabled', async () => {
-        enabled = false;
-        let eventFired = false;
-        provider.onDidChangeVariables(() => {
-            eventFired = true;
-        });
+    //     assert.isEmpty(results);
+    // });
 
-        executionEventEmitter.fire();
+    // test('No change event from provider when disabled', async () => {
+    //     enabled = false;
+    //     let eventFired = false;
+    //     provider.onDidChangeVariables(() => {
+    //         eventFired = true;
+    //     });
 
-        assert.isFalse(eventFired, 'event should not have fired');
-    });
+    //     executionEventEmitter.fire();
+
+    //     assert.isFalse(eventFired, 'event should not have fired');
+    // });
+    // --- End Positron ---
 
     test('Variables change event from provider should fire when execution happens', async () => {
         let eventFired = false;

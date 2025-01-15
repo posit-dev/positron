@@ -4,6 +4,7 @@
 #
 
 import os
+from threading import Timer
 from typing import Any, Dict, List, Optional, cast
 from unittest.mock import Mock
 
@@ -16,6 +17,7 @@ from positron_ipykernel._vendor.jedi_language_server import jedi_utils
 from positron_ipykernel._vendor.lsprotocol.types import (
     CompletionItem,
     CompletionParams,
+    DidCloseTextDocumentParams,
     MarkupContent,
     MarkupKind,
     Position,
@@ -26,11 +28,23 @@ from positron_ipykernel.help_comm import ShowHelpTopicParams
 from positron_ipykernel.jedi import PositronInterpreter
 from positron_ipykernel.positron_jedilsp import (
     HelpTopicParams,
+    _clear_diagnostics_debounced,
     _publish_diagnostics,
+    _publish_diagnostics_debounced,
     positron_completion,
     positron_completion_item_resolve,
+    positron_did_close_diagnostics,
     positron_help_topic_request,
 )
+
+
+@pytest.fixture(autouse=True)
+def _reduce_debounce_time(monkeypatch):
+    """
+    Reduce the debounce time for diagnostics to be published to speed up tests.
+    """
+    monkeypatch.setattr(_clear_diagnostics_debounced, "interval_s", 0.05)
+    monkeypatch.setattr(_publish_diagnostics_debounced, "interval_s", 0.05)
 
 
 def mock_server(uri: str, source: str, namespace: Dict[str, Any]) -> Mock:
@@ -300,3 +314,25 @@ def test_publish_diagnostics(source: str, messages: List[str]):
     actual_messages = [diagnostic.message for diagnostic in actual_diagnostics]
     assert actual_uri == uri
     assert actual_messages == messages
+
+
+def test_close_notebook_cell_clears_diagnostics():
+    # See: https://github.com/posit-dev/positron/issues/4160
+    code = """\
+---
+echo: false
+---
+"""
+    params = DidCloseTextDocumentParams(
+        TextDocumentIdentifier("vscode-notebook-cell:/foo.ipynb#W0sZmlsZQ%3D%3D")
+    )
+    server = mock_server(params.text_document.uri, code, {})
+
+    positron_did_close_diagnostics(server, params)
+
+    # Wait for the diagnostics to be published
+    server.publish_diagnostics.assert_not_called()
+    timers: List[Timer] = list(_clear_diagnostics_debounced.timers.values())  # type: ignore
+    for timer in timers:
+        timer.join()
+    server.publish_diagnostics.assert_called_once_with(params.text_document.uri, [])

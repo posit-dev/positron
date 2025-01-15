@@ -77,7 +77,7 @@ export default defineConfig<CustomTestOptions>({
 				artifactDir: 'e2e-browser',
 				headless: false,
 			},
-			grep: /@web/
+			grep: /@:web/
 		},
 		{
 			name: 'e2e-windows',
@@ -85,7 +85,7 @@ export default defineConfig<CustomTestOptions>({
 				web: false,
 				artifactDir: 'e2e-windows',
 			},
-			grep: /@win/
+			grep: /@:win/
 		},
 	],
 });

@@ -6,7 +6,9 @@ import { inject, injectable } from 'inversify';
 import { l10n, Position, Range, TextEditor, Uri } from 'vscode';
 
 import {
-    IActiveResourceService,
+    // --- Start Positron ---
+    // IActiveResourceService,
+    // --- End Positron ---
     IApplicationShell,
     ICommandManager,
     IDocumentManager,
@@ -36,7 +38,9 @@ export class CodeExecutionHelper implements ICodeExecutionHelper {
 
     private readonly commandManager: ICommandManager;
 
-    private activeResourceService: IActiveResourceService;
+    // --- Start Positron ---
+    // private activeResourceService: IActiveResourceService;
+    // --- End Positron ---
 
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-expect-error TS6133: 'configSettings' is declared but its value is never read.
@@ -49,7 +53,9 @@ export class CodeExecutionHelper implements ICodeExecutionHelper {
         this.interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
         this.configSettings = serviceContainer.get<IConfigurationService>(IConfigurationService);
         this.commandManager = serviceContainer.get<ICommandManager>(ICommandManager);
-        this.activeResourceService = this.serviceContainer.get<IActiveResourceService>(IActiveResourceService);
+        // --- Start Positron ---
+        // this.activeResourceService = this.serviceContainer.get<IActiveResourceService>(IActiveResourceService);
+        // --- End Positron ---
     }
 
     public async normalizeLines(code: string, wholeFileContent?: string, resource?: Uri): Promise<string> {
@@ -92,12 +98,16 @@ export class CodeExecutionHelper implements ICodeExecutionHelper {
             const startLineVal = activeEditor?.selection?.start.line ?? 0;
             const endLineVal = activeEditor?.selection?.end.line ?? 0;
             const emptyHighlightVal = activeEditor?.selection?.isEmpty ?? true;
-            let smartSendSettingsEnabledVal = true;
-            const configuration = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
-            if (configuration) {
-                const pythonSettings = configuration.getSettings(this.activeResourceService.getActiveResource());
-                smartSendSettingsEnabledVal = pythonSettings.REPL.enableREPLSmartSend;
-            }
+            // --- Start Positron ---
+            // This setting is hidden in favor of the Positron console.
+            const smartSendSettingsEnabledVal = true;
+            // let smartSendSettingsEnabledVal = true;
+            // const configuration = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
+            // if (configuration) {
+            //     const pythonSettings = configuration.getSettings(this.activeResourceService.getActiveResource());
+            //     smartSendSettingsEnabledVal = pythonSettings.REPL.enableREPLSmartSend;
+            // }
+            // --- End Positron ---
 
             const input = JSON.stringify({
                 code,

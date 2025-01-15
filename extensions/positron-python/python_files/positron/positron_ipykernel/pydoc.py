@@ -773,7 +773,7 @@ def _getdoc(object: Any) -> str:
     """Override `pydoc.getdoc` to parse reStructuredText docstrings."""
     try:
         docstring = _pydoc_getdoc(object) or "No documentation found."
-        html = _rst_to_html(docstring, object)
+        html = _docstring_to_html(docstring, object)
     except Exception as exception:
         # This is caught somewhere above us in pydoc. Log the exception so we see it in Positron
         # logs.
@@ -941,11 +941,11 @@ def _highlight(code: str, name: str, attrs: str) -> str:
     return cast(str, result)
 
 
-def _rst_to_html(docstring: str, object: Any) -> str:
+def _docstring_to_html(docstring: str, object: Any) -> str:
     """
-    Parse a reStructuredText docstring to HTML.
+    Parse a docstring in one of the supported formats to HTML.
     """
-    logger.debug(f"Parsing rST to html for object: {object}")
+    logger.debug(f"Parsing docstring to html for object: {object}")
 
     markdown = convert_docstring(docstring)
 
