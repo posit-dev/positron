@@ -4,11 +4,15 @@
 'use strict';
 
 import { expect } from 'chai';
-import * as path from 'path';
+// --- Start Positron ---
+// import * as path from 'path';
+// --- End Positron ---
 import { SemVer } from 'semver';
 import * as TypeMoq from 'typemoq';
 import { Position, Range, Selection, TextDocument, TextEditor, TextLine, Uri } from 'vscode';
-import * as fs from '../../../client/common/platform/fs-paths';
+// --- Start Positron ---
+// import * as fs from '../../../client/common/platform/fs-paths';
+// --- End Positron ---
 import {
     IActiveResourceService,
     IApplicationShell,
@@ -16,9 +20,14 @@ import {
     IDocumentManager,
     IWorkspaceService,
 } from '../../../client/common/application/types';
-import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../../../client/common/constants';
+// --- Start Positron ---
+// import { EXTENSION_ROOT_DIR, PYTHON_LANGUAGE } from '../../../client/common/constants';
+import { PYTHON_LANGUAGE } from '../../../client/common/constants';
+// --- End Positron ---
 import '../../../client/common/extensions';
-import { ProcessService } from '../../../client/common/process/proc';
+// --- Start Positron ---
+// import { ProcessService } from '../../../client/common/process/proc';
+// --- End Positron ---
 import {
     IProcessService,
     IProcessServiceFactory,
@@ -34,7 +43,9 @@ import { CodeExecutionHelper } from '../../../client/terminals/codeExecution/hel
 import { ICodeExecutionHelper } from '../../../client/terminals/types';
 import { PYTHON_PATH } from '../../common';
 
-const TEST_FILES_PATH = path.join(EXTENSION_ROOT_DIR, 'src', 'test', 'python_files', 'terminalExec');
+// --- Start Positron ---
+// const TEST_FILES_PATH = path.join(EXTENSION_ROOT_DIR, 'src', 'test', 'python_files', 'terminalExec');
+// --- End Positron ---
 
 suite('Terminal - Code Execution Helper', () => {
     let activeResourceService: TypeMoq.IMock<IActiveResourceService>;
@@ -149,47 +160,54 @@ suite('Terminal - Code Execution Helper', () => {
         expect(execArgs).to.contain('normalizeSelection.py');
     });
 
-    async function ensureCodeIsNormalized(source: string, expectedSource: string) {
-        configurationService
-            .setup((c) => c.getSettings(TypeMoq.It.isAny()))
-            .returns({
-                REPL: {
-                    EnableREPLSmartSend: false,
-                    REPLSmartSend: false,
-                },
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } as any);
-        const actualProcessService = new ProcessService();
-        processService
-            .setup((p) => p.execObservable(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
-            .returns((file, args, options) =>
-                actualProcessService.execObservable.apply(actualProcessService, [file, args, options]),
-            );
-        const normalizedCode = await helper.normalizeLines(source);
-        const normalizedExpected = expectedSource.replace(/\r\n/g, '\n');
-        expect(normalizedCode).to.be.equal(normalizedExpected);
-    }
+    // --- Start Positron ---
+    // These tests are disabled because they require the EnableREPLSmartSend setting to be disabled.
+    // In Positron that setting is hidden (see https://github.com/posit-dev/positron/pull/5931) so
+    // it's always enabled.
 
-    ['', '1', '2', '3', '4', '5', '6', '7', '8'].forEach((fileNameSuffix) => {
-        test(`Ensure code is normalized (Sample${fileNameSuffix})`, async () => {
-            configurationService
-                .setup((c) => c.getSettings(TypeMoq.It.isAny()))
-                .returns({
-                    REPL: {
-                        EnableREPLSmartSend: false,
-                        REPLSmartSend: false,
-                    },
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } as any);
-            const code = await fs.readFile(path.join(TEST_FILES_PATH, `sample${fileNameSuffix}_raw.py`), 'utf8');
-            const expectedCode = await fs.readFile(
-                path.join(TEST_FILES_PATH, `sample${fileNameSuffix}_normalized_selection.py`),
-                'utf8',
-            );
+    // async function ensureCodeIsNormalized(source: string, expectedSource: string) {
+    //     configurationService
+    //         .setup((c) => c.getSettings(TypeMoq.It.isAny()))
+    //         .returns({
+    //             REPL: {
+    //                 EnableREPLSmartSend: false,
+    //                 REPLSmartSend: false,
+    //             },
+    //             // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    //         } as any);
+    //     const actualProcessService = new ProcessService();
+    //     processService
+    //         .setup((p) => p.execObservable(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+    //         .returns((file, args, options) =>
+    //             actualProcessService.execObservable.apply(actualProcessService, [file, args, options]),
+    //         );
+    //     const normalizedCode = await helper.normalizeLines(source);
+    //     const normalizedExpected = expectedSource.replace(/\r\n/g, '\n');
+    //     expect(normalizedCode).to.be.equal(normalizedExpected);
+    // }
 
-            await ensureCodeIsNormalized(code, expectedCode);
-        });
-    });
+    // ['', '1', '2', '3', '4', '5', '6', '7', '8'].forEach((fileNameSuffix) => {
+    //     test(`Ensure code is normalized (Sample${fileNameSuffix})`, async () => {
+    //         configurationService
+    //             .setup((c) => c.getSettings(TypeMoq.It.isAny()))
+    //             .returns({
+    //                 REPL: {
+    //                     EnableREPLSmartSend: false,
+    //                     REPLSmartSend: false,
+    //                 },
+    //                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    //             } as any);
+    //         const code = await fs.readFile(path.join(TEST_FILES_PATH, `sample${fileNameSuffix}_raw.py`), 'utf8');
+    //         const expectedCode = await fs.readFile(
+    //             path.join(TEST_FILES_PATH, `sample${fileNameSuffix}_normalized_selection.py`),
+    //             'utf8',
+    //         );
+
+    //         await ensureCodeIsNormalized(code, expectedCode);
+    //     });
+    // });
+
+    // --- End Positron ---
 
     test("Display message if there's no active file", async () => {
         documentManager.setup((doc) => doc.activeTextEditor).returns(() => undefined);

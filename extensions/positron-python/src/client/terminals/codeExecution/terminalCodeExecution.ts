@@ -56,7 +56,10 @@ export class TerminalCodeExecutionProvider implements ICodeExecutionService {
             const selection = await showWarningMessage(Diagnostics.invalidSmartSendMessage, Repl.disableSmartSend);
             traceInfo(`Selected file contains invalid Python or Deprecated Python 2 code`);
             if (selection === Repl.disableSmartSend) {
-                this.configurationService.updateSetting('REPL.enableREPLSmartSend', false, resource);
+                // --- Start Positron ---
+                // This setting is hidden in favor of the Positron console.
+                // this.configurationService.updateSetting('REPL.enableREPLSmartSend', false, resource);
+                // --- End Positron ---
             }
         } else {
             await this.getTerminalService(resource).executeCommand(code);
