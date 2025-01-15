@@ -27,6 +27,10 @@
 	color: var(--positronActionBar-foreground);
 }
 
+.action-bar-button.checked {
+	background: var(--positronActionBar-hoverBackground);
+}
+
 .action-bar-button:hover {
 	background: var(--positronActionBar-hoverBackground);
 }
