@@ -8,9 +8,7 @@
 	height: 100%;
 	min-width: 0;
 	min-height: 0;
-	display: grid;
 	position: relative;
 	color: var(--vscode-positronDataExplorer-foreground);
 	background-color: var(--vscode-positronDataExplorer-background);
-	grid-template-rows: [action-bar] 32px [data-explorer-panel] 1fr [end];
 }

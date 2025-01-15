@@ -63,6 +63,10 @@
 	text-overflow: ellipsis;
 }
 
+.disabled .action-bar-button-text {
+	color: var(--positronActionBar-disabledForeground);
+}
+
 .action-bar-button-icon {
 	padding: 0 6px;
 	align-items: center;
