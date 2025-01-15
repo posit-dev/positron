@@ -132,7 +132,7 @@ We use Playwright as the test framework for end-to-end tests in Positron. Make s
 #### Running Specific Tests
 
 - Navigate to the relevant spec file in the editor.
-- Ensure the correct project is selected in the Test Explorer (you can run both `web` and `electron` tests simultaneously, but tests not tagged with `@web` won't run in a browser).
+- Ensure the correct project is selected in the Test Explorer (you can run both `web` and `electron` tests simultaneously, but tests not tagged with `@:web` won't run in a browser).
 - Use the green play button next to each test to:
   - Left-click: Run the test.
   - Right-click: Access additional options (Run/Debug).
