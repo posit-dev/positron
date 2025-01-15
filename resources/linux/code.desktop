@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=@@NAME_LONG@@
-Comment=Code Editing. Redefined.
+Comment=The next-generation IDE for data science
 GenericName=Text Editor
 Exec=@@EXEC@@ %F
 Icon=@@ICON@@
