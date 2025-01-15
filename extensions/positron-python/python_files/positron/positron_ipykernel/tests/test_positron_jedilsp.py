@@ -332,7 +332,7 @@ echo: false
 
     # Wait for the diagnostics to be published
     server.publish_diagnostics.assert_not_called()
-    timers: Dict[Any, Timer] = _clear_diagnostics_debounced.timers  # type: ignore
-    for timer in timers.values():
+    timers: List[Timer] = list(_clear_diagnostics_debounced.timers.values())  # type: ignore
+    for timer in timers:
         timer.join()
     server.publish_diagnostics.assert_called_once_with(params.text_document.uri, [])
