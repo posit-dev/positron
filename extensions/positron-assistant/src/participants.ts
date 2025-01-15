@@ -138,8 +138,14 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 		// User prompt
 		messages.push(vscode.LanguageModelChatMessage.User(request.prompt));
 
-		if (!request.model.id) {
-			throw new Error('Language model not selected.');
+		if (!request.model) {
+			const commandUri = vscode.Uri.parse('command:positron.assistant.addModelConfiguration');
+			const message = new vscode.MarkdownString(
+				`No language models are available. [Click here to add one.](${commandUri})`
+			);
+			message.isTrusted = { enabledCommands: ['positron.assistant.addModelConfiguration'] };
+			response.warning(message);
+			return;
 		}
 
 		// Send messages to selected langauge model and stream back response

@@ -24,7 +24,7 @@ import { IChatMessage } from '../../../contrib/chat/common/languageModels.js';
 import { SerializedError } from '../../../../base/common/errors.js';
 import { AsyncIterableObject, AsyncIterableSource } from '../../../../base/common/async.js';
 
-class ChatResponse {
+class ChatResponse implements vscode.ChatResponseStream {
 	private _isClosed: boolean;
 
 	constructor(
@@ -36,47 +36,118 @@ class ChatResponse {
 		this._isClosed = false;
 	}
 
-	markdown(content: string | vscode.MarkdownString): void {
+	assertOpen() {
 		if (this._isClosed) {
 			throw new Error('Response stream is closed');
 		}
+	}
 
+	markdownWithVulnerabilities(value: string | vscode.MarkdownString, vulnerabilities: vscode.ChatVulnerability[]): void {
+		this.assertOpen();
+		const part = new extHostTypes.ChatResponseMarkdownWithVulnerabilitiesPart(value, vulnerabilities);
+		const dto = typeConvert.ChatResponseMarkdownWithVulnerabilitiesPart.from(part);
+		this._proxy.$chatTaskResponse(this._id, dto);
+	}
+
+	codeblockUri(uri: vscode.Uri): void {
+		this.assertOpen();
+		const part = new extHostTypes.ChatResponseCodeblockUriPart(uri);
+		const dto = typeConvert.ChatResponseCodeblockUriPart.from(part);
+		this._proxy.$chatTaskResponse(this._id, dto);
+	}
+
+	detectedParticipant(participant: string, command?: vscode.ChatCommand): void {
+		this.assertOpen();
+		const part = new extHostTypes.ChatResponseDetectedParticipantPart(participant, command);
+		const dto = typeConvert.ChatResponseDetectedParticipantPart.from(part);
+		this._proxy.$chatTaskResponse(this._id, dto);
+	}
+
+	push(part: Parameters<vscode.ChatResponseStream['push']>[0]): void {
+		this.assertOpen();
+		if (part instanceof extHostTypes.ChatResponseProgressPart2) {
+			const dto = part.task ? typeConvert.ChatTask.from(part) : typeConvert.ChatResponseProgressPart.from(part);
+			this._proxy.$chatTaskResponse(this._id, dto);
+		} else if (part instanceof extHostTypes.ChatResponseAnchorPart) {
+			const dto = typeConvert.ChatResponseAnchorPart.from(part);
+			this._proxy.$chatTaskResponse(this._id, dto);
+		} else {
+			const dto = typeConvert.ChatResponsePart.from(part, this._commandsConverter, this._disposables);
+			this._proxy.$chatTaskResponse(this._id, dto);
+		}
+	}
+
+	confirmation(title: string, message: string, data: any, buttons?: string[]): void {
+		this.assertOpen();
+		const part = new extHostTypes.ChatResponseConfirmationPart(title, message, data, buttons);
+		const dto = typeConvert.ChatResponseConfirmationPart.from(part);
+		this._proxy.$chatTaskResponse(this._id, dto);
+	}
+
+	warning(message: string | vscode.MarkdownString): void {
+		this.assertOpen();
+		const part = new extHostTypes.ChatResponseWarningPart(message);
+		const dto = typeConvert.ChatResponseWarningPart.from(part);
+		this._proxy.$chatTaskResponse(this._id, dto);
+	}
+
+	codeCitation(value: vscode.Uri, license: string, snippet: string): void {
+		this.assertOpen();
+		const part = new extHostTypes.ChatResponseCodeCitationPart(value, license, snippet);
+		const dto = typeConvert.ChatResponseCodeCitationPart.from(part);
+		this._proxy.$chatTaskResponse(this._id, dto);
+	}
+
+	anchor(value: vscode.Uri | vscode.Location, title?: string): void {
+		this.assertOpen();
+		const part = new extHostTypes.ChatResponseAnchorPart(value, title);
+		const dto = typeConvert.ChatResponseAnchorPart.from(part);
+		this._proxy.$chatTaskResponse(this._id, dto);
+	}
+
+	filetree(value: vscode.ChatResponseFileTree[], baseUri: vscode.Uri): void {
+		this.assertOpen();
+		const part = new extHostTypes.ChatResponseFileTreePart(value, baseUri);
+		const dto = typeConvert.ChatResponseFilesPart.from(part);
+		this._proxy.$chatTaskResponse(this._id, dto);
+	}
+
+	markdown(content: string | vscode.MarkdownString): void {
+		this.assertOpen();
 		const part = new extHostTypes.ChatResponseMarkdownPart(content);
 		const dto = typeConvert.ChatResponseMarkdownPart.from(part);
 		this._proxy.$chatTaskResponse(this._id, dto);
 	}
 
 	textEdit(uri: vscode.Uri, edits: vscode.TextEdit | vscode.TextEdit[]): void {
-		if (this._isClosed) {
-			throw new Error('Response stream is closed');
-		}
-
+		this.assertOpen();
 		const part = new extHostTypes.ChatResponseTextEditPart(uri, edits);
 		const dto = typeConvert.ChatResponseTextEditPart.from(part);
 		this._proxy.$chatTaskResponse(this._id, dto);
 	}
 
 	button(command: vscode.Command) {
-		if (this._isClosed) {
-			throw new Error('Response stream is closed');
-		}
-
+		this.assertOpen();
 		const part = new extHostTypes.ChatResponseCommandButtonPart(command);
 		const dto = typeConvert.ChatResponseCommandButtonPart.from(part, this._commandsConverter, this._disposables);
 		this._proxy.$chatTaskResponse(this._id, dto);
 	}
 
 	progress(value: string, task?: ((progress: vscode.Progress<vscode.ChatResponseWarningPart>) => Thenable<string | void>)) {
-		if (this._isClosed) {
-			throw new Error('Response stream is closed');
-		}
+		this.assertOpen();
 		const part = new extHostTypes.ChatResponseProgressPart2(value, task);
 		const dto = task ? typeConvert.ChatTask.from(part) : typeConvert.ChatResponseProgressPart.from(part);
 		this._proxy.$chatTaskResponse(this._id, dto);
 		return this;
 	}
 
-	// TODO: Implment more vscode.ChatResponseStream methods.
+	reference(): void {
+		throw new Error('Method not implemented.');
+	}
+
+	reference2(): void {
+		throw new Error('Method not implemented.');
+	}
 
 	close(): void {
 		this._isClosed = true;
@@ -194,12 +265,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 			const firstModel = this._registeredLanguageModels.values().next().value!;
 			model = await this._languageModels.getLanguageModelByIdentifier(firstModel.extension, firstModel.provider.identifier);
 		}
-
-		if (!model) {
-			throw new Error('No language model available.');
-		}
-
-		return typeConvert.ChatAgentRequest.to(_request, location2, model);
+		return typeConvert.ChatAgentRequest.to(_request, location2, model!);
 	}
 
 	private buildChatParticipantHistory(history: IChatAgentHistoryEntryDto[]): (vscode.ChatRequestTurn | vscode.ChatResponseTurn)[] {
@@ -228,7 +294,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		}
 
 		// Build chat response object
-		const response = new ChatResponse(this._proxy, taskId, this._commands.converter, this._disposables) as ChatResponse & vscode.ChatResponseStream; // TODO: remove type assertion
+		const response = new ChatResponse(this._proxy, taskId, this._commands.converter, this._disposables);
 
 		// Build chat request object
 		const _request = await this.buildChatParticipantRequest(request);
