@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
+test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 	test.beforeEach(async function ({ app }) {
 		await app.workbench.quickaccess.runCommand('Help: Welcome');
 	});
@@ -30,9 +30,17 @@ test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
 		});
 
 		test('Verify Welcome page content [C610960]', async function ({ app }) {
-			const OPEN_BUTTONS_LABELS = process.platform === 'darwin' ?
-				['Open...', 'New Folder...', 'New Folder from Git...']
-				: ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...'];
+
+			let OPEN_BUTTONS_LABELS;
+			if (!app.web) {
+				if (process.platform === 'darwin') {
+					OPEN_BUTTONS_LABELS = ['Open...', 'New Folder...', 'New Folder from Git...'];
+				} else {
+					OPEN_BUTTONS_LABELS = ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...'];
+				}
+			} else {
+				OPEN_BUTTONS_LABELS = ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...'];
+			}
 
 			await expect(app.workbench.welcome.startTitle).toHaveText('Start');
 
@@ -88,7 +96,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
 			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
 
 			const expectedInterpreterVersion = new RegExp(`Python ${process.env.POSITRON_PY_VER_SEL}`, 'i');
-			await expect(app.workbench.notebooks.kernelLabel).toHaveText(expectedInterpreterVersion);
+			await expect(app.workbench.notebooks.kernelDropdown).toHaveText(expectedInterpreterVersion);
 		});
 
 		test('Click on Python console from the Welcome page [C684754]', async function ({ app, python }) {
@@ -138,7 +146,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME] }, () => {
 			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
 
 			const expectedInterpreterVersion = new RegExp(`R ${process.env.POSITRON_R_VER_SEL}`, 'i');
-			await expect(app.workbench.notebooks.kernelLabel).toHaveText(expectedInterpreterVersion);
+			await expect(app.workbench.notebooks.kernelDropdown).toHaveText(expectedInterpreterVersion);
 		});
 	});
 });

@@ -34,6 +34,7 @@ interface ILanguageRuntimeProviderMetadata {
 interface IAffiliatedRuntimeMetadata {
 	metadata: ILanguageRuntimeMetadata;
 	lastUsed: number;
+	lastStarted: number;
 }
 
 /**
@@ -85,7 +86,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// Needed for service branding in dependency injector.
 	declare readonly _serviceBrand: undefined;
 
-	private readonly storageKey = 'positron.affiliatedRuntimeMetadata.v1';
+	private readonly storageKey = 'positron.affiliatedRuntimeMetadata.v2';
 
 	// The language packs; a map of language ID to a list of extensions that provide the language.
 	private readonly _languagePacks: Map<string, Array<ExtensionIdentifier>> = new Map();
@@ -348,12 +349,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		if (newRuntime) {
 			const newAffiliation: IAffiliatedRuntimeMetadata = {
 				metadata: newRuntime,
-				lastUsed: Date.now()
+				lastUsed: Date.now(),
+				lastStarted: Date.now()
 			};
-			this._storageService.store(this.storageKeyForRuntime(newRuntime),
-				JSON.stringify(newAffiliation),
-				StorageScope.WORKSPACE,
-				StorageTarget.MACHINE);
+			this.saveAffiliatedRuntime(newAffiliation);
 		}
 
 		// If no sessions were restored, and we have affiliated runtimes,
@@ -368,6 +367,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
+	 * Saves a runtime affiliation to workspace storage.
+	 *
+	 * @param affiliated The runtime affiliation to save.
+	 */
+	private saveAffiliatedRuntime(affiliated: IAffiliatedRuntimeMetadata): void {
+		this._storageService.store(this.storageKeyForRuntime(affiliated.metadata),
+			JSON.stringify(affiliated),
+			this.affiliationStorageScope(),
+			StorageTarget.MACHINE);
+	}
+
 	/**
 	 * Signals that the runtime discovery phase is completed only after all
 	 * extension hosts have completed runtime discovery.
@@ -445,15 +455,20 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
+		// Get the previous affiliation, if any, to preserve the start time.
+		const oldAffiliation = this.getAffiliatedRuntime(session.runtimeMetadata.languageId);
+		const lastStarted =
+			oldAffiliation?.metadata.runtimeId === session.runtimeMetadata.runtimeId ?
+				oldAffiliation.lastStarted :
+				Date.now();
+
 		// Save this runtime as the affiliated runtime for the current workspace.
 		const affiliated: IAffiliatedRuntimeMetadata = {
 			metadata: session.runtimeMetadata,
-			lastUsed: Date.now()
+			lastUsed: Date.now(),
+			lastStarted
 		};
-		this._storageService.store(this.storageKeyForRuntime(session.runtimeMetadata),
-			JSON.stringify(affiliated),
-			this.affiliationStorageScope(),
-			StorageTarget.MACHINE);
+		this.saveAffiliatedRuntime(affiliated);
 
 		// If the runtime is exiting, remove the affiliation if it enters the
 		// `Exiting` state. This state only occurs when the runtime is manually
@@ -719,6 +734,27 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}).filter(affiliation => {
 			// Filter out any affiliations that didn't deserialize properly.
 			return affiliation !== undefined;
+		}).filter(affiliation => {
+			// Filter out runtimes that aren't actually being used by removing those with a
+			// lastUsed time that is less than the lastStarted time.
+
+			// Only do this if there is more than one runtime affiliated with
+			// the workspace. We generally want at least one runtime to start.
+			if (languageIds.length === 1) {
+				return true;
+			}
+
+			// Compare the last used time to the last started time; log if
+			// we're going to forget a runtime.
+			if (affiliation.lastStarted > affiliation.lastUsed) {
+				this._logService.debug(`[Runtime startup] Affiliated runtime ` +
+					`${formatLanguageRuntimeMetadata(affiliation.metadata)} ` +
+					`last used on ${new Date(affiliation.lastUsed).toLocaleString()}, ` +
+					`last started on ${new Date(affiliation.lastStarted).toLocaleString()}. ` +
+					`It will not be auto-started`);
+				return false;
+			}
+			return true;
 		}).sort((a, b) => {
 			// Sort the affiliations by last used time, so that the most recently
 			// used runtime is started first
@@ -726,7 +762,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}).map((affiliation, idx) => {
 			// Start each runtime. Activate the first one as soon as it's
 			// ready; let the others start in the background.
-			this.startAffiliatedRuntime(affiliation.metadata, idx === 0);
+			this.startAffiliatedRuntime(affiliation, idx === 0);
 		});
 	}
 
@@ -789,14 +825,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * @param activate Whether to activate/focus the new session
 	 */
 	private startAffiliatedRuntime(
-		affiliatedRuntimeMetadata: ILanguageRuntimeMetadata,
+		affiliatedRuntime: IAffiliatedRuntimeMetadata,
 		activate: boolean
 	): void {
 
 		// No-op if no affiliated runtime metadata.
-		if (!affiliatedRuntimeMetadata) {
+		if (!affiliatedRuntime.metadata) {
 			return;
 		}
+
+		const affiliatedRuntimeMetadata = affiliatedRuntime.metadata;
 
 		// Check the setting to see if we should be auto-starting.
 		const autoStart = this._configurationService.getValue<boolean>(
@@ -807,10 +845,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			if (affiliatedRuntimeMetadata.startupBehavior === LanguageRuntimeStartupBehavior.Manual) {
 				this._logService.info(`Language runtime ` +
 					`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
-					`is affiliated with this workspace, but won't be started because it's startup ` +
+					`is affiliated with this workspace, but won't be started because its startup ` +
 					`behavior is manual.`);
 				return;
 			}
+
+			// Save the start time of the affliated runtime.
+			affiliatedRuntime.lastStarted = Date.now();
+			this.saveAffiliatedRuntime(affiliatedRuntime);
 
 			this._runtimeSessionService.autoStartRuntime(affiliatedRuntimeMetadata,
 				`Affiliated ${affiliatedRuntimeMetadata.languageName} runtime for workspace`,

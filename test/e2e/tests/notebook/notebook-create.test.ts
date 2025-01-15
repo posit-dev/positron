@@ -10,13 +10,13 @@ test.use({
 });
 
 test.describe('Notebooks', {
-	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.NOTEBOOK]
+	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.NOTEBOOKS]
 }, () => {
 	test.describe('Python Notebooks', () => {
 		test.beforeEach(async function ({ app, python }) {
 			await app.workbench.layouts.enterLayout('notebook');
 			await app.workbench.notebooks.createNewNotebook();
-			await app.workbench.notebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
+			await app.workbench.notebooks.selectInterpreter('Python');
 		});
 
 		test.afterEach(async function ({ app }) {
@@ -33,7 +33,7 @@ test.describe('Notebooks', {
 			const randomText = Math.random().toString(36).substring(7);
 
 			await app.workbench.notebooks.insertNotebookCell('markdown');
-			await app.workbench.notebooks.waitForTypeInEditor(`## ${randomText} `);
+			await app.workbench.notebooks.typeInEditor(`## ${randomText} `);
 			await app.workbench.notebooks.stopEditingCell();
 			await app.workbench.notebooks.assertMarkdownText('h2', randomText);
 		});
@@ -43,7 +43,7 @@ test.describe('Notebooks', {
 		test.beforeEach(async function ({ app, r }) {
 			await app.workbench.layouts.enterLayout('notebook');
 			await app.workbench.notebooks.createNewNotebook();
-			await app.workbench.notebooks.selectInterpreter('R Environments', process.env.POSITRON_R_VER_SEL!);
+			await app.workbench.notebooks.selectInterpreter('R');
 		});
 
 		test.afterEach(async function ({ app }) {
@@ -60,7 +60,7 @@ test.describe('Notebooks', {
 			const randomText = Math.random().toString(36).substring(7);
 
 			await app.workbench.notebooks.insertNotebookCell('markdown');
-			await app.workbench.notebooks.waitForTypeInEditor(`## ${randomText} `);
+			await app.workbench.notebooks.typeInEditor(`## ${randomText} `);
 			await app.workbench.notebooks.stopEditingCell();
 			await app.workbench.notebooks.assertMarkdownText('h2', randomText);
 		});

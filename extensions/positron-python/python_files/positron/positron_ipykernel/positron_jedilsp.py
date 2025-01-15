@@ -89,6 +89,7 @@ from ._vendor.pygls.workspace.text_document import TextDocument
 from .help_comm import ShowHelpTopicParams
 from .inspectors import BaseColumnInspector, BaseTableInspector, get_inspector
 from .jedi import PositronInterpreter, get_python_object
+from .utils import debounce
 
 if TYPE_CHECKING:
     from .positron_ipkernel import PositronShell
@@ -102,6 +103,7 @@ _CELL_MAGIC_PREFIX = r"%%"
 _SHELL_PREFIX = "!"
 _HELP_PREFIX_OR_SUFFIX = "?"
 _HELP_TOPIC = "positron/textDocument/helpTopic"
+_VSCODE_NOTEBOOK_CELL_SCHEME = "vscode-notebook-cell"
 
 
 @enum.unique
@@ -666,10 +668,27 @@ def positron_did_open_diagnostics(
 def positron_did_close_diagnostics(
     server: PositronJediLanguageServer, params: DidCloseTextDocumentParams
 ) -> None:
+    # When a notebook cell is closed, clear the diagnostics for the cell.
+    # This happens when a cell's language is changed from python e.g. to raw,
+    # see: https://github.com/posit-dev/positron/issues/4160.
+    if params.text_document.uri.startswith(_VSCODE_NOTEBOOK_CELL_SCHEME):
+        return _clear_diagnostics_debounced(server, params.text_document.uri)
+
     return did_close_diagnostics(server, params)
 
 
-@jedi_utils.debounce(1, keyed_by="uri")  # type: ignore - pyright bug
+@debounce(1, keyed_by="uri")
+def _clear_diagnostics_debounced(server: PositronJediLanguageServer, uri: str) -> None:
+    # Catch and log any exceptions. Exceptions should be handled by pygls, but the debounce
+    # decorator causes the function to run in a separate thread thus a separate stack from pygls'
+    # exception handler.
+    try:
+        server.publish_diagnostics(uri, [])
+    except Exception:
+        logger.exception(f"Failed to clear diagnostics for uri {uri}", exc_info=True)
+
+
+@debounce(1, keyed_by="uri")
 def _publish_diagnostics_debounced(server: PositronJediLanguageServer, uri: str) -> None:
     # Catch and log any exceptions. Exceptions should be handled by pygls, but the debounce
     # decorator causes the function to run in a separate thread thus a separate stack from pygls'

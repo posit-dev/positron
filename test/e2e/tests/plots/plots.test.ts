@@ -16,7 +16,7 @@ test.use({
 });
 
 test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
-	// Some tests are not tagged @win because they would require a new master image.
+	// Some tests are not tagged @:win because they would require a new master image.
 	test.describe('Python Plots', () => {
 
 		test.beforeAll(async function ({ userSettings }) {
@@ -188,7 +188,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await runScriptAndValidatePlot(app, ipyleaflet, '.leaflet-container');
 		});
 
-		test('Python - Verifies hvplot can load with plotly extension [C766660]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+		test.skip('Python - Verifies hvplot can load with plotly extension [C766660]', {
+			tag: [tags.WEB, tags.WIN],
+			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5991' }],
+		}, async function ({ app }) {
 			await runScriptAndValidatePlot(app, plotly, '.plotly');
 		});
 

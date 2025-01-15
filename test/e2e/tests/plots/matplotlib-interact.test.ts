@@ -11,7 +11,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.NOTEBOOK] }, () => {
+test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.NOTEBOOKS] }, () => {
 
 	test('Python - Matplotlib Interact Test [C1067443]', {
 		tag: [tags.CRITICAL, tags.WEB, tags.WIN],
@@ -21,7 +21,7 @@ test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.NOTEBOOK] }, () =>
 
 		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'matplotlib', 'interact.ipynb'));
 
-		await notebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
+		await notebooks.selectInterpreter('Python');
 
 		await notebooks.runAllCells();
 

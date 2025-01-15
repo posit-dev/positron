@@ -10,6 +10,7 @@ on:
 jobs:
   e2e-tags:
     runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.state != 'closed' }} # Skip job if PR is closed
     steps:
       - uses: actions/checkout@v4
 

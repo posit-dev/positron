@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Python Applications', {
-	tag: [tags.CRITICAL, tags.APPS, tags.VIEWER, tags.EDITOR]
+	tag: [tags.CRITICAL, tags.APPS, tags.VIEWER, tags.EDITOR, tags.WEB]
 }, () => {
 	test.afterEach(async function ({ app }) {
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
@@ -27,7 +27,12 @@ test.describe('Python Applications', {
 
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'dash_example', 'dash_example.py'));
 		await app.workbench.editor.pressPlay();
-		await expect(viewer.getViewerFrame().getByText('Hello World')).toBeVisible({ timeout: 30000 });
+
+		if (!app.web) {
+			await expect(viewer.getViewerFrame().getByText('Hello World')).toBeVisible({ timeout: 30000 });
+		} else {
+			await expect(viewer.viewerFrame.frameLocator('iframe').getByText('Hello World')).toBeVisible({ timeout: 30000 });
+		}
 
 		await test.step('Verify app can be opened in editor', async () => {
 			await app.workbench.viewer.openViewerToEditor();
@@ -35,7 +40,11 @@ test.describe('Python Applications', {
 
 			const editorFrameLocator = app.workbench.editor.getEditorViewerFrame();
 
-			await expect(editorFrameLocator.getByText('Hello World')).toBeVisible({ timeout: 30000 });
+			if (!app.web) {
+				await expect(editorFrameLocator.getByText('Hello World')).toBeVisible({ timeout: 30000 });
+			} else {
+				await expect(editorFrameLocator.frameLocator('iframe').getByText('Hello World')).toBeVisible({ timeout: 30000 });
+			}
 		});
 	});
 
@@ -46,19 +55,27 @@ test.describe('Python Applications', {
 
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'fastapi_example', 'fastapi_example.py'));
 		await app.workbench.editor.pressPlay();
-		await expect(viewer.getViewerFrame().getByText('FastAPI')).toBeVisible({ timeout: 30000 });
+		if (!app.web) {
+			await expect(viewer.getViewerFrame().getByText('FastAPI')).toBeVisible({ timeout: 30000 });
+		} else {
+			await expect(viewer.viewerFrame.frameLocator('iframe').getByText('FastAPI')).toBeVisible({ timeout: 30000 });
+		}
 
 		await test.step('Verify app can be opened in editor', async () => {
 			await app.workbench.viewer.openViewerToEditor();
 			await app.workbench.viewer.clearViewer();
 
-			const editorHeaderLocator = app.workbench.editor.getEditorViewerLocator('h2');
+			let editorHeaderLocator;
+			if (!app.web) {
+				editorHeaderLocator = app.workbench.editor.getEditorViewerLocator('h2');
+			} else {
+				editorHeaderLocator = app.workbench.editor.viewerFrame.frameLocator('iframe').locator('h2');
+			}
 
 			await expect(editorHeaderLocator).toContainText('FastAPI', { timeout: 30000 });
 		});
 	});
 
-	// TODO: update for pop out to editor when issue resolved
 	test('Python - Verify Basic Gradio App [C903307]', {
 		tag: [tags.WIN],
 	}, async function ({ app, python }) {
@@ -68,9 +85,29 @@ test.describe('Python Applications', {
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.editor.pressPlay();
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await expect(viewer.getViewerFrame().getByRole('button', { name: 'Submit' })).toBeVisible({ timeout: 45000 });
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+
+		if (!app.web) {
+			await expect(viewer.getViewerFrame().getByRole('button', { name: 'Submit' })).toBeVisible({ timeout: 45000 });
+		} else {
+			await expect(viewer.viewerFrame.frameLocator('iframe').getByRole('button', { name: 'Submit' })).toBeVisible({ timeout: 45000 });
+		}
+
+		await test.step('Verify app can be opened in editor', async () => {
+			await app.workbench.viewer.openViewerToEditor();
+			await app.workbench.viewer.clearViewer();
+
+			const editorFrameLocator = app.workbench.editor.getEditorViewerFrame();
+
+			if (!app.web) {
+				await expect(editorFrameLocator.getByRole('button', { name: 'Submit' })).toBeVisible({ timeout: 30000 });
+			} else {
+				await expect(editorFrameLocator.frameLocator('iframe').getByRole('button', { name: 'Submit' })).toBeVisible({ timeout: 30000 });
+			}
+		});
+
+		// await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+
+
 	});
 
 	test('Python - Verify Basic Streamlit App [C903308]', {

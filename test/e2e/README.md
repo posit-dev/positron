@@ -132,7 +132,7 @@ We use Playwright as the test framework for end-to-end tests in Positron. Make s
 #### Running Specific Tests
 
 - Navigate to the relevant spec file in the editor.
-- Ensure the correct project is selected in the Test Explorer (you can run both `web` and `electron` tests simultaneously, but tests not tagged with `@web` won't run in a browser).
+- Ensure the correct project is selected in the Test Explorer (you can run both `web` and `electron` tests simultaneously, but tests not tagged with `@:web` won't run in a browser).
 - Use the green play button next to each test to:
   - Left-click: Run the test.
   - Right-click: Access additional options (Run/Debug).
@@ -192,7 +192,7 @@ For R, add any package requirements to the "imports" section of the `DESCRIPTION
 
 When you create a pull request, the test runner automatically scans the PR description for test tags to determine which E2E tests to run.
 
-- **Always-on Tests:** Tests tagged with `@critical` always run, and you can’t opt out of them.
+- **Always-on Tests:** Tests tagged with `@:critical` always run, and you can’t opt out of them.
 - **Custom Tags:** If your changes affect a specific feature, you can include additional tags in the PR description to trigger relevant tests.
 
 To add a test tag:
@@ -202,9 +202,9 @@ To add a test tag:
 
 From that point, all E2E tests linked to the specified tag(s) will run during the test job. For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts).
 
-To include Windows and Web Browser testing: 
+To include Windows and Web Browser testing:
 
-By default, only Linuxe e2e test will run.  You can optionally add `@:win` to your PR description and this will run test on windows as well. As of now, windows tests do take longer to run, so the overall PR test job will take longer to complete. You can also ass `@:web` to run the browser tests.
+By default, only Linux e2e test will run.  You can optionally add `@:win` to your PR description and this will run test on windows as well. As of now, windows tests do take longer to run, so the overall PR test job will take longer to complete. You can also ass `@:web` to run the browser tests.
 
 Note: You can update the tags in the PR description at any time. The PR comment will confirm the parsed tags, and the test job will use the tags present in the PR description at the time of execution.
 
@@ -224,4 +224,4 @@ In order to get the "golden screenshots" used for plot comparison is CI, you wil
 
 ## Tests run on PRs
 
-If you think your test should be run when PRs are created, [tag the test with @critical](https://playwright.dev/docs/test-annotations#tag-tests). The existing @critical cases were selected to give good overall coverage while keeping the overall execution time down to ten minutes or less. If your new test functionality covers a part of the application that no other tests cover, it is probably a good idea to include it in the @critical set.
+If you think your test should be run when PRs are created, [tag the test with @:critical](https://playwright.dev/docs/test-annotations#tag-tests). The existing @:critical cases were selected to give good overall coverage while keeping the overall execution time down to ten minutes or less. If your new test functionality covers a part of the application that no other tests cover, it is probably a good idea to include it in the @:critical set.
