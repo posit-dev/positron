@@ -194,19 +194,17 @@ export class EditorActionBarFactory extends Disposable {
 		];
 
 		// Splice the move editor to new window command button into the right action bar elements.
-		if (auxiliaryWindow !== undefined) {
-			rightActionBarElements.splice(
-				rightActionBarElements.length - 1,
-				0,
-				<ActionBarCommandButton
-					disabled={auxiliaryWindow}
-					iconId='positron-open-in-new-window'
-					tooltip={positronMoveIntoNewWindowTooltip}
-					ariaLabel={positronMoveIntoNewWindowAriaLabel}
-					commandId='workbench.action.moveEditorToNewWindow'
-				/>
-			);
-		}
+		rightActionBarElements.splice(
+			rightActionBarElements.length - 1,
+			0,
+			<ActionBarCommandButton
+				disabled={auxiliaryWindow}
+				iconId='positron-open-in-new-window'
+				tooltip={positronMoveIntoNewWindowTooltip}
+				ariaLabel={positronMoveIntoNewWindowAriaLabel}
+				commandId='workbench.action.moveEditorToNewWindow'
+			/>
+		);
 
 		// Return the action bar.
 		return (
