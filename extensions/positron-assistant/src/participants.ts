@@ -42,12 +42,14 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 				description: 'Get the current visible plot.',
 				parameters: z.object({}),
 				execute: async () => {
+					response.progress('Getting the current plot...');
 					const uri = await positron.ai.getCurrentPlotUri();
 					const matches = uri?.match(/^data:([^;]+);base64,(.+)$/);
 					if (!matches || !uri) {
 						return 'No plot visible';
 					}
-					response.progress('Analysing visible plot...');
+
+					response.progress('Analysing the plot image data...');
 					return {
 						type: 'image' as const,
 						mimeType: matches[1],
