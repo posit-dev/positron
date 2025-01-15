@@ -332,5 +332,5 @@ echo: false
 
     # Wait for the diagnostics to be published
     server.publish_diagnostics.assert_not_called()
-    time.sleep(0.06)
+    time.sleep(0.1)
     server.publish_diagnostics.assert_called_once_with(params.text_document.uri, [])
