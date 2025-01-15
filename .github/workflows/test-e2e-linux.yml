@@ -6,7 +6,7 @@ on:
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
-        default: "@critical"
+        default: "@:critical"
         type: string
       project:
         required: false
@@ -47,7 +47,7 @@ on:
       grep:
         required: false
         description: "Run tests matching a regular expression. Supports tags, test titles, and filenames. Leave blank to run all tests. For project `e2e-browser`, tests tagged with @web are pre-filtered; additional tags, titles, or filenames can be specified to refine filtering."
-        default: "@critical"
+        default: "@:critical"
         type: string
       repeat_each:
         required: false
