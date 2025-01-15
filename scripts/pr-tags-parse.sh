@@ -44,15 +44,16 @@ else
     echo "Found web tag in PR body. Setting to run web tests."
     echo "web_tag_found=true" >> "$GITHUB_OUTPUT"
   fi
-  # Parse tags starting with '@:' and convert to '@'
-  TAGS=$(echo "$PR_BODY" | grep -o "@:[a-zA-Z0-9_-]*" | sed 's/@://g' | sed 's/^/@/' | tr '\n' ',' | sed 's/,$//')
 
-  # Always add @critical if not already included
-  if [[ ! "$TAGS" =~ "@critical" ]]; then
+  # Parse tags starting with '@:'
+  TAGS=$(echo "$PR_BODY" | grep -o "@:[a-zA-Z0-9_-]*" | tr '\n' ',' | sed 's/,$//')
+
+  # Always add @:critical if not already included
+  if [[ ! "$TAGS" =~ "@:critical" ]]; then
     if [[ -n "$TAGS" ]]; then
-      TAGS="@critical,$TAGS"
+      TAGS="@:critical,$TAGS"
     else
-      TAGS="@critical"
+      TAGS="@:critical"
     fi
   fi
 fi
