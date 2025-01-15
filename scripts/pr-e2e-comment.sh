@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # Script to update or create a PR comment with E2E test tags
-# Usage: ./update_pr_comment.sh "<comment_marker>" "<tags>"
-# Example: ./update_pr_comment.sh "<!-- PR Tags -->" "@critical,@quarto"
+# Usage: bash ./scripts/pr-e2e-comment.sh "<comment_marker>" "<tags>"
+# Example: bash ./scripts/pr-e2e-comment.sh "<!-- PR Tags -->" "@:critical,@:quarto"
 
 set -e
 
 # Arguments
 COMMENT_MARKER="$1"  # e.g., "<!-- PR Tags -->"
-TAGS="$2"            # e.g., "@critical,@quarto"
+TAGS="$2"            # e.g., "@:critical,@:quarto"
 
 # Ensure required arguments are provided
 if [ -z "$COMMENT_MARKER" ] || [ -z "$TAGS" ]; then
