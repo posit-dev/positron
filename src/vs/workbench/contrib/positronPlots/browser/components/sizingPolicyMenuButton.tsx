@@ -162,6 +162,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 							} else {
 								// The user entered a valid size; set the custom policy.
 								props.plotsService.setCustomPlotSize(result.size);
+								props.plotClient.sizingPolicy = new PlotSizingPolicyCustom(result.size);
 							}
 						}
 					}

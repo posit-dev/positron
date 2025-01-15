@@ -212,6 +212,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				this.storePlotMetadata(plot.metadata);
 			});
 
+			this._editorPlots.forEach((plot) => {
+				this.storePlotMetadata(plot.metadata);
+			});
+
 			this._storageService.store(
 				HistoryPolicyStorageKey,
 				this._selectedHistoryPolicy,
@@ -402,6 +406,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		const selectedPlot = this._plots.find((plot) => this.selectedPlotId === plot.id);
 		if (selectedPlot instanceof PlotClientInstance) {
 			selectedPlot.sizingPolicy = policy;
+			// selectedPlot.metadata.sizing_policy = { id: policy.id };
 		}
 	}
 
@@ -507,7 +512,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 						try {
 							const metadata = JSON.parse(storedMetadata) as IPositronPlotMetadata;
 							const commProxy = this.createCommProxy(client, metadata);
-							plotClients.push(this.createRuntimePlotClient(commProxy));
+							plotClients.push(this.createRuntimePlotClient(commProxy, metadata));
 							registered = true;
 							const editorPlot = this.restoreEditorPlot(metadata.id, session.sessionId, commProxy);
 							if (editorPlot) {
@@ -529,7 +534,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							location: PlotClientLocation.View,
 						};
 						const commProxy = this.createCommProxy(client, metadata);
-						plotClients.push(this.createRuntimePlotClient(commProxy));
+						plotClients.push(this.createRuntimePlotClient(commProxy, metadata));
 					}
 				} else {
 					console.warn(
@@ -608,7 +613,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 				// Register the plot client
 				const commProxy = this.createCommProxy(event.client, metadata);
-				const plotClient = this.createRuntimePlotClient(commProxy);
+				const plotClient = this.createRuntimePlotClient(commProxy, metadata);
 				this.registerPlotClient(plotClient, true);
 
 				// Raise the Plots pane so the plot is visible.
@@ -660,7 +665,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				const metadata = JSON.parse(storedMetadata) as IPositronPlotMetadata;
 				this._plotCommProxies.get(metadata.id);
 				// TODO: check if proxy exists and create one if it does not
-				const plot = this.createRuntimePlotClient(commProxy, PlotClientLocation.Editor);
+				const plot = this.createRuntimePlotClient(commProxy, metadata, PlotClientLocation.Editor);
 				this._editorPlots.set(plotId, plot);
 
 				this.openEditor(plotId);
@@ -1157,7 +1162,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (plotClient instanceof PlotClientInstance) {
 			const commProxy = this._plotCommProxies.get(plotId);
 			if (commProxy) {
-				const editorPlotClient = this.createRuntimePlotClient(commProxy, PlotClientLocation.Editor);
+				const editorPlotClient = this.createRuntimePlotClient(commProxy, plotClient.metadata, PlotClientLocation.Editor);
 				this._editorPlots.set(editorPlotClient.id, editorPlotClient);
 			} else {
 				throw new Error('Cannot open plot in editor: plot comm not found');
@@ -1212,7 +1217,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	private createCommProxy(client: IRuntimeClientInstance<any, any>, metadata: IPositronPlotMetadata) {
-		const commProxy = new PositronPlotCommProxy(client, metadata);
+		const commProxy = new PositronPlotCommProxy(client);
 		this._plotCommProxies.set(metadata.id, commProxy);
 
 		this._register(commProxy.onDidClose(() => {
@@ -1230,24 +1235,24 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		return commProxy;
 	}
 
-	private createRuntimePlotClient(comm: PositronPlotCommProxy, location: PlotClientLocation = PlotClientLocation.View) {
-		const sizingPolicy = this._sizingPolicies.find((policy) => policy.id === comm.metadata.sizing_policy?.id)
+	private createRuntimePlotClient(comm: PositronPlotCommProxy, metadata: IPositronPlotMetadata, location: PlotClientLocation = PlotClientLocation.View) {
+		const sizingPolicy = this._sizingPolicies.find((policy) => policy.id === metadata.sizing_policy?.id)
 			?? this._selectedSizingPolicy;
-		comm.metadata.sizing_policy = {
+		metadata.sizing_policy = {
 			id: sizingPolicy.id,
 			size: sizingPolicy instanceof PlotSizingPolicyCustom ? sizingPolicy.size : undefined
 		};
-		const plotClient = new PlotClientInstance(comm, sizingPolicy ?? this._selectedSizingPolicy, { ...comm.metadata, location: location });
-		let plotClients = this._plotClientsByComm.get(comm.metadata.id);
+		const plotClient = new PlotClientInstance(comm, sizingPolicy ?? this._selectedSizingPolicy, { ...metadata, location: location });
+		let plotClients = this._plotClientsByComm.get(metadata.id);
 
 		if (!plotClients) {
 			plotClients = [];
-			this._plotClientsByComm.set(comm.metadata.id, plotClients);
+			this._plotClientsByComm.set(metadata.id, plotClients);
 		}
 
 		plotClients.push(plotClient);
 
-		this.storePlotMetadata({ ...comm.metadata, location });
+		this.storePlotMetadata({ ...metadata, location });
 
 		return plotClient;
 	}
