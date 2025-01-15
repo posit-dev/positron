@@ -663,8 +663,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (storedMetadata) {
 			try {
 				const metadata = JSON.parse(storedMetadata) as IPositronPlotMetadata;
-				this._plotCommProxies.get(metadata.id);
-				// TODO: check if proxy exists and create one if it does not
 				const plot = this.createRuntimePlotClient(commProxy, metadata, PlotClientLocation.Editor);
 				this._editorPlots.set(plotId, plot);
 
@@ -1145,8 +1143,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	public async openEditor(plotId: string, groupType?: number): Promise<void> {
-		plotId = plotId ?? this.selectedPlotId;
-		const plotClient = this._plots.find(plot => plot.id === this.selectedPlotId);
+		const plotClient = this._editorPlots.get(plotId) ?? this._plots.find(plot => plot.id === this.selectedPlotId);
 
 		if (!plotId) {
 			throw new Error('Cannot open plot in editor: plot not found');
