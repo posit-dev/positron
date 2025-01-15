@@ -5,7 +5,7 @@ on:
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames, etc. For windows, use this format: (?=.*@:win)(?=.*@:feature)"
-        default: "@win"
+        default: "@:win"
         type: string
       repeat_each:
         required: false
@@ -32,7 +32,7 @@ on:
     inputs:
       grep:
         required: false
-        description: "Tests tagged with @win are pre-filtered. Specify other tags, test titles, filenames, etc. to filter tests further."
+        description: "Tests tagged with @:win are pre-filtered. Specify other tags, test titles, filenames, etc. to filter tests further."
         default: "@:critical"
         type: string
       repeat_each:

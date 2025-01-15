@@ -5,7 +5,7 @@ on:
     inputs:
       grep:
         required: false
-        description: "Grep filter to apply to the e2e tests: @critical, @console, etc. Leave blank to run all tests."
+        description: "Grep filter to apply to the e2e tests: @:critical, @:console, etc. Leave blank to run all tests."
         default: ""
         type: string
       notify_on:
