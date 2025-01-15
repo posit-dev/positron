@@ -218,7 +218,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 	set sizingPolicy(newSizingPolicy: IPositronPlotSizingPolicy) {
 		this._sizingPolicy = newSizingPolicy;
-		this._commProxy.metadata.sizing_policy = {
+		this.metadata.sizing_policy = {
 			id: newSizingPolicy.id,
 			size: newSizingPolicy instanceof PlotSizingPolicyCustom ? newSizingPolicy.size : undefined
 		};

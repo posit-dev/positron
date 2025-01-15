@@ -7,7 +7,6 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
-import { IPositronPlotMetadata } from './languageRuntimePlotClient.js';
 import { IntrinsicSize, PositronPlotComm, RenderFormat } from './positronPlotComm.js';
 import { IPlotSize } from '../../positronPlots/common/sizingPolicy.js';
 
@@ -150,8 +149,7 @@ export class PositronPlotCommProxy extends Disposable {
 	private readonly _didSetIntrinsicSizeEmitter = new Emitter<IntrinsicSize | undefined>();
 
 	constructor(
-		client: IRuntimeClientInstance<any, any>,
-		public readonly metadata: IPositronPlotMetadata) {
+		client: IRuntimeClientInstance<any, any>) {
 		super();
 
 		this._comm = new PositronPlotComm(client, { render: { timeout: 30000 }, get_intrinsic_size: { timeout: 30000 } });
