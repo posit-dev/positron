@@ -497,6 +497,9 @@ def debounce(interval_s: int, keyed_by: Optional[str] = None):
         # Store the interval on the debounced function; we lower the interval for faster tests.
         debounced.interval_s = interval_s  # type: ignore
 
+        # Store timers on the debounced function; we wait for them to finish in tests.
+        debounced.timers = timers  # type: ignore
+
         return debounced
 
     return wrapper

@@ -4,7 +4,7 @@
 #
 
 import os
-import time
+from threading import Timer
 from typing import Any, Dict, List, Optional, cast
 from unittest.mock import Mock
 
@@ -332,5 +332,7 @@ echo: false
 
     # Wait for the diagnostics to be published
     server.publish_diagnostics.assert_not_called()
-    time.sleep(0.1)
+    timers: Dict[Any, Timer] = _clear_diagnostics_debounced.timers  # type: ignore
+    for timer in timers.values():
+        timer.join()
     server.publish_diagnostics.assert_called_once_with(params.text_document.uri, [])
