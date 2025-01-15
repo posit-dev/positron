@@ -18,6 +18,7 @@
 	height: 28px;
 	border: none;
 	display: flex;
+	margin: 0 1px;
 	cursor: pointer;
 	overflow: visible;
 	border-radius: 6px;
