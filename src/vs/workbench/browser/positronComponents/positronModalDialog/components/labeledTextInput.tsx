@@ -22,7 +22,7 @@ export interface LabeledTextInputProps {
 	autoFocus?: boolean;
 	max?: number;
 	min?: number;
-	type?: 'text' | 'number';
+	type?: 'text' | 'number' | 'password';
 	error?: boolean;
 	/**
 	 * Custom error message. Will override the validator error message if present.
