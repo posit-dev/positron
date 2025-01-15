@@ -185,6 +185,10 @@ def test_path_completion(tmp_path) -> None:
     cwd = os.getcwd()
 
     def assert_has_path_completion(source: str, completion: str, chars_from_end=1):
+        # Replace separators for testing cross-platform.
+        source.replace("/", os.path.sep)
+        completion.replace("/", os.path.sep)
+
         chars_from_end = len(source) - chars_from_end
         cursor = Position(0, chars_from_end)
         completions = _completions(source, {}, cursor.character)
@@ -195,7 +199,7 @@ def test_path_completion(tmp_path) -> None:
         os.chdir(tmp_path)
 
         # Check directory completions at various points around symbols.
-        assert_has_path_completion('""', "my-notebooks.new/")
+        assert_has_path_completion('""', f"my-notebooks.new/")
         # Quotes aren't automatically closed for directories, since the user may want a file.
         assert_has_path_completion('"', "my-notebooks.new/", 0)
         assert_has_path_completion('"my"', "-notebooks.new/")
