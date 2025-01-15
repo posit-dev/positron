@@ -21,7 +21,9 @@ from positron_ipykernel._vendor.lsprotocol.types import (
     MarkupContent,
     MarkupKind,
     Position,
+    Range,
     TextDocumentIdentifier,
+    TextEdit,
 )
 from positron_ipykernel._vendor.pygls.workspace.text_document import TextDocument
 from positron_ipykernel.help_comm import ShowHelpTopicParams
@@ -108,10 +110,12 @@ _object_with_property = _ObjectWithProperty()
 def _completions(
     source: str,
     namespace: Dict[str, Any],
+    character: Optional[int] = None,
 ) -> List[CompletionItem]:
     lines = source.splitlines()
     line = len(lines) - 1
-    character = len(lines[line])
+    if character is None:
+        character = len(lines[line])
     params = CompletionParams(TextDocumentIdentifier("file:///foo.py"), Position(line, character))
     server = mock_server(params.text_document.uri, source, namespace)
 
@@ -167,6 +171,48 @@ def test_positron_completion_contains(
     completions = _completions(source, namespace)
     completion_labels = [completion.label for completion in completions]
     assert expected_label in completion_labels
+
+
+def test_path_completion(tmp_path) -> None:
+    # See https://github.com/posit-dev/positron/issues/5193.
+
+    dir_ = tmp_path / "my-notebooks.new"
+    dir_.mkdir()
+
+    file = dir_ / "weather-report.ipynb"
+    file.write_text("")
+
+    cwd = os.getcwd()
+
+    def assert_has_path_completion(source: str, completion: str, chars_from_end=1):
+        chars_from_end = len(source) - chars_from_end
+        cursor = Position(0, chars_from_end)
+        completions = _completions(source, {}, cursor.character)
+        assert len(completions) == 1
+        assert completions[0].text_edit == TextEdit(Range(cursor, cursor), completion)
+
+    try:
+        os.chdir(tmp_path)
+
+        # Check directory completions at various points around symbols.
+        assert_has_path_completion('""', "my-notebooks.new/")
+        # Quotes aren't automatically closed for directories, since the user may want a file.
+        assert_has_path_completion('"', "my-notebooks.new/", 0)
+        assert_has_path_completion('"my"', "-notebooks.new/")
+        assert_has_path_completion('"my-notebooks"', ".new/")
+        assert_has_path_completion('"my-notebooks."', "new/")
+        assert_has_path_completion('"my-notebooks.new"', "/")
+
+        # Check file completions at various points around symbols.
+        assert_has_path_completion('"my-notebooks.new/"', "weather-report.ipynb")
+        # Quotes are automatically closed for files, since they end the completion.
+        assert_has_path_completion('"my-notebooks.new/', 'weather-report.ipynb"', 0)
+        assert_has_path_completion('"my-notebooks.new/weather"', "-report.ipynb")
+        assert_has_path_completion('"my-notebooks.new/weather-report"', ".ipynb")
+        assert_has_path_completion('"my-notebooks.new/weather-report."', "ipynb")
+        assert_has_path_completion('"my-notebooks.new/weather-report.ipynb"', "")
+    finally:
+        os.chdir(cwd)
 
 
 _pd_df = pd.DataFrame({"a": [0]})
