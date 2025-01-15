@@ -105,27 +105,83 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	}
 }
 
-class AnthropicAssistant extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
+class AnthropicLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected model;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: 'chat',
+		provider: {
+			id: 'anthropic',
+			displayName: 'Anthropic'
+		},
+		supportedOptions: ['apiKey'],
+		defaults: {
+			name: 'Claude 3.5 Sonnet',
+			model: 'claude-3-5-sonnet-latest',
+		},
+	};
+
 	constructor(_config: ModelConfig) {
 		super(_config);
 		this.model = createAnthropic({ apiKey: this._config.apiKey })(this._config.model);
 	}
 }
 
-class OpenAIAssistant extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
+class OpenAILanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected model;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: 'chat',
+		provider: {
+			id: 'openai',
+			displayName: 'OpenAI'
+		},
+		supportedOptions: ['apiKey', 'baseUrl'],
+		defaults: {
+			name: 'GPT-4o',
+			model: 'gpt-4o',
+			baseUrl: 'https://api.openai.com',
+		},
+	};
+
 	constructor(_config: ModelConfig) {
 		super(_config);
 		this.model = createOpenAI({ apiKey: this._config.apiKey })(this._config.model);
 	}
 }
 
-class OllamaAssistant extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
+class OllamaLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected model;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: 'chat',
+		provider: {
+			id: 'ollama',
+			displayName: 'Ollama'
+		},
+		supportedOptions: ['baseUrl'],
+		defaults: {
+			name: 'Qwen 2.5',
+			model: 'qwen2.5-coder:7b',
+			baseUrl: 'http://localhost:11434/api',
+		},
+	};
+
 	constructor(_config: ModelConfig) {
 		super(_config);
 		this.model = createOllama({ baseURL: this._config.baseUrl })(this._config.model);
+	}
+
+	async provideLanguageModelResponse(
+		messages: vscode.LanguageModelChatMessage[],
+		options: { [key: string]: any },
+		extensionId: string,
+		progress: vscode.Progress<vscode.ChatResponseFragment>,
+		token: vscode.CancellationToken
+	) {
+		// Ollama does not support streaming with tool calls yet
+		options.tools = undefined;
+		return super.provideLanguageModelResponse(messages, options, extensionId, progress, token);
 	}
 }
 
@@ -133,9 +189,9 @@ export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModel
 	const providerClasses = {
 		'echo': EchoLanguageModel,
 		'error': ErrorLanguageModel,
-		'openai': OpenAIAssistant,
-		'anthropic': AnthropicAssistant,
-		'ollama': OllamaAssistant,
+		'openai': OpenAILanguageModel,
+		'anthropic': AnthropicLanguageModel,
+		'ollama': OllamaLanguageModel,
 	};
 
 	if (!(config.provider in providerClasses)) {
@@ -144,3 +200,9 @@ export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModel
 
 	return new providerClasses[config.provider as keyof typeof providerClasses](config);
 }
+
+export const languageModels = [
+	AnthropicLanguageModel,
+	OpenAILanguageModel,
+	OllamaLanguageModel,
+];

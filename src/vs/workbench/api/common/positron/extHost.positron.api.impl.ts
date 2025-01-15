@@ -217,6 +217,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getCurrentPlotUri(): Thenable<string | undefined> {
 				return extHostAiFeatures.getCurrentPlotUri();
 			},
+			showLanguageModelConfig(sources: positron.ai.LanguageModelSource[]): Thenable<positron.ai.LanguageModelConfig | undefined> {
+				return extHostAiFeatures.showLanguageModelConfig(sources);
+			},
 			registerLanguageModel(provider: positron.ai.LanguageModelChatProvider): vscode.Disposable {
 				return extHostAiFeatures.registerLanguageModel(extension, provider);
 			},

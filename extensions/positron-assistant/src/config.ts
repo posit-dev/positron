@@ -1,19 +1,88 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-
 import * as vscode from 'vscode';
+import * as positron from 'positron';
+import { randomUUID } from 'crypto';
+import { languageModels } from './models';
+import { completionModels } from './completion';
 
-export interface ModelConfig {
-	apiKey: string;
-	name: string;
-	model: string;
-	provider: 'openai' | 'anthropic' | 'ollama' | 'echo' | 'error';
-	baseUrl?: string;
+interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
+	id: string;
 }
 
-export function getModelConfigurations(): ModelConfig[] {
+export interface ModelConfig extends StoredModelConfig {
+	apiKey: string;
+}
+
+export async function getModelConfigurations(
+	context: vscode.ExtensionContext
+): Promise<ModelConfig[]> {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
-	return config.get<ModelConfig[]>('models') || [];
+	const storedConfigs = config.get<StoredModelConfig[]>('models') || [];
+
+	const fullConfigs: ModelConfig[] = await Promise.all(
+		storedConfigs.map(async (config) => {
+			const apiKey = await context.secrets.get(`apiKey-${config.id}`);
+			return {
+				...config,
+				apiKey: apiKey || ''
+			};
+		})
+	);
+
+	return fullConfigs;
+}
+
+export async function showConfigurationDialog(context: vscode.ExtensionContext) {
+	// Show a modal asking user for configuration details
+	const userConfig = await positron.ai.showLanguageModelConfig([
+		...languageModels,
+		...completionModels,
+	].map((provider) => provider.source));
+
+	// Early return if user cancels the dialog
+	if (!userConfig) {
+		return;
+	}
+	const { name, provider, model, type, baseUrl, apiKey } = userConfig;
+
+	// Create unique ID for the configuration
+	const id = randomUUID();
+
+	// Store API key in secret storage
+	if (apiKey) {
+		await context.secrets.store(`apiKey-${id}`, apiKey);
+	}
+
+	// Get existing configurations
+	const config = vscode.workspace.getConfiguration('positron.assistant');
+	const existingConfigs = config.get<StoredModelConfig[]>('models') || [];
+
+	// Add new configuration
+	const newConfig: StoredModelConfig = { id, name, model, provider, type, baseUrl };
+
+	// Update settings.json
+	await config.update(
+		'models',
+		[...existingConfigs, newConfig],
+		vscode.ConfigurationTarget.Global
+	);
+
+	vscode.window.showInformationMessage(`Language Model "${name}" has been added successfully.`);
+}
+
+export async function deleteConfiguration(context: vscode.ExtensionContext, id: string) {
+	const config = vscode.workspace.getConfiguration('positron.assistant');
+	const existingConfigs = config.get<StoredModelConfig[]>('models') || [];
+	const updatedConfigs = existingConfigs.filter(config => config.id !== id);
+
+	await config.update(
+		'models',
+		updatedConfigs,
+		vscode.ConfigurationTarget.Global
+	);
+
+	await context.secrets.delete(`apiKey-${id}`);
 }

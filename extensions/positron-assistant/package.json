@@ -18,6 +18,13 @@
     "defaultChatParticipant"
   ],
   "contributes": {
+    "commands": [
+      {
+        "command": "positron.assistant.addModelConfiguration",
+        "title": "Add Model Configuration",
+        "category": "Positron Assistant"
+      }
+    ],
     "languageModels": [
       {
         "vendor": "positron"
@@ -31,32 +38,40 @@
           "items": {
             "type": "object",
             "properties": {
-              "apiKey": {
+              "id": {
                 "type": "string",
-                "description": "API key for the model provider"
+                "description": "Idenitifier for the model provider, used for API key storage."
               },
               "name": {
                 "type": "string",
-                "description": "Display name for the model"
+                "description": "Display name for the model."
               },
               "model": {
                 "type": "string",
-                "description": "The specific model to use"
+                "description": "The specific model to use."
               },
               "baseUrl": {
                 "type": "string",
-                "description": "URL prefix for API calls"
+                "description": "URL prefix for API calls."
               },
               "provider": {
                 "type": "string",
                 "enum": [
                   "openai",
+                  "mistral",
                   "anthropic",
                   "ollama",
                   "echo",
                   "error"
                 ],
-                "description": "The AI model provider"
+                "description": "The language model provider."
+              },
+              "type": {
+                "enum": [
+                  "chat",
+                  "completion"
+                ],
+                "description": "Type of model; chat participant or code completion."
               }
             },
             "required": [
@@ -65,7 +80,7 @@
             ],
             "additionalProperties": false
           },
-          "description": "Array of AI model configurations"
+          "description": "Array of language model configurations."
         }
       }
     }

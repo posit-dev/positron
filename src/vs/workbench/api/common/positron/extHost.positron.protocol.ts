@@ -14,7 +14,7 @@ import { LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { IPositronChatContext, IPositronChatParticipant } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IPositronChatContext, IPositronChatParticipant, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../../../contrib/chat/common/chatAgents.js';
 import { IChatMessage, IChatResponseFragment } from '../../../contrib/chat/common/languageModels.js';
@@ -138,6 +138,7 @@ export interface MainThreadAiFeaturesShape {
 	$languageModelTaskResponse(id: string, content: IChatResponseFragment): void;
 	$languageModelTaskResolve(id: string, result: any, error?: SerializedError): void;
 	$getCurrentPlotUri(): Promise<string | undefined>;
+	$languageModelConfig(sources: IPositronLanguageModelSource[]): Promise<IPositronLanguageModelConfig | undefined>;
 }
 
 export interface ExtHostAiFeaturesShape {

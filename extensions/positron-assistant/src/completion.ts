@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import * as ai from 'ai';
 
 import { ModelConfig } from './config';
@@ -39,7 +40,22 @@ abstract class CompletionModel implements vscode.InlineCompletionItemProvider {
 	}
 }
 
-class CodestralCompletion extends CompletionModel {
+class MistralCompletion extends CompletionModel {
+	static source: positron.ai.LanguageModelSource = {
+		type: 'completion',
+		provider: {
+			id: 'mistral',
+			displayName: 'Mistral'
+		},
+		supportedOptions: ['baseUrl', 'apiKey'],
+		defaults: {
+			name: 'Codestral',
+			model: 'codestral-latest',
+			apiKey: '',
+			baseUrl: 'https://api.mistral.ai',
+		},
+	};
+
 	async provideInlineCompletionItems(
 		document: vscode.TextDocument,
 		position: vscode.Position,
@@ -55,7 +71,7 @@ class CodestralCompletion extends CompletionModel {
 
 		// Can we use Vercel AI here?
 		const { prefix, suffix, prevLines, nextLines } = this.getDocumentContext(document, position);
-		const response = await fetch('https://api.mistral.ai/v1/fim/completions', {
+		const response = await fetch(`${this._config.baseUrl}/v1/fim/completions`, {
 			method: 'POST',
 			headers: {
 				'Authorization': `Bearer ${this._config.apiKey}`,
@@ -66,7 +82,7 @@ class CodestralCompletion extends CompletionModel {
 				temperature: 0.2,
 				prompt: `${prevLines}\n${prefix}`,
 				suffix: `${suffix}\n${nextLines}`,
-				max_tokens: 256,
+				max_tokens: 128,
 				stop: '\n\n',
 			})
 		});
@@ -84,6 +100,20 @@ class CodestralCompletion extends CompletionModel {
 
 class OllamaCompletion extends CompletionModel {
 	protected model: ai.LanguageModelV1;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: 'completion',
+		provider: {
+			id: 'ollama',
+			displayName: 'Ollama'
+		},
+		supportedOptions: ['baseUrl'],
+		defaults: {
+			name: 'Qwen 2.5 Base',
+			model: 'qwen2.5-coder:7b-base',
+			baseUrl: 'http://localhost:11434',
+		},
+	};
 
 	constructor(protected readonly _config: ModelConfig) {
 		super(_config);
@@ -130,7 +160,7 @@ class OllamaCompletion extends CompletionModel {
 export function newCompletionProvider(config: ModelConfig): vscode.InlineCompletionItemProvider {
 	const providerClasses = {
 		'ollama': OllamaCompletion,
-		'codestral': CodestralCompletion,
+		'mistral': MistralCompletion,
 	};
 
 	if (!(config.provider in providerClasses)) {
@@ -139,3 +169,8 @@ export function newCompletionProvider(config: ModelConfig): vscode.InlineComplet
 
 	return new providerClasses[config.provider as keyof typeof providerClasses](config);
 }
+
+export const completionModels = [
+	MistralCompletion,
+	OllamaCompletion,
+];

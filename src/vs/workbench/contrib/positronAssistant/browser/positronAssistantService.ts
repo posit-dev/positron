@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -12,12 +12,15 @@ import { IPositronVariablesService } from '../../../services/positronVariables/c
 import { PositronVariablesInstance } from '../../../services/positronVariables/common/positronVariablesInstance.js';
 import { IChatAgentRequest } from '../../chat/common/chatAgents.js';
 import { ITerminalService } from '../../terminal/browser/terminal.js';
-import { IPositronAssistantService, IPositronChatContext } from '../common/interfaces/positronAssistantService.js';
+import { IPositronAssistantService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../common/interfaces/positronAssistantService.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
 
 /**
  * PositronAssistantService class.
  */
-class PositronAssistantService extends Disposable implements IPositronAssistantService {
+export class PositronAssistantService extends Disposable implements IPositronAssistantService {
 	declare readonly _serviceBrand: undefined;
 
 	//#region Constructor
@@ -27,6 +30,8 @@ class PositronAssistantService extends Disposable implements IPositronAssistantS
 		@IPositronVariablesService private readonly _variableService: IPositronVariablesService,
 		@IPositronPlotsService private readonly _plotService: IPositronPlotsService,
 		@ITerminalService private readonly _terminalService: ITerminalService,
+		@IKeybindingService private readonly _keybindingService: IKeybindingService,
+		@ILayoutService private readonly _layoutService: ILayoutService,
 	) {
 		super();
 	}
@@ -64,6 +69,22 @@ class PositronAssistantService extends Disposable implements IPositronAssistantS
 		const plot = this._plotService.positronPlotInstances.find(plot => plot.id === this._plotService.selectedPlotId);
 		const isPlotVisible = !!(plot instanceof PlotClientInstance && plot.lastRender);
 		return isPlotVisible ? plot.lastRender.uri : undefined;
+	}
+
+	//#endregion
+	//#region Language Model UI
+
+	showLanguageModelModalDialog(sources: IPositronLanguageModelSource[]): Promise<IPositronLanguageModelConfig | undefined> {
+		return new Promise((resolve) => {
+			showLanguageModelModalDialog(
+				this._keybindingService,
+				this._layoutService,
+				sources,
+				(config) => resolve(config),
+				() => resolve(undefined),
+			);
+		});
+
 	}
 
 	//#endregion

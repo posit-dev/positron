@@ -29,7 +29,6 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 	readonly metadata: positron.ai.ChatParticipantMetadata = {
 		themeIcon: new vscode.ThemeIcon('positron-posit-logo'),
 		isSticky: false,
-		helpTextPrefix: 'hello 1',
 	};
 
 	async requestHandler(request: vscode.ChatRequest, context: positron.ai.ChatContext, response: vscode.ChatResponseStream, token: vscode.CancellationToken) {

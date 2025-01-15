@@ -55,6 +55,12 @@ function registerParticipants() {
 	});
 }
 
+export function registerAddModelConfigurationCommand(context: vscode.ExtensionContext) {
+	return vscode.commands.registerCommand('positron.assistant.addModelConfiguration', async () => {
+		await showConfigurationDialog(context);
+	});
+}
+
 export function activate(context: vscode.ExtensionContext) {
 	// Register chat participants
 	registerParticipants();
@@ -69,6 +75,10 @@ export function activate(context: vscode.ExtensionContext) {
 				registerModels(context);
 			}
 		})
+	);
+
+	context.subscriptions.push(
+		registerAddModelConfigurationCommand(context)
 	);
 
 	context.subscriptions.push({

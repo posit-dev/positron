@@ -12,7 +12,7 @@ import { IExtensionDescription } from '../../../../platform/extensions/common/ex
 import { IChatAgentService } from '../../../contrib/chat/common/chatAgents.js';
 import { IChatProgress } from '../../../contrib/chat/common/chatService.js';
 import { IChatResponseFragment, ILanguageModelChatResponse, ILanguageModelsService } from '../../../contrib/chat/common/languageModels.js';
-import { IPositronAssistantService, IPositronChatParticipant, IPositronLanguageModelTask, IPositronChatTask } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IPositronAssistantService, IPositronChatParticipant, IPositronLanguageModelTask, IPositronChatTask, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IChatProgressDto } from '../../common/extHost.protocol.js';
 import { ExtHostAiFeaturesShape, ExtHostPositronContext, MainPositronContext, MainThreadAiFeaturesShape } from '../../common/positron/extHost.positron.protocol.js';
@@ -184,6 +184,14 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 			task.stream.resolve();
 			task.defer.complete(result);
 		}
+	}
+
+	/*
+	 * Show a modal dialog for language model configuration. Return a promise resolving to the
+	 * configuration saved by the user.
+	 */
+	$languageModelConfig(sources: IPositronLanguageModelSource[]): Promise<IPositronLanguageModelConfig | undefined> {
+		return this._positronAssistantService.showLanguageModelModalDialog(sources);
 	}
 
 	/**

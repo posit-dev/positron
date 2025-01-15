@@ -1602,6 +1602,33 @@ declare module 'positron' {
 		}
 
 		/**
+		 * Positron Language Model source, used for user configuration of language models.
+		 */
+		export interface LanguageModelSource {
+			type: 'chat' | 'completion';
+			provider: { id: string; displayName: string };
+			supportedOptions: ('apiKey' | 'baseUrl')[];
+			defaults: {
+				name: string;
+				model: string;
+				baseUrl?: string;
+				apiKey?: string;
+			};
+		}
+
+		/**
+		 * Positron Language Model configuration.
+		 */
+		export interface LanguageModelConfig {
+			provider: string;
+			type: string;
+			name: string;
+			model: string;
+			baseUrl?: string;
+			apiKey?: string;
+		}
+
+		/**
 		 * Register a language model.
 		 */
 		export function registerLanguageModel(model: LanguageModelChatProvider): vscode.Disposable;
@@ -1615,6 +1642,11 @@ declare module 'positron' {
 		 * Request the current plot data.
 		 */
 		export function getCurrentPlotUri(): Thenable<string | undefined>;
+
+		/**
+		 * Show a modal dialog for language model configuration.
+		 */
+		export function showLanguageModelConfig(sources: LanguageModelSource[]): Thenable<LanguageModelConfig | undefined>;
 
 		/**
 		 * Send a request to a Positron registered Language Model.

@@ -12,7 +12,7 @@ import * as extHostTypes from '../extHostTypes.js';
 import * as typeConvert from '../extHostTypeConverters.js';
 import { ExtHostDocuments } from '../extHostDocuments.js';
 import { revive } from '../../../../base/common/marshalling.js';
-import { IPositronChatContext } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IPositronChatContext, IPositronLanguageModelConfig } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { ChatAgentLocation, IChatAgentRequest, IChatAgentResult } from '../../../contrib/chat/common/chatAgents.js';
 import { CommandsConverter, ExtHostCommands } from '../extHostCommands.js';
@@ -162,6 +162,10 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 				return AsyncIterableObject.map(stream.asyncIterable, part => part.value);
 			},
 		};
+	}
+
+	showLanguageModelConfig(sources: positron.ai.LanguageModelSource[]): Promise<IPositronLanguageModelConfig | undefined> {
+		return this._proxy.$languageModelConfig(sources);
 	}
 
 	private async buildChatParticipantRequest(request: Dto<IChatAgentRequest>): Promise<vscode.ChatRequest> {
