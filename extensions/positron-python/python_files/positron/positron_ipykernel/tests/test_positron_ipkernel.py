@@ -344,3 +344,9 @@ def test_console_warning_logger(shell: PositronShell, caplog, warning_kwargs):
     with caplog.at_level(logging.WARNING):
         shell.kernel._showwarning(filename=Path(__file__), **warning_kwargs)
         assert "this is a warning" in caplog.text
+
+
+def test_import_lightning_and_torch_dynamo(shell: PositronShell) -> None:
+    # See: https://github.com/posit-dev/positron/issues/5879
+    shell.run_cell("import lightning").raise_error()
+    shell.run_cell("import torch._dynamo").raise_error()
