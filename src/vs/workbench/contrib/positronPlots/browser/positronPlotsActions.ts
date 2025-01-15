@@ -14,7 +14,7 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IQuickInputService, IQuickPick, IQuickPickDidAcceptEvent, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
+import { IQuickInputService, IQuickPick, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { PLOT_IS_ACTIVE_EDITOR, POSITRON_EDITOR_PLOTS } from '../../positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
 import { PositronPlotsEditorInput } from '../../positronPlotsEditor/browser/positronPlotsEditorInput.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -543,7 +543,6 @@ export class PlotsSizingPolicyAction extends AbstractPlotsAction {
 		}
 
 		const isView = plotId === PlotActionTarget.VIEW;
-		const sizingItems = this.createSizingItems(plotsService, isView ? undefined : plotId);
 
 		if (isView) {
 			this.executeTargetAction(PlotActionTarget.VIEW, plotsService, editorService, notificationService);
