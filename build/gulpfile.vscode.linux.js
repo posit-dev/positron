@@ -59,6 +59,8 @@ function prepareDebPackage(arch) {
 			.pipe(replace('@@URLPROTOCOL@@', product.urlProtocol));
 
 		// --- Start Positron ---
+		const json = require('gulp-json-editor');
+
 		const appdata = gulp.src('resources/linux/positron.appdata.xml', { base: '.' })
 			.pipe(replace('@@NAME_LONG@@', product.nameLong))
 			.pipe(replace('@@NAME@@', product.applicationName))
@@ -194,6 +196,8 @@ function prepareRpmPackage(arch) {
 			.pipe(replace('@@URLPROTOCOL@@', product.urlProtocol));
 
 		// --- Start Positron ---
+		const json = require('gulp-json-editor');
+
 		const appdata = gulp.src('resources/linux/positron.appdata.xml', { base: '.' })
 			.pipe(replace('@@NAME_LONG@@', product.nameLong))
 			.pipe(replace('@@NAME@@', product.applicationName))
