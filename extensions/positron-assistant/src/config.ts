@@ -16,11 +16,14 @@ export interface ModelConfig extends StoredModelConfig {
 	apiKey: string;
 }
 
-export async function getModelConfigurations(
-	context: vscode.ExtensionContext
-): Promise<ModelConfig[]> {
+export function getStoredModels(): StoredModelConfig[] {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
 	const storedConfigs = config.get<StoredModelConfig[]>('models') || [];
+	return storedConfigs;
+}
+
+export async function getModelConfigurations(context: vscode.ExtensionContext): Promise<ModelConfig[]> {
+	const storedConfigs = getStoredModels();
 
 	const fullConfigs: ModelConfig[] = await Promise.all(
 		storedConfigs.map(async (config) => {

@@ -10,7 +10,7 @@ import { revive } from '../../../../base/common/marshalling.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { IChatAgentService } from '../../../contrib/chat/common/chatAgents.js';
-import { IChatProgress } from '../../../contrib/chat/common/chatService.js';
+import { IChatFollowup, IChatProgress } from '../../../contrib/chat/common/chatService.js';
 import { IChatResponseFragment, ILanguageModelChatResponse, ILanguageModelsService } from '../../../contrib/chat/common/languageModels.js';
 import { IPositronAssistantService, IPositronChatParticipant, IPositronLanguageModelTask, IPositronChatTask, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
@@ -68,6 +68,13 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 					} finally {
 						this._chatTasks.delete(taskId);
 					}
+				},
+				provideFollowups: async (request, result, history, token): Promise<IChatFollowup[]> => {
+					//return this._proxy.$provideFollowups(request, result, { history }, token);
+					return [];
+				},
+				provideWelcomeMessage: (token) => {
+					return this._proxy.$provideWelcomeMessage(participant.id, token);
 				},
 			})
 		);

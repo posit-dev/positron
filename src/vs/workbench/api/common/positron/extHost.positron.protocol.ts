@@ -16,7 +16,7 @@ import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnec
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { IPositronChatContext, IPositronChatParticipant, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
-import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult } from '../../../contrib/chat/common/chatAgents.js';
+import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult, IChatWelcomeMessageContent } from '../../../contrib/chat/common/chatAgents.js';
 import { IChatMessage, IChatResponseFragment } from '../../../contrib/chat/common/languageModels.js';
 import { SerializedError } from '../../../../base/common/errors.js';
 
@@ -145,6 +145,7 @@ export interface ExtHostAiFeaturesShape {
 	$provideResponse(request: IChatAgentRequest, history: IChatAgentHistoryEntry[], context: IPositronChatContext, taskId: string, token: CancellationToken): Promise<IChatAgentResult>;
 	$provideTokenCount(id: string, message: string | IChatMessage, token: CancellationToken): Promise<number>;
 	$provideLanguageModelResponse(id: string, taskId: string, messages: IChatMessage[], from: ExtensionIdentifier, options: { [name: string]: any }, token: CancellationToken): Promise<any>;
+	$provideWelcomeMessage(id: string, token: CancellationToken): Promise<IChatWelcomeMessageContent | undefined>;
 }
 
 /**

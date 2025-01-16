@@ -14,7 +14,7 @@ import { ExtHostDocuments } from '../extHostDocuments.js';
 import { revive } from '../../../../base/common/marshalling.js';
 import { IPositronChatContext, IPositronLanguageModelConfig } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
-import { ChatAgentLocation, IChatAgentRequest, IChatAgentResult } from '../../../contrib/chat/common/chatAgents.js';
+import { ChatAgentLocation, IChatAgentRequest, IChatAgentResult, IChatWelcomeMessageContent } from '../../../contrib/chat/common/chatAgents.js';
 import { CommandsConverter, ExtHostCommands } from '../extHostCommands.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Dto } from '../../../services/extensions/common/proxyIdentifier.js';
@@ -324,6 +324,23 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 			: typeConvert.LanguageModelChatMessage.to(message);
 
 		return await model.provider.provideTokenCount(_message, token);
+	}
+
+	async $provideWelcomeMessage(id: string, token: vscode.CancellationToken): Promise<IChatWelcomeMessageContent | undefined> {
+		const participant = this._registeredChatParticipants.get(id);
+		if (!participant) {
+			throw new Error('Requested chat participant not found.');
+		}
+
+		if (!participant.welcomeMessageProvider || !participant.welcomeMessageProvider.provideWelcomeMessage) {
+			return undefined;
+		}
+
+		const welcome = await participant.welcomeMessageProvider.provideWelcomeMessage(token);
+		return {
+			...welcome,
+			message: typeConvert.MarkdownString.from(welcome.message),
+		};
 	}
 
 	async $provideLanguageModelResponse(id: string, taskId: string, messages: IChatMessage[], from: ExtensionIdentifier, options: { [name: string]: any }, token: vscode.CancellationToken): Promise<any> {

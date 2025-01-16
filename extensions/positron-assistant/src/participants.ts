@@ -12,7 +12,8 @@ import { z } from 'zod';
 
 import { EXTENSION_ROOT_DIR } from './constants';
 import { padBase64String, toLanguageModelChatMessage } from './utils';
-const promptsDir = `${EXTENSION_ROOT_DIR}/src/prompts/`;
+import { getStoredModels } from './config';
+const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
 class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 	readonly id = 'positron-assistant';
@@ -31,9 +32,30 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 		isSticky: false,
 	};
 
+	readonly welcomeMessageProvider = {
+		async provideWelcomeMessage(token: vscode.CancellationToken) {
+			let welcomeText = await fs.promises.readFile(`${mdDir}/welcome.md`, 'utf8');
+
+			// Show an extra configuration link if there are no configured models yet
+			if (getStoredModels().length === 0) {
+				const commandUri = vscode.Uri.parse('command:positron.assistant.addModelConfiguration');
+				welcomeText += `\n\n[Add a Language Model](${commandUri})`;
+			}
+
+			const message = new vscode.MarkdownString(welcomeText);
+			message.isTrusted = true;
+
+			return {
+				icon: new vscode.ThemeIcon('positron-posit-logo'),
+				title: 'Positron Assistant',
+				message,
+			};
+		}
+	};
+
 	async requestHandler(request: vscode.ChatRequest, context: positron.ai.ChatContext, response: vscode.ChatResponseStream, token: vscode.CancellationToken) {
 		// System prompt
-		let system: string = fs.readFileSync(`${promptsDir}/default/default.md`, 'utf8');
+		let system: string = await fs.promises.readFile(`${mdDir}/prompts/default.md`, 'utf8');
 
 		// Tools
 		const tools: Record<string, ai.CoreTool> = {
@@ -74,7 +96,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 
 		// If the user has explicitly attached files as context, add them to the message thread
 		if (request.references.length > 0) {
-			let referencesText = fs.readFileSync(`${promptsDir}/default/attachments.md`, 'utf8');
+			let referencesText = await fs.promises.readFile(`${mdDir}/prompts/attachments.md`, 'utf8');
 
 			for (const reference of request.references) {
 				const value = reference.value as vscode.Uri | vscode.Location;
@@ -107,7 +129,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 
 		// When invoked from the editor, add selection context and editor tool
 		if (request.location2 instanceof vscode.ChatRequestEditorData) {
-			system += fs.readFileSync(`${promptsDir}/default/editor.md`, 'utf8');
+			system += await fs.promises.readFile(`${mdDir}/prompts/editor.md`, 'utf8');
 			const document = request.location2.document;
 			const selection = request.location2.selection;
 			const selectedText = document.getText(selection);
@@ -132,7 +154,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 
 		// When invoked from the terminal, add additional instructions.
 		if (request.location === vscode.ChatLocation.Terminal) {
-			system += fs.readFileSync(`${promptsDir}/default/terminal.md`, 'utf8');
+			system += await fs.promises.readFile(`${mdDir}/prompts/terminal.md`, 'utf8');
 		}
 
 		// User prompt
