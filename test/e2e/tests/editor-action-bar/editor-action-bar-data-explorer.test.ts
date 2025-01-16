@@ -16,7 +16,7 @@ const testCases = [
 		name: 'Python Pandas (CSV Data) - access via variables',
 		script: pandasCsvScript,
 	}, {
-		name: 'Python Pandas - access via variables',
+		name: 'Python Polars - access via variables',
 		script: polarsTsvScript,
 	}, {
 		name: 'R - access via variables',

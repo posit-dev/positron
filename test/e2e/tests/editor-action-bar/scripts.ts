@@ -37,20 +37,16 @@ print(df)`;
 
 /**
  * Script to load a TSV file using Python Polars.
- * Reads a TSV file located in the `data-files/100x100` directory,
- * converts it from a Pandas DataFrame to a Polars DataFrame,
- * and displays the resulting data.
+ * Reads a TSV file located in the `data-files/100x100` directory
+ * and loads it into a Polars DataFrame.
  */
-export const polarsTsvScript = `import pandas as pd
-import polars as pl
+export const polarsTsvScript = `import polars as pl
 import os
 
 file_path = os.path.join(os.getcwd(), 'data-files', '100x100', 'polars-100x100.tsv')
 
-pandas_dataframe = pd.read_csv(file_path, delimiter='\\t')
-
-# Convert to Polars DataFrame
-df = pl.from_pandas(pandas_dataframe)
+# Read the TSV file directly into a Polars DataFrame
+df = pl.read_csv(file_path, separator='\t', ignore_errors=True)
 
 # Display the DataFrame
 print(df)`;
