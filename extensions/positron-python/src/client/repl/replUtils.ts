@@ -39,6 +39,11 @@ export async function getSelectedTextToExecute(textEditor: TextEditor): Promise<
  * @returns boolean - True if sendToNativeREPL setting is enabled, False otherwise.
  */
 export function getSendToNativeREPLSetting(): boolean {
+    // --- Start Positron ---
+    // This setting is hidden in favor of the Positron console.
+    // We leave the dead code path below to make merge conflicts easier to resolve.
+    return false;
+    // --- End Positron ---
     const uri = getActiveResource();
     const configuration = getConfiguration('python', uri);
     return configuration.get<boolean>('REPL.sendToNativeREPL', false);

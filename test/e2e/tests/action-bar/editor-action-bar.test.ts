@@ -14,7 +14,7 @@ test.use({
 });
 
 test.describe('Editor Action Bar', {
-	tag: [tags.WEB, tags.EDITOR_ACTION_BAR, tags.EDITOR]
+	tag: [tags.WEB, tags.WIN, tags.EDITOR_ACTION_BAR, tags.EDITOR]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
@@ -99,7 +99,7 @@ async function verifySplitEditor(page, tabName: string) {
 		// Sometimes in CI the click doesn't register, wrapping these actions to reduce flake
 		await expect(async () => {
 			await page.keyboard.down('Alt');
-			await page.getByLabel('Split Editor Down').nth(1).click();
+			await page.getByLabel('Split Editor Down').click();
 			await page.keyboard.up('Alt');
 			await expect(page.getByRole('tab', { name: tabName })).toHaveCount(2);
 		}).toPass({ timeout: 10000 });
@@ -111,7 +111,7 @@ async function verifyOpenInNewWindow(page, expectedText: string) {
 	await test.step(`verify "open new window" contains: ${expectedText}`, async () => {
 		const [newPage] = await Promise.all([
 			page.context().waitForEvent('page'),
-			page.getByLabel('Move into new window').nth(1).click(),
+			page.getByLabel('Move into new window').first().click(),
 		]);
 		await newPage.waitForLoadState();
 		await expect(newPage.getByText(expectedText)).toBeVisible();
@@ -120,7 +120,7 @@ async function verifyOpenInNewWindow(page, expectedText: string) {
 
 async function clickCustomizeNotebookMenuItem(page, menuItem: string) {
 	const role = menuItem.includes('Line Numbers') ? 'menuitemcheckbox' : 'menuitem';
-	const dropdownButton = page.getByLabel('Customize Notebook...').nth(1);
+	const dropdownButton = page.getByLabel('Customize Notebook...');
 	await dropdownButton.evaluate((button) => {
 		(button as HTMLElement).dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
 	});
@@ -141,14 +141,13 @@ async function verifyLineNumbersVisibility(page, isVisible: boolean) {
 async function verifyOpenChanges(page: Page) {
 	await test.step('verify "open changes" shows diff', async () => {
 
-
 		// make change & save
 		await page.getByText('date', { exact: true }).click();
 		await page.keyboard.press('X');
 		await bindPlatformHotkey(page, 'S');
 
 		// click open changes & verify
-		await page.getByLabel('Open Changes').nth(1).click();
+		await page.getByLabel('Open Changes').click();
 		await expect(page.getByLabel('Revert Block')).toBeVisible();
 		await expect(page.getByLabel('Stage Block')).toBeVisible();
 		await page.getByRole('tab', { name: 'quarto_basic.qmd (Working' }).getByLabel('Close').click();
@@ -165,7 +164,7 @@ async function bindPlatformHotkey(page: Page, key: string) {
 
 async function verifyOpenViewerRendersHtml(app: Application) {
 	await test.step('verify "open in viewer" renders html', async () => {
-		await app.code.driver.page.getByLabel('Open in Viewer').nth(1).click();
+		await app.code.driver.page.getByLabel('Open in Viewer').click();
 		const viewerFrame = app.code.driver.page.locator('iframe.webview').contentFrame().locator('#active-frame').contentFrame();
 		const cellLocator = app.web
 			? viewerFrame.frameLocator('iframe').getByRole('cell', { name: 'Oil, Gas, and Other Regulated' })

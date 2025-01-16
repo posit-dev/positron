@@ -155,5 +155,10 @@ function getVariableResultCacheKey(uri: string, parent: Variable | undefined, st
 }
 
 function isEnabled(resource?: Uri) {
+    // --- Start Positron ---
+    // This setting is hidden in favor of the Positron console.
+    // We leave the dead code path below to make merge conflicts easier to resolve.
+    return true;
+    // --- End Positron ---
     return getConfiguration('python', resource).get('REPL.provideVariables');
 }
