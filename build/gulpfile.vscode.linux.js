@@ -74,6 +74,11 @@ function prepareDebPackage(arch) {
 		// --- Start Positron ---
 		const icon = gulp.src('resources/linux/positron.png', { base: '.' })
 			.pipe(rename('usr/share/pixmaps/' + product.linuxIconName + '.png'));
+
+		// Add to product.json that this is a DEB release
+		gulp.src(['product.json'], { base: '.' })
+			.pipe(json({ packageType: 'deb'}))
+			.pipe(gulp.dest('./'));
 		// --- End Positron ---
 
 		const bash_completion = gulp.src('resources/completions/bash/code')
@@ -194,6 +199,10 @@ function prepareRpmPackage(arch) {
 			.pipe(replace('@@NAME@@', product.applicationName))
 			.pipe(replace('@@LICENSE@@', product.licenseName))
 			.pipe(rename('BUILD/usr/share/appdata/' + product.applicationName + '.appdata.xml'));
+
+		gulp.src(['product.json'], { base: '.' })
+			.pipe(json({ packageType: 'rpm'}))
+			.pipe(gulp.dest('./'));
 		// --- End Positron ---
 
 		const workspaceMime = gulp.src('resources/linux/code-workspace.xml', { base: '.' })
