@@ -6,7 +6,7 @@
 
 import { Code } from '../infra/code';
 import * as os from 'os';
-import { expect, Locator } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 
 interface FlatVariables {
 	value: string;
@@ -64,8 +64,10 @@ export class Variables {
 	}
 
 	async doubleClickVariableRow(variableName: string) {
-		const desiredRow = await this.waitForVariableRow(variableName);
-		await desiredRow.dblclick();
+		await test.step(`Double click variable row: ${variableName}`, async () => {
+			const desiredRow = await this.waitForVariableRow(variableName);
+			await desiredRow.dblclick();
+		});
 	}
 
 	async toggleVariablesView() {

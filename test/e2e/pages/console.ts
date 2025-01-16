@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect, Locator } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
@@ -78,30 +78,32 @@ export class Console {
 	}
 
 	async executeCode(languageName: string, code: string, prompt: string): Promise<void> {
+		await test.step(`Execute ${languageName} code in console: ${code}`, async () => {
 
-		await expect(async () => {
-			// Kind of hacky, but activate console in case focus was previously lost
-			await this.activeConsole.click();
-			await this.quickaccess.runCommand('workbench.action.executeCode.console', { keepOpen: true });
+			await expect(async () => {
+				// Kind of hacky, but activate console in case focus was previously lost
+				await this.activeConsole.click();
+				await this.quickaccess.runCommand('workbench.action.executeCode.console', { keepOpen: true });
 
-		}).toPass();
+			}).toPass();
 
-		await this.quickinput.waitForQuickInputOpened();
-		await this.quickinput.type(languageName);
-		await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0] === languageName);
-		await this.code.driver.page.keyboard.press('Enter');
+			await this.quickinput.waitForQuickInputOpened();
+			await this.quickinput.type(languageName);
+			await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0] === languageName);
+			await this.code.driver.page.keyboard.press('Enter');
 
-		await this.quickinput.waitForQuickInputOpened();
-		const unescapedCode = code
-			.replace(/\n/g, '\\n')
-			.replace(/\r/g, '\\r');
-		await this.quickinput.type(unescapedCode);
-		await this.code.driver.page.keyboard.press('Enter');
-		await this.quickinput.waitForQuickInputClosed();
+			await this.quickinput.waitForQuickInputOpened();
+			const unescapedCode = code
+				.replace(/\n/g, '\\n')
+				.replace(/\r/g, '\\r');
+			await this.quickinput.type(unescapedCode);
+			await this.code.driver.page.keyboard.press('Enter');
+			await this.quickinput.waitForQuickInputClosed();
 
-		// The console will show the prompt after the code is done executing.
-		await this.waitForReady(prompt);
-		await this.maximizeConsole();
+			// The console will show the prompt after the code is done executing.
+			await this.waitForReady(prompt);
+			await this.maximizeConsole();
+		});
 	}
 
 	async logConsoleContents() {

@@ -145,9 +145,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	devTools: [async ({ app }, use) => {
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');
 		await use();
-	},
-
-	{ scope: 'test' }],
+	}, { scope: 'test' }],
 
 	// example usage: await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
 	openFile: async ({ app }, use) => {
