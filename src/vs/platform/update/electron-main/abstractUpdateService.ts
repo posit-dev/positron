@@ -198,11 +198,11 @@ export abstract class AbstractUpdateService implements IUpdateService {
 					return Promise.resolve(null);
 				}
 
-				if (hasUpdate(update, this.productService.positronVersion)) {
+				if (hasUpdate(update, `${this.productService.positronVersion}-${this.productService.positronBuildNumber}`)) {
 					this.logService.info(`update#checkForUpdates, ${update.version} is available`);
 					this.updateAvailable(update);
 				} else {
-					this.logService.info(`update#checkForUpdates, ${this.productService.positronVersion} is the latest version`);
+					this.logService.info(`update#checkForUpdates, ${this.productService.positronVersion}-${this.productService.positronBuildNumber} is the latest version`);
 					this.setState(State.Idle(this.getUpdateType()));
 				}
 				return Promise.resolve(update);
