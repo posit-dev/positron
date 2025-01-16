@@ -107,6 +107,14 @@ export class PythonLsp implements vscode.Disposable {
         // Override default output channel with our persistant one that is reused across sessions.
         this._clientOptions.outputChannel = outputChannel;
 
+        // Set Positron-specific server initialization options.
+        // If this server is for a notebook, set the notebook path option.
+        if (notebookUri) {
+            this._clientOptions.initializationOptions.positron = {
+                notebook_path: notebookUri.fsPath,
+            };
+        }
+
         const message = `Creating Positron Python ${this._version} language client (port ${port})`;
         traceInfo(message);
         outputChannel.appendLine(message);
