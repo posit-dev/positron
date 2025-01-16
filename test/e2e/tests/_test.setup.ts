@@ -149,6 +149,20 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	{ scope: 'test' }],
 
+	// example usage: await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
+	openFile: async ({ app }, use) => {
+		await use(async (filePath: string) => {
+			await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath));
+		});
+	},
+
+	// example usage: await openDataFile(app, 'workspaces/large_r_notebook/spotify.ipynb');
+	openDataFile: async ({ app }, use) => {
+		await use(async (filePath: string) => {
+			await app.workbench.quickaccess.openDataFile(path.join(app.workspacePathOrFolder, filePath));
+		});
+	},
+
 	userSettings: [async ({ app }, use) => {
 		const userSettings = new UserSettingsFixtures(app);
 
@@ -340,6 +354,9 @@ interface TestFixtures {
 	packages: PackageManager;
 	autoTestFixture: any;
 	devTools: void;
+	openFile: (filePath: string) => Promise<void>;
+	openDataFile: (filePath: string) => Promise<void>;
+	// runCommand: (command: string) => Promise<void>;
 }
 
 interface WorkerFixtures {

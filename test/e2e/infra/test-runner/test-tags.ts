@@ -18,7 +18,7 @@
 
 export enum TestTags {
 	// feature tags
-	EDITOR_ACTION_BAR = '@:editor-action-bar',
+	ACTION_BAR = '@:action-bar',
 	APPS = '@:apps',
 	CONNECTIONS = '@:connections',
 	CONSOLE = '@:console',

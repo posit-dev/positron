@@ -6,15 +6,13 @@
 import { test, expect, tags } from '../_test.setup';
 import { Application } from '../../infra';
 import { Page } from '@playwright/test';
-import path = require('path');
-
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Editor Action Bar', {
-	tag: [tags.WEB, tags.WIN, tags.EDITOR_ACTION_BAR, tags.EDITOR]
+test.describe('Action Bar: Editor', {
+	tag: [tags.WEB, tags.WIN, tags.ACTION_BAR, tags.EDITOR]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
@@ -27,8 +25,8 @@ test.describe('Editor Action Bar', {
 
 	test('R Markdown Document [C1080703]', {
 		tag: [tags.R_MARKDOWN]
-	}, async function ({ app, page }) {
-		await openFile(app, 'workspaces/basic-rmd-file/basicRmd.rmd');
+	}, async function ({ app, page, openFile }) {
+		await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
 		await verifyPreviewRendersHtml(app, 'Getting startedAnchor');
 		await verifySplitEditor(page, 'basicRmd.rmd');
 		await verifyOpenInNewWindow(page, 'This post examines the features');
@@ -36,16 +34,16 @@ test.describe('Editor Action Bar', {
 
 	test('Quarto Document [C1080700]', {
 		tag: [tags.QUARTO]
-	}, async function ({ app, page }) {
-		await openFile(app, 'workspaces/quarto_basic/quarto_basic.qmd');
+	}, async function ({ app, page, openFile }) {
+		openFile('workspaces/quarto_basic/quarto_basic.qmd');
 		await verifyPreviewRendersHtml(app, 'Diamond sizes');
 		await verifyOpenChanges(page);
 		await verifySplitEditor(page, 'quarto_basic.qmd');
 		await verifyOpenInNewWindow(page, 'Diamond sizes');
 	});
 
-	test('HTML Document [C1080701]', { tag: [tags.HTML] }, async function ({ app, page }) {
-		await openFile(app, 'workspaces/dash-py-example/data/OilandGasMetadata.html');
+	test('HTML Document [C1080701]', { tag: [tags.HTML] }, async function ({ app, page, openFile }) {
+		openFile('workspaces/dash-py-example/data/OilandGasMetadata.html');
 		await verifyOpenViewerRendersHtml(app);
 		await verifySplitEditor(page, 'OilandGasMetadata.html');
 		await verifyOpenInNewWindow(page, '<title> Oil &amp; Gas Wells - Metadata</title>');
@@ -54,8 +52,8 @@ test.describe('Editor Action Bar', {
 	test('Jupyter Notebook [C1080702]', {
 		tag: [tags.NOTEBOOKS],
 		annotation: [{ type: 'info', description: 'electron test unable to interact with dropdown native menu' }],
-	}, async function ({ app, page }) {
-		await openNotebook(app, 'workspaces/large_r_notebook/spotify.ipynb');
+	}, async function ({ app, page, openDataFile }) {
+		await openDataFile('workspaces/large_r_notebook/spotify.ipynb');
 
 		if (app.web) {
 			await verifyToggleLineNumbers(page);
@@ -66,22 +64,6 @@ test.describe('Editor Action Bar', {
 	});
 });
 
-
-// Helper functions
-async function openFile(app, filePath: string) {
-	const fileName = path.basename(filePath);
-	await test.step(`open file: ${fileName}`, async () => {
-		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath));
-	});
-}
-
-async function openNotebook(app: Application, filePath: string) {
-	await test.step('open jupyter notebook', async () => {
-		await app.workbench.quickaccess.openDataFile(
-			path.join(app.workspacePathOrFolder, filePath)
-		);
-	});
-}
 
 async function verifySplitEditor(page, tabName: string) {
 	await test.step(`verify "split editor" opens another tab`, async () => {
