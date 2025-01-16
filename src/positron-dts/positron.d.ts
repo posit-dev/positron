@@ -1580,6 +1580,7 @@ declare module 'positron' {
 				response: vscode.ChatResponseStream,
 				token: vscode.CancellationToken
 			) => Thenable<vscode.ChatResult | void>;
+			followupProvider?: vscode.ChatFollowupProvider;
 			welcomeMessageProvider?: {
 				provideWelcomeMessage?(token: vscode.CancellationToken): Thenable<{
 					icon: vscode.ThemeIcon;
@@ -1670,6 +1671,7 @@ declare module 'positron' {
 		 */
 		export interface ChatContext extends vscode.ChatContext {
 			positron: {
+				userSelectedModelId: string;
 				context: {
 					console?: {
 						language: string;

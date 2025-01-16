@@ -70,8 +70,8 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 					}
 				},
 				provideFollowups: async (request, result, history, token): Promise<IChatFollowup[]> => {
-					//return this._proxy.$provideFollowups(request, result, { history }, token);
-					return [];
+					const context = this._positronAssistantService.buildChatContext(request);
+					return await this._proxy.$provideFollowups(request, result, history, context, token);
 				},
 				provideWelcomeMessage: (token) => {
 					return this._proxy.$provideWelcomeMessage(participant.id, token);

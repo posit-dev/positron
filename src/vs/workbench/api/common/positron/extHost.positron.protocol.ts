@@ -19,6 +19,7 @@ import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform
 import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult, IChatWelcomeMessageContent } from '../../../contrib/chat/common/chatAgents.js';
 import { IChatMessage, IChatResponseFragment } from '../../../contrib/chat/common/languageModels.js';
 import { SerializedError } from '../../../../base/common/errors.js';
+import { IChatFollowup } from '../../../contrib/chat/common/chatService.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -146,6 +147,7 @@ export interface ExtHostAiFeaturesShape {
 	$provideTokenCount(id: string, message: string | IChatMessage, token: CancellationToken): Promise<number>;
 	$provideLanguageModelResponse(id: string, taskId: string, messages: IChatMessage[], from: ExtensionIdentifier, options: { [name: string]: any }, token: CancellationToken): Promise<any>;
 	$provideWelcomeMessage(id: string, token: CancellationToken): Promise<IChatWelcomeMessageContent | undefined>;
+	$provideFollowups(request: IChatAgentRequest, result: IChatAgentResult, history: IChatAgentHistoryEntry[], context: IPositronChatContext, token: CancellationToken): Promise<IChatFollowup[]>;
 }
 
 /**

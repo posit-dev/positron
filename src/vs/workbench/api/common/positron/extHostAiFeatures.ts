@@ -23,6 +23,7 @@ import { ExtHostLanguageModels } from '../extHostLanguageModels.js';
 import { IChatMessage } from '../../../contrib/chat/common/languageModels.js';
 import { SerializedError } from '../../../../base/common/errors.js';
 import { AsyncIterableObject, AsyncIterableSource } from '../../../../base/common/async.js';
+import { IChatFollowup } from '../../../contrib/chat/common/chatService.js';
 
 class ChatResponse implements vscode.ChatResponseStream {
 	private _isClosed: boolean;
@@ -286,7 +287,13 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return res;
 	}
 
-	async $provideResponse(request: Dto<IChatAgentRequest>, history: IChatAgentHistoryEntryDto[], context: IPositronChatContext, taskId: string, token: vscode.CancellationToken): Promise<IChatAgentResult> {
+	async $provideResponse(
+		request: Dto<IChatAgentRequest>,
+		history: IChatAgentHistoryEntryDto[],
+		context: IPositronChatContext,
+		taskId: string,
+		token: vscode.CancellationToken
+	): Promise<IChatAgentResult> {
 		// Select the requested chat participant
 		const participant = this._registeredChatParticipants.get(request.agentId);
 		if (!participant) {
@@ -302,7 +309,10 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		// Build chat context object
 		const _context = {
 			history: this.buildChatParticipantHistory(history),
-			positron: { context },
+			positron: {
+				userSelectedModelId: request.userSelectedModelId ?? '',
+				context
+			},
 		};
 
 		try {
@@ -311,6 +321,34 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		} finally {
 			response.close();
 		}
+	}
+
+	async $provideFollowups(
+		request: Dto<IChatAgentRequest>,
+		result: IChatAgentResult,
+		history: IChatAgentHistoryEntryDto[],
+		context: IPositronChatContext,
+		token: vscode.CancellationToken
+	): Promise<IChatFollowup[]> {
+		// Select the requested chat participant
+		const participant = this._registeredChatParticipants.get(request.agentId);
+		if (!participant) {
+			throw new Error('Requested chat participant not found.');
+		}
+
+		// Build chat context object
+		const _context = {
+			history: this.buildChatParticipantHistory(history),
+			positron: {
+				userSelectedModelId: request.userSelectedModelId ?? '',
+				context
+			}
+		};
+		const _result = typeConvert.ChatAgentResult.to(result);
+
+		// Return followups from participant
+		const folloups = await participant.followupProvider?.provideFollowups(_result, _context, token) ?? [];
+		return folloups.map(followup => typeConvert.ChatFollowup.from(followup, revive(request)));
 	}
 
 	async $provideTokenCount(id: string, message: string | IChatMessage, token: vscode.CancellationToken): Promise<number> {
@@ -343,7 +381,14 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		};
 	}
 
-	async $provideLanguageModelResponse(id: string, taskId: string, messages: IChatMessage[], from: ExtensionIdentifier, options: { [name: string]: any }, token: vscode.CancellationToken): Promise<any> {
+	async $provideLanguageModelResponse(
+		id: string,
+		taskId: string,
+		messages: IChatMessage[],
+		from: ExtensionIdentifier,
+		options: { [name: string]: any },
+		token: vscode.CancellationToken
+	): Promise<any> {
 		const model = this._registeredLanguageModels.get(id);
 		if (!model) {
 			throw new Error('Requested language model not found.');

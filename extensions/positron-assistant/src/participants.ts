@@ -53,6 +53,34 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 		}
 	};
 
+	readonly followupProvider: vscode.ChatFollowupProvider = {
+		async provideFollowups(result: vscode.ChatResult, context: positron.ai.ChatContext, token: vscode.CancellationToken): Promise<vscode.ChatFollowup[]> {
+			const system = 'Based on the conversation so far, suggest some follow-up data science questions or directions. They should be written like user commands, but keep them short. Return only 3 or 4 suggestions. Return a JSON array of strings, and nothing else.';
+			const messages: vscode.LanguageModelChatMessage[] = toLanguageModelChatMessage(context.history);
+			messages.push(vscode.LanguageModelChatMessage.User('Summarise and suggest follow-ups.'));
+
+			const response = await positron.ai.sendLanguageModelRequest(
+				context.positron.userSelectedModelId,
+				messages,
+				{ modelOptions: { system } },
+				token);
+
+			let json = '';
+			for await (const fragment of response.text) {
+				json += fragment;
+				if (token.isCancellationRequested) {
+					break;
+				}
+			}
+
+			try {
+				return (JSON.parse(json) as 'string'[]).map((p) => ({ prompt: p }));
+			} catch (e) {
+				return [];
+			}
+		}
+	};
+
 	async requestHandler(request: vscode.ChatRequest, context: positron.ai.ChatContext, response: vscode.ChatResponseStream, token: vscode.CancellationToken) {
 		// System prompt
 		let system: string = await fs.promises.readFile(`${mdDir}/prompts/default.md`, 'utf8');
@@ -180,6 +208,9 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 			token);
 
 		for await (const fragment of modelResponse.text) {
+			if (token.isCancellationRequested) {
+				break;
+			}
 			response.markdown(fragment);
 		}
 	}
