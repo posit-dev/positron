@@ -23,7 +23,7 @@ test.describe('Action Bar: Data Explorer', {
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 	});
 
-	test('Python Pandas [...]', async function ({ app, page, openFile, python }) {
+	test('Python Pandas Data [...]', async function ({ app, page, openFile, python }) {
 		// load data in data explorer
 		await openFile('workspaces/polars-dataframe-py/polars_basic.py');
 		await app.workbench.quickaccess.runCommand('python.execInConsole');
@@ -38,7 +38,7 @@ test.describe('Action Bar: Data Explorer', {
 		// await verifyOpenInNewWindow(page, 'Data: df — qa-example-content');
 	});
 
-	test('R [...]', async function ({ app, page, openFile, r }) {
+	test('R Data [...]', async function ({ app, page, openFile, r }) {
 		// load data in data explorer
 		await app.workbench.console.executeCode('R', rScript, '>');
 		await app.workbench.variables.doubleClickVariableRow('Data_Frame');

@@ -354,7 +354,6 @@ interface TestFixtures {
 	devTools: void;
 	openFile: (filePath: string) => Promise<void>;
 	openDataFile: (filePath: string) => Promise<void>;
-	// runCommand: (command: string) => Promise<void>;
 }
 
 interface WorkerFixtures {

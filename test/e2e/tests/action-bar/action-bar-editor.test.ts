@@ -36,7 +36,7 @@ test.describe('Action Bar: Editor', {
 	test('Quarto Document [C1080700]', {
 		tag: [tags.QUARTO]
 	}, async function ({ app, page, openFile }) {
-		openFile('workspaces/quarto_basic/quarto_basic.qmd');
+		await openFile('workspaces/quarto_basic/quarto_basic.qmd');
 		await verifyPreviewRendersHtml(app, 'Diamond sizes');
 		await verifyOpenChanges(page);
 		await verifySplitEditor(page, 'quarto_basic.qmd');
@@ -44,7 +44,7 @@ test.describe('Action Bar: Editor', {
 	});
 
 	test('HTML Document [C1080701]', { tag: [tags.HTML] }, async function ({ app, page, openFile }) {
-		openFile('workspaces/dash-py-example/data/OilandGasMetadata.html');
+		await openFile('workspaces/dash-py-example/data/OilandGasMetadata.html');
 		await verifyOpenViewerRendersHtml(app);
 		await verifySplitEditor(page, 'OilandGasMetadata.html');
 		await verifyOpenInNewWindow(page, '<title> Oil &amp; Gas Wells - Metadata</title>');
