@@ -11,7 +11,6 @@ import { Application } from '../../../infra';
 export const testDataExplorer = async (
 	app: Application,
 	language: 'Python' | 'R',
-	prompt: string,
 	commands: string[],
 	dataFrameName: string,
 	tsvFilePath: string
@@ -21,7 +20,6 @@ export const testDataExplorer = async (
 		await app.workbench.console.executeCode(
 			language,
 			commands[i],
-			prompt
 		);
 	}
 

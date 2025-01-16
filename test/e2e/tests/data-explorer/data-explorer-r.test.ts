@@ -22,7 +22,7 @@ test.describe('Data Explorer - R ', {
 )`;
 
 		logger.log('Sending code to console');
-		await app.workbench.console.executeCode('R', script, '>');
+		await app.workbench.console.executeCode('R', script);
 
 		logger.log('Opening data grid');
 		await expect(async () => {
@@ -82,7 +82,7 @@ test.describe('Data Explorer - R ', {
 		// Regression test for https://github.com/posit-dev/positron/issues/4197
 		// and https://github.com/posit-dev/positron/issues/5714
 		const script = `Data_Frame <- mtcars`;
-		await app.workbench.console.executeCode('R', script, '>');
+		await app.workbench.console.executeCode('R', script);
 		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
 
 		await expect(async () => {
@@ -105,7 +105,7 @@ test.describe('Data Explorer - R ', {
 
 	test('R - Check blank spaces in data explorer [C1078834]', async function ({ app, r }) {
 		const script = `df = data.frame(x = c("a ", "a", "   ", ""))`;
-		await app.workbench.console.executeCode('R', script, '>');
+		await app.workbench.console.executeCode('R', script);
 
 		await expect(async () => {
 			await app.workbench.variables.doubleClickVariableRow('df');

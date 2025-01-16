@@ -18,7 +18,7 @@ test.describe('Variables Pane', {
 
 	test('Python - Verifies Variables pane basic function [C628634]', async function ({ app, logger, python }) {
 		const executeCode = async (code: string) => {
-			await app.workbench.console.executeCode('Python', code, '>>>');
+			await app.workbench.console.executeCode('Python', code);
 		};
 
 		await executeCode('x=1');
@@ -38,7 +38,7 @@ test.describe('Variables Pane', {
 
 	test('R - Verifies Variables pane basic function [C628635]', async function ({ app, logger, r }) {
 		const executeCode = async (code: string) => {
-			await app.workbench.console.executeCode('R', code, '>');
+			await app.workbench.console.executeCode('R', code);
 		};
 
 		await executeCode('x=1');

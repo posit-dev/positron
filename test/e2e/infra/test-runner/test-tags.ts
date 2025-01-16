@@ -18,13 +18,13 @@
 
 export enum TestTags {
 	// feature tags
-	ACTION_BAR = '@:action-bar',
 	APPS = '@:apps',
 	CONNECTIONS = '@:connections',
 	CONSOLE = '@:console',
 	CRITICAL = '@:critical',
 	DATA_EXPLORER = '@:data-explorer',
 	DUCK_DB = '@:duck-db',
+	EDITOR_ACTION_BAR = '@:editor-action-bar',
 	HELP = '@:help',
 	HTML = '@:html',
 	INTERPRETER = '@:interpreter',

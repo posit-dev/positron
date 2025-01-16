@@ -12,8 +12,8 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Action Bar: Editor', {
-	tag: [tags.WEB, tags.WIN, tags.ACTION_BAR, tags.EDITOR]
+test.describe('Editor Action Bar: Documents', {
+	tag: [tags.WEB, tags.WIN, tags.EDITOR_ACTION_BAR, tags.EDITOR]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
@@ -30,7 +30,7 @@ test.describe('Action Bar: Editor', {
 		await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
 		await verifyPreviewRendersHtml(app, 'Getting startedAnchor');
 		await verifySplitEditor(page, 'basicRmd.rmd');
-		await verifyOpenInNewWindow(page, 'This post examines the features');
+		await verifyOpenInNewWindow(app, 'This post examines the features');
 	});
 
 	test('Quarto Document [C1080700]', {
@@ -40,19 +40,18 @@ test.describe('Action Bar: Editor', {
 		await verifyPreviewRendersHtml(app, 'Diamond sizes');
 		await verifyOpenChanges(page);
 		await verifySplitEditor(page, 'quarto_basic.qmd');
-		await verifyOpenInNewWindow(page, 'Diamond sizes');
+		await verifyOpenInNewWindow(app, 'Diamond sizes');
 	});
 
 	test('HTML Document [C1080701]', { tag: [tags.HTML] }, async function ({ app, page, openFile }) {
 		await openFile('workspaces/dash-py-example/data/OilandGasMetadata.html');
 		await verifyOpenViewerRendersHtml(app);
 		await verifySplitEditor(page, 'OilandGasMetadata.html');
-		await verifyOpenInNewWindow(page, '<title> Oil &amp; Gas Wells - Metadata</title>');
+		await verifyOpenInNewWindow(app, '<title> Oil &amp; Gas Wells - Metadata</title>');
 	});
 
 	test('Jupyter Notebook [C1080702]', {
 		tag: [tags.NOTEBOOKS],
-		annotation: [{ type: 'info', description: 'electron test unable to interact with dropdown native menu' }],
 	}, async function ({ app, page, openDataFile }) {
 		await openDataFile('workspaces/large_r_notebook/spotify.ipynb');
 

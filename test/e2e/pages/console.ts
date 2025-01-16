@@ -77,7 +77,7 @@ export class Console {
 		return;
 	}
 
-	async executeCode(languageName: string, code: string, prompt: string): Promise<void> {
+	async executeCode(languageName: string, code: string): Promise<void> {
 		await test.step(`Execute ${languageName} code in console: ${code}`, async () => {
 
 			await expect(async () => {
@@ -101,7 +101,7 @@ export class Console {
 			await this.quickinput.waitForQuickInputClosed();
 
 			// The console will show the prompt after the code is done executing.
-			await this.waitForReady(prompt);
+			await this.waitForReady(languageName === 'Python' ? '>>>' : '>');
 			await this.maximizeConsole();
 		});
 	}
