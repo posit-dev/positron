@@ -43,6 +43,13 @@ runs:
         sudo apt-get update
         sudo apt-get install -y --reinstall python3-apt || sudo apt-get install -y python3.12-apt
 
+    - name: Install system dependencies for R packages
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libproj-dev
+        sudo ln -s /usr/lib/x86_64-linux-gnu/libproj.so.25 /usr/lib/x86_64-linux-gnu/libproj.so.22 || true
+
     - name: Install R Packages
       shell: bash
       run: |
