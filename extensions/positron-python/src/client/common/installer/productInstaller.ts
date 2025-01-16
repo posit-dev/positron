@@ -305,6 +305,7 @@ export class DataScienceInstaller extends BaseInstaller {
                 traceInfo(`Installing pip as its not available to install ${moduleName}.`);
                 await pipInstaller
                     // --- Start Positron ---
+                    // installAsProcess is required to respect the "Install in Terminal" setting?
                     .installModule(Product.pip, interpreter, cancel, undefined, { installAsProcess: true })
                     // --- End Positron ---
                     .catch((ex) =>
