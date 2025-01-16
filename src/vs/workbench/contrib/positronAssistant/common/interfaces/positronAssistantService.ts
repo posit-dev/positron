@@ -5,7 +5,7 @@
 
 import { AsyncIterableSource, DeferredPromise } from '../../../../../base/common/async.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
-import { ChatAgentLocation, IChatAgentMetadata, IChatAgentRequest } from '../../../chat/common/chatAgents.js';
+import { ChatAgentLocation, IChatAgentCommand, IChatAgentMetadata, IChatAgentRequest } from '../../../chat/common/chatAgents.js';
 import { IChatProgress } from '../../../chat/common/chatService.js';
 import { IChatResponseFragment } from '../../../chat/common/languageModels.js';
 
@@ -43,6 +43,7 @@ export interface IPositronChatParticipant {
 	isDefault: boolean;
 	locations: ChatAgentLocation[];
 	metadata: IChatAgentMetadata;
+	commands?: IChatAgentCommand[];
 }
 
 //#endregion

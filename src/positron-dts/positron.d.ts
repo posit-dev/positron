@@ -1573,6 +1573,7 @@ declare module 'positron' {
 			fullName?: string;
 			isDefault: boolean;
 			locations: ChatLocation[];
+			commands?: ChatParticipantSlashCommands[];
 			metadata: ChatParticipantMetadata;
 			requestHandler: (
 				request: vscode.ChatRequest,
@@ -1607,6 +1608,15 @@ declare module 'positron' {
 			isSticky?: boolean;
 			supportsSlowVariables?: boolean;
 			hasFollowups?: boolean;
+		}
+
+		/**
+		 * Chat participant slash commands.
+		 */
+		export interface ChatParticipantSlashCommands {
+			name: string;
+			description: string;
+			isSticky?: boolean;
 		}
 
 		/**

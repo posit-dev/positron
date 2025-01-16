@@ -52,7 +52,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 				extensionPublisherId: extension.publisher,
 				extensionDisplayName: extension.displayName ?? extension.name,
 				isDynamic: true,
-				slashCommands: [],
+				slashCommands: participant.commands ?? [],
 				disambiguation: [],
 			})
 		);
