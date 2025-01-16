@@ -211,11 +211,13 @@ def test_path_completion(tmp_path) -> None:
         source = source.replace("/", os.path.sep)
         completion = completion.replace("/", os.path.sep)
 
-        chars_from_end = len(source) - chars_from_end
-        cursor = Position(0, chars_from_end)
-        completions = _completions(source, {}, cursor.character)
+        character = len(source) - chars_from_end
+        completions = _completions(source, {}, character)
         assert len(completions) == 1
-        assert completions[0].text_edit == TextEdit(Range(cursor, cursor), completion)
+        expected_position = Position(0, character)
+        assert completions[0].text_edit == TextEdit(
+            Range(expected_position, expected_position), completion
+        )
 
     try:
         os.chdir(tmp_path)

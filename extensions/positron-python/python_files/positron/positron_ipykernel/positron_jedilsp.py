@@ -387,7 +387,7 @@ def positron_completion(
                     # lsp_completion_item) notifies the client to use the text as is.
                     # See https://github.com/posit-dev/positron/issues/5193.
                     jedi_completion_item.text_edit = TextEdit(
-                        # Use a range that starts and ends at the cursor position will to insert
+                        # Use a range that starts and ends at the cursor position to insert
                         # text at the cursor.
                         Range(params.position, params.position),
                         completion.complete,
