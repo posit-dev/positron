@@ -609,6 +609,11 @@ class PositronDataExplorerClearColumnSortingAction extends Action2 {
 					id: MenuId.EditorActionsLeft,
 					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
 				},
+				{
+					id: MenuId.EditorTitle,
+					group: 'navigation',
+					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				}
 			]
 		});
 	}
