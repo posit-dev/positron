@@ -9,14 +9,23 @@ import { Application } from '../../infra';
 // --- SHARED HELPERS ---
 
 export async function verifySplitEditor(page, tabName: string) {
-	await test.step(`Verify "split editor" opens another tab`, async () => {
-
+	await test.step(`Verify "split editor" opens another tab and ensure tabs are correctly aligned`, async () => {
 		// Split editor right
 		await page.getByLabel('Split Editor Right', { exact: true }).click();
 		await expect(page.getByRole('tab', { name: tabName })).toHaveCount(2);
 
+		// Verify tabs are on the same X plane
+		const rightSplitTabs = page.getByRole('tab', { name: tabName });
+		const firstTabBox = await rightSplitTabs.nth(0).boundingBox();
+		const secondTabBox = await rightSplitTabs.nth(1).boundingBox();
+
+		expect(firstTabBox).not.toBeNull();
+		expect(secondTabBox).not.toBeNull();
+		expect(firstTabBox!.y).toBeCloseTo(secondTabBox!.y, 1);
+		expect(firstTabBox!.x).not.toBeCloseTo(secondTabBox!.x, 1);
+
 		// Close one tab
-		await page.getByRole('tab', { name: tabName }).getByLabel('Close').first().click();
+		await rightSplitTabs.first().getByLabel('Close').click();
 
 		// Split editor down
 		await page.keyboard.down('Alt');
@@ -24,6 +33,15 @@ export async function verifySplitEditor(page, tabName: string) {
 		await page.keyboard.up('Alt');
 		await expect(page.getByRole('tab', { name: tabName })).toHaveCount(2);
 
+		// Verify tabs are on the same Y plane
+		const downSplitTabs = page.getByRole('tab', { name: tabName });
+		const firstDownTabBox = await downSplitTabs.nth(0).boundingBox();
+		const secondDownTabBox = await downSplitTabs.nth(1).boundingBox();
+
+		expect(firstDownTabBox).not.toBeNull();
+		expect(secondDownTabBox).not.toBeNull();
+		expect(firstDownTabBox!.x).toBeCloseTo(secondDownTabBox!.x, 1);
+		expect(firstDownTabBox!.y).not.toBeCloseTo(secondDownTabBox!.y, 1);
 	});
 }
 
