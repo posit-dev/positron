@@ -148,6 +148,7 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 					action.label :
 					undefined :
 				undefined,
+			checked: action.checked,
 			disabled: !action.enabled,
 			onMouseEnter: () => setMouseInside(true),
 			onMouseLeave: () => setMouseInside(false),
