@@ -104,10 +104,9 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	// --- Start Positron ---
 	protected buildUpdateFeedUrl(channel: string): string | undefined {
 		const platform = `win/${process.arch === 'x64' ? 'x86_64' : 'arm64'}`;
-		const prefix = getUpdateType() === UpdateType.Setup ? 'system-' : 'user-';
+		const prefix = this.productService.target;
 		const baseUrl = createUpdateURL(platform, channel, this.productService);
 
-		// TODO: properly determine if this is a user or system install
 		const url = `${baseUrl}/${prefix}releases.json`;
 
 		return url;
