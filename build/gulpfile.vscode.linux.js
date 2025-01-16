@@ -204,6 +204,7 @@ function prepareRpmPackage(arch) {
 			.pipe(replace('@@LICENSE@@', product.licenseName))
 			.pipe(rename('BUILD/usr/share/appdata/' + product.applicationName + '.appdata.xml'));
 
+		// Add to product.json that this is a RPM release
 		gulp.src(['product.json'], { base: '.' })
 			.pipe(json({ packageType: 'rpm'}))
 			.pipe(gulp.dest('./'));
