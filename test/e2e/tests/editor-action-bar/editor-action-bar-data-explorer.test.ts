@@ -9,17 +9,17 @@ import { pandasCsvScript, pandasParquetScript, polarsTsvScript, rScript } from '
 
 const testCases = [
 	{
-		name: 'Python Pandas (Parquet) - access via variables',
+		title: 'Python Pandas (Parquet) - access via variables',
 		script: pandasParquetScript,
 	},
 	{
-		name: 'Python Pandas (CSV Data) - access via variables',
+		title: 'Python Pandas (CSV Data) - access via variables',
 		script: pandasCsvScript,
 	}, {
-		name: 'Python Polars - access via variables',
+		title: 'Python Polars - access via variables',
 		script: polarsTsvScript,
 	}, {
-		name: 'R - access via variables',
+		title: 'R - access via variables',
 		script: rScript,
 	},
 ];
@@ -42,9 +42,9 @@ test.describe('Editor Action Bar: Data Explorer', {
 	});
 
 	for (const testCase of testCases) {
-		test(testCase.name, async function ({ app, page, interpreter }) {
+		test(testCase.title, async function ({ app, page, interpreter }) {
 			// Set interpreter
-			const language = testCase.name.startsWith('Python') ? 'Python' : 'R';
+			const language = testCase.title.startsWith('Python') ? 'Python' : 'R';
 			await interpreter.set(language);
 
 			// View data in data explorer via variables pane
