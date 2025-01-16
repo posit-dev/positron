@@ -12,6 +12,7 @@ import React, { ReactElement } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { PlatformNativeDialogActionBar } from './platformNativeDialogActionBar.js';
 
 /**
  * OKCancelActionBarProps interface.
@@ -36,16 +37,22 @@ interface OKCancelActionBarProps {
  */
 export const OKCancelActionBar = (props: OKCancelActionBarProps) => {
 	const preActions = props.preActions ? props.preActions() : null;
+	const okButton = (
+		<Button className='action-bar-button default' onPressed={props.onAccept}>
+			{props.okButtonTitle ?? localize('positronOK', "OK")}
+		</Button>
+	);
+	const cancelButton = (
+		<Button className='action-bar-button' onPressed={props.onCancel}>
+			{props.cancelButtonTitle ?? localize('positronCancel', "Cancel")}
+		</Button>
+	);
+
 	// Render.
 	return (
 		<div className='ok-cancel-action-bar top-separator'>
 			{preActions}
-			<Button className='action-bar-button default' onPressed={props.onAccept}>
-				{props.okButtonTitle ?? localize('positronOK', "OK")}
-			</Button>
-			<Button className='action-bar-button' onPressed={props.onCancel}>
-				{props.cancelButtonTitle ?? localize('positronCancel', "Cancel")}
-			</Button>
+			<PlatformNativeDialogActionBar secondaryButton={cancelButton} primaryButton={okButton} />
 		</div>
 	);
 };

@@ -12,6 +12,7 @@ import React from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import * as platform from '../../../../../base/common/platform.js';
 
 /**
  * OKCancelBackNextActionBarProps interface.
@@ -38,6 +39,19 @@ interface ActionBarButtonConfig {
  * @returns The rendered component.
  */
 export const OKCancelBackNextActionBar = ({ okButtonConfig, cancelButtonConfig, backButtonConfig, nextButtonConfig }: OKCancelBackNextActionBarProps) => {
+	const cancelButton = (cancelButtonConfig ?
+		<Button className='button action-bar-button' onPressed={cancelButtonConfig.onClick} disabled={cancelButtonConfig.disable ?? false}>
+			{cancelButtonConfig.title ?? localize('positronCancel', "Cancel")}
+		</Button> : null);
+	const okButton = (okButtonConfig ?
+		<Button className='button action-bar-button default' onPressed={okButtonConfig.onClick} disabled={okButtonConfig.disable ?? false}>
+			{okButtonConfig.title ?? localize('positronOK', "OK")}
+		</Button> : null);
+	const nextButton = (nextButtonConfig ?
+		<Button className='button action-bar-button default' onPressed={nextButtonConfig.onClick} disabled={nextButtonConfig.disable ?? false}>
+			{nextButtonConfig.title ?? localize('positronNext', "Next")}
+		</Button> : null);
+
 	// Render.
 	return (
 		<div className='ok-cancel-action-bar top-separator'>
@@ -49,20 +63,9 @@ export const OKCancelBackNextActionBar = ({ okButtonConfig, cancelButtonConfig, 
 				}
 			</div>
 			<div className='right-actions'>
-				{cancelButtonConfig ?
-					<Button className='button action-bar-button' onPressed={cancelButtonConfig.onClick} disabled={cancelButtonConfig.disable ?? false}>
-						{cancelButtonConfig.title ?? localize('positronCancel', "Cancel")}
-					</Button> : null
-				}
-				{okButtonConfig ?
-					<Button className='button action-bar-button default' onPressed={okButtonConfig.onClick} disabled={okButtonConfig.disable ?? false}>
-						{okButtonConfig.title ?? localize('positronOK', "OK")}
-					</Button> : null
-				}
-				{nextButtonConfig ?
-					<Button className='button action-bar-button default' onPressed={nextButtonConfig.onClick} disabled={nextButtonConfig.disable ?? false}>
-						{nextButtonConfig.title ?? localize('positronNext', "Next")}
-					</Button> : null
+				{platform.isWindows
+					? <>{nextButton}{okButton}{cancelButton}</>
+					: <>{cancelButton}{nextButton}{okButton}</>
 				}
 			</div>
 		</div>
