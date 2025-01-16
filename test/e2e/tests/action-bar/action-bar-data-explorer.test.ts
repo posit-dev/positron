@@ -5,7 +5,7 @@
 
 import { test, expect, tags } from '../_test.setup';
 import { Application } from '../../infra';
-import { verifyOpenInNewWindow, verifySplitEditor } from './helpers';
+import { verifySplitEditor } from './helpers';
 
 test.use({
 	suiteId: __filename
@@ -23,31 +23,58 @@ test.describe('Action Bar: Data Explorer', {
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 	});
 
-	test('Python Pandas Data [...]', async function ({ app, page, openFile, python }) {
+	test('Python Data [...]', async function ({ app, page, openFile, python }) {
 		// load data in data explorer
+		const title = 'Data: df';
 		await openFile('workspaces/polars-dataframe-py/polars_basic.py');
 		await app.workbench.quickaccess.runCommand('python.execInConsole');
 		await app.workbench.variables.doubleClickVariableRow('df');
 		await page.getByRole('tab', { name: 'polars_basic.py' }).getByLabel('Close').click();
-		await expect(page.getByText('Data: df', { exact: true })).toBeVisible();
+		await expect(page.getByText(title, { exact: true })).toBeVisible();
 
 		// verify action bar behavior
 		await verifySummaryPosition(app, 'Left');
 		await verifySummaryPosition(app, 'Right');
-		await verifySplitEditor(page, 'Data: df');
-		// await verifyOpenInNewWindow(page, 'Data: df — qa-example-content');
+		await verifySplitEditor(page, title);
+		// await verifyOpenInNewWindow(page, `${title} — qa-example-content`);
 	});
 
-	test('R Data [...]', async function ({ app, page, openFile, r }) {
+	test('R Data [...]', async function ({ app, page, r }) {
 		// load data in data explorer
+		const title = 'Data: Data_Frame';
 		await app.workbench.console.executeCode('R', rScript, '>');
 		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
-		await expect(app.code.driver.page.getByText('Data: Data_Frame', { exact: true })).toBeVisible();
+		await expect(app.code.driver.page.getByText(title, { exact: true })).toBeVisible();
 
 		// verify action bar behavior
 		await verifySummaryPosition(app, 'Left');
 		await verifySummaryPosition(app, 'Right');
-		await verifySplitEditor(page, 'Data: Data_Frame');
+		await verifySplitEditor(page, title);
+		// await verifyOpenInNewWindow(page, `${title} — qa-example-content`);
+	});
+
+	test('Parquet Data [...]', async function ({ app, page, openDataFile }) {
+		// load data in data explorer
+		const title = 'Data: 100x100.parquet';
+		await openDataFile('data-files/100x100/100x100.parquet');
+
+		// verify action bar behavior
+		await verifySummaryPosition(app, 'Left');
+		await verifySummaryPosition(app, 'Right');
+		await verifySplitEditor(page, title);
+		// await verifyOpenInNewWindow(page, `${title} — qa-example-content`);
+	});
+
+	test('CSV Data [...]', async function ({ app, page, openDataFile }) {
+		// load data in data explorer
+		const title = 'Data: data.csv';
+		await openDataFile('data-files/spotify_data/data.csv');
+
+		// verify action bar behavior
+		await verifySummaryPosition(app, 'Left');
+		await verifySummaryPosition(app, 'Right');
+		await verifySplitEditor(page, title);
+		// await verifyOpenInNewWindow(page, `${title} — qa-example-content`);
 	});
 });
 
