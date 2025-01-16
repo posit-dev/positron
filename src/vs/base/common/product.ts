@@ -64,6 +64,9 @@ export interface IProductConfiguration {
 
 	/** The Positron build number; unique within the Positron version */
 	readonly positronBuildNumber: number;
+
+	/** The linux package type (DEB or RPM) */
+	readonly packageType?: string;
 	// --- End Positron ---
 
 	readonly date?: string;
