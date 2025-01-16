@@ -38,6 +38,7 @@ runs:
         R --version
 
     - name: Fix missing apt_pkg module in Ubuntu 24.04
+      shell: bash
       run: |
         sudo apt-get update
         sudo apt-get install -y --reinstall python3-apt || sudo apt-get install -y python3.12-apt
