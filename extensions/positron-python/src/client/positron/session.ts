@@ -12,7 +12,8 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 import PQueue from 'p-queue';
 import { ProductNames } from '../common/installer/productNames';
-import { InstallOptions } from '../common/installer/types';
+import { InstallOptions, ModuleInstallFlags } from '../common/installer/types';
+
 import {
     IConfigurationService,
     IInstaller,
@@ -254,6 +255,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                 );
             }
 
+            // Check if we have Pip installed, already
+            const hasPip = await installer.isInstalled(Product.pip, interpreter);
+
             // Pass a cancellation token to enable VSCode's progress indicator and let the user
             // cancel the install.
             const tokenSource = new vscode.CancellationTokenSource();
@@ -266,9 +270,12 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
             const product = Product.ipykernel;
             const message = vscode.l10n.t(
-                'To enable Python support, Positron needs to {0} the package <code>{1}</code> for the active interpreter {2} at: <code>{3}</code>.',
+                'To enable Python support, Positron needs to {0} the {1} {2} for the active interpreter {3} at: <code>{4}</code>.',
                 installOrUpgrade,
-                ProductNames.get(product)!,
+                hasPip ? 'package' : 'packages',
+                hasPip
+                    ? `<code>${ProductNames.get(product)!}</code>`
+                    : `<code>${ProductNames.get(product)!}</code> and <code>${ProductNames.get(Product.pip)!}</code>`,
                 `Python ${this.runtimeMetadata.languageVersion}`,
                 this.runtimeMetadata.runtimePath,
             );
@@ -277,7 +284,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                 product,
                 interpreter,
                 installerToken,
-                undefined,
+                ModuleInstallFlags.installPipIfRequired,
                 installOptions,
                 message,
             );

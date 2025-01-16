@@ -304,7 +304,9 @@ export class DataScienceInstaller extends BaseInstaller {
             if (pipInstaller) {
                 traceInfo(`Installing pip as its not available to install ${moduleName}.`);
                 await pipInstaller
-                    .installModule(Product.pip, interpreter, cancel)
+                    // --- Start Positron ---
+                    .installModule(Product.pip, interpreter, cancel, undefined, { installAsProcess: true })
+                    // --- End Positron ---
                     .catch((ex) =>
                         traceError(
                             `Error in installing the module '${moduleName} as Pip could not be installed', ${ex}`,
@@ -428,7 +430,9 @@ export class DataScienceInstaller extends BaseInstaller {
             l10n.t('Install'),
         );
         if (install) {
-            return this.install(product, resource, cancel, undefined, options);
+            // -- Start Positron --
+            return this.install(product, resource, cancel, _flags, options);
+            // -- End Positron --
         }
         // --- End Positron ---
         return InstallerResponse.Ignore;
