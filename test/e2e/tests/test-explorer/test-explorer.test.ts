@@ -36,7 +36,7 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 			await app.workbench.quickInput.waitForQuickInputOpened();
 			await app.workbench.quickInput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
 			await app.workbench.quickInput.clickOkOnQuickInput();
-			await app.workbench.console.waitForReady('>', 10000);
+			await app.workbench.console.waitForReadyAndStarted('>', 10000);
 		}).toPass({ timeout: 50000 });
 
 		await app.workbench.testExplorer.clickTestExplorerIcon();

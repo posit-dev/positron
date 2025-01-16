@@ -87,8 +87,8 @@ export class Interpreter {
 
 			if (waitForReady) {
 				interpreterType === 'Python'
-					? await this.console.waitForReady('>>>', 30000)
-					: await this.console.waitForReady('>', 30000);
+					? await this.console.waitForReadyAndStarted('>>>', 30000)
+					: await this.console.waitForReadyAndStarted('>', 30000);
 			}
 		});
 	}
@@ -306,8 +306,8 @@ export class Interpreter {
 			await this.console.waitForConsoleContents('restarted');
 
 			interpreterType === 'Python'
-				? await this.console.waitForReady('>>>', 10000)
-				: await this.console.waitForReady('>', 10000);
+				? await this.console.waitForReadyAndStarted('>>>', 10000)
+				: await this.console.waitForReadyAndStarted('>', 10000);
 		});
 	}
 

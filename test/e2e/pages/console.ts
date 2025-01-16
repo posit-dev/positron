@@ -71,13 +71,13 @@ export class Console {
 
 		if (waitForReady) {
 			desiredInterpreterType === InterpreterType.Python
-				? await this.waitForReady('>>>', 40000)
-				: await this.waitForReady('>', 40000);
+				? await this.waitForReadyAndStarted('>>>', 40000)
+				: await this.waitForReadyAndStarted('>', 40000);
 		}
 		return;
 	}
 
-	async executeCode(languageName: string, code: string): Promise<void> {
+	async executeCode(languageName: 'Python' | 'R', code: string): Promise<void> {
 		await test.step(`Execute ${languageName} code in console: ${code}`, async () => {
 
 			await expect(async () => {
@@ -131,9 +131,17 @@ export class Console {
 
 	async waitForReady(prompt: string, timeout = 30000): Promise<void> {
 		const activeLine = this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`);
-
 		await expect(activeLine).toHaveText(prompt, { timeout });
-		await this.waitForConsoleContents('started', { timeout });
+	}
+
+	async waitForReadyAndStarted(prompt: string, timeout = 30000): Promise<void> {
+		this.waitForReady(prompt, timeout);
+		await this.waitForConsoleContents('started');
+	}
+
+	async waitForReadyAndRestarted(prompt: string, timeout = 30000): Promise<void> {
+		this.waitForReady(prompt, timeout);
+		await this.waitForConsoleContents('restarted');
 	}
 
 	/**

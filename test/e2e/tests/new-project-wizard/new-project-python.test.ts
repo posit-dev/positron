@@ -104,7 +104,7 @@ async function createNewProject(app: Application, options: CreateProjectOptions)
 async function verifyProjectCreation(app: Application, projectTitle: string) {
 	await test.step(`Verify project created`, async () => {
 		await expect(app.code.driver.page.getByLabel('Folder Commands')).toHaveText(projectTitle, { timeout: 60000 }); // this is really slow on windows CI for some reason
-		await app.workbench.console.waitForReady('>>>', 90000);
+		await app.workbench.console.waitForReadyAndStarted('>>>', 90000);
 	});
 }
 
