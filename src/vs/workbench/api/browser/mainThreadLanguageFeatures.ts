@@ -1036,9 +1036,9 @@ class MainThreadPasteEditProvider implements languages.DocumentPasteEditProvider
 
 	private readonly dataTransfers = new DataTransferFileCache();
 
-	public readonly copyMimeTypes?: readonly string[];
-	public readonly pasteMimeTypes?: readonly string[];
-	public readonly providedPasteEditKinds?: readonly HierarchicalKind[];
+	public readonly copyMimeTypes: readonly string[];
+	public readonly pasteMimeTypes: readonly string[];
+	public readonly providedPasteEditKinds: readonly HierarchicalKind[];
 
 	readonly prepareDocumentPaste?: languages.DocumentPasteEditProvider['prepareDocumentPaste'];
 	readonly provideDocumentPasteEdits?: languages.DocumentPasteEditProvider['provideDocumentPasteEdits'];
@@ -1050,9 +1050,9 @@ class MainThreadPasteEditProvider implements languages.DocumentPasteEditProvider
 		metadata: IPasteEditProviderMetadataDto,
 		@IUriIdentityService private readonly _uriIdentService: IUriIdentityService
 	) {
-		this.copyMimeTypes = metadata.copyMimeTypes;
-		this.pasteMimeTypes = metadata.pasteMimeTypes;
-		this.providedPasteEditKinds = metadata.providedPasteEditKinds?.map(kind => new HierarchicalKind(kind));
+		this.copyMimeTypes = metadata.copyMimeTypes ?? [];
+		this.pasteMimeTypes = metadata.pasteMimeTypes ?? [];
+		this.providedPasteEditKinds = metadata.providedPasteEditKinds?.map(kind => new HierarchicalKind(kind)) ?? [];
 
 		if (metadata.supportsCopy) {
 			this.prepareDocumentPaste = async (model: ITextModel, selections: readonly IRange[], dataTransfer: IReadonlyVSDataTransfer, token: CancellationToken): Promise<IReadonlyVSDataTransfer | undefined> => {
@@ -1131,6 +1131,8 @@ class MainThreadDocumentOnDropEditProvider implements languages.DocumentDropEdit
 
 	readonly dropMimeTypes?: readonly string[];
 
+	readonly providedDropEditKinds: readonly HierarchicalKind[] | undefined;
+
 	readonly resolveDocumentDropEdit?: languages.DocumentDropEditProvider['resolveDocumentDropEdit'];
 
 	constructor(
@@ -1140,6 +1142,7 @@ class MainThreadDocumentOnDropEditProvider implements languages.DocumentDropEdit
 		@IUriIdentityService private readonly _uriIdentService: IUriIdentityService
 	) {
 		this.dropMimeTypes = metadata?.dropMimeTypes ?? ['*/*'];
+		this.providedDropEditKinds = metadata?.providedDropKinds?.map(kind => new HierarchicalKind(kind));
 
 		if (metadata?.supportsResolve) {
 			this.resolveDocumentDropEdit = async (edit, token) => {

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -13,6 +13,7 @@ import React, { useState } from 'react';
 import * as DOM from '../../../dom.js';
 import { isMacintosh } from '../../../../common/platform.js';
 import { positronClassNames } from '../../../../common/positronUtilities.js';
+import { createStyleSheet } from '../../../domStylesheets.js';
 
 /**
  * HorizontalSplitterResizeParams interface. This defines the parameters of a resize operation. When
@@ -57,7 +58,7 @@ export const HorizontalSplitter = (props: {
 		const resizeParams = props.onBeginResize();
 		const target = DOM.getWindow(e.currentTarget).document.body;
 		const clientY = e.clientY;
-		const styleSheet = DOM.createStyleSheet(target);
+		const styleSheet = createStyleSheet(target);
 
 		/**
 		 * pointermove event handler.

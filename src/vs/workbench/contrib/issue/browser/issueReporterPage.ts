@@ -109,7 +109,7 @@ export default (): string => `
 				${sendSystemInfoLabel}
 				(<a href="#" class="showInfo">${escape(localize('show', "show"))}</a>)
 			</label>
-			<div class="block-info hidden">
+			<div class="block-info hidden" style="user-select: text;">
 				<!-- To be dynamically filled -->
 		</div>
 		</div>
@@ -119,7 +119,7 @@ export default (): string => `
 				${sendProcessInfoLabel}
 				(<a href="#" class="showInfo">${escape(localize('show', "show"))}</a>)
 			</label>
-			<pre class="block-info hidden">
+			<pre class="block-info hidden" style="user-select: text;">
 				<code>
 				<!-- To be dynamically filled -->
 				</code>
@@ -131,7 +131,7 @@ export default (): string => `
 				${sendWorkspaceInfoLabel}
 				(<a href="#" class="showInfo">${escape(localize('show', "show"))}</a>)
 			</label>
-			<pre id="systemInfo" class="block-info hidden">
+			<pre id="systemInfo" class="block-info hidden" style="user-select: text;">
 				<code>
 				<!-- To be dynamically filled -->
 				</code>
@@ -143,7 +143,7 @@ export default (): string => `
 				${sendExtensionsLabel}
 				(<a href="#" class="showInfo">${escape(localize('show', "show"))}</a>)
 			</label>
-			<div id="systemInfo" class="block-info hidden">
+			<div id="systemInfo" class="block-info hidden" style="user-select: text;">
 				<!-- To be dynamically filled -->
 			</div>
 		</div>
@@ -153,7 +153,7 @@ export default (): string => `
 				${sendExperimentsLabel}
 				(<a href="#" class="showInfo">${escape(localize('show', "show"))}</a>)
 			</label>
-			<pre class="block-info hidden">
+			<pre class="block-info hidden" style="user-select: text;">
 				<!-- To be dynamically filled -->
 			</pre>
 		</div>

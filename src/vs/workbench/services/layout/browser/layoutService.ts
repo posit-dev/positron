@@ -8,7 +8,7 @@ import { Event } from '../../../../base/common/event.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { Part } from '../../../browser/part.js';
 import { IDimension } from '../../../../base/browser/dom.js';
-import { Direction } from '../../../../base/browser/ui/grid/grid.js';
+import { Direction, IViewSize } from '../../../../base/browser/ui/grid/grid.js';
 import { isMacintosh, isNative, isWeb } from '../../../../base/common/platform.js';
 import { isAuxiliaryWindow } from '../../../../base/browser/window.js';
 import { CustomTitleBarVisibility, TitleBarSetting, getMenuBarVisibility, hasCustomTitlebar, hasNativeTitlebar } from '../../../../platform/window/common/window.js';
@@ -53,7 +53,7 @@ export const enum LayoutSettings {
 	EDITOR_TABS_MODE = 'workbench.editor.showTabs',
 	EDITOR_ACTIONS_LOCATION = 'workbench.editor.editorActionsLocation',
 	COMMAND_CENTER = 'window.commandCenter',
-	LAYOUT_ACTIONS = 'workbench.layoutControl.enabled',
+	LAYOUT_ACTIONS = 'workbench.layoutControl.enabled'
 }
 
 export const enum ActivityBarPosition {
@@ -342,6 +342,16 @@ export interface IWorkbenchLayoutService extends ILayoutService {
 	centerMainEditorLayout(active: boolean): void;
 
 	/**
+	 * Get the provided parts size in the main window.
+	 */
+	getSize(part: Parts): IViewSize;
+
+	/**
+	 * Set the provided parts size in the main window.
+	 */
+	setSize(part: Parts, size: IViewSize): void;
+
+	/**
 	 * Resize the provided part in the main window.
 	 */
 	resizePart(part: Parts, sizeChangeWidth: number, sizeChangeHeight: number): void;
@@ -368,7 +378,6 @@ export interface IWorkbenchLayoutService extends ILayoutService {
 }
 
 export function shouldShowCustomTitleBar(configurationService: IConfigurationService, window: Window, menuBarToggled?: boolean): boolean {
-
 	if (!hasCustomTitlebar(configurationService)) {
 		return false;
 	}
@@ -425,6 +434,7 @@ export function shouldShowCustomTitleBar(configurationService: IConfigurationSer
 }
 
 function isTitleBarEmpty(configurationService: IConfigurationService): boolean {
+
 	// with the command center enabled, we should always show
 	if (configurationService.getValue<boolean>(LayoutSettings.COMMAND_CENTER)) {
 		return false;

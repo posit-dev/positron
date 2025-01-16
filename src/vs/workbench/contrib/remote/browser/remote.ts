@@ -480,7 +480,7 @@ class HelpPanel extends ViewPane {
 		treeContainer.classList.add('remote-help-content');
 		container.appendChild(treeContainer);
 
-		this.tree = <WorkbenchAsyncDataTree<HelpModel, IHelpItem, IHelpItem>>this.instantiationService.createInstance(WorkbenchAsyncDataTree,
+		this.tree = this.instantiationService.createInstance(WorkbenchAsyncDataTree<HelpModel, IHelpItem, IHelpItem>,
 			'RemoteHelp',
 			treeContainer,
 			new HelpTreeVirtualDelegate(),

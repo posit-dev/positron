@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -18,6 +18,7 @@ import { useStateRef } from '../../react/useStateRef.js';
 import { positronClassNames } from '../../../../common/positronUtilities.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { Button, KeyboardModifiers, MouseTrigger } from '../button/button.js';
+import { createStyleSheet } from '../../../domStylesheets.js';
 
 /**
  * Constants.
@@ -277,7 +278,7 @@ export const VerticalSplitter = ({
 		const startingWidth = collapsed ? sashWidth : resizeParams.columnsWidth;
 		const target = DOM.getWindow(e.currentTarget).document.body;
 		const clientX = e.clientX;
-		const styleSheet = DOM.createStyleSheet(target);
+		const styleSheet = createStyleSheet(target);
 
 		/**
 		 * pointermove event handler.

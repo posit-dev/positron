@@ -22,7 +22,7 @@ export interface IExtensionDefinition {
 	repo: string;
 	platforms?: string[];
 	// --- Start PWB: Bundle PWB extension ---
-	s3Bucket?: string;
+	positUrl?: string;
 	// --- End PWB: Bundle PWB extension ---
 	metadata: {
 		id: string;
@@ -77,7 +77,7 @@ function getExtensionDownloadStream(extension: IExtensionDefinition) {
 	// --- Start PWB: Bundle PWB extension ---
 	// the PWB extension is a special case because it's not availble from the marketplace or github
 	if (extension.name === 'rstudio.rstudio-workbench') {
-		return ext.fromS3Bucket(extension)
+		return ext.fromPositUrl(extension)
 			.pipe(rename(p => p.dirname = `${extension.name}/${p.dirname}`));
 	}
 	// --- End PWB: Bundle PWB extension ---

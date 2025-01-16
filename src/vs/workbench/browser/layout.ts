@@ -134,6 +134,7 @@ export const TITLE_BAR_SETTINGS = [
 	LayoutSettings.COMMAND_CENTER,
 	LayoutSettings.EDITOR_ACTIONS_LOCATION,
 	LayoutSettings.LAYOUT_ACTIONS,
+	'workbench.navigationControl.enabled',
 	'window.menuBarVisibility',
 	TitleBarSetting.TITLE_BAR_STYLE,
 	TitleBarSetting.CUSTOM_TITLE_BAR_VISIBILITY,
@@ -1826,6 +1827,14 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		this._onDidChangeMainEditorCenteredLayout.fire(this.stateModel.getRuntimeValue(LayoutStateKeys.MAIN_EDITOR_CENTERED));
 	}
 
+	getSize(part: Parts): IViewSize {
+		return this.workbenchGrid.getViewSize(this.getPart(part));
+	}
+
+	setSize(part: Parts, size: IViewSize): void {
+		this.workbenchGrid.resizeView(this.getPart(part), size);
+	}
+
 	resizePart(part: Parts, sizeChangeWidth: number, sizeChangeHeight: number): void {
 		const sizeChangePxWidth = Math.sign(sizeChangeWidth) * computeScreenAwareSize(getActiveWindow(), Math.abs(sizeChangeWidth));
 		const sizeChangePxHeight = Math.sign(sizeChangeHeight) * computeScreenAwareSize(getActiveWindow(), Math.abs(sizeChangeHeight));
@@ -3055,7 +3064,7 @@ class LayoutStateModel extends Disposable {
 		}
 
 		// Register for runtime key changes
-		this._register(this.storageService.onDidChangeValue(StorageScope.PROFILE, undefined, this._register(new DisposableStore()))(storageChangeEvent => {
+		this._register(this.storageService.onDidChangeValue(StorageScope.PROFILE, undefined, this._store)(storageChangeEvent => {
 			let key: keyof typeof LayoutStateKeys;
 			for (key in LayoutStateKeys) {
 				const stateKey = LayoutStateKeys[key] as WorkbenchLayoutStateKey<StorageKeyType>;

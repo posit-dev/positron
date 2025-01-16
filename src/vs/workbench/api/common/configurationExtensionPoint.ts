@@ -157,7 +157,8 @@ const defaultConfigurationExtPoint = ExtensionsRegistry.registerExtensionPoint<I
 	extensionPoint: 'configurationDefaults',
 	jsonSchema: {
 		$ref: configurationDefaultsSchemaId,
-	}
+	},
+	canHandleResolver: true
 });
 defaultConfigurationExtPoint.setHandler((extensions, { added, removed }) => {
 
@@ -220,7 +221,8 @@ const configurationExtPoint = ExtensionsRegistry.registerExtensionPoint<IConfigu
 				items: configurationEntrySchema
 			}
 		]
-	}
+	},
+	canHandleResolver: true
 });
 
 const extensionConfigurations: ExtensionIdentifierMap<IConfigurationNode[]> = new ExtensionIdentifierMap<IConfigurationNode[]>();

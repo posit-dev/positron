@@ -281,7 +281,7 @@ export class SearchView extends ViewPane {
 			this._saveSearchHistoryService();
 		}));
 
-		this._register(this.storageService.onDidChangeValue(StorageScope.WORKSPACE, SearchHistoryService.SEARCH_HISTORY_KEY, this._register(new DisposableStore()))(() => {
+		this._register(this.storageService.onDidChangeValue(StorageScope.WORKSPACE, SearchHistoryService.SEARCH_HISTORY_KEY, this._store)(() => {
 			const restoredHistory = this.searchHistoryService.load();
 
 			if (restoredHistory.include) {
@@ -906,6 +906,8 @@ export class SearchView extends ViewPane {
 				}
 			}));
 
+		Constants.SearchContext.SearchResultListFocusedKey.bindTo(this.tree.contextKeyService);
+
 		this.tree.setInput(this.viewModel.searchResult);
 		this._register(this.tree.onContextMenu(e => this.onContextMenu(e)));
 		const updateHasSomeCollapsible = () => this.toggleCollapseStateDelayer.trigger(() => this.hasSomeCollapsibleResultKey.set(this.hasSomeCollapsible()));
@@ -976,13 +978,22 @@ export class SearchView extends ViewPane {
 
 		e.browserEvent.preventDefault();
 		e.browserEvent.stopPropagation();
+		const selection = this.tree.getSelection();
+		let arg: any;
+		let context: any;
+		if (selection && selection.length > 0) {
+			arg = e.element;
+			context = selection;
+		} else {
+			context = e.element;
+		}
 
 		this.contextMenuService.showContextMenu({
 			menuId: MenuId.SearchContext,
-			menuActionOptions: { shouldForwardArgs: true },
+			menuActionOptions: { shouldForwardArgs: true, arg },
 			contextKeyService: this.contextKeyService,
 			getAnchor: () => e.anchor,
-			getActionsContext: () => e.element,
+			getActionsContext: () => context,
 		});
 	}
 
