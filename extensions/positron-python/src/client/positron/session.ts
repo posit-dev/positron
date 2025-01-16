@@ -269,16 +269,26 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             const installOrUpgrade = hasCompatibleKernel === ProductInstallStatus.NeedsUpgrade ? 'upgrade' : 'install';
 
             const product = Product.ipykernel;
-            const message = vscode.l10n.t(
-                'To enable Python support, Positron needs to {0} the {1} {2} for the active interpreter {3} at: <code>{4}</code>.',
-                installOrUpgrade,
-                hasPip ? 'package' : 'packages',
-                hasPip
-                    ? `<code>${ProductNames.get(product)!}</code>`
-                    : `<code>${ProductNames.get(product)!}</code> and <code>${ProductNames.get(Product.pip)!}</code>`,
-                `Python ${this.runtimeMetadata.languageVersion}`,
-                this.runtimeMetadata.runtimePath,
-            );
+
+            let message;
+            if (hasPip) {
+                message = vscode.l10n.t(
+                    'To enable Python support, Positron needs to {0} the packages <code>{1}</code> and <code>{2}</code> for the active interpreter {3} at: <code>{4}</code>.',
+                    installOrUpgrade,
+                    ProductNames.get(Product.pip)!,
+                    ProductNames.get(product)!,
+                    `Python ${this.runtimeMetadata.languageVersion}`,
+                    this.runtimeMetadata.runtimePath,
+                );
+            } else {
+                message = vscode.l10n.t(
+                    'To enable Python support, Positron needs to {0} the package <code>{1}</code> for the active interpreter {2} at: <code>{3}</code>.',
+                    installOrUpgrade,
+                    ProductNames.get(product)!,
+                    `Python ${this.runtimeMetadata.languageVersion}`,
+                    this.runtimeMetadata.runtimePath,
+                );
+            }
 
             const response = await installer.promptToInstall(
                 product,
