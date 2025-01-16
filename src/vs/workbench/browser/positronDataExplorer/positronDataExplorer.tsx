@@ -12,12 +12,11 @@ import React, { PropsWithChildren, useEffect, useState } from 'react';
 // Other dependencies.
 import { DisposableStore } from '../../../base/common/lifecycle.js';
 import { ILayoutService } from '../../../platform/layout/browser/layoutService.js';
-import { IClipboardService } from '../../../platform/clipboard/common/clipboardService.js';
-import { IAccessibilityService } from '../../../platform/accessibility/common/accessibility.js';
-import { ActionBar } from './components/actionBar/actionBar.js';
-import { PositronActionBarServices } from '../../../platform/positronActionBar/browser/positronActionBarState.js';
 import { PositronDataExplorerContextProvider } from './positronDataExplorerContext.js';
 import { DataExplorerPanel } from './components/dataExplorerPanel/dataExplorerPanel.js';
+import { IClipboardService } from '../../../platform/clipboard/common/clipboardService.js';
+import { IAccessibilityService } from '../../../platform/accessibility/common/accessibility.js';
+import { PositronActionBarServices } from '../../../platform/positronActionBar/browser/positronActionBarState.js';
 import { IPositronDataExplorerInstance } from '../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from './components/dataExplorerClosed/positronDataExplorerClosed.js';
 
@@ -89,7 +88,6 @@ export const PositronDataExplorer = (props: PropsWithChildren<PositronDataExplor
 	return (
 		<PositronDataExplorerContextProvider {...props}>
 			<div className='positron-data-explorer'>
-				<ActionBar />
 				<DataExplorerPanel />
 				{closed && (
 					<PositronDataExplorerClosed

@@ -134,6 +134,7 @@ export class MenuId {
 	static readonly SCMSourceControlInline = new MenuId('SCMSourceControlInline');
 	static readonly SCMSourceControlTitle = new MenuId('SCMSourceControlTitle');
 	static readonly SCMHistoryTitle = new MenuId('SCMHistoryTitle');
+	static readonly SCMHistoryItemRefContext = new MenuId('SCMHistoryItemRefContext');
 	static readonly SCMTitle = new MenuId('SCMTitle');
 	static readonly SearchContext = new MenuId('SearchContext');
 	static readonly SearchActionMenu = new MenuId('SearchActionContext');
@@ -236,7 +237,11 @@ export class MenuId {
 	static readonly ChatInput = new MenuId('ChatInput');
 	static readonly ChatInputSide = new MenuId('ChatInputSide');
 	static readonly ChatEditingWidgetToolbar = new MenuId('ChatEditingWidgetToolbar');
+	static readonly ChatEditingEditorContent = new MenuId('ChatEditingEditorContent');
+	static readonly ChatEditingEditorHunk = new MenuId('ChatEditingEditorHunk');
 	static readonly ChatEditingWidgetModifiedFilesToolbar = new MenuId('ChatEditingWidgetModifiedFilesToolbar');
+	static readonly ChatInputResourceAttachmentContext = new MenuId('ChatInputResourceAttachmentContext');
+	static readonly ChatInputSymbolAttachmentContext = new MenuId('ChatInputSymbolAttachmentContext');
 	static readonly ChatInlineResourceAnchorContext = new MenuId('ChatInlineResourceAnchorContext');
 	static readonly ChatInlineSymbolAnchorContext = new MenuId('ChatInlineSymbolAnchorContext');
 	static readonly ChatEditingCodeBlockContext = new MenuId('ChatEditingCodeBlockContext');
@@ -513,6 +518,14 @@ export class MenuItemAction implements IAction {
 	readonly enabled: boolean;
 	readonly checked?: boolean;
 
+	// --- Start Positron ---
+	/**
+	 * Gets a value which indicates whether to display the title for the action when it appears on
+	 * an action bar.
+	 */
+	readonly displayTitleOnActionBar?: boolean;
+	// --- End Positron ---
+
 	constructor(
 		item: ICommandAction,
 		alt: ICommandAction | undefined,
@@ -527,6 +540,10 @@ export class MenuItemAction implements IAction {
 		this.tooltip = (typeof item.tooltip === 'string' ? item.tooltip : item.tooltip?.value) ?? '';
 		this.enabled = !item.precondition || contextKeyService.contextMatchesRules(item.precondition);
 		this.checked = undefined;
+
+		// --- Start Positron ---
+		this.displayTitleOnActionBar = item.displayTitleOnActionBar;
+		// --- End Positron ---
 
 		let icon: ThemeIcon | undefined;
 

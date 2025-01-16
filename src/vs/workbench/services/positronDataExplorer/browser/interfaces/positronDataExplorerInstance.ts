@@ -15,7 +15,7 @@ import { PositronDataExplorerLayout } from './positronDataExplorerService.js';
  */
 export interface IPositronDataExplorerInstance extends IDisposable {
 	/**
-	 * Gets the data explorer client instance.
+	 * Gets the language name.
 	 */
 	readonly languageName: string;
 
@@ -43,6 +43,11 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	 * Gets the TableDataDataGridInstance.
 	 */
 	readonly tableDataDataGridInstance: TableDataDataGridInstance;
+
+	/**
+	 * Gets a value which indicates whether one or more columns are sorted.
+	 */
+	readonly isColumnSorting: boolean;
 
 	/**
 	 * The onDidClose event.
@@ -75,6 +80,11 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	readonly onDidExpandSummary: Event<void>;
 
 	/**
+	 * The onDidChangeColumnSorting event.
+	 */
+	readonly onDidChangeColumnSorting: Event<boolean>;
+
+	/**
 	 * Requests focus for the instance.
 	 */
 	requestFocus(): void;
@@ -88,6 +98,12 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	 * Expands the summary.
 	 */
 	expandSummary(): void;
+
+	/**
+	 * Clears column sorting.
+	 * @returns A Promise<void> that resolves when column sorting has been cleared.
+	 */
+	clearColumnSorting(): Promise<void>;
 
 	/**
 	 * Copies the selection or cursor cell to the clipboard.

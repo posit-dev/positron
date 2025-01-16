@@ -143,6 +143,12 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 				action,
 				!useAlternativeAction
 			),
+			text: action instanceof MenuItemAction ?
+				action.displayTitleOnActionBar ?
+					action.label :
+					undefined :
+				undefined,
+			checked: action.checked,
 			disabled: !action.enabled,
 			onMouseEnter: () => setMouseInside(true),
 			onMouseLeave: () => setMouseInside(false),
