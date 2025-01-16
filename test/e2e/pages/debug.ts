@@ -16,6 +16,8 @@ const VARIABLE = `${VIEWLET} .debug-variables .monaco-list-row .expression`;
 
 const STEP_OVER = `.debug-toolbar .action-label[aria-label*="Step Over"]`;
 const STEP_INTO = `.debug-toolbar .action-label[aria-label*="Step Into"]`;
+const CONTINUE = `.debug-toolbar .action-label[aria-label*="Continue"]`;
+const STEP_OUT = `.debug-toolbar .action-label[aria-label*="Step Out"]`;
 
 const STACK_FRAME = `${VIEWLET} .monaco-list-row .stack-frame`;
 
@@ -64,6 +66,14 @@ export class Debug {
 
 	async stepInto(): Promise<any> {
 		await this.code.driver.page.locator(STEP_INTO).click();
+	}
+
+	async stepOut(): Promise<any> {
+		await this.code.driver.page.locator(STEP_OUT).click();
+	}
+
+	async continue(): Promise<any> {
+		await this.code.driver.page.locator(CONTINUE).click();
 	}
 
 	async getStack(): Promise<IStackFrame[]> {

@@ -70,6 +70,16 @@ test.describe('Python Debugging', {
 				lineNumber: 9
 			});
 		});
+
+		await test.step('Step out, continue and wait completion', async () => {
+			await app.workbench.debug.stepOut();
+			await app.workbench.debug.continue();
+
+			await expect(async () => {
+				const stack = await app.workbench.debug.getStack();
+				expect(stack.length).toBe(0);
+			}).toPass({ intervals: [1_000], timeout: 60000 });
+		});
 	});
 });
 
