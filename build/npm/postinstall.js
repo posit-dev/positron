@@ -99,14 +99,14 @@ function setNpmrcConfig(dir, env) {
 // --- Start Positron ---
 /**
  * Merge the package.json files for remote and remote/web into a package.json for remote/reh-web.
- * NOTE: Must be run AFTER `yarn` has been run in the `build` directory and before `yarn` is run in
- * the `remote/reh-web` directory.
+ * NOTE: Must be run AFTER `npm install` has been run in the `build` directory and BEFORE `npm install`
+ * is run in the `remote/reh-web` directory.
  */
 function generateRehWebPackageJson() {
 	const gulp = require('gulp');
 	// Note: this is a local require because this dependency is only available once the `build`
-	// directory has `yarn` executed in it (see for loop below -- `yarn` will be executed for
-	// `build` a while before `remote/reh-web` due to the array order of `dirs`).
+	// directory has `npm install` executed in it (see for loop below -- `npm install` will be
+	// executed for `build` a while before `remote/reh-web` due to the array order of `dirs`).
 	const mergeJson = require('gulp-merge-json');
 
 	const remoteDir = path.join(__dirname, '..', '..', 'remote');
@@ -208,9 +208,10 @@ for (let dir of dirs) {
 		// --- Start Positron ---
 		if (isRehWebDir) {
 			// This ensures that the `remote/reh-web` package.json file is created/updated before
-			// `yarn` is run, so the yarn.lock and node_modules are created/updated with the
-			// appropriate dependencies. This will create a side effect of needing to commit the
-			// changes to the `remote/reh-web` package.json and yarn.lock files if they are updated.
+			// `npm install` is run, so the package-lock.json and node_modules are created/updated
+			// with the appropriate dependencies. This will create a side effect of needing to
+			// commit the changes to the `remote/reh-web` package.json and package-lock.json files if
+			// they are updated.
 			generateRehWebPackageJson();
 		}
 		// --- End Positron ---

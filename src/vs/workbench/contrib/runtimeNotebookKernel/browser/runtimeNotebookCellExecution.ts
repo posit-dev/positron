@@ -127,6 +127,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			runEndTime: Date.now(),
 			lastRunSuccess: false,
 			error: {
+				name: err.name,
 				message: err.message,
 				stack: err?.stack ?? JSON.stringify(err),
 				uri: this._cell.uri,

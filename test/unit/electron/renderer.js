@@ -214,7 +214,7 @@ async function loadTests(opts) {
 	]);
 
 	const _allowedSuitesWithOutput = new Set([
-		'InteractiveChatController'
+		'InlineChatController'
 	]);
 
 	let _testsWithUnexpectedOutput = false;
@@ -281,7 +281,7 @@ async function loadTests(opts) {
 			}
 		});
 
-		errors.setUnexpectedErrorHandler(err => unexpectedErrorHandler(err));
+		errors.setUnexpectedErrorHandler(onUnexpectedError);
 	});
 
 	//#endregion

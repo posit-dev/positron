@@ -74,12 +74,14 @@ from ._vendor.lsprotocol.types import (
     MarkupContent,
     MarkupKind,
     Position,
+    Range,
     RenameParams,
     SignatureHelp,
     SignatureHelpOptions,
     SymbolInformation,
     TextDocumentIdentifier,
     TextDocumentPositionParams,
+    TextEdit,
     WorkspaceEdit,
     WorkspaceSymbolParams,
 )
@@ -368,8 +370,8 @@ def positron_completion(
 
         # Don't add jedi completions if completing an explicit magic command
         if not trimmed_line.startswith(_LINE_MAGIC_PREFIX):
-            jedi_completion_items = [
-                jedi_utils.lsp_completion_item(
+            for completion in completions_jedi:
+                jedi_completion_item = jedi_utils.lsp_completion_item(
                     completion=completion,
                     char_before_cursor=char_before_cursor,
                     char_after_cursor=char_after_cursor,
@@ -378,9 +380,19 @@ def positron_completion(
                     markup_kind=markup_kind,
                     sort_append_text=completion.name,
                 )
-                for completion in completions_jedi
-            ]
-            completion_items.extend(jedi_completion_items)
+
+                # If Jedi knows how to complete the expression, use its suggestion.
+                if completion.complete is not None:
+                    # Using the text_edit attribute (instead of insert_text used in
+                    # lsp_completion_item) notifies the client to use the text as is.
+                    # See https://github.com/posit-dev/positron/issues/5193.
+                    jedi_completion_item.text_edit = TextEdit(
+                        # Use a range that starts and ends at the cursor position to insert
+                        # text at the cursor.
+                        Range(params.position, params.position),
+                        completion.complete,
+                    )
+                completion_items.append(jedi_completion_item)
 
         # Don't add magic completions if:
         # - completing an object's attributes e.g `numpy.<cursor>`

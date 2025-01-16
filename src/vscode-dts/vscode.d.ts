@@ -947,6 +947,21 @@ declare module 'vscode' {
 	}
 
 	/**
+	 * Represents an icon in the UI. This is either an uri, separate uris for the light- and dark-themes,
+	 * or a {@link ThemeIcon theme icon}.
+	 */
+	export type IconPath = Uri | {
+		/**
+		 * The icon path for the light theme.
+		 */
+		light: Uri;
+		/**
+		 * The icon path for the dark theme.
+		 */
+		dark: Uri;
+	} | ThemeIcon;
+
+	/**
 	 * Represents theme specific rendering styles for a {@link TextEditorDecorationType text editor decoration}.
 	 */
 	export interface ThemableDecorationRenderOptions {
@@ -1868,16 +1883,7 @@ declare module 'vscode' {
 		/**
 		 * The icon path or {@link ThemeIcon} for the QuickPickItem.
 		 */
-		iconPath?: Uri | {
-			/**
-			 * The icon path for the light theme.
-			 */
-			light: Uri;
-			/**
-			 * The icon path for the dark theme.
-			 */
-			dark: Uri;
-		} | ThemeIcon;
+		iconPath?: IconPath;
 
 		/**
 		 * A human-readable string which is rendered less prominent in the same line. Supports rendering of
@@ -2698,7 +2704,7 @@ declare module 'vscode' {
 		 * We also support returning `Command` for legacy reasons, however all new extensions should return
 		 * `CodeAction` object instead.
 		 */
-		provideCodeActions(document: TextDocument, range: Range | Selection, context: CodeActionContext, token: CancellationToken): ProviderResult<(Command | T)[]>;
+		provideCodeActions(document: TextDocument, range: Range | Selection, context: CodeActionContext, token: CancellationToken): ProviderResult<Array<Command | T>>;
 
 		/**
 		 * Given a code action fill in its {@linkcode CodeAction.edit edit}-property. Changes to
@@ -3876,16 +3882,7 @@ declare module 'vscode' {
 		/**
 		 * The icon path or {@link ThemeIcon} for the edit.
 		 */
-		iconPath?: Uri | {
-			/**
-			 * The icon path for the light theme.
-			 */
-			light: Uri;
-			/**
-			 * The icon path for the dark theme.
-			 */
-			dark: Uri;
-		} | ThemeIcon;
+		iconPath?: IconPath;
 	}
 
 	/**
@@ -7507,8 +7504,13 @@ declare module 'vscode' {
 		 * verify whether it was successful.
 		 *
 		 * @param executable A command to run.
-		 * @param args Arguments to launch the executable with which will be automatically escaped
-		 * based on the executable type.
+		 * @param args Arguments to launch the executable with. The arguments will be escaped such
+		 * that they are interpreted as single arguments when the argument both contains whitespace
+		 * and does not include any single quote, double quote or backtick characters.
+		 *
+		 * Note that this escaping is not intended to be a security measure, be careful when passing
+		 * untrusted data to this API as strings like `$(...)` can often be used in shells to
+		 * execute code within a string.
 		 *
 		 * @example
 		 * // Execute a command in a terminal immediately after being created
@@ -8061,8 +8063,8 @@ declare module 'vscode' {
 		};
 
 		/**
-		 * A storage utility for secrets. Secrets are persisted across reloads and are independent of the
-		 * current opened {@link workspace.workspaceFolders workspace}.
+		 * A secret storage object that stores state independent
+		 * of the current opened {@link workspace.workspaceFolders workspace}.
 		 */
 		readonly secrets: SecretStorage;
 
@@ -8235,8 +8237,10 @@ declare module 'vscode' {
 	}
 
 	/**
-	 * Represents a storage utility for secrets, information that is
-	 * sensitive.
+	 * Represents a storage utility for secrets (or any information that is sensitive)
+	 * that will be stored encrypted. The implementation of the secret storage will
+	 * be different on each platform and the secrets will not be synced across
+	 * machines.
 	 */
 	export interface SecretStorage {
 		/**
@@ -8654,7 +8658,7 @@ declare module 'vscode' {
 		 * @param args The command arguments.
 		 * @param options Optional options for the started the shell.
 		 */
-		constructor(command: string | ShellQuotedString, args: (string | ShellQuotedString)[], options?: ShellExecutionOptions);
+		constructor(command: string | ShellQuotedString, args: Array<string | ShellQuotedString>, options?: ShellExecutionOptions);
 
 		/**
 		 * The shell command line. Is `undefined` if created with a command and arguments.
@@ -8669,7 +8673,7 @@ declare module 'vscode' {
 		/**
 		 * The shell args. Is `undefined` if created with a full command line.
 		 */
-		args: (string | ShellQuotedString)[];
+		args: Array<string | ShellQuotedString>;
 
 		/**
 		 * The shell options used when the command line is executed in a shell.
@@ -11902,16 +11906,7 @@ declare module 'vscode' {
 		 * When `falsy`, {@link ThemeIcon.Folder Folder Theme Icon} is assigned, if item is collapsible otherwise {@link ThemeIcon.File File Theme Icon}.
 		 * When a file or folder {@link ThemeIcon} is specified, icon is derived from the current file icon theme for the specified theme icon using {@link TreeItem.resourceUri resourceUri} (if provided).
 		 */
-		iconPath?: string | Uri | {
-			/**
-			 * The icon path for the light theme.
-			 */
-			light: string | Uri;
-			/**
-			 * The icon path for the dark theme.
-			 */
-			dark: string | Uri;
-		} | ThemeIcon;
+		iconPath?: string | IconPath;
 
 		/**
 		 * A human-readable string which is rendered less prominent.
@@ -12112,16 +12107,7 @@ declare module 'vscode' {
 		/**
 		 * The icon path or {@link ThemeIcon} for the terminal.
 		 */
-		iconPath?: Uri | {
-			/**
-			 * The icon path for the light theme.
-			 */
-			light: Uri;
-			/**
-			 * The icon path for the dark theme.
-			 */
-			dark: Uri;
-		} | ThemeIcon;
+		iconPath?: IconPath;
 
 		/**
 		 * The icon {@link ThemeColor} for the terminal.
@@ -12160,16 +12146,7 @@ declare module 'vscode' {
 		/**
 		 * The icon path or {@link ThemeIcon} for the terminal.
 		 */
-		iconPath?: Uri | {
-			/**
-			 * The icon path for the light theme.
-			 */
-			light: Uri;
-			/**
-			 * The icon path for the dark theme.
-			 */
-			dark: Uri;
-		} | ThemeIcon;
+		iconPath?: IconPath;
 
 		/**
 		 * The icon {@link ThemeColor} for the terminal.
@@ -12910,17 +12887,7 @@ declare module 'vscode' {
 		/**
 		 * Icon for the button.
 		 */
-		readonly iconPath: Uri | {
-			/**
-			 * The icon path for the light theme.
-			 */
-			light: Uri;
-			/**
-			 * The icon path for the dark theme.
-			 */
-			dark: Uri;
-		} | ThemeIcon;
-
+		readonly iconPath: IconPath;
 		/**
 		 * An optional tooltip.
 		 */
@@ -17648,6 +17615,29 @@ declare module 'vscode' {
 		loadDetailedCoverage?: (testRun: TestRun, fileCoverage: FileCoverage, token: CancellationToken) => Thenable<FileCoverageDetail[]>;
 
 		/**
+		 * An extension-provided function that provides detailed statement and
+		 * function-level coverage for a single test in a file. This is the per-test
+		 * sibling of {@link TestRunProfile.loadDetailedCoverage}, called only if
+		 * a test item is provided in {@link FileCoverage.includesTests} and only
+		 * for files where such data is reported.
+		 *
+		 * Often {@link TestRunProfile.loadDetailedCoverage} will be called first
+		 * when a user opens a file, and then this method will be called if they
+		 * drill down into specific per-test coverage information. This method
+		 * should then return coverage data only for statements and declarations
+		 * executed by the specific test during the run.
+		 *
+		 * The {@link FileCoverage} object passed to this function is the same
+		 * instance emitted on {@link TestRun.addCoverage} calls associated with this profile.
+		 *
+		 * @param testRun The test run that generated the coverage data.
+		 * @param fileCoverage The file coverage object to load detailed coverage for.
+		 * @param fromTestItem The test item to request coverage information for.
+		 * @param token A cancellation token that indicates the operation should be cancelled.
+		 */
+		loadDetailedCoverageForTest?: (testRun: TestRun, fileCoverage: FileCoverage, fromTestItem: TestItem, token: CancellationToken) => Thenable<FileCoverageDetail[]>;
+
+		/**
 		 * Deletes the run profile.
 		 */
 		dispose(): void;
@@ -18241,6 +18231,13 @@ declare module 'vscode' {
 		declarationCoverage?: TestCoverageCount;
 
 		/**
+		 * A list of {@link TestItem test cases} that generated coverage in this
+		 * file. If set, then {@link TestRunProfile.loadDetailedCoverageForTest}
+		 * should also be defined in order to retrieve detailed coverage information.
+		 */
+		includesTests?: TestItem[];
+
+		/**
 		 * Creates a {@link FileCoverage} instance with counts filled in from
 		 * the coverage details.
 		 * @param uri Covered file URI
@@ -18255,12 +18252,14 @@ declare module 'vscode' {
 		 * used to represent line coverage.
 		 * @param branchCoverage Branch coverage information
 		 * @param declarationCoverage Declaration coverage information
+		 * @param includesTests Test cases included in this coverage report, see {@link includesTests}
 		 */
 		constructor(
 			uri: Uri,
 			statementCoverage: TestCoverageCount,
 			branchCoverage?: TestCoverageCount,
 			declarationCoverage?: TestCoverageCount,
+			includesTests?: TestItem[],
 		);
 	}
 
@@ -18998,16 +18997,7 @@ declare module 'vscode' {
 		/**
 		 * An icon for the participant shown in UI.
 		 */
-		iconPath?: Uri | {
-			/**
-			 * The icon path for the light theme.
-			 */
-			light: Uri;
-			/**
-			 * The icon path for the dark theme.
-			 */
-			dark: Uri;
-		} | ThemeIcon;
+		iconPath?: IconPath;
 
 		/**
 		 * The handler for requests to this participant.
@@ -19174,16 +19164,7 @@ declare module 'vscode' {
 		 * @param value A uri or location
 		 * @param iconPath Icon for the reference shown in UI
 		 */
-		reference(value: Uri | Location, iconPath?: Uri | ThemeIcon | {
-			/**
-			 * The icon path for the light theme.
-			 */
-			light: Uri;
-			/**
-			 * The icon path for the dark theme.
-			 */
-			dark: Uri;
-		}): void;
+		reference(value: Uri | Location, iconPath?: IconPath): void;
 
 		/**
 		 * Pushes a part to this stream.
@@ -19297,32 +19278,14 @@ declare module 'vscode' {
 		/**
 		 * The icon for the reference.
 		 */
-		iconPath?: Uri | ThemeIcon | {
-			/**
-			 * The icon path for the light theme.
-			 */
-			light: Uri;
-			/**
-			 * The icon path for the dark theme.
-			 */
-			dark: Uri;
-		};
+		iconPath?: IconPath;
 
 		/**
 		 * Create a new ChatResponseReferencePart.
 		 * @param value A uri or location
 		 * @param iconPath Icon for the reference shown in UI
 		 */
-		constructor(value: Uri | Location, iconPath?: Uri | ThemeIcon | {
-			/**
-			 * The icon path for the light theme.
-			 */
-			light: Uri;
-			/**
-			 * The icon path for the dark theme.
-			 */
-			dark: Uri;
-		});
+		constructor(value: Uri | Location, iconPath?: IconPath);
 	}
 
 	/**
@@ -19390,7 +19353,7 @@ declare module 'vscode' {
 		 * @param content The content of the message.
 		 * @param name The optional name of a user for the message.
 		 */
-		static User(content: string | (LanguageModelTextPart | LanguageModelToolResultPart)[], name?: string): LanguageModelChatMessage;
+		static User(content: string | Array<LanguageModelTextPart | LanguageModelToolResultPart>, name?: string): LanguageModelChatMessage;
 
 		/**
 		 * Utility to create a new assistant message.
@@ -19398,7 +19361,7 @@ declare module 'vscode' {
 		 * @param content The content of the message.
 		 * @param name The optional name of a user for the message.
 		 */
-		static Assistant(content: string | (LanguageModelTextPart | LanguageModelToolCallPart)[], name?: string): LanguageModelChatMessage;
+		static Assistant(content: string | Array<LanguageModelTextPart | LanguageModelToolCallPart>, name?: string): LanguageModelChatMessage;
 
 		/**
 		 * The role of this message.
@@ -19409,7 +19372,7 @@ declare module 'vscode' {
 		 * A string or heterogeneous array of things that a message can contain as content. Some parts may be message-type
 		 * specific for some models.
 		 */
-		content: (LanguageModelTextPart | LanguageModelToolResultPart | LanguageModelToolCallPart)[];
+		content: Array<LanguageModelTextPart | LanguageModelToolResultPart | LanguageModelToolCallPart>;
 
 		/**
 		 * The optional name of a user for this message.
@@ -19423,7 +19386,7 @@ declare module 'vscode' {
 		 * @param content The content of the message.
 		 * @param name The optional name of a user for the message.
 		 */
-		constructor(role: LanguageModelChatMessageRole, content: string | (LanguageModelTextPart | LanguageModelToolResultPart | LanguageModelToolCallPart)[], name?: string);
+		constructor(role: LanguageModelChatMessageRole, content: string | Array<LanguageModelTextPart | LanguageModelToolResultPart | LanguageModelToolCallPart>, name?: string);
 	}
 
 	/**
@@ -19840,13 +19803,13 @@ declare module 'vscode' {
 		/**
 		 * The value of the tool result.
 		 */
-		content: (LanguageModelTextPart | LanguageModelPromptTsxPart | unknown)[];
+		content: Array<LanguageModelTextPart | LanguageModelPromptTsxPart | unknown>;
 
 		/**
 		 * @param callId The ID of the tool call.
 		 * @param content The content of the tool result.
 		 */
-		constructor(callId: string, content: (LanguageModelTextPart | LanguageModelPromptTsxPart | unknown)[]);
+		constructor(callId: string, content: Array<LanguageModelTextPart | LanguageModelPromptTsxPart | unknown>);
 	}
 
 	/**
@@ -19891,13 +19854,13 @@ declare module 'vscode' {
 		 * the future.
 		 * @see {@link lm.invokeTool}.
 		 */
-		content: (LanguageModelTextPart | LanguageModelPromptTsxPart | unknown)[];
+		content: Array<LanguageModelTextPart | LanguageModelPromptTsxPart | unknown>;
 
 		/**
 		 * Create a LanguageModelToolResult
 		 * @param content A list of tool result content parts
 		 */
-		constructor(content: (LanguageModelTextPart | LanguageModelPromptTsxPart)[]);
+		constructor(content: Array<LanguageModelTextPart | LanguageModelPromptTsxPart>);
 	}
 
 	/**
@@ -20035,7 +19998,7 @@ declare module 'vscode' {
 		/**
 		 * A customized progress message to show while the tool runs.
 		 */
-		invocationMessage?: string;
+		invocationMessage?: string | MarkdownString;
 
 		/**
 		 * The presence of this property indicates that the user should be asked to confirm before running the tool. The user
