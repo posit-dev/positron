@@ -6,7 +6,7 @@
 import { expect, FrameLocator, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 
-// currently a dupe of declaration in ../editor.ts but trying not to modifiy that file
+// currently a dupe of declaration in ../editor.ts but trying not to modify that file
 const EDITOR = (filename: string) => `.monaco-editor[data-uri$="${filename}"]`;
 const CURRENT_LINE = '.view-overlays .current-line';
 const PLAY_BUTTON = '.codicon-play';
@@ -17,6 +17,7 @@ const INNER_FRAME = '#active-frame';
 export class Editor {
 
 	viewerFrame = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
+	playButton = this.code.driver.page.locator(PLAY_BUTTON);
 
 	getEditorViewerLocator(locator: string,): Locator {
 		return this.viewerFrame.locator(locator);
