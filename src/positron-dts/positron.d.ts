@@ -1568,71 +1568,35 @@ declare module 'positron' {
 			provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Thenable<number>;
 		}
 
-		/**
-		 * The location from which the chat request originates.
-		 */
-		export enum ChatLocation {
-			Panel = 1,
-			Terminal = 2,
-			Notebook = 3,
-			Editor = 4,
-			EditingSession = 5,
-		}
-
-		/**
-		 * A positron chat participant.
-		 */
-		export interface ChatParticipant {
-			id: string;
-			name: string;
-			fullName?: string;
-			isDefault: boolean;
-			locations: ChatLocation[];
-			commands?: ChatParticipantSlashCommands[];
-			metadata: ChatParticipantMetadata;
-			requestHandler: (
-				request: vscode.ChatRequest,
-				context: ChatContext,
-				response: vscode.ChatResponseStream,
-				token: vscode.CancellationToken
-			) => Thenable<vscode.ChatResult | void>;
-			followupProvider?: vscode.ChatFollowupProvider;
-			welcomeMessageProvider?: {
-				provideWelcomeMessage?(token: vscode.CancellationToken): Thenable<{
-					icon: vscode.ThemeIcon;
-					title: string;
-					message: vscode.MarkdownString;
-				}>;
-			};
-		}
-
-		/**
-		 * Positron chat participant metadata.
-		 */
-		export interface ChatParticipantMetadata {
-			helpTextPrefix?: string | vscode.MarkdownString;
-			helpTextVariablesPrefix?: string | vscode.MarkdownString;
-			helpTextPostfix?: string | vscode.MarkdownString;
-			isSecondary?: boolean;
-			icon?: vscode.Uri;
-			iconDark?: vscode.Uri;
-			themeIcon?: vscode.ThemeIcon;
-			sampleRequest?: string;
-			supportIssueReporting?: boolean;
-			followupPlaceholder?: string;
-			isSticky?: boolean;
-			supportsSlowVariables?: boolean;
-			hasFollowups?: boolean;
-		}
-
-		/**
-		 * Chat participant slash commands.
-		 */
-		export interface ChatParticipantSlashCommands {
+		export interface ChatAgentSlashCommands {
 			name: string;
 			description: string;
 			isSticky?: boolean;
 		}
+
+		export interface ChatAgentData {
+			id: string;
+			name: string;
+			fullName?: string;
+			description?: string;
+			isDefault?: boolean;
+			metadata: { isSticky?: boolean };
+			slashCommands: ChatAgentSlashCommands[];
+			locations: ('panel' | 'terminal' | 'notebook' | 'editor' | 'editing-session')[];
+			disambiguation: { category: string; description: string; examples: string[] }[];
+		}
+
+		export interface ChatParticipant extends vscode.ChatParticipant {
+			id: string;
+			agentData: ChatAgentData;
+			iconPath: vscode.ThemeIcon;
+		}
+
+		/**
+		 * Register a chat agent dynamically, without populating `package.json`. This allows for
+		 * defining dynamic agent commands.
+		 */
+		export function registerChatAgent(agentData: ChatAgentData): Thenable<vscode.Disposable>;
 
 		/**
 		 * Positron Language Model source, used for user configuration of language models.
@@ -1662,14 +1626,14 @@ declare module 'positron' {
 		}
 
 		/**
-		 * Register a chat participant.
-		 */
-		export function registerChatParticipant(participant: ChatParticipant): vscode.Disposable;
-
-		/**
 		 * Request the current plot data.
 		 */
 		export function getCurrentPlotUri(): Thenable<string | undefined>;
+
+		/**
+		 * Get Positron global context information to be included with every request.
+		 */
+		export function getPositronChatContext(request: vscode.ChatRequest): Thenable<ChatContext>;
 
 		/**
 		 * Send a progress response to the chat response stream.
@@ -1687,22 +1651,17 @@ declare module 'positron' {
 		/**
 		 * The context in which a chat request is made.
 		 */
-		export interface ChatContext extends vscode.ChatContext {
-			positron: {
-				userSelectedModelId: string;
-				context: {
-					console?: {
-						language: string;
-						version: string;
-					};
-					variables?: {
-						name: string;
-						value: string;
-						type: string;
-					}[];
-					shell?: string;
-				};
+		export interface ChatContext {
+			console?: {
+				language: string;
+				version: string;
 			};
+			variables?: {
+				name: string;
+				value: string;
+				type: string;
+			}[];
+			shell?: string;
 		}
 	}
 }

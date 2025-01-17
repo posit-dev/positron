@@ -8,179 +8,39 @@ import type * as positron from 'positron';
 
 import { Disposable } from '../extHostTypes.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
-import * as extHostTypes from '../extHostTypes.js';
 import * as typeConvert from '../extHostTypeConverters.js';
-import { ExtHostDocuments } from '../extHostDocuments.js';
-import { revive } from '../../../../base/common/marshalling.js';
-import { IPositronChatContext, IPositronLanguageModelConfig } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
-import { ChatAgentLocation, IChatAgentRequest, IChatAgentResult, IChatWelcomeMessageContent } from '../../../contrib/chat/common/chatAgents.js';
-import { CommandsConverter, ExtHostCommands } from '../extHostCommands.js';
+import { ExtHostCommands } from '../extHostCommands.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { Dto } from '../../../services/extensions/common/proxyIdentifier.js';
-import { IChatAgentHistoryEntryDto } from '../extHost.protocol.js';
-import { ExtHostLanguageModels } from '../extHostLanguageModels.js';
-import { IChatFollowup } from '../../../contrib/chat/common/chatService.js';
 import { isToolInvocationContext, IToolInvocationContext } from '../../../contrib/chat/common/languageModelToolsService.js';
+import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
+import { ChatAgentLocation } from '../../../contrib/chat/common/chatAgents.js';
 
-class ChatResponse implements vscode.ChatResponseStream {
-	private _isClosed: boolean;
-
-	constructor(
-		private readonly _proxy: extHostProtocol.MainThreadAiFeaturesShape,
-		private readonly _id: string,
-		private readonly _commandsConverter: CommandsConverter,
-		private readonly _disposables: DisposableStore,
-	) {
-		this._isClosed = false;
-	}
-
-	assertOpen() {
-		if (this._isClosed) {
-			throw new Error('Response stream is closed');
-		}
-	}
-
-	markdownWithVulnerabilities(value: string | vscode.MarkdownString, vulnerabilities: vscode.ChatVulnerability[]): void {
-		this.assertOpen();
-		const part = new extHostTypes.ChatResponseMarkdownWithVulnerabilitiesPart(value, vulnerabilities);
-		const dto = typeConvert.ChatResponseMarkdownWithVulnerabilitiesPart.from(part);
-		this._proxy.$chatTaskResponse(this._id, dto);
-	}
-
-	codeblockUri(uri: vscode.Uri): void {
-		this.assertOpen();
-		const part = new extHostTypes.ChatResponseCodeblockUriPart(uri);
-		const dto = typeConvert.ChatResponseCodeblockUriPart.from(part);
-		this._proxy.$chatTaskResponse(this._id, dto);
-	}
-
-	detectedParticipant(participant: string, command?: vscode.ChatCommand): void {
-		this.assertOpen();
-		const part = new extHostTypes.ChatResponseDetectedParticipantPart(participant, command);
-		const dto = typeConvert.ChatResponseDetectedParticipantPart.from(part);
-		this._proxy.$chatTaskResponse(this._id, dto);
-	}
-
-	push(part: Parameters<vscode.ChatResponseStream['push']>[0]): void {
-		this.assertOpen();
-		if (part instanceof extHostTypes.ChatResponseProgressPart2) {
-			const dto = part.task ? typeConvert.ChatTask.from(part) : typeConvert.ChatResponseProgressPart.from(part);
-			this._proxy.$chatTaskResponse(this._id, dto);
-		} else if (part instanceof extHostTypes.ChatResponseAnchorPart) {
-			const dto = typeConvert.ChatResponseAnchorPart.from(part);
-			this._proxy.$chatTaskResponse(this._id, dto);
-		} else {
-			const dto = typeConvert.ChatResponsePart.from(part, this._commandsConverter, this._disposables);
-			this._proxy.$chatTaskResponse(this._id, dto);
-		}
-	}
-
-	confirmation(title: string, message: string, data: any, buttons?: string[]): void {
-		this.assertOpen();
-		const part = new extHostTypes.ChatResponseConfirmationPart(title, message, data, buttons);
-		const dto = typeConvert.ChatResponseConfirmationPart.from(part);
-		this._proxy.$chatTaskResponse(this._id, dto);
-	}
-
-	warning(message: string | vscode.MarkdownString): void {
-		this.assertOpen();
-		const part = new extHostTypes.ChatResponseWarningPart(message);
-		const dto = typeConvert.ChatResponseWarningPart.from(part);
-		this._proxy.$chatTaskResponse(this._id, dto);
-	}
-
-	codeCitation(value: vscode.Uri, license: string, snippet: string): void {
-		this.assertOpen();
-		const part = new extHostTypes.ChatResponseCodeCitationPart(value, license, snippet);
-		const dto = typeConvert.ChatResponseCodeCitationPart.from(part);
-		this._proxy.$chatTaskResponse(this._id, dto);
-	}
-
-	anchor(value: vscode.Uri | vscode.Location, title?: string): void {
-		this.assertOpen();
-		const part = new extHostTypes.ChatResponseAnchorPart(value, title);
-		const dto = typeConvert.ChatResponseAnchorPart.from(part);
-		this._proxy.$chatTaskResponse(this._id, dto);
-	}
-
-	filetree(value: vscode.ChatResponseFileTree[], baseUri: vscode.Uri): void {
-		this.assertOpen();
-		const part = new extHostTypes.ChatResponseFileTreePart(value, baseUri);
-		const dto = typeConvert.ChatResponseFilesPart.from(part);
-		this._proxy.$chatTaskResponse(this._id, dto);
-	}
-
-	markdown(content: string | vscode.MarkdownString): void {
-		this.assertOpen();
-		const part = new extHostTypes.ChatResponseMarkdownPart(content);
-		const dto = typeConvert.ChatResponseMarkdownPart.from(part);
-		this._proxy.$chatTaskResponse(this._id, dto);
-	}
-
-	textEdit(uri: vscode.Uri, edits: vscode.TextEdit | vscode.TextEdit[]): void {
-		this.assertOpen();
-		const part = new extHostTypes.ChatResponseTextEditPart(uri, edits);
-		const dto = typeConvert.ChatResponseTextEditPart.from(part);
-		this._proxy.$chatTaskResponse(this._id, dto);
-	}
-
-	button(command: vscode.Command) {
-		this.assertOpen();
-		const part = new extHostTypes.ChatResponseCommandButtonPart(command);
-		const dto = typeConvert.ChatResponseCommandButtonPart.from(part, this._commandsConverter, this._disposables);
-		this._proxy.$chatTaskResponse(this._id, dto);
-	}
-
-	progress(value: string, task?: Function) {
-		this.assertOpen();
-		if (task) {
-			throw new Error('Progress response with running task not implemented.');
-		}
-		const part = new extHostTypes.ChatResponseProgressPart2(value);
-		const dto = typeConvert.ChatResponseProgressPart.from(part);
-		this._proxy.$chatTaskResponse(this._id, dto);
-		return this;
-	}
-
-	reference(): void {
-		throw new Error('Method not implemented.');
-	}
-
-	reference2(): void {
-		throw new Error('Method not implemented.');
-	}
-
-	close(): void {
-		this._isClosed = true;
-	}
-}
 
 export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape {
 
 	private readonly _proxy: extHostProtocol.MainThreadAiFeaturesShape;
-	private readonly _registeredChatParticipants = new Map<string, positron.ai.ChatParticipant>();
 	private readonly _disposables: DisposableStore = new DisposableStore();
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
-		private readonly _languageModels: ExtHostLanguageModels,
-		private readonly _documents: ExtHostDocuments,
 		private readonly _commands: ExtHostCommands,
 	) {
 		// Trigger creation of proxy to main thread
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadAiFeatures);
 	}
 
-	registerChatParticipant(extension: IExtensionDescription, participant: positron.ai.ChatParticipant): Disposable {
-		this._registeredChatParticipants.set(participant.id, participant);
-		this._proxy.$registerChatParticipant(extension, {
-			...participant,
-			locations: participant.locations.map((v) => typeConvert.ChatLocation.from(v)),
+	async registerChatAgent(extension: IExtensionDescription, agentData: positron.ai.ChatAgentData): Promise<Disposable> {
+		await this._proxy.$registerChatAgent({
+			...agentData,
+			extensionId: extension.identifier,
+			extensionPublisherId: extension.publisher,
+			extensionDisplayName: extension.displayName ?? extension.publisher,
+			locations: agentData.locations.map((v) => ChatAgentLocation.fromRaw(v)),
 		});
+
 		return new Disposable(() => {
-			this._proxy.$unregisterChatParticipant(participant.id);
-			this._registeredChatParticipants.delete(participant.id);
+			this._proxy.$unregisterChatAgent(agentData.id);
 		});
 	}
 
@@ -188,130 +48,15 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return this._proxy.$languageModelConfig(sources);
 	}
 
-	private async buildChatParticipantRequest(extension: IExtensionDescription, request: Dto<IChatAgentRequest>): Promise<vscode.ChatRequest> {
-		const _request = revive<IChatAgentRequest>(request);
-
-		// Convert additional provided location data for use in extension
-		let location2: vscode.ChatRequestEditorData | vscode.ChatRequestNotebookData | undefined;
-		if (_request.locationData?.type === ChatAgentLocation.Editor) {
-			const document = this._documents.getDocument(_request.locationData.document);
-			location2 = new extHostTypes.ChatRequestEditorData(
-				document,
-				typeConvert.Selection.to(_request.locationData.selection),
-				typeConvert.Range.to(_request.locationData.wholeRange)
-			);
-		} else if (_request.locationData?.type === ChatAgentLocation.Notebook) {
-			const cell = this._documents.getDocument(_request.locationData.sessionInputUri);
-			location2 = new extHostTypes.ChatRequestNotebookData(cell);
-		}
-
-		// Get the language model used for this request
-		const model = await this._languageModels.getLanguageModelByIdentifier(extension, request.userSelectedModelId || '');
-		return typeConvert.ChatAgentRequest.to(_request, location2, model!);
-	}
-
-	private buildChatParticipantHistory(history: IChatAgentHistoryEntryDto[]): (vscode.ChatRequestTurn | vscode.ChatResponseTurn)[] {
-		const res: (vscode.ChatRequestTurn | vscode.ChatResponseTurn)[] = [];
-
-		for (const entry of history) {
-			const result = typeConvert.ChatAgentResult.to(entry.result);
-
-			const vars = entry.request.variables.variables.filter(v => !v.isTool).map(typeConvert.ChatPromptReference.to);
-			const tools = entry.request.variables.variables.filter(v => v.isTool).map(typeConvert.ChatLanguageModelToolReference.to);
-			const turn = new extHostTypes.ChatRequestTurn(entry.request.message, entry.request.command, vars, entry.request.agentId, tools);
-			res.push(turn);
-
-			const parts = entry.response.map(r => typeConvert.ChatResponsePart.toContent(r, this._commands.converter)).filter((e) => !!e);
-			res.push(new extHostTypes.ChatResponseTurn(parts, result, entry.request.agentId, entry.request.command));
-		}
-
-		return res;
-	}
-
-	async $provideResponse(
-		extension: IExtensionDescription,
-		request: Dto<IChatAgentRequest>,
-		history: IChatAgentHistoryEntryDto[],
-		context: IPositronChatContext,
-		taskId: string,
-		token: vscode.CancellationToken
-	): Promise<IChatAgentResult> {
-		// Select the requested chat participant
-		const participant = this._registeredChatParticipants.get(request.agentId);
-		if (!participant) {
-			throw new Error('Requested chat participant not found.');
-		}
-
-		// Build chat response object
-		const response = new ChatResponse(this._proxy, taskId, this._commands.converter, this._disposables);
-
-		// Build chat request object
-		const _request = await this.buildChatParticipantRequest(extension, request);
-
-		// Build chat context object
-		const _context = {
-			history: this.buildChatParticipantHistory(history),
-			positron: {
-				userSelectedModelId: request.userSelectedModelId ?? '',
-				context
-			},
-		};
-
-		try {
-			// Invoke the registered chat participant
-			return await participant.requestHandler(_request, _context, response, token) ?? {};
-		} finally {
-			response.close();
-		}
-	}
-
-	async $provideFollowups(
-		request: Dto<IChatAgentRequest>,
-		result: IChatAgentResult,
-		history: IChatAgentHistoryEntryDto[],
-		context: IPositronChatContext,
-		token: vscode.CancellationToken
-	): Promise<IChatFollowup[]> {
-		// Select the requested chat participant
-		const participant = this._registeredChatParticipants.get(request.agentId);
-		if (!participant) {
-			throw new Error('Requested chat participant not found.');
-		}
-
-		// Build chat context object
-		const _context = {
-			history: this.buildChatParticipantHistory(history),
-			positron: {
-				userSelectedModelId: request.userSelectedModelId ?? '',
-				context
-			}
-		};
-		const _result = typeConvert.ChatAgentResult.to(result);
-
-		// Return followups from participant
-		const folloups = await participant.followupProvider?.provideFollowups(_result, _context, token) ?? [];
-		return folloups.map(followup => typeConvert.ChatFollowup.from(followup, revive(request)));
-	}
-
-	async $provideWelcomeMessage(id: string, token: vscode.CancellationToken): Promise<IChatWelcomeMessageContent | undefined> {
-		const participant = this._registeredChatParticipants.get(id);
-		if (!participant) {
-			throw new Error('Requested chat participant not found.');
-		}
-
-		if (!participant.welcomeMessageProvider || !participant.welcomeMessageProvider.provideWelcomeMessage) {
-			return undefined;
-		}
-
-		const welcome = await participant.welcomeMessageProvider.provideWelcomeMessage(token);
-		return {
-			...welcome,
-			message: typeConvert.MarkdownString.from(welcome.message),
-		};
-	}
-
 	async getCurrentPlotUri(): Promise<string | undefined> {
 		return this._proxy.$getCurrentPlotUri();
+	}
+
+	async getPositronChatContext(request: vscode.ChatRequest): Promise<IPositronChatContext> {
+		const agentRequest: IChatRequestData = {
+			location: typeConvert.ChatLocation.from(request.location),
+		};
+		return this._proxy.$getPositronChatContext(agentRequest);
 	}
 
 	responseProgress(context: IToolInvocationContext, part: vscode.ChatResponsePart | vscode.ChatResponseTextEditPart): void {

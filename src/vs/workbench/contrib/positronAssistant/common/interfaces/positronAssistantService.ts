@@ -4,16 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
-import { ChatAgentLocation, IChatAgentCommand, IChatAgentMetadata, IChatAgentRequest } from '../../../chat/common/chatAgents.js';
-import { IChatProgress } from '../../../chat/common/chatService.js';
+import { ChatAgentLocation } from '../../../chat/common/chatAgents.js';
 
 // Create the decorator for the Positron assistant service (used in dependency injection).
 export const IPositronAssistantService = createDecorator<IPositronAssistantService>('positronAssistantService');
 
 //#region Chat Participants
 
-export interface IPositronChatTask {
-	handler: (content: IChatProgress) => void;
+export interface IChatRequestData {
+	location: ChatAgentLocation;
 }
 
 export interface IPositronChatContext {
@@ -27,16 +26,6 @@ export interface IPositronChatContext {
 		type: string;
 	}[];
 	shell?: string;
-}
-
-export interface IPositronChatParticipant {
-	name: string;
-	fullName?: string;
-	id: string;
-	isDefault: boolean;
-	locations: ChatAgentLocation[];
-	metadata: IChatAgentMetadata;
-	commands?: IChatAgentCommand[];
 }
 
 //#endregion
@@ -85,7 +74,7 @@ export interface IPositronAssistantService {
 	/**
 	 * Build positron specific context object to be attached to chat requests.
 	 */
-	buildChatContext(request: IChatAgentRequest): IPositronChatContext;
+	getPositronChatContext(request: IChatRequestData): IPositronChatContext;
 
 	/**
 	 * Get the currently visible plot as a URI.

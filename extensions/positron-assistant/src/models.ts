@@ -90,6 +90,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		let tools: Record<string, ai.CoreTool> | undefined = undefined;
 
 		// For tools in this extension, create an ai.CoreTool object using this invocation token
+		// TODO: Handle tools from lm.registerTool
 		if (modelOptions.toolInvocationToken && options.tools && options.tools.length > 0) {
 			tools = options.tools.reduce((acc: Record<string, ai.CoreTool>, tool: vscode.LanguageModelChatTool) => {
 				if (tool.name in positronToolAdapters) {

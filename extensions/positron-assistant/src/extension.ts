@@ -62,10 +62,17 @@ async function registerModels(context: vscode.ExtensionContext) {
 	}
 }
 
-function registerParticipants() {
-	// Register with Positron Assistant API
-	Object.keys(participants).forEach(key => {
-		positron.ai.registerChatParticipant(participants[key]);
+function registerParticipants(context: vscode.ExtensionContext) {
+	Object.keys(participants).forEach(async (key) => {
+		// Register agent with Positron Assistant API
+		const disposable = await positron.ai.registerChatAgent(participants[key].agentData);
+		context.subscriptions.push(disposable);
+
+		// Register agent implementation with the vscode API
+		const participant = vscode.chat.createChatParticipant(participants[key].id, participants[key].requestHandler);
+		participant.iconPath = participants[key].iconPath;
+		participant.followupProvider = participants[key].followupProvider;
+		participant.welcomeMessageProvider = participants[key].welcomeMessageProvider;
 	});
 }
 
@@ -77,7 +84,7 @@ export function registerAddModelConfigurationCommand(context: vscode.ExtensionCo
 
 export function activate(context: vscode.ExtensionContext) {
 	// Register chat participants
-	registerParticipants();
+	registerParticipants(context);
 
 	// Register configured language models
 	registerModels(context);

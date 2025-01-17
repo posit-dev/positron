@@ -10,9 +10,8 @@ import { IPositronConsoleService } from '../../../services/positronConsole/brows
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { PositronVariablesInstance } from '../../../services/positronVariables/common/positronVariablesInstance.js';
-import { IChatAgentRequest } from '../../chat/common/chatAgents.js';
 import { ITerminalService } from '../../terminal/browser/terminal.js';
-import { IPositronAssistantService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../common/interfaces/positronAssistantService.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
@@ -41,7 +40,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	//#endregion
 	//#region Context and Tools
 
-	buildChatContext(request: IChatAgentRequest): IPositronChatContext {
+	getPositronChatContext(request: IChatRequestData): IPositronChatContext {
 		const variablesInstance = this._variableService.activePositronVariablesInstance as PositronVariablesInstance | undefined;
 
 		const context: IPositronChatContext = {

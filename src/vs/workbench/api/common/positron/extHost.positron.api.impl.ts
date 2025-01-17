@@ -13,7 +13,6 @@ import { IExtensionRegistries } from '../extHost.api.impl.js';
 import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { ExtHostConfigProvider } from '../extHostConfiguration.js';
 import { ExtHostPositronContext } from './extHost.positron.protocol.js';
-import { ChatLocation } from '../extHostTypes.js';
 import * as extHostTypes from './extHostTypes.positron.js';
 import { IExtHostInitDataService } from '../extHostInitDataService.js';
 import { ExtHostPreviewPanels } from './extHostPreviewPanels.js';
@@ -32,7 +31,6 @@ import { ExtHostEditors } from '../extHostTextEditors.js';
 import { UiFrontendRequest } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ExtHostConnections } from './extHostConnections.js';
 import { ExtHostAiFeatures } from './extHostAiFeatures.js';
-import { IExtHostLanguageModels } from '../extHostLanguageModels.js';
 import { IToolInvocationContext } from '../../../contrib/chat/common/languageModelToolsService.js';
 
 /**
@@ -52,7 +50,6 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostWorkspace = accessor.get(IExtHostWorkspace);
 	const extHostCommands = accessor.get(IExtHostCommands);
 	const extHostLogService = accessor.get(ILogService);
-	const extHostLanguageModels = accessor.get(IExtHostLanguageModels);
 
 	// Retrieve the raw `ExtHostWebViews` object from the rpcProtocol; this
 	// object is needed to create webviews, and was previously created in
@@ -70,7 +67,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostEditors: ExtHostEditors = rpcProtocol.getRaw(ExtHostContext.ExtHostEditors);
 	const extHostDocuments: ExtHostDocuments = rpcProtocol.getRaw(ExtHostContext.ExtHostDocuments);
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol, extHostLogService));
-	const extHostAiFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostAiFeatures, new ExtHostAiFeatures(rpcProtocol, extHostLanguageModels, extHostDocuments, extHostCommands));
+	const extHostAiFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostAiFeatures, new ExtHostAiFeatures(rpcProtocol, extHostCommands));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
 	const extHostContextKeyService = rpcProtocol.set(ExtHostPositronContext.ExtHostContextKeyService, new ExtHostContextKeyService(rpcProtocol));
@@ -214,19 +211,21 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		};
 
 		const ai: typeof positron.ai = {
-			ChatLocation: ChatLocation,
 			getCurrentPlotUri(): Thenable<string | undefined> {
 				return extHostAiFeatures.getCurrentPlotUri();
 			},
 			showLanguageModelConfig(sources: positron.ai.LanguageModelSource[]): Thenable<positron.ai.LanguageModelConfig | undefined> {
 				return extHostAiFeatures.showLanguageModelConfig(sources);
 			},
-			registerChatParticipant(participant: positron.ai.ChatParticipant): vscode.Disposable {
-				return extHostAiFeatures.registerChatParticipant(extension, participant);
+			registerChatAgent(agentData: positron.ai.ChatAgentData): Thenable<vscode.Disposable> {
+				return extHostAiFeatures.registerChatAgent(extension, agentData);
 			},
 			responseProgress(token: unknown, part: vscode.ChatResponsePart | vscode.ChatResponseTextEditPart): void {
 				const context = token as IToolInvocationContext;
 				return extHostAiFeatures.responseProgress(context, part);
+			},
+			getPositronChatContext(request: vscode.ChatRequest): Thenable<positron.ai.ChatContext> {
+				return extHostAiFeatures.getPositronChatContext(request);
 			}
 		};
 

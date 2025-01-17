@@ -5,32 +5,64 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import * as ai from 'ai';
 import * as fs from 'fs';
 
-import { z } from 'zod';
-
 import { EXTENSION_ROOT_DIR } from './constants';
-import { padBase64String, toLanguageModelChatMessage } from './utils';
+import { toLanguageModelChatMessage } from './utils';
 import { getStoredModels } from './config';
 import { executeToolAdapter, getPlotToolAdapter, textEditToolAdapter } from './tools';
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
 class PositronAssistantParticipant implements positron.ai.ChatParticipant {
-	readonly id = 'positron-assistant';
-	readonly name = 'Positron Assistant';
-	readonly fullName = 'Positron Assistant';
-	readonly isDefault = true;
-	readonly locations: vscode.ChatLocation[] = [
-		vscode.ChatLocation.Panel,
-		vscode.ChatLocation.Editor,
-		vscode.ChatLocation.Notebook,
-		vscode.ChatLocation.Terminal,
-	];
+	readonly id = 'positron.positron-assistant';
+	readonly iconPath = new vscode.ThemeIcon('positron-posit-logo');
+	readonly agentData: positron.ai.ChatAgentData = {
+		id: this.id,
+		name: 'positron-assistant',
+		metadata: { isSticky: false },
+		fullName: 'Positron Assistant',
+		isDefault: true,
+		slashCommands: [{
+			name: 'execute',
+			description: 'Execute code in the active console.'
+		}],
+		locations: ['panel', 'terminal', 'editor', 'notebook'],
+		disambiguation: []
+	};
 
-	readonly metadata: positron.ai.ChatParticipantMetadata = {
-		themeIcon: new vscode.ThemeIcon('positron-posit-logo'),
-		isSticky: false,
+	readonly _recieveFeedbackEventEmitter = new vscode.EventEmitter<vscode.ChatResultFeedback>();
+	onDidReceiveFeedback: vscode.Event<vscode.ChatResultFeedback> = this._recieveFeedbackEventEmitter.event;
+
+	readonly _performActionEventEmitter = new vscode.EventEmitter<vscode.ChatUserActionEvent>();
+	onDidPerformAction: vscode.Event<vscode.ChatUserActionEvent> = this._performActionEventEmitter.event;
+
+	readonly followupProvider: vscode.ChatFollowupProvider = {
+		async provideFollowups(result: vscode.ChatResult, context: vscode.ChatContext, token: vscode.CancellationToken): Promise<vscode.ChatFollowup[]> {
+			const system: string = await fs.promises.readFile(`${mdDir}/prompts/followups.md`, 'utf8');
+			const messages: vscode.LanguageModelChatMessage[] = toLanguageModelChatMessage(context.history);
+			messages.push(vscode.LanguageModelChatMessage.User('Summarise and suggest follow-ups.'));
+
+			const models = await vscode.lm.selectChatModels({ id: result.metadata?.modelId });
+			if (models.length === 0) {
+				throw new Error('Selected model not available.');
+			}
+
+			const response = await models[0].sendRequest(messages, { modelOptions: { system } }, token);
+
+			let json = '';
+			for await (const fragment of response.text) {
+				json += fragment;
+				if (token.isCancellationRequested) {
+					break;
+				}
+			}
+
+			try {
+				return (JSON.parse(json) as 'string'[]).map((p) => ({ prompt: p }));
+			} catch (e) {
+				return [];
+			}
+		}
 	};
 
 	readonly welcomeMessageProvider = {
@@ -54,40 +86,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 		}
 	};
 
-	readonly followupProvider: vscode.ChatFollowupProvider = {
-		async provideFollowups(result: vscode.ChatResult, context: positron.ai.ChatContext, token: vscode.CancellationToken): Promise<vscode.ChatFollowup[]> {
-			const system: string = await fs.promises.readFile(`${mdDir}/prompts/followups.md`, 'utf8');
-			const messages: vscode.LanguageModelChatMessage[] = toLanguageModelChatMessage(context.history);
-			messages.push(vscode.LanguageModelChatMessage.User('Summarise and suggest follow-ups.'));
-
-			const models = await vscode.lm.selectChatModels({ id: context.positron.userSelectedModelId });
-			if (models.length === 0) {
-				throw new Error('Selected model not available.');
-			}
-
-			const response = await models[0].sendRequest(messages, { modelOptions: { system } }, token);
-
-			let json = '';
-			for await (const fragment of response.text) {
-				json += fragment;
-				if (token.isCancellationRequested) {
-					break;
-				}
-			}
-
-			try {
-				return (JSON.parse(json) as 'string'[]).map((p) => ({ prompt: p }));
-			} catch (e) {
-				return [];
-			}
-		}
-	};
-
-	public commands: positron.ai.ChatParticipantSlashCommands[] = [
-		{ name: 'execute', description: 'Execute code in the active console.' }
-	];
-
-	async requestHandler(request: vscode.ChatRequest, context: positron.ai.ChatContext, response: vscode.ChatResponseStream, token: vscode.CancellationToken) {
+	async requestHandler(request: vscode.ChatRequest, context: vscode.ChatContext, response: vscode.ChatResponseStream, token: vscode.CancellationToken) {
 		// System prompt
 		let system: string = await fs.promises.readFile(`${mdDir}/prompts/default.md`, 'utf8');
 
@@ -102,8 +101,9 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 		const messages: vscode.LanguageModelChatMessage[] = toLanguageModelChatMessage(context.history);
 
 		// Add Positron specific context
+		const positronContext = await positron.ai.getPositronChatContext(request);
 		messages.push(...[
-			vscode.LanguageModelChatMessage.User(JSON.stringify(context.positron.context)),
+			vscode.LanguageModelChatMessage.User(JSON.stringify(positronContext)),
 			vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
 		]);
 
@@ -196,6 +196,16 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 			}
 			response.markdown(fragment);
 		}
+
+		return {
+			metadata: {
+				modelId: request.model.id
+			},
+		};
+	}
+
+	dispose(): void {
+		throw new Error('Method not implemented.');
 	}
 }
 
