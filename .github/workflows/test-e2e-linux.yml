@@ -78,6 +78,9 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
@@ -98,6 +101,7 @@ jobs:
 
       - name: Attempt 3 - Setup Build and Compile
         if: ${{ steps.attempt2.outcome == 'failure' }}
+        id: attempt3
         uses: ./.github/actions/setup-build-env
 
       - name: Fail if Retries Exhausted
