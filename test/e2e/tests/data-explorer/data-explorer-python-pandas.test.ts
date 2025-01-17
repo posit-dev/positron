@@ -192,7 +192,7 @@ Data_Frame = pd.DataFrame({
 	"gear": [4, 4, 4, 3, 3],
 	"carb": [4, 4, 1, 1, 2]
 })`;
-		await app.workbench.console.executeCode('Python', script, '>>>');
+		await app.workbench.console.executeCode('Python', script);
 		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
 
 		await expect(async () => {

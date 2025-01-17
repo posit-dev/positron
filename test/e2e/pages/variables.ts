@@ -6,7 +6,7 @@
 
 import { Code } from '../infra/code';
 import * as os from 'os';
-import test, { expect, Locator } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 
 interface FlatVariables {
 	value: string;
