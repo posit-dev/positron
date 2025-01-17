@@ -342,7 +342,8 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		// --- Start Positron ---
 		// Note: The remote/reh-web/package.json is generated/updated in build/npm/postinstall.js
 		const packageJsonBase = type === 'reh-web' ? 'remote/reh-web' : 'remote';
-		const packageJsonStream = gulp.src(['remote/package.json'], { base: packageJsonBase })
+		const packageJsonStream = gulp.src([`${packageJsonBase}/package.json`], { base: packageJsonBase })
+			// --- End Positron ---
 			.pipe(json({ name, version, dependencies: undefined, optionalDependencies: undefined, type: 'module' }))
 			.pipe(es.through(function (file) {
 				packageJsonContents = file.contents.toString();
