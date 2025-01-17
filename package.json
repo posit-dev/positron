@@ -249,6 +249,10 @@
     "yaserver": "^0.4.0"
   },
   "overrides": {
+    "semver": "^7.5.4",
+    "micromatch": "^4.0.8",
+    "braces": "^3.0.3",
+    "ws": "^7.5.10",
     "node-gyp-build": "4.8.1",
     "kerberos@2.1.1": {
       "node-addon-api": "7.1.0"
