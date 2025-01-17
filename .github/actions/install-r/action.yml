@@ -8,14 +8,11 @@ inputs:
 runs:
   using: "composite"
   steps:
-
-    - name: Fix missing apt_pkg module in Ubuntu 24.04
+    - name: Fix missing apt_pkg module for Python 3.10
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get remove --purge -y python3-apt
-        sudo apt-get install -y python3-apt
-        sudo ln -s /usr/lib/python3/dist-packages/apt_pkg.cpython-311-x86_64-linux-gnu.so /usr/lib/python3.12/ || true
+        sudo apt-get install -y python3.10-apt
 
     - name: Set up R
       uses: r-lib/actions/setup-r@v2
