@@ -208,14 +208,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// When the storage service is about to save state, store the current history policy
 		// and storage policy in the workspace storage.
 		this._register(this._storageService.onWillSaveState(() => {
-			this._plots.forEach((plot) => {
-				this.storePlotMetadata(plot.metadata);
-			});
-
-			this._editorPlots.forEach((plot) => {
-				this.storePlotMetadata(plot.metadata);
-			});
-
 			this._storageService.store(
 				HistoryPolicyStorageKey,
 				this._selectedHistoryPolicy,
