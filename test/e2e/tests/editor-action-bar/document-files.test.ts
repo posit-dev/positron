@@ -14,7 +14,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Editor Action Bar: Documents', {
+test.describe('Editor Action Bar: Document Files', {
 	tag: [tags.WEB, tags.WIN, tags.EDITOR_ACTION_BAR, tags.EDITOR]
 }, () => {
 

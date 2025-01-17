@@ -23,9 +23,14 @@ const testCases = [
 		tabName: 'Data: df',
 	},
 	{
-		title: 'Python - Open parquet file via DuckDB',
+		title: 'Open parquet file via DuckDB',
 		openDataFile: 'data-files/100x100/100x100.parquet',
 		tabName: 'Data: 100x100.parquet',
+	},
+	{
+		title: 'Open CSV file via DuckDB',
+		openDataFile: 'data-files/flights/flights.csv',
+		tabName: 'Data: flights.csv'
 	}];
 
 test.use({
@@ -49,7 +54,7 @@ test.describe('Editor Action Bar: Data Explorer', {
 	for (const testCase of testCases) {
 		test(testCase.title, async function ({ app, interpreter, openDataFile, openFile }) {
 			// Set interpreter
-			const language = testCase.title.startsWith('Python') ? 'Python' : 'R';
+			const language = testCase.title.startsWith('R') ? 'R' : 'Python';
 			await interpreter.set(language);
 
 			// Open file
