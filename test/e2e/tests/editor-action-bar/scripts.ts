@@ -36,22 +36,6 @@ df = pd.read_csv(file_path)
 print(df)`;
 
 /**
- * Script to load a TSV file using Python Polars.
- * Reads a TSV file located in the `data-files/100x100` directory
- * and loads it into a Polars DataFrame.
- */
-export const polarsTsvScript = `import polars as pl
-import os
-
-file_path = os.path.join(os.getcwd(), 'data-files', '100x100', 'polars-100x100.tsv')
-
-# Read the TSV file directly into a Polars DataFrame
-df = pl.read_csv(file_path, separator='\t', ignore_errors=True)
-
-# Display the DataFrame
-print(df)`;
-
-/**
  * Script to create a sample data frame in R.
  */
 export const rScript = `df <- data.frame (

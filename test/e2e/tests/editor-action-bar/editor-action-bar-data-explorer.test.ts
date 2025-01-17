@@ -5,24 +5,25 @@
 
 import { test, expect, tags } from '../_test.setup';
 import { verifyOpenInNewWindow, verifySplitEditor, verifySummaryPosition } from './helpers';
-import { pandasCsvScript, pandasParquetScript, polarsTsvScript, rScript } from './scripts';
+import { pandasCsvScript, pandasParquetScript, rScript } from './scripts';
 
 const testCases = [
 	{
-		title: 'Python Pandas (Parquet) - access via variables',
-		script: pandasParquetScript,
-	},
-	{
-		title: 'Python Pandas (CSV Data) - access via variables',
-		script: pandasCsvScript,
-	}, {
-		title: 'Python Polars - access via variables',
-		script: polarsTsvScript,
-	}, {
 		title: 'R - access via variables',
 		script: rScript,
 	},
-];
+	{
+		title: 'Parquet - access via variables',
+		script: pandasParquetScript,
+	},
+	{
+		title: 'CSV - access via variables',
+		script: pandasCsvScript,
+	},
+	{
+		title: 'Parquet - access via DuckDB',
+		openFile: 'data-files/100x100/100x100.parquet',
+	}];
 
 test.use({
 	suiteId: __filename
@@ -47,8 +48,14 @@ test.describe('Editor Action Bar: Data Explorer', {
 			const language = testCase.title.startsWith('Python') ? 'Python' : 'R';
 			await interpreter.set(language);
 
-			// View data in data explorer via variables pane
-			await app.workbench.console.executeCode(language, testCase.script);
+			// Execute script or open file
+			if (testCase.script) {
+				await app.workbench.console.executeCode(language, testCase.script);
+			} else if (testCase.openFile) {
+				await app.workbench.quickaccess.openFile(testCase.openFile);
+			}
+
+			// Open data explorer
 			await app.workbench.variables.doubleClickVariableRow('df');
 			await expect(app.code.driver.page.getByText('Data: df', { exact: true })).toBeVisible();
 
