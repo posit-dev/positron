@@ -49,9 +49,3 @@ runs:
       uses: ./.github/actions/install-r
       with:
         version: "4.4.0"
-
-    -  name: Install libicu-dev (needed for Quarto)
-       run: |
-          sudo apt-get update
-          sudo apt-get install libicu-dev
-       shell: bash
