@@ -22,7 +22,7 @@ import { ILayoutService } from '../../../../platform/layout/browser/layoutServic
 import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { EditorActivation, IEditorOptions } from '../../../../platform/editor/common/editor.js';
@@ -32,9 +32,10 @@ import { IAccessibilityService } from '../../../../platform/accessibility/common
 import { PositronDataExplorer } from '../../../browser/positronDataExplorer/positronDataExplorer.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
-import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
+import { POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
 
 /**
  * IPositronDataExplorerEditorOptions interface.
@@ -84,6 +85,16 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Gets or sets the identifier.
 	 */
 	private _identifier?: string;
+
+	/**
+	 * Gets the layout context key.
+	 */
+	private readonly _layoutContextKey: IContextKey<PositronDataExplorerLayout>;
+
+	/**
+	 * Gets the is column sorting context key.
+	 */
+	private readonly _isColumnSortingContextKey: IContextKey<boolean>;
 
 	/**
 	 * The onSizeChanged event emitter.
@@ -232,6 +243,14 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 
 		// Create the Positron data explorer container.
 		this._positronDataExplorerContainer = DOM.$('.positron-data-explorer-container');
+
+		// Create the context keys.
+		this._layoutContextKey = POSITRON_DATA_EXPLORER_LAYOUT.bindTo(
+			this._group.scopedContextKeyService
+		);
+		this._isColumnSortingContextKey = POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING.bindTo(
+			this._group.scopedContextKeyService
+		);
 	}
 
 	/**
@@ -326,6 +345,14 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 					}
 				});
 
+				// Set the context keys.
+				this._layoutContextKey.set(
+					positronDataExplorerInstance.layout
+				);
+				this._isColumnSortingContextKey.set(
+					positronDataExplorerInstance.tableDataDataGridInstance.isColumnSorting
+				);
+
 				// Render the PositronDataExplorer.
 				this._positronReactRenderer.render(
 					<PositronDataExplorer
@@ -343,10 +370,24 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 					/>
 				);
 
+				// Add the onDidChangeLayout event handler.
+				this._positronReactRenderer.register(
+					positronDataExplorerInstance.onDidChangeLayout(positronDataExplorerLayout =>
+						this._layoutContextKey.set(positronDataExplorerLayout)
+					)
+				);
+
 				// Add the onDidRequestFocus event handler.
 				this._positronReactRenderer.register(
 					positronDataExplorerInstance.onDidRequestFocus(() =>
 						this._group.openEditor(input, { activation: EditorActivation.ACTIVATE })
+					)
+				);
+
+				// Add the onDidChangeColumnSorting event handler.
+				this._positronReactRenderer.register(
+					positronDataExplorerInstance.onDidChangeColumnSorting(isColumnSorting =>
+						this._isColumnSortingContextKey.set(isColumnSorting)
 					)
 				);
 			} else {
