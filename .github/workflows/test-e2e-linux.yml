@@ -78,9 +78,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
