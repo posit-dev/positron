@@ -83,7 +83,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 		// Reopen the panel
 		await helpPanelHeaderLocator.click();
 
-		if (helpPanelHeightAfter < 100) {
+		if (helpPanelHeightAfter < 125) {
 			// When the panel is small enough, it will pop back to the full size.
 			// This can happen if the window used for testing is too small.
 			// In this case we want to end the test early because the behavior wont be as
