@@ -514,10 +514,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							const commProxy = this.createCommProxy(client, metadata);
 							plotClients.push(this.createRuntimePlotClient(commProxy, metadata));
 							registered = true;
-							const editorPlot = this.restoreEditorPlot(metadata.id, session.sessionId, commProxy);
-							if (editorPlot) {
-								plotClients.push(editorPlot);
-							}
+
 						} catch (error) {
 							console.warn(`Error parsing plot metadata: ${error}`);
 						}
@@ -555,9 +552,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			// Register each plot client with the plots service, but don't fire the
 			// events.
 			plotClients.forEach((client) => {
-				if (client.metadata.location === PlotClientLocation.View) {
-					this.registerPlotClient(client, false);
-				}
+				this.registerPlotClient(client, false);
+				// Check if the plot also needs to be restored to an editor tab
+				this.restoreEditorPlot(client.metadata.id, session.sessionId, this._plotCommProxies.get(client.metadata.id)!);
 			});
 
 			// Re-sort the plots by creation time since we may have added new ones that are
@@ -656,30 +653,31 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/**
 	 * Check if the stored metadata has a plot for an editor and restore it.
 	 */
-	private restoreEditorPlot(plotId: string, sessionId: string, commProxy: PositronPlotCommProxy): PlotClientInstance | null {
+	private restoreEditorPlot(plotId: string, sessionId: string, commProxy: PositronPlotCommProxy) {
 		const metadataKey = this.generateStorageKey(sessionId, plotId, PlotClientLocation.Editor);
 		const storedMetadata = this._storageService.get(metadataKey, StorageScope.WORKSPACE);
 
 		if (storedMetadata) {
 			try {
 				const metadata = JSON.parse(storedMetadata) as IPositronPlotMetadata;
-				const plot = this.createRuntimePlotClient(commProxy, metadata, PlotClientLocation.Editor);
-				this._editorPlots.set(plotId, plot);
+				this.createEditorPlot(metadata, commProxy);
 
-				this.openEditor(plotId);
-
-				plot.onDidClose(() => {
-					this._editorPlots.delete(plotId);
-					this._storageService.remove(metadataKey, StorageScope.WORKSPACE);
-				});
-
-				return plot;
+				this.openEditor(plotId, this.getPreferredEditorGroup(), metadata);
 			} catch (error) {
 				console.warn(`Error parsing plot metadata: ${error}`);
 			}
 		}
+	}
 
-		return null;
+	private createEditorPlot(metadata: IPositronPlotMetadata, commProxy: PositronPlotCommProxy) {
+		const plot = this.createRuntimePlotClient(commProxy, metadata, PlotClientLocation.Editor);
+		plot.onDidClose(() => {
+			this._editorPlots.delete(metadata.id);
+			this._storageService.remove(
+				this.generateStorageKey(metadata.session_id, metadata.id, metadata.location),
+				StorageScope.WORKSPACE);
+		});
+		this._editorPlots.set(metadata.id, plot);
 	}
 
 	/**
@@ -1142,10 +1140,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._showPlotsPane();
 	}
 
-	public async openEditor(plotId: string, groupType?: number): Promise<void> {
+	public async openEditor(plotId: string, groupType?: number, metadata?: IPositronPlotMetadata): Promise<void> {
 		const plotClient = this._editorPlots.get(plotId) ?? this._plots.find(plot => plot.id === this.selectedPlotId);
 
-		if (!plotId) {
+
+		if (!plotClient && !metadata) {
 			throw new Error('Cannot open plot in editor: plot not found');
 		}
 
@@ -1156,11 +1155,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (plotClient instanceof StaticPlotClient) {
 			this._editorPlots.set(plotClient.id, plotClient);
 		}
-		if (plotClient instanceof PlotClientInstance) {
+
+		// Create a new plot client instance for the editor
+		if (plotClient instanceof PlotClientInstance && plotClient.metadata.location === PlotClientLocation.View) {
+			metadata = metadata ?? plotClient.metadata;
 			const commProxy = this._plotCommProxies.get(plotId);
 			if (commProxy) {
-				const editorPlotClient = this.createRuntimePlotClient(commProxy, plotClient.metadata, PlotClientLocation.Editor);
-				this._editorPlots.set(editorPlotClient.id, editorPlotClient);
+				this.createEditorPlot(metadata, commProxy);
 			} else {
 				throw new Error('Cannot open plot in editor: plot comm not found');
 			}
