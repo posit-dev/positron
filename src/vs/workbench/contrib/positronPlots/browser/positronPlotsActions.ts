@@ -152,8 +152,7 @@ abstract class AbstractPlotsAction extends Action2 {
 					id: PlotActionTarget.VIEW,
 					label: localize('positronPlots.copyPlotsView', 'From Plots View'),
 					ariaLabel: localize('positronPlots.copyPlotsView', 'From Plots View'),
-				}
-				);
+				});
 			}
 		}
 
