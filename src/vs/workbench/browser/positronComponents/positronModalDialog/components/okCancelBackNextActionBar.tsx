@@ -40,15 +40,15 @@ interface ActionBarButtonConfig {
  */
 export const OKCancelBackNextActionBar = ({ okButtonConfig, cancelButtonConfig, backButtonConfig, nextButtonConfig }: OKCancelBackNextActionBarProps) => {
 	const cancelButton = (cancelButtonConfig ?
-		<Button className='button action-bar-button' onPressed={cancelButtonConfig.onClick} disabled={cancelButtonConfig.disable ?? false}>
+		<Button className='action-bar-button' onPressed={cancelButtonConfig.onClick} disabled={cancelButtonConfig.disable ?? false}>
 			{cancelButtonConfig.title ?? localize('positronCancel', "Cancel")}
 		</Button> : null);
 	const okButton = (okButtonConfig ?
-		<Button className='button action-bar-button default' onPressed={okButtonConfig.onClick} disabled={okButtonConfig.disable ?? false}>
+		<Button className='action-bar-button default' onPressed={okButtonConfig.onClick} disabled={okButtonConfig.disable ?? false}>
 			{okButtonConfig.title ?? localize('positronOK', "OK")}
 		</Button> : null);
 	const nextButton = (nextButtonConfig ?
-		<Button className='button action-bar-button default' onPressed={nextButtonConfig.onClick} disabled={nextButtonConfig.disable ?? false}>
+		<Button className='action-bar-button default' onPressed={nextButtonConfig.onClick} disabled={nextButtonConfig.disable ?? false}>
 			{nextButtonConfig.title ?? localize('positronNext', "Next")}
 		</Button> : null);
 
@@ -57,7 +57,7 @@ export const OKCancelBackNextActionBar = ({ okButtonConfig, cancelButtonConfig, 
 		<div className='ok-cancel-action-bar top-separator'>
 			<div className='left-actions'>
 				{backButtonConfig ?
-					<Button className='button action-bar-button' onPressed={backButtonConfig.onClick} disabled={backButtonConfig.disable ?? false}>
+					<Button className='action-bar-button' onPressed={backButtonConfig.onClick} disabled={backButtonConfig.disable ?? false}>
 						{backButtonConfig.title ?? localize('positronBack', "Back")}
 					</Button> : null
 				}

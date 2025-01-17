@@ -101,7 +101,7 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 
 	const okButton = (
 		<button
-			className='button action-bar-button default'
+			className='action-bar-button default'
 			tabIndex={0}
 			onClick={acceptHandler}
 		>
@@ -110,7 +110,7 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 	);
 	const cancelButton = (
 		<button
-			className='button action-bar-button'
+			className='action-bar-button'
 			tabIndex={0}
 			onClick={cancelHandler}
 		>
@@ -154,7 +154,7 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 			<div className='plot-size-action-bar top-separator'>
 				<div className='left'>
 					<button
-						className='button action-bar-button'
+						className='action-bar-button'
 						tabIndex={0}
 						onClick={deleteHandler}
 					>

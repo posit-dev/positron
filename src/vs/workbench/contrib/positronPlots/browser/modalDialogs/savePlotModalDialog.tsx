@@ -278,7 +278,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 
 	const previewButton = () => {
 		return (
-			<PositronButton className='button action-bar-button' onPressed={updatePreview}>
+			<PositronButton className='action-bar-button' onPressed={updatePreview}>
 				{(() => localize('positron.savePlotModalDialog.updatePreview', "Preview"))()}
 			</PositronButton>
 		);
