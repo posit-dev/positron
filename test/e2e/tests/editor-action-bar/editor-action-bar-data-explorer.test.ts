@@ -5,24 +5,25 @@
 
 import { test, expect, tags } from '../_test.setup';
 import { verifyOpenInNewWindow, verifySplitEditor, verifySummaryPosition } from './helpers';
-import { pandasCsvScript, pandasParquetScript, rScript } from './scripts';
+import { pandasDataFrame, rDataFrame } from './scripts';
 
 const testCases = [
 	{
-		title: 'R - access via variables',
-		script: rScript,
+		title: 'R - Load data frame via variables pane',
+		script: rDataFrame,
+		variable: 'df',
+		tabTitle: 'Data: df',
 	},
 	{
-		title: 'Parquet - access via variables',
-		script: pandasParquetScript,
+		title: 'Python - Load data frame via variables pane',
+		script: pandasDataFrame,
+		variable: 'df',
+		tabTitle: 'Data: df',
 	},
 	{
-		title: 'CSV - access via variables',
-		script: pandasCsvScript,
-	},
-	{
-		title: 'Parquet - access via DuckDB',
-		openFile: 'data-files/100x100/100x100.parquet',
+		title: 'Python - Open parquet file via DuckDB into data explorer',
+		openDataFile: 'data-files/100x100/100x100.parquet',
+		tabTitle: 'Data: 100x100.parquet',
 	}];
 
 test.use({
@@ -43,27 +44,26 @@ test.describe('Editor Action Bar: Data Explorer', {
 	});
 
 	for (const testCase of testCases) {
-		test(testCase.title, async function ({ app, page, interpreter }) {
+		test(testCase.title, async function ({ app, page, interpreter, openDataFile }) {
 			// Set interpreter
 			const language = testCase.title.startsWith('Python') ? 'Python' : 'R';
 			await interpreter.set(language);
 
-			// Execute script or open file
 			if (testCase.script) {
+				// Execute script and open via variables pane
 				await app.workbench.console.executeCode(language, testCase.script);
-			} else if (testCase.openFile) {
-				await app.workbench.quickaccess.openFile(testCase.openFile);
+				await app.workbench.variables.doubleClickVariableRow(testCase.variable);
+				await expect(app.code.driver.page.getByText(testCase.tabTitle, { exact: true })).toBeVisible();
+			} else if (testCase.openDataFile) {
+				// Open fila directly with duck db
+				await openDataFile(testCase.openDataFile!);
 			}
-
-			// Open data explorer
-			await app.workbench.variables.doubleClickVariableRow('df');
-			await expect(app.code.driver.page.getByText('Data: df', { exact: true })).toBeVisible();
 
 			// Verify action bar behavior
 			await verifySummaryPosition(app, 'Left');
 			await verifySummaryPosition(app, 'Right');
-			await verifySplitEditor(page, 'Data: df');
-			await verifyOpenInNewWindow(app, 'Data: df — qa-example-content');
+			await verifySplitEditor(page, testCase.tabTitle);
+			await verifyOpenInNewWindow(app, `${testCase.tabTitle} — qa-example-content`);
 		});
 	}
 });
