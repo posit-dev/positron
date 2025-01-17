@@ -25,6 +25,7 @@ jobs:
       - name: Parse Tags from PR Body
         id: pr-tags
         run: bash scripts/pr-tags-parse.sh
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
