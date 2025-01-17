@@ -23,7 +23,7 @@ runs:
         echo "Configuring R to use Posit Package Manager for Ubuntu 24.04..."
         cat <<EOF > ~/.Rprofile
         options(
-          repos = c(RSPM = "https://packagemanager.posit.co/cran/__linux__/lunar/latest"),
+          repos = c(RSPM = "https://packagemanager.posit.co/cran/__linux__/noble/latest"),
           HTTPUserAgent = sprintf(
             "R/%s (%s) R (%s)",
             getRversion(), "ubuntu-2404",
