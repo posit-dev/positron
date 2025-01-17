@@ -2,9 +2,9 @@ name: "Setup Python"
 description: "Install specified Python version."
 inputs:
   version:
-    description: "The version of Python to install (e.g., 3.10)"
+    description: "The version of Python to install (e.g., 3.12)"
     required: true
-    default: "3.10"
+    default: "3.12"
 runs:
   using: "composite"
   steps:
@@ -35,8 +35,15 @@ runs:
         python -m pip install -r requirements.txt
         python -m pip install ipykernel trcli
 
-    - name: Verify Python Version
+    - name: Verify Python3 Version
       shell: bash
       run: |
         python3 --version
         which python
+
+    - name: Verify Python Version
+      shell: bash
+      run: |
+        python --version
+        which python
+

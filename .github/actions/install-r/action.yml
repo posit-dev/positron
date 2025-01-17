@@ -8,12 +8,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Fix missing apt_pkg module for Python 3.10
-      shell: bash
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y python3.10-apt
-
     - name: Set up R
       uses: r-lib/actions/setup-r@v2
       with:
