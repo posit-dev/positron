@@ -9,7 +9,7 @@ import { Application } from '../../infra';
 // --- SHARED HELPERS ---
 
 export async function verifySplitEditor(page, tabName: string) {
-	await test.step(`Verify "split editor" opens another tab and ensure tabs are correctly aligned`, async () => {
+	await test.step(`Verify "split editor" behavior`, async () => {
 		// Split editor right
 		await page.getByLabel('Split Editor Right', { exact: true }).click();
 		await expect(page.getByRole('tab', { name: tabName })).toHaveCount(2);
@@ -75,15 +75,13 @@ export async function verifySummaryPosition(app: Application, position: 'Left' |
 			await app.workbench.quickaccess.runCommand(`workbench.action.positronDataExplorer.summaryOn${position}`);
 		}
 
-		// Locator for the summary element
+		// Get the summary and table locators.
 		const summaryLocator = page.locator('div.column-summary').first();
 		const tableLocator = page.locator('div.data-grid-column-headers');
 
 		// Ensure both the summary and table elements are visible
-		await Promise.all([
-			expect(summaryLocator).toBeVisible(),
-			expect(tableLocator).toBeVisible(),
-		]);
+		await expect(summaryLocator).toBeVisible();
+		await expect(tableLocator).toBeVisible();
 
 		// Get the bounding boxes for both elements
 		const summaryBox = await summaryLocator.boundingBox();
