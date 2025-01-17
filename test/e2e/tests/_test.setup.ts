@@ -137,6 +137,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		},
 		{ scope: 'test' }],
 
+	// ex: await packages.manage('ipykernel', 'install');
+	// ex: await packages.manage('renv', 'uninstall');
 	packages: [async ({ app }, use) => {
 		const packageManager = new PackageManager(app);
 		await use(packageManager);
@@ -147,20 +149,32 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use();
 	}, { scope: 'test' }],
 
-	// example usage: await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
+	// ex: await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
 	openFile: async ({ app }, use) => {
 		await use(async (filePath: string) => {
-			await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath));
+			await test.step(`Open file: ${path.basename(filePath)}`, async () => {
+				await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath));
+			});
 		});
 	},
 
-	// example usage: await openDataFile(app, 'workspaces/large_r_notebook/spotify.ipynb');
+	// ex: await openDataFile(app, 'workspaces/large_r_notebook/spotify.ipynb');
 	openDataFile: async ({ app }, use) => {
 		await use(async (filePath: string) => {
-			await app.workbench.quickaccess.openDataFile(path.join(app.workspacePathOrFolder, filePath));
+			await test.step(`Open data file: ${path.basename(filePath)}`, async () => {
+				await app.workbench.quickaccess.openDataFile(path.join(app.workspacePathOrFolder, filePath));
+			});
 		});
 	},
 
+	// ex: await runCommand('workbench.action.files.save');
+	runCommand: async ({ app }, use) => {
+		await use(async (command: string) => {
+			await app.workbench.quickaccess.runCommand(command);
+		});
+	},
+
+	// ex: await userSettings.set([['editor.actionBar.enabled', 'true']], false);
 	userSettings: [async ({ app }, use) => {
 		const userSettings = new UserSettingsFixtures(app);
 
@@ -354,6 +368,7 @@ interface TestFixtures {
 	devTools: void;
 	openFile: (filePath: string) => Promise<void>;
 	openDataFile: (filePath: string) => Promise<void>;
+	runCommand: (command: string) => Promise<void>;
 }
 
 interface WorkerFixtures {

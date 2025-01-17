@@ -3,8 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Application } from '../../infra';
+import { EditorActionBar } from '../../pages/editorActionBar';
 import { test, expect, tags } from '../_test.setup';
-import { verifyOpenInNewWindow, verifySplitEditor, verifySummaryPosition } from './helpers';
+
+let editorActionBar: EditorActionBar;
 
 const testCases = [
 	{
@@ -33,17 +36,18 @@ test.describe('Editor Action Bar: Data Explorer', {
 	tag: [tags.WEB, tags.WIN, tags.EDITOR_ACTION_BAR, tags.DATA_EXPLORER]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings }) {
+	test.beforeAll(async function ({ app, userSettings }) {
+		editorActionBar = app.workbench.editorActionBar;
 		await userSettings.set([['editor.actionBar.enabled', 'true']], false);
 	});
 
-	test.afterEach(async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
-		await app.workbench.quickaccess.runCommand('Console: Clear Console');
+	test.afterEach(async function ({ runCommand }) {
+		await runCommand('workbench.action.closeAllEditors');
+		await runCommand('Console: Clear Console');
 	});
 
 	for (const testCase of testCases) {
-		test(testCase.title, async function ({ app, page, interpreter, openDataFile, openFile }) {
+		test(testCase.title, async function ({ app, interpreter, openDataFile, openFile }) {
 			// Set interpreter
 			const language = testCase.title.startsWith('Python') ? 'Python' : 'R';
 			await interpreter.set(language);
@@ -55,20 +59,34 @@ test.describe('Editor Action Bar: Data Explorer', {
 
 			// Open data explorer via variable pane
 			if (testCase.variable) {
-				await test.step('Open data explorer via variable pane', async () => {
-					await app.workbench.editor.playButton.click();
-					await app.workbench.variables.doubleClickVariableRow(testCase.variable);
-					await app.code.driver.page.getByRole('tablist').locator('.tab').first().click();
-					await app.code.driver.page.getByLabel('Close').first().click();
-					await expect(app.code.driver.page.getByText(testCase.tabName, { exact: true })).toBeVisible();
-				});
+				await openDataExplorerViaVariablePane(app, testCase.variable, testCase.tabName);
 			}
 
 			// Verify action bar behavior
-			await verifySummaryPosition(app, 'Left');
-			await verifySummaryPosition(app, 'Right');
-			await verifySplitEditor(page, testCase.tabName);
-			await verifyOpenInNewWindow(app, `${testCase.tabName} — qa-example-content`);
+			await editorActionBar.selectSummaryOn(app.web, 'Left');
+			await editorActionBar.verifySummaryPosition('Left');
+
+			await editorActionBar.selectSummaryOn(app.web, 'Right');
+			await editorActionBar.verifySummaryPosition('Right');
+
+			await editorActionBar.clickSplitEditorButton('right');
+			await editorActionBar.verifySplitEditor('right', testCase.tabName);
+
+			await editorActionBar.clickSplitEditorButton('down');
+			await editorActionBar.verifySplitEditor('down', testCase.tabName);
+
+			await editorActionBar.verifyOpenInNewWindow(app.web, `${testCase.tabName} — qa-example-content`);
 		});
 	}
 });
+
+
+async function openDataExplorerViaVariablePane(app: Application, variable: string, tabName: string) {
+	await test.step('Open data explorer via variable pane', async () => {
+		await app.workbench.editor.playButton.click();
+		await app.workbench.variables.doubleClickVariableRow(variable);
+		await app.code.driver.page.getByRole('tablist').locator('.tab').first().click();
+		await app.code.driver.page.getByLabel('Close').first().click();
+		await expect(app.code.driver.page.getByText(tabName, { exact: true })).toBeVisible();
+	});
+}
