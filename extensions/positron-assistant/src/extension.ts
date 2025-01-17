@@ -29,10 +29,23 @@ async function registerModels(context: vscode.ExtensionContext) {
 
 	try {
 		const modelConfigs = await getModelConfigurations(context);
-		// Register with Positron Assistant API
-		modelConfigs.filter(config => config.type === 'chat').forEach(config => {
+		// Register with Language Model API
+		modelConfigs.filter(config => config.type === 'chat').forEach((config, idx) => {
+			// We need at least one default and one non-default model for the dropdown to appear.
+			// For now, just set the first language model as default.
+			const isFirst = idx === 0;
+
 			const languageModel = newLanguageModel(config);
-			const modelDisp = positron.ai.registerLanguageModel(languageModel);
+			const modelDisp = vscode.lm.registerChatModelProvider(languageModel.identifier, languageModel, {
+				name: languageModel.name,
+				family: languageModel.provider,
+				vendor: context.extension.packageJSON.publisher,
+				version: context.extension.packageJSON.version,
+				maxInputTokens: 0,
+				maxOutputTokens: 0,
+				isUserSelectable: true,
+				isDefault: isFirst,
+			});
 			modelDisposables.push(modelDisp);
 		});
 
@@ -50,6 +63,7 @@ async function registerModels(context: vscode.ExtensionContext) {
 }
 
 function registerParticipants() {
+	// Register with Positron Assistant API
 	Object.keys(participants).forEach(key => {
 		positron.ai.registerChatParticipant(participants[key]);
 	});

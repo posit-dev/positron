@@ -13,17 +13,15 @@ import * as typeConvert from '../extHostTypeConverters.js';
 import { ExtHostDocuments } from '../extHostDocuments.js';
 import { revive } from '../../../../base/common/marshalling.js';
 import { IPositronChatContext, IPositronLanguageModelConfig } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
+import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { ChatAgentLocation, IChatAgentRequest, IChatAgentResult, IChatWelcomeMessageContent } from '../../../contrib/chat/common/chatAgents.js';
 import { CommandsConverter, ExtHostCommands } from '../extHostCommands.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Dto } from '../../../services/extensions/common/proxyIdentifier.js';
 import { IChatAgentHistoryEntryDto } from '../extHost.protocol.js';
 import { ExtHostLanguageModels } from '../extHostLanguageModels.js';
-import { IChatMessage } from '../../../contrib/chat/common/languageModels.js';
-import { SerializedError } from '../../../../base/common/errors.js';
-import { AsyncIterableObject, AsyncIterableSource } from '../../../../base/common/async.js';
 import { IChatFollowup } from '../../../contrib/chat/common/chatService.js';
+import { isToolInvocationContext, IToolInvocationContext } from '../../../contrib/chat/common/languageModelToolsService.js';
 
 class ChatResponse implements vscode.ChatResponseStream {
 	private _isClosed: boolean;
@@ -134,10 +132,13 @@ class ChatResponse implements vscode.ChatResponseStream {
 		this._proxy.$chatTaskResponse(this._id, dto);
 	}
 
-	progress(value: string, task?: ((progress: vscode.Progress<vscode.ChatResponseWarningPart>) => Thenable<string | void>)) {
+	progress(value: string, task?: Function) {
 		this.assertOpen();
-		const part = new extHostTypes.ChatResponseProgressPart2(value, task);
-		const dto = task ? typeConvert.ChatTask.from(part) : typeConvert.ChatResponseProgressPart.from(part);
+		if (task) {
+			throw new Error('Progress response with running task not implemented.');
+		}
+		const part = new extHostTypes.ChatResponseProgressPart2(value);
+		const dto = typeConvert.ChatResponseProgressPart.from(part);
 		this._proxy.$chatTaskResponse(this._id, dto);
 		return this;
 	}
@@ -158,10 +159,6 @@ class ChatResponse implements vscode.ChatResponseStream {
 export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape {
 
 	private readonly _proxy: extHostProtocol.MainThreadAiFeaturesShape;
-	private readonly _registeredLanguageModels = new Map<string, {
-		provider: positron.ai.LanguageModelChatProvider;
-		extension: IExtensionDescription;
-	}>();
 	private readonly _registeredChatParticipants = new Map<string, positron.ai.ChatParticipant>();
 	private readonly _disposables: DisposableStore = new DisposableStore();
 
@@ -183,64 +180,15 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		});
 		return new Disposable(() => {
 			this._proxy.$unregisterChatParticipant(participant.id);
-			this._registeredLanguageModels.delete(participant.id);
+			this._registeredChatParticipants.delete(participant.id);
 		});
-	}
-
-	registerLanguageModel(extension: IExtensionDescription, model: positron.ai.LanguageModelChatProvider): Disposable {
-		this._registeredLanguageModels.set(model.identifier, { provider: model, extension });
-		this._proxy.$registerLanguageModel(model.identifier, extension, model.name);
-
-		return new Disposable(() => {
-			this._proxy.$unregisterLanguageModel(model.identifier);
-			this._registeredLanguageModels.delete(model.identifier);
-		});
-	}
-
-	async sendLanguageModelRequest(
-		extension: IExtensionDescription,
-		id: string,
-		messages: vscode.LanguageModelChatMessage[],
-		options: { [key: string]: any },
-		token: vscode.CancellationToken
-	): Promise<vscode.LanguageModelChatResponse> {
-		const model = this._registeredLanguageModels.get(id);
-		if (!model) {
-			throw new Error('Requested language model not found.');
-		}
-
-		const stream = new AsyncIterableSource<vscode.LanguageModelTextPart>();
-		const promise = model.provider.provideLanguageModelResponse(messages, options.modelOptions,
-			extension.name, {
-			report: (fragment) => {
-				// TODO: Handle multiple stream indices and LanguageModelToolCallPart types.
-				if (typeof fragment.part === 'string') {
-					const out = new extHostTypes.LanguageModelTextPart(fragment.part);
-					stream.emitOne(out);
-				}
-			}
-		}, token);
-
-		promise.then(
-			() => stream.resolve(),
-			(e: any) => stream.reject(e)
-		);
-
-		return {
-			get stream() {
-				return stream.asyncIterable;
-			},
-			get text() {
-				return AsyncIterableObject.map(stream.asyncIterable, part => part.value);
-			},
-		};
 	}
 
 	showLanguageModelConfig(sources: positron.ai.LanguageModelSource[]): Promise<IPositronLanguageModelConfig | undefined> {
 		return this._proxy.$languageModelConfig(sources);
 	}
 
-	private async buildChatParticipantRequest(request: Dto<IChatAgentRequest>): Promise<vscode.ChatRequest> {
+	private async buildChatParticipantRequest(extension: IExtensionDescription, request: Dto<IChatAgentRequest>): Promise<vscode.ChatRequest> {
 		const _request = revive<IChatAgentRequest>(request);
 
 		// Convert additional provided location data for use in extension
@@ -258,14 +206,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		}
 
 		// Get the language model used for this request
-		let model: vscode.LanguageModelChat | undefined;
-		if (request.userSelectedModelId && this._registeredLanguageModels.has(request.userSelectedModelId)) {
-			const { extension } = this._registeredLanguageModels.get(request.userSelectedModelId)!;
-			model = await this._languageModels.getLanguageModelByIdentifier(extension, request.userSelectedModelId);
-		} else if (this._registeredLanguageModels.size > 0) {
-			const firstModel = this._registeredLanguageModels.values().next().value!;
-			model = await this._languageModels.getLanguageModelByIdentifier(firstModel.extension, firstModel.provider.identifier);
-		}
+		const model = await this._languageModels.getLanguageModelByIdentifier(extension, request.userSelectedModelId || '');
 		return typeConvert.ChatAgentRequest.to(_request, location2, model!);
 	}
 
@@ -288,6 +229,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	}
 
 	async $provideResponse(
+		extension: IExtensionDescription,
 		request: Dto<IChatAgentRequest>,
 		history: IChatAgentHistoryEntryDto[],
 		context: IPositronChatContext,
@@ -304,7 +246,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		const response = new ChatResponse(this._proxy, taskId, this._commands.converter, this._disposables);
 
 		// Build chat request object
-		const _request = await this.buildChatParticipantRequest(request);
+		const _request = await this.buildChatParticipantRequest(extension, request);
 
 		// Build chat context object
 		const _context = {
@@ -351,19 +293,6 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return folloups.map(followup => typeConvert.ChatFollowup.from(followup, revive(request)));
 	}
 
-	async $provideTokenCount(id: string, message: string | IChatMessage, token: vscode.CancellationToken): Promise<number> {
-		const model = this._registeredLanguageModels.get(id);
-		if (!model) {
-			throw new Error('Requested language model not found.');
-		}
-
-		const _message = typeof message === 'string'
-			? message
-			: typeConvert.LanguageModelChatMessage.to(message);
-
-		return await model.provider.provideTokenCount(_message, token);
-	}
-
 	async $provideWelcomeMessage(id: string, token: vscode.CancellationToken): Promise<IChatWelcomeMessageContent | undefined> {
 		const participant = this._registeredChatParticipants.get(id);
 		if (!participant) {
@@ -381,44 +310,16 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		};
 	}
 
-	async $provideLanguageModelResponse(
-		id: string,
-		taskId: string,
-		messages: IChatMessage[],
-		from: ExtensionIdentifier,
-		options: { [name: string]: any },
-		token: vscode.CancellationToken
-	): Promise<any> {
-		const model = this._registeredLanguageModels.get(id);
-		if (!model) {
-			throw new Error('Requested language model not found.');
-		}
-
-		const _messages = messages.map((message) => typeConvert.LanguageModelChatMessage.to(message));
-
-		const promise = model.provider.provideLanguageModelResponse(_messages, options, from.value, {
-			report: (content) => this._proxy.$languageModelTaskResponse(taskId, {
-				index: 0,
-				part: { type: 'text', value: content.part },
-			}),
-		}, token);
-
-		promise.then((res) => {
-			this._proxy.$languageModelTaskResolve(taskId, res);
-		}, err => {
-			const { name, message } = err as Error;
-			const error: SerializedError = {
-				name,
-				message,
-				stack: err.stacktrace || err.stack,
-				$isError: true,
-				noTelemetry: true,
-			};
-			this._proxy.$languageModelTaskResolve(taskId, undefined, error);
-		});
-	}
-
 	async getCurrentPlotUri(): Promise<string | undefined> {
 		return this._proxy.$getCurrentPlotUri();
+	}
+
+	responseProgress(context: IToolInvocationContext, part: vscode.ChatResponsePart | vscode.ChatResponseTextEditPart): void {
+		if (!isToolInvocationContext(context)) {
+			throw new Error('Invalid tool invocation token');
+		}
+
+		const dto = typeConvert.ChatResponsePart.from(part, this._commands.converter, this._disposables);
+		this._proxy.$responseProgress(context.sessionId, dto);
 	}
 }

@@ -15,10 +15,8 @@ import { IDriverMetadata, Input } from '../../../services/positronConnections/co
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { IPositronChatContext, IPositronChatParticipant, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
+import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult, IChatWelcomeMessageContent } from '../../../contrib/chat/common/chatAgents.js';
-import { IChatMessage, IChatResponseFragment } from '../../../contrib/chat/common/languageModels.js';
-import { SerializedError } from '../../../../base/common/errors.js';
 import { IChatFollowup } from '../../../contrib/chat/common/chatService.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
@@ -132,20 +130,15 @@ export interface ExtHostConnectionsShape {
 
 export interface MainThreadAiFeaturesShape {
 	$registerChatParticipant(extension: IExtensionDescription, participant: IPositronChatParticipant): void;
-	$registerLanguageModel(id: string, extension: IExtensionDescription, name: string): void;
-	$unregisterLanguageModel(id: string): void;
 	$unregisterChatParticipant(id: string): void;
 	$chatTaskResponse(id: string, content: IChatProgressDto): void;
-	$languageModelTaskResponse(id: string, content: IChatResponseFragment): void;
-	$languageModelTaskResolve(id: string, result: any, error?: SerializedError): void;
 	$getCurrentPlotUri(): Promise<string | undefined>;
+	$responseProgress(sessionId: string, dto: IChatProgressDto): void;
 	$languageModelConfig(sources: IPositronLanguageModelSource[]): Promise<IPositronLanguageModelConfig | undefined>;
 }
 
 export interface ExtHostAiFeaturesShape {
-	$provideResponse(request: IChatAgentRequest, history: IChatAgentHistoryEntry[], context: IPositronChatContext, taskId: string, token: CancellationToken): Promise<IChatAgentResult>;
-	$provideTokenCount(id: string, message: string | IChatMessage, token: CancellationToken): Promise<number>;
-	$provideLanguageModelResponse(id: string, taskId: string, messages: IChatMessage[], from: ExtensionIdentifier, options: { [name: string]: any }, token: CancellationToken): Promise<any>;
+	$provideResponse(extension: IExtensionDescription, request: IChatAgentRequest, history: IChatAgentHistoryEntry[], context: IPositronChatContext, taskId: string, token: CancellationToken): Promise<IChatAgentResult>;
 	$provideWelcomeMessage(id: string, token: CancellationToken): Promise<IChatWelcomeMessageContent | undefined>;
 	$provideFollowups(request: IChatAgentRequest, result: IChatAgentResult, history: IChatAgentHistoryEntry[], context: IPositronChatContext, token: CancellationToken): Promise<IChatFollowup[]>;
 }

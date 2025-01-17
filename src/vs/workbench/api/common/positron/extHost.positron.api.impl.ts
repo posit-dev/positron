@@ -33,6 +33,7 @@ import { UiFrontendRequest } from '../../../services/languageRuntime/common/posi
 import { ExtHostConnections } from './extHostConnections.js';
 import { ExtHostAiFeatures } from './extHostAiFeatures.js';
 import { IExtHostLanguageModels } from '../extHostLanguageModels.js';
+import { IToolInvocationContext } from '../../../contrib/chat/common/languageModelToolsService.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -220,14 +221,12 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			showLanguageModelConfig(sources: positron.ai.LanguageModelSource[]): Thenable<positron.ai.LanguageModelConfig | undefined> {
 				return extHostAiFeatures.showLanguageModelConfig(sources);
 			},
-			registerLanguageModel(provider: positron.ai.LanguageModelChatProvider): vscode.Disposable {
-				return extHostAiFeatures.registerLanguageModel(extension, provider);
-			},
 			registerChatParticipant(participant: positron.ai.ChatParticipant): vscode.Disposable {
 				return extHostAiFeatures.registerChatParticipant(extension, participant);
 			},
-			sendLanguageModelRequest(id: string, messages: vscode.LanguageModelChatMessage[], options: { [key: string]: any }, token: vscode.CancellationToken): Thenable<vscode.LanguageModelChatResponse> {
-				return extHostAiFeatures.sendLanguageModelRequest(extension, id, messages, options, token);
+			responseProgress(token: unknown, part: vscode.ChatResponsePart | vscode.ChatResponseTextEditPart): void {
+				const context = token as IToolInvocationContext;
+				return extHostAiFeatures.responseProgress(context, part);
 			}
 		};
 

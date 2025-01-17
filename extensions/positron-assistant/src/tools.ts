@@ -1,0 +1,128 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import * as vscode from 'vscode';
+import * as positron from 'positron';
+import * as ai from 'ai';
+
+import { z } from 'zod';
+import { padBase64String } from './utils';
+
+export interface PositronToolAdapter {
+	name: string;
+	description: string;
+	lmTool: vscode.LanguageModelChatTool;
+	aiTool(token: unknown, toolOptions: unknown): ai.CoreTool;
+}
+
+export const getPlotToolAdapter: PositronToolAdapter = {
+	name: 'getPlot',
+	description: 'Get the current visible plot.',
+
+	get lmTool() {
+		return {
+			name: this.name,
+			description: this.description,
+		};
+	},
+
+	aiTool(token: unknown): ai.CoreTool {
+		const push = (part: vscode.ChatResponsePart) => positron.ai.responseProgress(token, part);
+		return ai.tool({
+			description: this.description,
+			parameters: z.object({}),
+			execute: async () => {
+				push(new vscode.ChatResponseProgressPart('Getting the current plot...'));
+				const uri = await positron.ai.getCurrentPlotUri();
+				const matches = uri?.match(/^data:([^;]+);base64,(.+)$/);
+				if (!matches || !uri) {
+					return 'No plot visible';
+				}
+
+				push(new vscode.ChatResponseProgressPart('Analysing the plot image data...'));
+				return {
+					type: 'image' as const,
+					mimeType: matches[1],
+					data: padBase64String(matches[2]),
+				};
+			},
+			experimental_toToolResultContent(result) {
+				return typeof result === 'string'
+					? [{ type: 'text', text: result }]
+					: [result];
+			},
+		});
+	}
+};
+
+
+export const executeToolAdapter: PositronToolAdapter = {
+	// TODO: Add a positron API to return console output for tool call response.
+	name: 'execute',
+	description: 'Execute code in the active console. The console output will not be returned.',
+
+	get lmTool() {
+		return {
+			name: this.name,
+			description: this.description,
+		};
+	},
+
+	aiTool(token: unknown): ai.CoreTool {
+		const push = (part: vscode.ChatResponsePart) => positron.ai.responseProgress(token, part);
+		return ai.tool({
+			description: this.description,
+			parameters: z.object({
+				code: z.string().describe('Code to execute.'),
+			}),
+			execute: async ({ code }) => {
+				push(new vscode.ChatResponseProgressPart('Executing code...'));
+				await positron.runtime.getForegroundSession().then(session => {
+					if (session) {
+						return positron.runtime.executeCode(session.runtimeMetadata.languageId, code, false);
+					}
+					return false;
+				});
+			},
+		});
+	},
+};
+
+
+export const textEditToolAdapter: PositronToolAdapter = {
+	name: 'textEdit',
+	description: 'Output an edited version of the code selection.',
+
+	get lmTool() {
+		return {
+			name: this.name,
+			description: this.description,
+		};
+	},
+
+	aiTool(token: unknown, options: { document: vscode.TextDocument; selection: vscode.Selection }): ai.CoreTool {
+		const push = (part: vscode.ChatResponseTextEditPart) => positron.ai.responseProgress(token, part);
+
+		return ai.tool({
+			description: this.description,
+			parameters: z.object({
+				code: z.string().describe('The entire edited code selection.'),
+			}),
+			execute: async ({ code }) => {
+				push(new vscode.ChatResponseTextEditPart(
+					options.document.uri,
+					vscode.TextEdit.replace(options.selection, code)
+				));
+			},
+		});
+	}
+};
+
+export const positronToolAdapters: Record<string, PositronToolAdapter> = {
+	[getPlotToolAdapter.name]: getPlotToolAdapter,
+	[executeToolAdapter.name]: executeToolAdapter,
+	[textEditToolAdapter.name]: textEditToolAdapter,
+};
+

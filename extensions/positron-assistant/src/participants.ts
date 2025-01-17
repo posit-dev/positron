@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { EXTENSION_ROOT_DIR } from './constants';
 import { padBase64String, toLanguageModelChatMessage } from './utils';
 import { getStoredModels } from './config';
+import { executeToolAdapter, getPlotToolAdapter, textEditToolAdapter } from './tools';
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
 class PositronAssistantParticipant implements positron.ai.ChatParticipant {
@@ -59,11 +60,12 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 			const messages: vscode.LanguageModelChatMessage[] = toLanguageModelChatMessage(context.history);
 			messages.push(vscode.LanguageModelChatMessage.User('Summarise and suggest follow-ups.'));
 
-			const response = await positron.ai.sendLanguageModelRequest(
-				context.positron.userSelectedModelId,
-				messages,
-				{ modelOptions: { system } },
-				token);
+			const models = await vscode.lm.selectChatModels({ id: context.positron.userSelectedModelId });
+			if (models.length === 0) {
+				throw new Error('Selected model not available.');
+			}
+
+			const response = await models[0].sendRequest(messages, { modelOptions: { system } }, token);
 
 			let json = '';
 			for await (const fragment of response.text) {
@@ -81,37 +83,20 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 		}
 	};
 
+	public commands: positron.ai.ChatParticipantSlashCommands[] = [
+		{ name: 'execute', description: 'Execute code in the active console.' }
+	];
+
 	async requestHandler(request: vscode.ChatRequest, context: positron.ai.ChatContext, response: vscode.ChatResponseStream, token: vscode.CancellationToken) {
 		// System prompt
 		let system: string = await fs.promises.readFile(`${mdDir}/prompts/default.md`, 'utf8');
 
 		// Tools
-		const tools: Record<string, ai.CoreTool> = {
-			getPlot: ai.tool({
-				description: 'Get the current visible plot.',
-				parameters: z.object({}),
-				execute: async () => {
-					response.progress('Getting the current plot...');
-					const uri = await positron.ai.getCurrentPlotUri();
-					const matches = uri?.match(/^data:([^;]+);base64,(.+)$/);
-					if (!matches || !uri) {
-						return 'No plot visible';
-					}
+		const tools: vscode.LanguageModelChatTool[] = [];
+		const toolOptions: Record<string, any> = {};
 
-					response.progress('Analysing the plot image data...');
-					return {
-						type: 'image' as const,
-						mimeType: matches[1],
-						data: padBase64String(matches[2]),
-					};
-				},
-				experimental_toToolResultContent(result) {
-					return typeof result === 'string'
-						? [{ type: 'text', text: result }]
-						: [result];
-				},
-			}),
-		};
+		// Add getPlot tool
+		tools.push(getPlotToolAdapter.lmTool);
 
 		// Language model chat history
 		const messages: vscode.LanguageModelChatMessage[] = toLanguageModelChatMessage(context.history);
@@ -155,6 +140,12 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 			]);
 		}
 
+		// When asked via slash command, execute R code in the console.
+		if (request.command === 'execute') {
+			system += '\n\nExecute code in the active console using `execute`. The console output will not be returned.\n\n';
+			tools.push(executeToolAdapter.lmTool);
+		}
+
 		// When invoked from the editor, add selection context and editor tool
 		if (request.location2 instanceof vscode.ChatRequestEditorData) {
 			system += await fs.promises.readFile(`${mdDir}/prompts/editor.md`, 'utf8');
@@ -166,18 +157,9 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 				vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
 			]);
 
-			tools['textEdit'] = ai.tool({
-				description: 'Output an edited version of the code selection.',
-				parameters: z.object({
-					code: z.string().describe('The entire edited code selection.'),
-				}),
-				execute: async ({ code }) => {
-					response.textEdit(
-						document.uri,
-						vscode.TextEdit.replace(selection, code)
-					);
-				},
-			});
+			// Add tool to output text edits
+			tools.push(textEditToolAdapter.lmTool);
+			toolOptions[textEditToolAdapter.name] = { document, selection };
 		}
 
 		// When invoked from the terminal, add additional instructions.
@@ -199,13 +181,14 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 		}
 
 		// Send messages to selected langauge model and stream back response
-		const modelResponse = await positron.ai.sendLanguageModelRequest(
-			request.model.id,
-			messages,
-			{
-				modelOptions: { tools, system }
+		const modelResponse = await request.model.sendRequest(messages, {
+			tools,
+			modelOptions: {
+				toolInvocationToken: request.toolInvocationToken,
+				toolOptions,
+				system
 			},
-			token);
+		}, token);
 
 		for await (const fragment of modelResponse.text) {
 			if (token.isCancellationRequested) {

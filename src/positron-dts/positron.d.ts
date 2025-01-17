@@ -1534,6 +1534,7 @@ declare module 'positron' {
 		 */
 		export interface LanguageModelChatProvider {
 			name: string;
+			provider: string;
 			identifier: string;
 
 			/**
@@ -1544,6 +1545,20 @@ declare module 'positron' {
 				options: { [name: string]: any },
 				extensionId: string,
 				progress: vscode.Progress<{ index: number; part: string }>,
+				token: vscode.CancellationToken,
+			): Thenable<any>;
+
+			/**
+			 * Handle a language model request with tool calls and streaming chat responses.
+			 */
+			provideLanguageModelResponse2?(
+				messages: vscode.LanguageModelChatMessage[],
+				options: vscode.LanguageModelChatRequestOptions,
+				extensionId: string,
+				progress: vscode.Progress<{
+					index: number;
+					part: vscode.LanguageModelTextPart | vscode.LanguageModelToolCallPart;
+				}>,
 				token: vscode.CancellationToken,
 			): Thenable<any>;
 
@@ -1647,11 +1662,6 @@ declare module 'positron' {
 		}
 
 		/**
-		 * Register a language model.
-		 */
-		export function registerLanguageModel(model: LanguageModelChatProvider): vscode.Disposable;
-
-		/**
 		 * Register a chat participant.
 		 */
 		export function registerChatParticipant(participant: ChatParticipant): vscode.Disposable;
@@ -1662,19 +1672,17 @@ declare module 'positron' {
 		export function getCurrentPlotUri(): Thenable<string | undefined>;
 
 		/**
+		 * Send a progress response to the chat response stream.
+		 */
+		export function responseProgress(token: unknown, part: vscode.ChatResponsePart | {
+			uri: vscode.Uri;
+			edits: vscode.TextEdit[];
+		}): void;
+
+		/**
 		 * Show a modal dialog for language model configuration.
 		 */
 		export function showLanguageModelConfig(sources: LanguageModelSource[]): Thenable<LanguageModelConfig | undefined>;
-
-		/**
-		 * Send a request to a Positron registered Language Model.
-		 */
-		export function sendLanguageModelRequest(
-			id: string,
-			messages: vscode.LanguageModelChatMessage[],
-			options: vscode.LanguageModelChatRequestOptions,
-			token: vscode.CancellationToken,
-		): Thenable<vscode.LanguageModelChatResponse>;
 
 		/**
 		 * The context in which a chat request is made.

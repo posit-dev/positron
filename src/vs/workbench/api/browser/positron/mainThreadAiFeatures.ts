@@ -3,16 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { AsyncIterableSource, DeferredPromise } from '../../../../base/common/async.js';
-import { SerializedError } from '../../../../base/common/errors.js';
 import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { revive } from '../../../../base/common/marshalling.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { IChatAgentService } from '../../../contrib/chat/common/chatAgents.js';
-import { IChatFollowup, IChatProgress } from '../../../contrib/chat/common/chatService.js';
-import { IChatResponseFragment, ILanguageModelChatResponse, ILanguageModelsService } from '../../../contrib/chat/common/languageModels.js';
-import { IPositronAssistantService, IPositronChatParticipant, IPositronLanguageModelTask, IPositronChatTask, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { ChatModel } from '../../../contrib/chat/common/chatModel.js';
+import { IChatFollowup, IChatProgress, IChatService } from '../../../contrib/chat/common/chatService.js';
+import { IPositronAssistantService, IPositronChatParticipant, IPositronChatTask, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IChatProgressDto } from '../../common/extHost.protocol.js';
 import { ExtHostAiFeaturesShape, ExtHostPositronContext, MainPositronContext, MainThreadAiFeaturesShape } from '../../common/positron/extHost.positron.protocol.js';
@@ -23,13 +21,12 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	private readonly _proxy: ExtHostAiFeaturesShape;
 	private readonly _registrations = this._register(new DisposableMap<string>());
 	private readonly _chatTasks = new Map<string, IPositronChatTask>();
-	private readonly _languageModelTasks = new Map<string, IPositronLanguageModelTask>();
 
 	constructor(
 		extHostContext: IExtHostContext,
 		@IPositronAssistantService private readonly _positronAssistantService: IPositronAssistantService,
 		@IChatAgentService private readonly _chatAgentService: IChatAgentService,
-		@ILanguageModelsService private readonly _languageModelsService: ILanguageModelsService,
+		@IChatService private readonly _chatService: IChatService,
 	) {
 		super();
 		// Create the proxy for the extension host.
@@ -64,7 +61,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 					this._chatTasks.set(taskId, { handler: progress });
 					try {
 						const context = this._positronAssistantService.buildChatContext(request);
-						return await this._proxy.$provideResponse(request, history, context, taskId, token);
+						return await this._proxy.$provideResponse(extension, request, history, context, taskId, token);
 					} finally {
 						this._chatTasks.delete(taskId);
 					}
@@ -83,66 +80,6 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		store.add(agent);
 		store.add(agentImpl);
 		this._registrations.set(participant.id, store);
-	}
-
-	/**
-	 * Register a language model from the extension host.
-	 */
-	$registerLanguageModel(id: string, extension: IExtensionDescription, name: string): void {
-		// We need at least one default and one non-default model for the dropdown to appear.
-		// For now, just set the first language model as default.
-		const isFirst = this._languageModelsService.getLanguageModelIds().length === 0;
-
-		// Register with the language model service so that our provider appears in the selector UI
-		const model = this._languageModelsService.registerLanguageModelChat(id, {
-			metadata: {
-				name,
-				id,
-				isDefault: isFirst,
-				extension: extension.identifier,
-				vendor: extension.publisher,
-				family: extension.publisher,
-				version: extension.version,
-				maxInputTokens: 0,
-				maxOutputTokens: 0,
-				isUserSelectable: true,
-			},
-			/*
-			 * We use our own custom chat participants that talk to the LLM models via a Positron
-			 * Assistant API, rather than through the existing Language Model API. However,
-			 * implementing these methods allows extension to use the Language Model API directly.
-			 */
-			sendChatRequest: async (messages, from, options, token): Promise<ILanguageModelChatResponse> => {
-				const defer = new DeferredPromise<any>();
-				const stream = new AsyncIterableSource<IChatResponseFragment>();
-
-				const taskId = generateUuid();
-				this._languageModelTasks.set(taskId, { defer, stream });
-
-				try {
-					this._proxy.$provideLanguageModelResponse(id, taskId, messages, from, options, token);
-					return {
-						result: defer.p,
-						stream: stream.asyncIterable
-					};
-				} finally {
-					this._chatTasks.delete(taskId);
-				}
-			},
-			provideTokenCount: (message, token): Promise<number> => {
-				return this._proxy.$provideTokenCount(id, message, token);
-			}
-		});
-		const store = new DisposableStore();
-		store.add(model);
-		this._registrations.set(id, store);
-	}
-
-	/*
-	 * Deregister a language model.
-	 */
-	$unregisterLanguageModel(id: string): void {
-		this._registrations.deleteAndDispose(id);
 	}
 
 	/*
@@ -165,35 +102,6 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	}
 
 	/*
-	 * Respond from the extension host to a language model task with some streaming content.
-	 */
-	$languageModelTaskResponse(id: string, content: IChatResponseFragment) {
-		const task = this._languageModelTasks.get(id);
-		if (!task) {
-			throw new Error('Language model response task not found.');
-		}
-		task.stream.emitOne(content);
-	}
-
-	/*
-	 * Respond from the extension host to a language model task with the resolved result.
-	 */
-	$languageModelTaskResolve(id: string, result: any, error?: SerializedError) {
-		const task = this._languageModelTasks.get(id);
-		if (!task) {
-			throw new Error('Language model response task not found.');
-		}
-
-		if (error) {
-			task.stream.reject(error);
-			task.defer.error(error);
-		} else {
-			task.stream.resolve();
-			task.defer.complete(result);
-		}
-	}
-
-	/*
 	 * Show a modal dialog for language model configuration. Return a promise resolving to the
 	 * configuration saved by the user.
 	 */
@@ -206,5 +114,19 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 */
 	async $getCurrentPlotUri(): Promise<string | undefined> {
 		return this._positronAssistantService.getCurrentPlotUri();
+	}
+
+	/**
+	 * Respond to a request from the extension host to send a progress part to the chat response.
+	 */
+	$responseProgress(sessionId: string, content: IChatProgressDto): void {
+		const progress = revive(content) as IChatProgress;
+		const model = this._chatService.getSession(sessionId) as ChatModel;
+		if (!model) {
+			throw new Error('Chat session not found.');
+		}
+
+		const request = model.getRequests().at(-1)!;
+		model.acceptResponseProgress(request, progress);
 	}
 }

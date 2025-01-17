@@ -11,9 +11,11 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOllama } from 'ollama-ai-provider';
 import { toAIMessage } from './utils';
+import { positronToolAdapters } from './tools';
 
 class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly name = 'Error Language Model';
+	readonly provider = 'error';
 	readonly identifier = 'error-language-model';
 	private readonly _message = 'This language model always throws an error message.';
 
@@ -28,6 +30,7 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 
 class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly name = 'Echo Language Model';
+	readonly provider = 'echo';
 	readonly identifier = 'echo-language-model';
 
 	async provideLanguageModelResponse(
@@ -59,34 +62,52 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 
 abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	public readonly name;
+	public readonly provider;
 	public readonly identifier;
 	protected abstract model: ai.LanguageModelV1;
 
 	constructor(protected readonly _config: ModelConfig) {
 		this.identifier = _config.id;
 		this.name = _config.name;
+		this.provider = _config.provider;
 	}
 
-	/*
-	 * Handler for for vscode.lm `sendRequest` API and `positron.ai.sendLanguageModelRequest` API.
-	 */
-	async provideLanguageModelResponse(
+	async provideLanguageModelResponse(): Promise<never> {
+		throw new Error('Method not implemented');
+	}
+
+	async provideLanguageModelResponse2(
 		messages: vscode.LanguageModelChatMessage[],
-		options: { [key: string]: any },
+		options: vscode.LanguageModelChatRequestOptions,
 		extensionId: string,
-		progress: vscode.Progress<vscode.ChatResponseFragment>,
+		progress: vscode.Progress<vscode.ChatResponseFragment2>,
 		token: vscode.CancellationToken
 	) {
+		const modelOptions = options.modelOptions ?? {};
 		const _messages = toAIMessage(messages);
 		const controller = new AbortController();
 		const signal = controller.signal;
+		let tools: Record<string, ai.CoreTool> | undefined = undefined;
+
+		// For tools in this extension, create an ai.CoreTool object using this invocation token
+		if (modelOptions.toolInvocationToken && options.tools && options.tools.length > 0) {
+			tools = options.tools.reduce((acc: Record<string, ai.CoreTool>, tool: vscode.LanguageModelChatTool) => {
+				if (tool.name in positronToolAdapters) {
+					acc[tool.name] = positronToolAdapters[tool.name].aiTool(
+						modelOptions.toolInvocationToken,
+						modelOptions.toolOptions[tool.name]
+					);
+				}
+				return acc;
+			}, {});
+		}
 
 		const result = ai.streamText({
 			model: this.model,
-			system: options.system ?? undefined,
+			system: modelOptions.system ?? undefined,
 			messages: _messages,
-			maxSteps: options.maxSteps ?? 5,
-			tools: options.tools ?? undefined,
+			maxSteps: modelOptions.maxSteps ?? 5,
+			tools,
 			abortSignal: signal,
 		});
 
@@ -95,7 +116,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				controller.abort();
 				break;
 			}
-			progress.report({ index: 0, part: delta });
+			progress.report({ index: 0, part: new vscode.LanguageModelTextPart(delta) });
 		}
 	}
 
@@ -172,16 +193,16 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 		this.model = createOllama({ baseURL: this._config.baseUrl })(this._config.model);
 	}
 
-	async provideLanguageModelResponse(
+	async provideLanguageModelResponse2(
 		messages: vscode.LanguageModelChatMessage[],
-		options: { [key: string]: any },
+		options: vscode.LanguageModelChatRequestOptions,
 		extensionId: string,
-		progress: vscode.Progress<vscode.ChatResponseFragment>,
+		progress: vscode.Progress<vscode.ChatResponseFragment2>,
 		token: vscode.CancellationToken
 	) {
 		// Ollama does not support streaming with tool calls yet
 		options.tools = undefined;
-		return super.provideLanguageModelResponse(messages, options, extensionId, progress, token);
+		return super.provideLanguageModelResponse2(messages, options, extensionId, progress, token);
 	}
 }
 
