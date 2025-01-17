@@ -421,19 +421,37 @@ export class DataScienceInstaller extends BaseInstaller {
     ): Promise<InstallerResponse> {
         // --- Start Positron ---
         const productName = ProductNames.get(product)!;
-        const install = await positron.window.showSimpleModalDialogPrompt(
-            l10n.t('Install Python package "{0}"?', productName),
-            message ??
-                l10n.t(
-                    'To enable Python support, Positron needs to install the package "{0}" for the active interpreter.',
-                    productName,
-                ),
-            l10n.t('Install'),
-        );
+
+        let hasPip = true;
+        if (_flags && _flags & ModuleInstallFlags.installPipIfRequired) {
+            const installer = this.serviceContainer.get<IInstaller>(IInstaller);
+            hasPip = await installer.isInstalled(Product.pip, resource);
+        }
+
+        let install;
+        if (hasPip) {
+            install = await positron.window.showSimpleModalDialogPrompt(
+                l10n.t('Install Python package "{0}"?', productName),
+                message ??
+                    l10n.t(
+                        'To enable Python support, Positron needs to install the package "{0}" for the active interpreter.',
+                        productName,
+                    ),
+                l10n.t('Install'),
+            );
+        } else {
+            install = await positron.window.showSimpleModalDialogPrompt(
+                l10n.t('Install Python packages "{0}" and "{1}"?', ProductNames.get(Product.pip)!, productName),
+                message ??
+                    l10n.t(
+                        'To enable Python support, Positron needs to install the package "{0}" for the active interpreter.',
+                        productName,
+                    ),
+                l10n.t('Install'),
+            );
+        }
         if (install) {
-            // -- Start Positron --
             return this.install(product, resource, cancel, _flags, options);
-            // -- End Positron --
         }
         // --- End Positron ---
         return InstallerResponse.Ignore;
