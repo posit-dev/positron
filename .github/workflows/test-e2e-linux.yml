@@ -131,6 +131,8 @@ jobs:
         uses: ./.github/actions/gen-report-dir
         if: ${{ !cancelled() }}
 
+      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
       - name: Run Playwright Tests (Electron)
         env:
           POSITRON_PY_VER_SEL: 3.12.3
