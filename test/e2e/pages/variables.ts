@@ -64,10 +64,8 @@ export class Variables {
 	}
 
 	async doubleClickVariableRow(variableName: string) {
-		await test.step(`Double click variable row: ${variableName}`, async () => {
-			const desiredRow = await this.waitForVariableRow(variableName);
-			await desiredRow.dblclick();
-		});
+		const desiredRow = await this.waitForVariableRow(variableName);
+		await desiredRow.dblclick();
 	}
 
 	async toggleVariablesView() {
