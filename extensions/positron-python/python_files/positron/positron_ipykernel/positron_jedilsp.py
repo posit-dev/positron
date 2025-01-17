@@ -10,11 +10,12 @@ import re
 import threading
 import warnings
 from functools import lru_cache
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Union, cast
 
 from comm.base_comm import BaseComm
 
-from ._vendor import attrs
+from ._vendor import attrs, cattrs
 from ._vendor.jedi.api import Interpreter, Project
 from ._vendor.jedi_language_server import jedi_utils, pygls_utils
 from ._vendor.jedi_language_server.server import (
@@ -35,6 +36,7 @@ from ._vendor.jedi_language_server.server import (
 )
 from ._vendor.lsprotocol.types import (
     COMPLETION_ITEM_RESOLVE,
+    INITIALIZE,
     TEXT_DOCUMENT_CODE_ACTION,
     TEXT_DOCUMENT_COMPLETION,
     TEXT_DOCUMENT_DEFINITION,
@@ -69,10 +71,13 @@ from ._vendor.lsprotocol.types import (
     DocumentSymbol,
     DocumentSymbolParams,
     Hover,
+    InitializeParams,
+    InitializeResult,
     InsertTextFormat,
     Location,
     MarkupContent,
     MarkupKind,
+    MessageType,
     Position,
     Range,
     RenameParams,
@@ -87,6 +92,7 @@ from ._vendor.lsprotocol.types import (
 )
 from ._vendor.pygls.capabilities import get_capability
 from ._vendor.pygls.feature_manager import has_ls_param_or_annotation
+from ._vendor.pygls.protocol import lsp_method
 from ._vendor.pygls.workspace.text_document import TextDocument
 from .help_comm import ShowHelpTopicParams
 from .inspectors import BaseColumnInspector, BaseTableInspector, get_inspector
@@ -128,6 +134,15 @@ class HelpTopicRequest:
     jsonrpc: str = attrs.field(default="2.0")
 
 
+@attrs.define
+class PositronInitializationOptions:
+    """
+    Positron-specific language server initialization options.
+    """
+
+    notebook_path: Optional[Path] = attrs.field(default=None)
+
+
 class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
     @lru_cache()
     def get_message_type(self, method: str) -> Optional[Type]:
@@ -136,6 +151,50 @@ class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
         if method == _HELP_TOPIC:
             return HelpTopicRequest
         return super().get_message_type(method)
+
+    @lsp_method(INITIALIZE)
+    def lsp_initialize(self, params: InitializeParams) -> InitializeResult:
+        result = super().lsp_initialize(params)
+
+        server = self._server
+
+        # Parse Positron-specific initialization options.
+        try:
+            raw_initialization_options = (params.initialization_options or {}).get("positron", {})
+            initialization_options = cattrs.structure(
+                raw_initialization_options, PositronInitializationOptions
+            )
+        except cattrs.BaseValidationError as error:
+            # Show an error message in the client.
+            msg = f"Invalid PositronInitializationOptions, using defaults: {cattrs.transform_error(error)}"
+            server.show_message(msg, msg_type=MessageType.Error)
+            server.show_message_log(msg, msg_type=MessageType.Error)
+            initialization_options = PositronInitializationOptions()
+
+        # If a notebook path was provided, set the project path to the notebook's parent.
+        # See https://github.com/posit-dev/positron/issues/5948.
+        notebook_path = initialization_options.notebook_path
+        if notebook_path:
+            path = notebook_path.parent
+        else:
+            path = self._server.workspace.root_path
+
+        # Create the Jedi Project.
+        # Note that this overwrites a Project already created in the parent class.
+        workspace_options = server.initialization_options.workspace
+        server.project = (
+            Project(
+                path=path,
+                environment_path=workspace_options.environment_path,
+                added_sys_path=workspace_options.extra_paths,
+                smart_sys_path=True,
+                load_unsafe_extensions=False,
+            )
+            if path
+            else None
+        )
+
+        return result
 
 
 class PositronJediLanguageServer(JediLanguageServer):
@@ -718,7 +777,7 @@ def _publish_diagnostics(server: PositronJediLanguageServer, uri: str) -> None:
     # canceling notifications that happen in that interval.
     # Since this function is executed after a delay, we need to check
     # whether the document still exists
-    if uri not in server.workspace.documents:
+    if uri not in server.workspace.text_documents:
         return
 
     doc = server.workspace.get_text_document(uri)
