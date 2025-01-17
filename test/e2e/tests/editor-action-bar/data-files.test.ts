@@ -37,7 +37,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Editor Action Bar: Data Explorer', {
+test.describe('Editor Action Bar: Data Files', {
 	tag: [tags.WEB, tags.WIN, tags.EDITOR_ACTION_BAR, tags.DATA_EXPLORER]
 }, () => {
 
