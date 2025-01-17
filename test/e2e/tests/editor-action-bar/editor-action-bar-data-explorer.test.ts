@@ -11,18 +11,18 @@ const testCases = [
 		title: 'R - Load data frame via variables pane',
 		openFile: 'workspaces/generate-data-frames-r/simple-data-frames.r',
 		variable: 'df',
-		tabTitle: 'Data: df',
+		tabName: 'Data: df',
 	},
 	{
 		title: 'Python - Load data frame via variables pane',
 		openFile: 'workspaces/generate-data-frames-py/simple-data-frames.py',
 		variable: 'df',
-		tabTitle: 'Data: df',
+		tabName: 'Data: df',
 	},
 	{
 		title: 'Python - Open parquet file via DuckDB',
 		openDataFile: 'data-files/100x100/100x100.parquet',
-		tabTitle: 'Data: 100x100.parquet',
+		tabName: 'Data: 100x100.parquet',
 	}];
 
 test.use({
@@ -60,15 +60,15 @@ test.describe('Editor Action Bar: Data Explorer', {
 					await app.workbench.variables.doubleClickVariableRow(testCase.variable);
 					await app.code.driver.page.getByRole('tablist').locator('.tab').first().click();
 					await app.code.driver.page.getByLabel('Close').first().click();
-					await expect(app.code.driver.page.getByText(testCase.tabTitle, { exact: true })).toBeVisible();
+					await expect(app.code.driver.page.getByText(testCase.tabName, { exact: true })).toBeVisible();
 				});
 			}
 
 			// Verify action bar behavior
 			await verifySummaryPosition(app, 'Left');
 			await verifySummaryPosition(app, 'Right');
-			await verifySplitEditor(page, testCase.tabTitle);
-			await verifyOpenInNewWindow(app, `${testCase.tabTitle} — qa-example-content`);
+			await verifySplitEditor(page, testCase.tabName);
+			await verifyOpenInNewWindow(app, `${testCase.tabName} — qa-example-content`);
 		});
 	}
 });
