@@ -32,7 +32,7 @@ export class EditorActionBar {
 			await this.page.keyboard.up('Alt');
 		}
 		else {
-			this.splitEditorRightButton.click();
+			await this.splitEditorRightButton.click();
 		}
 	}
 
