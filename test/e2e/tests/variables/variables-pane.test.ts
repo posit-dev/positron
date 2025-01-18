@@ -36,6 +36,17 @@ test.describe('Variables Pane', {
 
 	});
 
+	test.skip('Python - Verifies only 1 entery per environment', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5887' }],
+	}, async function ({ app, logger, python }) {
+		await app.workbench.console.barClearButton.click();
+		await app.workbench.console.barRestartButton.click();
+		await app.workbench.console.waitForReady('>>>');
+		await app.workbench.console.waitForConsoleContents('restarted');
+		const groupList = app.workbench.variables.getVariablesGroupList();
+		expect((await groupList).length).toBe(1);
+	});
+
 	test('R - Verifies Variables pane basic function [C628635]', async function ({ app, logger, r }) {
 		const executeCode = async (code: string) => {
 			await app.workbench.console.executeCode('R', code);
@@ -54,4 +65,18 @@ test.describe('Variables Pane', {
 		expect(variablesMap.get('y')).toStrictEqual({ value: '10', type: 'dbl' });
 		expect(variablesMap.get('z')).toStrictEqual({ value: '100', type: 'dbl' });
 	});
+
+
+	test.skip('R - Verifies only 1 entery per environment', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5887' }],
+	}, async function ({ app, logger, r }) {
+		await app.workbench.console.barClearButton.click();
+		await app.workbench.console.barRestartButton.click();
+		await app.workbench.console.waitForReady('>');
+		await app.workbench.console.waitForConsoleContents('restarted');
+		const groupList = app.workbench.variables.getVariablesGroupList();
+		expect((await groupList).length).toBe(1);
+	});
 });
+
+

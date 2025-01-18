@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=@@NAME_LONG@@ - URL Handler
-Comment=Code Editing. Redefined.
+Comment=The next generation IDE for data science
 GenericName=Text Editor
 Exec=@@EXEC@@ --open-url %U
 Icon=@@ICON@@
