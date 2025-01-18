@@ -19,6 +19,7 @@ import { PositronModalDialog } from '../../../../browser/positronComponents/posi
 import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { PlatformNativeDialogActionBar } from '../../../../browser/positronComponents/positronModalDialog/components/platformNativeDialogActionBar.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
  * SetPlotSizeResult interface.
@@ -100,22 +101,22 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 	};
 
 	const okButton = (
-		<button
+		<Button
 			className='action-bar-button default'
 			tabIndex={0}
-			onClick={acceptHandler}
+			onPressed={acceptHandler}
 		>
 			{(() => localize('positronOK', "OK"))()}
-		</button>
+		</Button>
 	);
 	const cancelButton = (
-		<button
+		<Button
 			className='action-bar-button'
 			tabIndex={0}
-			onClick={cancelHandler}
+			onPressed={cancelHandler}
 		>
 			{(() => localize('positronCancel', "Cancel"))()}
-		</button>
+		</Button>
 	);
 
 	// Render.
@@ -153,13 +154,13 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 
 			<div className='plot-size-action-bar top-separator'>
 				<div className='left'>
-					<button
+					<Button
 						className='action-bar-button'
 						tabIndex={0}
-						onClick={deleteHandler}
+						onPressed={deleteHandler}
 					>
 						{(() => localize('positronDeletePlotSize', "Delete"))()}
-					</button>
+					</Button>
 				</div>
 				<div className='right'>
 					<PlatformNativeDialogActionBar secondaryButton={cancelButton} primaryButton={okButton} />
