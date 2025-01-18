@@ -227,7 +227,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		});
 
-		test('Python - Verifies bokeh Python widget [C730343]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+		test.skip('Python - Verifies bokeh Python widget [C730343]', {
+			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6045' }],
+			tag: [tags.WEB, tags.WIN]
+		}, async function ({ app }) {
 			await app.workbench.console.pasteCodeToConsole(bokeh);
 			await app.workbench.console.sendEnterKey();
 
