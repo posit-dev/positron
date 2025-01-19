@@ -80,7 +80,7 @@ test.describe('Editor Action Bar: Data Files', {
 			await editorActionBar.clickSplitEditorButton('down');
 			await editorActionBar.verifySplitEditor('down', testCase.tabName);
 
-			await editorActionBar.verifyOpenInNewWindow(app.web, `${testCase.tabName} — qa-example-content`);
+			await editorActionBar.verifyOpenInNewWindow(app.web, testCase.tabName);
 		});
 	}
 });

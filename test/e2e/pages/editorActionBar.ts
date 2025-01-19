@@ -105,19 +105,21 @@ export class EditorActionBar {
 	}
 
 	/**
-	 * Verify: Check that the "open in new window" contains the specified title
+	 * Verify: Check that the "open in new window" contains the specified text
 	 * @param isWeb whether the test is running in the web or desktop app
-	 * @param windowTitle the title to verify in the new window
+	 * @param text the text to verify in the new window
 	 */
-	async verifyOpenInNewWindow(isWeb: boolean, windowTitle: string) {
+	async verifyOpenInNewWindow(isWeb: boolean, text: string | RegExp, exact = true) {
 		if (!isWeb) {
-			await test.step(`Verify "open new window" contains: ${windowTitle}`, async () => {
+			await test.step(`Verify "open new window" contains: ${text}`, async () => {
 				const [newPage] = await Promise.all([
 					this.page.context().waitForEvent('page'),
 					this.page.getByLabel('Move into new window').first().click(),
 				]);
-				await newPage.waitForLoadState();
-				await expect(newPage.getByText(windowTitle)).toBeVisible();
+				await newPage.waitForLoadState('load');
+				exact
+					? await expect(newPage.getByText(text, { exact: true })).toBeVisible()
+					: await expect(newPage.getByText(text)).toBeVisible();
 			});
 		}
 	}

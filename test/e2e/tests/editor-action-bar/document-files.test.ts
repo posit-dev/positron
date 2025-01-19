@@ -83,8 +83,8 @@ async function verifySplitEditor(tabName: string) {
 	await editorActionBar.verifySplitEditor('down', tabName);
 }
 
-async function verifyOpenInNewWindow(app: Application, title: string) {
-	await editorActionBar.verifyOpenInNewWindow(app.web, title);
+async function verifyOpenInNewWindow(app: Application, text: string) {
+	await editorActionBar.verifyOpenInNewWindow(app.web, text, false);
 }
 
 async function verifyOpenViewerRendersHtml(app: Application, title: string) {
