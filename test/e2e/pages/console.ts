@@ -135,12 +135,12 @@ export class Console {
 	}
 
 	async waitForReadyAndStarted(prompt: string, timeout = 30000): Promise<void> {
-		this.waitForReady(prompt, timeout);
+		await this.waitForReady(prompt, timeout);
 		await this.waitForConsoleContents('started', { timeout });
 	}
 
 	async waitForReadyAndRestarted(prompt: string, timeout = 30000): Promise<void> {
-		this.waitForReady(prompt, timeout);
+		await this.waitForReady(prompt, timeout);
 		await this.waitForConsoleContents('restarted', { timeout });
 	}
 
