@@ -61,6 +61,7 @@ from positron.positron_jedilsp import (
     positron_code_action,
     positron_completion,
     positron_completion_item_resolve,
+    positron_declaration,
     positron_definition,
     positron_did_close_diagnostics,
     positron_document_symbol,
@@ -74,6 +75,7 @@ from positron.positron_jedilsp import (
 )
 
 from .lsp_data.func import func
+from .lsp_data.type import Type
 
 LSP_DATA_DIR = Path(__file__).parent / "lsp_data"
 TEST_DOCUMENT_URI = "file:///foo.py"
@@ -577,6 +579,42 @@ def test_positron_signature_help(source: str, namespace: Dict[str, Any]) -> None
         ),
     ],
 )
+def test_positron_declaration(
+    source: str, namespace: Dict[str, Any], expected_location: Location
+) -> None:
+    server = create_server(namespace)
+    text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+    position = _end_of_document(text_document)
+    params = TextDocumentPositionParams(TextDocumentIdentifier(text_document.uri), position)
+
+    definition = positron_declaration(server, params)
+
+    assert definition == [expected_location]
+
+
+@pytest.mark.parametrize(
+    ("source", "namespace", "expected_location"),
+    [
+        pytest.param(
+            f"{_func_str}\nfunc",
+            {},
+            Location(
+                uri=TEST_DOCUMENT_URI,
+                range=Range(start=Position(0, 4), end=Position(0, 8)),
+            ),
+            id="from_source",
+        ),
+        pytest.param(
+            "_func",
+            {"_func": func},
+            Location(
+                uri=(LSP_DATA_DIR / "func.py").as_uri(),
+                range=Range(start=Position(7, 0), end=Position(7, 0)),
+            ),
+            id="from_namespace",
+        ),
+    ],
+)
 def test_positron_definition(
     source: str, namespace: Dict[str, Any], expected_location: Location
 ) -> None:
@@ -590,41 +628,48 @@ def test_positron_definition(
     assert definition == [expected_location]
 
 
-# # TODO: Maybe need to write a module to file to test this...
-# @pytest.mark.parametrize(
-#     ("source", "namespace"),
-#     [
-#         pytest.param(
-#             "class Type: pass\ny = Type()\ny",
-#             {},
-#             id="from_source",
-#         ),
-#         pytest.param(
-#             "class Type: pass\ny = Type()\ny",
-#             {},
-#             id="from_source",
-#         ),
-#     ],
-# )
-# def test_positron_type_definition(source, namespace):
-#     server = create_server(namespace)
-#     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+@pytest.mark.parametrize(
+    ("source", "namespace", "expected_location"),
+    [
+        pytest.param(
+            "class Type: pass\ny = Type()\ny",
+            {},
+            Location(
+                uri=TEST_DOCUMENT_URI,
+                range=Range(
+                    start=Position(0, 6),
+                    end=Position(0, 10),
+                ),
+            ),
+            id="from_source",
+        ),
+        pytest.param(
+            "y = Type()\ny",
+            {"Type": Type},
+            Location(
+                uri=(LSP_DATA_DIR / "type.py").as_uri(),
+                range=Range(
+                    start=Position(6, 6),
+                    end=Position(6, 10),
+                ),
+            ),
+            id="namespace",
+        ),
+    ],
+)
+def test_positron_type_definition(
+    source: str, namespace: Dict[str, Any], expected_location: Location
+):
+    server = create_server(namespace)
+    text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
 
-#     params = TextDocumentPositionParams(
-#         TextDocumentIdentifier(text_document.uri), _end_of_document(text_document)
-#     )
+    params = TextDocumentPositionParams(
+        TextDocumentIdentifier(text_document.uri), _end_of_document(text_document)
+    )
 
-#     type_definition = positron_type_definition(server, params)
+    type_definition = positron_type_definition(server, params)
 
-#     assert type_definition == [
-#         Location(
-#             uri=text_document.uri,
-#             range=Range(
-#                 start=Position(0, 6),
-#                 end=Position(0, 10),
-#             ),
-#         )
-#     ]
+    assert type_definition == [expected_location]
 
 
 # @pytest.mark.parametrize(
