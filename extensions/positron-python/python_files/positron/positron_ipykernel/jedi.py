@@ -7,7 +7,7 @@ from typing import Any, Tuple
 
 from ._vendor.jedi import cache, debug
 from ._vendor.jedi.api import Interpreter
-from ._vendor.jedi.api.classes import Completion
+from ._vendor.jedi.api.classes import BaseName, Completion
 from ._vendor.jedi.api.completion import (
     Completion as CompletionAPI,
 )
@@ -336,7 +336,7 @@ def _is_allowed_getitem_type(obj: Any) -> bool:
     )
 
 
-def get_python_object(completion: Completion) -> Tuple[Any, bool]:
+def get_python_object(completion: BaseName) -> Tuple[Any, bool]:
     """
     Get the Python object corresponding to a completion, and a boolean indicating whether an object
     was found.
