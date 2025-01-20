@@ -5,6 +5,7 @@
 
 import asyncio
 import enum
+import inspect
 import logging
 import re
 import threading
@@ -14,16 +15,17 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Union, cast
 
 from comm.base_comm import BaseComm
+from IPython.core import oinspect
 
 from ._vendor import attrs, cattrs
-from ._vendor.jedi.api import Interpreter, Project
+from ._vendor.jedi.api import Interpreter, Project, Script
+from ._vendor.jedi.api.classes import BaseName, Name
 from ._vendor.jedi_language_server import jedi_utils, pygls_utils
 from ._vendor.jedi_language_server.server import (
     JediLanguageServer,
     JediLanguageServerProtocol,
     _choose_markup,
     completion_item_resolve,
-    definition,
     did_change_configuration,
     document_symbol,
     highlight,
@@ -39,6 +41,7 @@ from ._vendor.lsprotocol.types import (
     INITIALIZE,
     TEXT_DOCUMENT_CODE_ACTION,
     TEXT_DOCUMENT_COMPLETION,
+    TEXT_DOCUMENT_DECLARATION,
     TEXT_DOCUMENT_DEFINITION,
     TEXT_DOCUMENT_DID_CHANGE,
     TEXT_DOCUMENT_DID_CLOSE,
@@ -112,6 +115,20 @@ _SHELL_PREFIX = "!"
 _HELP_PREFIX_OR_SUFFIX = "?"
 _HELP_TOPIC = "positron/textDocument/helpTopic"
 _VSCODE_NOTEBOOK_CELL_SCHEME = "vscode-notebook-cell"
+
+
+def script(project: Optional[Project], document: TextDocument) -> Script:
+    # Get the server object from the caller's scope.
+    frame = inspect.currentframe()
+    if frame is not None:
+        if frame.f_back is not None:
+            server = frame.f_back.f_locals.get("server")
+            if isinstance(server, PositronJediLanguageServer):
+                return _interpreter(project, document, server.shell)
+    raise AssertionError("Could not find server object in the caller's scope")
+
+
+jedi_utils.script = script
 
 
 @enum.unique
@@ -378,7 +395,7 @@ def positron_completion(
         return None
 
     # Use Interpreter instead of Script to include the shell's namespaces in completions
-    jedi_script = interpreter(server.project, document, server.shell)
+    jedi_script = _interpreter(server.project, document, server.shell)
 
     # --- End Positron ---
 
@@ -592,11 +609,40 @@ def positron_signature_help(
     return signature_help(server, params)
 
 
+@POSITRON.feature(TEXT_DOCUMENT_DECLARATION)
+def positron_declaration(
+    server: PositronJediLanguageServer, params: TextDocumentPositionParams
+) -> Optional[List[Location]]:
+    document = server.workspace.get_text_document(params.text_document.uri)
+    jedi_script = _interpreter(server.project, document, server.shell)
+    jedi_lines = jedi_utils.line_column(params.position)
+    names: List[Name] = jedi_script.goto(*jedi_lines)
+    definitions = []
+    for name in names:
+        definition = _get_definition_from_namespace(name) or jedi_utils.lsp_location(name)
+        if definition:
+            definitions.append(definition)
+    return definitions if definitions else None
+
+
 @POSITRON.feature(TEXT_DOCUMENT_DEFINITION)
 def positron_definition(
     server: PositronJediLanguageServer, params: TextDocumentPositionParams
 ) -> Optional[List[Location]]:
-    return definition(server, params)
+    document = server.workspace.get_text_document(params.text_document.uri)
+    jedi_script = _interpreter(server.project, document, server.shell)
+    jedi_lines = jedi_utils.line_column(params.position)
+    names: List[Name] = jedi_script.goto(
+        *jedi_lines,
+        follow_imports=True,
+        follow_builtin_imports=True,
+    )
+    definitions = []
+    for name in names:
+        definition = _get_definition_from_namespace(name) or jedi_utils.lsp_location(name)
+        if definition:
+            definitions.append(definition)
+    return definitions if definitions else None
 
 
 @POSITRON.feature(TEXT_DOCUMENT_TYPE_DEFINITION)
@@ -660,7 +706,7 @@ def positron_help_topic_request(
 ) -> Optional[ShowHelpTopicParams]:
     """Return topic to display in Help pane."""
     document = server.workspace.get_text_document(params.text_document.uri)
-    jedi_script = interpreter(server.project, document, server.shell)
+    jedi_script = _interpreter(server.project, document, server.shell)
     jedi_lines = jedi_utils.line_column(params.position)
     names = jedi_script.infer(*jedi_lines)
 
@@ -819,7 +865,7 @@ def did_close_diagnostics(server: JediLanguageServer, params: DidCloseTextDocume
     _publish_diagnostics_debounced(server, params.text_document.uri)  # type: ignore - pyright bug
 
 
-def interpreter(
+def _interpreter(
     project: Optional[Project], document: TextDocument, shell: Optional["PositronShell"]
 ) -> Interpreter:
     """Return a `jedi.Interpreter` with a reference to the shell's user namespace."""
@@ -828,3 +874,25 @@ def interpreter(
         namespaces.append(shell.user_ns)
 
     return PositronInterpreter(document.source, namespaces, path=document.path, project=project)
+
+
+def _get_definition_from_namespace(name: BaseName) -> Optional[Location]:
+    obj, is_found = get_python_object(name)
+    if not is_found:
+        return None
+
+    fname = oinspect.find_file(obj)
+    if fname is None:
+        return None
+
+    lineno = oinspect.find_source_lines(obj)
+    if lineno is None:
+        return None
+
+    return Location(
+        uri=Path(fname).as_uri(),
+        range=Range(
+            start=Position(line=lineno, character=0),
+            end=Position(line=lineno, character=0),
+        ),
+    )

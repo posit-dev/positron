@@ -17,20 +17,35 @@ from positron._vendor import cattrs
 from positron._vendor.jedi_language_server import jedi_utils
 from positron._vendor.lsprotocol.types import (
     ClientCapabilities,
+    CodeAction,
+    CodeActionContext,
+    CodeActionParams,
     CompletionClientCapabilities,
     CompletionClientCapabilitiesCompletionItemType,
     CompletionItem,
     CompletionParams,
     DidCloseTextDocumentParams,
+    DocumentHighlight,
+    DocumentSymbol,
+    DocumentSymbolParams,
+    Hover,
     InitializeParams,
+    Location,
     MarkupContent,
     MarkupKind,
+    ParameterInformation,
     Position,
     Range,
+    RenameParams,
+    SignatureHelp,
+    SignatureInformation,
+    SymbolKind,
     TextDocumentClientCapabilities,
     TextDocumentIdentifier,
     TextDocumentItem,
+    TextDocumentPositionParams,
     TextEdit,
+    WorkspaceEdit,
 )
 from positron._vendor.pygls.workspace.text_document import TextDocument
 from positron.help_comm import ShowHelpTopicParams
@@ -43,11 +58,28 @@ from positron.positron_jedilsp import (
     _clear_diagnostics_debounced,
     _publish_diagnostics,
     _publish_diagnostics_debounced,
+    positron_code_action,
     positron_completion,
     positron_completion_item_resolve,
+    positron_definition,
     positron_did_close_diagnostics,
+    positron_document_symbol,
     positron_help_topic_request,
+    positron_highlight,
+    positron_hover,
+    positron_references,
+    positron_rename,
+    positron_signature_help,
+    positron_type_definition,
 )
+
+from .lsp_data.func import func
+
+LSP_DATA_DIR = Path(__file__).parent / "lsp_data"
+TEST_DOCUMENT_URI = "file:///foo.py"
+
+if TYPE_CHECKING:
+    from threading import Timer
 
 if TYPE_CHECKING:
     from threading import Timer
@@ -126,7 +158,7 @@ def test_positron_help_topic_request(
     expected_topic: Optional[str],
 ) -> None:
     server = create_server(namespace)
-    text_document = create_text_document(server, "file:///foo.py", source)
+    text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
 
     params = HelpTopicParams(TextDocumentIdentifier(text_document.uri), Position(0, 0))
     topic = positron_help_topic_request(server, params)
@@ -146,15 +178,24 @@ class _ObjectWithProperty:
 _object_with_property = _ObjectWithProperty()
 
 
+def _end_of_document(text_document: TextDocument, character: Optional[int] = None) -> Position:
+    line = len(text_document.lines) - 1
+    if character is None:
+        character = len(text_document.lines[line])
+    elif character < 0:
+        character = len(text_document.lines[line]) + character
+    return Position(line, character)
+
+
 def _completions(
     server: PositronJediLanguageServer,
     text_document: TextDocument,
     character: Optional[int] = None,
 ) -> List[CompletionItem]:
-    line = len(text_document.lines) - 1
-    if character is None:
-        character = len(text_document.lines[line])
-    params = CompletionParams(TextDocumentIdentifier(text_document.uri), Position(line, character))
+    params = CompletionParams(
+        TextDocumentIdentifier(text_document.uri),
+        _end_of_document(text_document, character),
+    )
     completion_list = positron_completion(server, params)
 
     assert completion_list is not None, "No completions returned"
@@ -187,7 +228,7 @@ def test_positron_completion_exact(
     expected_labels: List[str],
 ) -> None:
     server = create_server(namespace)
-    text_document = create_text_document(server, "file:///foo.py", source)
+    text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
     completions = _completions(server, text_document)
     completion_labels = [completion.label for completion in completions]
     assert completion_labels == expected_labels
@@ -207,7 +248,7 @@ def test_positron_completion_contains(
     expected_label: str,
 ) -> None:
     server = create_server(namespace)
-    text_document = create_text_document(server, "file:///foo.py", source)
+    text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
     completions = _completions(server, text_document)
     completion_labels = [completion.label for completion in completions]
     assert expected_label in completion_labels
@@ -225,7 +266,7 @@ def assert_has_path_completion(
     expected_completion = expected_completion.replace("/", os.path.sep)
 
     server = create_server(root_path=root_path, notebook_path=notebook_path)
-    text_document = create_text_document(server, "file:///foo.py", source)
+    text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
     character = len(source) - chars_from_end
     completions = _completions(server, text_document, character)
 
@@ -384,7 +425,7 @@ def test_positron_completion_item_resolve(
             "1 +",
             [
                 (
-                    "SyntaxError: invalid syntax (file:///foo.py, line 1)"
+                    "SyntaxError: invalid syntax (TEST_DOCUMENT_URI, line 1)"
                     if os.name == "nt"
                     else "SyntaxError: invalid syntax (foo.py, line 1)"
                 )
@@ -404,7 +445,7 @@ def test_positron_completion_item_resolve(
 )
 def test_publish_diagnostics(source: str, messages: List[str]):
     server = create_server()
-    text_document = create_text_document(server, "file:///foo.py", source)
+    text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
 
     with patch.object(server, "publish_diagnostics") as mock:
         _publish_diagnostics(server, text_document.uri)
@@ -454,3 +495,357 @@ def test_notebook_path_completions(tmp_path):
     assert_has_path_completion(
         '""', file_to_complete.name, root_path=tmp_path, notebook_path=notebook_path
     )
+
+
+# Make a function with parameters to test signature help.
+# Create it via exec() so we can reuse the strings in the test.
+_func_params = ["x=1", "y=1"]
+_func_label = f"def func({', '.join(_func_params)})"
+_func_doc = "A function with parameters."
+_func_str = f'''\
+{_func_label}:
+    """
+    {_func_doc}
+    """
+    pass'''
+
+
+# TODO: Maybe better to write a module to file to test these.
+#       Or actually to just have a test module that I import...
+# Signature help should work when the object is defined in source or the user's namespace.
+# See: https://github.com/posit-dev/positron/issues/5739.
+@pytest.mark.parametrize(
+    ("source", "namespace"),
+    [
+        pytest.param(
+            f"{_func_str}\nfunc(",
+            {},
+            id="from_source",
+        ),
+        pytest.param(
+            "func(",
+            {"func": func},
+            id="from_namespace",
+        ),
+    ],
+)
+def test_positron_signature_help(source: str, namespace: Dict[str, Any]) -> None:
+    server = create_server(namespace)
+    text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+    params = TextDocumentPositionParams(
+        TextDocumentIdentifier(text_document.uri), _end_of_document(text_document)
+    )
+
+    signature_help = positron_signature_help(server, params)
+
+    assert signature_help == SignatureHelp(
+        signatures=[
+            SignatureInformation(
+                label=_func_label,
+                documentation=MarkupContent(
+                    MarkupKind.Markdown,
+                    f"```text\n{_func_doc}\n```",
+                ),
+                parameters=[ParameterInformation(label=label) for label in _func_params],
+            )
+        ],
+        active_parameter=0,
+        active_signature=0,
+    )
+
+
+@pytest.mark.parametrize(
+    ("source", "namespace", "expected_location"),
+    [
+        pytest.param(
+            f"{_func_str}\nfunc",
+            {},
+            Location(
+                uri=TEST_DOCUMENT_URI,
+                range=Range(start=Position(0, 4), end=Position(0, 8)),
+            ),
+            id="from_source",
+        ),
+        pytest.param(
+            "_func",
+            {"_func": func},
+            Location(
+                uri=(LSP_DATA_DIR / "func.py").as_uri(),
+                range=Range(start=Position(7, 0), end=Position(7, 0)),
+            ),
+            id="from_namespace",
+        ),
+    ],
+)
+def test_positron_definition(
+    source: str, namespace: Dict[str, Any], expected_location: Location
+) -> None:
+    server = create_server(namespace)
+    text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+    position = _end_of_document(text_document)
+    params = TextDocumentPositionParams(TextDocumentIdentifier(text_document.uri), position)
+
+    definition = positron_definition(server, params)
+
+    assert definition == [expected_location]
+
+
+# # TODO: Maybe need to write a module to file to test this...
+# @pytest.mark.parametrize(
+#     ("source", "namespace"),
+#     [
+#         pytest.param(
+#             "class Type: pass\ny = Type()\ny",
+#             {},
+#             id="from_source",
+#         ),
+#         pytest.param(
+#             "class Type: pass\ny = Type()\ny",
+#             {},
+#             id="from_source",
+#         ),
+#     ],
+# )
+# def test_positron_type_definition(source, namespace):
+#     server = create_server(namespace)
+#     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+
+#     params = TextDocumentPositionParams(
+#         TextDocumentIdentifier(text_document.uri), _end_of_document(text_document)
+#     )
+
+#     type_definition = positron_type_definition(server, params)
+
+#     assert type_definition == [
+#         Location(
+#             uri=text_document.uri,
+#             range=Range(
+#                 start=Position(0, 6),
+#                 end=Position(0, 10),
+#             ),
+#         )
+#     ]
+
+
+# @pytest.mark.parametrize(
+#     ("source", "namespace", "position", "expected_highlights"),
+#     [
+#         (
+#             "x = 1\nx",
+#             {},
+#             Position(1, 0),
+#             [
+#                 DocumentHighlight(range=Range(start=Position(0, 0), end=Position(0, 1))),
+#                 DocumentHighlight(range=Range(start=Position(1, 0), end=Position(1, 1))),
+#             ],
+#         ),
+#     ],
+# )
+# def test_positron_highlight(source, namespace, position, expected_highlights):
+#     server = create_server(namespace)
+#     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+
+#     params = TextDocumentPositionParams(TextDocumentIdentifier(text_document.uri), position)
+
+#     highlights = positron_highlight(server, params)
+
+#     assert highlights == expected_highlights
+
+
+# # Hover should work when the object is defined in source or the user's namespace.
+# # See: https://github.com/posit-dev/positron/issues/5739.
+# @pytest.mark.parametrize(
+#     ("source", "namespace"),
+#     [
+#         pytest.param(
+#             f"{_func_str}\n_func",
+#             {},
+#             id="from_source",
+#         ),
+#         pytest.param(
+#             "_func",
+#             {"_func": _func},
+#             id="from_namespace",
+#         ),
+#     ],
+# )
+# def test_positron_hover(source: str, namespace: Dict[str, Any]) -> None:
+#     file = Path("foo.py").absolute()
+#     server = create_server(namespace)
+#     text_document = create_text_document(server, file.as_uri(), source)
+
+#     position = _end_of_document(text_document)
+#     params = TextDocumentPositionParams(TextDocumentIdentifier(text_document.uri), position)
+
+#     hover = positron_hover(server, params)
+
+#     assert hover == Hover(
+#         contents=MarkupContent(
+#             kind=MarkupKind.Markdown,
+#             value=f"""\
+# ```python
+# {_func_label}
+# ```
+# ---
+# ```text
+# {_func_doc}
+# ```
+# **Full name:** `{file.stem}._func`""",
+#         ),
+#         range=Range(start=Position(position.line, 0), end=position),
+#     )
+
+
+# @pytest.mark.parametrize(
+#     ("source", "namespace", "expected_references"),
+#     [
+#         (
+#             "x = 1\nx",
+#             {},
+#             [Location(uri=TEST_DOCUMENT_URI, range=Range(start=Position(1, 0), end=Position(1, 1)))],
+#         ),
+#         (
+#             "def foo():\n    pass\nfoo()",
+#             {},
+#             [Location(uri=TEST_DOCUMENT_URI, range=Range(start=Position(2, 0), end=Position(2, 3)))],
+#         ),
+#     ],
+# )
+# def test_positron_references(
+#     source: str, namespace: Dict[str, Any], expected_references: List[Location]
+# ) -> None:
+#     server = create_server(namespace)
+#     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+
+#     params = TextDocumentPositionParams(TextDocumentIdentifier(text_document.uri), Position(1, 0))
+
+#     references = positron_references(server, params)
+
+#     assert references == expected_references
+
+
+# @pytest.mark.parametrize(
+#     ("source", "namespace", "expected_symbols"),
+#     [
+#         (
+#             "def foo():\n    pass",
+#             {},
+#             [
+#                 DocumentSymbol(
+#                     name="foo",
+#                     kind=SymbolKind.Function,
+#                     range=Range(start=Position(0, 0), end=Position(1, 8)),
+#                     selection_range=Range(start=Position(0, 4), end=Position(0, 7)),
+#                 )
+#             ],
+#         ),
+#         (
+#             "class Bar:\n    def baz(self):\n        pass",
+#             {},
+#             [
+#                 DocumentSymbol(
+#                     name="Bar",
+#                     kind=SymbolKind.Class,
+#                     range=Range(start=Position(0, 0), end=Position(2, 12)),
+#                     selection_range=Range(start=Position(0, 6), end=Position(0, 9)),
+#                     children=[
+#                         DocumentSymbol(
+#                             name="baz",
+#                             kind=SymbolKind.Method,
+#                             range=Range(start=Position(1, 4), end=Position(2, 12)),
+#                             selection_range=Range(start=Position(1, 8), end=Position(1, 11)),
+#                         )
+#                     ],
+#                 )
+#             ],
+#         ),
+#     ],
+# )
+# def test_positron_document_symbol(
+#     source: str, namespace: Dict[str, Any], expected_symbols: List[DocumentSymbol]
+# ) -> None:
+#     server = create_server(namespace)
+#     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+
+#     params = DocumentSymbolParams(text_document=TextDocumentIdentifier(text_document.uri))
+
+#     symbols = positron_document_symbol(server, params)
+
+#     assert symbols == expected_symbols
+
+
+# @pytest.mark.parametrize(
+#     ("source", "namespace", "new_name", "expected_edit"),
+#     [
+#         (
+#             "x = 1\nx",
+#             {},
+#             "y",
+#             WorkspaceEdit(
+#                 changes={
+#                     TEST_DOCUMENT_URI: [
+#                         TextEdit(
+#                             range=Range(start=Position(1, 0), end=Position(1, 1)), new_text="y"
+#                         )
+#                     ]
+#                 }
+#             ),
+#         ),
+#         (
+#             "def foo():\n    pass\nfoo()",
+#             {},
+#             "bar",
+#             WorkspaceEdit(
+#                 changes={
+#                     TEST_DOCUMENT_URI: [
+#                         TextEdit(
+#                             range=Range(start=Position(2, 0), end=Position(2, 3)),
+#                             new_text="bar",
+#                         )
+#                     ]
+#                 }
+#             ),
+#         ),
+#     ],
+# )
+# def test_positron_rename(
+#     source: str, namespace: Dict[str, Any], new_name: str, expected_edit: WorkspaceEdit
+# ) -> None:
+#     server = create_server(namespace)
+#     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+
+#     params = RenameParams(
+#         text_document=TextDocumentIdentifier(text_document.uri),
+#         position=Position(1, 0),
+#         new_name=new_name,
+#     )
+
+#     edit = positron_rename(server, params)
+
+#     assert edit == expected_edit
+
+
+# @pytest.mark.parametrize(
+#     ("source", "namespace", "expected_code_actions"),
+#     [
+#         ("x = 1\nx", {}, []),
+#         ("def foo():\n    pass\nfoo()", {}, []),
+#     ],
+# )
+# def test_positron_code_action(
+#     source: str, namespace: Dict[str, Any], expected_code_actions: List[CodeAction]
+# ) -> None:
+#     server = create_server(namespace)
+#     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+
+#     params = CodeActionParams(
+#         text_document=TextDocumentIdentifier(text_document.uri),
+#         range=Range(start=Position(1, 0), end=Position(1, 1)),
+#         context=CodeActionContext(
+#             diagnostics=[],
+#         ),
+#     )
+
+#     code_actions = positron_code_action(server, params)
+
+#     assert code_actions == expected_code_actions
