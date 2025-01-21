@@ -18,7 +18,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 	});
 
 	test('Python - Verifies basic help functionality [C633814]', { tag: [tags.WIN] }, async function ({ app, python }) {
-		await app.workbench.console.executeCode('Python', `?load`, '>>>');
+		await app.workbench.console.executeCode('Python', `?load`);
 
 		await expect(async () => {
 			const helpFrame = await app.workbench.help.getHelpFrame(0);
@@ -28,7 +28,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 	});
 
 	test('R - Verifies basic help functionality [C633813]', { tag: [tags.WIN] }, async function ({ app, r }) {
-		await app.workbench.console.executeCode('R', `?load()`, '>');
+		await app.workbench.console.executeCode('R', `?load()`);
 
 		await expect(async () => {
 			const helpFrame = await app.workbench.help.getHelpFrame(1);

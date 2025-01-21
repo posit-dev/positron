@@ -46,7 +46,7 @@ test.describe('Reticulate', {
 			// Prompt did not appear
 		}
 
-		await app.workbench.console.waitForReady('>>>');
+		await app.workbench.console.waitForReadyAndStarted('>>>');
 
 		await verifyReticulateFunctionality(app, interpreter, false);
 
@@ -73,7 +73,7 @@ test.describe('Reticulate', {
 
 		await app.code.driver.page.locator('.positron-console').getByRole('button', { name: 'Restart R' }).click();
 
-		await app.workbench.console.waitForReady('>');
+		await app.workbench.console.waitForReadyAndStarted('>');
 
 		await app.code.driver.page.locator('.positron-console').locator('.action-bar-button-drop-down-arrow').click();
 
@@ -83,7 +83,7 @@ test.describe('Reticulate', {
 
 		await app.code.driver.page.locator('.positron-console').getByRole('button', { name: 'Restart Python' }).click();
 
-		await app.workbench.console.waitForReady('>>>');
+		await app.workbench.console.waitForReadyAndStarted('>>>');
 
 		await verifyReticulateFunctionality(app, interpreter, sequential);
 

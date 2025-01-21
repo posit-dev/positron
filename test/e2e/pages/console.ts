@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect, Locator } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
@@ -71,37 +71,39 @@ export class Console {
 
 		if (waitForReady) {
 			desiredInterpreterType === InterpreterType.Python
-				? await this.waitForReady('>>>', 40000)
-				: await this.waitForReady('>', 40000);
+				? await this.waitForReadyAndStarted('>>>', 40000)
+				: await this.waitForReadyAndStarted('>', 40000);
 		}
 		return;
 	}
 
-	async executeCode(languageName: string, code: string, prompt: string): Promise<void> {
+	async executeCode(languageName: 'Python' | 'R', code: string): Promise<void> {
+		await test.step(`Execute ${languageName} code in console: ${code}`, async () => {
 
-		await expect(async () => {
-			// Kind of hacky, but activate console in case focus was previously lost
-			await this.activeConsole.click();
-			await this.quickaccess.runCommand('workbench.action.executeCode.console', { keepOpen: true });
+			await expect(async () => {
+				// Kind of hacky, but activate console in case focus was previously lost
+				await this.activeConsole.click();
+				await this.quickaccess.runCommand('workbench.action.executeCode.console', { keepOpen: true });
 
-		}).toPass();
+			}).toPass();
 
-		await this.quickinput.waitForQuickInputOpened();
-		await this.quickinput.type(languageName);
-		await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0] === languageName);
-		await this.code.driver.page.keyboard.press('Enter');
+			await this.quickinput.waitForQuickInputOpened();
+			await this.quickinput.type(languageName);
+			await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0] === languageName);
+			await this.code.driver.page.keyboard.press('Enter');
 
-		await this.quickinput.waitForQuickInputOpened();
-		const unescapedCode = code
-			.replace(/\n/g, '\\n')
-			.replace(/\r/g, '\\r');
-		await this.quickinput.type(unescapedCode);
-		await this.code.driver.page.keyboard.press('Enter');
-		await this.quickinput.waitForQuickInputClosed();
+			await this.quickinput.waitForQuickInputOpened();
+			const unescapedCode = code
+				.replace(/\n/g, '\\n')
+				.replace(/\r/g, '\\r');
+			await this.quickinput.type(unescapedCode);
+			await this.code.driver.page.keyboard.press('Enter');
+			await this.quickinput.waitForQuickInputClosed();
 
-		// The console will show the prompt after the code is done executing.
-		await this.waitForReady(prompt);
-		await this.maximizeConsole();
+			// The console will show the prompt after the code is done executing.
+			await this.waitForReady(languageName === 'Python' ? '>>>' : '>');
+			await this.maximizeConsole();
+		});
 	}
 
 	async logConsoleContents() {
@@ -129,9 +131,17 @@ export class Console {
 
 	async waitForReady(prompt: string, timeout = 30000): Promise<void> {
 		const activeLine = this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} .active-line-number`);
-
 		await expect(activeLine).toHaveText(prompt, { timeout });
+	}
+
+	async waitForReadyAndStarted(prompt: string, timeout = 30000): Promise<void> {
+		await this.waitForReady(prompt, timeout);
 		await this.waitForConsoleContents('started', { timeout });
+	}
+
+	async waitForReadyAndRestarted(prompt: string, timeout = 30000): Promise<void> {
+		await this.waitForReady(prompt, timeout);
+		await this.waitForConsoleContents('restarted', { timeout });
 	}
 
 	/**

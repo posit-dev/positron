@@ -36,7 +36,7 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 			await app.workbench.quickInput.clickOkOnQuickInput();
 
 			// Wait for the console to be ready
-			await app.workbench.console.waitForReady('>', 45000);
+			await app.workbench.console.waitForReadyAndStarted('>', 45000);
 		});
 
 		await test.step('Test R Package', async () => {

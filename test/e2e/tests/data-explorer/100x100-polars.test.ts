@@ -20,7 +20,6 @@ test('Data Explorer 100x100 - Python - Polars [C674520]', {
 	await testDataExplorer(
 		app,
 		'Python',
-		'>>>',
 		[
 			'import polars',
 			`${dataFrameName} = polars.read_parquet("${parquetFilePath(app)}")`,

@@ -43,7 +43,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 
 	test('R - Verify Viewer functionality with modelsummary [C784889]', { tag: [tags.WEB] }, async function ({ app, logger, r }) {
 		logger.log('Sending code to console');
-		await app.workbench.console.executeCode('R', rModelSummaryScript, '>');
+		await app.workbench.console.executeCode('R', rModelSummaryScript);
 		let billDepthLocator;
 		if (!app.web) {
 			billDepthLocator = app.workbench.viewer.getViewerLocator('tr').filter({ hasText: 'bill_depth_mm' });
@@ -59,7 +59,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 	}, async function ({ app, logger, r }) {
 
 		logger.log('Sending code to console');
-		await app.workbench.console.executeCode('R', rReactableScript, '>');
+		await app.workbench.console.executeCode('R', rReactableScript);
 
 		const datsun710 = app.workbench.viewer.getViewerLocator('div.rt-td-inner').filter({ hasText: 'Datsun 710' });
 
@@ -72,7 +72,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 	}, async function ({ app, logger, r }) {
 
 		logger.log('Sending code to console');
-		await app.workbench.console.executeCode('R', rReprexScript, '>');
+		await app.workbench.console.executeCode('R', rReprexScript);
 
 		const rnorm = app.workbench.viewer.getViewerLocator('code.sourceCode').filter({ hasText: 'rbinom' });
 

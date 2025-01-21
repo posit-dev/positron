@@ -22,8 +22,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.WIN, tags.CONSOLE] 
 			await app.workbench.console.consoleRestartButton.click();
 
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-			await app.workbench.console.waitForReady('>>>');
-			await app.workbench.console.waitForConsoleContents('restarted');
+			await app.workbench.console.waitForReadyAndRestarted('>>>');
 			await expect(app.workbench.console.consoleRestartButton).not.toBeVisible();
 		}).toPass();
 	});
@@ -39,8 +38,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.WIN, tags.CONSOLE] 
 		await app.workbench.console.barRestartButton.click();
 
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.console.waitForReady('>>>');
-		await app.workbench.console.waitForConsoleContents('restarted');
+		await app.workbench.console.waitForReadyAndStarted('>>>');
 	});
 
 	test('Verify cancel button on console bar [C...]', {
