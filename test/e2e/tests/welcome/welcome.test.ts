@@ -62,7 +62,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await expect(app.workbench.welcome.recentSection.locator('.empty-recent')).toHaveText('You have no recent folders,open a folderto start.');
 		});
 
-		test('Click on new project from the Welcome page [C684751]', async function ({ app }) {
+		test('Click on new project from the Welcome page [C684751]', { tag: [tags.MODAL] }, async function ({ app }) {
 			await app.workbench.welcome.newProjectButton.click();
 			await app.workbench.popups.popupCurrentlyOpen();
 

@@ -11,7 +11,7 @@ test.use({
 });
 
 // Not running conda test on windows because conda reeks havoc on selecting the correct python interpreter
-test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () => {
+test.describe('Python - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJECT_WIZARD] }, () => {
 
 	test('Existing env: ipykernel already installed [C609619]', { tag: [tags.WIN], }, async function ({ app, python, packages }) {
 		const projectTitle = addRandomNumSuffix('ipykernel-installed');
