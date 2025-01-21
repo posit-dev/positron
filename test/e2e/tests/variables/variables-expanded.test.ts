@@ -18,7 +18,7 @@ test.describe('Variables - Expanded View', { tag: [tags.WEB, tags.VARIABLES] }, 
 	test('Python - should display children values and types when variable is expanded [C1078836]', async function ({ app, python }) {
 		const variables = app.workbench.variables;
 
-		await app.workbench.console.executeCode('Python', script, '>>>');
+		await app.workbench.console.executeCode('Python', script);
 		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 
 		await variables.expandVariable('df');
@@ -34,7 +34,7 @@ test.describe('Variables - Expanded View', { tag: [tags.WEB, tags.VARIABLES] }, 
 		// workaround for https://github.com/posit-dev/positron/issues/5718
 		await app.workbench.popups.closeAllToasts();
 
-		await app.workbench.console.executeCode('R', 'df2 <- data.frame(b=rep(1:1000000))', '>');
+		await app.workbench.console.executeCode('R', 'df2 <- data.frame(b=rep(1:1000000))');
 		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 
 		await variables.expandVariable('df2');

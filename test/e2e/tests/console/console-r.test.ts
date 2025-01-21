@@ -22,8 +22,7 @@ test.describe('Console Pane: R', {
 			await app.workbench.console.barClearButton.click();
 			await app.workbench.console.barPowerButton.click();
 			await app.workbench.console.consoleRestartButton.click();
-			await app.workbench.console.waitForReady('>');
-			await app.workbench.console.waitForConsoleContents('restarted');
+			await app.workbench.console.waitForReadyAndRestarted('>');
 			await expect(app.workbench.console.consoleRestartButton).not.toBeVisible();
 		}).toPass();
 	});
@@ -32,8 +31,7 @@ test.describe('Console Pane: R', {
 		await expect(async () => {
 			await app.workbench.console.barClearButton.click();
 			await app.workbench.console.barRestartButton.click();
-			await app.workbench.console.waitForReady('>');
-			await app.workbench.console.waitForConsoleContents('restarted');
+			await app.workbench.console.waitForReadyAndRestarted('>');
 		}).toPass();
 	});
 

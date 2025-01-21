@@ -22,7 +22,7 @@ data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
 df = pd.DataFrame(data)`;
 
 		logger.log('Sending code to console');
-		await app.workbench.console.executeCode('Python', script, '>>>');
+		await app.workbench.console.executeCode('Python', script);
 
 		logger.log('Opening data grid');
 		await expect(async () => {
@@ -62,7 +62,7 @@ data = {
 df2 = pd.DataFrame(data)`;
 
 		logger.log('Sending code to console');
-		await app.workbench.console.executeCode('Python', script, '>>>');
+		await app.workbench.console.executeCode('Python', script);
 
 		logger.log('Opening data grid');
 		await expect(async () => {
@@ -192,7 +192,7 @@ Data_Frame = pd.DataFrame({
 	"gear": [4, 4, 4, 3, 3],
 	"carb": [4, 4, 1, 1, 2]
 })`;
-		await app.workbench.console.executeCode('Python', script, '>>>');
+		await app.workbench.console.executeCode('Python', script);
 		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
 
 		await expect(async () => {
@@ -217,7 +217,7 @@ Data_Frame = pd.DataFrame({
 
 		const script = `import pandas as pd
 df = pd.DataFrame({'x': ["a ", "a", "   ", ""]})`;
-		await app.workbench.console.executeCode('Python', script, '>>>');
+		await app.workbench.console.executeCode('Python', script);
 
 		await expect(async () => {
 			await app.workbench.variables.doubleClickVariableRow('df');

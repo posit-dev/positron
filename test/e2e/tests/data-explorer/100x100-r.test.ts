@@ -21,7 +21,6 @@ test('Data Explorer 100x100 - R [C674521]', {
 	await testDataExplorer(
 		app,
 		'R',
-		'>',
 		[
 			'library(arrow)',
 			`${dataFrameName} <- read_parquet("${parquetFilePath(app)}")`,
