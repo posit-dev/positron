@@ -16,7 +16,7 @@ test.describe('Python Debugging', {
 	tag: [tags.DEBUG, tags.WEB, tags.WIN]
 }, () => {
 
-	test('Python - Verify Basic Script Debugging [C...]', { tag: [tags.WIN] }, async function ({ app, python }) {
+	test('Python - Verify Basic Script Debugging [C1163800]', { tag: [tags.WIN] }, async function ({ app, python }) {
 
 		await test.step('Open file, set breakpoint and start debugging', async () => {
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
