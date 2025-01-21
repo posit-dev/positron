@@ -27,18 +27,28 @@ from ._vendor.jedi.api.completion import (
 )
 from ._vendor.jedi.api.file_name import complete_file_name
 from ._vendor.jedi.api.helpers import validate_line_column
-from ._vendor.jedi.api.interpreter import MixedModuleContext
+from ._vendor.jedi.api.interpreter import (
+    MergedFilter,
+    MixedModuleContext,
+    MixedParserTreeFilter,
+    MixedTreeName,
+)
 from ._vendor.jedi.api.strings import get_quote_ending
 from ._vendor.jedi.cache import memoize_method
 from ._vendor.jedi.file_io import KnownContentFileIO
-from ._vendor.jedi.inference.base_value import HasNoContext
-from ._vendor.jedi.inference.compiled import ExactValue
-from ._vendor.jedi.inference.compiled.mixed import MixedName, MixedObject
+from ._vendor.jedi.inference import InferenceState
+from ._vendor.jedi.inference.base_value import HasNoContext, Value, ValueSet, ValueWrapper
+from ._vendor.jedi.inference.compiled import ExactValue, create_from_access_path
+from ._vendor.jedi.inference.compiled.access import create_access_path
+from ._vendor.jedi.inference.compiled.mixed import MixedName, MixedObject, MixedObjectFilter
 from ._vendor.jedi.inference.compiled.value import CompiledName, CompiledValue
-from ._vendor.jedi.inference.context import ValueContext
+from ._vendor.jedi.inference.context import ModuleContext, ValueContext
+from ._vendor.jedi.inference.filters import MergedFilter
 from ._vendor.jedi.inference.helpers import infer_call_of_leaf
 from ._vendor.jedi.inference.value import ModuleValue
 from ._vendor.jedi.parser_utils import cut_value_at_position
+from ._vendor.jedi.plugins import plugin_manager
+from ._vendor.parso.python.tree import Name as TreeName
 from .inspectors import (
     BaseColumnInspector,
     BaseTableInspector,
@@ -57,19 +67,138 @@ from .utils import get_qualname, safe_isinstance
 
 _sentinel = object()
 
-# update Jedi cache to not conflict with other Jedi instances
-# adapted from jedi.settings.cache_directory
 
-if platform.system().lower() == "windows":
-    _cache_directory = pathlib.Path(os.getenv("LOCALAPPDATA") or "~") / "Jedi" / "Positron-Jedi"
-elif platform.system().lower() == "darwin":
-    _cache_directory = pathlib.Path("~") / "Library" / "Caches" / "Positron-Jedi"
-else:
-    _cache_directory = pathlib.Path(os.getenv("XDG_CACHE_HOME") or "~/.cache") / "positron-jedi"
-settings.cache_directory = _cache_directory.expanduser()
+class PositronMixedTreeName(MixedTreeName):
+    def __init__(self, *args, **kwargs):
+        print("PositronMixedTreeName.__init__")  # , args, kwargs)
+        super().__init__(*args, **kwargs)
+
+    def infer(self):
+        # First try to use the namespace, then fall back to static analysis.
+        # This is the reverse of MixedTreeName.
+        # See: TODO: Link issue here.
+        """
+        In IPython notebook it is typical that some parts of the code that is
+        provided was already executed. In that case if something is not properly
+        inferred, it should still infer from the variables it already knows.
+        """
+        print("PositronMixedTreeName.infer", self.string_name)
+        for compiled_value in self.parent_context.mixed_values:
+            for f in compiled_value.get_filters():
+                values = ValueSet.from_sets(n.infer() for n in f.get(self.string_name))
+                if values:
+                    return values
+
+        return super().infer()
 
 
-class PositronMixedModuleContext(MixedModuleContext):
+class PositronMixedParserTreeFilter(MixedParserTreeFilter):
+    name_class = PositronMixedTreeName
+
+    def __init__(self, *args, **kwargs):
+        print("PositronMixedParserTreeFilter.__init__")  # , args, kwargs)
+        super().__init__(*args, **kwargs)
+
+    def _filter(self, names):
+        result = super()._filter(names)
+        print("PositronMixedParserTreeFilter._filter", names, result)
+        return result
+
+
+class PositronMixedName(MixedName):
+    # TODO: infer() eventually calls down to execute(). Can we somehow use this for pandas dataframe completions
+    #       from a namespace?
+    def infer(self):
+        result = super().infer()
+        print(
+            "PositronMixedName.infer",
+            self.string_name,
+            result,
+            [(value.get_root_context().py__name__(), value.py__name__()) for value in iter(result)],
+        )
+        return ValueSet(
+            # TODO: value? tree instance?
+            PandasDataFrameMixedObjectWrapper(value)
+            if _is_pandas_dataframe(value)
+            else SeriesMixedObjectWrapper(value)
+            if _is_pandas_series(value)
+            else PolarsDataFrameMixedObjectWrapper(value)
+            if _is_polars_dataframe(value)
+            else value
+            for value in result
+        )
+
+
+class PandasDataFrameMixedObjectWrapper(ValueWrapper):
+    def __init__(self, wrapped_value):
+        print("DataFrameMixedObjectWrapper.__init__", wrapped_value)
+        super().__init__(wrapped_value)
+
+    @property
+    def array_type(self) -> str:
+        return "dict"
+
+    # def get_key_values(self):
+    #     result = self._wrapped_value.get_key_values()
+    #     breakpoint()
+    #     return result
+
+
+class SeriesMixedObjectWrapper(ValueWrapper):
+    def __init__(self, wrapped_value):
+        print("SeriesMixedObjectWrapper.__init__", wrapped_value)
+        super().__init__(wrapped_value)
+
+    @property
+    def array_type(self) -> str:
+        return "dict"
+
+
+class PolarsDataFrameMixedObjectWrapper(ValueWrapper):
+    def __init__(self, wrapped_value):
+        print("DataFrameMixedObjectWrapper.__init__", wrapped_value)
+        super().__init__(wrapped_value)
+
+    @property
+    def array_type(self) -> str:
+        return "dict"
+
+    def get_key_values(self):
+        for columns in self._wrapped_value.py__getattribute__("columns"):
+            # columns: CompiledValue[List[str]]
+            for seq_value in columns.py__iter__():
+                # seq_value: LazyKnownValue[CompiledValue[str]]
+                for value in seq_value.infer():
+                    # value: CompiledValue[str]
+                    yield value
+
+
+class PositronMixedObjectFilter(MixedObjectFilter):
+    def _create_name(self, *args, **kwargs):
+        return PositronMixedName(
+            super()._create_name(*args, **kwargs),
+            self._tree_value,
+        )
+
+
+class PositronMixedObject(MixedObject):
+    # def get_filters(self, *args, **kwargs):
+    #     result = super().get_filters(*args, **kwargs)
+    #     print("PositronMixedObject.get_filters", self, list(iter(result)))
+    #     return result
+
+    def get_filters(self, *args, **kwargs):
+        yield PositronMixedObjectFilter(
+            self.inference_state, self.compiled_value, self._wrapped_value
+        )
+
+
+class NamespaceObject:
+    def __init__(self, dct):
+        self.__dict__ = dct
+
+
+class PositronMixedModuleContext(ModuleContext):
     """
     Special MixedModuleContext.
 
@@ -86,17 +215,44 @@ class PositronMixedModuleContext(MixedModuleContext):
     Completing the line `x['` should return `a` and not `b`.
     """
 
+    # TODO: May not need to override this if we subclass MixedModuleContext and just override _get_mixed_object,
+    #       unless we need to override NamespaceObject for some reason.
+    def __init__(self, tree_module_value, namespaces):
+        super().__init__(tree_module_value)
+        self.mixed_values = [
+            self._get_mixed_object(
+                create_from_access_path(
+                    self.inference_state,
+                    create_access_path(self.inference_state, NamespaceObject(n)),
+                )
+            )
+            for n in namespaces
+        ]
+
+    def _get_mixed_object(self, compiled_value):
+        return PositronMixedObject(compiled_value=compiled_value, tree_value=self._value)
+
     def get_filters(self, until_position=None, origin_scope=None):
-        filters = super().get_filters(until_position, origin_scope)
+        # TODO: Could we yield from super and wrap MixedParserTreeFilter results?
+        # filters = super().get_filters(until_position, origin_scope)
 
-        # Store the first filter, which corresponds to static analysis of the source code.
-        merged_filter = next(filters)
+        # # Store the first filter – which corresponds to static analysis of the source code.
+        # merged_filter = next(filters)
 
-        # Yield the remaining filters, which correspond to the user's namespaces.
-        yield from filters
+        # # Yield the remaining filters – which correspond to the user's namespaces.
+        # yield from filters
 
-        # Finally, yield the first filter.
-        yield merged_filter
+        # # Finally, yield the first filter.
+        # yield merged_filter
+        yield MergedFilter(
+            PositronMixedParserTreeFilter(
+                parent_context=self, until_position=until_position, origin_scope=origin_scope
+            ),
+            self.get_global_filter(),
+        )
+
+        for mixed_object in self.mixed_values:
+            yield from mixed_object.get_filters(until_position, origin_scope)
 
 
 class PositronName(Name):
@@ -176,24 +332,15 @@ class PositronInterpreter(Interpreter):
 
     @cache.memoize_method
     def _get_module_context(self):
-        file_io = None if self.path is None else KnownContentFileIO(self.path, self._code)
-        tree_module_value = ModuleValue(
-            self._inference_state,
-            self._module_node,
-            file_io=file_io,
-            string_names=("__main__",),
-            code_lines=self._code_lines,
-        )
-        # --- Start Positron ---
         # Use our custom module context class.
         return PositronMixedModuleContext(
-            tree_module_value,
+            super()._get_module_context()._value,
             self.namespaces,
         )
-        # --- End Positron ---
 
     @validate_line_column
     def complete(self, line=None, column=None, *, fuzzy=False):
+        return [PositronCompletion(name) for name in super().complete(line, column, fuzzy=fuzzy)]
         self._inference_state.reset_recursion_limitations()
         with debug.increase_indent_cm("complete"):
             # --- Start Positron ---
@@ -468,3 +615,133 @@ def get_python_object(completion: BaseName) -> Tuple[Any, bool]:
             obj = value.access_handle.access._obj  # noqa: SLF001
             return obj, True
     return None, False
+
+
+def _is_pandas_dataframe(value: Value) -> bool:
+    return (
+        value.get_root_context().py__name__() == "pandas.core.frame"
+        and value.py__name__() == "DataFrame"
+    )
+
+
+def _is_pandas_series(value: Value) -> bool:
+    return (
+        value.get_root_context().py__name__() == "pandas.core.series"
+        and value.py__name__() == "Series"
+    )
+
+
+def _is_polars_dataframe(value: Value) -> bool:
+    return (
+        value.get_root_context().py__name__() == "polars.dataframe.frame"
+        and value.py__name__() == "DataFrame"
+    )
+
+
+# def _is_polars_series(value: Value) -> bool:
+#     return (
+#         value.get_root_context().py__name__() == "polars.core.frame"
+#         and value.py__name__() == "DataFrame"
+#     )
+
+
+# TODO: Continue trying to refactor our completion customizations to a plugin.
+#       Could even ask Jedi author if we can add a plugin point for this.
+class JediPandas:
+    def execute(self, callback):
+        # TODO: Can this be more specifically TreeValue?
+        def wrapper(value: Value, arguments):
+            result = callback(value, arguments)
+            obj_name = value.name.string_name
+            print(
+                "execute",
+                obj_name,
+                value.parent_context.py__name__(),
+                value.py__name__(),
+                value,
+                arguments,
+                result,
+            )
+            if _is_pandas_dataframe(value):
+                return ValueSet(DataFrameTreeInstanceWrapper(r) for r in result)
+            return result
+
+        return wrapper
+
+    def tree_name_to_values(self, func):
+        # TODO: Is this always a ModuleContext?
+        def wrapper(
+            inference_state: InferenceState, context: ModuleContext, tree_name: TreeName
+        ) -> ValueSet:
+            result = func(inference_state, context, tree_name)
+            print("tree_name_to_values", tree_name, result, tree_name.value)
+            # if tree_name.value in ["NDFrame", "PandasObject"]:
+            return ValueSet(DataFrameWrapper(r) for r in result)
+            # print("tree_name_to_values", context, tree_name, type(tree_name))
+            # print("tree_name_to_values", type(inference_state), type(context), type(tree_name))
+            # if tree_name.value in _FILTER_LIKE_METHODS:
+            #     # Here we try to overwrite stuff like User.objects.filter. We need
+            #     # this to make sure that keyword param completion works on these
+            #     # kind of methods.
+            #     for v in result:
+            #         if v.get_qualified_names() == ('_BaseQuerySet', tree_name.value) \
+            #                 and v.parent_context.is_module() \
+            #                 and v.parent_context.py__name__() == 'django.db.models.query':
+            #             qs = context.get_value()
+            #             generics = qs.get_generics()
+            #             if len(generics) >= 1:
+            #                 return ValueSet(QuerySetMethodWrapper(v, model)
+            #                                 for model in generics[0])
+
+            # elif tree_name.value == 'BaseManager' and context.is_module() \
+            #         and context.py__name__() == 'django.db.models.manager':
+            #     return ValueSet(ManagerWrapper(r) for r in result)
+
+            # elif tree_name.value == 'Field' and context.is_module() \
+            #         and context.py__name__() == 'django.db.models.fields':
+            #     return ValueSet(FieldWrapper(r) for r in result)
+            return result
+
+        return wrapper
+
+
+class DataFrameWrapper(ValueWrapper):
+    def __getattr__(self, name):
+        print(f"DataFrameWrapper.{name}", self._wrapped_value)
+        return super().__getattr__(name)
+
+    def get_filters(self, origin_scope=None):
+        result = self._wrapped_value.get_filters(origin_scope=origin_scope)
+        # values = [list(result.values()) for result in iter(result)]
+        # print("get_filters", list(iter(result)), self._wrapped_value)
+        # print("get_filters", origin_scope, values)
+        return result
+
+    def py__call__(self, arguments):
+        # print("py__call__", arguments)
+        return self._wrapped_value.py__call__(arguments)
+
+    def py__getitem__(self, index_value_set, contextualized_node):
+        # print("py__getitem__", index_value_set, contextualized_node)
+        return ValueSet(
+            # GenericManagerWrapper(generic)
+            generic
+            for generic in self._wrapped_value.py__getitem__(index_value_set, contextualized_node)
+        )
+
+
+class DataFrameTreeInstanceWrapper(ValueWrapper):
+    def __init__(self, *args, **kwargs):
+        print("DataFrameTreeInstanceWrapper.__init__")
+        super().__init__(*args, **kwargs)
+
+    def __getattr__(self, name):
+        print(f"DataFrameTreeInstanceWrapper.{name}", self._wrapped_value)
+        return super().__getattr__(name)
+
+    @property
+    def array_type(self):
+        return "dict"
+
+
+plugin_manager.register(JediPandas())
