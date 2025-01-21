@@ -67,6 +67,8 @@ export class Workbench {
 	readonly extensions: Extensions;
 	readonly editors: Editors;
 	readonly settings: Settings;
+	readonly debug: Debug;
+	readonly editorActionBar: EditorActionBar;
 
 	constructor(code: Code) {
 
