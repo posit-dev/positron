@@ -40,6 +40,10 @@ const positronVersion = (quality && quality !== 'stable') ? `${product.positronV
 // --- End Positron ---
 
 const vscodeWebResourceIncludes = [
+	// --- Start Positron ---
+	// Positron Help
+	'out-build/vs/workbench/contrib/positronHelp/browser/resources/help.html',
+	// --- End Positron ---
 
 	// NLS
 	'out-build/nls.messages.js',
