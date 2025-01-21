@@ -49,7 +49,7 @@ jobs:
 
   slack-notify:
     if: failure()
-    needs: [unit-tests, integration-tests, e2e-electron]
+    needs: [unit-tests, integration-tests, e2e-electron, e2e-windows-electron, e2e-linux-browser]
     runs-on: ubuntu-latest
     steps:
       - name: Send Slack Notification
