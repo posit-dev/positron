@@ -8,7 +8,7 @@ else
 	ROOT=$(dirname $(dirname $(readlink -f $0)))
 	# --disable-dev-shm-usage: when run on docker containers where size of /dev/shm
 	# partition < 64MB which causes OOM failure for chromium compositor that uses the partition for shared memory
-	LINUX_EXTRA_ARGS="--disable-dev-shm-usage"
+	LINUX_EXTRA_ARGS="--disable-dev-shm-usage --no-sandbox"
 fi
 
 VSCODEUSERDATADIR=`mktemp -d 2>/dev/null`
@@ -68,6 +68,12 @@ echo
 echo "### Colorize tests"
 echo
 npm run test-extension -- -l vscode-colorize-tests
+kill_app
+
+echo
+echo "### Terminal Suggest tests"
+echo
+npm run test-extension -- -l terminal-suggest --enable-proposed-api=vscode.vscode-api-tests
 kill_app
 
 echo
