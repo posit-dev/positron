@@ -1538,20 +1538,9 @@ declare module 'positron' {
 			identifier: string;
 
 			/**
-			 * Handle a language model request with streaming chat responses.
-			 */
-			provideLanguageModelResponse(
-				messages: vscode.LanguageModelChatMessage[],
-				options: { [name: string]: any },
-				extensionId: string,
-				progress: vscode.Progress<{ index: number; part: string }>,
-				token: vscode.CancellationToken,
-			): Thenable<any>;
-
-			/**
 			 * Handle a language model request with tool calls and streaming chat responses.
 			 */
-			provideLanguageModelResponse2?(
+			provideLanguageModelResponse(
 				messages: vscode.LanguageModelChatMessage[],
 				options: vscode.LanguageModelChatRequestOptions,
 				extensionId: string,

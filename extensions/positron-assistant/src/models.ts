@@ -37,7 +37,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		messages: vscode.LanguageModelChatMessage[],
 		options: { [name: string]: any },
 		extensionId: string,
-		progress: vscode.Progress<vscode.ChatResponseFragment>,
+		progress: vscode.Progress<vscode.ChatResponseFragment2>,
 		token: vscode.CancellationToken
 	): Promise<any> {
 		const _messages = toAIMessage(messages);
@@ -53,7 +53,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 
 		for await (const i of message.content[0].text.split('')) {
 			await new Promise(resolve => setTimeout(resolve, 10));
-			progress.report({ index: 0, part: i });
+			progress.report({ index: 0, part: new vscode.LanguageModelTextPart(i) });
 			if (token.isCancellationRequested) {
 				return;
 			}
@@ -82,11 +82,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		this.provider = _config.provider;
 	}
 
-	async provideLanguageModelResponse(): Promise<never> {
-		throw new Error('Method not implemented');
-	}
-
-	async provideLanguageModelResponse2(
+	async provideLanguageModelResponse(
 		messages: vscode.LanguageModelChatMessage[],
 		options: vscode.LanguageModelChatRequestOptions,
 		extensionId: string,
@@ -235,7 +231,7 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 	) {
 		// Ollama does not support streaming with tool calls yet
 		options.tools = undefined;
-		return super.provideLanguageModelResponse2(messages, options, extensionId, progress, token);
+		return super.provideLanguageModelResponse(messages, options, extensionId, progress, token);
 	}
 }
 

@@ -9,13 +9,13 @@ import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWo
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { Action2, MenuId, MenuRegistry, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { localize2 } from '../../../../nls.js';
-import { CONTEXT_CHAT_ENABLED, CONTEXT_CHAT_LOCATION, CONTEXT_LANGUAGE_MODELS_ARE_USER_SELECTABLE } from '../../chat/common/chatContextKeys.js';
 import { codiconsLibrary } from '../../../../base/common/codiconsLibrary.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
 import { ICodeBlockActionContext } from '../../chat/browser/codeBlockPart.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ChatAgentLocation } from '../../chat/common/chatAgents.js';
+import { ChatContextKeys } from '../../chat/common/chatContextKeys.js';
 
 class PositronAssistantContribution extends Disposable implements IWorkbenchContribution {
 	constructor(
@@ -30,7 +30,7 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 				super({
 					id: 'workbench.action.positronAssistant.runInConsole',
 					title: localize2('interactive.runInConsole.label', "Run in Console"),
-					precondition: CONTEXT_CHAT_ENABLED,
+					precondition: ChatContextKeys.enabled,
 					f1: true,
 					category: localize2('chat.category', 'Chat'),
 					icon: codiconsLibrary.play,
@@ -38,7 +38,7 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 						id: MenuId.ChatCodeBlock,
 						group: 'navigation',
 						order: 5,
-						when: ContextKeyExpr.equals(CONTEXT_CHAT_LOCATION.key, ChatAgentLocation.Panel)
+						when: ContextKeyExpr.equals(ChatContextKeys.location.key, ChatAgentLocation.Panel)
 					},
 				});
 			}
@@ -56,7 +56,7 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 			},
 			order: 3,
 			group: 'navigation',
-			when: CONTEXT_LANGUAGE_MODELS_ARE_USER_SELECTABLE,
+			when: ChatContextKeys.languageModelsAreUserSelectable,
 		});
 	}
 }
