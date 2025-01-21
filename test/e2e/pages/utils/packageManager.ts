@@ -36,9 +36,8 @@ export class PackageManager {
 		await test.step(`${action}: ${packageName}`, async () => {
 			const command = this.getCommand(packageInfo.type, packageName, action);
 			const expectedOutput = this.getExpectedOutput(packageName, action);
-			const prompt = packageInfo.type === 'Python' ? '>>> ' : '> ';
 
-			await this.app.workbench.console.executeCode(packageInfo.type, command, prompt);
+			await this.app.workbench.console.executeCode(packageInfo.type, command);
 			await expect(this.app.code.driver.page.getByText(expectedOutput)).toBeVisible();
 		});
 	}

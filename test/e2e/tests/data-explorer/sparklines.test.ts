@@ -23,14 +23,14 @@ test.describe('Data Explorer - Sparklines', {
 	});
 
 	test('Python Pandas - Verifies downward trending graph [C830552]', async ({ app, python }) => {
-		await app.workbench.console.executeCode('Python', pythonScript, '>>>');
+		await app.workbench.console.executeCode('Python', pythonScript);
 		await openDataExplorerColumnProfile(app, 'pythonData');
 		await verifyGraphBarHeights(app);
 	});
 
 
 	test('R - Verifies downward trending graph [C830553]', async ({ app, r }) => {
-		await app.workbench.console.executeCode('R', rScript, '>');
+		await app.workbench.console.executeCode('R', rScript);
 		await openDataExplorerColumnProfile(app, 'rData');
 		await verifyGraphBarHeights(app);
 	});

@@ -20,7 +20,6 @@ test('Data Explorer 100x100 - Python - Pandas [C557563]', {
 	await testDataExplorer(
 		app,
 		'Python',
-		'>>>',
 		[
 			'import pandas as pd',
 			`${dataFrameName} = pd.read_parquet("${parquetFilePath(app)}")`,

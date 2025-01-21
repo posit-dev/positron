@@ -91,7 +91,6 @@ test.describe('SQLite DB Connection', {
 			await app.workbench.console.executeCode(
 				'R',
 				`con <- connections::connection_open(RSQLite::SQLite(), tempfile())`,
-				'>'
 			);
 		});
 
@@ -111,7 +110,6 @@ test.describe('SQLite DB Connection', {
 			await app.workbench.console.executeCode(
 				'R',
 				`DBI::dbWriteTable(con, 'mtcars', mtcars)`,
-				'>'
 			);
 
 			// refresh and mtcars should exist
