@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -82,6 +82,32 @@ export function activate(context: vscode.ExtensionContext) {
 			'positronProxy.showHtmlPreview',
 			(path: vscode.Uri) => {
 				positron.window.previewHtml(path.toString());
+			})
+	);
+
+	// Register the positronProxy.showHtmlPreview command and add its disposable.
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positronProxy.openBrowserPreview',
+			async (path: vscode.Uri) => {
+				let targetPath = path;
+
+				// On a native desktop build, we can open the file directly in
+				// the browser, without starting a proxy server. But in all
+				// other cases (web, remote SSH, etc), the file is not likely
+				// to be accessible to the browser, so we need to start a proxy
+				// server.
+				if (vscode.env.uiKind === vscode.UIKind.Web || vscode.env.remoteName) {
+					// Create a proxy server and get the URI to open in the browser.
+					const proxyUri = await positronProxy.startHtmlProxyServer(path.toString());
+
+					// Translate the proxy URI to an external URI.
+					targetPath = await vscode.env.asExternalUri(vscode.Uri.parse(proxyUri));
+				}
+
+
+				// Open the external URI in the default browser.
+				vscode.env.openExternal(targetPath);
 			})
 	);
 
