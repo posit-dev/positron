@@ -17,6 +17,27 @@ jobs:
       currents_tags: "merge,electron/linux"
     secrets: inherit
 
+  e2e-windows-electron:
+    name: e2e
+    uses: ./.github/workflows/test-e2e-windows.yml
+    with:
+      grep: ""
+      display_name: "electron (windows)"
+      currents_tags: "merge,electron/windows"
+      report_testrail: false
+    secrets: inherit
+
+  e2e-linux-browser:
+    name: e2e
+    uses: ./.github/workflows/test-e2e-linux.yml
+    with:
+      grep: ""
+      display_name: "browser (linux)"
+      project: "e2e-browser"
+      currents_tags: "merge,browser/linux"
+      report_testrail: false
+    secrets: inherit
+
   unit-tests:
     name: test
     uses: ./.github/workflows/test-unit.yml
