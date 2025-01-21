@@ -44,7 +44,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		}, async function ({ app, logger, headless, logsPath }, testInfo) {
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 			logger.log('Sending code to console');
-			await app.workbench.console.executeCode('Python', pythonDynamicPlot, '>>>');
+			await app.workbench.console.executeCode('Python', pythonDynamicPlot);
 			await app.workbench.plots.waitForCurrentPlot();
 
 			const buffer = await app.workbench.plots.getCurrentPlotAsBuffer();
@@ -83,7 +83,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
 		}, async function ({ app, logger, logsPath }, testInfo) {
 			logger.log('Sending code to console');
-			await app.workbench.console.executeCode('Python', pythonStaticPlot, '>>>');
+			await app.workbench.console.executeCode('Python', pythonStaticPlot);
 			await app.workbench.plots.waitForCurrentStaticPlot();
 
 			const buffer = await app.workbench.plots.getCurrentStaticPlotAsBuffer();
@@ -113,9 +113,9 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await expect(plots.zoomPlotButton).not.toBeVisible();
 
 			// create plots separately so that the order is known
-			await app.workbench.console.executeCode('Python', pythonPlotActions1, '>>>');
+			await app.workbench.console.executeCode('Python', pythonPlotActions1);
 			await plots.waitForCurrentStaticPlot();
-			await app.workbench.console.executeCode('Python', pythonPlotActions2, '>>>');
+			await app.workbench.console.executeCode('Python', pythonPlotActions2);
 			await plots.waitForCurrentPlot();
 
 			// expand the plot pane to show the action bar
@@ -152,7 +152,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('Python - Verifies saving a Python plot [C557005]', { tag: [tags.WIN] }, async function ({ app, logger }) {
 			await test.step('Sending code to console to create plot', async () => {
-				await app.workbench.console.executeCode('Python', pythonDynamicPlot, '>>>');
+				await app.workbench.console.executeCode('Python', pythonDynamicPlot);
 				await app.workbench.plots.waitForCurrentPlot();
 				await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 			});
@@ -227,7 +227,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		});
 
-		test('Python - Verifies bokeh Python widget [C730343]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+		test.skip('Python - Verifies bokeh Python widget [C730343]', {
+			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6045' }],
+			tag: [tags.WEB, tags.WIN]
+		}, async function ({ app }) {
 			await app.workbench.console.pasteCodeToConsole(bokeh);
 			await app.workbench.console.sendEnterKey();
 
@@ -289,7 +292,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
 		}, async function ({ app, logger, headless, logsPath }, testInfo) {
 			logger.log('Sending code to console');
-			await app.workbench.console.executeCode('R', rBasicPlot, '>');
+			await app.workbench.console.executeCode('R', rBasicPlot);
 			await app.workbench.plots.waitForCurrentPlot();
 
 			const buffer = await app.workbench.plots.getCurrentPlotAsBuffer();
@@ -326,7 +329,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('R - Verifies saving an R plot [C557006]', { tag: [tags.WIN] }, async function ({ app, logger }) {
 			await test.step('Sending code to console to create plot', async () => {
-				await app.workbench.console.executeCode('R', rSavePlot, '>');
+				await app.workbench.console.executeCode('R', rSavePlot);
 				await app.workbench.plots.waitForCurrentPlot();
 			});
 

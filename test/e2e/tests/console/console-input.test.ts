@@ -19,8 +19,7 @@ test.describe('Console Input', {
 
 
 	test('Python - Get Input String Console [C667516]', async function ({ app, python }) {
-		const inputCode = `val = input("Enter your name: ")
-print(f'Hello {val}!')`;
+		const inputCode = `val = input("Enter your name: "); print(f'Hello {val}!');`;
 
 		await app.workbench.console.pasteCodeToConsole(inputCode);
 		await app.workbench.console.sendEnterKey();

@@ -150,6 +150,13 @@ export class Variables {
 		await this.code.driver.page.locator('a.action-menu-item', { hasText: name }).first().click();
 	}
 
+	async getVariablesGroupList() {
+		await this.code.driver.page.locator(VARIABLES_GROUP_SELECTOR).click();
+		const groupList = await this.code.driver.page.locator('a.action-menu-item').all();
+		const groupNames = await Promise.all(groupList.map(async (group) => group.innerText()));
+		return groupNames;
+	}
+
 	async clickDatabaseIconForVariableRow(rowName: string) {
 		const DATABASE_ICON = '.codicon-database';
 		await this.code.driver.page.locator(VARIABLE_ITEMS).filter({ hasText: rowName }).locator(DATABASE_ICON).click();

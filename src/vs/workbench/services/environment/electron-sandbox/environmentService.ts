@@ -152,6 +152,20 @@ export class NativeWorkbenchEnvironmentService extends AbstractNativeEnvironment
 	@memoize
 	get filesToWait(): IPathsToWaitFor | undefined { return this.configuration.filesToWait; }
 
+	// --- Start Positron ---
+	// Always file downloads and uploads on Positron Desktop. These can be
+	// disabled in browser mode for security reasons (see
+	// BrowserWorkbenchEnvironmentService), but are always enabled in the
+	// desktop/Electron configuration.
+	get isEnabledFileDownloads(): boolean {
+		return true;
+	}
+
+	get isEnabledFileUploads(): boolean {
+		return true;
+	}
+	// --- End Positron ---
+
 	constructor(
 		private readonly configuration: INativeWindowConfiguration,
 		productService: IProductService

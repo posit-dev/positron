@@ -22,7 +22,7 @@ data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
 df = pd.DataFrame(data)`;
 
 		logger.log('Sending code to console');
-		await app.workbench.console.executeCode('Python', script, '>>>');
+		await app.workbench.console.executeCode('Python', script);
 
 		logger.log('Opening data grid');
 		await expect(async () => {
@@ -62,7 +62,7 @@ data = {
 df2 = pd.DataFrame(data)`;
 
 		logger.log('Sending code to console');
-		await app.workbench.console.executeCode('Python', script, '>>>');
+		await app.workbench.console.executeCode('Python', script);
 
 		logger.log('Opening data grid');
 		await expect(async () => {
@@ -179,9 +179,20 @@ df2 = pd.DataFrame(data)`;
 	test('Python - Open Data Explorer for the second time brings focus back [C1078833]', async function ({ app, python }) {
 
 		const script = `import pandas as pd
-from pydataset import data
-Data_Frame = data('mtcars')`;
-		await app.workbench.console.executeCode('Python', script, '>>>');
+Data_Frame = pd.DataFrame({
+	"mpg": [21.0, 21.0, 22.8, 21.4, 18.7],
+	"cyl": [6, 6, 4, 6, 8],
+	"disp": [160.0, 160.0, 108.0, 258.0, 360.0],
+	"hp": [110, 110, 93, 110, 175],
+	"drat": [3.90, 3.90, 3.85, 3.08, 3.15],
+	"wt": [2.62, 2.875, 2.32, 3.215, 3.44],
+	"qsec": [16.46, 17.02, 18.61, 19.44, 17.02],
+	"vs": [0, 0, 1, 1, 0],
+	"am": [1, 1, 1, 0, 0],
+	"gear": [4, 4, 4, 3, 3],
+	"carb": [4, 4, 1, 1, 2]
+})`;
+		await app.workbench.console.executeCode('Python', script);
 		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
 
 		await expect(async () => {
@@ -206,7 +217,7 @@ Data_Frame = data('mtcars')`;
 
 		const script = `import pandas as pd
 df = pd.DataFrame({'x': ["a ", "a", "   ", ""]})`;
-		await app.workbench.console.executeCode('Python', script, '>>>');
+		await app.workbench.console.executeCode('Python', script);
 
 		await expect(async () => {
 			await app.workbench.variables.doubleClickVariableRow('df');

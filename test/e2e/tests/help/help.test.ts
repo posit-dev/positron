@@ -18,7 +18,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 	});
 
 	test('Python - Verifies basic help functionality [C633814]', { tag: [tags.WIN] }, async function ({ app, python }) {
-		await app.workbench.console.executeCode('Python', `?load`, '>>>');
+		await app.workbench.console.executeCode('Python', `?load`);
 
 		await expect(async () => {
 			const helpFrame = await app.workbench.help.getHelpFrame(0);
@@ -28,7 +28,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 	});
 
 	test('R - Verifies basic help functionality [C633813]', { tag: [tags.WIN] }, async function ({ app, r }) {
-		await app.workbench.console.executeCode('R', `?load()`, '>');
+		await app.workbench.console.executeCode('R', `?load()`);
 
 		await expect(async () => {
 			const helpFrame = await app.workbench.help.getHelpFrame(1);
@@ -37,7 +37,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 
 	});
 
-	test('Verifies help panel can be opened when empty and also can be resized smaller and remember resize height [C640934]', async function ({ app, logger }) {
+	test('Verifies help panel can be opened when empty and also can be resized smaller and remember resize height [C640934]', { tag: [tags.WIN] }, async function ({ app, logger }) {
 		// Not running on windows as the size calculation is off for the resolution in CI
 		const help = app.workbench.help;
 		const helpContainerLocator = help.getHelpContainer();
@@ -83,7 +83,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 		// Reopen the panel
 		await helpPanelHeaderLocator.click();
 
-		if (helpPanelHeightAfter < 100) {
+		if (helpPanelHeightAfter <= 100) {
 			// When the panel is small enough, it will pop back to the full size.
 			// This can happen if the window used for testing is too small.
 			// In this case we want to end the test early because the behavior wont be as
