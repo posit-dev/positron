@@ -6,22 +6,27 @@
 import os
 import pathlib
 import platform
-from typing import Any, Tuple
+from functools import cached_property
+from pathlib import Path
+from typing import Any, Optional, Tuple
+
+from IPython.core import oinspect
 
 from ._vendor.jedi import cache, debug, settings
 from ._vendor.jedi.api import Interpreter
-from ._vendor.jedi.api.classes import BaseName, Completion
+from ._vendor.jedi.api.classes import BaseName, Completion, Name
+
+# Rename to avoid conflict with classes.Completion
 from ._vendor.jedi.api.completion import (
     Completion as CompletionAPI,
 )
-
-# Rename to avoid conflict with classes.Completion
 from ._vendor.jedi.api.completion import (
     _extract_string_while_in_string,
     _remove_duplicates,
     filter_names,
 )
 from ._vendor.jedi.api.file_name import complete_file_name
+from ._vendor.jedi.api.helpers import validate_line_column
 from ._vendor.jedi.api.interpreter import MixedModuleContext
 from ._vendor.jedi.api.strings import get_quote_ending
 from ._vendor.jedi.cache import memoize_method
@@ -34,7 +39,13 @@ from ._vendor.jedi.inference.context import ValueContext
 from ._vendor.jedi.inference.helpers import infer_call_of_leaf
 from ._vendor.jedi.inference.value import ModuleValue
 from ._vendor.jedi.parser_utils import cut_value_at_position
-from .utils import safe_isinstance
+from .inspectors import (
+    BaseColumnInspector,
+    BaseTableInspector,
+    PositronInspector,
+    get_inspector,
+)
+from .utils import get_qualname, safe_isinstance
 
 #
 # We adapt code from the MIT-licensed jedi static analysis library to provide enhanced completions
@@ -88,6 +99,78 @@ class PositronMixedModuleContext(MixedModuleContext):
         yield merged_filter
 
 
+class PositronName(Name):
+    """
+    Wraps a `jedi.api.classes.BaseName` to customize LSP responses.
+
+    `jedi_language_server` acesses name's properties to generate `lsprotocol` types. We override
+    these properties to enhance LSP responses. This is usually via a `PositronInspector` on the
+    underlying object referenced by the wrapped name.
+    """
+
+    def __init__(self, name: BaseName) -> None:
+        super().__init__(name._inference_state, name._name)
+
+        self._wrapped_name = name
+
+    @cached_property
+    def _inspector(self) -> Optional[PositronInspector]:
+        """
+        A `PositronInspector` for the object referenced by this name, if available.
+        """
+        name = self._wrapped_name._name
+        if isinstance(name, (CompiledName, MixedName)):
+            value = name.infer_compiled_value()
+            if isinstance(value, CompiledValue):
+                obj = value.access_handle.access._obj
+                return get_inspector(obj)
+        return None
+
+    @property
+    def full_name(self):  # type: ignore
+        if self._inspector:
+            # TODO: Move to inspector get_full_name method?
+            return get_qualname(self._inspector.value)
+        return super().full_name
+
+    @property
+    def description(self):
+        if self._inspector:
+            return self._inspector.get_display_type()
+        return super().description
+
+    @property
+    def module_path(self):
+        if self._inspector:
+            # TODO: Move to inspector method?
+            fname = oinspect.find_file(self._inspector.value)
+            if fname is not None:
+                return Path(fname)
+        return super().module_path
+
+    def docstring(self, raw=False, fast=True):
+        if self._inspector:
+            return self._inspector.get_docstring()
+        return super().docstring(raw=raw)
+
+    def get_signatures(self):
+        # TODO: Move to inspector get_signatures method?
+        if isinstance(self._inspector, (BaseColumnInspector, BaseTableInspector)):
+            return []
+        return super().get_signatures()
+
+
+class PositronCompletion(PositronName):
+    def __init__(self, completion: Completion) -> None:
+        super().__init__(completion)
+
+        self._wrapped_completion = completion
+
+    @property
+    def complete(self):
+        return self._wrapped_completion.complete
+
+
 class PositronInterpreter(Interpreter):
     """A `jedi.Interpreter` that provides enhanced completions for data science users."""
 
@@ -109,12 +192,13 @@ class PositronInterpreter(Interpreter):
         )
         # --- End Positron ---
 
+    @validate_line_column
     def complete(self, line=None, column=None, *, fuzzy=False):
         self._inference_state.reset_recursion_limitations()
         with debug.increase_indent_cm("complete"):
             # --- Start Positron ---
             # Use our custom completion class.
-            completion = PositronCompletion(
+            completion = PositronCompletionAPI(
                 # --- End Positron ---
                 self._inference_state,
                 self._get_module_context(),
@@ -123,10 +207,39 @@ class PositronInterpreter(Interpreter):
                 self.get_signatures,
                 fuzzy=fuzzy,
             )
-            return completion.complete()
+            # --- Start Positron ---
+            return [PositronCompletion(name) for name in completion.complete()]
+            # --- End Positron ---
+
+    @validate_line_column
+    def help(self, line=None, column=None):
+        return [PositronName(name) for name in super().help(line, column)]
+
+    @validate_line_column
+    def goto(
+        self,
+        line=None,
+        column=None,
+        *,
+        follow_imports=False,
+        follow_builtin_imports=False,
+        only_stubs=False,
+        prefer_stubs=False,
+    ):
+        return [
+            PositronName(name)
+            for name in super().goto(
+                line,
+                column,
+                follow_imports=follow_imports,
+                follow_builtin_imports=follow_builtin_imports,
+                only_stubs=only_stubs,
+                prefer_stubs=prefer_stubs,
+            )
+        ]
 
 
-class PositronCompletion(CompletionAPI):
+class PositronCompletionAPI(CompletionAPI):
     # As is from jedi.api.completion.Completion, copied here to use our `complete_dict`.
     def complete(self):
         leaf = self._module_node.get_leaf_for_position(

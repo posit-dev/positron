@@ -49,7 +49,7 @@ from positron._vendor.lsprotocol.types import (
 )
 from positron._vendor.pygls.workspace.text_document import TextDocument
 from positron.help_comm import ShowHelpTopicParams
-from positron.jedi import PositronInterpreter
+from positron.jedi import PositronCompletion, PositronInterpreter, PositronName
 from positron.positron_jedilsp import (
     HelpTopicParams,
     PositronInitializationOptions,
@@ -73,12 +73,14 @@ from positron.positron_jedilsp import (
     positron_signature_help,
     positron_type_definition,
 )
+from positron.utils import get_qualname
 
 from .lsp_data.func import func
 from .lsp_data.type import Type
 
 LSP_DATA_DIR = Path(__file__).parent / "lsp_data"
-TEST_DOCUMENT_URI = "file:///foo.py"
+TEST_DOCUMENT_PATH = Path("foo.py").absolute()
+TEST_DOCUMENT_URI = TEST_DOCUMENT_PATH.as_uri()
 
 if TYPE_CHECKING:
     from threading import Timer
@@ -318,74 +320,84 @@ _pl_df = pl.DataFrame({"a": [0]})
     ("source", "namespace", "expected_detail", "expected_documentation"),
     [
         # Dict key mapping to a property.
-        (
+        pytest.param(
             'x["',
             {"x": {"a": _object_with_property.prop}},
             "instance str(object='', /) -> str",
             jedi_utils.convert_docstring(cast(str, str.__doc__), MarkupKind.Markdown),
+            id="dict_key_to_property",
         ),
         # Dict key mapping to an int.
-        (
+        pytest.param(
             'x["',
             {"x": {"a": 0}},
             "instance int(x=None, /) -> int",
             jedi_utils.convert_docstring(cast(str, int.__doc__), MarkupKind.Markdown),
+            id="dict_key_to_int",
         ),
         # Integer, to sanity check for a basic value.
-        (
+        pytest.param(
             "x",
             {"x": 0},
             "instance int(x=None, /) -> int",
             jedi_utils.convert_docstring(cast(str, int.__doc__), MarkupKind.Markdown),
+            id="int",
         ),
         # Dict literal key mapping to an int.
-        (
+        pytest.param(
             '{"a": 0}["',
             {},
             "instance int(x=None, /) -> int",
             jedi_utils.convert_docstring(cast(str, int.__doc__), MarkupKind.Markdown),
+            id="dict_literal_key_to_int",
         ),
         # Pandas dataframe.
-        (
+        pytest.param(
             "x",
             {"x": _pd_df},
             f"DataFrame [{_pd_df.shape[0]}x{_pd_df.shape[1]}]",
-            f"```text\n{_pd_df}\n```",
+            f"```text\n{str(_pd_df).strip()}\n```",
+            id="pandas_dataframe",
         ),
         # Pandas dataframe column - dict key access.
-        (
+        pytest.param(
             'x["',
             {"x": _pd_df},
             f"int64 [{_pd_df['a'].shape[0]}]",
-            f"```text\n{_pd_df['a']}\n```",
+            f"```text\n{str(_pd_df['a']).strip()}\n```",
+            id="pandas_dataframe_dict_key",
         ),
         # Pandas series.
-        (
+        pytest.param(
             "x",
             {"x": _pd_df["a"]},
             f"int64 [{_pd_df['a'].shape[0]}]",
-            f"```text\n{_pd_df['a']}\n```",
+            f"```text\n{str(_pd_df['a']).strip()}\n```",
+            id="pandas_series",
         ),
         # Polars dataframe.
-        (
+        pytest.param(
             "x",
             {"x": _pl_df},
             f"DataFrame [{_pl_df.shape[0]}x{_pl_df.shape[1]}]",
-            f"```text\n{_pl_df}\n```",
+            f"```text\n{str(_pl_df).strip()}\n```",
+            id="polars_dataframe",
         ),
         # Polars dataframe column - dict key access.
-        (
+        pytest.param(
             'x["',
             {"x": _pl_df},
             f"Int64 [{_pl_df['a'].shape[0]}]",
-            f"```text\n{_pl_df['a']}\n```",
+            f"```text\n{str(_pl_df['a']).strip()}\n```",
+            id="polars_dataframe_dict_key",
         ),
         # Polars series.
-        (
+        pytest.param(
             "x",
             {"x": _pl_df["a"]},
             f"Int64 [{_pl_df['a'].shape[0]}]",
-            f"```text\n{_pl_df['a']}\n```",
+            f"```text\n{str(_pl_df['a']).strip()}\n```",
+            id="polars_series",
         ),
     ],
 )
@@ -501,8 +513,9 @@ def test_notebook_path_completions(tmp_path):
 
 # Make a function with parameters to test signature help.
 # Create it via exec() so we can reuse the strings in the test.
+_func_name = "func"
 _func_params = ["x=1", "y=1"]
-_func_label = f"def func({', '.join(_func_params)})"
+_func_label = f"def {_func_name}({', '.join(_func_params)})"
 _func_doc = "A function with parameters."
 _func_str = f'''\
 {_func_label}:
@@ -512,10 +525,6 @@ _func_str = f'''\
     pass'''
 
 
-# TODO: Maybe better to write a module to file to test these.
-#       Or actually to just have a test module that I import...
-# Signature help should work when the object is defined in source or the user's namespace.
-# See: https://github.com/posit-dev/positron/issues/5739.
 @pytest.mark.parametrize(
     ("source", "namespace"),
     [
@@ -573,7 +582,7 @@ def test_positron_signature_help(source: str, namespace: Dict[str, Any]) -> None
             {"_func": func},
             Location(
                 uri=(LSP_DATA_DIR / "func.py").as_uri(),
-                range=Range(start=Position(7, 0), end=Position(7, 0)),
+                range=Range(start=Position(6, 4), end=Position(6, 9)),
             ),
             id="from_namespace",
         ),
@@ -609,7 +618,8 @@ def test_positron_declaration(
             {"_func": func},
             Location(
                 uri=(LSP_DATA_DIR / "func.py").as_uri(),
-                range=Range(start=Position(7, 0), end=Position(7, 0)),
+                # TODO: Not sure why this ends at character 9 but previous ends at 8?
+                range=Range(start=Position(6, 4), end=Position(6, 9)),
             ),
             id="from_namespace",
         ),
@@ -653,7 +663,7 @@ def test_positron_definition(
                     end=Position(6, 10),
                 ),
             ),
-            id="namespace",
+            id="from_namespace",
         ),
     ],
 )
@@ -697,48 +707,48 @@ def test_positron_type_definition(
 #     assert highlights == expected_highlights
 
 
-# # Hover should work when the object is defined in source or the user's namespace.
-# # See: https://github.com/posit-dev/positron/issues/5739.
-# @pytest.mark.parametrize(
-#     ("source", "namespace"),
-#     [
-#         pytest.param(
-#             f"{_func_str}\n_func",
-#             {},
-#             id="from_source",
-#         ),
-#         pytest.param(
-#             "_func",
-#             {"_func": _func},
-#             id="from_namespace",
-#         ),
-#     ],
-# )
-# def test_positron_hover(source: str, namespace: Dict[str, Any]) -> None:
-#     file = Path("foo.py").absolute()
-#     server = create_server(namespace)
-#     text_document = create_text_document(server, file.as_uri(), source)
+@pytest.mark.parametrize(
+    ("source", "namespace", "expected_fullname"),
+    [
+        pytest.param(
+            f"{_func_str}\nfunc",
+            {},
+            # TODO: For some reason, using a PositronInterpreter here returns __main__ as the module name instead of the actual module...
+            f"__main__.{_func_name}",
+            id="from_source",
+        ),
+        pytest.param(
+            "func",
+            {"func": func},
+            get_qualname(func),
+            id="from_namespace",
+        ),
+    ],
+)
+def test_positron_hover(source: str, namespace: Dict[str, Any], expected_fullname: str) -> None:
+    server = create_server(namespace)
+    text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
 
-#     position = _end_of_document(text_document)
-#     params = TextDocumentPositionParams(TextDocumentIdentifier(text_document.uri), position)
+    position = _end_of_document(text_document)
+    params = TextDocumentPositionParams(TextDocumentIdentifier(text_document.uri), position)
 
-#     hover = positron_hover(server, params)
+    hover = positron_hover(server, params)
 
-#     assert hover == Hover(
-#         contents=MarkupContent(
-#             kind=MarkupKind.Markdown,
-#             value=f"""\
-# ```python
-# {_func_label}
-# ```
-# ---
-# ```text
-# {_func_doc}
-# ```
-# **Full name:** `{file.stem}._func`""",
-#         ),
-#         range=Range(start=Position(position.line, 0), end=position),
-#     )
+    assert hover == Hover(
+        contents=MarkupContent(
+            kind=MarkupKind.Markdown,
+            value=f"""\
+```python
+{_func_label}
+```
+---
+```text
+{_func_doc}
+```
+**Full name:** `{expected_fullname}`""",
+        ),
+        range=Range(start=Position(position.line, 0), end=position),
+    )
 
 
 # @pytest.mark.parametrize(

@@ -15,17 +15,18 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Union, cast
 
 from comm.base_comm import BaseComm
-from IPython.core import oinspect
 
 from ._vendor import attrs, cattrs
 from ._vendor.jedi.api import Interpreter, Project, Script
-from ._vendor.jedi.api.classes import BaseName, Name
+from ._vendor.jedi.api.classes import Completion
 from ._vendor.jedi_language_server import jedi_utils, pygls_utils
 from ._vendor.jedi_language_server.server import (
     JediLanguageServer,
     JediLanguageServerProtocol,
     _choose_markup,
     completion_item_resolve,
+    declaration,
+    definition,
     did_change_configuration,
     document_symbol,
     highlight,
@@ -78,8 +79,6 @@ from ._vendor.lsprotocol.types import (
     InitializeResult,
     InsertTextFormat,
     Location,
-    MarkupContent,
-    MarkupKind,
     MessageType,
     Position,
     Range,
@@ -98,8 +97,7 @@ from ._vendor.pygls.feature_manager import has_ls_param_or_annotation
 from ._vendor.pygls.protocol import lsp_method
 from ._vendor.pygls.workspace.text_document import TextDocument
 from .help_comm import ShowHelpTopicParams
-from .inspectors import BaseColumnInspector, BaseTableInspector, get_inspector
-from .jedi import PositronInterpreter, get_python_object
+from .jedi import PositronInterpreter
 from .utils import debounce
 
 if TYPE_CHECKING:
@@ -443,7 +441,7 @@ def positron_completion(
         if not trimmed_line.startswith(_LINE_MAGIC_PREFIX):
             for completion in completions_jedi:
                 jedi_completion_item = jedi_utils.lsp_completion_item(
-                    completion=completion,
+                    completion=cast(Completion, completion),
                     char_before_cursor=char_before_cursor,
                     char_after_cursor=char_after_cursor,
                     enable_snippets=enable_snippets,
@@ -578,23 +576,6 @@ def positron_completion_item_resolve(
     if magic_completion is not None:
         params.detail, params.documentation = magic_completion
         return params
-
-    # Try to include extra information for objects in the user's namespace e.g. dataframes and columns.
-    completion = jedi_utils._MOST_RECENT_COMPLETIONS[params.label]  # noqa: SLF001
-    obj, is_found = get_python_object(completion)
-    if is_found:
-        inspector = get_inspector(obj)
-        if isinstance(inspector, (BaseColumnInspector, BaseTableInspector)):
-            params.detail = inspector.get_display_type()
-
-            markup_kind = _choose_markup(server)
-            # TODO: We may want to use get_display_value when we update inspectors to return
-            # multiline display values once Positron supports it.
-            doc = str(obj)
-            if markup_kind == MarkupKind.Markdown:
-                doc = f"```text\n{doc}\n```"
-            params.documentation = MarkupContent(kind=markup_kind, value=doc)
-            return params
     # --- End Positron ---
     return completion_item_resolve(server, params)
 
@@ -613,36 +594,14 @@ def positron_signature_help(
 def positron_declaration(
     server: PositronJediLanguageServer, params: TextDocumentPositionParams
 ) -> Optional[List[Location]]:
-    document = server.workspace.get_text_document(params.text_document.uri)
-    jedi_script = _interpreter(server.project, document, server.shell)
-    jedi_lines = jedi_utils.line_column(params.position)
-    names: List[Name] = jedi_script.goto(*jedi_lines)
-    definitions = []
-    for name in names:
-        definition = _get_definition_from_namespace(name) or jedi_utils.lsp_location(name)
-        if definition:
-            definitions.append(definition)
-    return definitions if definitions else None
+    return declaration(server, params)
 
 
 @POSITRON.feature(TEXT_DOCUMENT_DEFINITION)
 def positron_definition(
     server: PositronJediLanguageServer, params: TextDocumentPositionParams
 ) -> Optional[List[Location]]:
-    document = server.workspace.get_text_document(params.text_document.uri)
-    jedi_script = _interpreter(server.project, document, server.shell)
-    jedi_lines = jedi_utils.line_column(params.position)
-    names: List[Name] = jedi_script.goto(
-        *jedi_lines,
-        follow_imports=True,
-        follow_builtin_imports=True,
-    )
-    definitions = []
-    for name in names:
-        definition = _get_definition_from_namespace(name) or jedi_utils.lsp_location(name)
-        if definition:
-            definitions.append(definition)
-    return definitions if definitions else None
+    return definition(server, params)
 
 
 @POSITRON.feature(TEXT_DOCUMENT_TYPE_DEFINITION)
@@ -874,25 +833,3 @@ def _interpreter(
         namespaces.append(shell.user_ns)
 
     return PositronInterpreter(document.source, namespaces, path=document.path, project=project)
-
-
-def _get_definition_from_namespace(name: BaseName) -> Optional[Location]:
-    obj, is_found = get_python_object(name)
-    if not is_found:
-        return None
-
-    fname = oinspect.find_file(obj)
-    if fname is None:
-        return None
-
-    lineno = oinspect.find_source_lines(obj)
-    if lineno is None:
-        return None
-
-    return Location(
-        uri=Path(fname).as_uri(),
-        range=Range(
-            start=Position(line=lineno, character=0),
-            end=Position(line=lineno, character=0),
-        ),
-    )
