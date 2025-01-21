@@ -62,11 +62,6 @@ export interface IPositronPlotsService {
 	readonly historyPolicy: HistoryPolicy;
 
 	/**
-	 * Notifies subscribers when the sizing policy has changed.
-	 */
-	readonly onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy>;
-
-	/**
 	 * Notifies subscribers when the history policy has changed.
 	 */
 	readonly onDidChangeHistoryPolicy: Event<HistoryPolicy>;
