@@ -91,7 +91,9 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 		let system: string = await fs.promises.readFile(`${mdDir}/prompts/default.md`, 'utf8');
 
 		// Tools
-		const tools: vscode.LanguageModelChatTool[] = [];
+		const tools: vscode.LanguageModelChatTool[] = [
+			...vscode.lm.tools.filter(tool => tool.tags.includes('positron-assistant'))
+		];
 		const toolOptions: Record<string, any> = {};
 
 		// Add getPlot tool
@@ -180,22 +182,60 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 			return;
 		}
 
-		// Send messages to selected langauge model and stream back response
-		const modelResponse = await request.model.sendRequest(messages, {
-			tools,
-			modelOptions: {
-				toolInvocationToken: request.toolInvocationToken,
-				toolOptions,
-				system
-			},
-		}, token);
+		// Send messages to selected langauge model and stream back responses
+		async function streamResponse(messages: vscode.LanguageModelChatMessage[]) {
+			const modelResponse = await request.model.sendRequest(messages, {
+				tools,
+				modelOptions: {
+					toolInvocationToken: request.toolInvocationToken,
+					toolOptions,
+					system
+				},
+			}, token);
 
-		for await (const fragment of modelResponse.text) {
-			if (token.isCancellationRequested) {
-				break;
+			const textResponses: vscode.LanguageModelTextPart[] = [];
+			const toolRequests: vscode.LanguageModelToolCallPart[] = [];
+			const toolResponses: Record<string, vscode.LanguageModelToolResult> = {};
+
+			for await (const chunk of modelResponse.stream) {
+				if (token.isCancellationRequested) {
+					break;
+				}
+
+				if (chunk instanceof vscode.LanguageModelTextPart) {
+					textResponses.push(chunk);
+					response.markdown(chunk.value);
+				} else if (chunk instanceof vscode.LanguageModelToolCallPart) {
+					toolRequests.push(chunk);
+				}
 			}
-			response.markdown(fragment);
+
+			// Handle vscode.invokeTool language model API tool requests recusively
+			if (toolRequests.length > 0) {
+				for await (const req of toolRequests) {
+					const result = await vscode.lm.invokeTool(req.name, {
+						input: req.input,
+						toolInvocationToken: request.toolInvocationToken
+					});
+					toolResponses[req.callId] = result;
+				}
+
+				const newHistory = [
+					...messages,
+					vscode.LanguageModelChatMessage.User(textResponses),
+					vscode.LanguageModelChatMessage.Assistant(toolRequests),
+					vscode.LanguageModelChatMessage.User(
+						Object.entries(toolResponses).map(([id, resp]) => {
+							return new vscode.LanguageModelToolResultPart(id, resp.content);
+						})
+					),
+				];
+
+				return streamResponse(newHistory);
+			}
 		}
+
+		await streamResponse(messages);
 
 		return {
 			metadata: {

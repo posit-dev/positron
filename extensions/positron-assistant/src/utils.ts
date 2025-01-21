@@ -4,11 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as ai from 'ai';
 
-export interface AIMessage {
-	role: 'user' | 'assistant';
-	content: string;
-}
+export type AIMessage = ai.CoreSystemMessage | ai.CoreUserMessage | ai.CoreAssistantMessage | ai.CoreToolMessage;
 
 function toRole(role: vscode.LanguageModelChatMessageRole): 'user' | 'assistant' {
 	switch (role) {
@@ -22,17 +20,60 @@ function toRole(role: vscode.LanguageModelChatMessageRole): 'user' | 'assistant'
 }
 
 export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): AIMessage[] {
-	return messages.map((message) => {
-		return {
-			role: toRole(message.role),
-			content: message.content.reduce((acc, cur) => {
-				if (cur instanceof vscode.LanguageModelTextPart) {
-					return acc + cur.value;
-				}
-				throw new Error('Unsupported message content part type');
-			}, ''),
-		};
-	}).filter((message) => !!message.content);
+	// Gather all tool call references
+	const toolCalls = messages.reduce<Record<string, vscode.LanguageModelToolCallPart>>((acc, message) => {
+		for (const part of message.content) {
+			if (part instanceof vscode.LanguageModelToolCallPart) {
+				acc[part.callId] = part;
+			}
+		}
+		return acc;
+	}, {});
+
+	// Convert messages from vscode to ai format
+	const aiMessages: ai.CoreMessage[] = [];
+	for (const message of messages) {
+		if (message.role === vscode.LanguageModelChatMessageRole.User) {
+			const textParts = message.content.filter((part) => part instanceof vscode.LanguageModelTextPart);
+			const toolParts = message.content.filter((part) => part instanceof vscode.LanguageModelToolResultPart);
+			if (textParts.length > 0) {
+				aiMessages.push({
+					role: 'user',
+					content: textParts.map((part) => ({ type: 'text', text: part.value })),
+				});
+			}
+			if (toolParts.length > 0) {
+				aiMessages.push({
+					role: 'tool',
+					content: toolParts.map((part) => ({
+						type: 'tool-result',
+						toolCallId: part.callId,
+						toolName: toolCalls[part.callId].name,
+						result: part.content,
+					})),
+				});
+			}
+		} else if (message.role === vscode.LanguageModelChatMessageRole.Assistant) {
+			aiMessages.push({
+				role: 'assistant',
+				content: message.content.map((part) => {
+					if (part instanceof vscode.LanguageModelTextPart) {
+						return { type: 'text', text: part.value };
+					} else if (part instanceof vscode.LanguageModelToolCallPart) {
+						return {
+							type: 'tool-call',
+							toolCallId: part.callId,
+							toolName: part.name,
+							args: part.input,
+						};
+					} else {
+						throw new Error(`Unsupported part type on assistant message`);
+					}
+				}),
+			});
+		}
+	}
+	return aiMessages;
 }
 
 export function toLanguageModelChatMessage(turns: vscode.ChatContext['history']): vscode.LanguageModelChatMessage[] {

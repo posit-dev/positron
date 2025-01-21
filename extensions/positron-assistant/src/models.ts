@@ -41,7 +41,17 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		token: vscode.CancellationToken
 	): Promise<any> {
 		const _messages = toAIMessage(messages);
-		for await (const i of _messages[_messages.length - 1].content.split('')) {
+		const message = _messages[_messages.length - 1];
+
+		if (typeof message.content === 'string') {
+			message.content = [{ type: 'text', text: message.content }];
+		}
+
+		if (message.content[0].type !== 'text') {
+			throw new Error('Echo language model only supports text messages.');
+		}
+
+		for await (const i of message.content[0].text.split('')) {
 			await new Promise(resolve => setTimeout(resolve, 10));
 			progress.report({ index: 0, part: i });
 			if (token.isCancellationRequested) {
@@ -84,20 +94,29 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		token: vscode.CancellationToken
 	) {
 		const modelOptions = options.modelOptions ?? {};
-		const _messages = toAIMessage(messages);
 		const controller = new AbortController();
 		const signal = controller.signal;
-		let tools: Record<string, ai.CoreTool> | undefined = undefined;
+		let tools: Record<string, ai.CoreTool> | undefined;
 
-		// For tools in this extension, create an ai.CoreTool object using this invocation token
-		// TODO: Handle tools from lm.registerTool
-		if (modelOptions.toolInvocationToken && options.tools && options.tools.length > 0) {
+		const _messages = toAIMessage(messages);
+
+		if (options.tools && options.tools.length > 0) {
 			tools = options.tools.reduce((acc: Record<string, ai.CoreTool>, tool: vscode.LanguageModelChatTool) => {
-				if (tool.name in positronToolAdapters) {
+				/* For the tools in this extension, create an ai.CoreTool object using the given
+				 * invocation token. This enables our tools to stream back to the chat response
+				 * model directly.
+				 */
+				if (modelOptions.toolInvocationToken && tool.name in positronToolAdapters) {
 					acc[tool.name] = positronToolAdapters[tool.name].aiTool(
 						modelOptions.toolInvocationToken,
 						modelOptions.toolOptions[tool.name]
 					);
+				} else {
+					// For any other tool, create an ai.CoreTool object from scratch.
+					acc[tool.name] = ai.tool({
+						description: tool.description,
+						parameters: ai.jsonSchema(tool.inputSchema ?? { type: 'object', properties: {} }),
+					});
 				}
 				return acc;
 			}, {});
@@ -107,17 +126,30 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			model: this.model,
 			system: modelOptions.system ?? undefined,
 			messages: _messages,
-			maxSteps: modelOptions.maxSteps ?? 5,
+			maxSteps: modelOptions.maxSteps ?? 50,
 			tools,
 			abortSignal: signal,
 		});
 
-		for await (const delta of result.textStream) {
+		for await (const part of result.fullStream) {
 			if (token.isCancellationRequested) {
 				controller.abort();
 				break;
 			}
-			progress.report({ index: 0, part: new vscode.LanguageModelTextPart(delta) });
+
+			if (part.type === 'text-delta') {
+				progress.report({
+					index: 0,
+					part: new vscode.LanguageModelTextPart(part.textDelta)
+				});
+			}
+
+			if (part.type === 'tool-call') {
+				progress.report({
+					index: 0,
+					part: new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args)
+				});
+			}
 		}
 	}
 
