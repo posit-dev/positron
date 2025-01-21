@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import { EXTENSION_ROOT_DIR } from './constants';
 import { toLanguageModelChatMessage } from './utils';
 import { getStoredModels } from './config';
-import { executeToolAdapter, getPlotToolAdapter, textEditToolAdapter } from './tools';
+import { executeToolAdapter, getPlotToolAdapter, positronToolAdapters, textEditToolAdapter } from './tools';
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
 class PositronAssistantParticipant implements positron.ai.ChatParticipant {
@@ -206,11 +206,14 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 					textResponses.push(chunk);
 					response.markdown(chunk.value);
 				} else if (chunk instanceof vscode.LanguageModelToolCallPart) {
-					toolRequests.push(chunk);
+					// Only follow up on tool requests that are not automatically invoked
+					if (!(chunk.name in positronToolAdapters)) {
+						toolRequests.push(chunk);
+					}
 				}
 			}
 
-			// Handle vscode.invokeTool language model API tool requests recusively
+			// If we do have tool requests to follow up on, use vscode.lm.invokeTool recusively
 			if (toolRequests.length > 0) {
 				for await (const req of toolRequests) {
 					const result = await vscode.lm.invokeTool(req.name, {
@@ -244,9 +247,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 		};
 	}
 
-	dispose(): void {
-		throw new Error('Method not implemented.');
-	}
+	dispose(): void { }
 }
 
 const participants: Record<string, positron.ai.ChatParticipant> = {
