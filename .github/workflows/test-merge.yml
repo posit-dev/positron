@@ -1,9 +1,10 @@
 name: "Test: Merge to branch"
 
 on:
-  pull_request:
+  push:
     branches:
       - main
+      - 'prerelease/**'
 
 jobs:
   e2e-electron:
