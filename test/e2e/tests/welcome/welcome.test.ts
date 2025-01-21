@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { WizardButton } from '../../infra';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({
@@ -71,7 +72,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			// confirm New Project dialog box is open
 			await app.workbench.popups.waitForModalDialogTitle('Create New Project');
 
-			await app.workbench.popups.clickCancelOnModalDialogBox();
+			await app.workbench.newProjectWizard.clickWizardButton(WizardButton.CANCEL);
 		});
 	});
 
