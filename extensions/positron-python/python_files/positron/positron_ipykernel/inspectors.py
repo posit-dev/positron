@@ -42,11 +42,9 @@ from typing import (
 )
 
 from .third_party import _numpy, _pandas, _torch
-
 from .utils import (
     JsonData,
     get_qualname,
-    not_none,
     numpy_numeric_scalars,
     pretty_format,
     safe_isinstance,
@@ -154,6 +152,10 @@ class PositronInspector(Generic[T]):
             return f"{type_name} [{length}]"
 
         return type_name
+
+    # TODO: Rename to get_hover?
+    def get_docstring(self) -> str:
+        return self.value.__doc__ or ""
 
     def get_kind(self) -> str:
         return _get_kind(self.value)
@@ -846,6 +848,10 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
 
         return (display_value, True)
 
+    def get_docstring(self) -> str:
+        # Return a preview of the column.
+        return str(self.value)
+
     def get_size(self) -> int:
         dtype = self.value.dtype
 
@@ -972,6 +978,10 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
         type_name = type(self.value).__name__
         shape = self.value.shape
         return f"{type_name} [{shape[0]}x{shape[1]}]"
+
+    def get_docstring(self) -> str:
+        # Return a preview of the table.
+        return str(self.value)
 
     def get_kind(self) -> str:
         return "table"
