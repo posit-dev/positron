@@ -174,6 +174,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		});
 	},
 
+	// ex: await executeCode('Python', 'print("Hello, world!")');
+	executeCode: async ({ app }, use) => {
+		await use(async (language: 'Python' | 'R', code: string) => {
+			await app.workbench.console.executeCode(language, code);
+		});
+	},
+
 	// ex: await userSettings.set([['editor.actionBar.enabled', 'true']], false);
 	userSettings: [async ({ app }, use) => {
 		const userSettings = new UserSettingsFixtures(app);
@@ -369,6 +376,7 @@ interface TestFixtures {
 	openFile: (filePath: string) => Promise<void>;
 	openDataFile: (filePath: string) => Promise<void>;
 	runCommand: (command: string) => Promise<void>;
+	executeCode: (language: 'Python' | 'R', code: string) => Promise<void>;
 }
 
 interface WorkerFixtures {
