@@ -702,8 +702,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		disposableStore.add(codeEditorWidget);
 		setCodeEditorWidget(codeEditorWidget);
 
-		// Provide a reference to the console instance.
-		props.positronConsoleInstance.inputTextEditor = codeEditorWidget;
+		// Provide a reference to the code editor.
+		props.positronConsoleInstance.codeEditor = codeEditorWidget;
 
 		// Attach the text model.
 		codeEditorWidget.setModel(positronConsoleContext.modelService.createModel(

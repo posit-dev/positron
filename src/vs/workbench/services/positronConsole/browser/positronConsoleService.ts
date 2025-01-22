@@ -6,7 +6,7 @@
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
-import { IEditor } from '../../../../editor/common/editorCommon.js';
+import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
@@ -355,9 +355,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		return this._activePositronConsoleInstance;
 	}
 
-	// Gets the active input text editor.
-	get activeInputTextEditor(): IEditor | undefined {
-		return this._activePositronConsoleInstance?.inputTextEditor;
+	// Gets the active code editor.
+	get activeCodeEditor(): ICodeEditor | undefined {
+		return this._activePositronConsoleInstance?.codeEditor;
 	}
 
 	/**
@@ -573,11 +573,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _wordWrap = true;
 
 	/**
-	 * Gets or sets the pending code.
-	 */
-	private _pendingCode?: string;
-
-	/**
 	 * The RuntimeItemPendingInput.
 	 */
 	private _runtimeItemPendingInput?: RuntimeItemPendingInput;
@@ -692,10 +687,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		new Emitter<ILanguageRuntimeSession | undefined>);
 
 	/**
-	 * Provides access to the input text editor, if it's available. Note that we generally prefer to
+	 * Provides access to the code editor, if it's available. Note that we generally prefer to
 	 * interact with this editor indirectly, since its state is managed by React.
 	 */
-	private _inputTextEditor: IEditor | undefined;
+	private _codeEditor: ICodeEditor | undefined;
 
 	/**
 	 * An observable value representing the current console width in characters
@@ -734,18 +729,18 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
-	 * Gets the current input text editor, if any.
+	 * Gets the code editor.
 	 */
-	get inputTextEditor(): IEditor | undefined {
-		return this._inputTextEditor;
+	get codeEditor(): ICodeEditor | undefined {
+		return this._codeEditor;
 	}
 
 	/**
-	 * Sets the input text editor. This is called from the React component after
-	 * the editor (a `CodeEditorWidget`) is created and mounted.
+	 * Sets the code editor. This is called from the React component after the editor (a
+	 * `CodeEditorWidget`) is created and mounted.
 	 */
-	set inputTextEditor(value: IEditor | undefined) {
-		this._inputTextEditor = value;
+	set codeEditor(value: ICodeEditor | undefined) {
+		this._codeEditor = value;
 	}
 
 	/**
@@ -1081,19 +1076,22 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			return codeStatus === RuntimeCodeFragmentStatus.Complete;
 		};
 
-		// If there is pending code, evaluate what to do.
-		if (this._pendingCode) {
-			// Figure out whether adding this code to the pending code results in pending code that
-			// can be executed. If so, execute it.
-			const pendingCode = this._pendingCode + '\n' + code;
+		// Get the pending code from the code editor. If there is pending code in the code editor,
+		// see if adding this code to it creates code that can be executed.
+		let pendingCode = this.codeEditor?.getValue();
+		if (pendingCode) {
+			// Figure out whether adding this code to the pending code results in code that can be
+			// executed. If so, execute it.
+			pendingCode += '\n' + code;
 			if (await shouldExecuteCode(pendingCode)) {
-				this.setPendingCode(undefined);
+				this.setPendingCode();
 				this.doExecuteCode(pendingCode, mode, errorBehavior);
-				return;
+			} else {
+				// Update the pending code. More will be revealed.
+				this.setPendingCode(pendingCode);
 			}
 
-			// Update the pending code. More will be revealed.
-			this.setPendingCode(pendingCode);
+			// In either case, return.
 			return;
 		}
 
@@ -1114,7 +1112,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param errorBehavior Possible error behavior for a language runtime.
 	 */
 	executeCode(code: string, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior) {
-		this.setPendingCode(undefined);
+		this.setPendingCode();
 		this.doExecuteCode(code, mode, errorBehavior);
 	}
 
@@ -1888,8 +1886,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param pendingCode The pending code to set.
 	 */
 	setPendingCode(pendingCode?: string) {
-		this._pendingCode = pendingCode;
-		this._onDidSetPendingCodeEmitter.fire(this._pendingCode);
+		this._onDidSetPendingCodeEmitter.fire(pendingCode);
 	}
 
 	/**
