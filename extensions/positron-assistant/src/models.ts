@@ -146,6 +146,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 					part: new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args)
 				});
 			}
+
+			if (part.type === 'error') {
+				throw new Error(part.error as string);
+			}
 		}
 	}
 

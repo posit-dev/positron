@@ -8,17 +8,6 @@ import * as ai from 'ai';
 
 export type AIMessage = ai.CoreSystemMessage | ai.CoreUserMessage | ai.CoreAssistantMessage | ai.CoreToolMessage;
 
-function toRole(role: vscode.LanguageModelChatMessageRole): 'user' | 'assistant' {
-	switch (role) {
-		case vscode.LanguageModelChatMessageRole.User:
-			return 'user';
-		case vscode.LanguageModelChatMessageRole.Assistant:
-			return 'assistant';
-		default:
-			throw new Error('Unknown chat message role');
-	}
-}
-
 export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): AIMessage[] {
 	// Gather all tool call references
 	const toolCalls = messages.reduce<Record<string, vscode.LanguageModelToolCallPart>>((acc, message) => {
@@ -73,7 +62,7 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): AIMess
 			});
 		}
 	}
-	return aiMessages;
+	return aiMessages.filter((message) => message.content.length > 0);
 }
 
 export function toLanguageModelChatMessage(turns: vscode.ChatContext['history']): vscode.LanguageModelChatMessage[] {
