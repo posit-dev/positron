@@ -18,7 +18,7 @@ test.describe('Problems', {
 
 	test('Python - Verify Problems Functionality', { tag: [tags.WIN, tags.WEB, tags.PROBLEMS] }, async function ({ app, python, openFile }) {
 
-		await test.step('Open file and replace "rows" on line 9 with excelamation point', async () => {
+		await test.step('Open file and replace "rows" on line 9 with exclamation point', async () => {
 			await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 
 			await app.workbench.editor.clickOnTerm('chinook-sqlite.py', 'rows', 9, true);
@@ -64,7 +64,7 @@ test.describe('Problems', {
 
 	test('R - Verify Problems Functionality', { tag: [tags.WIN, tags.WEB, tags.PROBLEMS] }, async function ({ app, r, openFile }) {
 
-		await test.step('Open file and replace "rows" on line 9 with excelamation point', async () => {
+		await test.step('Open file and replace "albums" on line 5 with exclamation point', async () => {
 			await openFile(join('workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
 
 			await app.workbench.editor.clickOnTerm('chinook-sqlite.r', 'albums', 5, true);
