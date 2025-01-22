@@ -29,6 +29,16 @@ interface ILanguageRuntimeProviderMetadata {
 }
 
 /**
+ * Possible values for the `interpreters.startupBehavior` configuration setting.
+ */
+enum StartupBehavior {
+	Always = 'always',
+	Auto = 'auto',
+	Manual = 'manual',
+	Disabled = 'disabled'
+}
+
+/**
  * The serialization format for affiliated runtime metadata.
  */
 interface IAffiliatedRuntimeMetadata {
@@ -525,9 +535,20 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Ensure all extension hosts are started before we start activating extensions
 		await this._extensionService.whenAllExtensionHostsStarted();
 
+		const languages = Array.from(this._languagePacks.keys()).filter(languageId => {
+			const startupBehavior: StartupBehavior = this._configurationService.getValue(
+				'interpreters.startupBehavior', { overrideIdentifier: languageId });
+			if (startupBehavior === StartupBehavior.Disabled) {
+				this._logService.debug(`[Runtime startup] Skipping language runtime discovery for language ID '${languageId}' because its startup behavior is disabled.`);
+				return false;
+			}
+			return true;
+		});
+
 		// Activate all extensions that contribute language runtimes.
-		await this.activateExtensionsForLanguages(Array.from(this._languagePacks.keys()));
-		this._logService.debug(`[Runtime startup] All extensions contributing language runtimes have been activated.`);
+		await this.activateExtensionsForLanguages(languages);
+
+		this._logService.debug(`[Runtime startup] All extensions contributing language runtimes have been activated: [${languages.join(', ')}]`);
 
 		// Enter the discovery phase; this triggers us to ask each extension for its
 		// language runtime providers.
