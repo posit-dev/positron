@@ -50,7 +50,8 @@ import { MandatoryServerConnectionToken } from './serverConnectionToken.js';
 // --- End Positron ---
 
 // --- Start PWB: Server proxy support ---
-import { kProxyRegex } from './pwbConstants.js';
+import { kProxyRegex, kSessionUrl } from './pwbConstants.js';
+import { IPwbHeartbeatService } from './pwbHeartbeat.js';
 // --- End PWB ---
 
 const SHUTDOWN_TIMEOUT = 5 * 60 * 1000;
@@ -849,6 +850,17 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 		const useSSL = (args['cert'] && args['cert-key']) ? true : false;
 		console.log(`Web UI available at http${useSSL ? 's' : ''}://localhost${useSSL ? (address.port === 443 ? '' : `:${address.port}`) : (address.port === 80 ? '' : `:${address.port}`)}/${queryPart}`);
 		// -- End PWB: SSL support
+
+		// -- Start PWB: Heartbeat
+		// Inside a Posit Workbench session, send an initial heartbeat.
+		if (kSessionUrl) {
+			instantiationService.invokeFunction(async (accessor) => {
+				const pwbHeartbeatService = accessor.get(IPwbHeartbeatService);
+
+				pwbHeartbeatService.sendInitialHeartbeat();
+			});
+		}
+		// -- End PWB: Heartbeat
 	}
 
 	const remoteExtensionHostAgentServer = instantiationService.createInstance(RemoteExtensionHostAgentServer, socketServer, connectionToken, vsdaMod, hasWebClient, serverBasePath);
