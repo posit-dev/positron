@@ -50,7 +50,7 @@ import { MandatoryServerConnectionToken } from './serverConnectionToken.js';
 // --- End Positron ---
 
 // --- Start PWB: Server proxy support ---
-import { kProxyRegex } from './pwbConstants.js';
+import { kProxyRegex, kSessionUrl } from './pwbConstants.js';
 import { IPwbHeartbeatService } from './pwbHeartbeat.js';
 // --- End PWB ---
 
@@ -852,11 +852,14 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 		// -- End PWB: SSL support
 
 		// -- Start PWB: Heartbeat
-		instantiationService.invokeFunction(async (accessor) => {
-			const pwbHeartbeatService = accessor.get(IPwbHeartbeatService);
+		// Inside a Posit Workbench session, send an initial heartbeat.
+		if (kSessionUrl) {
+			instantiationService.invokeFunction(async (accessor) => {
+				const pwbHeartbeatService = accessor.get(IPwbHeartbeatService);
 
-			pwbHeartbeatService.sendInitialHeartbeat();
-		});
+				pwbHeartbeatService.sendInitialHeartbeat();
+			});
+		}
 		// -- End PWB: Heartbeat
 	}
 

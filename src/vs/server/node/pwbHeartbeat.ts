@@ -1,6 +1,10 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
 import { createDecorator } from '../../../vs/platform/instantiation/common/instantiation.js';
 import { registerSingleton } from '../../../vs/platform/instantiation/common/extensions.js';
-import { SyncDescriptor } from '../../../vs/platform/instantiation/common/descriptors';
+import { SyncDescriptor } from '../../../vs/platform/instantiation/common/descriptors.js';
 import * as constants from './pwbConstants.js';
 
 export const IPwbHeartbeatService = createDecorator<IPwbHeartbeatService>('pwbHeartbeatService');
