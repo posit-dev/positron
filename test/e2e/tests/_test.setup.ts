@@ -23,7 +23,6 @@ import archiver from 'archiver';
 // Local imports
 import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
-import { isUint16Array } from 'util/types';
 
 // Constants
 const TEMP_DIR = `temp-${randomUUID()}`;
