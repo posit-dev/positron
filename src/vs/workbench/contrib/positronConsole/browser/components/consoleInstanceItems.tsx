@@ -14,7 +14,6 @@ import React, { Component } from 'react';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { ConsoleInput } from './consoleInput.js';
 import { RuntimeTrace } from './runtimeTrace.js';
-import { RuntimeExited } from './runtimeExited.js';
 import { RuntimeStartup } from './runtimeStartup.js';
 import { RuntimeStarted } from './runtimeStarted.js';
 import { RuntimeOffline } from './runtimeOffline.js';
@@ -25,7 +24,6 @@ import { RuntimeItemExited } from '../../../../services/positronConsole/browser/
 import { RuntimeItemStartup } from '../../../../services/positronConsole/browser/classes/runtimeItemStartup.js';
 import { RuntimeItemStarted } from '../../../../services/positronConsole/browser/classes/runtimeItemStarted.js';
 import { RuntimeItemOffline } from '../../../../services/positronConsole/browser/classes/runtimeItemOffline.js';
-import { RuntimeReconnected } from './runtimeReconnected.js';
 import { RuntimeItemStarting } from '../../../../services/positronConsole/browser/classes/runtimeItemStarting.js';
 import { RuntimeItemActivity } from '../../../../services/positronConsole/browser/classes/runtimeItemActivity.js';
 import { RuntimePendingInput } from './runtimePendingInput.js';
@@ -65,6 +63,41 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 	 * @returns The rendered component.
 	 */
 	override render() {
+
+		let extensionHostDisconnected = false;
+
+		const reversedItems = this.props.positronConsoleInstance.runtimeItems.slice().reverse();
+		for (const item of reversedItems) {
+			if (item instanceof RuntimeItemStartup) {
+				break;
+			} else if (item instanceof RuntimeItemExited) {
+				extensionHostDisconnected = true;
+				break;
+			}
+
+		}
+
+		let promptComponent = null;
+
+		if (extensionHostDisconnected) {
+			promptComponent = (
+				<div className='console-item-reconnecting'>
+					<span className='codicon codicon-loading codicon-modifier-spin'></span>
+					<span>Extensions restarting...</span>
+				</div>
+			)
+		} else if (!this.props.positronConsoleInstance.promptActive && this.props.runtimeAttached) {
+			promptComponent = (<ConsoleInput
+				width={this.props.consoleInputWidth}
+				positronConsoleInstance={this.props.positronConsoleInstance}
+				onSelectAll={this.props.onSelectAll}
+				onCodeExecuted={() =>
+					// Update the component to eliminate flickering.
+					flushSync(() => this.forceUpdate()
+					)}
+			/>);
+		}
+
 		return (
 			<>
 				<div className='top-spacer' />
@@ -76,7 +109,7 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 					} else if (runtimeItem instanceof RuntimeItemStartup) {
 						return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemReconnected) {
-						return <RuntimeReconnected key={runtimeItem.id} runtimeItemReconnected={runtimeItem} />;
+						return null;
 					} else if (runtimeItem instanceof RuntimeItemStarting) {
 						return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemStarted) {
@@ -84,7 +117,7 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 					} else if (runtimeItem instanceof RuntimeItemOffline) {
 						return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemExited) {
-						return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
+						return null;
 					} else if (runtimeItem instanceof RuntimeItemRestartButton) {
 						return <RuntimeRestartButton key={runtimeItem.id} runtimeItemRestartButton={runtimeItem} positronConsoleInstance={this.props.positronConsoleInstance} />;
 					} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
@@ -96,17 +129,7 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 						return null;
 					}
 				})}
-				{!this.props.positronConsoleInstance.promptActive && this.props.runtimeAttached &&
-					<ConsoleInput
-						width={this.props.consoleInputWidth}
-						positronConsoleInstance={this.props.positronConsoleInstance}
-						onSelectAll={this.props.onSelectAll}
-						onCodeExecuted={() =>
-							// Update the component to eliminate flickering.
-							flushSync(() => this.forceUpdate()
-							)}
-					/>
-				}
+				{promptComponent}
 			</>
 		);
 	}
