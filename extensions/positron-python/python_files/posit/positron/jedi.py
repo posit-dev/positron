@@ -3,6 +3,8 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+import os
+import platform
 from typing import Any, Tuple
 
 from ._vendor.jedi import cache, debug
@@ -31,6 +33,7 @@ from ._vendor.jedi.inference.context import ValueContext
 from ._vendor.jedi.inference.helpers import infer_call_of_leaf
 from ._vendor.jedi.inference.value import ModuleValue
 from ._vendor.jedi.parser_utils import cut_value_at_position
+from ._vendor.jedi import settings
 from .utils import safe_isinstance
 
 #
@@ -42,6 +45,20 @@ from .utils import safe_isinstance
 #
 
 _sentinel = object()
+
+# update Jedi cache to not conflict with other Jedi instances
+if platform.system().lower() == 'windows':
+    _cache_directory = os.path.join(
+        os.getenv('LOCALAPPDATA') or os.path.expanduser('~'),
+        'Jedi',
+        'Positron-Jedi',
+    )
+elif platform.system().lower() == 'darwin':
+    _cache_directory = os.path.join('~', 'Library', 'Caches', 'Positron-Jedi')
+else:
+    _cache_directory = os.path.join(os.getenv('XDG_CACHE_HOME') or '~/.cache',
+                                    'positron-jedi')
+settings.cache_directory = os.path.expanduser(_cache_directory)
 
 
 class PositronMixedModuleContext(MixedModuleContext):
