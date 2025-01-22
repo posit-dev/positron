@@ -317,7 +317,7 @@ def test_question_mark_help(shell: PositronShell, mock_help_service: Mock) -> No
 
     shell.run_cell("?")
 
-    mock_help_service.show_help.assert_called_once_with("positron.utils.positron_usage")
+    mock_help_service.show_help.assert_called_once_with("positron.utils.positron_ipykernel_usage")
 
 
 def test_console_warning(shell: PositronShell, warning_kwargs):
