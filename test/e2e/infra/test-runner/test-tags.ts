@@ -45,6 +45,7 @@ export enum TestTags {
 	VARIABLES = '@:variables',
 	WELCOME = '@:welcome',
 	DEBUG = '@:debug',
+	PROBLEMS = '@:problems',
 
 	// platform  tags
 	WEB = '@:web',

@@ -136,9 +136,13 @@ export class Editor {
 		}).toPass();
 	}
 
-	async clickOnTerm(filename: string, term: string, line: number): Promise<void> {
+	async clickOnTerm(filename: string, term: string, line: number, doubleClick: boolean = false): Promise<void> {
 		const selector = await this.getSelector(filename, term, line);
-		await this.code.driver.page.locator(selector).click();
+		if (doubleClick) {
+			await this.code.driver.page.locator(selector).dblclick();
+		} else {
+			await this.code.driver.page.locator(selector).click();
+		}
 	}
 
 	private async getSelector(filename: string, term: string, line: number): Promise<string> {
