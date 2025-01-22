@@ -1,5 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+// --- Start Positron ---
+// Disable eslint rules for our import block below. This appears at the top of the file to stop
+// auto-formatting tools from reordering the imports.
+/* eslint-disable import/no-duplicates */
+/* eslint-disable import/order */
+// --- End Positron ---
 
 'use strict';
 
@@ -7,12 +13,10 @@ import { expect } from 'chai';
 import * as TypeMoq from 'typemoq';
 import { IApplicationShell } from '../../../client/common/application/types';
 import { DataScienceInstaller } from '../../../client/common/installer/productInstaller';
-import {
-    IInstallationChannelManager,
-    IModuleInstaller,
-    InterpreterUri,
-    ModuleInstallFlags,
-} from '../../../client/common/installer/types';
+import { IInstallationChannelManager, IModuleInstaller, InterpreterUri } from '../../../client/common/installer/types';
+// --- Start Positron ---
+import { ModuleInstallFlags } from '../../../client/common/installer/types';
+// --- End Positron ---
 import { InstallerResponse, Product } from '../../../client/common/types';
 import { Architecture } from '../../../client/common/utils/platform';
 import { IServiceContainer } from '../../../client/ioc/types';
