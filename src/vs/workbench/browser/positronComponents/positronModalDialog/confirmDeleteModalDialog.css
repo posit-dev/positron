@@ -3,8 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-modal-dialog-box
-.action-bar {
+.positron-modal-dialog-box .action-bar {
 	left: 0;
 	right: 0;
 	bottom: 0;
@@ -18,14 +17,11 @@
 	justify-content: space-between;
 }
 
-.positron-modal-dialog-box
-.action-bar.top-separator {
+.positron-modal-dialog-box .action-bar.top-separator {
 	border-top: 1px solid var(--vscode-positronModalDialog-separator);
 }
 
-.positron-modal-dialog-box
-.action-bar
-.left-actions {
+.positron-modal-dialog-box .action-bar .left-actions {
 	gap: 10px;
 	align-items: start;
 	flex-direction: row;
@@ -33,9 +29,7 @@
 	justify-content: space-between;
 }
 
-.positron-modal-dialog-box
-.action-bar
-.right-actions {
+.positron-modal-dialog-box .action-bar .right-actions {
 	gap: 10px;
 	align-items: end;
 	flex-direction: row;
@@ -43,9 +37,7 @@
 	justify-content: space-between;
 }
 
-.positron-modal-dialog-box
-.action-bar
-.action-bar-button {
+.positron-modal-dialog-box .action-bar .action-bar-button {
 	height: 32px;
 	width: 80px;
 	padding: 0 10px;

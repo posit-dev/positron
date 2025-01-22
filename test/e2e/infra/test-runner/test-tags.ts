@@ -32,6 +32,7 @@ export enum TestTags {
 	VIEWER = '@:viewer',
 	EDITOR = '@:editor',
 	QUARTO = '@:quarto',
+	MODAL = '@:modal',
 	NEW_PROJECT_WIZARD = '@:new-project-wizard',
 	NOTEBOOKS = '@:notebooks',
 	OUTLINE = '@:outline',
