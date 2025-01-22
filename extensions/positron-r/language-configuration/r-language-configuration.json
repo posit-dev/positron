@@ -57,7 +57,8 @@
 
 		// Regular comments.
 		{
-			"beforeText": "^\\s*#",
+			"beforeText": "^\\s*#.*",
+			"afterText": ".+$",
 			"action": { "indent": "none", "appendText": "# " }
 		},
 
