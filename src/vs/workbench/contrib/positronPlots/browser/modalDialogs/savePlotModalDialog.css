@@ -108,10 +108,18 @@ img.plot-preview {
 	grid-area: preview;
 }
 
-.plot-save-dialog-action-bar div.ok-cancel-action-bar {
-	justify-content: end;
+.plot-save-dialog-action-bar .left,
+.plot-save-dialog-action-bar .right {
+	display: flex;
+	gap: 10px;
+	margin-top: 15px;
 }
 
-.plot-save-dialog-action-bar .button.action-bar-button {
-	padding: 10px;
+.positron-modal-dialog-box .top-separator {
+	border-top: 1px solid var(--vscode-positronModalDialog-separator);
+}
+
+.positron-modal-dialog-box .plot-save-dialog-action-bar .action-bar-button {
+	width: 80px;
+	height: 32px;
 }

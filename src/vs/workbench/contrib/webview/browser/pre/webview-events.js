@@ -8,12 +8,17 @@
  * door. Its job is to absorb events from the inner iframe and forward them to
  * the host as window messages.
  *
- * This allows the host to dispatach events that can't be handled natively in
+ * This allows the host to dispatch events that can't be handled natively in
  * the frame on Electron, such as copy/cut/paste commands and context menus.
  *
  * The other side of the communication is in `index-external.html`; it receives
  * messages sent from this file and forwards them to the webview host, where
  * they are processed and dispatched.
+ *
+ * NOTE: Please propagate updates from this file to extensions/positron-proxy/resources/webview-events.js
+ * if they are relevant. The Positron Proxy copy of this file contains some modifications to handle
+ * events in a web browser context (as opposed to an Electron context, which this file is
+ * involved in).
  */
 
 /**

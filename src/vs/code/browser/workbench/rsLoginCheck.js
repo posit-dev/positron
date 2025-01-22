@@ -57,14 +57,11 @@ function rs_showSessionDialog(hdr, msg, actionName, actionFunc) {
 	div.innerHTML = `<div style='width: 75%; height: 20%; background: rgba(257,258,259,1.0); color: #000; border: 5px solid #ffffff; text-align: center;  padding-top: 2.5%'>
 		<style type='text/css'>.rs-button { cursor: pointer; border-radius: 4px; border: 0; background-color: #4c83b6; color: #f7f8f9; font-size: 135%; padding-left: 10px; padding-right: 10px; height: 30px; verticle-align: middle; }</style>
 		<p style='color:#4c83b6; font-size: 180%;'>${hdr}</p><p style='font-size: 130%; font-weight: regular'>${msg}</p>
-		<button id='rs_action_button' class='rs-button'>${actionName}</button>&nbsp;
-		<button id='rs_dismiss_button' class='rs-button'>Dismiss</button>;
+		<button id='rs_action_button' class='rs-button'>${actionName}</button>
 	</div>`;
 	document.body.appendChild(div);
 	var actionButton = document.getElementById('rs_action_button');
 	actionButton.addEventListener('click', actionFunc);
-	var dismissButton = document.getElementById('rs_dismiss_button');
-	dismissButton.addEventListener('click', rs_hideSessionDialog);
 	sDialogVisible = true;
 }
 
@@ -287,7 +284,7 @@ function sendSessionState(dbName, content) {
 }
 
 async function checkIndexedDB() {
-	if (localStorage.getItem('clear-browser-db-on-logout') !== 'true') {
+	if (localStorage.getItem(`clear-${productName}-db-on-logout`) !== 'true') {
 		return;
 	}
 	try {

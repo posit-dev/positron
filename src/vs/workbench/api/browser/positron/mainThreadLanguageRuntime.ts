@@ -11,8 +11,8 @@ import {
 	RuntimeInitialState
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, RuntimeStartupPhase } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -36,11 +36,12 @@ import { Selection } from '../../../../editor/common/core/selection.js';
 import { ITextResourceEditorInput } from '../../../../platform/editor/common/editor.js';
 import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
-import { IRuntimeStartupService, RuntimeStartupPhase } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { isWebviewReplayMessage } from '../../../contrib/positronWebviewPreloads/browser/utils.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
+import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/browser/interfaces/runtimeNotebookKernelService.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -104,6 +105,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	private readonly _onDidCreateClientInstanceEmitter = new Emitter<ILanguageRuntimeClientCreatedEvent>();
 
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
+	private _lastUsed: number = Date.now();
 	private _clients: Map<string, ExtHostRuntimeClientInstance<any, any>> =
 		new Map<string, ExtHostRuntimeClientInstance<any, any>>();
 
@@ -324,6 +326,13 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 
 	/**
+	 * Returns the last time this session was used (currently, "used" means "executed code")
+	 */
+	get lastUsed(): number {
+		return this._lastUsed;
+	}
+
+	/**
 	 * Convenience method to get the session's ID without having to access the
 	 * the metadata directly.
 	 */
@@ -395,6 +404,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 
 	execute(code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior): void {
+		this._lastUsed = Date.now();
 		this._proxy.$executeCode(this.handle, code, id, mode, errorBehavior);
 	}
 
@@ -1137,6 +1147,7 @@ export class MainThreadLanguageRuntime
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
+		@IRuntimeNotebookKernelService private readonly _runtimeNotebookKernelService: IRuntimeNotebookKernelService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
@@ -1154,6 +1165,7 @@ export class MainThreadLanguageRuntime
 		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
 		// Positron services were up and running early in the application lifecycle. For now, this
 		// is where we're doing this.
+		this._runtimeNotebookKernelService.initialize();
 		this._positronHelpService.initialize();
 		this._positronConsoleService.initialize();
 		this._positronDataExplorerService.initialize();
@@ -1165,11 +1177,15 @@ export class MainThreadLanguageRuntime
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 		this._id = MainThreadLanguageRuntime.MAX_ID++;
 
-		this._runtimeStartupService.onDidChangeRuntimeStartupPhase((phase) => {
-			if (phase === RuntimeStartupPhase.Discovering) {
-				this._proxy.$discoverLanguageRuntimes();
-			}
-		});
+		this._runtimeStartupService.registerMainThreadLanguageRuntime(this._id);
+
+		this._disposables.add(
+			this._languageRuntimeService.onDidChangeRuntimeStartupPhase((phase) => {
+				if (phase === RuntimeStartupPhase.Discovering) {
+					this._proxy.$discoverLanguageRuntimes();
+				}
+			})
+		);
 
 		this._disposables.add(this._runtimeSessionService.registerSessionManager(this));
 	}
@@ -1231,7 +1247,9 @@ export class MainThreadLanguageRuntime
 			sessionName,
 			sessionMode,
 			uri,
-			'Extension-requested runtime selection via Positron API');
+			'Extension-requested runtime selection via Positron API',
+			RuntimeStartMode.Starting,
+			true);
 
 		return sessionId;
 	}
@@ -1245,7 +1263,7 @@ export class MainThreadLanguageRuntime
 
 	// Signals that language runtime discovery is complete.
 	$completeLanguageRuntimeDiscovery(): void {
-		this._runtimeStartupService.completeDiscovery();
+		this._runtimeStartupService.completeDiscovery(this._id);
 	}
 
 	$unregisterLanguageRuntime(handle: number): void {
@@ -1275,6 +1293,8 @@ export class MainThreadLanguageRuntime
 				session.emitExit(exit);
 			}
 		});
+
+		this._runtimeStartupService.unregisterMainThreadLanguageRuntime(this._id);
 		this._disposables.dispose();
 	}
 
@@ -1340,7 +1360,16 @@ export class MainThreadLanguageRuntime
 	 * @param metadata The metadata to validate
 	 */
 	async validateMetadata(metadata: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeMetadata> {
-		return this._proxy.$validateLangaugeRuntimeMetadata(metadata);
+		return this._proxy.$validateLanguageRuntimeMetadata(metadata);
+	}
+
+	/**
+	 * Validates a language runtime sesssion.
+	 *
+	 * @param sessionId The session ID to validate
+	 */
+	async validateSession(metadata: ILanguageRuntimeMetadata, sessionId: string): Promise<boolean> {
+		return this._proxy.$validateLanguageRuntimeSession(metadata, sessionId);
 	}
 
 	/**

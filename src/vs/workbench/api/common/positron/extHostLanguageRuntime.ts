@@ -134,7 +134,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * @param metadata The metadata to validate
 	 * @returns An updated metadata object
 	 */
-	async $validateLangaugeRuntimeMetadata(metadata: ILanguageRuntimeMetadata):
+	async $validateLanguageRuntimeMetadata(metadata: ILanguageRuntimeMetadata):
 		Promise<ILanguageRuntimeMetadata> {
 		// Find the runtime manager that should be used for this metadata
 		const m = await this.runtimeManagerForRuntime(metadata, true);
@@ -155,6 +155,35 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			}
 		} else {
 			// We can't validate this metadata, and probably shouldn't use it.
+			throw new Error(
+				`No manager available for language ID '${metadata.languageId}' ` +
+				`(expected from extension ${metadata.extensionId.value})`);
+		}
+	}
+
+	/**
+	 * Validates a language runtime session.
+	 *
+	 * @param metadata The metadata for the language runtime.
+	 * @param sessionId The session ID to validate.
+	 */
+	async $validateLanguageRuntimeSession(metadata: ILanguageRuntimeMetadata,
+		sessionId: string): Promise<boolean> {
+
+		// Find the runtime manager that should be used for this session
+		const m = await this.runtimeManagerForRuntime(metadata, true);
+		if (m) {
+			if (m.manager.validateSession) {
+				// The runtime manager has a validateSession function; use it to
+				// validate the session
+				const result = await m.manager.validateSession(sessionId);
+				return result;
+			} else {
+				// Just consider the session to be invalid
+				return false;
+			}
+		} else {
+			// We can't validate this session, and probably shouldn't use it.
 			throw new Error(
 				`No manager available for language ID '${metadata.languageId}' ` +
 				`(expected from extension ${metadata.extensionId.value})`);

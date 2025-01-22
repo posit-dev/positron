@@ -273,12 +273,6 @@
             "default": [],
             "description": "%r.configuration.extraArguments.description%"
           },
-          "positron.r.taskHyperlinks": {
-            "scope": "window",
-            "type": "boolean",
-            "default": false,
-            "description": "%r.configuration.taskHyperlinks.description%"
-          },
           "positron.r.defaultRepositories": {
             "scope": "window",
             "type": "string",
@@ -686,7 +680,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.159"
+      "ark": "0.1.160"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

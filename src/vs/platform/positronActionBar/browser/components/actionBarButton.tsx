@@ -26,10 +26,12 @@ export interface ActionBarButtonProps {
 	readonly align?: 'left' | 'right';
 	readonly tooltip?: string | (() => string | undefined);
 	readonly dropdownTooltip?: string | (() => string | undefined);
+	readonly checked?: boolean;
 	readonly disabled?: boolean;
 	readonly ariaLabel?: string;
 	readonly dropdownAriaLabel?: string;
 	readonly dropdownIndicator?: 'disabled' | 'enabled' | 'enabled-split';
+	readonly mouseTrigger?: MouseTrigger;
 	readonly onMouseEnter?: () => void;
 	readonly onMouseLeave?: () => void;
 	readonly onPressed?: () => void;
@@ -115,12 +117,13 @@ export const ActionBarButton = forwardRef<
 				hoverManager={context.hoverManager}
 				className={positronClassNames(
 					'action-bar-button',
-					{ 'fade-in': optionalBoolean(props.fadeIn) }
+					{ 'fade-in': optionalBoolean(props.fadeIn) },
+					{ 'checked': optionalBoolean(props.checked) }
 				)}
 				ariaLabel={ariaLabel}
 				tooltip={props.tooltip}
 				disabled={props.disabled}
-				mouseTrigger={MouseTrigger.MouseDown}
+				mouseTrigger={props.mouseTrigger}
 				onMouseEnter={props.onMouseEnter}
 				onMouseLeave={props.onMouseLeave}
 				onPressed={props.onPressed}
@@ -133,7 +136,8 @@ export const ActionBarButton = forwardRef<
 		return (
 			<div className={positronClassNames(
 				'action-bar-button',
-				{ 'fade-in': optionalBoolean(props.fadeIn) }
+				{ 'fade-in': optionalBoolean(props.fadeIn) },
+				{ 'checked': optionalBoolean(props.checked) }
 			)}>
 				<Button
 					ref={buttonRef}
@@ -142,7 +146,7 @@ export const ActionBarButton = forwardRef<
 					ariaLabel={ariaLabel}
 					tooltip={props.tooltip}
 					disabled={props.disabled}
-					mouseTrigger={MouseTrigger.MouseDown}
+					mouseTrigger={props.mouseTrigger}
 					onMouseEnter={props.onMouseEnter}
 					onMouseLeave={props.onMouseLeave}
 					onPressed={props.onPressed}

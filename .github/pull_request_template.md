@@ -16,6 +16,29 @@ main branch by either pulling or rebasing.
   describe them here.
 -->
 
+
+### Release Notes
+
+<!--
+  Optionally, replace `N/A` with text to be included in the next release notes.
+  The `N/A` bullets are ignored. If you refer to one or more Positron issues,
+  these issues are used to collect information about the feature or bugfix, such
+  as the relevant language pack as determined by Github labels of type `lang: `.
+  The note will automatically be tagged with the language.
+
+  These notes are typically filled by the Positron team. If you are an external
+  contributor, you may ignore this section.
+-->
+
+#### New Features
+
+- N/A
+
+#### Bug Fixes
+
+- N/A
+
+
 ### QA Notes
 
 <!--

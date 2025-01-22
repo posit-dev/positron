@@ -28,8 +28,6 @@
 		"extensions/**/dist/**": true,
 		"extensions/**/out/**": true,
 		"test/e2e/out/**": true,
-		"test/smoke/out/**": true,
-		"test/automation/out/**": true,
 		"test/integration/browser/out/**": true,
 		"src/vs/base/test/common/filters.perf.data.js": true,
 		"src/vs/base/test/node/uri.perf.data.txt": true,
@@ -51,8 +49,6 @@
 		"extensions/**/dist/**": true,
 		"extensions/**/out/**": true,
 		"test/e2e/out/**": true,
-		"test/smoke/out/**": true,
-		"test/automation/out/**": true,
 		"test/integration/browser/out/**": true
 	},
 	"files.readonlyExclude": {
@@ -176,5 +172,7 @@
 		100
 	],
 	"typescript.enablePromptUseWorkspaceTsdk": true,
-	"eslint.useFlatConfig": true
+	"eslint.useFlatConfig": true,
+	"editor.occurrencesHighlightDelay": 0,
+	"typescript.experimental.expandableHover": true,
 }

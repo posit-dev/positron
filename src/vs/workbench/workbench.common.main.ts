@@ -132,7 +132,7 @@ import './services/editor/common/customEditorLabelService.js';
 import { InstantiationType, registerSingleton } from '../platform/instantiation/common/extensions.js';
 import { ExtensionGalleryService } from '../platform/extensionManagement/common/extensionGalleryService.js';
 import { GlobalExtensionEnablementService } from '../platform/extensionManagement/common/extensionEnablementService.js';
-import { IExtensionGalleryService, IGlobalExtensionEnablementService } from '../platform/extensionManagement/common/extensionManagement.js';
+import { IAllowedExtensionsService, IExtensionGalleryService, IGlobalExtensionEnablementService } from '../platform/extensionManagement/common/extensionManagement.js';
 import { ContextViewService } from '../platform/contextview/browser/contextViewService.js';
 import { IContextViewService } from '../platform/contextview/browser/contextView.js';
 import { IListService, ListService } from '../platform/list/browser/listService.js';
@@ -156,6 +156,7 @@ import { IUserDataSyncLogService } from '../platform/userDataSync/common/userDat
 import { UserDataSyncLogService } from '../platform/userDataSync/common/userDataSyncLog.js';
 
 registerSingleton(IUserDataSyncLogService, UserDataSyncLogService, InstantiationType.Delayed);
+registerSingleton(IAllowedExtensionsService, AllowedExtensionsService, InstantiationType.Delayed);
 registerSingleton(IIgnoredExtensionsManagementService, IgnoredExtensionsManagementService, InstantiationType.Delayed);
 registerSingleton(IGlobalExtensionEnablementService, GlobalExtensionEnablementService, InstantiationType.Delayed);
 registerSingleton(IExtensionStorageService, ExtensionStorageService, InstantiationType.Delayed);
@@ -425,6 +426,11 @@ import './contrib/scrollLocking/browser/scrollLocking.contribution.js';
 // Inline Completions
 import './contrib/inlineCompletions/browser/inlineCompletions.contribution.js';
 
+// Drop or paste into
+import './contrib/dropOrPasteInto/browser/dropOrPasteInto.contribution.js';
+import { AllowedExtensionsService } from '../platform/extensionManagement/common/allowedExtensionsService.js';
+
+
 //#endregion
 
 // --- Start Positron ---
@@ -445,6 +451,7 @@ import './contrib/positronNewProject/browser/positronNewProject.contribution.js'
 import './services/languageRuntime/common/languageRuntime.js';
 import './services/runtimeSession/common/runtimeSession.js';
 import './services/runtimeStartup/common/runtimeStartup.js';
+import './contrib/runtimeNotebookKernel/browser/runtimeNotebookKernelService.js';
 import './services/positronConsole/browser/positronConsoleService.js';
 import './contrib/positronHelp/browser/positronHelpService.js';
 import './services/positronVariables/common/positronVariablesService.js';

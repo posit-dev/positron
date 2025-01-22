@@ -31,7 +31,7 @@ import { IAccessibilityService } from '../../../../platform/accessibility/common
  * Constants.
  */
 const EDITOR_ACTION_BAR_HEIGHT = 32;
-const CONFIGURATION_SETTING = 'editor.actionBar.enabled';
+export const EDITOR_ACTION_BAR_CONFIGURATION_SETTING = 'editor.actionBar.enabled';
 
 /**
  * EditorActionBarControl class.
@@ -212,7 +212,7 @@ export class EditorActionBarControlFactory {
 		@IInstantiationService private readonly _instantiationService: IInstantiationService
 	) {
 		// Check if the configuration setting is enabled. If so, create the control.
-		if (this._configurationService.getValue<boolean>(CONFIGURATION_SETTING)) {
+		if (this._configurationService.getValue<boolean>(EDITOR_ACTION_BAR_CONFIGURATION_SETTING)) {
 			this.createControl();
 		}
 
@@ -227,9 +227,9 @@ export class EditorActionBarControlFactory {
 		// configuration setting.
 		this._disposables.add(this._configurationService.onDidChangeConfiguration(e => {
 			// Check if the configuration setting has changed.
-			if (e.affectsConfiguration(CONFIGURATION_SETTING)) {
+			if (e.affectsConfiguration(EDITOR_ACTION_BAR_CONFIGURATION_SETTING)) {
 				// Process the change.
-				if (this._configurationService.getValue(CONFIGURATION_SETTING)) {
+				if (this._configurationService.getValue(EDITOR_ACTION_BAR_CONFIGURATION_SETTING)) {
 					// Create the control, if it doesn't exist.
 					if (!this._control) {
 						this.createControl();

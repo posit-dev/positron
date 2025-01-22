@@ -4,8 +4,8 @@ on:
     inputs:
       grep:
         required: false
-        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames, etc. For windows, use this format: (?=.*@win)(?=.*@feature)"
-        default: "@win"
+        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames, etc. For windows, use this format: (?=.*@:win)(?=.*@:feature)"
+        default: "@:win"
         type: string
       repeat_each:
         required: false
@@ -32,8 +32,8 @@ on:
     inputs:
       grep:
         required: false
-        description: "Tests tagged with @win are pre-filtered. Specify other tags, test titles, filenames, etc. to filter tests further."
-        default: "@win"
+        description: "Tests tagged with @:win are pre-filtered. Specify other tags, test titles, filenames, etc. to filter tests further."
+        default: "@:critical"
         type: string
       repeat_each:
         required: false
@@ -69,6 +69,10 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Transform to Playwright tags $PW_TAGS
+        run: bash scripts/pr-tags-transform.sh "e2e-windows" "${{ inputs.grep }}"
+        shell: bash
+
       - name: Install System Level Python
         uses: actions/setup-python@v5
         with:
@@ -94,7 +98,6 @@ jobs:
         run: |
           corepack enable
           .\scripts\run-with-retry.ps1 -maxAttempts 3 -command "npm install --fetch-timeout 120000"
-          npm --prefix test/automation ci
           npm --prefix test/e2e ci
 
       - name: Compile and Download
@@ -102,7 +105,6 @@ jobs:
 
       - name: Compile E2E Tests
         run: |
-          npm --prefix test/automation run compile
           npm --prefix test/e2e run compile
 
       - name: Install python dependencies
@@ -139,15 +141,12 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Transform to Playwright tags $PW_TAGS
-        run: bash scripts/pr-tags-transform.sh "e2e-windows" "${{ inputs.grep }}"
-        shell: bash
-
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
         if: ${{ !cancelled() }}
 
       - name: Run Tests on Windows (Electron)
+        shell: bash
         env:
           POSITRON_PY_VER_SEL: 3.10.10
           POSITRON_R_VER_SEL: 4.4.0

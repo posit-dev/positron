@@ -1,12 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
-import { IEditor } from '../../../../editor/common/editorCommon.js';
+import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
@@ -191,21 +191,29 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Call the disposable constructor.
 		super();
 
-		// Start a Positron console instance for each running runtime.
+		// Start a Positron console instance for each running runtime. Only
+		// activate the first one.
+		let first = true;
 		this._runtimeSessionService.activeSessions.forEach(session => {
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-				this.startPositronConsoleInstance(session, SessionAttachMode.Connected);
+				// The instance should be activated if it is the foreground
+				// session.
+				let activate = false;
+				if (this._runtimeSessionService.foregroundSession &&
+					session.sessionId === this._runtimeSessionService.foregroundSession.sessionId) {
+					activate = true;
+				}
+
+				// The instance should also be activated if it is the first
+				// session and there is no designated foreground session.
+				if (first && !this._runtimeSessionService.foregroundSession) {
+					activate = true;
+				}
+
+				this.startPositronConsoleInstance(session, SessionAttachMode.Connected, activate);
+				first = false;
 			}
 		});
-
-		// Get the foreground session. If there is one, set the active Positron console instance.
-		if (this._runtimeSessionService.foregroundSession) {
-			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(
-				this._runtimeSessionService.foregroundSession.sessionId);
-			if (positronConsoleInstance) {
-				this.setActivePositronConsoleInstance(positronConsoleInstance);
-			}
-		}
 
 		// Register the onWillStartSessiopn event handler so we start a new
 		// Positron console instance before a runtime starts up.
@@ -248,7 +256,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				this._positronConsoleInstancesBySessionId.set(e.session.sessionId, positronConsoleInstance);
 			} else {
 				// New runtime with a new language, so start a new Positron console instance.
-				this.startPositronConsoleInstance(e.session, attachMode);
+				this.startPositronConsoleInstance(e.session, attachMode, e.activate);
 			}
 		}));
 
@@ -347,9 +355,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		return this._activePositronConsoleInstance;
 	}
 
-	// Gets the active input text editor.
-	get activeInputTextEditor(): IEditor | undefined {
-		return this._activePositronConsoleInstance?.inputTextEditor;
+	// Gets the active code editor.
+	get activeCodeEditor(): ICodeEditor | undefined {
+		return this._activePositronConsoleInstance?.codeEditor;
 	}
 
 	/**
@@ -396,7 +404,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				LanguageRuntimeSessionMode.Console,
 				undefined, // No notebook URI (console sesion)
 				`User executed code in language ${languageId}, and no running runtime was found ` +
-				`for the language.`);
+				`for the language.`,
+				RuntimeStartMode.Starting,
+				true);
 		}
 
 		// Get the Positron console instance for the language ID.
@@ -434,14 +444,15 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * Starts a Positron console instance for the specified runtime session.
 	 *
 	 * @param runtime The runtime for the new Positron console instance.
-	 * @param attachMode A value which indicates the mode in which to attach the
-	 * session.
+	 * @param attachMode A value which indicates the mode in which to attach the session.
+	 * @param activate Whether to activate the console instance immediately
 	 *
 	 * @returns The new Positron console instance.
 	 */
 	private startPositronConsoleInstance(
 		session: ILanguageRuntimeSession,
-		attachMode: SessionAttachMode
+		attachMode: SessionAttachMode,
+		activate: boolean
 	): IPositronConsoleInstance {
 		// Create the new Positron console instance.
 		const positronConsoleInstance = this._register(this._instantiationService.createInstance(
@@ -463,11 +474,13 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Fire the onDidStartPositronConsoleInstance event.
 		this._onDidStartPositronConsoleInstanceEmitter.fire(positronConsoleInstance);
 
-		// Set the active positron console instance.
-		this._activePositronConsoleInstance = positronConsoleInstance;
+		// Set the active positron console instance, if requested
+		if (activate) {
+			this._activePositronConsoleInstance = positronConsoleInstance;
 
-		// Fire the onDidChangeActivePositronConsoleInstance event.
-		this._onDidChangeActivePositronConsoleInstanceEmitter.fire(positronConsoleInstance);
+			// Fire the onDidChangeActivePositronConsoleInstance event.
+			this._onDidChangeActivePositronConsoleInstanceEmitter.fire(positronConsoleInstance);
+		}
 
 		// Listen for console width changes.
 		this._register(positronConsoleInstance.onDidChangeWidthInChars(width => {
@@ -532,7 +545,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Gets or sets the disposable store. This contains things that are disposed when a runtime is
 	 * detached.
 	 */
-	private _runtimeDisposableStore = this._register(new DisposableStore());
+	private readonly _runtimeDisposableStore = new DisposableStore();
 
 	/**
 	 * Gets or sets the runtime state.
@@ -558,11 +571,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Gets or sets a value which indicates whether word wrap is enabled.
 	 */
 	private _wordWrap = true;
-
-	/**
-	 * Gets or sets the pending code.
-	 */
-	private _pendingCode?: string;
 
 	/**
 	 * The RuntimeItemPendingInput.
@@ -679,10 +687,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		new Emitter<ILanguageRuntimeSession | undefined>);
 
 	/**
-	 * Provides access to the input text editor, if it's available. Note that we generally prefer to
+	 * Provides access to the code editor, if it's available. Note that we generally prefer to
 	 * interact with this editor indirectly, since its state is managed by React.
 	 */
-	private _inputTextEditor: IEditor | undefined;
+	private _codeEditor: ICodeEditor | undefined;
 
 	/**
 	 * An observable value representing the current console width in characters
@@ -721,18 +729,18 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
-	 * Gets the current input text editor, if any.
+	 * Gets the code editor.
 	 */
-	get inputTextEditor(): IEditor | undefined {
-		return this._inputTextEditor;
+	get codeEditor(): ICodeEditor | undefined {
+		return this._codeEditor;
 	}
 
 	/**
-	 * Sets the input text editor. This is called from the React component after
-	 * the editor (a `CodeEditorWidget`) is created and mounted.
+	 * Sets the code editor. This is called from the React component after the editor (a
+	 * `CodeEditorWidget`) is created and mounted.
 	 */
-	set inputTextEditor(value: IEditor | undefined) {
-		this._inputTextEditor = value;
+	set codeEditor(value: ICodeEditor | undefined) {
+		this._codeEditor = value;
 	}
 
 	/**
@@ -1068,19 +1076,22 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			return codeStatus === RuntimeCodeFragmentStatus.Complete;
 		};
 
-		// If there is pending code, evaluate what to do.
-		if (this._pendingCode) {
-			// Figure out whether adding this code to the pending code results in pending code that
-			// can be executed. If so, execute it.
-			const pendingCode = this._pendingCode + '\n' + code;
+		// Get the pending code from the code editor. If there is pending code in the code editor,
+		// see if adding this code to it creates code that can be executed.
+		let pendingCode = this.codeEditor?.getValue();
+		if (pendingCode) {
+			// Figure out whether adding this code to the pending code results in code that can be
+			// executed. If so, execute it.
+			pendingCode += '\n' + code;
 			if (await shouldExecuteCode(pendingCode)) {
-				this.setPendingCode(undefined);
+				this.setPendingCode();
 				this.doExecuteCode(pendingCode, mode, errorBehavior);
-				return;
+			} else {
+				// Update the pending code. More will be revealed.
+				this.setPendingCode(pendingCode);
 			}
 
-			// Update the pending code. More will be revealed.
-			this.setPendingCode(pendingCode);
+			// In either case, return.
 			return;
 		}
 
@@ -1101,7 +1112,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param errorBehavior Possible error behavior for a language runtime.
 	 */
 	executeCode(code: string, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior) {
-		this.setPendingCode(undefined);
+		this.setPendingCode();
 		this.doExecuteCode(code, mode, errorBehavior);
 	}
 
@@ -1863,8 +1874,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			}
 
 			// Dispose of the runtime event handlers.
-			this._runtimeDisposableStore.dispose();
-			this._runtimeDisposableStore = new DisposableStore();
+			this._runtimeDisposableStore.clear();
 		} else {
 			// We are not currently attached; warn.
 			console.warn(`Attempt to detach already detached session ${this._session.metadata.sessionName}.`);
@@ -1876,8 +1886,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param pendingCode The pending code to set.
 	 */
 	setPendingCode(pendingCode?: string) {
-		this._pendingCode = pendingCode;
-		this._onDidSetPendingCodeEmitter.fire(this._pendingCode);
+		this._onDidSetPendingCodeEmitter.fire(pendingCode);
 	}
 
 	/**

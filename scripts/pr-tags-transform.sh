@@ -1,12 +1,12 @@
 #!/bin/bash
 # Usage:
-# bash scripts/playwright-tags.sh <project> <tags>
+# bash scripts/pr-tags-transform.sh <project> <tags>
 # Example:
-# bash scripts/playwright-tags.sh "e2e-browser" "@feat1,@feat2"
+# bash scripts/pr-tags-transform.sh "e2e-browser" "@:feat1,@:feat2"
 
 # Input parameters
 PROJECT="$1"  # The PROJECT (e.g., e2e-electron, e2e-browser, e2e-windows)
-TAGS="$2"     # Comma-separated tags (e.g., "@feat1,@feat2")
+TAGS="$2"     # Comma-separated tags (e.g., "@:feat1,@:feat2")
 
 # Debug initial inputs
 echo "Input:"
@@ -18,23 +18,39 @@ OUTPUT=""
 
 # Filter and preprocess tags based on project
 if [[ "$PROJECT" == "e2e-windows" ]]; then
-  # Remove @win from the tags
-  TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@win" | sort -u | tr '\n' ',' | sed 's/,$//')
+  # Remove @:win from the tags
+  TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:win" | sort -u | tr '\n' ',' | sed 's/,$//')
+	# If @:web is present, remove it
+	if echo "$TAGS" | grep -q "@:web"; then
+    TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:web" | sort -u | tr '\n' ',' | sed 's/,$//')
+  fi
 elif [[ "$PROJECT" == "e2e-browser" ]]; then
-  # Remove @web from the tags
-  TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@web" | sort -u | tr '\n' ',' | sed 's/,$//')
+  # Remove @:web from the tags
+  TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:web" | sort -u | tr '\n' ',' | sed 's/,$//')
+	# If @:win is present, remove it
+	if echo "$TAGS" | grep -q "@:win"; then
+    TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:win" | sort -u | tr '\n' ',' | sed 's/,$//')
+  fi
 else
   # Deduplicate for other projects
   TAGS=$(echo "$TAGS" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
+	# If @:web is present, remove it
+	if echo "$TAGS" | grep -q "@:web"; then
+    TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:web" | sort -u | tr '\n' ',' | sed 's/,$//')
+  fi
+	# If @:win is present, remove it
+	if echo "$TAGS" | grep -q "@:win"; then
+    TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@:win" | sort -u | tr '\n' ',' | sed 's/,$//')
+  fi
 fi
 
 # Determine prefix based on PROJECT
 case "$PROJECT" in
   "e2e-browser")
-    OUTPUT="(?=.*@web)"  # Base tag for browser
+    OUTPUT="(?=.*@:web)"  # Base tag for browser
     ;;
   "e2e-windows")
-    OUTPUT="(?=.*@win)"  # Base tag for windows
+    OUTPUT="(?=.*@:win)"  # Base tag for windows
     ;;
   "e2e-electron")
     OUTPUT="" # No prefix for linux

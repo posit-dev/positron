@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { ProxyServerHtml } from './types';
 
 /**
  * PromiseHandles is a class that represents a promise that can be resolved or
@@ -33,7 +34,14 @@ export class PromiseHandles<T> {
  * @param responseBuffer The response buffer.
  * @returns The rewritten response buffer.
  */
-export async function htmlContentRewriter(_serverOrigin: string, proxyPath: string, _url: string, contentType: string, responseBuffer: Buffer) {
+export async function htmlContentRewriter(
+	_serverOrigin: string,
+	proxyPath: string,
+	_url: string,
+	contentType: string,
+	responseBuffer: Buffer,
+	htmlConfig?: ProxyServerHtml
+) {
 	// If this isn't 'text/html' content, just return the response buffer.
 	if (!contentType.includes('text/html')) {
 		return responseBuffer;
@@ -41,6 +49,117 @@ export async function htmlContentRewriter(_serverOrigin: string, proxyPath: stri
 
 	// Get the response.
 	let response = responseBuffer.toString('utf8');
+
+	// If we're running in the web, we need to inject resources for the preview HTML.
+	if (vscode.env.uiKind === vscode.UIKind.Web && htmlConfig) {
+		response = injectPreviewResources(response, htmlConfig);
+	}
+
+	// Rewrite the URLs with the proxy path.
+	response = rewriteUrlsWithProxyPath(response, proxyPath);
+
+	// Return the response.
+	return response;
+}
+
+/**
+ * Injects the preview resources into the HTML content.
+ * @param content The HTML content to inject the preview resources into.
+ * @param htmlConfig The HTML configuration defining the preview resources.
+ * @returns The content with the preview resources injected.
+ */
+export function injectPreviewResources(content: string, htmlConfig: ProxyServerHtml) {
+	// If the response includes a head tag, inject the preview resources into the head tag.
+	if (content.includes('<head>')) {
+		// Inject the preview style defaults for unstyled preview documents.
+		content = content.replace(
+			'<head>',
+			`<head>\n
+			${htmlConfig.styleDefaults || ''}`
+		);
+
+		// Inject the preview style overrides and script.
+		content = content.replace(
+			'</head>',
+			`${htmlConfig.styleOverrides || ''}
+			${htmlConfig.script || ''}
+			</head>`
+		);
+	} else {
+		// Otherwise, prepend the HTML content with the preview resources.
+		content = `${htmlConfig.styleDefaults || ''}
+			${htmlConfig.styleOverrides || ''}
+			${htmlConfig.script || ''}
+			${content}`;
+	}
+	return content;
+}
+
+/**
+ * A content rewriter for help content. Injects the help resources into the help HTML content.
+ * @param _serverOrigin The server origin.
+ * @param proxyPath The proxy path.
+ * @param _url The URL.
+ * @param contentType The content type.
+ * @param responseBuffer The response buffer.
+ * @param htmlConfig The HTML configuration.
+ * @returns The rewritten response buffer.
+ */
+export async function helpContentRewriter(
+	_serverOrigin: string,
+	proxyPath: string,
+	_url: string,
+	contentType: string,
+	responseBuffer: Buffer,
+	htmlConfig?: ProxyServerHtml
+) {
+	// If this isn't 'text/html' content, just return the response buffer.
+	if (!contentType.includes('text/html')) {
+		return responseBuffer;
+	}
+
+	// Get the response.
+	let response = responseBuffer.toString('utf8');
+
+	if (htmlConfig) {
+		// Build the help vars.
+		let helpVars = '';
+
+		// Destructure the HTML config.
+		const {
+			styleDefaults,
+			styleOverrides,
+			script: helpScript,
+			styles: helpStyles
+		} = htmlConfig;
+
+		// Inject the help vars.
+		if (helpStyles) {
+			helpVars += '<style id="help-vars">\n';
+			helpVars += '    body {\n';
+			for (const style in helpStyles) {
+				helpVars += `        --${style}: ${helpStyles[style]};\n`;
+			}
+			helpVars += '    }\n';
+			helpVars += '</style>\n';
+		}
+
+		// Inject the help style defaults for unstyled help documents and the help vars.
+		response = response.replace(
+			'<head>',
+			`<head>\n
+			${helpVars}\n
+			${styleDefaults}`
+		);
+
+		// Inject the help style overrides and the help script.
+		response = response.replace(
+			'</head>',
+			`${styleOverrides}\n
+			${helpScript}\n
+			</head>`
+		);
+	}
 
 	// Rewrite the URLs with the proxy path.
 	response = rewriteUrlsWithProxyPath(response, proxyPath);

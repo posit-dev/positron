@@ -397,7 +397,7 @@ jobs:
           TEST_FILES_SUFFIX: testvirtualenvs
           CI_PYTHON_VERSION: ${{ matrix.python }}
           POSITRON_GITHUB_PAT: ${{ github.token }}
-        uses: GabrielBB/xvfb-action@v1.6
+        uses: GabrielBB/xvfb-action@v1.7
         with:
           run: npm run testSingleWorkspace
           working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR }}
@@ -407,7 +407,7 @@ jobs:
         env:
           CI_PYTHON_VERSION: ${{ matrix.python }}
           POSITRON_GITHUB_PAT: ${{ github.token }}
-        uses: GabrielBB/xvfb-action@v1.6
+        uses: GabrielBB/xvfb-action@v1.7
         with:
           run: npm run testSingleWorkspace
           working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR }}
@@ -417,7 +417,7 @@ jobs:
         env:
           CI_PYTHON_VERSION: ${{ matrix.python }}
           POSITRON_GITHUB_PAT: ${{ github.token }}
-        uses: GabrielBB/xvfb-action@v1.6
+        uses: GabrielBB/xvfb-action@v1.7
         with:
           run: npm run testDebugger
           working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR }}

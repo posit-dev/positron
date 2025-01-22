@@ -1,0 +1,44 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-modal-dialog-box .action-bar {
+	left: 0;
+	right: 0;
+	bottom: 0;
+	gap: 10px;
+	height: 64px;
+	display: flex;
+	margin: 0 16px;
+	padding: 0 0px;
+	position: absolute;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.positron-modal-dialog-box .action-bar.top-separator {
+	border-top: 1px solid var(--vscode-positronModalDialog-separator);
+}
+
+.positron-modal-dialog-box .action-bar .left-actions {
+	gap: 10px;
+	align-items: start;
+	flex-direction: row;
+	display: inline-flex;
+	justify-content: space-between;
+}
+
+.positron-modal-dialog-box .action-bar .right-actions {
+	gap: 10px;
+	align-items: end;
+	flex-direction: row;
+	display: inline-flex;
+	justify-content: space-between;
+}
+
+.positron-modal-dialog-box .action-bar .action-bar-button {
+	height: 32px;
+	width: 80px;
+	padding: 0 10px;
+}

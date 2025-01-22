@@ -1,16 +1,17 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as nls from '../../../../nls.js';
-import { Emitter } from '../../../../base/common/event.js';
+import { Event, Emitter } from '../../../../base/common/event.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, formatLanguageRuntimeMetadata } from './languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeStartupPhase, formatLanguageRuntimeMetadata } from './languageRuntimeService.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationNode, } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
 
 /**
  * The implementation of ILanguageRuntimeService
@@ -26,6 +27,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	private readonly _onDidRegisterRuntimeEmitter =
 		this._register(new Emitter<ILanguageRuntimeMetadata>);
 
+	// The current startup phase; an observeable value.
+	private _startupPhase: ISettableObservable<RuntimeStartupPhase>;
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -40,6 +44,19 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	) {
 		// Call the base class's constructor.
 		super();
+
+		this._startupPhase = observableValue(
+			'runtime-startup-phase', RuntimeStartupPhase.Initializing);
+		this.onDidChangeRuntimeStartupPhase = Event.fromObservable(this._startupPhase);
+	}
+
+	/**
+	 * Sets the startup phase
+	 *
+	 * @param phase The new phase
+	 */
+	setStartupPhase(phase: RuntimeStartupPhase): void {
+		this._startupPhase.set(phase, undefined);
 	}
 
 	//#endregion Constructor
@@ -51,6 +68,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// An event that fires when a new runtime is registered.
 	readonly onDidRegisterRuntime = this._onDidRegisterRuntimeEmitter.event;
+
+	/**
+	 * Event tracking the current startup phase.
+	 */
+	onDidChangeRuntimeStartupPhase: Event<RuntimeStartupPhase>;
 
 	/**
 	 * Gets the registered runtimes.
@@ -115,6 +137,13 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 */
 	getRuntime(runtimeId: string): ILanguageRuntimeMetadata | undefined {
 		return this._registeredRuntimesByRuntimeId.get(runtimeId);
+	}
+
+	/**
+	 * Returns the current startup phase.
+	 */
+	get startupPhase(): RuntimeStartupPhase {
+		return this._startupPhase.get();
 	}
 
 	//#endregion ILanguageRuntimeService Implementation

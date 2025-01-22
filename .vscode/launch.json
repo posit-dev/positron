@@ -203,6 +203,24 @@
 			}
 		},
 		{
+			"type": "extensionHost",
+			"request": "launch",
+			"name": "VS Code Tokenizer Performance Tests",
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				"${workspaceFolder}/extensions/vscode-colorize-perf-tests/test",
+				"--extensionDevelopmentPath=${workspaceFolder}/extensions/vscode-colorize-perf-tests",
+				"--extensionTestsPath=${workspaceFolder}/extensions/vscode-colorize-perf-tests/out"
+			],
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js"
+			],
+			"presentation": {
+				"group": "5_tests",
+				"order": 6
+			}
+		},
+		{
 			"type": "chrome",
 			"request": "attach",
 			"name": "Attach to Positron",
@@ -341,33 +359,36 @@
 				"order": 3
 			}
 		},
-		{
-			"type": "chrome",
-			"request": "launch",
-			"outFiles": [],
-			"perScriptSourcemaps": "yes",
-			"name": "Positron Web (Chrome)",
-			"url": "http://localhost:8080",
-			"preLaunchTask": "Run code web",
-			"presentation": {
-				"group": "0_vscode",
-				"order": 3
-			}
-		},
-		{
-			"type": "msedge",
-			"request": "launch",
-			"outFiles": [],
-			"perScriptSourcemaps": "yes",
-			"name": "Positron Web (Edge)",
-			"url": "http://localhost:8080",
-			"pauseForSourceMap": false,
-			"preLaunchTask": "Run code web",
-			"presentation": {
-				"group": "0_vscode",
-				"order": 3
-			}
-		},
+		// --- Start Positron ---
+		// Remove `Positron Web` confiigurations since we don't use them.
+		// {
+		// 	"type": "chrome",
+		// 	"request": "launch",
+		// 	"outFiles": [],
+		// 	"perScriptSourcemaps": "yes",
+		// 	"name": "Positron Web (Chrome)",
+		// 	"url": "http://localhost:8080",
+		// 	"preLaunchTask": "Run code web",
+		// 	"presentation": {
+		// 		"group": "0_vscode",
+		// 		"order": 3
+		// 	}
+		// },
+		// {
+		// 	"type": "msedge",
+		// 	"request": "launch",
+		// 	"outFiles": [],
+		// 	"perScriptSourcemaps": "yes",
+		// 	"name": "Positron Web (Edge)",
+		// 	"url": "http://localhost:8080",
+		// 	"pauseForSourceMap": false,
+		// 	"preLaunchTask": "Run code web",
+		// 	"presentation": {
+		// 		"group": "0_vscode",
+		// 		"order": 3
+		// 	}
+		// },
+		// --- End Positron ---
 		{
 			"type": "node",
 			"request": "launch",

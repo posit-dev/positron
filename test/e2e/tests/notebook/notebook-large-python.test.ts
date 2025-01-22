@@ -1,0 +1,59 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { join } from 'path';
+import { test, expect, tags } from '../_test.setup';
+
+test.use({
+	suiteId: __filename,
+	snapshots: false,
+});
+
+// Note that this test is too heavy to pass on web and windows
+test.describe('Large Python Notebook', {
+	tag: [tags.NOTEBOOKS, tags.WIN]
+}, () => {
+
+	test('Python - Large notebook execution [C983592]', async function ({ app, python }) {
+		test.setTimeout(480_000); // huge timeout because this is a heavy test
+		const notebooks = app.workbench.notebooks;
+
+
+		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
+		await notebooks.selectInterpreter('Python');
+
+		await notebooks.runAllCells(120000);
+
+		await app.workbench.quickaccess.runCommand('notebook.focusTop');
+		await app.code.driver.page.locator('span').filter({ hasText: 'import pandas as pd' }).locator('span').first().click();
+
+		const allFigures: any[] = [];
+		const uniqueLocators = new Set<string>();
+
+		for (let i = 0; i < 6; i++) {
+
+			// the second param to wheel (y) seems to be ignored so we send
+			// more messages instead of one with a large y value
+			for (let j = 0; j < 100; j++) {
+				await app.code.driver.page.mouse.wheel(0, 1);
+				await app.code.driver.page.waitForTimeout(100);
+			}
+
+			const figureLocator = app.workbench.notebooks.frameLocator.locator('.plot-container');
+			const figures = await figureLocator.all();
+
+			if (figures!.length > 0) {
+				for (const figure of figures!) {
+					if (!uniqueLocators.has(figure.toString())) {
+						allFigures.push(figure);
+						uniqueLocators.add(figure.toString());
+					}
+				}
+			}
+		}
+
+		expect(allFigures.length).toBeGreaterThan(20);
+	});
+});

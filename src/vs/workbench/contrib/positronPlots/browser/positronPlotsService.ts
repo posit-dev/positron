@@ -44,12 +44,13 @@ import { PlotSizingPolicyIntrinsic } from '../../../services/positronPlots/commo
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { WebviewPlotClient } from './webviewPlotClient.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { ACTIVE_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
 import { URI } from '../../../../base/common/uri.js';
 import { PositronPlotCommProxy } from '../../../services/languageRuntime/common/positronPlotCommProxy.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { ILabelService } from '../../../../platform/label/common/label.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
+import { DynamicPlotInstance } from './components/dynamicPlotInstance.js';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -358,6 +359,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (selectedPlot instanceof HtmlPlotClient) {
 			this._openerService.open(selectedPlot.uri,
 				{ openExternal: true, fromUserGesture: true });
+		} else if (selectedPlot instanceof DynamicPlotInstance) {
 		} else {
 			throw new Error(`Cannot open plot in new window: plot ${this._selectedPlotId} is not an HTML plot`);
 		}
@@ -833,46 +835,57 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._onDidReplacePlots.fire(this._plots);
 	}
 
-	savePlot(): void {
+	saveViewPlot(): void {
 		if (this._selectedPlotId) {
 			const plot = this._plots.find(plot => plot.id === this._selectedPlotId);
-			this._fileDialogService.defaultFilePath()
-				.then(defaultPath => {
-					const suggestedPath = defaultPath;
-					if (plot) {
-						let uri = '';
-
-						if (plot instanceof StaticPlotClient) {
-							// if it's a static plot, save the image to disk
-							uri = plot.uri;
-							this.showSavePlotDialog(uri);
-						} else if (plot instanceof PlotClientInstance) {
-							// if it's a dynamic plot, present options dialog
-							showSavePlotModalDialog(
-								this._selectedSizingPolicy,
-								this._layoutService,
-								this._keybindingService,
-								this._modalDialogService,
-								this._fileService,
-								this._fileDialogService,
-								this._logService,
-								this._notificationService,
-								this._labelService,
-								this._pathService,
-								plot,
-								this.savePlotAs,
-								suggestedPath
-							);
-						} else {
-							// if it's a webview plot, do nothing
-							return;
-						}
-					}
-				})
-				.catch((error) => {
-					throw new Error(`Error saving plot: ${error.message}`);
-				});
+			this.savePlot(plot);
 		}
+	}
+
+	saveEditorPlot(plotId: string): void {
+		const plot = this._editorPlots.get(plotId);
+		this.savePlot(plot);
+	}
+
+	private savePlot(plotClient?: IPositronPlotClient) {
+		if (!plotClient) {
+			this._notificationService.error(localize('positronPlots.noPlotSelected', 'No plot selected.'));
+			return;
+		}
+		this._fileDialogService.defaultFilePath()
+			.then(defaultPath => {
+				const suggestedPath = defaultPath;
+				if (plotClient) {
+					if (plotClient instanceof StaticPlotClient) {
+						// if it's a static plot, save the image to disk
+						const uri = plotClient.uri;
+						this.showSavePlotDialog(uri);
+					} else if (plotClient instanceof PlotClientInstance) {
+						// if it's a dynamic plot, present options dialog
+						showSavePlotModalDialog(
+							this._selectedSizingPolicy,
+							this._layoutService,
+							this._keybindingService,
+							this._modalDialogService,
+							this._fileService,
+							this._fileDialogService,
+							this._logService,
+							this._notificationService,
+							this._labelService,
+							this._pathService,
+							plotClient,
+							this.savePlotAs,
+							suggestedPath
+						);
+					} else {
+						// if it's a webview plot, do nothing
+						return;
+					}
+				}
+			})
+			.catch((error) => {
+				throw new Error(`Error saving plot: ${error.message}`);
+			});
 	}
 
 	private savePlotAs = (options: SavePlotOptions) => {
@@ -1048,7 +1061,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	/**
-	 * Registser a new plot client with the service, select it, and fire the
+	 * Register a new plot client with the service, select it, and fire the
 	 * appropriate events.
 	 *
 	 * @param client The plot client to register
@@ -1061,7 +1074,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._showPlotsPane();
 	}
 
-	public async openEditor(): Promise<void> {
+	public async openEditor(groupType?: number): Promise<void> {
 		const plotClient = this._plots.find(plot => plot.id === this.selectedPlotId);
 
 		if (plotClient instanceof WebviewPlotClient) {
@@ -1088,16 +1101,25 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			throw new Error('Cannot open plot in editor: plot not found');
 		}
 
+		const preferredEditorGroup = this._storageService.getNumber('positronPlots.defaultEditorAction', StorageScope.WORKSPACE, ACTIVE_GROUP);
+		const selectedEditorGroup = groupType ?? preferredEditorGroup;
 		const editorPane = await this._editorService.openEditor({
 			resource: URI.from({
 				scheme: Schemas.positronPlotsEditor,
 				path: plotId,
 			}),
-		});
+		}, selectedEditorGroup);
 
 		if (!editorPane) {
 			throw new Error('Failed to open editor');
 		}
+
+		this._storageService.store('positronPlots.defaultEditorAction', selectedEditorGroup, StorageScope.WORKSPACE, StorageTarget.MACHINE);
+	}
+
+	public getPreferredEditorGroup(): number {
+		const preferredEditorGroup = this._storageService.getNumber('positronPlots.defaultEditorAction', StorageScope.WORKSPACE, ACTIVE_GROUP);
+		return preferredEditorGroup;
 	}
 
 	public getEditorInstance(id: string) {

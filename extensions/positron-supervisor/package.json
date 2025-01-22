@@ -64,6 +64,32 @@
           "default": "debug",
           "description": "%configuration.logLevel.description%"
         },
+        "kernelSupervisor.shutdownTimeout": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "immediately",
+            "when idle",
+            "4",
+            "8",
+            "12",
+            "24",
+            "168",
+            "indefinitely"
+          ],
+          "enumDescriptions": [
+            "%configuration.shutdownTimeout.immediately.description%",
+            "%configuration.shutdownTimeout.whenIdle.description%",
+            "%configuration.shutdownTimeout.4.description%",
+            "%configuration.shutdownTimeout.8.description%",
+            "%configuration.shutdownTimeout.12.description%",
+            "%configuration.shutdownTimeout.24.description%",
+            "%configuration.shutdownTimeout.168.description%",
+            "%configuration.shutdownTimeout.indefinitely.description%"
+          ],
+          "default": "immediately",
+          "markdownDescription": "%configuration.shutdownTimeout.description%"
+        },
         "kernelSupervisor.attachOnStartup": {
           "scope": "window",
           "type": "boolean",
@@ -115,7 +141,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "kallichore": "0.1.26"
+      "kallichore": "0.1.28"
     }
   },
   "dependencies": {

@@ -1,60 +1,13 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
-import { Event } from '../../../../base/common/event.js';
 
 export const IRuntimeStartupService =
 	createDecorator<IRuntimeStartupService>('runtimeStartupService');
-
-/**
- * The phases through which the runtime startup service progresses as Positron
- * starts.
- */
-export enum RuntimeStartupPhase {
-	/**
-	 * Phase 1: The startup sequence has not yet begun.
-	 */
-	Initializing = 'initializing',
-
-	/**
-	 * Phase 2: If the workspace is not trusted, we cannot proceed with startup,
-	 * since many runtimes run arbitrary code at startup (often from the
-	 * workspace contents) and we cannot trust them to do so safely. The startup
-	 * sequence stays at `AwaitingTrust` until workspace trust is granted.
-	 */
-	AwaitingTrust = 'awaitingTrust',
-
-	/**
-	 * Phase 3: Positron is reconnecting to runtimes that are already running.
-	 * We only enter this phase when reloading the UI, or when reopening a
-	 * browser tab.
-	 */
-	Reconnecting = 'reconnecting',
-
-	/**
-	 * Phase 4: Positron is starting any runtimes that are affiliated with the
-	 * workspace. We enter this phase on a fresh start of Positron, when no
-	 * existing sessions are running.
-	 */
-	Starting = 'starting',
-
-	/**
-	 * Phase 5: Positron is discovering all the runtimes on the machine. This
-	 * can take a while, but does precede startup for workspaces that have no
-	 * affiliated runtimes (so we don't know what to start yet).
-	 */
-	Discovering = 'discovering',
-
-	/**
-	 * Phase 6: Startup is complete. In this phase, we start any runtimes
-	 * recommended by extensions if nothing was started in previous phases.
-	 */
-	Complete = 'complete',
-}
 
 /**
  * The IRuntimeStartupService is responsible for coordinating the process by
@@ -64,16 +17,6 @@ export enum RuntimeStartupPhase {
 export interface IRuntimeStartupService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
-
-	/**
-	 * Event tracking the current startup phase.
-	 */
-	onDidChangeRuntimeStartupPhase: Event<RuntimeStartupPhase>;
-
-	/**
-	 * The current startup phase.
-	 */
-	readonly startupPhase: RuntimeStartupPhase;
 
 	/**
 	 * Get the preferred runtime for a language. This approximates "the runtime
@@ -100,8 +43,31 @@ export interface IRuntimeStartupService {
 	getAffiliatedRuntimeMetadata(languageId: string): ILanguageRuntimeMetadata | undefined;
 
 	/**
-	 * Signal that discovery of language runtimes is complete. Called from the
-	 * extension host.
+	 * Signal that discovery of language runtimes is completed for an extension host.
+	 *
+	 * @param id the id of the MainThreadLanguageRuntime instance for the extension host
 	 */
-	completeDiscovery(): void;
+	completeDiscovery(id: number): void;
+
+	/**
+	 * Used to register an instance of a MainThreadLanguageRuntime.
+	 *
+	 * This is required because there can be multiple extension hosts
+	 * and the startup service needs to know of all of them to track
+	 * the startup phase across all extension hosts.
+	 *
+	 * @param id The id of the MainThreadLanguageRuntime instance for the extension host.
+	 */
+	registerMainThreadLanguageRuntime(id: number): void;
+
+	/**
+	 * Used to un-register an instance of a MainThreadLanguageRuntime.
+	 *
+	 * This is required because there can be multiple extension hosts
+	 * and the startup service needs to know of all of them to track
+	 * the startup phase across all extension hosts.
+	 *
+	 * @param id The id of the MainThreadLanguageRuntime instance for the extension host.
+	 */
+	unregisterMainThreadLanguageRuntime(id: number): void;
 }

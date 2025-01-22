@@ -13,7 +13,7 @@ import React from 'react';
 import { localize } from '../../../../../nls.js';
 import { VerticalStack } from '../../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
 import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
-import { ConfirmationModalDialog } from '../../../../browser/positronComponents/positronModalDialog/confirmationModalDialog.js';
+import { ConfirmDeleteModalDialog } from '../../../../browser/positronComponents/positronModalDialog/confirmDeleteModalDialog.js';
 
 /**
  * DeleteAllVariablesResult interface.
@@ -54,7 +54,7 @@ export const DeleteAllVariablesModalDialog = (props: DeleteAllVariablesModalDial
 	};
 
 	return (
-		<ConfirmationModalDialog
+		<ConfirmDeleteModalDialog
 			renderer={props.renderer}
 			width={375}
 			height={175}
@@ -62,12 +62,8 @@ export const DeleteAllVariablesModalDialog = (props: DeleteAllVariablesModalDial
 				'positron.deleteAllVariablesModalDialogTitle',
 				"Delete All Variables"
 			))()}
-			secondaryActionTitle={(() => localize('positron.delete', "Delete"))()}
-			secondaryActionDestructive={true}
-			primaryActionTitle={(() => localize('positron.cancel', "Cancel"))()}
 			onCancel={cancelHandler}
-			onSecondaryAction={acceptHandler}
-			onPrimaryAction={cancelHandler}
+			onDeleteAction={acceptHandler}
 		>
 			<VerticalStack>
 				<div>
@@ -76,9 +72,7 @@ export const DeleteAllVariablesModalDialog = (props: DeleteAllVariablesModalDial
 						"Are you sure you want to delete all variables? This operation cannot be undone."
 					))()}
 				</div>
-				{/* Disabled for Private Alpha. */}
-				{/* <Checkbox label='Include hidden objects' onChanged={checked => setResult({ ...result, includeHiddenObjects: checked })} /> */}
 			</VerticalStack>
-		</ConfirmationModalDialog>
+		</ConfirmDeleteModalDialog>
 	);
 };

@@ -18,6 +18,7 @@
 	height: 28px;
 	border: none;
 	display: flex;
+	margin: 0 1px;
 	cursor: pointer;
 	overflow: visible;
 	border-radius: 6px;
@@ -25,6 +26,10 @@
 	box-sizing: border-box;
 	background: transparent;
 	color: var(--positronActionBar-foreground);
+}
+
+.action-bar-button.checked {
+	background: var(--positronActionBar-hoverBackground);
 }
 
 .action-bar-button:hover {
@@ -61,6 +66,10 @@
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
+}
+
+.disabled .action-bar-button-text {
+	color: var(--positronActionBar-disabledForeground);
 }
 
 .action-bar-button-icon {

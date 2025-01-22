@@ -5,7 +5,7 @@ on:
     inputs:
       grep:
         required: false
-        description: "Grep filter to apply to the e2e tests: @critical, @console, etc. Leave blank to run all tests."
+        description: "Grep filter to apply to the e2e tests: @:critical, @:console, etc. Leave blank to run all tests."
         default: ""
         type: string
       notify_on:
@@ -16,6 +16,7 @@ on:
         options:
           - failure
           - always
+          - never
 
 permissions:
   id-token: write
@@ -42,12 +43,25 @@ jobs:
             libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev \
             libsdl-pango-dev libjpeg-dev libgif-dev pandoc
 
-      - name: Compile tests
+      - name: Setup test dependencies and compile tests
         run: |
-          npm install
-          npm --prefix test/automation install
+          # Must remove root package.json and provide simple stub to use root dir for test run but not build
+          rm package.json
+          echo '{"scripts":{"compile":"npx tsc"}}' > package.json
+
+          # Install TypeScript locally
+          npm install typescript
+
+          # Install required dependencies - must keep in sync with root package.json
+          npm install @playwright/test@^1.49.0
+          npx playwright install
+          npx playwright install-deps
+          npm install @currents/playwright@^1.8.0
+          npm install @midleman/github-actions-reporter@^1.9.5
+          npm install @vscode/v8-heap-parser@^0.1.0
+          npm install fs-extra
+
           npm --prefix test/e2e install
-          npm --prefix test/automation run compile
           npm --prefix test/e2e run compile
 
       - name: Get & install latest release
@@ -88,7 +102,7 @@ jobs:
       - name: Run Tests (Electron)
         if: ${{ !cancelled() }}
         env:
-          POSITRON_PY_VER_SEL: 3.10.12
+          POSITRON_PY_VER_SEL: 3.12.3
           POSITRON_R_VER_SEL: 4.4.0
           CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
@@ -111,10 +125,14 @@ jobs:
     needs: [e2e-electron]
     runs-on: ubuntu-latest
     if: always()
+    env:
+      notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
     steps:
+      - run: |
+          echo "Will notify on: ${{ env.notify_on }}"
       - name: Notify Slack
         uses: midleman/slack-workflow-status@master
         with:
           repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
           slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL }}
-          notify_on: ${{ inputs.notify_on }}
+          notify_on: ${{ env.notify_on }}

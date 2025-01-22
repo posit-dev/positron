@@ -27,7 +27,7 @@ const File = require('vinyl');
 const fs = require('fs');
 const glob = require('glob');
 const { compileBuildTask } = require('./gulpfile.compile');
-const { compileExtensionsBuildTask, compileExtensionMediaBuildTask } = require('./gulpfile.extensions');
+const { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask } = require('./gulpfile.extensions');
 // --- Start Positron ---
 const { vscodeWebEntryPoints, vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } = require('./gulpfile.vscode.web');
 const { positronBuildNumber } = require('./utils');
@@ -81,7 +81,7 @@ const serverResourceIncludes = [
 	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration-profile.zsh',
 	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration-rc.zsh',
 	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration-login.zsh',
-	'out-build/vs/workbench/contrib/terminal/common/scripts/fish_xdg_data/fish/vendor_conf.d/shellIntegration.fish',
+	'out-build/vs/workbench/contrib/terminal/common/scripts/shellIntegration.fish',
 
 ];
 
@@ -342,7 +342,8 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		// --- Start Positron ---
 		// Note: The remote/reh-web/package.json is generated/updated in build/npm/postinstall.js
 		const packageJsonBase = type === 'reh-web' ? 'remote/reh-web' : 'remote';
-		const packageJsonStream = gulp.src(['remote/package.json'], { base: packageJsonBase })
+		const packageJsonStream = gulp.src([`${packageJsonBase}/package.json`], { base: packageJsonBase })
+			// --- End Positron ---
 			.pipe(json({ name, version, dependencies: undefined, optionalDependencies: undefined, type: 'module' }))
 			.pipe(es.through(function (file) {
 				packageJsonContents = file.contents.toString();
@@ -391,7 +392,9 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 			].map(resource => gulp.src(resource, { base: '.' }).pipe(rename(resource)));
 		}
 
-		const all = es.merge(
+		// --- Start Positron ---
+		let all = es.merge(
+			// --- End Positron ---
 			packageJsonStream,
 			productJsonStream,
 			license,
@@ -400,6 +403,14 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 			node,
 			...web
 		);
+
+		// --- Start Positron ---
+		if (type === 'reh-web') {
+			// External modules (React, etc.)
+			const moduleSources = gulp.src('src/esm-package-dependencies/**').pipe(rename(function (p) { p.dirname = path.join('out', 'esm-package-dependencies', p.dirname) }));
+			all = es.merge(all, moduleSources);
+		}
+		// --- End Positron ---
 
 		let result = all
 			.pipe(util.skipDirectories())
@@ -527,6 +538,7 @@ function tweakProductForServerWeb(product) {
 			const destinationFolderName = `vscode-${type}${dashed(platform)}${dashed(arch)}`;
 
 			const serverTaskCI = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}-ci`, task.series(
+				compileNativeExtensionsBuildTask,
 				gulp.task(`node-${platform}-${arch}`),
 				util.rimraf(path.join(BUILD_ROOT, destinationFolderName)),
 				packageTask(type, platform, arch, sourceFolderName, destinationFolderName)
@@ -535,7 +547,8 @@ function tweakProductForServerWeb(product) {
 
 			const serverTask = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
 				compileBuildTask,
-				compileExtensionsBuildTask,
+				cleanExtensionsBuildTask,
+				compileNonNativeExtensionsBuildTask,
 				compileExtensionMediaBuildTask,
 				minified ? minifyTask : bundleTask,
 				serverTaskCI

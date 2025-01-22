@@ -255,6 +255,13 @@ export default tseslint.config(
 			'local': pluginLocal,
 		},
 		rules: {
+			'no-restricted-syntax': [
+				'warn',
+				{
+					'selector': `TSArrayType > TSUnionType`,
+					'message': 'Use Array<...> for arrays of union types.'
+				},
+			],
 			'local/vscode-dts-create-func': 'warn',
 			'local/vscode-dts-literal-or-types': 'warn',
 			'local/vscode-dts-string-type-literals': 'warn',
@@ -817,6 +824,7 @@ export default tseslint.config(
 						'string_decoder',
 						'tas-client-umd',
 						'tls',
+						'undici-types',
 						'url',
 						'util',
 						'v8-inspect-profiler',
@@ -825,6 +833,7 @@ export default tseslint.config(
 						'worker_threads',
 						'@xterm/addon-clipboard',
 						'@xterm/addon-image',
+						'@xterm/addon-ligatures',
 						'@xterm/addon-search',
 						'@xterm/addon-serialize',
 						'@xterm/addon-unicode11',
@@ -1271,21 +1280,9 @@ export default tseslint.config(
 				{
 					'target': 'test/e2e/**',
 					'restrictions': [
-						'test/automation',
 						'test/e2e/**',
 						'@vscode/*',
 						'@parcel/*',
-						'@playwright/*',
-						'*' // node modules
-					]
-				},
-				{
-					'target': 'test/automation/**',
-					'restrictions': [
-						'test/automation/**',
-						'@vscode/*',
-						'@parcel/*',
-						'playwright-core/**',
 						'@playwright/*',
 						'*' // node modules
 					]

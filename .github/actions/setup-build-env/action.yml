@@ -39,7 +39,6 @@ runs:
         # Perform the main npm command; this installs all Node packages and
         # dependencies
         npm ci --fetch-timeout 120000
-        npm --prefix test/automation ci
         npm --prefix test/e2e ci
 
     - name: Compile and Download

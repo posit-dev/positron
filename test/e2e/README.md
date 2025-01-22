@@ -1,6 +1,3 @@
-<!-- Start Positron -->
-<!-- If you are seeking the original Vscode README go here: https://github.com/microsoft/vscode/tree/main/test/smoke -->
-
 # Positron E2E Test Guide
 
 This document provides guidelines and setup instructions for effectively running and managing end-to-end tests in the Positron project.
@@ -20,16 +17,15 @@ This document provides guidelines and setup instructions for effectively running
 
 ### Test Code Location
 
-- `test/e2e/areas`
+All Positron end-to-end (E2E) test code resides in the `test/e2e` directory. For each area under test, there is typically a corresponding Page Object Model (POM) class to assist with locating and interacting with page elements.
 
-For instance, the e2e tests for the help pane are at `test/e2e/areas/help/help.test.ts`
-
-### Test Helpers Location
-
-- General helpers dir: `test/automation/src`
-- Positron helpers dir: `test/automation/src/positron`
-
-For each area under test, there is typically a companion class that assists with locating and interacting with elements (similar to POM pattern). For instance, the e2e tests for the help pane are at `test/e2e/areas/help/help.test.ts`
+```plaintext
+test/
+└── e2e/
+    ├── infra/   <-- contains the driver, browser, electron, test runner, etc. files
+    ├── pages/   <-- contains all the Positron POMs
+    └── tests/   <-- contains all the tests, organized by area
+```
 
 ### Test Template
 
@@ -100,10 +96,9 @@ Several tests use [QA Content Examples](https://github.com/posit-dev/qa-example-
 
 ### Install
 
-Before compiling the tests, make sure to install dependencies in the following directories:
+Before compiling the tests, make sure to install dependencies:
 
 ```bash
-npm --prefix test/automation install
 npm --prefix test/e2e install
 ```
 
@@ -137,7 +132,7 @@ We use Playwright as the test framework for end-to-end tests in Positron. Make s
 #### Running Specific Tests
 
 - Navigate to the relevant spec file in the editor.
-- Ensure the correct project is selected in the Test Explorer (you can run both `web` and `electron` tests simultaneously, but tests not tagged with `@web` won't run in a browser).
+- Ensure the correct project is selected in the Test Explorer (you can run both `web` and `electron` tests simultaneously, but tests not tagged with `@:web` won't run in a browser).
 - Use the green play button next to each test to:
   - Left-click: Run the test.
   - Right-click: Access additional options (Run/Debug).
@@ -197,7 +192,7 @@ For R, add any package requirements to the "imports" section of the `DESCRIPTION
 
 When you create a pull request, the test runner automatically scans the PR description for test tags to determine which E2E tests to run.
 
-- **Always-on Tests:** Tests tagged with `@critical` always run, and you can’t opt out of them.
+- **Always-on Tests:** Tests tagged with `@:critical` always run, and you can’t opt out of them.
 - **Custom Tags:** If your changes affect a specific feature, you can include additional tags in the PR description to trigger relevant tests.
 
 To add a test tag:
@@ -205,7 +200,11 @@ To add a test tag:
 1. Use the format `@:tag` in your PR description (e.g., `@:help`, `@:console`).
 2. Once added, a comment will appear on your PR confirming that the tag was found and parsed correctly.
 
-From that point, all E2E tests linked to the specified tag(s) will run during the test job. For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/helpers/test-tags.ts).
+From that point, all E2E tests linked to the specified tag(s) will run during the test job. For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts).
+
+To include Windows and Web Browser testing:
+
+By default, only Linux e2e test will run.  You can optionally add `@:win` to your PR description and this will run test on windows as well. As of now, windows tests do take longer to run, so the overall PR test job will take longer to complete. You can also ass `@:web` to run the browser tests.
 
 Note: You can update the tags in the PR description at any time. The PR comment will confirm the parsed tags, and the test job will use the tags present in the PR description at the time of execution.
 
@@ -225,6 +224,4 @@ In order to get the "golden screenshots" used for plot comparison is CI, you wil
 
 ## Tests run on PRs
 
-If you think your test should be run when PRs are created, [tag the test with @critical](https://playwright.dev/docs/test-annotations#tag-tests). The existing @critical cases were selected to give good overall coverage while keeping the overall execution time down to ten minutes or less. If your new test functionality covers a part of the application that no other tests cover, it is probably a good idea to include it in the @critical set.
-
-<!-- End Positron -->
+If you think your test should be run when PRs are created, [tag the test with @:critical](https://playwright.dev/docs/test-annotations#tag-tests). The existing @:critical cases were selected to give good overall coverage while keeping the overall execution time down to ten minutes or less. If your new test functionality covers a part of the application that no other tests cover, it is probably a good idea to include it in the @:critical set.

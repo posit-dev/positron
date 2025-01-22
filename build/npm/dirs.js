@@ -66,6 +66,7 @@ const dirs = [
 	'extensions/typescript-language-features',
 	'extensions/vscode-api-tests',
 	'extensions/vscode-colorize-tests',
+	'extensions/vscode-colorize-perf-tests',
 	'extensions/vscode-test-resolver',
 	'remote',
 	'remote/web',
@@ -74,9 +75,8 @@ const dirs = [
 	'remote/reh-web',
 	'test/integration/browser',
 	'test/monaco',
-	// no need to compile smoke tests during release builds
-	// 'test/automation',
-	// 'test/smoke',
+	// no need to compile e2e tests during release builds
+	// 'test/e2e',
 	// --- End Positron ---
 	'.vscode/extensions/vscode-selfhost-import-aid',
 	'.vscode/extensions/vscode-selfhost-test-provider',

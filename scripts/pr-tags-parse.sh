@@ -36,15 +36,24 @@ if echo "$PR_BODY" | grep -q "@:all"; then
   echo "Found @:all tag in PR body. Setting tags to run all tests."
   TAGS="" # Set to an empty string to indicate all tests should run
 else
-  # Parse tags starting with '@:' and convert to '@'
-  TAGS=$(echo "$PR_BODY" | grep -o "@:[a-zA-Z0-9_-]*" | sed 's/@://g' | sed 's/^/@/' | tr '\n' ',' | sed 's/,$//')
+  if echo "$PR_BODY" | grep -q "@:win"; then
+    echo "Found win tag in PR body. Setting to run windows tests."
+    echo "win_tag_found=true" >> "$GITHUB_OUTPUT"
+  fi
+  if echo "$PR_BODY" | grep -q "@:web"; then
+    echo "Found web tag in PR body. Setting to run web tests."
+    echo "web_tag_found=true" >> "$GITHUB_OUTPUT"
+  fi
 
-  # Always add @critical if not already included
-  if [[ ! "$TAGS" =~ "@critical" ]]; then
+  # Parse tags starting with '@:'
+  TAGS=$(echo "$PR_BODY" | grep -o "@:[a-zA-Z0-9_-]*" | tr '\n' ',' | sed 's/,$//')
+
+  # Always add @:critical if not already included
+  if [[ ! "$TAGS" =~ "@:critical" ]]; then
     if [[ -n "$TAGS" ]]; then
-      TAGS="@critical,$TAGS"
+      TAGS="@:critical,$TAGS"
     else
-      TAGS="@critical"
+      TAGS="@:critical"
     fi
   fi
 fi

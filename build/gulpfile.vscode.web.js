@@ -40,6 +40,10 @@ const positronVersion = (quality && quality !== 'stable') ? `${product.positronV
 // --- End Positron ---
 
 const vscodeWebResourceIncludes = [
+	// --- Start Positron ---
+	// Positron Help
+	'out-build/vs/workbench/contrib/positronHelp/browser/resources/help.html',
+	// --- End Positron ---
 
 	// NLS
 	'out-build/nls.messages.js',
@@ -212,7 +216,7 @@ function packageTask(sourceFolderName, destinationFolderName) {
 
 const compileWebExtensionsBuildTask = task.define('compile-web-extensions-build', task.series(
 	task.define('clean-web-extensions-build', util.rimraf('.build/web/extensions')),
-	task.define('bundle-web-extensions-build', () => extensions.packageLocalExtensionsStream(true, false).pipe(gulp.dest('.build/web'))),
+	task.define('bundle-web-extensions-build', () => extensions.packageAllLocalExtensionsStream(true, false).pipe(gulp.dest('.build/web'))),
 	task.define('bundle-marketplace-web-extensions-build', () => extensions.packageMarketplaceExtensionsStream(true).pipe(gulp.dest('.build/web'))),
 	task.define('bundle-web-extension-media-build', () => extensions.buildExtensionMedia(false, '.build/web/extensions')),
 ));

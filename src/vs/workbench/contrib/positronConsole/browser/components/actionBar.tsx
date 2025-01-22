@@ -23,7 +23,7 @@ import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, RuntimeStartMode } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ConsoleInstanceMenuButton } from './consoleInstanceMenuButton.js';
 
 /**
@@ -299,7 +299,9 @@ export const ActionBar = (props: ActionBarProps) => {
 				session.metadata.sessionMode,
 				session.metadata.notebookUri,
 				`User-requested new session from console action bar ` +
-				`after session ${session.metadata.sessionId} exited.`
+				`after session ${session.metadata.sessionId} exited.`,
+				RuntimeStartMode.Starting,
+				false
 			);
 			return;
 		} else {
