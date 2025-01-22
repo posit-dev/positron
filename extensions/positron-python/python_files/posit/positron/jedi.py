@@ -47,6 +47,8 @@ from .utils import safe_isinstance
 _sentinel = object()
 
 # update Jedi cache to not conflict with other Jedi instances
+# adapted from jedi.settings.cache_directory
+
 if platform.system().lower() == "windows":
     _cache_directory = os.path.join(
         os.getenv("LOCALAPPDATA") or os.path.expanduser("~"),
