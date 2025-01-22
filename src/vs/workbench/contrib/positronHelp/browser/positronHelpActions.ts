@@ -56,12 +56,9 @@ export class ShowHelpAtCursor extends Action2 {
 		// Look up the active editor
 		let editor = editorService.activeTextEditorControl as IEditor;
 
-		// Prefer the active console instance if it's focused
-		const inputEditor = consoleService.activeInputTextEditor;
-		if (inputEditor) {
-			if (inputEditor.hasTextFocus()) {
-				editor = inputEditor;
-			}
+		// Prefer the active code editor, if it exists and it's focused.
+		if (consoleService.activeCodeEditor?.hasTextFocus()) {
+			editor = consoleService.activeCodeEditor;
 		}
 
 		// If we didn't find an editor, we can't show help here. This should be

@@ -31,6 +31,7 @@ import { Clipboard } from '../pages/clipboard';
 import { QuickInput } from '../pages/quickInput';
 import { Extensions } from '../pages/extensions';
 import { Settings } from '../pages/settings';
+import { Debug } from '../pages/debug';
 import { EditorActionBar } from '../pages/editorActionBar';
 
 export interface Commands {
@@ -66,6 +67,7 @@ export class Workbench {
 	readonly extensions: Extensions;
 	readonly editors: Editors;
 	readonly settings: Settings;
+	readonly debug: Debug;
 	readonly editorActionBar: EditorActionBar;
 
 	constructor(code: Code) {
@@ -98,6 +100,7 @@ export class Workbench {
 		this.clipboard = new Clipboard(code);
 		this.extensions = new Extensions(code, this.quickaccess);
 		this.settings = new Settings(code, this.editors, this.editor, this.quickaccess);
+		this.debug = new Debug(code);
 		this.editorActionBar = new EditorActionBar(code.driver.page, this.viewer, this.quickaccess);
 	}
 }

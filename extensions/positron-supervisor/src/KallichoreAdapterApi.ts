@@ -422,8 +422,23 @@ export class KCApi implements KallichoreAdapterApi {
 						continue;
 					} else {
 						// Give up; it shouldn't take this long to start
-						this._log.appendLine(`Kallichore server did not start after ${Date.now() - startTime}ms`);
-						throw new Error(`Kallichore server did not start after ${Date.now() - startTime}ms`);
+						let message = `Kallichore server did not start after ${Date.now() - startTime}ms`;
+						this._log.appendLine(message);
+
+						// The error that we're about to throw will show up in
+						// the Console. If there's any content in the log
+						// files, append it to the error message so that the
+						// user can see it without clicking over to the logs.
+						if (fs.existsSync(outFile)) {
+							// Note that we don't need to append this content
+							// to the lgos since the output file is already
+							// being watched by the log streamer.
+							const contents = fs.readFileSync(outFile, 'utf8');
+							if (contents) {
+								message += `; output:\n\n${contents}`;
+							}
+						}
+						throw new Error(message);
 					}
 				}
 

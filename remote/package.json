@@ -41,6 +41,9 @@
     "yazl": "^2.4.3"
   },
   "overrides": {
+    "micromatch": "^4.0.8",
+    "braces": "^3.0.3",
+    "follow-redirects": "^1.15.4",
     "node-gyp-build": "4.8.1",
     "kerberos@2.1.1": {
       "node-addon-api": "7.1.0"
@@ -48,11 +51,5 @@
     "@parcel/watcher@2.1.0": {
       "node-addon-api": "7.1.0"
     }
-  },
-  "resolutions": {
-    "micromatch": "^4.0.6",
-    "node-gyp-build": "4.8.1",
-    "braces": "^3.0.3",
-    "follow-redirects": "^1.15.4"
   }
 }

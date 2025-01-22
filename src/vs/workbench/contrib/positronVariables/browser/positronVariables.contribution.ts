@@ -5,7 +5,7 @@
 
 import * as nls from '../../../../nls.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { KeyMod, KeyCode } from '../../../../base/common/keyCodes.js';
+import { KeyMod, KeyCode, KeyChord } from '../../../../base/common/keyCodes.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { PositronVariablesFocused } from '../../../common/contextkeys.js';
@@ -44,6 +44,12 @@ Registry.as<IViewsRegistry>(ViewContainerExtensions.ViewsRegistry).registerViews
 					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyH,
 				},
 				order: 1,
+			},
+			focusCommand: {
+				id: 'positronVariables.focus',
+				keybindings: {
+					primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyV),
+				}
 			}
 		}
 	],
