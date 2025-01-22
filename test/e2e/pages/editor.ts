@@ -10,6 +10,8 @@ import { Code } from '../infra/code';
 const EDITOR = (filename: string) => `.monaco-editor[data-uri$="${filename}"]`;
 const CURRENT_LINE = '.view-overlays .current-line';
 const PLAY_BUTTON = '.codicon-play';
+const VIEW_LINES = (filename: string) => `${EDITOR(filename)} .view-lines`;
+const LINE_NUMBERS = (filename: string) => `${EDITOR(filename)} .margin .margin-view-overlays .line-numbers`;
 
 const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
@@ -132,6 +134,43 @@ export class Editor {
 		await expect(async () => {
 			await expect(this.code.driver.page.locator(textarea)).toBeFocused();
 		}).toPass();
+	}
+
+	async clickOnTerm(filename: string, term: string, line: number): Promise<void> {
+		const selector = await this.getSelector(filename, term, line);
+		await this.code.driver.page.locator(selector).click();
+	}
+
+	private async getSelector(filename: string, term: string, line: number): Promise<string> {
+		const lineIndex = await this.getViewLineIndex(filename, line);
+		const classNames = await this.getClassSelectors(filename, term, lineIndex);
+
+		return `${VIEW_LINES(filename)}>:nth-child(${lineIndex}) span span.${classNames[0]}`;
+	}
+
+	private async getViewLineIndex(filename: string, line: number): Promise<number> {
+		const allElements = await this.code.driver.page.locator(LINE_NUMBERS(filename)).all();
+
+		const elements = allElements.filter(async el => await el.textContent() === `${line}`);
+
+		for (let index = 0; index < elements.length; index++) {
+			if (await elements[index].textContent() === `${line}`) {
+				return index + 1;
+			}
+		}
+
+		throw new Error('Line not found');
+	}
+
+	private async getClassSelectors(filename: string, term: string, viewline: number): Promise<string[]> {
+
+		const allElements = await this.code.driver.page.locator(`${VIEW_LINES(filename)}>:nth-child(${viewline}) span span`).all();
+
+		const elements = allElements.filter(async el => await el.textContent() === term);
+
+		const className = await elements[0].evaluate(el => (el as HTMLElement).className) as string;
+
+		return className.split(/\s/g);
 	}
 
 }
