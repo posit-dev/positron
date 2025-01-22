@@ -143,34 +143,59 @@ export class Editor {
 
 	private async getSelector(filename: string, term: string, line: number): Promise<string> {
 		const lineIndex = await this.getViewLineIndex(filename, line);
-		const classNames = await this.getClassSelectors(filename, term, lineIndex);
 
-		return `${VIEW_LINES(filename)}>:nth-child(${lineIndex}) span span.${classNames[0]}`;
+		// Get class names and the correct term index
+		const { classNames, termIndex } = await this.getClassSelectors(filename, term, lineIndex);
+
+		return `${VIEW_LINES(filename)}>:nth-child(${lineIndex}) span span.${classNames[0]}:nth-of-type(${termIndex + 1})`;
 	}
 
 	private async getViewLineIndex(filename: string, line: number): Promise<number> {
 		const allElements = await this.code.driver.page.locator(LINE_NUMBERS(filename)).all();
 
-		const elements = allElements.filter(async el => await el.textContent() === `${line}`);
+		// Resolve textContent for all elements first
+		const elementsWithText = await Promise.all(allElements.map(async (el, index) => ({
+			el,
+			text: await el.textContent(),
+			index
+		})));
 
-		for (let index = 0; index < elements.length; index++) {
-			if (await elements[index].textContent() === `${line}`) {
-				return index + 1;
-			}
+		// Find the first element matching the line number
+		const matchingElement = elementsWithText.find(({ text }) => text === `${line}`);
+
+		if (!matchingElement) {
+			throw new Error(`Line ${line} not found in file ${filename}`);
 		}
 
-		throw new Error('Line not found');
+		// Return the 1-based index
+		return matchingElement.index + 1;
 	}
 
-	private async getClassSelectors(filename: string, term: string, viewline: number): Promise<string[]> {
-
+	private async getClassSelectors(filename: string, term: string, viewline: number): Promise<{ classNames: string[], termIndex: number }> {
+		// Locate all spans inside the line
 		const allElements = await this.code.driver.page.locator(`${VIEW_LINES(filename)}>:nth-child(${viewline}) span span`).all();
 
-		const elements = allElements.filter(async el => await el.textContent() === term);
+		// Resolve all textContent values before filtering
+		const elementsWithText = await Promise.all(allElements.map(async (el, index) => ({
+			el,
+			text: await el.textContent(),
+			index
+		})));
 
-		const className = await elements[0].evaluate(el => (el as HTMLElement).className) as string;
+		// Find the first element that contains the term
+		const matchingElement = elementsWithText.find(({ text }) => text === term);
 
-		return className.split(/\s/g);
+		if (!matchingElement) {
+			throw new Error(`No elements found with term "${term}" in file "${filename}"`);
+		}
+
+		// Get the class names of the matching span
+		const className = await matchingElement.el.evaluate(el => (el as HTMLElement).className) as string;
+		const classNames = className.split(/\s+/);
+
+		// Find the index of this span among all spans
+		const termIndex = elementsWithText.filter(({ text }) => text !== null).map(({ el }) => el).indexOf(matchingElement.el);
+
+		return { classNames, termIndex };
 	}
-
 }

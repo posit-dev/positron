@@ -19,11 +19,13 @@ test.describe('Problems', {
 		await test.step('Open file and add bad character', async () => {
 			await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 
+			await app.workbench.editor.clickOnTerm('chinook-sqlite.py', 'rows', 9);
+
+			await app.code.driver.page.keyboard.press('ArrowRight');
+			await app.code.driver.page.keyboard.press('ArrowRight');
+			await app.code.driver.page.keyboard.press('ArrowRight');
+
 			await app.code.wait(10000);
-
-			await app.workbench.editor.clickOnTerm('chinook-sqlite.py', 'row', 9);
-
-			await app.code.wait(60000);
 
 		});
 	});
