@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -9,6 +9,7 @@ import { IncomingMessage } from 'http';
 import * as https from 'https';
 import * as path from 'path';
 import { promisify } from 'util';
+import { platform, arch } from 'os';
 
 /**
  * This script is a forked copy of the `install-kernel` script from the
@@ -23,7 +24,11 @@ import { promisify } from 'util';
 
 // Promisify some filesystem functions.
 const readFileAsync = promisify(fs.readFile);
-const writeFileAsync = promisify(fs.writeFile);
+const writeFileAsync = async (filePath: string, data: any) => {
+	const dir = path.dirname(filePath);
+	await fs.promises.mkdir(dir, { recursive: true });
+	return fs.promises.writeFile(filePath, data);
+};
 const existsAsync = promisify(fs.exists);
 
 // Create a promisified version of https.get. We can't use the built-in promisify
@@ -119,7 +124,7 @@ async function downloadAndReplacePet(version: string,
 			method: 'GET',
 			protocol: 'https:',
 			hostname: 'api.github.com',
-			path: `/repos/microsoft/python-environment-tools/releases`
+			path: `/repos/posit-dev/positron-pet-builds/releases`
 		};
 
 		const response = await httpsGetAsync(requestOptions as any) as any;
@@ -134,7 +139,7 @@ async function downloadAndReplacePet(version: string,
 				await executeCommand('git credential approve',
 					`protocol=https\n` +
 					`host=github.com\n` +
-					`path=/repos/microsoft/python-environment-tools/releases\n` +
+					`path=/repos/posit-dev/positron-pet-builds/releases\n` +
 					`username=\n` +
 					`password=${githubPat}\n`);
 			console.log(stdout);
@@ -151,7 +156,7 @@ async function downloadAndReplacePet(version: string,
 				await executeCommand('git credential reject',
 					`protocol=https\n` +
 					`host=github.com\n` +
-					`path=/repos/microsoft/python-environment-tools/releases\n` +
+					`path=/repos/posit-dev/positron-pet-builds/releases\n` +
 					`username=\n` +
 					`password=${githubPat}\n`);
 			console.log(stdout);
@@ -185,18 +190,29 @@ async function downloadAndReplacePet(version: string,
 				throw new Error(`Unexpected response from Github:\n\n` +
 					`${responseBody}`);
 			}
-			const release = releases.find((asset: any) => asset.tag_name == version);
+			const release = releases.find((asset: any) => asset.tag_name === version);
 			if (!release) {
 				throw new Error(`Could not find Python Environment Tool ${version} in the releases.`);
 			}
-			const zipUrl = release.zipball_url;
-			if (!zipUrl) {
-				throw new Error(`Could not find Python Environment Tool with asset name ${version} in the release.`);
+			let os: string;
+			switch (platform()) {
+				case 'win32': os = 'windows-x64'; break;
+				case 'darwin': os = 'darwin-universal'; break;
+				case 'linux': os = (arch() === 'arm64' ? 'linux-arm64' : 'linux-x64'); break;
+				default: {
+					throw new Error(`Unsupported platform ${platform()}.`);
+				}
 			}
-			console.log(`Downloading Python Environment Tool ${version} from ${zipUrl}...`);
-			const url = new URL(zipUrl);
+
+			const assetName = `pet-${version}-${os}.zip`;
+			const asset = release.assets.find((asset: any) => asset.name === assetName);
+			if (!asset) {
+				throw new Error(`Could not find Python Environment Tool with asset name ${assetName} in the release.`);
+			}
+			console.log(`Downloading Python Environment Tool ${version} from ${asset.url}...`);
+			const url = new URL(asset.url);
 			// Reset the Accept header to download the asset.
-			headers.Accept = 'application/json';
+			headers.Accept = 'application/octet-stream';
 			const requestOptions: https.RequestOptions = {
 				headers,
 				method: 'GET',
@@ -227,7 +243,7 @@ async function downloadAndReplacePet(version: string,
 				const zipFileDest = path.join(petDir, 'pet.zip');
 				await writeFileAsync(zipFileDest, binaryData);
 
-				await decompress(zipFileDest, petDir, { strip: 1 }).then(files => {
+				await decompress(zipFileDest, petDir, { strip: 1 }).then(() => {
 					console.log(`Successfully unzipped Python Environment Tool ${version}.`);
 				});
 
@@ -261,10 +277,10 @@ async function main() {
 		// fs.mkdirSync(path.join('resources', 'pet'), { recursive: true });
 		// fs.copyFileSync(binary, path.join('resources', 'pet', kernelName));
 		return;
-	} else {
-		console.log(`No locally built Python Environment Tool found in ${petFolder}; ` +
-			`checking downloaded version.`);
 	}
+	console.log(`No locally built Python Environment Tool found in ${petFolder}; ` +
+		`checking downloaded version.`);
+
 
 	const packageJsonVersion = await getVersionFromPackageJson();
 	const localPetVersion = await getLocalPetVersion();
@@ -274,7 +290,7 @@ async function main() {
 	}
 
 	console.log(`package.json version: ${packageJsonVersion} `);
-	console.log(`Downloaded PET version: ${localPetVersion ? localPetVersion : 'Not found'} `);
+	console.log(`Downloaded PET version: ${localPetVersion || 'Not found'} `);
 
 	if (packageJsonVersion === localPetVersion) {
 		console.log('Versions match. No action required.');
@@ -306,7 +322,7 @@ async function main() {
 	// convenient non-interactive way to set the PAT.
 	if (!githubPat) {
 		try {
-			const { stdout, stderr } =
+			const { stdout } =
 				await executeCommand('git config --get credential.https://api.github.com.token');
 			githubPat = stdout.trim();
 			if (githubPat) {
@@ -334,7 +350,7 @@ async function main() {
 			`\n` +
 			`You can set a PAT later by running yarn again and supplying the PAT at this prompt,\n` +
 			`or by running 'git config credential.https://api.github.com.token YOUR_GITHUB_PAT'\n`);
-		const { stdout, stderr } =
+		const { stdout } =
 			await executeCommand('git credential fill',
 				`protocol=https\n` +
 				`host=github.com\n` +
