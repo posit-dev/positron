@@ -10,6 +10,8 @@ import { newLanguageModel } from './models';
 import participants from './participants';
 import { newCompletionProvider } from './completion';
 
+const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
+
 let modelDisposables: vscode.Disposable[] = [];
 let participantDisposables: vscode.Disposable[] = [];
 
@@ -55,6 +57,11 @@ async function registerModels(context: vscode.ExtensionContext) {
 			const complDisp = vscode.languages.registerInlineCompletionItemProvider({ pattern: '**/*.*' }, completionProvider);
 			modelDisposables.push(complDisp);
 		});
+
+		// Set context for if we have chat models available for use
+		const hasChatModels = modelConfigs.filter(config => config.type === 'chat').length > 0;
+		vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
+
 	} catch (e) {
 		vscode.window.showErrorMessage(
 			`Positron Assistant: Failed to load model configurations - ${e}`
@@ -77,8 +84,8 @@ function registerParticipants(context: vscode.ExtensionContext) {
 }
 
 export function registerAddModelConfigurationCommand(context: vscode.ExtensionContext) {
-	return vscode.commands.registerCommand('positron.assistant.addModelConfiguration', async () => {
-		await showConfigurationDialog(context);
+	return vscode.commands.registerCommand('positron-assistant.addModelConfiguration', () => {
+		showConfigurationDialog(context);
 	});
 }
 

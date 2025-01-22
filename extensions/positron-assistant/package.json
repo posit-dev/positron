@@ -18,10 +18,24 @@
     "defaultChatParticipant"
   ],
   "contributes": {
+    "menus": {
+      "chat/input": [
+        {
+          "command": "positron-assistant.addModelConfiguration",
+          "group": "navigation@10",
+          "when": "!positron-assistant.hasChatModels"
+        },
+        {
+          "command": "positron-assistant.addModelConfiguration",
+          "group": "inline",
+          "when": "positron-assistant.hasChatModels"
+        }
+      ]
+    },
     "commands": [
       {
-        "command": "positron.assistant.addModelConfiguration",
-        "title": "Add Model Configuration",
+        "command": "positron-assistant.addModelConfiguration",
+        "title": "Add Language Model",
         "category": "Positron Assistant"
       }
     ],

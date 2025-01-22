@@ -7,7 +7,7 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
-import { Action2, MenuId, MenuRegistry, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { localize2 } from '../../../../nls.js';
 import { codiconsLibrary } from '../../../../base/common/codiconsLibrary.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
@@ -46,17 +46,6 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 			run(_: ServicesAccessor, context: ICodeBlockActionContext): void | Promise<void> {
 				consoleService.activePositronConsoleInstance?.executeCode(context.code);
 			}
-		});
-
-		// Add "pick model" button to terminal chat input editor
-		MenuRegistry.appendMenuItem(MenuId.for('terminalChatInput'), {
-			command: {
-				id: 'workbench.action.chat.pickModel',
-				title: localize2('chat.pickModel.label', "Pick Model"),
-			},
-			order: 3,
-			group: 'navigation',
-			when: ChatContextKeys.languageModelsAreUserSelectable,
 		});
 	}
 }

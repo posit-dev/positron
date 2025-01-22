@@ -79,6 +79,11 @@ const apiMenus: IAPIMenu[] = [
 		id: MenuId.EditorActionsRight,
 		description: localize('menus.editorActionsRight', "The editor actions right menu")
 	},
+	{
+		key: 'chat/input',
+		id: MenuId.ChatInput,
+		description: localize('menus.ChatInput', "The chat input menu")
+	},
 	// --- End Positron ---
 	{
 		key: 'editor/title',
