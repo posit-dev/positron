@@ -46,7 +46,7 @@
     "e2e-pr": "npx playwright test --project e2e-electron --grep @:critical",
     "e2e-win": "npx playwright test --project e2e-electron --grep @:win",
     "e2e-failed": "npx playwright test --last-failed",
-    "e2e-ui": "npx playwright test --ui",
+    "e2e-ui": "PW_UI_MODE=true npx playwright test --ui",
     "download-builtin-extensions": "node build/lib/builtInExtensions.js",
     "download-builtin-extensions-cg": "node build/lib/builtInExtensionsCG.js",
     "download-quarto": "node build/lib/quarto.js",
