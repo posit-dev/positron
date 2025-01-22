@@ -47,11 +47,11 @@ pyright
 Install the test requirements that are used in CI:
 
 ```sh
-pip install -r python_files/positron/pinned-test-requirements.txt
+pip install -r python_files/posit/pinned-test-requirements.txt
 ```
 
 Run Positron's unit tests with [pytest](https://docs.pytest.org/en/8.0.x/):
 
 ```sh
-python -m pytest python_files/positron/
+python -m pytest python_files/posit/
 ```
