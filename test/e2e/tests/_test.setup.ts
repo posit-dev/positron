@@ -265,6 +265,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	tracing: [async ({ app }, use, testInfo) => {
 		// Determine environment and mode
 		const isCommandLineRun = process.env.TERM_PROGRAM === 'vscode' && !(process.env.PW_UI_MODE === 'true');
+		console.log(`isCommandLineRun: ${isCommandLineRun}`);
+		console.log('TERM_PROGRAM', process.env.TERM_PROGRAM);
+		console.log('UI_MODE', process.env.PW_UI_MODE);
 
 		// Use default built-in tracing for e2e-browser except when running via CLI
 		if (testInfo.project.name === 'e2e-browser' && !isCommandLineRun) {
@@ -282,7 +285,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 			// attach the trace to the report if CI and test failed or not in CI
 			const isCI = process.env.CI === 'true';
+			console.log(`isCI: ${isCI}`);
 			if (!isCI || testInfo.status !== testInfo.expectedStatus || testInfo.retry) {
+				console.log('Attaching trace to report...');
 				testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
 			}
 		}
