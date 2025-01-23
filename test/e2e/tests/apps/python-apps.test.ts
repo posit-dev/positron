@@ -23,6 +23,9 @@ test.describe('Python Applications', {
 	});
 
 	test('Python - Verify Basic Dash App [C903305]', { tag: [tags.WIN] }, async function ({ app, python }) {
+		for (const i = 0; i < 1; i + 1) {
+			expect(i).toBe(1);
+		}
 		const viewer = app.workbench.viewer;
 
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'dash_example', 'dash_example.py'));

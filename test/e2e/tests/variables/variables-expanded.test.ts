@@ -16,8 +16,15 @@ test.describe('Variables - Expanded View', { tag: [tags.WEB, tags.VARIABLES] }, 
 	});
 
 	test('Python - should display children values and types when variable is expanded [C1078836]', async function ({ app, python }) {
-		for (const i = 0; i < 1; i + 1) {
-			expect(i).toBe(1);
+		const variables = app.workbench.variables;
+
+		await app.workbench.console.executeCode('Python', script);
+		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+
+		await variables.expandVariable('df');
+		for (const variable of Object.keys(expectedData)) {
+			const actualData = await variables.getVariableChildren(variable);
+			expect(actualData).toEqual(expectedData[variable]);
 		}
 	});
 
