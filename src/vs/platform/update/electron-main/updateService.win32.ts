@@ -107,7 +107,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 		const prefix = this.productService.target;
 		const baseUrl = createUpdateURL(platform, channel, this.productService);
 
-		const url = `${baseUrl}/${prefix}releases.json`;
+		const url = `${baseUrl}/${prefix}-releases.json`;
 
 		return url;
 	}
