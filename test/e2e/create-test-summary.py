@@ -8,6 +8,7 @@ def list_files_and_extract_tests():
         return
 
     test_pattern = re.compile(r'test\(["\'](.+?)["\']')  # Regex to extract test descriptions
+    text_extensions = {".js", ".ts", ".py", ".txt", ".json"}  # Allowed file extensions
 
     # Iterate over subdirectories in tests/
     for subdir in sorted(os.listdir(tests_dir)):
@@ -24,14 +25,22 @@ def list_files_and_extract_tests():
                 # Process each file in the subdirectory
                 for file in files:
                     file_path = os.path.join(subdir_path, file)
+
+                    # Skip non-text files (e.g., PNG, JPG, etc.)
+                    if not any(file.lower().endswith(ext) for ext in text_extensions):
+                        continue
+
                     print(f"    {file}")  # Indented filename
 
                     # Read file and extract test descriptions
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        for line in f:
-                            match = test_pattern.search(line)
-                            if match:
-                                print(f"        {match.group(1)}")  # Indent test description
+                    try:
+                        with open(file_path, "r", encoding="utf-8") as f:
+                            for line in f:
+                                match = test_pattern.search(line)
+                                if match:
+                                    print(f"        {match.group(1)}")  # Indent test description
+                    except UnicodeDecodeError:
+                        print(f"        [Skipping: Cannot read file {file}]")  # Inform about skipped files
                 print()  # Blank line for separation
 
 if __name__ == "__main__":
