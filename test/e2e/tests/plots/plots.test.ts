@@ -293,7 +293,8 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test('R - Verifies basic plot functionality', {
-			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
+			tag: [tags.CRITICAL, tags.WEB, tags.WIN],
+			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5954 (see comment)' }]
 		}, async function ({ app, logger, headless, logsPath }, testInfo) {
 			logger.log('Sending code to console');
 			await app.workbench.console.executeCode('R', rBasicPlot);
