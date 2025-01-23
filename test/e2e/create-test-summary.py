@@ -8,7 +8,8 @@ def list_files_and_extract_tests():
         return
 
     test_pattern = re.compile(r'test\(["\'](.+?)["\']')  # Regex to extract test descriptions
-    text_extensions = {".js", ".ts", ".py", ".txt", ".json"}  # Allowed file extensions
+    text_extensions = {".ts"}  # Allowed file extensions
+    test_count = 0  # Counter for test cases
 
     # Iterate over subdirectories in tests/
     for subdir in sorted(os.listdir(tests_dir)):
@@ -39,9 +40,13 @@ def list_files_and_extract_tests():
                                 match = test_pattern.search(line)
                                 if match:
                                     print(f"        {match.group(1)}")  # Indent test description
+                                    test_count += 1  # Increment test counter
                     except UnicodeDecodeError:
                         print(f"        [Skipping: Cannot read file {file}]")  # Inform about skipped files
                 print()  # Blank line for separation
+
+    # Print total test count
+    print(f"Total test cases found: {test_count}")
 
 if __name__ == "__main__":
     list_files_and_extract_tests()
