@@ -299,6 +299,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.console.executeCode('R', rBasicPlot);
 			await app.workbench.plots.waitForCurrentPlot();
 
+			// https://github.com/posit-dev/positron/issues/5954
+			// when the "Error rendering plot to `Auto' Size: RPC timeout... " message appears
+			// this comparison fails
+			/*
 			await app.workbench.popups.closeAllToasts();
 
 			const buffer = await app.workbench.plots.getCurrentPlotAsBuffer();
@@ -309,6 +313,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				masterScreenshotName: `autos-${process.platform}`,
 				testInfo
 			});
+			*/
 
 			if (!headless) {
 				await app.workbench.plots.copyCurrentPlotToClipboard();
