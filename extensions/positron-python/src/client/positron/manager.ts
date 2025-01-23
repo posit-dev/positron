@@ -54,7 +54,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
     ) {
         this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
 
-        positron.runtime.registerLanguageRuntimeManager(this);
+        positron.runtime.registerLanguageRuntimeManager('python', this);
 
         this.disposables.push(
             // When an interpreter is added, register a corresponding language runtime.

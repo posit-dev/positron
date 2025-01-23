@@ -79,7 +79,7 @@ function startExtHostRuntime(context: vscode.ExtensionContext): void {
 		try {
 			_manager = new JavascriptRuntimeManager(context);
 			context.subscriptions.push(
-				positron.runtime.registerLanguageRuntimeManager(_manager));
+				positron.runtime.registerLanguageRuntimeManager('javascript', _manager));
 			// Start the runtime on the next tick
 			setTimeout(() => {
 				positron.runtime.selectLanguageRuntime(runtimeId);

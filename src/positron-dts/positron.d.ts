@@ -1354,10 +1354,13 @@ declare module 'positron' {
 			errorBehavior?: RuntimeErrorBehavior): Thenable<boolean>;
 
 		/**
-		 * Register a language runtime manager with Positron. Returns a
-		 * disposable that unregisters the manager when disposed.
+		 * Register a language runtime manager with Positron.
+		 *
+		 * @param languageId The language ID for which the runtime
+		 * @returns A disposable that unregisters the manager when disposed.
+		 *
 		 */
-		export function registerLanguageRuntimeManager(manager: LanguageRuntimeManager): vscode.Disposable;
+		export function registerLanguageRuntimeManager(languageId: string, manager: LanguageRuntimeManager): vscode.Disposable;
 
 		/**
 		 * List all registered runtimes.

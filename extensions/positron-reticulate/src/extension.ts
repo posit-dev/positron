@@ -722,7 +722,7 @@ export class ReticulateProvider {
 
 	constructor(readonly context: vscode.ExtensionContext) {
 		this.manager = new ReticulateRuntimeManager(this.context);
-		this.context.subscriptions.push(positron.runtime.registerLanguageRuntimeManager(this.manager));
+		this.context.subscriptions.push(positron.runtime.registerLanguageRuntimeManager('python', this.manager));
 	}
 
 	async registerClient(client: positron.RuntimeClientInstance) {

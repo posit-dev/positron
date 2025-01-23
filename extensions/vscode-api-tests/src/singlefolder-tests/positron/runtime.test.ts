@@ -145,7 +145,7 @@ suite('positron API - runtime', () => {
 
 		// Register a manager.
 		const manager = new TestLanguageRuntimeManager();
-		const managerDisposable = positron.runtime.registerLanguageRuntimeManager(manager);
+		const managerDisposable = positron.runtime.registerLanguageRuntimeManager('test', manager);
 
 		// The manager's runtimes should eventually be registered.
 		await poll(

@@ -71,7 +71,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$forceQuitLanguageRuntime(handle: number): Promise<void>;
 	$showOutputLanguageRuntime(handle: number): void;
 	$showProfileLanguageRuntime(handle: number): void;
-	$discoverLanguageRuntimes(): void;
+	$discoverLanguageRuntimes(disabledLanguageIds: string[]): void;
 }
 
 // This is the interface that the main process exposes to the extension host

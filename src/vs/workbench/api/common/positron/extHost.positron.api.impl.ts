@@ -82,8 +82,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostLanguageRuntime.executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior);
 			},
 			registerLanguageRuntimeManager(
+				languageId: string,
 				manager: positron.LanguageRuntimeManager): vscode.Disposable {
-				return extHostLanguageRuntime.registerLanguageRuntimeManager(extension, manager);
+				return extHostLanguageRuntime.registerLanguageRuntimeManager(extension, languageId, manager);
 			},
 			getRegisteredRuntimes(): Thenable<positron.LanguageRuntimeMetadata[]> {
 				return extHostLanguageRuntime.getRegisteredRuntimes();
