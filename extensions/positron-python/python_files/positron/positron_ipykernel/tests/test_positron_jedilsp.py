@@ -50,7 +50,6 @@ from positron_ipykernel._vendor.lsprotocol.types import (
 )
 from positron_ipykernel._vendor.pygls.workspace.text_document import TextDocument
 from positron_ipykernel.help_comm import ShowHelpTopicParams
-from positron_ipykernel.jedi import PositronCompletion, PositronInterpreter, PositronName
 from positron_ipykernel.positron_jedilsp import (
     HelpTopicParams,
     PositronInitializationOptions,

@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Uni
 from comm.base_comm import BaseComm
 
 from ._vendor import attrs, cattrs
-from ._vendor.jedi.api import Project, Script
+from ._vendor.jedi.api import Project, Script, Interpreter
 from ._vendor.jedi.api.classes import Completion
 from ._vendor.jedi_language_server import jedi_utils, pygls_utils
 from ._vendor.jedi_language_server.server import (
@@ -97,7 +97,6 @@ from ._vendor.pygls.feature_manager import has_ls_param_or_annotation
 from ._vendor.pygls.protocol import lsp_method
 from ._vendor.pygls.workspace.text_document import TextDocument
 from .help_comm import ShowHelpTopicParams
-from .jedi import PositronInterpreter
 from .utils import debounce
 
 if TYPE_CHECKING:
@@ -838,7 +837,7 @@ def did_close_diagnostics(server: JediLanguageServer, params: DidCloseTextDocume
 
 def _interpreter(
     project: Optional[Project], document: TextDocument, shell: Optional["PositronShell"]
-) -> PositronInterpreter:
+) -> Interpreter:
     """
     Return a `jedi.Interpreter` with a reference to the shell's user namespace.
     """
@@ -846,4 +845,4 @@ def _interpreter(
     if shell is not None:
         namespaces.append(shell.user_ns)
 
-    return PositronInterpreter(document.source, namespaces, path=document.path, project=project)
+    return Interpreter(document.source, namespaces, path=document.path, project=project)
