@@ -4,15 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
+import * as sinon from 'sinon';
+
 import { raceTimeout } from '../../../../../base/common/async.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { PositronTestServiceAccessor, positronWorkbenchInstantiationService as positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
-import { IPositronPlotMetadata } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { IPositronPlotMetadata, PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
 import { RuntimeClientType } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
+import { PositronPlotCommProxy } from '../../../../services/languageRuntime/common/positronPlotCommProxy.js';
+import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
+import { PlotSizingPolicyFill } from '../../../../services/positronPlots/common/sizingPolicyFill.js';
 
 suite('Positron - Plots Service', () => {
 
@@ -106,26 +111,35 @@ suite('Positron - Plots Service', () => {
 	});
 
 	test('sizing policy: change event', async () => {
-		let sizingPolicyChanged = 0;
+		const plotCommProxyStub = sinon.createStubInstance(PositronPlotCommProxy);
+		// Creates the properties on the stub instance before stubbing them
+		(plotCommProxyStub as any).onDidClose = null;
+		(plotCommProxyStub as any).onDidRenderUpdate = null;
+		(plotCommProxyStub as any).onDidShowPlot = null;
 
-		const didChangeSizingPolicy = new Promise<void>((resolve) => {
-			const disposable = plotsService.onDidChangeSizingPolicy((e) => {
-				sizingPolicyChanged++;
+		sinon.stub(plotCommProxyStub, 'onDidClose').value(() => { });
+		sinon.stub(plotCommProxyStub, 'onDidRenderUpdate').value(() => { });
+		sinon.stub(plotCommProxyStub, 'onDidShowPlot').value(() => { });
+
+		const plotClientInstance = new PlotClientInstance(plotCommProxyStub as unknown as PositronPlotCommProxy, new PlotSizingPolicyAuto(), {} as IPositronPlotMetadata);
+		disposables.add(plotClientInstance);
+
+		let sizingPolicyChanged = false;
+		const didClosePlot = new Promise<void>((resolve) => {
+			const disposable = plotClientInstance.onDidChangeSizingPolicy(() => {
+				sizingPolicyChanged = true;
 				resolve();
 			});
 			disposables.add(disposable);
 		});
 
-		// no event since 'auto' is the default
-		plotsService.selectSizingPolicy('auto');
-		assert.strictEqual(plotsService.selectedSizingPolicy.id, 'auto');
+		plotClientInstance.sizingPolicy = new PlotSizingPolicyFill();
 
-		// event occurs when changing to 'fill'
-		plotsService.selectSizingPolicy('fill');
-		assert.strictEqual(plotsService.selectedSizingPolicy.id, 'fill');
+		await raceTimeout(didClosePlot, 100, () => assert.fail('onDidChangeSizingPolicy event did not fire'));
 
-		await raceTimeout(didChangeSizingPolicy, 100, () => assert.fail('onDidChangeSizingPolicy event did not fire'));
-		assert.strictEqual(sizingPolicyChanged, 1, 'onDidChangeSizingPolicy event should fire once for changing to "fill"');
+		assert.ok(sizingPolicyChanged, 'onDidChangeSizingPolicy event should fire');
+
+		sinon.restore();
 	});
 
 	test('selection: select plot', async () => {
