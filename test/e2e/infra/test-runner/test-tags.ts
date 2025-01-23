@@ -46,6 +46,7 @@ export enum TestTags {
 	TOP_ACTION_BAR = '@:top-action-bar',
 	VARIABLES = '@:variables',
 	WELCOME = '@:welcome',
+	PROBLEMS = '@:problems',
 
 	// platform  tags
 	WEB = '@:web',
