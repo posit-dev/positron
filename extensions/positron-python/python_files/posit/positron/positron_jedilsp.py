@@ -450,6 +450,14 @@ def positron_completion(
                     sort_append_text=completion.name,
                 )
 
+                # Set the most recent completion using the label.
+                # jedi_utils.lsp_completion_item uses completion.name which isn't available when
+                # accessing the most recent completions dict (in positron_completion_item_resolve),
+                # and which may differ from the label.
+                jedi_utils._MOST_RECENT_COMPLETIONS[jedi_completion_item.label] = cast(
+                    Completion, completion
+                )
+
                 # If Jedi knows how to complete the expression, use its suggestion.
                 if completion.complete is not None:
                     # Using the text_edit attribute (instead of insert_text used in
