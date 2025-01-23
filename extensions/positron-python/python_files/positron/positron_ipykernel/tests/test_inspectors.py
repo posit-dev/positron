@@ -43,6 +43,7 @@ from .data import (
 )
 from .utils import get_type_as_str
 
+
 def verify_inspector(
     value: Any,
     length: int,
@@ -915,7 +916,7 @@ def test_inspect_ibis_exprs() -> None:
     try:
         import ibis  # type: ignore [reportMissingImports] for 3.13
     except ImportError:
-        return # skip this test if ibis is not installed
+        return  # skip this test if ibis is not installed
 
     # Make sure we don't return an executed repr
     ibis.options.interactive = True
