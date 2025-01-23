@@ -438,6 +438,8 @@ export class KCApi implements KallichoreAdapterApi {
 								message += `; output:\n\n${contents}`;
 							}
 						}
+						// Show the terminal so the user can see the output
+						terminal.show();
 						throw new Error(message);
 					}
 				}
