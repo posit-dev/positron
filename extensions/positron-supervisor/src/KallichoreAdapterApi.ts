@@ -223,7 +223,7 @@ export class KCApi implements KallichoreAdapterApi {
 		const startTime = Date.now();
 
 		// Consult configuration to see if we should show this terminal
-		const showTerminal = config.get<boolean>('showTerminal', false);
+		const showTerminal = config.get<boolean>('showTerminal', true);
 
 		// Create a temporary file with a random name to use for logs
 		const logFile = path.join(os.tmpdir(), `kallichore-${sessionId}.log`);

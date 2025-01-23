@@ -36,7 +36,7 @@
         },
         "kernelSupervisor.showTerminal": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "%configuration.showTerminal.description%"
         },
         "kernelSupervisor.connectionTimeout": {
