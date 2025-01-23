@@ -13,7 +13,7 @@ test.use({
 test.describe('Data Explorer - DuckDB Column Summary', {
 	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.DATA_EXPLORER, tags.DUCK_DB]
 }, () => {
-	test('Verifies basic duckdb column summary functionality [C1053635]', async function ({ app }) {
+	test('Verifies basic duckdb column summary functionality', async function ({ app }) {
 
 		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'data-files', '100x100', '100x100.parquet'));
 

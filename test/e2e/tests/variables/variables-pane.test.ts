@@ -16,7 +16,7 @@ test.describe('Variables Pane', {
 		await app.workbench.layouts.enterLayout('stacked');
 	});
 
-	test('Python - Verifies Variables pane basic function [C628634]', async function ({ app, logger, python }) {
+	test('Python - Verifies Variables pane basic function', async function ({ app, logger, python }) {
 		const executeCode = async (code: string) => {
 			await app.workbench.console.executeCode('Python', code);
 		};
@@ -47,7 +47,7 @@ test.describe('Variables Pane', {
 		expect((await groupList).length).toBe(1);
 	});
 
-	test('R - Verifies Variables pane basic function [C628635]', async function ({ app, logger, r }) {
+	test('R - Verifies Variables pane basic function', async function ({ app, logger, r }) {
 		const executeCode = async (code: string) => {
 			await app.workbench.console.executeCode('R', code);
 		};
