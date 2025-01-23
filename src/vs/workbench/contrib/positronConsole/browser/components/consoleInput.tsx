@@ -59,6 +59,7 @@ type ILineNumbersOptions = Pick<IEditorOptions, 'lineNumbers' | 'lineNumbersMinC
 // ConsoleInputProps interface.
 interface ConsoleInputProps {
 	readonly width: number;
+	readonly hidden: boolean;
 	readonly positronConsoleInstance: IPositronConsoleInstance;
 	readonly onSelectAll: () => void;
 	readonly onCodeExecuted: () => void;
@@ -960,7 +961,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 	// Render.
 	return (
-		<div className='console-input' tabIndex={0} onFocus={focusHandler}>
+		<div className={props.hidden ? 'console-input hidden' : 'console-input'} tabIndex={0} onFocus={focusHandler}>
 			<div ref={codeEditorWidgetContainerRef} />
 			{historyBrowserActive &&
 				<HistoryBrowserPopup

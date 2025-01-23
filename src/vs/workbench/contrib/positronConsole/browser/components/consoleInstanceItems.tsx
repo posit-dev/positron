@@ -70,32 +70,11 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 		for (const item of reversedItems) {
 			if (item instanceof RuntimeItemStartup) {
 				break;
-			} else if (item instanceof RuntimeItemExited) {
+			} else if (item instanceof RuntimeItemExited && item.reason == "extensionHost") {
 				extensionHostDisconnected = true;
 				break;
 			}
 
-		}
-
-		let promptComponent = null;
-
-		if (extensionHostDisconnected) {
-			promptComponent = (
-				<div className='console-item-reconnecting'>
-					<span className='codicon codicon-loading codicon-modifier-spin'></span>
-					<span>Extensions restarting...</span>
-				</div>
-			)
-		} else if (!this.props.positronConsoleInstance.promptActive && this.props.runtimeAttached) {
-			promptComponent = (<ConsoleInput
-				width={this.props.consoleInputWidth}
-				positronConsoleInstance={this.props.positronConsoleInstance}
-				onSelectAll={this.props.onSelectAll}
-				onCodeExecuted={() =>
-					// Update the component to eliminate flickering.
-					flushSync(() => this.forceUpdate()
-					)}
-			/>);
 		}
 
 		return (
@@ -129,7 +108,24 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 						return null;
 					}
 				})}
-				{promptComponent}
+				{extensionHostDisconnected ?
+					(<div className='console-item-reconnecting'>
+						<span className='codicon codicon-loading codicon-modifier-spin'></span>
+						<span>Extensions restarting...</span>
+					</div>) :
+					null
+				}
+
+				<ConsoleInput
+					hidden={this.props.positronConsoleInstance.promptActive || !this.props.runtimeAttached}
+					width={this.props.consoleInputWidth}
+					positronConsoleInstance={this.props.positronConsoleInstance}
+					onSelectAll={this.props.onSelectAll}
+					onCodeExecuted={() =>
+						// Update the component to eliminate flickering.
+						flushSync(() => this.forceUpdate()
+						)}
+				/>
 			</>
 		);
 	}
