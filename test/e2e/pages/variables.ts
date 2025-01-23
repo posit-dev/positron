@@ -6,7 +6,7 @@
 
 import { Code } from '../infra/code';
 import * as os from 'os';
-import { expect, Locator } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 
 interface FlatVariables {
 	value: string;
@@ -58,14 +58,16 @@ export class Variables {
 	}
 
 	async waitForVariableRow(variableName: string): Promise<Locator> {
-		const desiredRow = this.code.driver.page.locator(`${VARIABLES_NAME_COLUMN} .name-value:text("${variableName}")`);
-		await desiredRow.waitFor({ state: 'attached' });
+		const desiredRow = this.code.driver.page.locator(VARIABLES_NAME_COLUMN).filter({ hasText: variableName });
+		await expect(desiredRow).toBeVisible();
 		return desiredRow;
 	}
 
 	async doubleClickVariableRow(variableName: string) {
-		const desiredRow = await this.waitForVariableRow(variableName);
-		await desiredRow.dblclick();
+		await test.step(`Double click variable: ${variableName}`, async () => {
+			const desiredRow = this.code.driver.page.locator(VARIABLES_NAME_COLUMN).filter({ hasText: variableName });
+			await desiredRow.dblclick();
+		});
 	}
 
 	async toggleVariablesView() {
@@ -76,24 +78,26 @@ export class Variables {
 	}
 
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
-		await this.waitForVariableRow(variableName);
-		const variable = this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} .name-value`, { hasText: variableName });
+		await test.step(`${action} variable: ${variableName}`, async () => {
+			await this.waitForVariableRow(variableName);
+			const variable = this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} .name-value`, { hasText: variableName });
 
-		const chevronIcon = variable.locator('..').locator(VARIABLE_CHEVRON_ICON);
-		const isExpanded = await chevronIcon.evaluate((el) => el.classList.contains('codicon-chevron-down'));
+			const chevronIcon = variable.locator('..').locator(VARIABLE_CHEVRON_ICON);
+			const isExpanded = await chevronIcon.evaluate((el) => el.classList.contains('codicon-chevron-down'));
 
-		// perform action based on the 'action' parameter
-		if (action === 'expand' && !isExpanded) {
-			await chevronIcon.click();
-		} else if (action === 'collapse' && isExpanded) {
-			await chevronIcon.click();
-		}
+			// perform action based on the 'action' parameter
+			if (action === 'expand' && !isExpanded) {
+				await chevronIcon.click();
+			} else if (action === 'collapse' && isExpanded) {
+				await chevronIcon.click();
+			}
 
-		const expectedClass = action === 'expand'
-			? /codicon-chevron-down/
-			: /codicon-chevron-right/;
+			const expectedClass = action === 'expand'
+				? /codicon-chevron-down/
+				: /codicon-chevron-right/;
 
-		await expect(chevronIcon).toHaveClass(expectedClass);
+			await expect(chevronIcon).toHaveClass(expectedClass);
+		});
 	}
 
 	async expandVariable(variableName: string) {
@@ -160,5 +164,9 @@ export class Variables {
 	async clickDatabaseIconForVariableRow(rowName: string) {
 		const DATABASE_ICON = '.codicon-database';
 		await this.code.driver.page.locator(VARIABLE_ITEMS).filter({ hasText: rowName }).locator(DATABASE_ICON).click();
+	}
+
+	async clickSessionLink() {
+		await this.code.driver.page.getByLabel('Active View Switcher').getByText('Session').click();
 	}
 }

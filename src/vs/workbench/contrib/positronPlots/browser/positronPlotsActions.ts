@@ -14,17 +14,18 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
+import { IQuickInputService, IQuickPick, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { PLOT_IS_ACTIVE_EDITOR, POSITRON_EDITOR_PLOTS } from '../../positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
 import { PositronPlotsEditorInput } from '../../positronPlotsEditor/browser/positronPlotsEditorInput.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
+import { IPositronPlotClient, IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
+import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
 
 export enum PlotActionTarget {
 	VIEW = 'view',
 	ACTIVE_EDITOR = 'activeEditor',
 }
-
 export const POSITRON_PLOTS_ACTION_CATEGORY = nls.localize('positronPlotsCategory', "Plots");
 const category: ILocalizedString = { value: POSITRON_PLOTS_ACTION_CATEGORY, original: 'Plots' };
 
@@ -34,6 +35,8 @@ const category: ILocalizedString = { value: POSITRON_PLOTS_ACTION_CATEGORY, orig
  * has a plot.
  */
 abstract class AbstractPlotsAction extends Action2 {
+	quickPickService?: IQuickInputService;
+
 	constructor(descriptor: IAction2Options) {
 		super(descriptor);
 	}
@@ -64,8 +67,8 @@ abstract class AbstractPlotsAction extends Action2 {
 		const plotsService = accessor.get(IPositronPlotsService);
 		const notificationService = accessor.get(INotificationService);
 		const editorService = accessor.get(IEditorService);
-		const quickPick = accessor.get(IQuickInputService);
 		const configurationService = accessor.get(IConfigurationService);
+		this.quickPickService = accessor.get(IQuickInputService);
 
 		const editorPlotsEnabled = Boolean(configurationService.getValue(POSITRON_EDITOR_PLOTS));
 
@@ -84,7 +87,7 @@ abstract class AbstractPlotsAction extends Action2 {
 		if (target) {
 			this.executeTargetAction(target, plotsService, editorService, notificationService);
 		} else {
-			const quickPicker = quickPick.createQuickPick();
+			const quickPicker = this.quickPickService.createQuickPick();
 
 			quickPicker.items = quickPickItems;
 			quickPicker.ignoreFocusOut = true;
@@ -111,6 +114,15 @@ abstract class AbstractPlotsAction extends Action2 {
 	}
 
 	/**
+	 * A filter to determine if the plot should be included in the action.
+	 *
+	 * @returns true if the plot should be included
+	 */
+	protected plotActionFilter(_plotClient: IPositronPlotClient): boolean {
+		return true;
+	}
+
+	/**
 	 * Gets the active editor plot id.
 	 *
 	 * @param editorService the editor service
@@ -134,13 +146,14 @@ abstract class AbstractPlotsAction extends Action2 {
 		const items: IQuickPickItem[] = [];
 
 		if (plotsService.selectedPlotId) {
-			items.push(
-				{
+			const plotClient = plotsService.positronPlotInstances.find(p => p.id === plotsService.selectedPlotId);
+			if (plotClient && this.plotActionFilter(plotClient)) {
+				items.push({
 					id: PlotActionTarget.VIEW,
 					label: localize('positronPlots.copyPlotsView', 'From Plots View'),
 					ariaLabel: localize('positronPlots.copyPlotsView', 'From Plots View'),
-				}
-			);
+				});
+			}
 		}
 
 		editorService.editors.forEach(input => {
@@ -148,11 +161,14 @@ abstract class AbstractPlotsAction extends Action2 {
 				const name = input.getName();
 				const plotId = input.resource?.path.toString();
 				if (plotId) {
-					items.push({
-						id: plotId,
-						label: localize('positronPlots.copyEditor', 'Editor: {0}', name),
-						ariaLabel: localize('positronPlots.copyEditor', 'Editor: {0}', name),
-					});
+					const plotClient = plotsService.getEditorInstance(plotId);
+					if (plotClient && this.plotActionFilter(plotClient)) {
+						items.push({
+							id: plotId,
+							label: localize('positronPlots.copyEditor', 'Editor: {0}', name),
+							ariaLabel: localize('positronPlots.copyEditor', 'Editor: {0}', name),
+						});
+					}
 				}
 			}
 		});
@@ -418,7 +434,7 @@ export class PlotsEditorAction extends Action2 {
 	async run(accessor: ServicesAccessor, groupType?: number) {
 		const plotsService = accessor.get(IPositronPlotsService);
 		if (plotsService.selectedPlotId) {
-			plotsService.openEditor(groupType);
+			plotsService.openEditor(plotsService.selectedPlotId, groupType);
 		} else {
 			accessor.get(INotificationService).info(localize('positronPlots.noPlotSelected', 'No plot selected.'));
 		}
@@ -496,5 +512,122 @@ export class PlotsActiveEditorSaveAction extends Action2 {
 	async run(accessor: ServicesAccessor) {
 		const commandService = accessor.get(ICommandService);
 		commandService.executeCommand(PlotsSaveAction.ID, PlotActionTarget.ACTIVE_EDITOR);
+	}
+}
+
+/** Action to change the plot's sizing policy */
+export class PlotsSizingPolicyAction extends AbstractPlotsAction {
+	static ID = 'workbench.action.positronPlots.sizingPolicy';
+	sizingPicker?: IQuickPick<IQuickPickItem, any>;
+
+	constructor() {
+		super({
+			id: PlotsSizingPolicyAction.ID,
+			title: localize2('positronPlots.sizingPolicy', 'Change Plot Sizing Policy'),
+			category,
+			f1: true,
+		});
+	}
+
+	override run(accessor: ServicesAccessor, target?: PlotActionTarget): Promise<void> {
+		return super.run(accessor, target);
+	}
+
+	override executeQuickPick(quickPick: IQuickPickItem, plotsService: IPositronPlotsService, editorService: IEditorService, notificationService: INotificationService): void {
+		const plotId = quickPick.id;
+
+		if (!plotId) {
+			notificationService.info(localize('positronPlots.noPlotSelected', 'No plot selected.'));
+			return;
+		}
+
+		const isView = plotId === PlotActionTarget.VIEW;
+
+		if (isView) {
+			this.executeTargetAction(PlotActionTarget.VIEW, plotsService, editorService, notificationService);
+		} else {
+			const plotClient = plotsService.getEditorInstance(plotId);
+			if (plotClient instanceof PlotClientInstance) {
+				if (!this.quickPickService) {
+					return;
+				}
+
+				this.getSizingPolicy(plotsService, editorService, () => {
+					if (!this.sizingPicker) {
+						return;
+					}
+
+					const selectedItem = this.sizingPicker.selectedItems[0];
+					if (selectedItem?.id) {
+						plotsService.setEditorSizingPolicy(plotId, selectedItem.id);
+					}
+				});
+			}
+		}
+	}
+
+	override executeTargetAction(target: PlotActionTarget, plotsService: IPositronPlotsService, editorService: IEditorService, notificationService: INotificationService): void {
+		this.getSizingPolicy(plotsService, editorService, () => {
+			if (!this.sizingPicker) {
+				return;
+			}
+
+			const selectedItem = this.sizingPicker.selectedItems[0];
+			if (selectedItem?.id) {
+				if (target === PlotActionTarget.VIEW) {
+					plotsService.selectSizingPolicy(selectedItem.id);
+				} else {
+					const plotId = this.getActiveEditorPlotId(editorService);
+					if (plotId) {
+						plotsService.setEditorSizingPolicy(plotId, selectedItem.id);
+					}
+				}
+			}
+		});
+	}
+
+	private getSizingPolicy(plotsService: IPositronPlotsService, editorService: IEditorService, onAccept: () => void): void {
+		if (!this.quickPickService) {
+			return;
+		}
+
+		const sizingItems = this.createSizingItems(plotsService);
+		this.sizingPicker = this.quickPickService.createQuickPick();
+
+		this.sizingPicker.items = sizingItems;
+		this.sizingPicker.title = localize('positronPlots.action.selectSizingPolicy', 'Select a sizing policy');
+
+		this.sizingPicker.show();
+
+		this.sizingPicker.onDidAccept(() => {
+			onAccept();
+			this.sizingPicker?.hide();
+		});
+	}
+
+	private createSizingItems(plotsService: IPositronPlotsService, plotId?: string): IQuickPickItem[] {
+		const items: IQuickPickItem[] = [];
+		const plotClient = plotId ? plotsService.getEditorInstance(plotId)
+			: plotsService.positronPlotInstances.find(p => p.id === plotsService.selectedPlotId) as PlotClientInstance;
+
+		if (!plotClient || !(plotClient instanceof PlotClientInstance)) {
+			throw new Error('Plot not found');
+		}
+
+		plotsService.sizingPolicies.forEach(policy => {
+			items.push({
+				id: policy.id,
+				label: policy.getName(plotClient),
+				ariaLabel: policy.getName(plotClient),
+				iconClass: plotClient.sizingPolicy.id === policy.id ? ThemeIcon.asClassName(Codicon.positronCheckMark)
+					: ThemeIcon.asClassName(Codicon.blank),
+			});
+		});
+
+		return items;
+	}
+
+	override plotActionFilter(plotClient: IPositronPlotClient): boolean {
+		return plotClient instanceof PlotClientInstance;
 	}
 }

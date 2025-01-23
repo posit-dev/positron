@@ -3,58 +3,116 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Application } from '../../infra';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
+test.beforeEach(async function ({ app, runCommand }) {
+	await app.workbench.layouts.enterLayout('stacked');
+	await runCommand('workbench.panel.positronVariables.focus');
+});
+
+test.afterEach(async function ({ runCommand }) {
+	await runCommand('workbench.action.closeAllEditors');
+});
+
 test.describe('Data Explorer - R ', {
 	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER]
 }, () => {
-	test('R - Verifies basic data explorer functionality [C609620]', { tag: [tags.CRITICAL] }, async function ({ app, r, logger }) {
-		// snippet from https://www.w3schools.com/r/r_data_frames.asp
-		const script = `Data_Frame <- data.frame (
-	Training = c("Strength", "Stamina", "Other"),
-	Pulse = c(100, NA, 120),
-	Duration = c(60, 30, 45),
-	Note = c(NA, NA, "Note")
-)`;
+	test('R - Verifies basic data explorer functionality [C609620]', { tag: [tags.CRITICAL] }, async function ({ app, r, openFile, runCommand }) {
+		// Execute code to generate data frames
+		await openFile('workspaces/generate-data-frames-r/simple-data-frames.r');
+		await app.workbench.editor.playButton.click();
 
-		logger.log('Sending code to console');
-		await app.workbench.console.executeCode('R', script);
+		// Open Data Explorer
+		await app.workbench.variables.doubleClickVariableRow('df');
+		await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true, isSelected: true });
 
-		logger.log('Opening data grid');
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('Data_Frame');
-			await app.code.driver.page.locator('.label-name:has-text("Data: Data_Frame")').innerText();
-		}).toPass();
-
+		// Verify the data in the table
 		await app.workbench.dataExplorer.maximizeDataExplorer(true);
+		await verifyTable(app);
 
+		// Verify the summary column data
+		await app.workbench.dataExplorer.expandSummary();
+		await verifyColumnData(app);
+	});
+
+	test('R - Open Data Explorer for the second time brings focus back [C701143]', {
+		annotation: [{
+			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5714'
+		}, {
+			type: 'regression', description: 'https://github.com/posit-dev/positron/issues/4197'
+		}]
+	}, async function ({ app, r, runCommand, executeCode }) {
+		// Execute code to generate data frames
+		await executeCode('R', `Data_Frame <- mtcars`);
+		await runCommand('workbench.panel.positronVariables.focus');
+
+		// Open Data Explorer
+		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
+		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: true });
+
+		// Now move focus out of the the data explorer pane
+		await app.workbench.editors.newUntitledFile();
+		await runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: false });
+		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
+		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: true });
+	});
+
+	test('R - Check blank spaces in data explorer [C1078834]', async function ({ app, r, executeCode }) {
+		// Execute code to generate data frames
+		await executeCode('R', `df = data.frame(x = c("a ", "a", "   ", ""))`);
+
+		// Open Data Explorer
+		await app.workbench.variables.doubleClickVariableRow('df');
+		await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true, isSelected: true });
+
+		// Verify blank spaces in the table
 		await expect(async () => {
 			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
 
-			expect(tableData[0]).toStrictEqual({ 'Training': 'Strength', 'Pulse': '100.00', 'Duration': '60.00', 'Note': 'NA' });
-			expect(tableData[1]).toStrictEqual({ 'Training': 'Stamina', 'Pulse': 'NA', 'Duration': '30.00', 'Note': 'NA' });
-			expect(tableData[2]).toStrictEqual({ 'Training': 'Other', 'Pulse': '120.00', 'Duration': '45.00', 'Note': 'Note' });
-			expect(tableData.length).toBe(3);
+			const expectedData = [
+				{ 'x': 'a·' },
+				{ 'x': 'a' },
+				{ 'x': '···' },
+				{ 'x': '<empty>' },
+			];
+
+			expect(tableData).toStrictEqual(expectedData);
+			expect(tableData).toHaveLength(4);
 		}).toPass({ timeout: 60000 });
-
-
-
 	});
-	test('R - Verifies basic data explorer column info functionality [C734265]', {
-		tag: [tags.CRITICAL]
-	}, async function ({ app, r }) {
-		await app.workbench.dataExplorer.expandSummary();
+});
 
+// Helpers
+
+async function verifyTable(app: Application) {
+	await test.step('Verify table data', async () => {
+		await expect(async () => {
+			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
+
+			const expectedData = [
+				{ 'Training': 'Strength', 'Pulse': '100.00', 'Duration': '60.00', 'Note': 'NA' },
+				{ 'Training': 'Stamina', 'Pulse': 'NA', 'Duration': '30.00', 'Note': 'NA' },
+				{ 'Training': 'Other', 'Pulse': '120.00', 'Duration': '45.00', 'Note': 'Note' },
+			];
+
+			expect(tableData).toStrictEqual(expectedData);
+			expect(tableData).toHaveLength(3);
+		}).toPass({ timeout: 60000 });
+	});
+}
+
+async function verifyColumnData(app: Application) {
+	await test.step('Verify column data', async () => {
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(1)).toBe('0%');
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(2)).toBe('33%');
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(3)).toBe('0%');
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(4)).toBe('66%');
-
-		await app.workbench.layouts.enterLayout('notebook');
 
 		const col1ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(1);
 		expect(col1ProfileInfo.profileData).toStrictEqual({ 'Missing': '0', 'Empty': '0', 'Unique': '3' });
@@ -67,59 +125,5 @@ test.describe('Data Explorer - R ', {
 
 		const col4ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(4);
 		expect(col4ProfileInfo.profileData).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '2' });
-
-		await app.workbench.layouts.enterLayout('stacked');
-		await app.workbench.sideBar.closeSecondarySideBar();
-
-		await app.workbench.dataExplorer.closeDataExplorer();
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
-
 	});
-
-	test('R - Open Data Explorer for the second time brings focus back [C701143]', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5714' }]
-	}, async function ({ app, r }) {
-		// Regression test for https://github.com/posit-dev/positron/issues/4197
-		// and https://github.com/posit-dev/positron/issues/5714
-		const script = `Data_Frame <- mtcars`;
-		await app.workbench.console.executeCode('R', script);
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
-
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('Data_Frame');
-			await app.code.driver.page.locator('.label-name:has-text("Data: Data_Frame")').innerText();
-		}).toPass();
-
-		// Now move focus out of the the data explorer pane
-		await app.workbench.editors.newUntitledFile();
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
-		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
-
-		await expect(async () => {
-			await app.code.driver.page.locator('.label-name:has-text("Data: Data_Frame")').innerText();
-		}).toPass();
-
-		await app.workbench.dataExplorer.closeDataExplorer();
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
-	});
-
-	test('R - Check blank spaces in data explorer [C1078834]', async function ({ app, r }) {
-		const script = `df = data.frame(x = c("a ", "a", "   ", ""))`;
-		await app.workbench.console.executeCode('R', script);
-
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('df');
-			await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
-		}).toPass();
-
-		await expect(async () => {
-			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
-
-			expect(tableData[0]).toStrictEqual({ 'x': 'a·' });
-			expect(tableData[1]).toStrictEqual({ 'x': 'a' });
-			expect(tableData[2]).toStrictEqual({ 'x': '···' });
-			expect(tableData[3]).toStrictEqual({ 'x': '<empty>' });
-			expect(tableData.length).toBe(4);
-		}).toPass({ timeout: 60000 });
-	});
-});
+}
