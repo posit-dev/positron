@@ -13,7 +13,7 @@ test.use({
 test.describe('Data Explorer - Python Pandas', {
 	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.DATA_EXPLORER]
 }, () => {
-	test('Python Pandas - Verifies basic data explorer functionality [C557556]', async function ({ app, python, logger }) {
+	test('Python Pandas - Verifies basic data explorer functionality', async function ({ app, python, logger }) {
 		// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 		const script = `import pandas as pd
 data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
@@ -48,7 +48,7 @@ df = pd.DataFrame(data)`;
 
 	});
 
-	test('Python Pandas - Verifies data explorer functionality with empty fields [C718262]', async function ({ app, python, logger }) {
+	test('Python Pandas - Verifies data explorer functionality with empty fields', async function ({ app, python, logger }) {
 		const script = `import numpy as np
 import pandas as pd
 
@@ -90,7 +90,7 @@ df2 = pd.DataFrame(data)`;
 	});
 
 	// Cannot be run by itself, relies on the previous test
-	test('Python Pandas - Verifies data explorer column info functionality [C734263]', async function ({ app, python }) {
+	test('Python Pandas - Verifies data explorer column info functionality', async function ({ app, python }) {
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(1)).toBe('20%');
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(2)).toBe('40%');
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(3)).toBe('40%');
@@ -123,7 +123,7 @@ df2 = pd.DataFrame(data)`;
 	});
 
 	// This test is not dependent on the previous test, so it refreshes the python environment
-	test('Python Pandas - Verifies data explorer test.afterAll modification [C557574]', async function ({ app, python }) {
+	test('Python Pandas - Verifies data explorer test.afterAll modification', async function ({ app, python }) {
 		// Restart python for clean environment & open the file
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
@@ -176,7 +176,7 @@ df2 = pd.DataFrame(data)`;
 		await app.workbench.dataExplorer.closeDataExplorer();
 	});
 
-	test('Python - Open Data Explorer for the second time brings focus back [C1078833]', async function ({ app, python }) {
+	test('Python - Open Data Explorer for the second time brings focus back', async function ({ app, python }) {
 
 		const script = `import pandas as pd
 Data_Frame = pd.DataFrame({
@@ -213,7 +213,7 @@ Data_Frame = pd.DataFrame({
 		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
 	});
 
-	test('Python - Check blank spaces in data explorer [C1078835]', async function ({ app, python }) {
+	test('Python - Check blank spaces in data explorer', async function ({ app, python }) {
 
 		const script = `import pandas as pd
 df = pd.DataFrame({'x': ["a ", "a", "   ", ""]})`;

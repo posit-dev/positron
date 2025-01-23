@@ -17,7 +17,7 @@ test.describe('Console History', {
 		page.keyboard.press('Escape');
 	});
 
-	test('Python - Verify Console History [C685945]', async function ({ app, page, python }) {
+	test('Python - Verify Console History', async function ({ app, page, python }) {
 		const pythonLines = [
 			'a = 1',
 			'b = 2',
@@ -32,7 +32,7 @@ test.describe('Console History', {
 	});
 
 
-	test('R - Verify Console History [C685946]]', async function ({ app, page, r }) {
+	test('R - Verify Console History', async function ({ app, page, r }) {
 		const rLines = [
 			'a <- 1',
 			'b <- 2',

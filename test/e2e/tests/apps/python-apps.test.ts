@@ -22,7 +22,7 @@ test.describe('Python Applications', {
 		await app.workbench.viewer.clearViewer();
 	});
 
-	test('Python - Verify Basic Dash App [C903305]', { tag: [tags.WIN] }, async function ({ app, python }) {
+	test('Python - Verify Basic Dash App', { tag: [tags.WIN] }, async function ({ app, python }) {
 		const viewer = app.workbench.viewer;
 
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'dash_example', 'dash_example.py'));
@@ -48,7 +48,7 @@ test.describe('Python Applications', {
 		});
 	});
 
-	test('Python - Verify Basic FastAPI App [C903306]', {
+	test('Python - Verify Basic FastAPI App', {
 		tag: [tags.WIN]
 	}, async function ({ app, python }) {
 		const viewer = app.workbench.viewer;
@@ -76,7 +76,7 @@ test.describe('Python Applications', {
 		});
 	});
 
-	test('Python - Verify Basic Gradio App [C903307]', {
+	test('Python - Verify Basic Gradio App', {
 		tag: [tags.WIN],
 	}, async function ({ app, python }) {
 		const viewer = app.workbench.viewer;
@@ -110,7 +110,7 @@ test.describe('Python Applications', {
 
 	});
 
-	test('Python - Verify Basic Streamlit App [C903308]', {
+	test('Python - Verify Basic Streamlit App', {
 		tag: [tags.WEB, tags.WIN]
 	}, async function ({ app, python }) {
 		const viewer = app.workbench.viewer;
@@ -145,7 +145,7 @@ test.describe('Python Applications', {
 		});
 	});
 
-	test('Python - Verify Basic Flask App [C1013655]', {
+	test('Python - Verify Basic Flask App', {
 		tag: [tags.WEB, tags.WIN]
 	}, async function ({ app, python, page }) {
 		const viewer = app.workbench.viewer;

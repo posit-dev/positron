@@ -13,7 +13,7 @@ test.use({
 
 test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.NOTEBOOKS] }, () => {
 
-	test('Python - Matplotlib Interact Test [C1067443]', {
+	test('Python - Matplotlib Interact Test', {
 		tag: [tags.CRITICAL, tags.WEB, tags.WIN],
 	}, async function ({ app, python }) {
 

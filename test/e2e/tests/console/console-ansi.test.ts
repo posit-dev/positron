@@ -15,7 +15,7 @@ test.describe('Console ANSI styling', { tag: [tags.CRITICAL, tags.CONSOLE, tags.
 		await app.workbench.layouts.enterLayout('fullSizedPanel');
 	});
 
-	test("R - Can produce clickable file links [C683069]", async function ({ app, r }) {
+	test("R - Can produce clickable file links", async function ({ app, r }) {
 		// Can be any file on the workkspace. We use .gitignore as it's probably
 		// always there.
 		const fileName = '.gitignore';
@@ -35,7 +35,7 @@ test.describe('Console ANSI styling', { tag: [tags.CRITICAL, tags.CONSOLE, tags.
 		}).toPass({ timeout: 60000 });
 	});
 
-	test("R - Can produce clickable help links [C683070]", async function ({ app, r }) {
+	test("R - Can produce clickable help links", async function ({ app, r }) {
 		const inputCode = `cli::cli_inform("{.fun base::mean}")`;
 
 		await expect(async () => {
@@ -54,7 +54,7 @@ test.describe('Console ANSI styling', { tag: [tags.CRITICAL, tags.CONSOLE, tags.
 		}).toPass({ timeout: 60000 });
 	});
 
-	test("R - Can produce colored output [C683071]", async function ({ app, r }) {
+	test("R - Can produce colored output", async function ({ app, r }) {
 		const color = '#ff3333';
 		const rgb_color = "rgb(255, 51, 51)"; // same as above but in rgb
 
