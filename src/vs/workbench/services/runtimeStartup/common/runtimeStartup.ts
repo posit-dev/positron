@@ -543,24 +543,27 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Ensure all extension hosts are started before we start activating extensions
 		await this._extensionService.whenAllExtensionHostsStarted();
 
-		const languages = Array.from(this._languagePacks.keys()).filter(languageId => {
+		const disabledLanguages = new Array<string>();
+		const enabledLanguages = Array.from(this._languagePacks.keys()).filter(languageId => {
 			const startupBehavior: StartupBehavior = this._configurationService.getValue(
 				'interpreters.startupBehavior', { overrideIdentifier: languageId });
 			if (startupBehavior === StartupBehavior.Disabled) {
 				this._logService.debug(`[Runtime startup] Skipping language runtime discovery for language ID '${languageId}' because its startup behavior is disabled.`);
+				disabledLanguages.push(languageId);
 				return false;
 			}
 			return true;
 		});
 
 		// Activate all extensions that contribute language runtimes.
-		await this.activateExtensionsForLanguages(languages);
+		await this.activateExtensionsForLanguages(enabledLanguages);
 
-		this._logService.debug(`[Runtime startup] All extensions contributing language runtimes have been activated: [${languages.join(', ')}]`);
+		this._logService.debug(`[Runtime startup] All extensions contributing language runtimes have been activated: [${enabledLanguages.join(', ')}]`);
 
 		// Enter the discovery phase; this triggers us to ask each extension for its
 		// language runtime providers.
 		this.setStartupPhase(RuntimeStartupPhase.Discovering);
+		this._languageRuntimeService.beginDiscovery(disabledLanguages);
 	}
 
 	/**

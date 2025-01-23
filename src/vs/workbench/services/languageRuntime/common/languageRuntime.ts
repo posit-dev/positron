@@ -8,7 +8,7 @@ import { Event, Emitter } from '../../../../base/common/event.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeStartupPhase, formatLanguageRuntimeMetadata } from './languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeDiscoveryStartedEvent, RuntimeStartupPhase, formatLanguageRuntimeMetadata } from './languageRuntimeService.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationNode, } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
@@ -26,6 +26,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// The event emitter for the onDidRegisterRuntime event.
 	private readonly _onDidRegisterRuntimeEmitter =
 		this._register(new Emitter<ILanguageRuntimeMetadata>);
+
+	// The event emitter for the onDidBeginRuntimeDiscovery event.
+	private readonly _onDidBeginRuntimeDiscoveryEmitter =
+		this._register(new Emitter<RuntimeDiscoveryStartedEvent>());
 
 	// The current startup phase; an observeable value.
 	private _startupPhase: ISettableObservable<RuntimeStartupPhase>;
@@ -48,6 +52,19 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._startupPhase = observableValue(
 			'runtime-startup-phase', RuntimeStartupPhase.Initializing);
 		this.onDidChangeRuntimeStartupPhase = Event.fromObservable(this._startupPhase);
+
+		this.onDidBeginRuntimeDiscovery = this._onDidBeginRuntimeDiscoveryEmitter.event;
+	}
+
+	onDidBeginRuntimeDiscovery: Event<RuntimeDiscoveryStartedEvent>;
+
+	/**
+	 * Begins the discovery of runtimes.
+	 *
+	 * @param disabledLanguageIds The language identifiers that are disabled.
+	 */
+	beginDiscovery(disabledLanguageIds: string[]): void {
+		this._onDidBeginRuntimeDiscoveryEmitter.fire({ disabledLanguageIds });
 	}
 
 	/**

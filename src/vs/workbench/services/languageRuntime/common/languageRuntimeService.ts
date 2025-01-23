@@ -767,6 +767,13 @@ export interface ILanguageRuntimeService {
 	setStartupPhase(phase: RuntimeStartupPhase): void;
 
 	/**
+	 * Begins discovery of language runtimes.
+	 *
+	 * @param disabledLanguageIds The language IDs for which discovery should be skipped/disabled.
+	 */
+	beginDiscovery(disabledLanguageIds: string[]): void;
+
+	/**
 	 * Returns the current startup phase.
 	 */
 	get startupPhase(): RuntimeStartupPhase;
