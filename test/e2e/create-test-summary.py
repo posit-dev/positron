@@ -1,8 +1,8 @@
 import os
 import re
+import sys
 
-def list_files_and_extract_tests():
-    tests_dir = "tests"  # Define the main directory name
+def list_files_and_extract_tests(tests_dir):
     if not os.path.exists(tests_dir) or not os.path.isdir(tests_dir):
         print(f"Directory '{tests_dir}' not found.")
         return
@@ -49,4 +49,6 @@ def list_files_and_extract_tests():
     print(f"Total test cases found: {test_count}")
 
 if __name__ == "__main__":
-    list_files_and_extract_tests()
+    # Get directory argument or use default
+    tests_dir = sys.argv[1] if len(sys.argv) > 1 else "tests"
+    list_files_and_extract_tests(tests_dir)
