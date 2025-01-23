@@ -390,9 +390,9 @@ export class KCApi implements KallichoreAdapterApi {
 		this._api.setDefaultAuthentication(bearer);
 
 		// List the sessions to verify that the server is up. The process is
-		// alive for a few milliseconds before the HTTP server is ready, so we
-		// may need to retry a few times.
-		for (let retry = 0; retry < 40; retry++) {
+		// alive for a few milliseconds (or more, on slower systems) before the
+		// HTTP server is ready, so we may need to retry a few times.
+		for (let retry = 0; retry < 100; retry++) {
 			try {
 				const status = await this._api.serverStatus();
 				this._log.appendLine(`Kallichore ${status.body.version} server online with ${status.body.sessions} sessions`);
@@ -405,20 +405,19 @@ export class KCApi implements KallichoreAdapterApi {
 					throw new Error(`The supervisor process exited before the server was ready.`);
 				}
 
-				// ECONNREFUSED is a normal condition during startup; the server
-				// isn't ready yet. Keep trying until we hit the retry limit,
-				// about 2 seconds from the time we got a process ID
-				// established.
+				// ECONNREFUSED is a normal condition during startup; the
+				// server isn't ready yet. Keep trying up to 10 seconds from
+				// the time we got a process ID established.
 				if (err.code === 'ECONNREFUSED') {
-					if (retry < 19) {
+					if (elapsed < 10000) {
 						// Log every few attempts. We don't want to overwhelm
 						// the logs, and it's normal for us to encounter a few
 						// connection refusals before the server is ready.
-						if (retry % 5 === 0) {
-							this._log.appendLine(`Waiting for Kallichore server to start (attempt ${retry + 1}, ${elapsed}ms)`);
+						if (retry > 0 && retry % 5 === 0) {
+							this._log.appendLine(`Waiting for Kallichore server to start (attempt ${retry}, ${elapsed}ms)`);
 						}
 						// Wait a bit and try again
-						await new Promise((resolve) => setTimeout(resolve, 50));
+						await new Promise((resolve) => setTimeout(resolve, 100));
 						continue;
 					} else {
 						// Give up; it shouldn't take this long to start
