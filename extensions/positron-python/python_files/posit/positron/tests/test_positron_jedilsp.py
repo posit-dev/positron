@@ -215,7 +215,6 @@ def _completions(
 @pytest.mark.parametrize(
     ("source", "namespace", "expected_labels"),
     [
-        # Dict key mapping to a property.
         pytest.param(
             'x["', {"x": {"a": _object_with_property.prop}}, ['a"'], id="dict_key_to_property"
         ),
@@ -230,25 +229,30 @@ def _completions(
         pytest.param(
             'x = {"a": 0}\nx["', {"x": {"b": 0}}, ['b"'], id="prefer_namespace_over_source"
         ),
-        # Dict key mapping to an int.
         pytest.param('x["', {"x": {"a": 0}}, ['a"'], id="dict_key_to_int"),
-        # Dict literal key mapping to an int.
         pytest.param('{"a": 0}["', {}, ['a"'], id="dict_literal_key_to_int"),
-        # Pandas dataframe - dict key access.
         pytest.param(
             'x["', {"x": pd.DataFrame({"a": []})}, ['a"'], id="pandas_dataframe_string_dict_key"
-        ),  # string column name
+        ),
         pytest.param(
-            'x["', {"x": pd.Series({"a": 0})}, ['a"'], id="pandas_series_string_dict_key"
-        ),  # string column name
-        # TODO: This test was actually incorrect behavior. x["0"] won't work, x[0] is necessary.
-        #       We could look into completion x[ but not going to prioritize this.
-        # pytest.param(
-        #     'x["', {"x": pd.DataFrame({0: []})}, ['0"'], id="pandas_dataframe_int_dict_key"
-        # ),  # integer column name
-        # Polars dataframe - dict key access.
+            "x[",
+            {"x": pd.DataFrame({0: []})},
+            ["0"],
+            id="pandas_dataframe_int_dict_key",
+            marks=pytest.mark.skip(reason="Completing integer dict keys not supported"),
+        ),
+        pytest.param(
+            'x["', {"x": pd.DataFrame({"a": []})}, ['a"'], id="pandas_dataframe_string_dict_key"
+        ),
+        pytest.param('x["', {"x": pd.Series({"a": 0})}, ['a"'], id="pandas_series_string_dict_key"),
         pytest.param('x["', {"x": pl.DataFrame({"a": []})}, ['a"'], id="polars_dataframe_dict_key"),
-        # Polars series only have a "range" integer index so no need to complete those.
+        pytest.param(
+            "x[",
+            {"x": pl.Series([0])},
+            ["0"],
+            id="polars_series_dict_key",
+            marks=pytest.mark.skip(reason="Completing integer dict keys not supported"),
+        ),
     ],
 )
 def test_positron_completion_exact(
@@ -362,7 +366,6 @@ _pl_df = pl.DataFrame({"a": [0]})
 @pytest.mark.parametrize(
     ("source", "namespace", "expected_detail", "expected_documentation"),
     [
-        # Dict key mapping to a property.
         pytest.param(
             'x["',
             {"x": {"a": _object_with_property.prop}},
@@ -370,7 +373,6 @@ _pl_df = pl.DataFrame({"a": [0]})
             jedi_utils.convert_docstring(cast(str, str.__doc__), MarkupKind.Markdown),
             id="dict_key_to_property",
         ),
-        # Dict key mapping to an int.
         pytest.param(
             'x["',
             {"x": {"a": 0}},
@@ -378,7 +380,6 @@ _pl_df = pl.DataFrame({"a": [0]})
             jedi_utils.convert_docstring(cast(str, int.__doc__), MarkupKind.Markdown),
             id="dict_key_to_int",
         ),
-        # Integer, to sanity check for a basic value.
         pytest.param(
             "x",
             {"x": 0},
@@ -386,7 +387,6 @@ _pl_df = pl.DataFrame({"a": [0]})
             jedi_utils.convert_docstring(cast(str, int.__doc__), MarkupKind.Markdown),
             id="int",
         ),
-        # Dict literal key mapping to an int.
         pytest.param(
             '{"a": 0}["',
             {},
@@ -394,7 +394,6 @@ _pl_df = pl.DataFrame({"a": [0]})
             jedi_utils.convert_docstring(cast(str, int.__doc__), MarkupKind.Markdown),
             id="dict_literal_key_to_int",
         ),
-        # Pandas dataframe.
         pytest.param(
             "x",
             {"x": _pd_df},
@@ -402,7 +401,6 @@ _pl_df = pl.DataFrame({"a": [0]})
             f"```text\n{str(_pd_df).strip()}\n```",
             id="pandas_dataframe",
         ),
-        # Pandas dataframe column - dict key access.
         pytest.param(
             'x["',
             {"x": _pd_df},
@@ -410,7 +408,6 @@ _pl_df = pl.DataFrame({"a": [0]})
             f"```text\n{str(_pd_df['a']).strip()}\n```",
             id="pandas_dataframe_dict_key",
         ),
-        # Pandas series.
         pytest.param(
             "x",
             {"x": _pd_df["a"]},
@@ -418,7 +415,6 @@ _pl_df = pl.DataFrame({"a": [0]})
             f"```text\n{str(_pd_df['a']).strip()}\n```",
             id="pandas_series",
         ),
-        # Polars dataframe.
         pytest.param(
             "x",
             {"x": _pl_df},
@@ -426,7 +422,6 @@ _pl_df = pl.DataFrame({"a": [0]})
             f"```text\n{str(_pl_df).strip()}\n```",
             id="polars_dataframe",
         ),
-        # Polars dataframe column - dict key access.
         pytest.param(
             'x["',
             {"x": _pl_df},
@@ -434,7 +429,6 @@ _pl_df = pl.DataFrame({"a": [0]})
             f"```text\n{str(_pl_df['a']).strip()}\n```",
             id="polars_dataframe_dict_key",
         ),
-        # Polars series.
         pytest.param(
             "x",
             {"x": _pl_df["a"]},
