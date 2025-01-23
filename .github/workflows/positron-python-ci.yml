@@ -157,9 +157,8 @@ jobs:
             python: '3.11'
           - os: 'ubuntu-latest'
             python: '3.12'
-          # add in 3.13 when ibis-framework[duckdb] supports it
-          # - os: 'ubuntu-latest'
-          #   python: '3.13'
+          - os: 'ubuntu-latest'
+            python: '3.13'
 
     steps:
       - name: Checkout
