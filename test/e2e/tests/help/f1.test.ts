@@ -26,6 +26,8 @@ test.describe('F1 Help', {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
 		await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 
+		await app.workbench.variables.waitForVariableRow('df2');
+
 		await app.workbench.console.pasteCodeToConsole('colnames(df2)');
 		await app.workbench.console.doubleClickConsoleText('colnames');
 		await page.keyboard.press('F1');
@@ -78,6 +80,8 @@ test.describe('F1 Help', {
 	test('Python - Verifies basic F1 console help functionality [C1062993]', async function ({ app, page, python }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
 		await app.workbench.quickaccess.runCommand('python.execInConsole');
+
+		await app.workbench.variables.waitForVariableRow('df');
 
 		await app.workbench.console.pasteCodeToConsole('list(df.columns)');
 		await app.workbench.console.doubleClickConsoleText('list');

@@ -18,6 +18,8 @@ import { ContentArea } from '../../../../browser/positronComponents/positronModa
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
+import { PlatformNativeDialogActionBar } from '../../../../browser/positronComponents/positronModalDialog/components/platformNativeDialogActionBar.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
  * SetPlotSizeResult interface.
@@ -98,6 +100,25 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 		props.renderer.dispose();
 	};
 
+	const okButton = (
+		<Button
+			className='action-bar-button default'
+			tabIndex={0}
+			onPressed={acceptHandler}
+		>
+			{(() => localize('positronOK', "OK"))()}
+		</Button>
+	);
+	const cancelButton = (
+		<Button
+			className='action-bar-button'
+			tabIndex={0}
+			onPressed={cancelHandler}
+		>
+			{(() => localize('positronCancel', "Cancel"))()}
+		</Button>
+	);
+
 	// Render.
 	return (
 		<PositronModalDialog
@@ -133,29 +154,16 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 
 			<div className='plot-size-action-bar top-separator'>
 				<div className='left'>
-					<button
-						className='button action-bar-button'
+					<Button
+						className='action-bar-button'
 						tabIndex={0}
-						onClick={deleteHandler}
+						onPressed={deleteHandler}
 					>
 						{(() => localize('positronDeletePlotSize', "Delete"))()}
-					</button>
+					</Button>
 				</div>
 				<div className='right'>
-					<button
-						className='button action-bar-button default'
-						tabIndex={0}
-						onClick={acceptHandler}
-					>
-						{(() => localize('positronOK', "OK"))()}
-					</button>
-					<button
-						className='button action-bar-button'
-						tabIndex={0}
-						onClick={cancelHandler}
-					>
-						{(() => localize('positronCancel', "Cancel"))()}
-					</button>
+					<PlatformNativeDialogActionBar secondaryButton={cancelButton} primaryButton={okButton} />
 				</div>
 			</div>
 		</PositronModalDialog>

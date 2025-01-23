@@ -174,6 +174,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		});
 	},
 
+	// ex: await executeCode('Python', 'print("Hello, world!")');
+	executeCode: async ({ app }, use) => {
+		await use(async (language: 'Python' | 'R', code: string) => {
+			await app.workbench.console.executeCode(language, code);
+		});
+	},
+
 	// ex: await userSettings.set([['editor.actionBar.enabled', 'true']], false);
 	userSettings: [async ({ app }, use) => {
 		const userSettings = new UserSettingsFixtures(app);
@@ -256,20 +263,28 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	}, { auto: true }],
 
 	tracing: [async ({ app }, use, testInfo) => {
-		// start tracing
-		await app.startTracing();
+		// Determine environment and mode
+		const isCommandLineRun = process.env.TERM_PROGRAM === 'vscode' && !(process.env.PW_UI_MODE === 'true');
 
-		await use(app);
+		// Use default built-in tracing for e2e-browser except when running via CLI
+		if (testInfo.project.name === 'e2e-browser' && !isCommandLineRun) {
+			await use(app);
+		} else {
+			// start tracing
+			await app.startTracing();
 
-		// stop tracing
-		const title = path.basename(`_trace`); // do NOT use title of 'trace' - conflicts with the default trace
-		const tracePath = testInfo.outputPath(`${title}.zip`);
-		await app.stopTracing(title, true, tracePath);
+			await use(app);
 
-		// attach the trace to the report if CI and test failed or not in CI
-		const isCI = process.env.CI === 'true';
-		if (!isCI || testInfo.status !== testInfo.expectedStatus || testInfo.retry) {
-			testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
+			// stop tracing
+			const title = path.basename(`_trace`); // do NOT use title of 'trace' - conflicts with the default trace
+			const tracePath = testInfo.outputPath(`${title}.zip`);
+			await app.stopTracing(title, true, tracePath);
+
+			// attach the trace to the report if CI and test failed or not in CI
+			const isCI = process.env.CI === 'true';
+			if (!isCI || testInfo.status !== testInfo.expectedStatus || testInfo.retry) {
+				testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
+			}
 		}
 
 	}, { auto: true, scope: 'test' }],
@@ -369,6 +384,7 @@ interface TestFixtures {
 	openFile: (filePath: string) => Promise<void>;
 	openDataFile: (filePath: string) => Promise<void>;
 	runCommand: (command: string) => Promise<void>;
+	executeCode: (language: 'Python' | 'R', code: string) => Promise<void>;
 }
 
 interface WorkerFixtures {

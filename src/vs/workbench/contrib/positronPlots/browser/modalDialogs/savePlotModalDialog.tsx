@@ -20,7 +20,7 @@ import { LabeledTextInput } from '../../../../browser/positronComponents/positro
 import { LabeledFolderInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledFolderInput.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
-import { OKCancelActionBar } from '../../../../browser/positronComponents/positronModalDialog/components/okCancelActionBar.js';
+import { PlatformNativeDialogActionBar } from '../../../../browser/positronComponents/positronModalDialog/components/platformNativeDialogActionBar.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
@@ -39,6 +39,7 @@ import { IPositronModalDialogsService } from '../../../../services/positronModal
 import { ILabelService } from '../../../../../platform/label/common/label.js';
 import { combineLabelWithPathUri, pathUriToLabel } from '../../../../browser/utils/path.js';
 import { IPathService } from '../../../../services/path/common/pathService.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 export interface SavePlotOptions {
 	uri: string;
@@ -273,15 +274,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 			}
 			size = { height: height.value, width: width.value };
 		}
-		return props.plotClient.render(size, dpi.value / BASE_DPI, format, true);
-	};
-
-	const previewButton = () => {
-		return (
-			<PositronButton className='button action-bar-button' onPressed={updatePreview}>
-				{(() => localize('positron.savePlotModalDialog.updatePreview', "Preview"))()}
-			</PositronButton>
-		);
+		return props.plotClient.renderWithSizingPolicy(size, dpi.value / BASE_DPI, format, true);
 	};
 
 	let intrinsicWidth = '';
@@ -300,6 +293,17 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 			formatPlotUnit(props.plotIntrinsicSize.unit),
 		);
 	}
+
+	const okButton = (
+		<Button className='action-bar-button default' onPressed={acceptHandler}>
+			{localize('positron.savePlotModalDialog.save', "Save")}
+		</Button>
+	);
+	const cancelButton = (
+		<Button className='action-bar-button' onPressed={cancelHandler}>
+			{localize('positronCancel', "Cancel")}
+		</Button>
+	);
 
 	return (
 		<PositronModalDialog
@@ -466,15 +470,14 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 			</ContentArea>
 
 			<div className='plot-save-dialog-action-bar top-separator'>
-				<OKCancelActionBar
-					okButtonTitle={(() => localize(
-						'positron.savePlotModalDialog.save',
-						"Save"
-					))()}
-					onAccept={acceptHandler}
-					onCancel={cancelHandler}
-					preActions={previewButton}
-				/>
+				<div className='left'>
+					<PositronButton className='action-bar-button' onPressed={updatePreview}>
+						{(() => localize('positron.savePlotModalDialog.updatePreview', "Preview"))()}
+					</PositronButton>
+				</div>
+				<div className='right'>
+					<PlatformNativeDialogActionBar secondaryButton={cancelButton} primaryButton={okButton} />
+				</div>
 			</div>
 
 		</PositronModalDialog>

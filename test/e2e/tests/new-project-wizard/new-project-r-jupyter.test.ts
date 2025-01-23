@@ -16,7 +16,7 @@ test.beforeEach(async function ({ app }) {
 	await app.workbench.layouts.enterLayout("stacked");
 });
 
-test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD, tags.WEB] }, () => {
+test.describe('R - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJECT_WIZARD, tags.WEB] }, () => {
 	test.describe.configure({ mode: 'serial' });
 
 	test('R - Project Defaults [C627913]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
@@ -76,7 +76,7 @@ test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD, tags.WE
 });
 
 test.describe('Jupyter - New Project Wizard', {
-	tag: [tags.NEW_PROJECT_WIZARD],
+	tag: [tags.MODAL, tags.NEW_PROJECT_WIZARD],
 	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5914' }], // uncomment line 103 when fixed
 }, () => {
 	test('Jupyter Project Defaults [C629352]', {
