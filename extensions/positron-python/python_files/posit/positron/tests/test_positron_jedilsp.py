@@ -261,6 +261,21 @@ def test_positron_completion_exact(
     assert completion_labels == expected_labels
 
 
+def test_parameter_completions_appear_first() -> None:
+    server = create_server()
+    text_document = create_text_document(
+        server,
+        TEST_DOCUMENT_URI,
+        """\
+def f(x): pass
+f(""",
+    )
+    completions = sorted(_completions(server, text_document), key=lambda c: c.sort_text or c.label)
+    completion_labels = [completion.label for completion in completions]
+    assert "x=" in completion_labels
+    assert completion_labels[0] == "x="
+
+
 @pytest.mark.parametrize(
     ("source", "namespace", "expected_label"),
     [
