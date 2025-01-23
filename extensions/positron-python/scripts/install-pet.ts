@@ -269,13 +269,6 @@ async function main() {
 	const petFolder = path.join(extensionParent, 'python-env-tools');
 	if (fs.existsSync(petFolder)) {
 		console.log(`Using locally built PET in ${petFolder}.`);
-		// TODO: need this?
-		// Copy the locally built PET to the resources/PET directory. It won't
-		// be read from this directory at runtime, but we need to put it here
-		// so that `yarn gulp vscode` will package it up (the packaging step
-		// doesn't look for a sideloaded PET from an adjacent `pet` directory).
-		// fs.mkdirSync(path.join('resources', 'pet'), { recursive: true });
-		// fs.copyFileSync(binary, path.join('resources', 'pet', kernelName));
 		return;
 	}
 	console.log(`No locally built Python Environment Tool found in ${petFolder}; ` +
