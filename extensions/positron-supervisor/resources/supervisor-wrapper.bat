@@ -1,7 +1,6 @@
-@echo off
 
 REM ---------------------------------------------------------------------------------------------
-REM Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+REM Copyright (C) 2025 Posit Software, PBC. All rights reserved.
 REM ---------------------------------------------------------------------------------------------
 
 REM This script is used to run a program and capture its output to a file. It is
@@ -11,6 +10,8 @@ REM in the UI in the case of a startup failure.
 REM Check that the user provided at least two arguments; the first is the output
 REM file and the second is the program to run and any arguments. If not, print a
 REM usage message and exit with an error code.
+
+echo "Running supervisor-wrapper.bat"
 
 if "%~2"=="" (
   echo Usage: %0 ^<output-file^> ^<program^> [program-args...] >&2
@@ -34,8 +35,13 @@ if defined args set args=%args:~1%
 REM Print the command line to the log file
 echo %args% >> "%output_file%"
 
+echo "Running program with arguments:"
+echo %args%
+
 REM Run the program with its arguments and capture the output
 %args% >> "%output_file%"
+
+echo "Program has exited"
 
 REM Save the exit code of the program
 set exit_code=%ERRORLEVEL%
