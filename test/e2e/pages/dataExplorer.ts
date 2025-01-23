@@ -254,4 +254,8 @@ export class DataExplorer {
 	async expandSummary(): Promise<void> {
 		await this.workbench.quickaccess.runCommand('workbench.action.positronDataExplorer.expandSummary');
 	}
+
+	async verifyTab(tabName: string): Promise<void> {
+		await expect(this.code.driver.page.getByRole('tab', { name: tabName })).toBeVisible();
+	}
 }
