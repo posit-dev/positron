@@ -161,4 +161,8 @@ export class Variables {
 		const DATABASE_ICON = '.codicon-database';
 		await this.code.driver.page.locator(VARIABLE_ITEMS).filter({ hasText: rowName }).locator(DATABASE_ICON).click();
 	}
+
+	async clickSessionLink() {
+		await this.code.driver.page.getByLabel('Active View Switcher').getByText('Session').click();
+	}
 }
