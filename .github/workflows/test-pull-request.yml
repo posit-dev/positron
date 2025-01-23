@@ -75,3 +75,16 @@ jobs:
     name: test
     uses: ./.github/workflows/test-integration.yml
     secrets: inherit
+
+  slack-notify:
+    needs: [e2e-linux-electron, e2e-windows-electron, e2e-linux-browser]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack Notification
+        uses: midleman/slack-workflow-status@mi/comment-thread
+        with:
+          repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          # slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
+          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          notify_on: "always"
+          channel: "D07KSCRU0SZ"
