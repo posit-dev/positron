@@ -213,42 +213,57 @@ def _completions(
 
 
 @pytest.mark.parametrize(
-    ("source", "namespace", "expected_labels"),
+    ("source", "namespace", "character", "expected_labels"),
     [
         pytest.param(
-            'x["', {"x": {"a": _object_with_property.prop}}, ['a"'], id="dict_key_to_property"
+            'x["', {"x": {"a": _object_with_property.prop}}, None, ['a"'], id="dict_key_to_property"
         ),
         pytest.param(
             'x = {"a": 0}\nx["',
             {},
+            None,
             ['a"'],
             id="source_dict_key_to_int",
         ),
         # When completions match a variable defined in the source _and_ a variable in the user's namespace,
         # prefer the namespace variable.
         pytest.param(
-            'x = {"a": 0}\nx["', {"x": {"b": 0}}, ['b"'], id="prefer_namespace_over_source"
+            'x = {"a": 0}\nx["', {"x": {"b": 0}}, None, ['b"'], id="prefer_namespace_over_source"
         ),
-        pytest.param('x["', {"x": {"a": 0}}, ['a"'], id="dict_key_to_int"),
-        pytest.param('{"a": 0}["', {}, ['a"'], id="dict_literal_key_to_int"),
+        pytest.param('x["', {"x": {"a": 0}}, None, ['a"'], id="dict_key_to_int"),
+        pytest.param('{"a": 0}["', {}, None, ['a"'], id="dict_literal_key_to_int"),
         pytest.param(
-            'x["', {"x": pd.DataFrame({"a": []})}, ['a"'], id="pandas_dataframe_string_dict_key"
+            'x["',
+            {"x": pd.DataFrame({"a": []})},
+            None,
+            ['a"'],
+            id="pandas_dataframe_string_dict_key",
         ),
         pytest.param(
             "x[",
             {"x": pd.DataFrame({0: []})},
+            None,
             ["0"],
             id="pandas_dataframe_int_dict_key",
             marks=pytest.mark.skip(reason="Completing integer dict keys not supported"),
         ),
         pytest.param(
-            'x["', {"x": pd.DataFrame({"a": []})}, ['a"'], id="pandas_dataframe_string_dict_key"
+            'x["',
+            {"x": pd.DataFrame({"a": []})},
+            None,
+            ['a"'],
+            id="pandas_dataframe_string_dict_key",
         ),
-        pytest.param('x["', {"x": pd.Series({"a": 0})}, ['a"'], id="pandas_series_string_dict_key"),
-        pytest.param('x["', {"x": pl.DataFrame({"a": []})}, ['a"'], id="polars_dataframe_dict_key"),
+        pytest.param(
+            'x["', {"x": pd.Series({"a": 0})}, None, ['a"'], id="pandas_series_string_dict_key"
+        ),
+        pytest.param(
+            'x["', {"x": pl.DataFrame({"a": []})}, None, ['a"'], id="polars_dataframe_dict_key"
+        ),
         pytest.param(
             "x[",
             {"x": pl.Series([0])},
+            None,
             ["0"],
             id="polars_series_dict_key",
             marks=pytest.mark.skip(reason="Completing integer dict keys not supported"),
@@ -258,11 +273,12 @@ def _completions(
 def test_positron_completion_exact(
     source: str,
     namespace: Dict[str, Any],
+    character: Optional[int],
     expected_labels: List[str],
 ) -> None:
     server = create_server(namespace)
     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
-    completions = _completions(server, text_document)
+    completions = _completions(server, text_document, character)
     completion_labels = [
         completion.text_edit.new_text if completion.text_edit else completion.insert_text
         for completion in completions
