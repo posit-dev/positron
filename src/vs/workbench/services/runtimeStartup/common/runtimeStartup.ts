@@ -321,6 +321,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// storage, but it is possible that this workspace will be
 				// re-opened without an interleaving quit (e.g. if multiple
 				// Positron windows are open).
+				//
+				// We don't do this in web mode because async shutdown
+				// operations aren't supported on the web, and if used will
+				// trigger a browser warning when the user attempts to navigate
+				// away.
 				if (!isWeb) {
 					e.veto(this.clearWorkspaceSessions(), 'positron.runtimeStartup.clearWorkspaceSessions');
 				}
