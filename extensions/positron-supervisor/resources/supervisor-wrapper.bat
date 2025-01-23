@@ -32,14 +32,11 @@ if "%~1" neq "" (
 )
 if defined args set args=%args:~1%
 
-REM Print the command line to the log file
-echo %args% >> "%output_file%"
-
 echo "Running program with arguments:"
 echo %args%
 
 REM Run the program with its arguments and capture the output
-%args% >> "%output_file%"
+%args%
 
 echo "Program has exited"
 
