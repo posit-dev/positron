@@ -444,21 +444,15 @@ def test_positron_completion_item_resolve(
     namespace: Dict[str, Any],
     expected_detail: str,
     expected_documentation: str,
-    monkeypatch,
 ) -> None:
-    # Create a jedi Completion and patch jedi language server's most recent completions.
-    # This is the state that we expect to be in when positron_completion_item_resolve is called.
-    lines = source.splitlines()
-    line = len(lines)
-    character = len(lines[line - 1])
-    completions = PositronInterpreter(source, namespaces=[namespace]).complete(line, character)
-    assert len(completions) == 1, "Test cases must have exactly one completion"
-    [completion] = completions
-    monkeypatch.setattr(jedi_utils, "_MOST_RECENT_COMPLETIONS", {"label": completion})
-
     server = create_server(namespace)
-    params = CompletionItem(label="label")
+    text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
 
+    # Perform an initial completions request.
+    # Resolving a completion requires the completion to be in the server's completions cache.
+    [params] = _completions(server, text_document)
+
+    # Resolve the completion.
     resolved = positron_completion_item_resolve(server, params)
 
     assert resolved.detail == expected_detail
