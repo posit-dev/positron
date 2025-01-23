@@ -63,13 +63,6 @@ class PositronInterpreter(Interpreter):
     A `jedi.Interpreter` that provides enhanced completions for data science users.
     """
 
-    @cache.memoize_method
-    def _get_module_context(self):
-        return PositronMixedModuleContext(
-            super()._get_module_context()._value,
-            self.namespaces,
-        )
-
     def complete(self, line=None, column=None, *, fuzzy=False):
         return [PositronCompletion(name) for name in super().complete(line, column, fuzzy=fuzzy)]
 
@@ -99,49 +92,24 @@ class PositronInterpreter(Interpreter):
         ]
 
 
-class PositronMixedModuleContext(MixedModuleContext):
-    def _get_mixed_object(self, compiled_value):
-        return PositronMixedObject(compiled_value=compiled_value, tree_value=self._value)
-
-    def get_filters(self, until_position=None, origin_scope=None):
-        yield MergedFilter(
-            PositronMixedParserTreeFilter(
-                parent_context=self, until_position=until_position, origin_scope=origin_scope
-            ),
-            self.get_global_filter(),
-        )
-
-        for mixed_object in self.mixed_values:
-            yield from mixed_object.get_filters(until_position, origin_scope)
+original_mixed_name_infer = MixedName.infer
 
 
-class PositronMixedObject(MixedObject):
-    def get_filters(self, *args, **kwargs):
-        yield PositronMixedObjectFilter(
-            self.inference_state, self.compiled_value, self._wrapped_value
-        )
+def _mixed_name_infer(self):
+    return ValueSet(_wrap_value(value) for value in original_mixed_name_infer(self))
 
 
-class PositronMixedObjectFilter(MixedObjectFilter):
-    def _create_name(self, *args, **kwargs):
-        return PositronMixedName(
-            super()._create_name(*args, **kwargs),
-            self._tree_value,
-        )
+MixedName.infer = _mixed_name_infer
 
 
-class PositronMixedName(MixedName):
-    def infer(self):
-        return ValueSet(self._wrap_value(value) for value in super().infer())
-
-    def _wrap_value(self, value: Value):
-        if _is_pandas_dataframe(value):
-            return PandasDataFrameMixedObjectWrapper(value)
-        if _is_pandas_series(value):
-            return SeriesMixedObjectWrapper(value)
-        if _is_polars_dataframe(value):
-            return PolarsDataFrameMixedObjectWrapper(value)
-        return value
+def _wrap_value(value: Value):
+    if _is_pandas_dataframe(value):
+        return PandasDataFrameMixedObjectWrapper(value)
+    if _is_pandas_series(value):
+        return SeriesMixedObjectWrapper(value)
+    if _is_polars_dataframe(value):
+        return PolarsDataFrameMixedObjectWrapper(value)
+    return value
 
 
 def _is_pandas_dataframe(value: Value) -> bool:
@@ -204,27 +172,28 @@ class PolarsDataFrameMixedObjectWrapper(ValueWrapper):
         return self.compiled_value.py__simple_getitem__(index)
 
 
-class PositronMixedTreeName(MixedTreeName):
-    def infer(self):
-        # First try to use the namespace, then fall back to static analysis.
-        # This is the reverse of MixedTreeName.
-        # See: TODO: Link issue here.
-        """
-        In IPython notebook it is typical that some parts of the code that is
-        provided was already executed. In that case if something is not properly
-        inferred, it should still infer from the variables it already knows.
-        """
-        for compiled_value in self.parent_context.mixed_values:
-            for f in compiled_value.get_filters():
-                values = ValueSet.from_sets(n.infer() for n in f.get(self.string_name))
-                if values:
-                    return values
-
-        return super().infer()
+original_mixed_tree_name_infer = MixedTreeName.infer
 
 
-class PositronMixedParserTreeFilter(MixedParserTreeFilter):
-    name_class = PositronMixedTreeName
+def _mixed_tree_name_infer(self: MixedTreeName):
+    # First try to use the namespace, then fall back to static analysis.
+    # This is the reverse of MixedTreeName.
+    # See: TODO: Link issue here.
+    """
+    In IPython notebook it is typical that some parts of the code that is
+    provided was already executed. In that case if something is not properly
+    inferred, it should still infer from the variables it already knows.
+    """
+    for compiled_value in self.parent_context.mixed_values:
+        for f in compiled_value.get_filters():
+            values = ValueSet.from_sets(n.infer() for n in f.get(self.string_name))
+            if values:
+                return values
+
+    return original_mixed_tree_name_infer(self)
+
+
+MixedTreeName.infer = _mixed_tree_name_infer
 
 
 class PositronName(Name):
