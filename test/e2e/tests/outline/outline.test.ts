@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Outline #web #win', {
+test.describe('Outline', {
 	tag: [tags.WEB, tags.WIN, tags.OUTLINE]
 }, () => {
 
