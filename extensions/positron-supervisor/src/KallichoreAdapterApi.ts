@@ -402,6 +402,8 @@ export class KCApi implements KallichoreAdapterApi {
 
 				// Has the terminal exited? if it has, there's no point in continuing to retry.
 				if (exited) {
+					// Show the terminal so the user can see the output
+					terminal.show();
 					throw new Error(`The supervisor process exited before the server was ready.`);
 				}
 
