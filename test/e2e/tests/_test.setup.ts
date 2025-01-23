@@ -263,8 +263,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	}, { auto: true }],
 
 	tracing: [async ({ app }, use, testInfo) => {
-		// Determine environment and mode
-		const isCommandLineRun = process.env.TERM_PROGRAM === 'vscode' && !(process.env.PW_UI_MODE === 'true');
+		// Determine execution mode
+		const isCommandLineRun = process.env.npm_execpath && !(process.env.PW_UI_MODE === 'true');
 
 		// Use default built-in tracing for e2e-browser except when running via CLI
 		if (testInfo.project.name === 'e2e-browser' && !isCommandLineRun) {
