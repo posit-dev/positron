@@ -56,7 +56,7 @@ jobs:
       project: "e2e-electron"
       display_name: "electron (linux)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/linux' || 'electron/linux' }}
-      report_testrail: true
+      report_testrail: false
 
   e2e-windows:
     name: e2e
@@ -67,7 +67,7 @@ jobs:
       grep: ""
       display_name: "electron (win)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/win' || 'electron/win' }}
-      report_testrail: true
+      report_testrail: false
 
   e2e-browser:
     name: e2e
@@ -79,7 +79,7 @@ jobs:
       project: "e2e-browser"
       display_name: "browser (linux)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,browser/linux' || 'browser/linux' }}
-      report_testrail: true
+      report_testrail: false
 
   unit-tests:
     name: test

@@ -10,11 +10,11 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Outline #web #win', {
+test.describe('Outline', {
 	tag: [tags.WEB, tags.WIN, tags.OUTLINE]
 }, () => {
 
-	test('Python - Verify Outline Contents [C956870]', async function ({ app, python }) {
+	test('Python - Verify Outline Contents', async function ({ app, python }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 		const outlineData = await app.workbench.outline.getOutlineData();
 		const expected = [
@@ -32,7 +32,7 @@ test.describe('Outline #web #win', {
 		}
 	});
 
-	test('R - Verify Outline Contents [C956871]', async function ({ app, r }) {
+	test('R - Verify Outline Contents', async function ({ app, r }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
 		const outlineData = await app.workbench.outline.getOutlineData();
 		const expected = [

@@ -22,23 +22,23 @@ test.describe('Headless Data Explorer - Large Data Frame', {
 		await app.workbench.dataExplorer.closeDataExplorer();
 	});
 
-	test('Verifies headless data explorer functionality with large parquet file [C938893]', async function ({ app, logger }) {
+	test('Verifies headless data explorer functionality with large parquet file', async function ({ app, logger }) {
 		await testBody(app, logger, 'flights.parquet');
 	});
 
-	test('Verifies headless data explorer functionality with large csv file [C938894]', async function ({ app, logger }) {
+	test('Verifies headless data explorer functionality with large csv file', async function ({ app, logger }) {
 		await testBody(app, logger, 'flights.csv');
 	});
 
-	test('Verifies headless data explorer functionality with large gzipped csv file [C1137087]', async function ({ app, logger }) {
+	test('Verifies headless data explorer functionality with large gzipped csv file', async function ({ app, logger }) {
 		await testBody(app, logger, 'flights.csv.gz');
 	});
 
-	test('Verifies headless data explorer functionality with large tsv file [C1137088]', async function ({ app, logger }) {
+	test('Verifies headless data explorer functionality with large tsv file', async function ({ app, logger }) {
 		await testBody(app, logger, 'flights.tsv');
 	});
 
-	test('Verifies headless data explorer functionality with large gzipped tsv file [C1137089]', async function ({ app, logger }) {
+	test('Verifies headless data explorer functionality with large gzipped tsv file', async function ({ app, logger }) {
 		await testBody(app, logger, 'flights.tsv.gz');
 	});
 });

@@ -15,7 +15,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 		await app.workbench.viewer.clearViewer();
 	});
 
-	test('Python - Verify Viewer functionality with webbrowser [C784887]', { tag: [tags.WEB] }, async function ({ app, page, logger, python }) {
+	test('Python - Verify Viewer functionality with webbrowser', { tag: [tags.WEB] }, async function ({ app, page, logger, python }) {
 		logger.log('Sending code to console');
 		await app.workbench.console.pasteCodeToConsole(pythonScript);
 		await app.workbench.console.sendEnterKey();
@@ -23,7 +23,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 		await theDoc.waitFor({ state: 'attached' });
 	});
 
-	test('Python - Verify Viewer functionality with great-tables [C784888]', { tag: [tags.WEB] }, async function ({ app, logger, python }) {
+	test('Python - Verify Viewer functionality with great-tables', { tag: [tags.WEB] }, async function ({ app, logger, python }) {
 
 		// extra clean up - https://github.com/posit-dev/positron/issues/4604
 		// without this, on ubuntu, the Enter key send to the console
@@ -41,7 +41,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 	});
 
 
-	test('R - Verify Viewer functionality with modelsummary [C784889]', { tag: [tags.WEB] }, async function ({ app, logger, r }) {
+	test('R - Verify Viewer functionality with modelsummary', { tag: [tags.WEB] }, async function ({ app, logger, r }) {
 		logger.log('Sending code to console');
 		await app.workbench.console.executeCode('R', rModelSummaryScript);
 		let billDepthLocator;
@@ -54,7 +54,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 
 	});
 
-	test('R - Verify Viewer functionality with reactable [C784930]', {
+	test('R - Verify Viewer functionality with reactable', {
 		annotation: [{ type: 'web issue', description: 'https://github.com/posit-dev/positron/issues/5972' }]
 	}, async function ({ app, logger, r }) {
 
@@ -67,7 +67,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 
 	});
 
-	test('R - Verify Viewer functionality with reprex [C784931]', {
+	test('R - Verify Viewer functionality with reprex', {
 		annotation: [{ type: 'web issue', description: 'https://github.com/posit-dev/positron/issues/5975' }]
 	}, async function ({ app, logger, r }) {
 

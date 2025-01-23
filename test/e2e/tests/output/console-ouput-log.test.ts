@@ -14,7 +14,7 @@ test.describe('Console Output Log', { tag: [tags.WEB, tags.WIN, tags.OUTPUT, tag
 		await app.workbench.layouts.enterLayout('stacked');
 	});
 
-	test('Python - Verify Console Output Log Contents [C667518]', async function ({ app, python }) {
+	test('Python - Verify Console Output Log Contents', async function ({ app, python }) {
 		const activeConsole = app.workbench.console.activeConsole;
 		await activeConsole.click();
 
@@ -26,7 +26,7 @@ test.describe('Console Output Log', { tag: [tags.WEB, tags.WIN, tags.OUTPUT, tag
 		await app.workbench.output.waitForOutContaining("name 'b' is not defined");
 	});
 
-	test('R - Verify Console Output Log Contents [C667519]', async function ({ app, r }) {
+	test('R - Verify Console Output Log Contents', async function ({ app, r }) {
 		const activeConsole = app.workbench.console.activeConsole;
 		await activeConsole.click();
 

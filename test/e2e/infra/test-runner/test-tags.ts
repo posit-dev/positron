@@ -23,6 +23,7 @@ export enum TestTags {
 	CONSOLE = '@:console',
 	CRITICAL = '@:critical',
 	DATA_EXPLORER = '@:data-explorer',
+	DEBUG = '@:debug',
 	DUCK_DB = '@:duck-db',
 	EDITOR_ACTION_BAR = '@:editor-action-bar',
 	HELP = '@:help',
@@ -45,7 +46,7 @@ export enum TestTags {
 	TOP_ACTION_BAR = '@:top-action-bar',
 	VARIABLES = '@:variables',
 	WELCOME = '@:welcome',
-	DEBUG = '@:debug',
+	PROBLEMS = '@:problems',
 
 	// platform  tags
 	WEB = '@:web',

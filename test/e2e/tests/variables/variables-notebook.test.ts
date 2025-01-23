@@ -17,7 +17,7 @@ test.afterEach(async function ({ app }) {
 test.describe('Variables Pane - Notebook', {
 	tag: [tags.CRITICAL, tags.WEB, tags.VARIABLES, tags.NOTEBOOKS]
 }, () => {
-	test('Python - Verifies Variables pane basic function for notebook [C669188]', async function ({ app, python }) {
+	test('Python - Verifies Variables pane basic function for notebook', async function ({ app, python }) {
 		await app.workbench.notebooks.createNewNotebook();
 
 		// workaround issue where starting multiple interpreters in quick succession can cause startup failure
@@ -38,7 +38,7 @@ test.describe('Variables Pane - Notebook', {
 		expect(variablesMap.get('y')).toStrictEqual({ value: '[2, 3, 4, 5]', type: 'list [4]' });
 	});
 
-	test('R - Verifies Variables pane basic function for notebook [C669189]', async function ({ app, r }) {
+	test('R - Verifies Variables pane basic function for notebook', async function ({ app, r }) {
 		await app.workbench.notebooks.createNewNotebook();
 
 		await app.workbench.notebooks.selectInterpreter('R');
