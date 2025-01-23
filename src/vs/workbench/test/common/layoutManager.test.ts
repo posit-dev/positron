@@ -54,7 +54,7 @@ suite('LayoutManager', () => {
 		verifyDefaultSizedEntries(1, 1_000);
 		verifyDefaultSizedEntries(19, 1_000);
 		verifyDefaultSizedEntries(127, 20_000);
-		// verifyDefaultSizedEntries(23, 500_000);
+		verifyDefaultSizedEntries(23, 500_000);
 	});
 
 	/**
@@ -63,7 +63,7 @@ suite('LayoutManager', () => {
 	test('Default-Sized Entries With Overrides', () => {
 		verifyDefaultSizedEntriesWithOverrides(127, 253, 20_000, 500);
 		verifyDefaultSizedEntriesWithOverrides(200, 18, 50_000, 1_000);
-		// verifyDefaultSizedEntriesWithOverrides(187, 392, 50_000_000, 10_000);
+		verifyDefaultSizedEntriesWithOverrides(187, 392, 50_000_000, 10_000);
 	});
 
 	/**
@@ -75,7 +75,7 @@ suite('LayoutManager', () => {
 		verifyFixedSizedPredefinedEntries(1, 1_000);
 		verifyFixedSizedPredefinedEntries(19, 1_000);
 		verifyFixedSizedPredefinedEntries(127, 20_000);
-		// verifyFixedSizedPredefinedEntries(23, 500_000);
+		verifyFixedSizedPredefinedEntries(23, 500_000);
 	});
 
 	/**
