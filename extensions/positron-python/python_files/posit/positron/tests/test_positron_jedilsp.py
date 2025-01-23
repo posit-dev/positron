@@ -56,6 +56,7 @@ from positron.positron_jedilsp import (
     PositronJediLanguageServer,
     PositronJediLanguageServerProtocol,
     _clear_diagnostics_debounced,
+    _MagicType,
     _publish_diagnostics,
     _publish_diagnostics_debounced,
     positron_code_action,
@@ -138,6 +139,10 @@ def create_server(
     # Mock the shell, since we only really care about the user's namespace.
     server.shell = Mock()
     server.shell.user_ns = {} if namespace is None else namespace
+    server.shell.magics_manager.lsmagic.return_value = {
+        _MagicType.cell: {},
+        _MagicType.line: {},
+    }
 
     return server
 
