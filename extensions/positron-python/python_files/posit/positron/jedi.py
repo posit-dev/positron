@@ -8,7 +8,7 @@ import pathlib
 import platform
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Iterable, List, Optional
+from typing import Any, Iterable, List, Optional, Union, cast
 
 from IPython.core import oinspect
 
@@ -35,12 +35,20 @@ from ._vendor.jedi.api.interpreter import (
 )
 from ._vendor.jedi.cache import memoize_method
 from ._vendor.jedi.inference import InferenceState
-from ._vendor.jedi.inference.base_value import HasNoContext, ValueSet, ValueWrapper
+from ._vendor.jedi.inference.base_value import HasNoContext, Value, ValueSet, ValueWrapper
 from ._vendor.jedi.inference.compiled import ExactValue
 from ._vendor.jedi.inference.compiled.mixed import MixedName, MixedObject
-from ._vendor.jedi.inference.compiled.value import CompiledName, CompiledValue
-from ._vendor.jedi.inference.context import ValueContext
+from ._vendor.jedi.inference.compiled.value import CompiledName, CompiledValue, CompiledValueFilter
+from ._vendor.jedi.inference.context import AbstractContext, ModuleContext, ValueContext
+from ._vendor.jedi.inference.filters import ParserTreeFilter
+from ._vendor.jedi.inference.helpers import infer_call_of_leaf
 from ._vendor.jedi.inference.lazy_value import LazyKnownValue
+from ._vendor.jedi.inference.names import BaseTreeParamName
+from ._vendor.jedi.inference.signature import AbstractSignature
+from ._vendor.jedi.parser_utils import cut_value_at_position
+from ._vendor.jedi.plugins import plugin_manager
+from ._vendor.parso.python.tree import Leaf
+from ._vendor.parso.python.tree import Name as ParsoName
 from .inspectors import (
     BaseColumnInspector,
     BaseTableInspector,
@@ -61,8 +69,8 @@ from .utils import get_qualname
 _original_Interpreter_complete = Interpreter.complete
 _original_Interpreter_help = Interpreter.help
 _original_Interpreter_goto = Interpreter.goto
-_original_mixed_name_infer = MixedName.infer
-_original_mixed_tree_name_infer = MixedTreeName.infer
+_original_MixedName_infer = MixedName.infer
+_original_MixedTreeName_infer = MixedTreeName.infer
 
 
 def _Interpreter_complete(
@@ -109,7 +117,7 @@ def _Interpreter_goto(
 
 
 def _MixedName_infer(self: MixedName) -> ValueSet:
-    return ValueSet(_wrap_value(value) for value in _original_mixed_name_infer(self))
+    return ValueSet(_wrap_value(value) for value in _original_MixedName_infer(self))
 
 
 def _wrap_value(value: MixedObject):
@@ -120,21 +128,21 @@ def _wrap_value(value: MixedObject):
     return value
 
 
-def _is_pandas_dataframe(value: MixedObject) -> bool:
+def _is_pandas_dataframe(value: Union[MixedObject, Value]) -> bool:
     return (
         value.get_root_context().py__name__() == "pandas.core.frame"
         and value.py__name__() == "DataFrame"
     )
 
 
-def _is_pandas_series(value: MixedObject) -> bool:
+def _is_pandas_series(value: Union[MixedObject, Value]) -> bool:
     return (
         value.get_root_context().py__name__() == "pandas.core.series"
         and value.py__name__() == "Series"
     )
 
 
-def _is_polars_dataframe(value: MixedObject) -> bool:
+def _is_polars_dataframe(value: Union[MixedObject, Value]) -> bool:
     return (
         value.get_root_context().py__name__() == "polars.dataframe.frame"
         and value.py__name__() == "DataFrame"
@@ -181,7 +189,7 @@ def _MixedTreeName_infer(self: MixedTreeName) -> ValueSet:
             if values:
                 return values
 
-    return _original_mixed_tree_name_infer(self)
+    return _original_MixedTreeName_infer(self)
 
 
 class PositronName(Name):
