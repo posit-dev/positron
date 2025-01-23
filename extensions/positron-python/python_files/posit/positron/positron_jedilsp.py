@@ -97,7 +97,7 @@ from ._vendor.pygls.feature_manager import has_ls_param_or_annotation
 from ._vendor.pygls.protocol import lsp_method
 from ._vendor.pygls.workspace.text_document import TextDocument
 from .help_comm import ShowHelpTopicParams
-from .jedi import PositronInterpreter
+from .jedi import apply_jedi_patches
 from .utils import debounce
 
 if TYPE_CHECKING:
@@ -113,6 +113,8 @@ _SHELL_PREFIX = "!"
 _HELP_PREFIX_OR_SUFFIX = "?"
 _HELP_TOPIC = "positron/textDocument/helpTopic"
 _VSCODE_NOTEBOOK_CELL_SCHEME = "vscode-notebook-cell"
+
+apply_jedi_patches()
 
 
 def script(project: Optional[Project], document: TextDocument) -> Script:
@@ -840,4 +842,4 @@ def _interpreter(
     if shell is not None:
         namespaces.append(shell.user_ns)
 
-    return PositronInterpreter(document.source, namespaces, path=document.path, project=project)
+    return Interpreter(document.source, namespaces, path=document.path, project=project)
