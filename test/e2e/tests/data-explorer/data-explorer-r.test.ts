@@ -12,24 +12,17 @@ test.use({
 test.describe('Data Explorer - R ', {
 	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER]
 }, () => {
-	test('R - Verifies basic data explorer functionality [C609620]', { tag: [tags.CRITICAL] }, async function ({ app, r, logger }) {
+	test('R - Verifies basic data explorer functionality [C609620]', { tag: [tags.CRITICAL] }, async function ({ app, r, executeCode }) {
 		// snippet from https://www.w3schools.com/r/r_data_frames.asp
-		const script = `Data_Frame <- data.frame (
+		await executeCode('R', `Data_Frame <- data.frame (
 	Training = c("Strength", "Stamina", "Other"),
 	Pulse = c(100, NA, 120),
 	Duration = c(60, 30, 45),
 	Note = c(NA, NA, "Note")
-)`;
+)`);
 
-		logger.log('Sending code to console');
-		await app.workbench.console.executeCode('R', script);
-
-		logger.log('Opening data grid');
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('Data_Frame');
-			await app.code.driver.page.locator('.label-name:has-text("Data: Data_Frame")').innerText();
-		}).toPass();
-
+		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
+		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame');
 		await app.workbench.dataExplorer.maximizeDataExplorer(true);
 
 		await expect(async () => {
@@ -41,12 +34,10 @@ test.describe('Data Explorer - R ', {
 			expect(tableData.length).toBe(3);
 		}).toPass({ timeout: 60000 });
 
-
-
 	});
 	test('R - Verifies basic data explorer column info functionality [C734265]', {
 		tag: [tags.CRITICAL]
-	}, async function ({ app, r }) {
+	}, async function ({ app, r, runCommand }) {
 		await app.workbench.dataExplorer.expandSummary();
 
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(1)).toBe('0%');
@@ -72,45 +63,36 @@ test.describe('Data Explorer - R ', {
 		await app.workbench.sideBar.closeSecondarySideBar();
 
 		await app.workbench.dataExplorer.closeDataExplorer();
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await runCommand('workbench.panel.positronVariables.focus');
 
 	});
 
 	test('R - Open Data Explorer for the second time brings focus back [C701143]', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5714' }]
-	}, async function ({ app, r }) {
+	}, async function ({ app, r, runCommand, executeCode }) {
 		// Regression test for https://github.com/posit-dev/positron/issues/4197
 		// and https://github.com/posit-dev/positron/issues/5714
-		const script = `Data_Frame <- mtcars`;
-		await app.workbench.console.executeCode('R', script);
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await executeCode('R', `Data_Frame <- mtcars`);
+		await runCommand('workbench.panel.positronVariables.focus');
 
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('Data_Frame');
-			await app.code.driver.page.locator('.label-name:has-text("Data: Data_Frame")').innerText();
-		}).toPass();
+		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
+		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame');
 
 		// Now move focus out of the the data explorer pane
 		await app.workbench.editors.newUntitledFile();
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await runCommand('workbench.panel.positronVariables.focus');
 		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
-
-		await expect(async () => {
-			await app.code.driver.page.locator('.label-name:has-text("Data: Data_Frame")').innerText();
-		}).toPass();
+		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame');
 
 		await app.workbench.dataExplorer.closeDataExplorer();
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await runCommand('workbench.panel.positronVariables.focus');
 	});
 
-	test('R - Check blank spaces in data explorer [C1078834]', async function ({ app, r }) {
-		const script = `df = data.frame(x = c("a ", "a", "   ", ""))`;
-		await app.workbench.console.executeCode('R', script);
+	test('R - Check blank spaces in data explorer [C1078834]', async function ({ app, r, executeCode }) {
+		await executeCode('R', `df = data.frame(x = c("a ", "a", "   ", ""))`);
 
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('df');
-			await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
-		}).toPass();
+		await app.workbench.variables.doubleClickVariableRow('df');
+		await app.workbench.dataExplorer.verifyTab('Data: df');
 
 		await expect(async () => {
 			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();

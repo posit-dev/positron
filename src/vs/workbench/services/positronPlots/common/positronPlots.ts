@@ -62,11 +62,6 @@ export interface IPositronPlotsService {
 	readonly historyPolicy: HistoryPolicy;
 
 	/**
-	 * Notifies subscribers when the sizing policy has changed.
-	 */
-	readonly onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy>;
-
-	/**
 	 * Notifies subscribers when the history policy has changed.
 	 */
 	readonly onDidChangeHistoryPolicy: Event<HistoryPolicy>;
@@ -122,6 +117,13 @@ export interface IPositronPlotsService {
 	removePlot(id: string): void;
 
 	/**
+	 * Remove an editor plot.
+	 *
+	 * @param id The ID of the plot to remove.
+	 */
+	removeEditorPlot(id: string): void;
+
+	/**
 	 * Removes the selected plot.
 	 */
 	removeSelectedPlot(): void;
@@ -135,6 +137,11 @@ export interface IPositronPlotsService {
 	 * Selects a sizing policy.
 	 */
 	selectSizingPolicy(id: string): void;
+
+	/**
+	 * Sets the sizing policy for the plot.
+	 */
+	setEditorSizingPolicy(plotId: string, policyId: string): void;
 
 	/**
 	 * Sets a custom plot size (and selects the custom sizing policy)
@@ -184,12 +191,14 @@ export interface IPositronPlotsService {
 	saveEditorPlot(plotId: string): void;
 
 	/**
-	 * Opens the currently selected plot in an editor.
+	 * Opens the given plot in an editor.
 	 *
+	 * @param plotId The id of the plot to open in an editor tab.
 	 * @param groupType Specify where the editor tab will be opened. Defaults to the preferred
+	 * @param metadata The metadata for the plot. Uses the existing plot client if not provided.
 	 *   editor group.
 	 */
-	openEditor(groupType?: number): Promise<void>;
+	openEditor(plotId: string, groupType?: number, metadata?: IPositronPlotMetadata): Promise<void>;
 
 	/**
 	 * Gets the preferred editor group for opening the plot in an editor tab.

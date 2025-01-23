@@ -10,6 +10,8 @@ import { Code } from '../infra/code';
 const EDITOR = (filename: string) => `.monaco-editor[data-uri$="${filename}"]`;
 const CURRENT_LINE = '.view-overlays .current-line';
 const PLAY_BUTTON = '.codicon-play';
+const VIEW_LINES = (filename: string) => `${EDITOR(filename)} .view-lines`;
+const LINE_NUMBERS = (filename: string) => `${EDITOR(filename)} .margin .margin-view-overlays .line-numbers`;
 
 const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
@@ -134,4 +136,70 @@ export class Editor {
 		}).toPass();
 	}
 
+	async clickOnTerm(filename: string, term: string, line: number, doubleClick: boolean = false): Promise<void> {
+		const selector = await this.getSelector(filename, term, line);
+		if (doubleClick) {
+			await this.code.driver.page.locator(selector).dblclick();
+		} else {
+			await this.code.driver.page.locator(selector).click();
+		}
+	}
+
+	private async getSelector(filename: string, term: string, line: number): Promise<string> {
+		const lineIndex = await this.getViewLineIndex(filename, line);
+
+		// Get class names and the correct term index
+		const { classNames, termIndex } = await this.getClassSelectors(filename, term, lineIndex);
+
+		return `${VIEW_LINES(filename)}>:nth-child(${lineIndex}) span span.${classNames[0]}:nth-of-type(${termIndex + 1})`;
+	}
+
+	private async getViewLineIndex(filename: string, line: number): Promise<number> {
+		const allElements = await this.code.driver.page.locator(LINE_NUMBERS(filename)).all();
+
+		// Resolve textContent for all elements first
+		const elementsWithText = await Promise.all(allElements.map(async (el, index) => ({
+			el,
+			text: await el.textContent(),
+			index
+		})));
+
+		// Find the first element matching the line number
+		const matchingElement = elementsWithText.find(({ text }) => text === `${line}`);
+
+		if (!matchingElement) {
+			throw new Error(`Line ${line} not found in file ${filename}`);
+		}
+
+		// Return the 1-based index
+		return matchingElement.index + 1;
+	}
+
+	private async getClassSelectors(filename: string, term: string, viewline: number): Promise<{ classNames: string[], termIndex: number }> {
+		// Locate all spans inside the line
+		const allElements = await this.code.driver.page.locator(`${VIEW_LINES(filename)}>:nth-child(${viewline}) span span`).all();
+
+		// Resolve all textContent values before filtering
+		const elementsWithText = await Promise.all(allElements.map(async (el, index) => ({
+			el,
+			text: await el.textContent(),
+			index
+		})));
+
+		// Find the first element that contains the term
+		const matchingElement = elementsWithText.find(({ text }) => text === term);
+
+		if (!matchingElement) {
+			throw new Error(`No elements found with term "${term}" in file "${filename}"`);
+		}
+
+		// Get the class names of the matching span
+		const className = await matchingElement.el.evaluate(el => (el as HTMLElement).className) as string;
+		const classNames = className.split(/\s+/);
+
+		// Find the index of this span among all spans
+		const termIndex = elementsWithText.filter(({ text }) => text !== null).map(({ el }) => el).indexOf(matchingElement.el);
+
+		return { classNames, termIndex };
+	}
 }

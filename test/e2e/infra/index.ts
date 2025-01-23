@@ -36,6 +36,7 @@ export * from '../pages/extensions';
 export * from '../pages/editors';
 export * from '../pages/settings';
 export * from '../pages/debug';
+export * from '../pages/problems';
 
 // fixtures
 export * from './fixtures/userSettings';
