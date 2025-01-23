@@ -254,7 +254,10 @@ def test_positron_completion_exact(
     server = create_server(namespace)
     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
     completions = _completions(server, text_document)
-    completion_labels = [completion.label for completion in completions]
+    completion_labels = [
+        completion.text_edit.new_text if completion.text_edit else completion.insert_text
+        for completion in completions
+    ]
     assert completion_labels == expected_labels
 
 
