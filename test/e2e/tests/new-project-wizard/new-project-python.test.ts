@@ -45,7 +45,6 @@ test.describe('Python - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJEC
 	});
 
 	test('New env: Git intialized [C674522]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
-		expect(1).toBe(2);
 		const projectTitle = addRandomNumSuffix('git-init');
 
 		await createNewProject(app, {

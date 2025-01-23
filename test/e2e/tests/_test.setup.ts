@@ -282,9 +282,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 			// attach the trace to the report if CI and test failed or not in CI
 			const isCI = process.env.CI === 'true';
-			console.log(`isCI: ${isCI}`);
 			if (!isCI || testInfo.status !== testInfo.expectedStatus || testInfo.retry) {
-				console.log('Attaching trace to report...');
 				testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
 			}
 		}
