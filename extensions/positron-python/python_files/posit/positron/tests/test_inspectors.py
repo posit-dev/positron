@@ -13,11 +13,11 @@ import types
 from typing import Any, Callable, Iterable, Optional, Tuple
 
 import geopandas
-import torch
 import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
+import torch
 from fastcore.foundation import L
 from shapely.geometry import Polygon
 
