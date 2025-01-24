@@ -100,7 +100,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 		tools.push(getPlotToolAdapter.lmTool);
 
 		// Language model chat history
-		const messages: vscode.LanguageModelChatMessage[] = toLanguageModelChatMessage(context.history);
+		let messages: vscode.LanguageModelChatMessage[] = toLanguageModelChatMessage(context.history);
 
 		// Add Positron specific context
 		const positronContext = await positron.ai.getPositronChatContext(request);
@@ -108,6 +108,21 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 			vscode.LanguageModelChatMessage.User(JSON.stringify(positronContext)),
 			vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
 		]);
+
+		// If the workspace has an llms.txt document, add it to the message thread.
+		if (vscode.workspace.workspaceFolders) {
+			const fileUri = vscode.Uri.joinPath(vscode.workspace.workspaceFolders[0].uri, `llms.txt`);
+			const fileExists = await vscode.workspace.fs.stat(fileUri).then(() => true, () => false);
+			if (fileExists) {
+				const llmsDocument = await vscode.workspace.openTextDocument(fileUri);
+				const fileContent = llmsDocument.getText();
+				messages = [
+					vscode.LanguageModelChatMessage.User(fileContent),
+					vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
+					...messages
+				];
+			}
+		}
 
 		// If the user has explicitly attached files as context, add them to the message thread
 		if (request.references.length > 0) {
