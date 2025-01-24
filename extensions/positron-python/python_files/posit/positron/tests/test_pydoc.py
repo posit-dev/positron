@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from positron_ipykernel.pydoc import (
+from positron.pydoc import (
     _Attr,
     _compact_signature,
     _get_summary,

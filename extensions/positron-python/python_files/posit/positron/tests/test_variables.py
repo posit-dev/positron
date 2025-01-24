@@ -14,14 +14,14 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from positron_ipykernel import variables as variables_module
-from positron_ipykernel.access_keys import encode_access_key
-from positron_ipykernel.inspectors import get_inspector
-from positron_ipykernel.positron_comm import JsonRpcErrorCode
-from positron_ipykernel.positron_ipkernel import PositronIPyKernel
-from positron_ipykernel.utils import JsonData, JsonRecord, not_none
-from positron_ipykernel.variables import VariablesService, _summarize_variable
-from positron_ipykernel.variables_comm import Variable
+from positron import variables as variables_module
+from positron.access_keys import encode_access_key
+from positron.inspectors import get_inspector
+from positron.positron_comm import JsonRpcErrorCode
+from positron.positron_ipkernel import PositronIPyKernel
+from positron.utils import JsonData, JsonRecord, not_none
+from positron.variables import VariablesService, _summarize_variable
+from positron.variables_comm import Variable
 
 from .conftest import DummyComm, PositronShell
 from .utils import (
@@ -116,7 +116,7 @@ def test_change_detection(
 def _assert_assigned(shell: PositronShell, value_code: str, variables_comm: DummyComm):
     # Test that the expected `update` message was sent with the
     # expected `assigned` value.
-    with patch("positron_ipykernel.variables.timestamp", return_value=0):
+    with patch("positron.variables.timestamp", return_value=0):
         # Remember if the user namespace had the 'x' value before the assignment.
         was_empty = "x" not in shell.user_ns
 
@@ -185,7 +185,7 @@ def test_change_detection_over_limit(shell: PositronShell, variables_comm: Dummy
 
 def _do_list(variables_comm: DummyComm):
     msg = json_rpc_request("list", comm_id="dummy_comm_id")
-    with patch("positron_ipykernel.variables.timestamp", return_value=0):
+    with patch("positron.variables.timestamp", return_value=0):
         variables_comm.handle_msg(msg)
 
     # Check the structure of the message but let the caller verify the contents.
@@ -238,7 +238,7 @@ def test_list_falls_back_on_variable_error(
     def NumberInspector(*args, **kwargs):
         raise Exception()
 
-    from positron_ipykernel.inspectors import INSPECTOR_CLASSES
+    from positron.inspectors import INSPECTOR_CLASSES
 
     monkeypatch.setitem(INSPECTOR_CLASSES, "number", NumberInspector)
 
@@ -389,7 +389,7 @@ def _do_inspect(encoded_path: List[JsonData], variables_comm: DummyComm) -> List
         comm_id="dummy_comm_id",
     )
 
-    with patch("positron_ipykernel.variables.timestamp", return_value=0):
+    with patch("positron.variables.timestamp", return_value=0):
         variables_comm.handle_msg(msg)
 
     # Check the structure of the message but let the caller verify the contents.

@@ -309,7 +309,7 @@ class PositronShell(ZMQInteractiveShell):
 
     def show_usage(self):
         """Show a usage message"""
-        self.kernel.help_service.show_help("positron_ipykernel.utils.positron_ipykernel_usage")
+        self.kernel.help_service.show_help("positron.utils.positron_ipykernel_usage")
 
     @traitlets.observe("exit_now")
     def _update_exit_now(self, change):
@@ -548,7 +548,7 @@ class PositronIPKernelApp(IPKernelApp):
             # Matplotlib uses the MPLBACKEND environment variable to determine the backend to use.
             # It imports the backend module when it's first needed.
             if not os.environ.get("MPLBACKEND"):
-                os.environ["MPLBACKEND"] = "module://positron_ipykernel.matplotlib_backend"
+                os.environ["MPLBACKEND"] = "module://positron.matplotlib_backend"
 
         return super().init_gui_pylab()
 

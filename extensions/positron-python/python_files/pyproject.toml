@@ -2,7 +2,7 @@
 max_line_length = 100
 
 [tool.black]
-include = 'positron\/.*.py$|positron\/positron_ipykernel\/.*.py$|positron\/positron_ipykernel\/test_positron_.*.py$'
+include = 'positron\/.*.py$|posit\/positron\/.*.py$|posit\/positron\/test_positron_.*.py$'
 exclude = '''
 
 (
@@ -10,7 +10,7 @@ exclude = '''
     .data
     | .vscode
     | lib
-    | positron/positron_ipykernel/_vendor
+    | posit/positron/_vendor
   )/
 )
 '''
@@ -18,13 +18,13 @@ line-length = 100
 
 [tool.isort]
 profile = "black"
-extend_skip = ['positron/positron_ipykernel/_vendor']
-known_first_party = ['positron_ipykernel']
-known_third_party = ['positron_ipykernel._vendor']
+extend_skip = ['posit/positron/_vendor']
+known_first_party = ['positron']
+known_third_party = ['positron._vendor']
 
 [tool.pyright]
-exclude = ['lib', 'positron/positron_ipykernel/_vendor']
-extraPaths = ['lib/python', 'positron/positron_ipykernel/_vendor']
+exclude = ['lib', 'posit/positron/_vendor']
+extraPaths = ['lib/python', 'posit/positron/_vendor']
 ignore = [
     # Ignore all pre-existing code with issues
     'get-pip.py',
@@ -62,7 +62,7 @@ exclude = [
     "tests/pytestadapter",
     # Ignore vendored dependencies
     'lib/',
-    'positron/positron_ipykernel/_vendor/',
+    'posit/positron/_vendor/',
     # --- End Positron ---
 ]
 

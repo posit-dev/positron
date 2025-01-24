@@ -70,4 +70,21 @@ export class Terminal {
 			}
 		}, text);
 	}
+
+	async logTerminalContents() {
+		const terminalRows = this.code.driver.page.locator('.xterm-rows > div');
+		const terminalContents = (await terminalRows.evaluateAll((rows) =>
+			rows.map((row) => {
+				const spans = row.querySelectorAll('span');
+				return Array.from(spans)
+					.map((span) => span.textContent?.trim() || '')
+					.join(' ');
+			})
+		)).filter((line) => line && line.length > 0)
+			.join('\n');
+
+		this.code.logger.log('---- START: Terminal Contents ----');
+		this.code.logger.log(terminalContents);
+		this.code.logger.log('---- END: Terminal Contents ----');
+	}
 }
