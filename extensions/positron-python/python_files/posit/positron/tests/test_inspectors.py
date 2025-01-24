@@ -910,12 +910,13 @@ def test_get_child(value: Any, key: Any, expected: Any) -> None:
     child = get_inspector(value).get_child(key)
     assert get_inspector(child).equals(expected)
 
+
 # TODO: 3.13 maint. run this test once ibis is available in 3.13
-@pytest.mark.xfail(sys.version_info > (3, 12), reason="ibis not available in 3.13", strict=True)
+@pytest.mark.xfail(sys.version_info >= (3, 13), reason="ibis not available in 3.13", strict=True)
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="requires Python 3.10 or higher")
 def test_inspect_ibis_exprs() -> None:
     import ibis
-    
+
     # Make sure we don't return an executed repr
     ibis.options.interactive = True
 
