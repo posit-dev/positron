@@ -72,8 +72,8 @@ export class Terminal {
 	}
 
 	async logTerminalContents() {
-		const locator = this.code.driver.page.locator('.xterm-rows > div');
-		const plainText = (await locator.evaluateAll((rows) =>
+		const terminalRows = this.code.driver.page.locator('.xterm-rows > div');
+		const terminalContents = (await terminalRows.evaluateAll((rows) =>
 			rows.map((row) => {
 				const spans = row.querySelectorAll('span');
 				return Array.from(spans)
@@ -84,7 +84,7 @@ export class Terminal {
 			.join('\n');
 
 		this.code.logger.log('---- START: Terminal Contents ----');
-		this.code.logger.log(plainText);
+		this.code.logger.log(terminalContents);
 		this.code.logger.log('---- END: Terminal Contents ----');
 	}
 }
