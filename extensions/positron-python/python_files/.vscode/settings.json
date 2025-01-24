@@ -10,7 +10,7 @@
     },
     "python.testing.pytestArgs": [
         "tests",
-        "positron/positron_ipykernel/tests"
+        "posit/positron/tests"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,

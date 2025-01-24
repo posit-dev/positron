@@ -14,9 +14,9 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from positron_ipykernel._vendor import cattrs
-from positron_ipykernel._vendor.jedi_language_server import jedi_utils
-from positron_ipykernel._vendor.lsprotocol.types import (
+from positron._vendor import cattrs
+from positron._vendor.jedi_language_server import jedi_utils
+from positron._vendor.lsprotocol.types import (
     ClientCapabilities,
     CompletionClientCapabilities,
     CompletionClientCapabilitiesCompletionItemType,
@@ -33,10 +33,10 @@ from positron_ipykernel._vendor.lsprotocol.types import (
     TextDocumentItem,
     TextEdit,
 )
-from positron_ipykernel._vendor.pygls.workspace.text_document import TextDocument
-from positron_ipykernel.help_comm import ShowHelpTopicParams
-from positron_ipykernel.jedi import PositronInterpreter
-from positron_ipykernel.positron_jedilsp import (
+from positron._vendor.pygls.workspace.text_document import TextDocument
+from positron.help_comm import ShowHelpTopicParams
+from positron.jedi import PositronInterpreter
+from positron.positron_jedilsp import (
     HelpTopicParams,
     PositronInitializationOptions,
     PositronJediLanguageServer,

@@ -11,15 +11,15 @@ import pytest
 from jupyter_client.session import Session
 from traitlets.config import Config
 
-import positron_ipykernel.utils as utils
-from positron_ipykernel.connections import ConnectionsService
-from positron_ipykernel.positron_ipkernel import (
+import positron.utils as utils
+from positron.connections import ConnectionsService
+from positron.positron_ipkernel import (
     PositronIPKernelApp,
     PositronIPyKernel,
     PositronShell,
 )
-from positron_ipykernel.session_mode import SessionMode
-from positron_ipykernel.variables import VariablesService
+from positron.session_mode import SessionMode
+from positron.variables import VariablesService
 from http.server import HTTPServer
 
 utils.TESTING = True

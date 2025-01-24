@@ -462,7 +462,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		const profileFile = session.state.profileFile;
 		const logLevel = 'debug';
 
-		const kernelPath = `${__dirname}/../../positron-python/python_files/positron/positron_language_server.py`;
+		const kernelPath = `${__dirname}/../../positron-python/python_files/posit/positron_language_server.py`;
 
 		if (!this.rSession) {
 			kernel.log('No R session :(');
@@ -798,7 +798,7 @@ export function activate(context: vscode.ExtensionContext) {
 			if (!api) {
 				throw new Error('Failed to find the Positron Python extension API.');
 			}
-			return api.extensionPath + '/python_files/positron/positron_ipykernel';
+			return api.extensionPath + '/python_files/posit/positron';
 		})
 	);
 
