@@ -410,11 +410,28 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this.saveAffiliatedRuntime(newAffiliation);
 		}
 
+		const disabledLanguages = new Array<string>();
+		const enabledLanguages = Array.from(this._languagePacks.keys()).filter(languageId => {
+			if (this.getStartupBehavior(languageId) === StartupBehavior.Disabled) {
+				this._logService.debug(`[Runtime startup] Skipping language runtime startup for language ID '${languageId}' because its startup behavior is disabled.`);
+				disabledLanguages.push(languageId);
+				return false;
+			}
+			return true;
+		});
+
+		this.setStartupPhase(RuntimeStartupPhase.Starting);
+
 		// If no sessions were restored, and we have affiliated runtimes,
 		// try to start them.
 		if (!this._runtimeSessionService.hasStartingOrRunningConsole() &&
 			this.hasAffiliatedRuntime()) {
-			await this.startAffiliatedLanguageRuntimes();
+			await this.startAffiliatedLanguageRuntimes(disabledLanguages, enabledLanguages);
+		}
+
+		// Start any runtimes recommended by the extensions.
+		if (!this._runtimeSessionService.hasStartingOrRunningConsole()) {
+			await this.startRecommendedLanguageRuntimes(disabledLanguages, enabledLanguages);
 		}
 
 		// Then, discover all language runtimes.
@@ -684,6 +701,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		return affiliated.metadata;
 	}
 
+	private async getRecommendedRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
+
+		// Ask each extension to recommend runtimes for this workspace.
+		const metadata = await Promise.all(
+			this._runtimeManagers.map(
+				manager => manager.recommendWorkspaceRuntimes(disabledLanguageIds))
+		);
+
+		// Each extension host returns an array; flatten the array of arrays.
+		return metadata.flat();
+	}
+
 	private getAffiliatedRuntime(languageId: string): IAffiliatedRuntimeMetadata | undefined {
 		const stored = this._storageService.get(`${this.storageKey}.${languageId}`,
 			this.affiliationStorageScope());
@@ -704,7 +733,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 *
 	 * @returns An array of language IDs for which there is a runtime affiliated
 	 */
-	public getAffiliatedRuntimeLanguageIds(): string[] | undefined {
+	public getAffiliatedRuntimeLanguageIds(): string[] {
 		// Get the keys from the storage service and find the language Ids.
 		const languageIds = new Array<string>();
 		const keys = this._storageService.keys(this.affiliationStorageScope(),
@@ -779,11 +808,44 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
+	 * Starts all recommended runtimes for the workspace.
+	 */
+	private async startRecommendedLanguageRuntimes(disabledLanguageIds: string[], enabledLanguageIds: string[]): Promise<void> {
+		// Activate all the extensions that might recommend language runtimes
+		// for the enabled languages.
+		await this.activateExtensionsForLanguages(enabledLanguageIds);
+
+		// Have the extensions recommend runtimes for this workspace.
+		const runtimes = await this.getRecommendedRuntimes(disabledLanguageIds);
+		if (runtimes.length === 0) {
+			return;
+		}
+
+		// Start the recommended runtimes.
+		const promises = runtimes.map((runtime, idx) => {
+			if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
+				this._runtimeSessionService.autoStartRuntime(runtime,
+					`The ${runtime.extensionId.value} extension recommended the runtime to be started in this workspac.`,
+					idx === 0);
+			}
+			// TODO: If the startup behavior is not Immediate, we could
+			// associate the runtime with the workspace without actually
+			// starting it
+		});
+
+		await Promise.all(promises);
+	}
+
+	/**
 	 * Starts all affiliated runtimes for the workspace.
 	 */
-	private async startAffiliatedLanguageRuntimes(): Promise<void> {
-		this.setStartupPhase(RuntimeStartupPhase.Starting);
-		const languageIds = this.getAffiliatedRuntimeLanguageIds();
+	private async startAffiliatedLanguageRuntimes(disabledLanguageIds: string[], _enabledLanguageIds: string[]): Promise<void> {
+		let languageIds = this.getAffiliatedRuntimeLanguageIds();
+
+		// Remove any disabled languages
+		languageIds = languageIds.filter(languageId => {
+			return !disabledLanguageIds.includes(languageId);
+		});
 
 		// No affiliated runtimes; move on to the next phase.
 		if (!languageIds) {
@@ -903,34 +965,21 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		const affiliatedRuntimeMetadata = affiliatedRuntime.metadata;
 
-		// Check the setting to see if we should be auto-starting.
-		const autoStart = this._configurationService.getValue<boolean>(
-			'interpreters.automaticStartup');
-
-		if (autoStart) {
-
-			if (affiliatedRuntimeMetadata.startupBehavior === LanguageRuntimeStartupBehavior.Manual) {
-				this._logService.info(`Language runtime ` +
-					`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
-					`is affiliated with this workspace, but won't be started because its startup ` +
-					`behavior is manual.`);
-				return;
-			}
-
-			// Save the start time of the affliated runtime.
-			affiliatedRuntime.lastStarted = Date.now();
-			this.saveAffiliatedRuntime(affiliatedRuntime);
-
-			this._runtimeSessionService.autoStartRuntime(affiliatedRuntimeMetadata,
-				`Affiliated ${affiliatedRuntimeMetadata.languageName} runtime for workspace`,
-				activate);
-		} else {
+		if (affiliatedRuntimeMetadata.startupBehavior === LanguageRuntimeStartupBehavior.Manual) {
 			this._logService.info(`Language runtime ` +
 				`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
-				`is affiliated with this workspace, but won't be started because automatic ` +
-				`startup is disabled in configuration.`);
+				`is affiliated with this workspace, but won't be started because its startup ` +
+				`behavior is manual.`);
 			return;
 		}
+
+		// Save the start time of the affliated runtime.
+		affiliatedRuntime.lastStarted = Date.now();
+		this.saveAffiliatedRuntime(affiliatedRuntime);
+
+		this._runtimeSessionService.autoStartRuntime(affiliatedRuntimeMetadata,
+			`Affiliated ${affiliatedRuntimeMetadata.languageName} runtime for workspace`,
+			activate);
 	}
 
 	/**

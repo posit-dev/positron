@@ -1192,8 +1192,8 @@ export class MainThreadLanguageRuntime
 		this._proxy.$discoverLanguageRuntimes(disabledLanguageIds);
 	}
 
-	async recommendWorkspaceRuntimes(_disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
-		return [];
+	async recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
+		return this._proxy.$recommendWorkspaceRuntimes(disabledLanguageIds);
 	}
 
 	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void {
