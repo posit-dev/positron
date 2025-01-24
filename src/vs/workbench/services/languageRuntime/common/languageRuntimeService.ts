@@ -665,6 +665,14 @@ export interface ILanguageRuntimeMetadata {
 	readonly extraRuntimeData: any;
 }
 
+export interface IRuntimeManager {
+	id: number;
+
+	discoverAllRuntimes(disabledLanguageIds: string[]): Promise<void>;
+
+	recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
+}
+
 export interface ILangaugeRuntimeDynState {
 	/** The text the language's interpreter uses to prompt the user for input, e.g. ">" or ">>>" */
 	inputPrompt: string;
@@ -727,11 +735,6 @@ export interface ILanguageRuntimeService {
 	onDidChangeRuntimeStartupPhase: Event<RuntimeStartupPhase>;
 
 	/**
-	 * Event fired when runtime discovery begins.
-	 */
-	onDidBeginRuntimeDiscovery: Event<RuntimeDiscoveryStartedEvent>;
-
-	/**
 	 * Gets the registered language runtimes.
 	 */
 	readonly registeredRuntimes: ILanguageRuntimeMetadata[];
@@ -765,13 +768,6 @@ export interface ILanguageRuntimeService {
 	 * @param phase The new startup phase
 	 */
 	setStartupPhase(phase: RuntimeStartupPhase): void;
-
-	/**
-	 * Begins discovery of language runtimes.
-	 *
-	 * @param disabledLanguageIds The language IDs for which discovery should be skipped/disabled.
-	 */
-	beginDiscovery(disabledLanguageIds: string[]): void;
 
 	/**
 	 * Returns the current startup phase.

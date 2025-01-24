@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as nls from '../../../../nls.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -12,7 +12,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeStartupService } from './runtimeStartupService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
@@ -120,6 +120,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	// Whether we are shutting down
 	private _shuttingDown = false;
+
+	private _runtimeManagers: IRuntimeManager[] = [];
 
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -472,25 +474,20 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 *
 	 * @param id The id of the MainThreadLanguageRuntime instance being registered.
 	 */
-	public registerMainThreadLanguageRuntime(id: number): void {
+	public registerRuntimeManager(manager: IRuntimeManager): IDisposable {
 		// Add the mainThreadLanguageRuntime instance id to the set of mainThreadLanguageRuntimes.
-		this._discoveryCompleteByExtHostId.set(id, false);
-		this._logService.debug(`[Runtime startup] Registered extension host with id: ${id}.`);
-	}
+		// this._discoveryCompleteByExtHostId.set(id, false);
+		this._runtimeManagers.push(manager);
+		this._logService.debug(`[Runtime startup] Registered runtime manager (ext host) with id: ${manager.id}.`);
 
-	/**
-	 * Used to un-registers an instance of a MainThreadLanguageRuntime.
-	 *
-	 * This is required because there can be multiple extension hosts
-	 * and the startup service needs to know of all of them to track
-	 * the startup phase across all extension hosts.
-	 *
-	 * @param id The id of the MainThreadLanguageRuntime instance being un-registered.
-	 */
-	public unregisterMainThreadLanguageRuntime(id: number): void {
-		// Remove the mainThreadLanguageRuntime instance id to the set of mainThreadLanguageRuntimes.
-		this._discoveryCompleteByExtHostId.delete(id);
-		this._logService.debug(`[Runtime startup] Unregistered extension host with id: ${id}.`);
+		return {
+			dispose: () => {
+				const index = this._runtimeManagers.indexOf(manager);
+				if (index !== -1) {
+					this._runtimeManagers.splice(index, 1);
+				}
+			}
+		};
 	}
 
 	/**
@@ -597,7 +594,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Enter the discovery phase; this triggers us to ask each extension for its
 		// language runtime providers.
 		this.setStartupPhase(RuntimeStartupPhase.Discovering);
-		this._languageRuntimeService.beginDiscovery(disabledLanguages);
+
+		// Ask each extension to provide its language runtime metadata.
+		for (const manager of this._runtimeManagers) {
+			manager.discoverAllRuntimes(disabledLanguages);
+		}
 	}
 
 	/**
