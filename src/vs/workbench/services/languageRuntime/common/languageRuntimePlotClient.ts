@@ -7,8 +7,9 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronPlotClient } from '../../positronPlots/common/positronPlots.js';
 import { IntrinsicSize, RenderFormat } from './positronPlotComm.js';
-import { IPlotSize } from '../../positronPlots/common/sizingPolicy.js';
+import { IPlotSize, IPositronPlotSizingPolicy } from '../../positronPlots/common/sizingPolicy.js';
 import { DeferredRender, IRenderedPlot, PositronPlotCommProxy, RenderRequest } from './positronPlotCommProxy.js';
+import { PlotSizingPolicyCustom } from '../../positronPlots/common/sizingPolicyCustom.js';
 
 export enum PlotClientLocation {
 	/** The plot is in the editor */
@@ -53,6 +54,15 @@ export interface IPositronPlotMetadata {
 
 	/** The ID of the runtime session that created the plot */
 	session_id: string;
+
+	/** The sizing policy for the plot. This may not be present with older metadata. */
+	sizing_policy?: {
+		id: string;
+		size?: IPlotSize;
+	};
+
+	/** The plot's location for display. */
+	location?: PlotClientLocation;
 }
 
 /**
@@ -131,6 +141,12 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	private readonly _didSetIntrinsicSizeEmitter = new Emitter<IntrinsicSize | undefined>();
 
 	/**
+	 * Event that fires when the sizing policy is changed.
+	 */
+	onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy>;
+	private readonly _sizingPolicyEmitter = new Emitter<IPositronPlotSizingPolicy>;
+
+	/**
 	 * Creates a new plot client instance.
 	 *
 	 * @param _commProxy The proxy than handles comm requests
@@ -138,6 +154,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 */
 	constructor(
 		private readonly _commProxy: PositronPlotCommProxy,
+		private _sizingPolicy: IPositronPlotSizingPolicy,
 		public readonly metadata: IPositronPlotMetadata) {
 		super();
 
@@ -166,6 +183,9 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// Connect the intrinsic size emitter event
 		this.onDidSetIntrinsicSize = this._didSetIntrinsicSizeEmitter.event;
 
+		// Connect the sizing policy emitter event
+		this.onDidChangeSizingPolicy = this._sizingPolicyEmitter.event;
+
 		// Listen to our own state changes
 		this._register(this.onDidChangeState((state) => {
 			this._state = state;
@@ -190,6 +210,23 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 */
 	public getIntrinsicSize(): Promise<IntrinsicSize | undefined> {
 		return this._commProxy.getIntrinsicSize();
+	}
+
+	get sizingPolicy() {
+		return this._sizingPolicy;
+	}
+
+	set sizingPolicy(newSizingPolicy: IPositronPlotSizingPolicy) {
+		this._sizingPolicy = newSizingPolicy;
+		this.metadata.sizing_policy = {
+			id: newSizingPolicy.id,
+			size: newSizingPolicy instanceof PlotSizingPolicyCustom ? newSizingPolicy.size : undefined
+		};
+		this._sizingPolicyEmitter.fire(newSizingPolicy);
+	}
+
+	public renderWithSizingPolicy(size: IPlotSize | undefined, pixel_ratio: number, format = RenderFormat.Png, preview = false): Promise<IRenderedPlot> {
+		return this.render(size ? this._sizingPolicy.getPlotSize(size) : size, pixel_ratio, format, preview);
 	}
 
 	/**
@@ -374,5 +411,10 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		this.scheduleRender(req, 0);
 		return req.promise;
+	}
+
+	override dispose(): void {
+		this._closeEmitter.fire();
+		super.dispose();
 	}
 }

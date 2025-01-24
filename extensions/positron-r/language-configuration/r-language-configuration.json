@@ -55,6 +55,14 @@
 			"action": { "indent": "none", "appendText": "#* " }
 		},
 
+		// Regular comments.
+		// This must come *after* the Roxygen and Plumber rules in this file.
+		{
+			"beforeText": "^\\s*#.*",
+			"afterText": ".+$",
+			"action": { "indent": "none", "appendText": "# " }
+		},
+
 		// A line ending with an operator, preceded by a blank line.
 		{
 			"previousLineText": "^\\s*(?:#|$)",

@@ -55,7 +55,6 @@ export const OpenInEditorMenuButton = (props: OpenInEditorMenuButtonProps) => {
 	const [actions, setActions] = useState<readonly IAction[]>([]);
 
 	const openEditorPlotHandler = useCallback((groupType: number) => {
-		// props.plotsService.openEditor(groupType);
 		props.commandService.executeCommand(PlotsEditorAction.ID, groupType);
 		setDefaultEditorAction(groupType);
 	}, [props.commandService]);

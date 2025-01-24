@@ -11,7 +11,7 @@ test.use({
 	suiteId: __filename
 });
 
-test('Data Explorer 100x100 - Python - Polars [C674520]', {
+test('Data Explorer 100x100 - Python - Polars', {
 	tag: [tags.WIN, tags.DATA_EXPLORER]
 }, async function ({ app, python }) {
 	test.slow();

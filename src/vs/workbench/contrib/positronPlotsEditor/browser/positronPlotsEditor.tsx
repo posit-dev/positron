@@ -164,7 +164,6 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 		context: IEditorOpenContext,
 		token: CancellationToken
 	): Promise<void> {
-		this._plotClient?.dispose();
 		this._plotClient = this._positronPlotsService.getEditorInstance(input.resource.path);
 		if (!this._plotClient) {
 			throw new Error('Plot client not found');

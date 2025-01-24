@@ -150,7 +150,7 @@ export abstract class PaneComposite extends Composite implements IPaneComposite 
 	}
 
 	// --- Start Positron ---
-	override saveState(): void {
+	protected override saveState(): void {
 		super.saveState();
 	}
 	// --- End Positron ---

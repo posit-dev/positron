@@ -17,7 +17,7 @@ test.describe('Console Pane: R', {
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
-	test('Verify restart button inside the console [C377917]', async function ({ app, r }) {
+	test('Verify restart button inside the console', async function ({ app, r }) {
 		await expect(async () => {
 			await app.workbench.console.barClearButton.click();
 			await app.workbench.console.barPowerButton.click();
@@ -27,7 +27,7 @@ test.describe('Console Pane: R', {
 		}).toPass();
 	});
 
-	test('Verify restart button on console bar [C620636]', async function ({ app, r }) {
+	test('Verify restart button on console bar', async function ({ app, r }) {
 		await expect(async () => {
 			await app.workbench.console.barClearButton.click();
 			await app.workbench.console.barRestartButton.click();
@@ -35,7 +35,7 @@ test.describe('Console Pane: R', {
 		}).toPass();
 	});
 
-	test('Verify cancel button on console bar [C...]', {
+	test('Verify cancel button on console bar', {
 	}, async function ({ app, r }) {
 
 		await app.workbench.console.pasteCodeToConsole('Sys.sleep(10)');
