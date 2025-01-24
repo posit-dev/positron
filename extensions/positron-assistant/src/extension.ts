@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -9,6 +9,7 @@ import { getModelConfigurations, showConfigurationDialog } from './config';
 import { newLanguageModel } from './models';
 import participants from './participants';
 import { newCompletionProvider } from './completion';
+import { editsProvider } from './edits';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -103,6 +104,11 @@ export function activate(context: vscode.ExtensionContext) {
 				registerModels(context);
 			}
 		})
+	);
+
+	// Mapped Edits
+	context.subscriptions.push(
+		vscode.chat.registerMappedEditsProvider({ pattern: '**/*' }, editsProvider)
 	);
 
 	context.subscriptions.push(
