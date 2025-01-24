@@ -302,12 +302,12 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 		await use();
 
+		await app.workbench.console.logConsoleContents();
+		await app.workbench.terminal.logTerminalContents();
+
 		const failed = testInfo.status !== testInfo.expectedStatus;
 		const testTitle = testInfo.title;
 		const endLog = failed ? `>>> !!! FAILURE !!! Test end: '${testTitle}' !!! FAILURE !!! <<<` : `>>> Test end: '${testTitle}' <<<`;
-
-		await app.workbench.console.logConsoleContents();
-		await app.workbench.terminal.logTerminalContents();
 
 		logger.log('');
 		logger.log(endLog);
