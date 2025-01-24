@@ -78,10 +78,10 @@ export class Terminal {
 				const spans = row.querySelectorAll('span');
 				return Array.from(spans)
 					.map((span) => span.textContent?.trim() || '')
-					.join(' '); // Join spans within a row with a space
+					.join(' ');
 			})
-		)).filter((line) => line && line.length > 0) // Remove empty lines
-			.join('\n'); // Join rows with newlines
+		)).filter((line) => line && line.length > 0)
+			.join('\n');
 
 		this.code.logger.log('---- START: Terminal Contents ----');
 		this.code.logger.log(plainText);
