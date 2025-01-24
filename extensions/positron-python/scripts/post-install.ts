@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { execSync } from 'child_process';
+const { execSync } = require('child_process');
 
 // Install or update the PET server binary
 execSync('npm run install-pet', {
-	stdio: 'inherit'
+    stdio: 'inherit',
 });
