@@ -816,7 +816,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Add the onDidPasteText event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidPasteText(text => {
 			// Get the selections. If there are no selections, there is no model, so return.
-			const selections = codeEditorWidget.getSelections();
+			let selections = codeEditorWidget.getSelections();
 			if (!selections || !selections.length) {
 				return;
 			}
@@ -840,6 +840,25 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// Execute the edits.
 			codeEditorWidget.executeEdits('console', edits);
+
+			// Update the resulting selections to be empty.
+			selections = codeEditorWidget.getSelections();
+			if (selections && selections.length) {
+				const updatedSelections: ISelection[] = [];
+				for (const selection of selections) {
+					updatedSelections.push(selection.setStartPosition(
+						selection.endLineNumber,
+						selection.endColumn
+					));
+				}
+
+				// Set the updated selections.
+				codeEditorWidget.setSelections(
+					updatedSelections,
+					'console',
+					CursorChangeReason.Paste
+				);
+			}
 
 			// Ensure that the code editor widget is scrolled into view.
 			codeEditorWidgetContainerRef.current?.scrollIntoView({ behavior: 'auto' });
