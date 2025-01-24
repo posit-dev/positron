@@ -81,6 +81,9 @@ export const OpenInEditorMenuButton = (props: OpenInEditorMenuButtonProps) => {
 			tooltip={props.tooltip}
 			ariaLabel={props.ariaLabel}
 			actions={() => actions}
-			dropdownIndicator='enabled-split' />
+			dropdownIndicator='enabled-split'
+			dropdownAriaLabel={localize('positron-editor-open-in-editor-dropdown', 'Select where to open plot')}
+			dropdownTooltip={localize('positron-editor-open-in-editor-dropdown', 'Select where to open plot')}
+		/>
 	);
 };
