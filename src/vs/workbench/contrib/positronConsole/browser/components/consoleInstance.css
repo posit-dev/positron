@@ -52,6 +52,7 @@
 
 .console-core .console-instance .console-instance-container {
 	cursor: text;
+	word-wrap: break-word;
 }
 
 .console-core .console-instance:focus {

@@ -13,9 +13,9 @@ import matplotlib.pyplot as plt
 import pytest
 from PIL import Image
 
-from positron_ipykernel.plot_comm import PlotSize, PlotUnit
-from positron_ipykernel.plots import PlotsService
-from positron_ipykernel.positron_ipkernel import PositronIPyKernel, _CommTarget
+from positron.plot_comm import PlotSize, PlotUnit
+from positron.plots import PlotsService
+from positron.positron_ipkernel import PositronIPyKernel, _CommTarget
 
 from .conftest import DummyComm, PositronShell
 from .utils import (
@@ -38,7 +38,7 @@ TARGET_NAME = "target_name"
 def setup_positron_matplotlib_backend() -> None:
     # The backend is set in the kernel app, which isn't currently available in our tests,
     # so set it here too.
-    matplotlib.use("module://positron_ipykernel.matplotlib_backend")
+    matplotlib.use("module://positron.matplotlib_backend")
 
 
 @pytest.fixture(autouse=True)

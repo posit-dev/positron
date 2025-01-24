@@ -23,6 +23,7 @@ import { IWorkspaceTrustManagementService } from '../../../../platform/workspace
 import { URI } from '../../../../base/common/uri.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { IPositronNewProjectService } from '../../positronNewProject/common/positronNewProject.js';
+import { isWeb } from '../../../../base/common/platform.js';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
@@ -320,7 +321,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// storage, but it is possible that this workspace will be
 				// re-opened without an interleaving quit (e.g. if multiple
 				// Positron windows are open).
-				e.veto(this.clearWorkspaceSessions(), 'positron.runtimeStartup.clearWorkspaceSessions');
+				//
+				// We don't do this in web mode because async shutdown
+				// operations aren't supported on the web, and if used will
+				// trigger a browser warning when the user attempts to navigate
+				// away.
+				if (!isWeb) {
+					e.veto(this.clearWorkspaceSessions(), 'positron.runtimeStartup.clearWorkspaceSessions');
+				}
 			}
 		}));
 	}

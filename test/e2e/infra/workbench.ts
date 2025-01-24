@@ -33,6 +33,7 @@ import { Extensions } from '../pages/extensions';
 import { Settings } from '../pages/settings';
 import { Debug } from '../pages/debug';
 import { EditorActionBar } from '../pages/editorActionBar';
+import { Problems } from '../pages/problems';
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -69,6 +70,7 @@ export class Workbench {
 	readonly settings: Settings;
 	readonly debug: Debug;
 	readonly editorActionBar: EditorActionBar;
+	readonly problems: Problems;
 
 	constructor(code: Code) {
 
@@ -102,6 +104,7 @@ export class Workbench {
 		this.settings = new Settings(code, this.editors, this.editor, this.quickaccess);
 		this.debug = new Debug(code);
 		this.editorActionBar = new EditorActionBar(code.driver.page, this.viewer, this.quickaccess);
+		this.problems = new Problems(code, this.quickaccess);
 	}
 }
 

@@ -46,7 +46,8 @@
     "e2e-pr": "npx playwright test --project e2e-electron --grep @:critical",
     "e2e-win": "npx playwright test --project e2e-electron --grep @:win",
     "e2e-failed": "npx playwright test --last-failed",
-    "e2e-ui": "npx playwright test --ui",
+    "e2e-summary": "python test/e2e/create-test-summary.py test/e2e/tests",
+    "e2e-ui": "PW_UI_MODE=true npx playwright test --ui",
     "download-builtin-extensions": "node build/lib/builtInExtensions.js",
     "download-builtin-extensions-cg": "node build/lib/builtInExtensionsCG.js",
     "download-quarto": "node build/lib/quarto.js",
@@ -129,9 +130,9 @@
     "yazl": "^2.4.3"
   },
   "devDependencies": {
-    "@currents/playwright": "^1.8.0",
+    "@currents/playwright": "^1.9.1",
     "@midleman/github-actions-reporter": "^1.9.5",
-    "@playwright/test": "^1.49.0",
+    "@playwright/test": "^1.49.1",
     "@stylistic/eslint-plugin-ts": "^2.8.0",
     "@swc/core": "1.3.62",
     "@types/cookie": "^0.3.3",

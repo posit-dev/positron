@@ -151,6 +151,12 @@ async function launchBrowser(options: LaunchOptions, endpoint: string) {
 	if (tracing) {
 		try {
 			await measureAndLog(() => context.tracing.start({ screenshots: true, snapshots: options.snapshots, /* remaining options are off for perf reasons */ }), 'context.tracing.start()', logger);
+
+			// Yes, this is hacky, but we are unable to disable default tracing in Playwright browser tests
+			// See related discussion: https://github.com/microsoft/playwright/issues/33303#issuecomment-2442096479
+			context.tracing.start = async (...args) => {
+				logger.log('Tracing is already managed, skipping default tracing start.');
+			};
 		} catch (error) {
 			logger.log(`Playwright (Browser): Failed to start playwright tracing (${error})`); // do not fail the build when this fails
 		}

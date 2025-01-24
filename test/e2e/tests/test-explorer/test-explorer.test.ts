@@ -28,7 +28,7 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 		}
 	});
 
-	test('R - Verify Basic Test Explorer Functionality [C749378]', async function ({ app }) {
+	test('R - Verify Basic Test Explorer Functionality', async function ({ app }) {
 		await expect(async () => {
 			// Navigate to https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
 			// This is an R package embedded in qa-example-content

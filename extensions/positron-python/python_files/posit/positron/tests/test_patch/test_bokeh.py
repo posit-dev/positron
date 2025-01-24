@@ -5,7 +5,7 @@
 
 from unittest.mock import Mock
 
-from positron_ipykernel.positron_ipkernel import PositronShell
+from positron.positron_ipkernel import PositronShell
 
 from ..conftest import TestSession
 

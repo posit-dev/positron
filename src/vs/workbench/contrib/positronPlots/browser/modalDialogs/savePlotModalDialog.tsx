@@ -274,7 +274,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 			}
 			size = { height: height.value, width: width.value };
 		}
-		return props.plotClient.render(size, dpi.value / BASE_DPI, format, true);
+		return props.plotClient.renderWithSizingPolicy(size, dpi.value / BASE_DPI, format, true);
 	};
 
 	let intrinsicWidth = '';

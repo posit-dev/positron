@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect, Locator } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { Workbench } from '../infra/workbench';
 
@@ -253,5 +253,22 @@ export class DataExplorer {
 
 	async expandSummary(): Promise<void> {
 		await this.workbench.quickaccess.runCommand('workbench.action.positronDataExplorer.expandSummary');
+	}
+
+	async verifyTab(
+		tabName: string,
+		{ isVisible = true, isSelected = true }: { isVisible?: boolean; isSelected?: boolean }
+	): Promise<void> {
+		await test.step(`Verify tab: ${tabName} is ${isVisible ? '' : 'not'} visible, is ${isSelected ? '' : 'not'} selected`, async () => {
+			const tabLocator = this.code.driver.page.getByRole('tab', { name: tabName });
+
+			await (isVisible
+				? expect(tabLocator).toBeVisible()
+				: expect(tabLocator).not.toBeVisible());
+
+			await (isSelected
+				? expect(tabLocator).toHaveClass(/selected/)
+				: expect(tabLocator).not.toHaveClass(/selected/));
+		});
 	}
 }

@@ -11,8 +11,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from positron_ipykernel.help import HelpService, help
-from positron_ipykernel.help_comm import HelpBackendRequest, HelpFrontendEvent, ShowHelpKind
+from positron.help import HelpService, help
+from positron.help_comm import HelpBackendRequest, HelpFrontendEvent, ShowHelpKind
 
 from .conftest import DummyComm
 from .utils import json_rpc_notification, json_rpc_request, json_rpc_response
@@ -120,7 +120,7 @@ def show_help_event(content: str, kind=ShowHelpKind.Url, focus=True):
         # Keywords should resolve even though they aren't objects.
         ("async", "async"),
         # The overrided help function should resolve.
-        (help, "positron_ipykernel.help.help"),
+        (help, "positron.help.help"),
     ],
 )
 def test_show_help(

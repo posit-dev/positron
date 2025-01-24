@@ -33,7 +33,7 @@ test.describe('Reticulate', {
 	// will already be running
 	let sequential = false;
 
-	test('R - Verify Basic Reticulate Functionality [C...]', async function ({ app, r, interpreter }) {
+	test('R - Verify Basic Reticulate Functionality', async function ({ app, r, interpreter }) {
 
 		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()');
 		await app.workbench.console.sendEnterKey();
@@ -54,7 +54,7 @@ test.describe('Reticulate', {
 
 	});
 
-	test('R - Verify Reticulate Stop/Restart Functionality [C...]', async function ({ app, interpreter }) {
+	test('R - Verify Reticulate Stop/Restart Functionality', async function ({ app, interpreter }) {
 
 		// web only test but we don't have another way to skip electron tests
 		if (!app.web) {
@@ -112,4 +112,4 @@ async function verifyReticulateFunctionality(app, interpreter, sequential) {
 	}).toPass({ timeout: 60000 });
 
 	await app.workbench.layouts.enterLayout('stacked');
-};
+}
