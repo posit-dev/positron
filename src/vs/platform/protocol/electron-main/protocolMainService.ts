@@ -104,6 +104,14 @@ export class ProtocolMainService extends Disposable implements IProtocolMainServ
 			}
 		}
 
+		// --- Start Positron ---
+		// In development, disable caching of resources so that every resource is reloaded when the
+		// window is reloaded.
+		if (!this.environmentService.isBuilt) {
+			headers = { ...headers, 'Cache-Control': 'no-store' };
+		}
+		// --- End Positron ---
+
 		// first check by validRoots
 		if (this.validRoots.findSubstr(path)) {
 			return callback({ path, headers });
