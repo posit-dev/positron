@@ -538,9 +538,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 */
 	private async discoverLanguageRuntimes(managers: Array<LanguageRuntimeManager>, disabledLanguageIds: string[]): Promise<void> {
 
-		// The number of discoverers we're waiting on (initially all discoverers)
-		let count = managers.length;
-
 		// Utility promise
 		const never: Promise<never> = new Promise(() => { });
 
@@ -561,6 +558,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// Do not discover runtimes for disabled languages
 			!disabledLanguageIds.includes(discoverer.languageId)
 		);
+
+		// The number of discoverers we're waiting on (initially all
+		// discoverers)
+		let count = discoverers.length;
 
 		// Early exit if there are no discoverers
 		if (discoverers.length === 0) {
