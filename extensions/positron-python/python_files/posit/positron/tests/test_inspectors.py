@@ -13,6 +13,7 @@ import types
 from typing import Any, Callable, Iterable, Optional, Tuple
 
 import geopandas
+import torch
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -41,11 +42,6 @@ from .data import (
     TIMESTAMP_CASES,
 )
 from .utils import get_type_as_str
-
-try:
-    import torch  # type: ignore [reportMissingImports] for 3.12
-except ImportError:
-    torch = None
 
 
 def verify_inspector(
@@ -915,6 +911,8 @@ def test_get_child(value: Any, key: Any, expected: Any) -> None:
     assert get_inspector(child).equals(expected)
 
 
+# TODO: 3.13 maint. run this test once ibis is available in 3.13
+@pytest.mark.xfail(sys.version_info >= (3, 13), reason="ibis not available in 3.13", strict=True)
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="requires Python 3.10 or higher")
 def test_inspect_ibis_exprs() -> None:
     import ibis
@@ -962,7 +960,7 @@ def test_inspect_ibis_exprs() -> None:
     ("value", "expected"),
     [
         (np.array([[1, 2, 3], [4, 5, 6]], dtype="int64"), 48),
-        (torch.Tensor([[1, 2, 3], [4, 5, 6]]) if torch else None, 24),
+        (torch.Tensor([[1, 2, 3], [4, 5, 6]]), 24),
         (pd.Series([1, 2, 3, 4]), 32),
         (pl.Series([1, 2, 3, 4]), 32),
         (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), 4),

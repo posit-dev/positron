@@ -114,7 +114,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         # Run the tests on the oldest and most recent versions of Python.
-        python: ['3.8', '3.12']
+        python: ['3.8', '3.13']
 
     steps:
       - name: Checkout
@@ -157,9 +157,8 @@ jobs:
             python: '3.11'
           - os: 'ubuntu-latest'
             python: '3.12'
-          # add in 3.13 when ibis-framework[duckdb] supports it
-          # - os: 'ubuntu-latest'
-          #   python: '3.13'
+          - os: 'ubuntu-latest'
+            python: '3.13'
 
     steps:
       - name: Checkout

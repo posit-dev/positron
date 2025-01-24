@@ -5,7 +5,8 @@ geopandas==0.13.2; python_version < '3.9'
 geopandas==1.0.1; python_version >= '3.9'
 hvplot==0.10.0 ; python_version >= '3.9'
 hvplot==0.8.0 ; python_version < '3.9'
-ibis-framework[duckdb]==9.5.0; python_version >= '3.10'
+# TODO: 3.13 maint. install ibis when available for 3.13
+ibis-framework[duckdb]==9.5.0; python_version >= '3.10' and python_version < '3.13'
 ipykernel==6.29.5
 ipywidgets==8.1.5
 lightning==2.3.2
@@ -14,16 +15,17 @@ matplotlib==3.7.4; python_version < '3.9'
 numpy==2.1.1; python_version >= '3.10'
 numpy==1.24.4; python_version < '3.9'
 numpy==2.0.2; python_version == '3.9'
-pandas==2.2.2; python_version >= '3.9'
+pandas==2.2.3; python_version >= '3.9'
 pandas==2.0.3; python_version < '3.9'
 plotly==5.24.1
 polars==1.7.1
 polars[timezone]==1.7.1; python_version < '3.9' or sys_platform == 'win32'
-pyarrow==17.0.0
+pyarrow==17.0.0; python_version < '3.13'
+pyarrow==19.0.0; python_version >= '3.13'
 pytest==8.0.2
 pytest-asyncio==0.23.8
 pytest-mock==3.14.0
-torch==2.4.1; python_version >= '3.10'
+torch==2.5.1; python_version >= '3.10'
 torch==2.1.2; python_version < '3.10'
-SQLAlchemy==2.0.34
+SQLAlchemy==2.0.37
 
