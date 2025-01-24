@@ -13,6 +13,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
+from io import StringIO
+from contextlib import redirect_stdout, redirect_stderr
+
 from comm.base_comm import BaseComm
 
 from ._vendor.pydantic import BaseModel
@@ -99,10 +102,30 @@ def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> 
 
         torch.set_printoptions(linewidth=width)
 
+def _evaluate(kernel: "PositronIPyKernel", params: List[JsonData]):
+    if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], str)):
+        raise _InvalidParamsError(f"Expected code as a string, got: {params}")
+
+    stdout_buffer = StringIO()
+    stderr_buffer = StringIO()
+
+    try:
+        with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+            exec(params[0] + '\n\nprint(_)\n', kernel.shell.user_global_ns, kernel.shell.user_ns)
+        return {
+            'stdout': stdout_buffer.getvalue(),
+            'stderr': stderr_buffer.getvalue()
+        }
+    except Exception as e:
+        return {
+            'stdout': stdout_buffer.getvalue(),
+            'stderr': str(e),
+        }
 
 _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional[JsonData]]] = {
     "setConsoleWidth": _set_console_width,
     "isModuleLoaded": _is_module_loaded,
+    "evaluate": _evaluate,
 }
 
 

@@ -22,10 +22,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 		metadata: { isSticky: false },
 		fullName: 'Positron Assistant',
 		isDefault: true,
-		slashCommands: [{
-			name: 'execute',
-			description: 'Execute code in the active console.'
-		}],
+		slashCommands: [],
 		locations: ['panel', 'terminal', 'editor', 'notebook'],
 		disambiguation: []
 	};
@@ -118,11 +115,13 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 			if (fileExists) {
 				const llmsDocument = await vscode.workspace.openTextDocument(fileUri);
 				const fileContent = llmsDocument.getText();
-				messages = [
-					vscode.LanguageModelChatMessage.User(fileContent),
-					vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
-					...messages
-				];
+				if (fileContent.trim() !== '') {
+					messages = [
+						vscode.LanguageModelChatMessage.User(fileContent),
+						vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
+						...messages
+					];
+				}
 			}
 		}
 
@@ -170,11 +169,9 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 			]);
 		}
 
-		// When asked via slash command, execute R code in the console.
-		if (request.command === 'execute') {
-			system += '\n\nExecute code in the active console using `execute`. The console output will not be returned.\n\n';
-			tools.push(executeToolAdapter.lmTool);
-		}
+		// Allow for executing R code in the console.
+		system += await fs.promises.readFile(`${mdDir}/prompts/chat/execute.md`, 'utf8');
+		tools.push(executeToolAdapter.lmTool);
 
 		// When invoked from the editor, add selection context and editor tool
 		if (request.location2 instanceof vscode.ChatRequestEditorData) {
