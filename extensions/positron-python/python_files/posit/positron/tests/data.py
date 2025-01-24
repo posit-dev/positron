@@ -98,5 +98,5 @@ RANGE_CASES = [
 
 TIMESTAMP_CASES = [
     pd.Timestamp("2021-01-01 01:23:45"),
-    datetime.datetime(2021, 1, 1, 1, 23, 45),
+    datetime.datetime(2021, 1, 1, 1, 23, 45, tzinfo=datetime.timezone.utc),
 ]

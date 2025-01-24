@@ -21,9 +21,7 @@ def assert_pydantic_model_equal(actual: BaseModel, expected: BaseModel, exclude:
 
 @contextmanager
 def preserve_working_directory():
-    """
-    Reset the working directory after the context exits.
-    """
+    """Reset the working directory after the context exits."""
     cwd = Path.cwd()
     try:
         yield

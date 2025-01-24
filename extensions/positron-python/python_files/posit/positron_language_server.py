@@ -1,7 +1,4 @@
-"""
-Custom entry point for launching Positron's extensions to the Jedi Language
-Server and IPyKernel in the same environment.
-"""
+"""Entry point for launching Positron's extensions to Jedi and IPyKernel in the same environment."""  # noqa: INP001
 
 import argparse
 import asyncio

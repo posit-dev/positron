@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from positron.help import HelpService, help
+from positron.help import HelpService, help  # noqa: A004
 from positron.help_comm import HelpBackendRequest, HelpFrontendEvent, ShowHelpKind
 
 from .conftest import DummyComm
@@ -22,9 +22,7 @@ TARGET_NAME = "target_name"
 
 @pytest.fixture
 def help_service() -> HelpService:
-    """
-    A Positron help service.
-    """
+    """A Positron help service."""
     return HelpService()
 
 
@@ -37,18 +35,16 @@ def running_help_service(help_service: HelpService):
 
 @pytest.fixture
 def help_comm(help_service: HelpService):
-    """
-    Open a dummy comm for the help service.
-    """
+    """Open a dummy comm for the help service."""
     # Open a comm
     help_comm = DummyComm(TARGET_NAME)
     help_service.on_comm_open(help_comm, {})
-    assert help_service._comm is not None, "Comm was not created"
+    assert help_service._comm is not None, "Comm was not created"  # noqa: SLF001
 
     # Clear messages due to the comm_open
     help_comm.messages.clear()
 
-    return help_service._comm
+    return help_service._comm  # noqa: SLF001
 
 
 @pytest.fixture
@@ -62,24 +58,22 @@ def mock_pydoc_thread(help_service, monkeypatch):
 def test_pydoc_server_starts_and_shuts_down(running_help_service: HelpService):
     help_service = running_help_service
 
-    assert help_service._pydoc_thread is not None
-    assert help_service._pydoc_thread.serving
+    assert help_service._pydoc_thread is not None  # noqa: SLF001
+    assert help_service._pydoc_thread.serving  # noqa: SLF001
 
     help_service.shutdown()
 
-    assert not help_service._pydoc_thread.serving
+    assert not help_service._pydoc_thread.serving  # noqa: SLF001
 
 
 def test_pydoc_server_styling(running_help_service: HelpService):
-    """
-    We should pydoc should apply css styling
-    """
+    """We should pydoc should apply css styling."""
     help_service = running_help_service
 
-    assert help_service._pydoc_thread is not None
+    assert help_service._pydoc_thread is not None  # noqa: SLF001
 
     key = "pandas.read_csv"
-    url = f"{help_service._pydoc_thread.url}get?key={key}"
+    url = f"{help_service._pydoc_thread.url}get?key={key}"  # noqa: SLF001
     with urlopen(url) as f:
         html = f.read().decode("utf-8")
 
@@ -90,7 +84,7 @@ def test_pydoc_server_styling(running_help_service: HelpService):
     assert "#ee77aa" not in html
 
 
-def show_help_event(content: str, kind=ShowHelpKind.Url, focus=True):
+def show_help_event(content: str, kind=ShowHelpKind.Url, *, focus=True):
     return json_rpc_notification(
         HelpFrontendEvent.ShowHelp.value, {"kind": kind, "focus": focus, "content": content}
     )
@@ -126,9 +120,7 @@ def show_help_event(content: str, kind=ShowHelpKind.Url, focus=True):
 def test_show_help(
     obj: Any, expected_path: str, help_service: HelpService, help_comm, mock_pydoc_thread
 ):
-    """
-    Calling `show_help` should resolve an object to a url and send a `ShowHelp` event over the comm.
-    """
+    """Calling `show_help` should resolve an object to a url and send a `ShowHelp` event over the comm."""
     help_service.show_help(obj)
 
     assert help_comm.messages == [
@@ -143,6 +135,6 @@ def test_handle_show_help_topic(help_comm, mock_pydoc_thread) -> None:
     help_comm.handle_msg(msg)
 
     assert help_comm.messages == [
-        json_rpc_response(True),
+        json_rpc_response(result=True),
         show_help_event(f"{mock_pydoc_thread.url}get?key=logging"),
     ]

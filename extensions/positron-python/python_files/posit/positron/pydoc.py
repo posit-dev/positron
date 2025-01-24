@@ -1,3 +1,4 @@
+# noqa: A005
 #
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
@@ -5,11 +6,12 @@
 
 from __future__ import annotations
 
+import contextlib
 import importlib.metadata
 import inspect
 import io
 import logging
-import os
+import pathlib
 import pkgutil
 import pydoc
 import re
@@ -26,8 +28,7 @@ from pydoc import (
     visiblename,
 )
 from traceback import format_exception_only
-from types import ModuleType
-from typing import Any, Dict, List, Optional, Type, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from ._vendor.markdown_it import MarkdownIt
 from ._vendor.pygments import highlight
@@ -37,10 +38,13 @@ from ._vendor.pygments.util import ClassNotFound
 from .docstrings import convert_docstring
 from .utils import get_module_name, is_numpy_ufunc
 
+if TYPE_CHECKING:
+    from types import ModuleType
+
 logger = logging.getLogger(__name__)
 
 
-def _compact_signature(obj: Any, name="", max_chars=45) -> Optional[str]:
+def _compact_signature(obj: Any, name="", max_chars=45) -> str | None:
     """
     Produce a compact signature for a callable object.
 
@@ -88,9 +92,7 @@ def _compact_signature(obj: Any, name="", max_chars=45) -> Optional[str]:
             args.append("*")
 
         # Is it variadic?
-        elif param.kind is param.VAR_POSITIONAL:
-            seen_keyword_only = True
-        elif param.kind is param.VAR_KEYWORD:
+        elif param.kind is param.VAR_POSITIONAL or param.kind is param.VAR_KEYWORD:
             seen_keyword_only = True
 
         arg = str(param.replace(annotation=param.empty, default=param.empty))
@@ -113,11 +115,10 @@ def _compact_signature(obj: Any, name="", max_chars=45) -> Optional[str]:
             args.append("...")
             break
 
-    result = _stringify(args)
-    return result
+    return _stringify(args)
 
 
-def _untyped_signature(obj: Any) -> Optional[str]:
+def _untyped_signature(obj: Any) -> str | None:
     """
     Produce a signature for a callable object, with all annotations removed.
 
@@ -144,22 +145,17 @@ def _untyped_signature(obj: Any) -> Optional[str]:
         if name != "self"
     ]
     signature = signature.replace(parameters=untyped_params, return_annotation=signature.empty)
-    result = str(signature)
-    return result
+    return str(signature)
 
 
-def _get_summary(object: Any) -> Optional[str]:
-    """
-    Get the one-line summary from the docstring of an object.
-    """
-    doc = _pydoc_getdoc(object)
+def _get_summary(object_: Any) -> str | None:
+    """Get the one-line summary from the docstring of an object."""
+    doc = _pydoc_getdoc(object_)
     return doc.split("\n\n", 1)[0]
 
 
-def _tabulate_attrs(attrs: List[_Attr], cls_name: Optional[str] = None) -> List[str]:
-    """
-    Create an HTML table of attribute signatures and summaries.
-    """
+def _tabulate_attrs(attrs: list[_Attr], cls_name: str | None = None) -> list[str]:
+    """Create an HTML table of attribute signatures and summaries."""
     result = []
     # "autosummary" refers to the Sphinx extension that this is based on
     result.append('<table class="autosummary">')
@@ -231,7 +227,7 @@ class _Attr:
 
 
 class _PositronHTMLDoc(pydoc.HTMLDoc):
-    def document(self, object: Any, *args: Any):
+    def document(self, object: Any, *args: Any):  # noqa: A002
         # Handle numpy ufuncs, which don't return True for `inspect.isroutine` but which we still
         # want to document as routines.
         if is_numpy_ufunc(object):
@@ -246,21 +242,17 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         # update path for positron file system
         css_path = "_pydoc.css"
 
-        css_link = '<link rel="stylesheet" type="text/css" href="%s">' % css_path
+        css_link = f'<link rel="stylesheet" type="text/css" href="{css_path}">'
 
         # removed html_navbar() for aesthetics
-        return """\
+        return f"""\
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Pydoc: %s</title>
-%s</head><body>%s</div>
-</body></html>""" % (
-            title,
-            css_link,
-            contents,
-        )
+<title>Pydoc: {title}</title>
+{css_link}</head><body>{contents}</div>
+</body></html>"""
         # --- End Positron ---
 
     def heading(self, title: str, extras="") -> str:  # type: ignore ReportIncompatibleMethodOverride
@@ -269,8 +261,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         lines = [f"<h1>{title}</h1>"]
         if extras:
             lines.append(extras)
-        result = "\n".join(lines)
-        return result
+        return "\n".join(lines)
 
     def section(  # type: ignore ReportIncompatibleMethodOverride
         self,
@@ -301,15 +292,14 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
             lines.append(prelude)
         lines.append(contents)
         lines.append("</section>")
-        result = "\n".join(lines)
-        return result
+        return "\n".join(lines)
 
     def bigsection(self, *args):
         # This no longer does anything on top of `section`, we keep it for compatibility with pydoc
         return self.section(*args)
 
     # Heavily customized version of pydoc.HTMLDoc.docmodule
-    def docmodule(self, object: ModuleType, *_):  # type: ignore reportIncompatibleMethodOverride
+    def docmodule(self, object: ModuleType, *_):  # type: ignore reportIncompatibleMethodOverride  # noqa: A002
         obj_name = object.__name__
 
         # Create the heading, with links to each parent module
@@ -339,13 +329,13 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
 
         # Separate the module's members into modules, classes, functions, and data.
         # Respect the module's __all__ attribute if it exists.
-        all = getattr(object, "__all__", None)
+        all_ = getattr(object, "__all__", None)
         modules = []
         classes = []
         funcs = []
         data = []
         for name, value in inspect.getmembers(object):
-            if not visiblename(name, all, object):
+            if not visiblename(name, all_, object):
                 continue
 
             attr = _Attr(name=name, cls=object, value=value)
@@ -383,7 +373,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         return result
 
     # Heavily customized version of pydoc.HTMLDoc.docclass
-    def docclass(self, obj: Type, name=None, *_):  # type: ignore reportIncompatibleMethodOverride
+    def docclass(self, obj: type, name=None, *_):  # type: ignore reportIncompatibleMethodOverride
         obj_name = name or obj.__name__
 
         # Separate the class's members into attributes and methods
@@ -404,10 +394,8 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         pkg_version = ""
 
         if match:
-            try:
+            with contextlib.suppress(importlib.metadata.PackageNotFoundError):
                 pkg_version = importlib.metadata.version(match.group(1))  # type: ignore
-            except importlib.metadata.PackageNotFoundError:  # type: ignore
-                pass
 
         version_text = self._version_text(pkg_version)
 
@@ -437,18 +425,24 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
     # as is from pydoc.HTMLDoc to port Python 3.11 breaking CSS changes
     def docroutine(
         self,
-        object: Any,
+        object: Any,  # noqa: A002
         name=None,
         mod=None,
-        funcs={},
-        classes={},
-        methods={},
+        funcs=None,
+        classes=None,
+        methods=None,
         cl=None,
     ):
         """Produce HTML documentation for a function or method object."""
+        if methods is None:
+            methods = {}
+        if classes is None:
+            classes = {}
+        if funcs is None:
+            funcs = {}
         realname = object.__name__
         name = name or realname
-        anchor = (cl and cl.__name__ or "") + "-" + name
+        anchor = ((cl and cl.__name__) or "") + "-" + name
         note = ""
         skipdocs = 0
         if _is_bound_method(object):
@@ -458,9 +452,9 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
                     note = " from " + self.classlink(imclass, mod)  # type: ignore
             else:
                 if object.__self__ is not None:
-                    note = " method of %s instance" % self.classlink(object.__self__.__class__, mod)  # type: ignore
+                    note = f" method of {self.classlink(object.__self__.__class__, mod)} instance"  # type: ignore
                 else:
-                    note = " unbound %s method" % self.classlink(imclass, mod)  # type: ignore
+                    note = f" unbound {self.classlink(imclass, mod)} method"  # type: ignore
 
         if inspect.iscoroutinefunction(object) or inspect.isasyncgenfunction(object):
             asyncqualifier = "async "
@@ -468,14 +462,14 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
             asyncqualifier = ""
 
         if name == realname:
-            title = '<a name="%s"><strong>%s</strong></a>' % (anchor, realname)
+            title = f'<a name="{anchor}"><strong>{realname}</strong></a>'
         else:
             if cl and inspect.getattr_static(cl, realname, []) is object:
-                reallink = '<a href="#%s">%s</a>' % (cl.__name__ + "-" + realname, realname)
+                reallink = '<a href="#{}">{}</a>'.format(cl.__name__ + "-" + realname, realname)
                 skipdocs = 1
             else:
                 reallink = realname
-            title = '<a name="%s"><strong>%s</strong></a> = %s' % (anchor, name, reallink)
+            title = f'<a name="{anchor}"><strong>{name}</strong></a> = {reallink}'
         argspec = None
         if inspect.isroutine(object):
             try:
@@ -485,7 +479,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
             if signature:
                 argspec = str(signature)
                 if realname == "<lambda>":
-                    title = "<strong>%s</strong> <em>lambda</em> " % name
+                    title = f"<strong>{name}</strong> <em>lambda</em> "
                     # XXX lambda's won't usually have func_annotations['return']
                     # since the syntax doesn't support but it is possible.
                     # So removing parentheses isn't truly safe.
@@ -497,33 +491,33 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
             asyncqualifier
             + title
             + self.escape(argspec)
-            + (note and self.grey('<span class="heading-text">%s</span>' % note))
+            + (note and self.grey(f'<span class="heading-text">{note}</span>'))
         )
 
         if skipdocs:
-            return "<dl><dt>%s</dt></dl>\n" % decl
+            return f"<dl><dt>{decl}</dt></dl>\n"
         else:
             doc = self.markup(_getdoc(object), self.preformat, funcs, classes, methods)
             # --- Start Positron ---
             # Remove <span class="code">
             # doc = doc and '<dd><span class="code">%s</span></dd>' % doc
             # --- End Positron ---
-            return "<dl><dt>%s</dt>%s</dl>\n" % (decl, doc)
+            return f"<dl><dt>{decl}</dt>{doc}</dl>\n"
 
     # as is from pydoc.HTMLDoc to port Python 3.11 breaking CSS changes
-    def docdata(self, object, name=None, mod=None, cl=None):
+    def docdata(self, object, name=None, mod=None, cl=None):  # noqa: A002, ARG002
         """Produce html documentation for a data descriptor."""
         results = []
         push = results.append
 
         if name:
-            push("<dl><dt><strong>%s</strong></dt>\n" % name)
+            push(f"<dl><dt><strong>{name}</strong></dt>\n")
         doc = self.markup(_getdoc(object), self.preformat)
         if doc:
             # --- Start Positron ---
             # Remove <span class="code">
             # push('<dd><span class="code">%s</span></dd>\n' % doc)
-            push("<dd>%s</dd>\n" % doc)
+            push(f"<dd>{doc}</dd>\n")
             # --- End Positron ---
         push("</dl>\n")
 
@@ -532,22 +526,28 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
     docproperty = docdata
 
     # as is from pydoc.HTMLDoc to port Python 3.11 breaking CSS changes
-    def docother(self, object, name=None, mod=None, *ignored):
+    def docother(self, object, name=None, mod=None, *ignored):  # noqa: A002, ARG002
         """Produce HTML documentation for a data object."""
-        lhs = name and "<strong>%s</strong> = " % name or ""
+        lhs = (name and f"<strong>{name}</strong> = ") or ""
         return lhs + self.repr(object)
 
-    def markup(self, text, escape=None, funcs={}, classes={}, methods={}):
+    def markup(self, text, escape=None, funcs=None, classes=None, methods=None):  # noqa: ARG002
         # Don't do any marking up, let the rst parser handle it.
+        if methods is None:
+            methods = {}
+        if classes is None:
+            classes = {}
+        if funcs is None:
+            funcs = {}
         return text
 
     # as is from pydoc.HTMLDoc to port Python 3.11 breaking CSS changes
-    def index(self, dir, shadowed: Optional[Dict[str, int]] = None):  # type: ignore reportIncompatibleMethodOverride
+    def index(self, dir, shadowed: dict[str, int] | None = None):  # type: ignore reportIncompatibleMethodOverride  # noqa: A002
         """Generate an HTML index for a directory of modules."""
         modpkgs = []
         if shadowed is None:
             shadowed = {}
-        for importer, name, ispkg in pkgutil.iter_modules([dir]):
+        for _importer, name, ispkg in pkgutil.iter_modules([dir]):
             if any((0xD800 <= ord(ch) <= 0xDFFF) for ch in name):
                 # ignore a module if its name contains a surrogate character
                 continue
@@ -563,7 +563,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         """Module Index page."""
 
         def bltinlink(name):
-            return '<a href="%s.html">%s</a>' % (name, name)
+            return f'<a href="{name}.html">{name}</a>'
 
         heading = self.heading('<strong class="title">Index of Modules</strong>')
         names = [name for name in sys.builtin_module_names if name != "__main__"]
@@ -571,8 +571,8 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         contents = [heading, "<p>" + self.bigsection("Built-in Modules", "index", contents)]
 
         seen = {}
-        for dir in sys.path:
-            contents.append(self.index(dir, seen))
+        for dir_ in sys.path:
+            contents.append(self.index(dir_, seen))
 
         contents.append(
             '<p align=right class="heading-text grey"><strong>pydoc</strong> by Ka-Ping Yee'
@@ -586,7 +586,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         # scan for modules
         search_result = []
 
-        def callback(path, modname, desc):
+        def callback(_path, modname, desc):
             if modname[-9:] == ".__init__":
                 modname = modname[:-9] + " (package)"
             search_result.append((modname, desc and "- " + desc))
@@ -601,7 +601,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
 
         # format page
         def bltinlink(name):
-            return '<a href="%s.html">%s</a>' % (name, name)
+            return f'<a href="{name}.html">{name}</a>'
 
         results = []
         heading = self.heading(
@@ -609,7 +609,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         )
         for name, desc in search_result:
             results.append(bltinlink(name) + desc)
-        contents = heading + self.bigsection("key = %s" % key, "index", "<br>".join(results))
+        contents = heading + self.bigsection(f"key = {key}", "index", "<br>".join(results))
         return "Search Results", contents
 
     # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes
@@ -630,7 +630,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         """Index of topic texts available."""
 
         def bltinlink(name):
-            return '<a href="topic?key=%s">%s</a>' % (name, name)
+            return f'<a href="topic?key={name}">{name}</a>'
 
         heading = self.heading(
             '<strong class="title">INDEX</strong>',
@@ -654,7 +654,7 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         # --- End Positron ---
 
         def bltinlink(name):
-            return '<a href="topic?key=%s">%s</a>' % (name, name)
+            return f'<a href="topic?key={name}">{name}</a>'
 
         contents = self.multicolumn(names, bltinlink)
         contents = heading + self.bigsection("Keywords", "index", contents)
@@ -667,28 +667,25 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         # --- Start Positron ---
         htmlhelp = PositronHelper(buf, buf)
         # --- End Positron ---
-        contents, xrefs = htmlhelp._gettopic(topic)  # type: ignore
-        if topic in htmlhelp.keywords:
-            title = "KEYWORD"
-        else:
-            title = "TOPIC"
+        contents, xrefs = htmlhelp._gettopic(topic)  # type: ignore  # noqa: SLF001
+        title = "KEYWORD" if topic in htmlhelp.keywords else "TOPIC"
         heading = self.heading(
-            '<strong class="title">%s</strong>' % title,
+            f'<strong class="title">{title}</strong>',
         )
-        contents = "<pre>%s</pre>" % self.markup(contents)
+        contents = f"<pre>{self.markup(contents)}</pre>"
         contents = self.bigsection(topic, "index", contents)
         if xrefs:
             xrefs = sorted(xrefs.split())
 
             def bltinlink(name):
-                return '<a href="topic?key=%s">%s</a>' % (name, name)
+                return f'<a href="topic?key={name}">{name}</a>'
 
             xrefs = self.multicolumn(xrefs, bltinlink)
             xrefs = self.section("Related help topics: ", "index", xrefs)
-        return ("%s %s" % (title, topic), "".join((heading, contents, xrefs)))
+        return (f"{title} {topic}", f"{heading}{contents}{xrefs}")
 
     # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes
-    def html_error(self, url, exc):
+    def html_error(self, url, exc):  # noqa: ARG002
         heading = self.heading(
             '<strong class="title">Not found</strong>',
         )
@@ -756,36 +753,33 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         # Add the module's __version__ to the heading
         if len(version) > 0:
             pkg_version = self.escape(version)
-            text = f'<div class="package-version">{"v" + pkg_version}</div>'
-            return text
+            return f'<div class="package-version">{"v" + pkg_version}</div>'
         else:
             return ""
 
 
 # as is from < Python 3.9, since 3.9 introduces a breaking change to pydoc.getdoc
-def _pydoc_getdoc(object: Any) -> str:
+def _pydoc_getdoc(object_: Any) -> str:
     """Get the doc string or comments for an object."""
-    result = inspect.getdoc(object) or inspect.getcomments(object)
-    return result and re.sub("^ *\n", "", result.rstrip()) or ""
+    result = inspect.getdoc(object_) or inspect.getcomments(object_)
+    return (result and re.sub("^ *\n", "", result.rstrip())) or ""
 
 
-def _getdoc(object: Any) -> str:
+def _getdoc(object_: Any) -> str:
     """Override `pydoc.getdoc` to parse reStructuredText docstrings."""
     try:
-        docstring = _pydoc_getdoc(object) or "No documentation found."
-        html = _docstring_to_html(docstring, object)
+        docstring = _pydoc_getdoc(object_) or "No documentation found."
+        html = _docstring_to_html(docstring, object_)
     except Exception as exception:
         # This is caught somewhere above us in pydoc. Log the exception so we see it in Positron
         # logs.
-        logger.exception(f"Failed to parse docstring for {object}: {exception}")
+        logger.exception(f"Failed to parse docstring for {object_}: {exception}")
         raise exception
     return html
 
 
-def _resolve(target: str, from_obj: Any) -> Optional[str]:
-    """
-    Resolve a possibly partially specified `target` to a full import path.
-    """
+def _resolve(target: str, from_obj: Any) -> str | None:
+    """Resolve a possibly partially specified `target` to a full import path."""
     # Special cases that are commonly false positives, never link these:
     if target == "data":
         return None
@@ -829,9 +823,8 @@ def _resolve(target: str, from_obj: Any) -> Optional[str]:
                 pass
             else:
                 obj = getattr(module, object_path, None)
-                if obj is not None:
-                    if hasattr(obj, attr_path):
-                        return f"{module_path}.{object_path}.{attr_path}"
+                if obj is not None and hasattr(obj, attr_path):
+                    return f"{module_path}.{object_path}.{attr_path}"
 
     # Is `target` a fully qualified name, but implicitly relative to `from_obj`'s package?
     from_module_name = get_module_name(from_obj)
@@ -849,9 +842,7 @@ _SECTION_RE = re.compile(r"\n#### ([\w\s]+)\n\n")
 
 
 def _is_argument_name(match: re.Match) -> bool:
-    """
-    Does a match correspond to an argument name?
-    """
+    """Does a match correspond to an argument name?."""
     # Get the line that the match is on.
     start, end = match.span()
     pre = match.string[:start]
@@ -869,7 +860,7 @@ def _is_argument_name(match: re.Match) -> bool:
     return False
 
 
-def _linkify_match(match: re.Match, object: Any) -> str:
+def _linkify_match(match: re.Match, object_: Any) -> str:
     logger.debug(f"Linkifying: {match.group(0)}")
 
     # Don't link arguments, a common case of false positives, otherwise, e.g.
@@ -881,7 +872,7 @@ def _linkify_match(match: re.Match, object: Any) -> str:
     start, name, end = match.groups()
 
     # Try to resolve `target` and replace it with a link.
-    key = _resolve(name, object)
+    key = _resolve(name, object_)
     if key is None:
         logger.debug("Could not resolve")
         return match.group(0)
@@ -890,35 +881,35 @@ def _linkify_match(match: re.Match, object: Any) -> str:
     return result
 
 
-def _link_url(match: re.Match, object: Any) -> str:
+def _link_url(match: re.Match) -> str:
     logger.debug(f"Creating link: {match.group(0)}")
 
     start, url, end = match.groups()
 
-    return '%s<a href="%s">%s</a>%s' % (start, url, url, end)
+    return f'{start}<a href="{url}">{url}</a>{end}'
 
 
-def _linkify(markdown: str, object: Any) -> str:
+def _linkify(markdown: str, object_: Any) -> str:
     """
+    Linkify.
+
     Replace all instances like '`<name>`' or '`[](~name)`' with a
     relative pydoc link to a resolved object.
     """
     pattern_sphinx = r"(?P<start>`+)(?P<name>[^\d\W`][\w\.]*)(?P<end>`+)"
-    replacement = partial(_linkify_match, object=object)
+    replacement = partial(_linkify_match, object_=object_)
     result = re.sub(pattern_sphinx, replacement, markdown)
 
     pattern_md = r"`?\[\]\((?P<start>`?)~(?P<name>[^)^`]+)(?P<end>`?)\)`?"
-    replacement = partial(_linkify_match, object=object)
+    replacement = partial(_linkify_match, object_=object_)
     result = re.sub(pattern_md, replacement, result)
 
     pattern_url = re.compile(r"(?P<start>\s)(?P<url>https?://\S+)(?P<end>\s)")
-    replacement = partial(_link_url, object=object)
-    result = re.sub(pattern_url, replacement, result)
-
-    return result
+    replacement = _link_url
+    return re.sub(pattern_url, replacement, result)
 
 
-def _highlight(code: str, name: str, attrs: str) -> str:
+def _highlight(code: str, name: str, _attrs: str) -> str:
     """
     Highlight a code block.
 
@@ -941,25 +932,21 @@ def _highlight(code: str, name: str, attrs: str) -> str:
     return cast(str, result)
 
 
-def _docstring_to_html(docstring: str, object: Any) -> str:
-    """
-    Parse a docstring in one of the supported formats to HTML.
-    """
-    logger.debug(f"Parsing docstring to html for object: {object}")
+def _docstring_to_html(docstring: str, object_: Any) -> str:
+    """Parse a docstring in one of the supported formats to HTML."""
+    logger.debug(f"Parsing docstring to html for object: {object_}")
 
     markdown = convert_docstring(docstring)
 
-    markdown = _linkify(markdown, object)
+    markdown = _linkify(markdown, object_)
 
     md = MarkdownIt("commonmark", {"html": True, "highlight": _highlight}).enable(["table"])
 
-    html = md.render(markdown)
-
-    return html
+    return md.render(markdown)
 
 
 # adapted from pydoc._url_handler
-def _url_handler(url, content_type="text/html"):
+def _url_handler(url: str, content_type="text/html"):
     """The pydoc url handler for use with the pydoc server.
 
     If the content_type is 'text/css', the _pydoc.css style
@@ -978,25 +965,24 @@ def _url_handler(url, content_type="text/html"):
     if url.startswith("/"):
         url = url[1:]
     if content_type == "text/css":
-        path_here = os.path.dirname(os.path.realpath(__file__))
-        css_path = os.path.join(path_here, url)
-        with open(css_path) as fp:
+        path_here = pathlib.Path(__file__).parent
+        css_path = path_here / url
+        with css_path.open() as fp:
             return "".join(fp.readlines())
     elif content_type == "text/html":
         return html.get_html_page(url)
     # Errors outside the url handler are caught by the server.
-    raise TypeError("unknown content type %r for url %s" % (content_type, url))
+    raise TypeError(f"unknown content type {content_type!r} for url {url}")
 
 
 def start_server(port: int = 0):
     """Adapted from pydoc.browser."""
-
     # Setting port to 0 will use an arbitrary port
-    thread = pydoc._start_server(_url_handler, hostname="localhost", port=port)  # type: ignore
+    thread = pydoc._start_server(_url_handler, hostname="localhost", port=port)  # type: ignore  # noqa: SLF001
 
     if thread.error:
         logger.error(f"Could not start the pydoc help server. Error: {thread.error}")
-        return
+        return None
     elif thread.serving:
         logger.info(f"Pydoc server ready at: {thread.url}")
 

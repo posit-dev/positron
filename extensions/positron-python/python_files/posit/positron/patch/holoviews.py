@@ -17,7 +17,6 @@ def set_holoviews_extension(ui_service: UiService) -> None:
     Args:
         ui_service (UiService): The UI service to use for notifications.
     """
-
     try:
         import holoviews
     except ImportError:
@@ -25,10 +24,11 @@ def set_holoviews_extension(ui_service: UiService) -> None:
     else:
         if holoviews.extension == holoviews.ipython.notebook_extension:
 
-            class positron_notebook_extension(holoviews.ipython.notebook_extension):
+            class PositronNotebookExtension(holoviews.ipython.notebook_extension):
                 """
-                Custom notebook extension for HoloViews that notifies the frontend
-                of new extension loads.
+                Custom notebook extension for HoloViews.
+
+                Notifies the frontend of new extension loads.
                 """
 
                 def __call__(self, *args, **kwargs) -> None:
@@ -38,4 +38,4 @@ def set_holoviews_extension(ui_service: UiService) -> None:
 
                     super().__call__(*args, **kwargs)
 
-            holoviews.extension = positron_notebook_extension
+            holoviews.extension = PositronNotebookExtension

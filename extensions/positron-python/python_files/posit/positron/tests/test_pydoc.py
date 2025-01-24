@@ -30,7 +30,6 @@ def _test_func(a: int, b: str, c=1, *args, **kwargs) -> None:
 
     Function long description.
     """
-    pass
 
 
 class _DummyAttribute:
@@ -59,7 +58,6 @@ class _A:
 
         Method long description.
         """
-        pass
 
 
 _module = ModuleType(
@@ -69,8 +67,8 @@ Module summary.
 
 Module long description.""",
 )
-setattr(_module, "A", _A)
-setattr(_module, "test_func", _test_func)
+setattr(_module, "A", _A)  # noqa: B010
+setattr(_module, "test_func", _test_func)  # noqa: B010
 
 
 def _test_getdoc_links_arguments_section() -> None:
@@ -147,7 +145,7 @@ def _test_getdoc_code_blocks() -> None:
     Empty DataFrame
     Columns: []
     Index: []
-    """
+    """  # noqa: D205, D400
 
 
 def _test_getdoc_urls() -> None:
@@ -155,7 +153,7 @@ def _test_getdoc_urls() -> None:
     Note
     ----
     See https://url.com for more info
-    """
+    """  # noqa: D205
 
 
 def _test_getdoc_md_urls() -> None:
@@ -163,7 +161,7 @@ def _test_getdoc_md_urls() -> None:
     Note
     ----
     See [url](https://url.com) for more info
-    """
+    """  # noqa: D205
 
 
 # Tests
@@ -191,6 +189,8 @@ _html = _PositronHTMLDoc()
 )
 def test_pydoc_py311_breaking_changes(func: Callable, args: Tuple[Any, ...]) -> None:
     """
+    Test breaking changes.
+
     Python 3.11 introduced a breaking change into pydoc.HTMLDoc methods: heading, section, and
     bigsection. Ensure that we've patched these to work in all versions from 3.8+.
 
@@ -470,14 +470,12 @@ def test_document_version() -> None:
     ],
 )
 def test_resolve(target: str, from_obj: Any, expected: Any) -> None:
-    """
-    Unit test for `_resolve` since it is particularly tricky.
-    """
+    """Unit test for `_resolve` since it is particularly tricky."""
     assert _resolve(target, from_obj) == expected
 
 
 @pytest.mark.parametrize(
-    ("object", "expected"),
+    ("object_", "expected"),
     [
         # Does not link item names/types in Arguments section, but does link descriptions.
         (
@@ -533,6 +531,6 @@ Index: []
         ),
     ],
 )
-def test_getdoc(object: Any, expected: str) -> None:
-    html = _getdoc(object)
+def test_getdoc(object_: Any, expected: str) -> None:
+    html = _getdoc(object_)
     assert html == expected

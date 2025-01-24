@@ -4,10 +4,11 @@
 #
 
 import os
+import pathlib
 import platform
 from typing import Any, Tuple
 
-from ._vendor.jedi import cache, debug
+from ._vendor.jedi import cache, debug, settings
 from ._vendor.jedi.api import Interpreter
 from ._vendor.jedi.api.classes import Completion
 from ._vendor.jedi.api.completion import (
@@ -33,7 +34,6 @@ from ._vendor.jedi.inference.context import ValueContext
 from ._vendor.jedi.inference.helpers import infer_call_of_leaf
 from ._vendor.jedi.inference.value import ModuleValue
 from ._vendor.jedi.parser_utils import cut_value_at_position
-from ._vendor.jedi import settings
 from .utils import safe_isinstance
 
 #
@@ -50,20 +50,18 @@ _sentinel = object()
 # adapted from jedi.settings.cache_directory
 
 if platform.system().lower() == "windows":
-    _cache_directory = os.path.join(
-        os.getenv("LOCALAPPDATA") or os.path.expanduser("~"),
-        "Jedi",
-        "Positron-Jedi",
-    )
+    _cache_directory = pathlib.Path(os.getenv("LOCALAPPDATA") or "~") / "Jedi" / "Positron-Jedi"
 elif platform.system().lower() == "darwin":
-    _cache_directory = os.path.join("~", "Library", "Caches", "Positron-Jedi")
+    _cache_directory = pathlib.Path("~") / "Library" / "Caches" / "Positron-Jedi"
 else:
-    _cache_directory = os.path.join(os.getenv("XDG_CACHE_HOME") or "~/.cache", "positron-jedi")
-settings.cache_directory = os.path.expanduser(_cache_directory)
+    _cache_directory = pathlib.Path(os.getenv("XDG_CACHE_HOME") or "~/.cache") / "positron-jedi"
+settings.cache_directory = _cache_directory.expanduser()
 
 
 class PositronMixedModuleContext(MixedModuleContext):
     """
+    Special MixedModuleContext.
+
     A `jedi.api.interpreter.MixedModuleContext` that prefers values from the user's namespace over
     static analysis.
 
@@ -80,10 +78,10 @@ class PositronMixedModuleContext(MixedModuleContext):
     def get_filters(self, until_position=None, origin_scope=None):
         filters = super().get_filters(until_position, origin_scope)
 
-        # Store the first filter – which corresponds to static analysis of the source code.
+        # Store the first filter, which corresponds to static analysis of the source code.
         merged_filter = next(filters)
 
-        # Yield the remaining filters – which correspond to the user's namespaces.
+        # Yield the remaining filters, which correspond to the user's namespaces.
         yield from filters
 
         # Finally, yield the first filter.
@@ -91,16 +89,11 @@ class PositronMixedModuleContext(MixedModuleContext):
 
 
 class PositronInterpreter(Interpreter):
-    """
-    A `jedi.Interpreter` that provides enhanced completions for data science users.
-    """
+    """A `jedi.Interpreter` that provides enhanced completions for data science users."""
 
     @cache.memoize_method
     def _get_module_context(self):
-        if self.path is None:
-            file_io = None
-        else:
-            file_io = KnownContentFileIO(self.path, self._code)
+        file_io = None if self.path is None else KnownContentFileIO(self.path, self._code)
         tree_module_value = ModuleValue(
             self._inference_state,
             self._module_node,
@@ -175,7 +168,7 @@ class PositronCompletion(CompletionAPI):
 
         imported_names = []
         if leaf.parent is not None and leaf.parent.type in ["import_as_names", "dotted_as_names"]:
-            imported_names.extend(extract_imported_names(leaf.parent))  # type: ignore
+            imported_names.extend(extract_imported_names(leaf.parent))  # type: ignore  # noqa: F821
 
         completions = list(
             filter_names(
@@ -205,9 +198,7 @@ class PositronCompletion(CompletionAPI):
 
 
 class DictKeyName(CompiledName):
-    """
-    A dictionary key with support for inferring its value.
-    """
+    """A dictionary key with support for inferring its value."""
 
     def __init__(self, inference_state, parent_value, key):
         self._inference_state = inference_state
@@ -238,11 +229,11 @@ class DictKeyName(CompiledName):
         # case here instead of vendoring all instantiations of MixedObject.
         # START: MixedObject.py__simple_getitem__
         if isinstance(parent, MixedObject):
-            python_object = parent.compiled_value.access_handle.access._obj
+            python_object = parent.compiled_value.access_handle.access._obj  # noqa: SLF001
             if _is_allowed_getitem_type(python_object):
                 values = parent.compiled_value.py__simple_getitem__(self._key)
             else:
-                values = parent._wrapped_value.py__simple_getitem__(self._key)
+                values = parent._wrapped_value.py__simple_getitem__(self._key)  # noqa: SLF001
         # END: MixedObject.py__simple_getitem__
         else:
             values = parent.py__simple_getitem__(self._key)
@@ -259,7 +250,7 @@ class DictKeyName(CompiledName):
         # ExactValue()._compiled_value.get_signatures() returns the correct signatures,
         # so we return the wrapped compiled value instead.
         if isinstance(value, ExactValue):
-            return value._compiled_value
+            return value._compiled_value  # noqa: SLF001
 
         return value
 
@@ -298,7 +289,7 @@ def complete_dict(module_context, code_lines, leaf, position, string, fuzzy):
 
 
 # Adapted from jedi.api.strings._completions_for_dicts.
-def _completions_for_dicts(inference_state, dicts, literal_string, cut_end_quote, fuzzy):
+def _completions_for_dicts(inference_state, dicts, literal_string, _cut_end_quote, fuzzy):
     # --- Start Positron ---
     # Since we've modified _get_python_keys to return Names, sort by yielded value's string_name
     # instead of the yielded value itself.
@@ -319,15 +310,14 @@ def _get_python_keys(inference_state, dicts):
         # --- Start Positron ---
         # Handle dict-like objects from popular data science libraries.
         try:
-            obj = dct.compiled_value.access_handle.access._obj
+            obj = dct.compiled_value.access_handle.access._obj  # noqa: SLF001
         except AttributeError:
             pass
         else:
-            if _is_allowed_getitem_type(obj):
-                if hasattr(obj, "columns"):
-                    for key in obj.columns:
-                        yield DictKeyName(inference_state, dct, key)
-                    return
+            if _is_allowed_getitem_type(obj) and hasattr(obj, "columns"):
+                for key in obj.columns:
+                    yield DictKeyName(inference_state, dct, key)
+                return
 
         # --- End Positron ---
         if dct.array_type == "dict":
@@ -341,9 +331,7 @@ def _get_python_keys(inference_state, dicts):
 
 
 def _is_allowed_getitem_type(obj: Any) -> bool:
-    """
-    Can we safely call `obj.__getitem__`?
-    """
+    """Answer to 'Can we safely call `obj.__getitem__`?'."""
     # Only trust builtin types and types from popular data science libraries.
     # We specifically compare type(obj) instead of using isinstance because we don't want to trust
     # subclasses of builtin types.
@@ -356,13 +344,14 @@ def _is_allowed_getitem_type(obj: Any) -> bool:
 
 def get_python_object(completion: Completion) -> Tuple[Any, bool]:
     """
-    Get the Python object corresponding to a completion, and a boolean indicating whether an object
-    was found.
+    Get the Python object corresponding to a completion.
+
+    And a boolean indicating whether an object was found.
     """
-    name = completion._name
+    name = completion._name  # noqa: SLF001
     if isinstance(name, (CompiledName, MixedName)):
         value = name.infer_compiled_value()
         if isinstance(value, CompiledValue):
-            obj = value.access_handle.access._obj
+            obj = value.access_handle.access._obj  # noqa: SLF001
             return obj, True
     return None, False

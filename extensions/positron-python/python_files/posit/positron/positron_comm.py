@@ -8,7 +8,7 @@ from __future__ import annotations
 import enum
 import logging
 import threading
-from typing import Callable, Generic, Optional, Type, TypeVar
+from typing import TYPE_CHECKING, Callable, Generic, TypeVar
 
 import comm
 
@@ -22,7 +22,9 @@ from . import (
 )
 from ._vendor.pydantic import ValidationError
 from ._vendor.pydantic.generics import GenericModel
-from .utils import JsonData, JsonRecord
+
+if TYPE_CHECKING:
+    from .utils import JsonData, JsonRecord
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +64,7 @@ T_content = TypeVar(
 
 
 class CommMessage(GenericModel, Generic[T_content]):
-    """
-    A generic message received from the frontend-side of a comm.
-    """
+    """A generic message received from the frontend-side of a comm."""
 
     content: T_content
 
@@ -111,9 +111,7 @@ class PositronComm:
 
     @property
     def comm_id(self) -> str:
-        """
-        The unique identifier of this comm.
-        """
+        """The unique identifier of this comm."""
         return self.comm.comm_id
 
     def on_close(self, callback: Callable[[JsonRecord], None]):
@@ -130,7 +128,7 @@ class PositronComm:
     def on_msg(
         self,
         callback: Callable[[CommMessage[T_content], JsonRecord], None],
-        content_cls: Type[T_content],
+        content_cls: type[T_content],
     ) -> None:
         """
         Register a callback for an RPC request from the frontend.
@@ -207,12 +205,10 @@ class PositronComm:
 
     @property
     def messages(self):
-        """
-        Messages sent to the frontend-side version of this comm, when recorded for testing purposes.
-        """
-        return getattr(self.comm, "messages")
+        """Messages sent to the frontend-side version of this comm, when recorded for testing purposes."""
+        return getattr(self.comm, "messages")  # noqa: B009
 
-    def send_result(self, data: JsonData = None, metadata: Optional[JsonRecord] = None) -> None:
+    def send_result(self, data: JsonData = None, metadata: JsonRecord | None = None) -> None:
         """
         Send a JSON-RPC result to the frontend-side version of this comm.
 
@@ -223,10 +219,10 @@ class PositronComm:
         metadata
             The metadata to send with the result.
         """
-        result = dict(
-            jsonrpc="2.0",
-            result=data,
-        )
+        result = {
+            "jsonrpc": "2.0",
+            "result": data,
+        }
         self.comm.send(
             data=result,
             metadata=metadata,
@@ -244,15 +240,15 @@ class PositronComm:
         payload
             The payload of the event.
         """
-        event = dict(
-            jsonrpc="2.0",
-            method=name,
-            params=payload,
-        )
+        event = {
+            "jsonrpc": "2.0",
+            "method": name,
+            "params": payload,
+        }
         with self.send_lock:
             self.comm.send(data=event)
 
-    def send_error(self, code: JsonRpcErrorCode, message: Optional[str] = None) -> None:
+    def send_error(self, code: JsonRpcErrorCode, message: str | None = None) -> None:
         """
         Send a JSON-RPC result to the frontend-side version of this comm.
 
@@ -263,13 +259,13 @@ class PositronComm:
         message
             The error message to send.
         """
-        error = dict(
-            jsonrpc="2.0",
-            error=dict(
-                code=code.value,
-                message=message,
-            ),
-        )
+        error = {
+            "jsonrpc": "2.0",
+            "error": {
+                "code": code.value,
+                "message": message,
+            },
+        }
         self.comm.send(
             data=error,
             metadata=None,
@@ -277,13 +273,9 @@ class PositronComm:
         )
 
     def close(self) -> None:
-        """
-        Close the frontend-side version of this comm.
-        """
+        """Close the frontend-side version of this comm."""
         self.comm.close()
 
     def open(self) -> None:
-        """
-        Open the frontend-side version of this comm.
-        """
+        """Open the frontend-side version of this comm."""
         self.comm.open()

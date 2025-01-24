@@ -49,12 +49,10 @@ def import_pyplot(shell: PositronShell) -> None:
 
 @pytest.fixture
 def plots_service(kernel: PositronIPyKernel) -> Iterable[PlotsService]:
-    """
-    The Positron plots service.
-    """
+    """The Positron plots service."""
     plots_service = kernel.plots_service
 
-    assert not plots_service._plots
+    assert not plots_service._plots  # noqa: SLF001
     assert not plt.get_fignums()
 
     yield plots_service
@@ -84,21 +82,21 @@ def _create_mpl_plot(
     args_code = ", ".join(args)
 
     shell.run_cell(f"plt.figure({args_code})").raise_error()
-    plot_comm = cast(DummyComm, plots_service._plots[-1]._comm.comm)
+    plot_comm = cast(DummyComm, plots_service._plots[-1]._comm.comm)  # noqa: SLF001
     assert plot_comm.messages == [comm_open_message(_CommTarget.Plot)]
     plot_comm.messages.clear()
     return plot_comm
 
 
 def _do_render(
-    plot_comm: DummyComm, size: Optional[PlotSize] = None, pixel_ratio=2.0, format="png"
+    plot_comm: DummyComm, size: Optional[PlotSize] = None, pixel_ratio=2.0, format_="png"
 ) -> Dict[str, Any]:
     msg = json_rpc_request(
         "render",
         {
             "size": size.dict() if size else None,
             "pixel_ratio": pixel_ratio,
-            "format": format,
+            "format": format_,
         },
         comm_id="dummy_comm_id",
     )
@@ -115,7 +113,7 @@ def test_mpl_create(shell: PositronShell, plots_service: PlotsService) -> None:
     # Creating a figure should create a plot with the plots service and open a corresponding comm.
     _create_mpl_plot(shell, plots_service)
 
-    assert len(plots_service._plots) == 1
+    assert len(plots_service._plots) == 1  # noqa: SLF001
 
 
 def test_mpl_get_intrinsic_size(shell: PositronShell, plots_service: PlotsService) -> None:
@@ -167,8 +165,8 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
     # Send a render request to the plot comm. The frontend would send this on comm creation.
     size = PlotSize(width=400, height=300)
     pixel_ratio = 2.0
-    format = "png"
-    response = _do_render(plot_comm, size, pixel_ratio, format)
+    format_ = "png"
+    response = _do_render(plot_comm, size, pixel_ratio, format_)
 
     def verify_response(response, filename: str, expected_size: Tuple[float, float], threshold=0.0):
         # Check that the response includes the expected base64-encoded resized image.
@@ -179,18 +177,18 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
         image.save(images_path / f"{filename}.png")
 
         # Check the format and size of the image.
-        assert image.format == format.upper()
+        assert image.format == format_.upper()
         assert percent_difference(image.size[0], expected_size[0] * pixel_ratio) <= threshold
         assert percent_difference(image.size[1], expected_size[1] * pixel_ratio) <= threshold
 
         # Check the rest of the response.
-        assert response == json_rpc_response({"mime_type": f"image/{format}"})
+        assert response == json_rpc_response({"mime_type": f"image/{format_}"})
 
     verify_response(response, "test-mpl-render-0-explicit-size", (size.width, size.height))
 
     # Now render the plot at its intrinsic size.
     # Having rendered the plot at an explicit size should not affect the intrinsic size.
-    response = _do_render(plot_comm, None, pixel_ratio, format)
+    response = _do_render(plot_comm, None, pixel_ratio, format_)
 
     verify_response(
         response,
@@ -202,7 +200,7 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
     )
 
     # Double-check that we can still render at a requested size.
-    response = _do_render(plot_comm, size, pixel_ratio, format)
+    response = _do_render(plot_comm, size, pixel_ratio, format_)
     verify_response(
         response, "test-mpl-render-2-explicit-size-after-intrinsic-size", (size.width, size.height)
     )
@@ -224,7 +222,7 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
     ],
 )
 def test_mpl_update(
-    code: str, should_update: bool, shell: PositronShell, plots_service: PlotsService
+    code: str, *, should_update: bool, shell: PositronShell, plots_service: PlotsService
 ) -> None:
     # Create and render a plot.
     plot_comm = _create_mpl_plot(shell, plots_service)
@@ -239,7 +237,7 @@ def test_mpl_update(
 
 
 def _assert_plot_comm_closed(plot_comm: DummyComm) -> None:
-    assert plot_comm._closed
+    assert plot_comm._closed  # noqa: SLF001
     assert plot_comm.messages == [comm_close_message()]
 
 
@@ -251,7 +249,7 @@ def test_mpl_close(shell: PositronShell, plots_service: PlotsService) -> None:
     # should close the plot comm,
     _assert_plot_comm_closed(plot_comm)
     # but the comm should still be registered with the plots service.
-    assert len(plots_service._plots) == 1
+    assert len(plots_service._plots) == 1  # noqa: SLF001
 
 
 def _do_close(plot_comm: DummyComm) -> None:
@@ -274,7 +272,7 @@ def test_mpl_frontend_close_then_draw(shell: PositronShell, plots_service: Plots
     # Drawing again should re-open the comm
     shell.run_cell("plt.plot([1, 2])")
 
-    assert not plot_comm._closed
+    assert not plot_comm._closed  # noqa: SLF001
     assert plot_comm.messages == [comm_open_message(_CommTarget.Plot)]
 
 
@@ -286,7 +284,7 @@ def test_mpl_frontend_close_then_show(shell: PositronShell, plots_service: Plots
     # Showing again should re-open the comm
     shell.run_cell("plt.show()")
 
-    assert not plot_comm._closed
+    assert not plot_comm._closed  # noqa: SLF001
     assert plot_comm.messages == [comm_open_message(_CommTarget.Plot)]
 
 
@@ -329,25 +327,26 @@ def test_mpl_multiple_figures(shell: PositronShell, plots_service: PlotsService)
 def test_mpl_issue_2824(shell: PositronShell, plots_service: PlotsService) -> None:
     """
     Creating a mutable collection of figures should not create a duplicate plot.
-    See https://github.com/posit-dev/positron/issues/2824
+
+    See https://github.com/posit-dev/positron/issues/2824.
     """
     shell.run_cell("figs = [plt.figure()]")
     # This step triggers the variables service to create a snapshot, which shouldn't duplicate the plot.
     shell.run_cell("plt.show()")
-    assert len(plots_service._plots) == 1
+    assert len(plots_service._plots) == 1  # noqa: SLF001
 
 
 def test_mpl_shutdown(shell: PositronShell, plots_service: PlotsService) -> None:
     plot_comms = [_create_mpl_plot(shell, plots_service) for _ in range(2)]
 
     # Double-check that it still has plots.
-    assert len(plots_service._plots) == 2
+    assert len(plots_service._plots) == 2  # noqa: SLF001
 
     # Double-check that all comms are still open.
-    assert not any(comm._closed for comm in plot_comms)
+    assert not any(comm._closed for comm in plot_comms)  # noqa: SLF001
 
     plots_service.shutdown()
 
     # Plots are closed and cleared.
-    assert not plots_service._plots
-    assert all(comm._closed for comm in plot_comms)
+    assert not plots_service._plots  # noqa: SLF001
+    assert all(comm._closed for comm in plot_comms)  # noqa: SLF001
