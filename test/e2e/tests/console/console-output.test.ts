@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup';
+import { test, tags, expect } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -15,6 +15,16 @@ test.describe('Console Output', { tag: [tags.WIN, tags.CONSOLE, tags.WEB] }, () 
 		await app.workbench.console.sendEnterKey();
 		await app.workbench.console.waitForConsoleContents('Why do programmers prefer dark mode');
 		await app.workbench.console.waitForConsoleContents('Because light attracts bugs!');
+	});
+
+	test('Long console output wraps appropriately', async function ({ app, page, python }) {
+		await app.workbench.console.waitForReady('>>>');
+		await app.workbench.console.pasteCodeToConsole(pyCode);
+		await app.workbench.console.sendEnterKey();
+		await app.workbench.console.waitForReady('>>>');
+
+		const el = page.locator('.console-instance');
+		await expect(await el.evaluate((el) => el.scrollWidth)).toBeLessThanOrEqual(await el.evaluate((el) => el.clientWidth));
 	});
 });
 
@@ -38,3 +48,5 @@ const rCode = `tokens <- c(
 		cat(token)
 		Sys.sleep(0.01)
 	}`;
+
+const pyCode = `"Blah" * 300`;
