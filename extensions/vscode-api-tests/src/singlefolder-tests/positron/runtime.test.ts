@@ -109,8 +109,12 @@ class TestLanguageRuntimeManager implements positron.LanguageRuntimeManager {
 
 	onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
 
-	async* discoverRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+	async* discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
 		yield testLanguageRuntimeMetadata();
+	}
+
+	async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+		return undefined;
 	}
 
 	async createSession(

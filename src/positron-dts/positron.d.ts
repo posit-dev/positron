@@ -648,13 +648,22 @@ declare module 'positron' {
 
 	export interface LanguageRuntimeManager {
 		/**
-		 * Returns a generator that yields metadata about the language runtimes
-		 * that are available to the user.
+		 * Returns a generator that yields metadata about all the language
+		 * runtimes that are available to the user.
 		 *
 		 * This metadata will be passed to `createSession` to create new runtime
 		 * sessions.
 		 */
-		discoverRuntimes(): AsyncGenerator<LanguageRuntimeMetadata>;
+		discoverAllRuntimes(): AsyncGenerator<LanguageRuntimeMetadata>;
+
+		/**
+		 * Returns a runtime metadata object representing the runtime that should
+		 * be used in the current workspace, if any.
+		 *
+		 * Note that this is called before `discoverAllRuntimes` during
+		 * startup, and should return quickly.
+		 */
+		recommendedWorkspaceRuntime(): Thenable<LanguageRuntimeMetadata | undefined>;
 
 		/**
 		 * An optional event that fires when a new runtime is discovered.

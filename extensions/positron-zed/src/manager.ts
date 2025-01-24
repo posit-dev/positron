@@ -62,7 +62,7 @@ export class ZedRuntimeManager implements positron.LanguageRuntimeManager {
 	 *
 	 * @returns An async generator that yields metadata for the Zed language
 	 */
-	discoverRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata, any, unknown> {
+	discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata, any, unknown> {
 		const context = this._context;
 
 		const generator = async function* getPositronZedLanguageRuntimes() {
@@ -81,6 +81,16 @@ export class ZedRuntimeManager implements positron.LanguageRuntimeManager {
 		};
 
 		return generator();
+	}
+
+	/**
+	 * Recommends a Zed runtime for the workspace. Since Zed is a test
+	 * language, we never recommend a runtime.
+	 *
+	 * @returns Nothing.
+	 */
+	async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+		return undefined;
 	}
 
 	/**

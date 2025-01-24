@@ -553,7 +553,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			extension: manager.extension,
 			manager: manager.manager,
 			languageId: manager.languageId,
-			discoverer: manager.manager.discoverRuntimes()
+			discoverer: manager.manager.discoverAllRuntimes()
 		})).filter(discoverer =>
 			// Do not discover runtimes for disabled languages
 			!disabledLanguageIds.includes(discoverer.languageId)
@@ -723,7 +723,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// provider's async generator will be invoked as part of the
 			// discovery process, and we don't need to do anything here.
 			void (async () => {
-				const discoverer = manager.discoverRuntimes();
+				const discoverer = manager.discoverAllRuntimes();
 				for await (const runtime of discoverer) {
 					disposables.add(this.registerLanguageRuntime(extension, manager, runtime));
 				}

@@ -90,8 +90,17 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
      *
      * @returns An async generator that yields Python language runtime metadata.
      */
-    discoverRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+    discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
         return this.discoverPythonRuntimes();
+    }
+
+    /**
+     * Recommend a Python language runtime based on the workspace.
+     */
+    async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+        // TODO: This is where we could recommend a runtime based on the
+        // workspace, e.g. if it contains a virtualenv
+        return undefined;
     }
 
     /**

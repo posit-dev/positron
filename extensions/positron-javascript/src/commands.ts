@@ -33,7 +33,7 @@ class JavascriptRuntimeManager implements positron.LanguageRuntimeManager {
 	constructor(private readonly _context: vscode.ExtensionContext) {
 	}
 
-	discoverRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata, any, unknown> {
+	discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata, any, unknown> {
 		const version = process.version;
 
 		const iconSvgPath = path.join(this._context.extensionPath, 'resources', 'nodejs-icon.svg');
@@ -59,6 +59,10 @@ class JavascriptRuntimeManager implements positron.LanguageRuntimeManager {
 			};
 			yield metadata;
 		}();
+	}
+
+	recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+		return Promise.resolve(undefined);
 	}
 
 	createSession(
