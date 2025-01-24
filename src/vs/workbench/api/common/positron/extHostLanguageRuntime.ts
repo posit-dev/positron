@@ -493,6 +493,23 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
+	public async $recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
+		// Get the recommended runtimes from each provider
+		const metadata = await Promise.all(
+			this._runtimeManagers.filter(m => {
+				// Remove disabled languages from the list of runtime managers
+				return !disabledLanguageIds.includes(m.languageId);
+			}
+			).map(async m => {
+				// Get the recommended runtime from the provider, if any
+				return m.manager.recommendedWorkspaceRuntime();
+			})
+		);
+
+		// Return all the metadata from the providers
+		return metadata.filter(metadata => metadata !== undefined) as ILanguageRuntimeMetadata[];
+	}
+
 	/**
 	 * Discovers language runtimes and registers them with the main thread.
 	 *
