@@ -87,4 +87,4 @@ jobs:
           # slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           notify_on: "always"
-          channel: "D07KSCRU0SZ"
+          channel: "U07KNKY6S5C"
