@@ -3,6 +3,7 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+import contextlib
 import inspect
 import logging
 import os
@@ -59,10 +60,10 @@ def _is_module_loaded(kernel: "PositronIPyKernel", params: List[JsonData]) -> bo
     # Consider: this is not a perfect check for a couple of reasons:
     # 1. The module could be loaded under a different name
     # 2. The user may have a variable with the same name as the module
-    return params[0] in kernel.shell.user_ns.keys()
+    return params[0] in kernel.shell.user_ns
 
 
-def _set_console_width(kernel: "PositronIPyKernel", params: List[JsonData]) -> None:
+def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> None:
     if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], int)):
         raise _InvalidParamsError(f"Expected an integer width, got: {params}")
 
@@ -108,6 +109,7 @@ _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional
 class UiService:
     """
     Wrapper around a comm channel whose lifetime matches that of the Positron frontend.
+
     Used for communication with the frontend, unscoped to any particular view.
     """
 
@@ -118,7 +120,7 @@ class UiService:
 
         self._working_directory: Optional[Path] = None
 
-    def on_comm_open(self, comm: BaseComm, msg: JsonRecord) -> None:
+    def on_comm_open(self, comm: BaseComm, _msg: JsonRecord) -> None:
         self._comm = PositronComm(comm)
         self._comm.on_msg(self.handle_msg, UiBackendMessageContent)
 
@@ -140,8 +142,9 @@ class UiService:
 
     def poll_working_directory(self) -> None:
         """
-        Polls for changes to the working directory, and sends an event to the
-        front end if the working directory has changed.
+        Polls for changes to the working directory.
+
+        And sends an event to the front end if the working directory has changed.
         """
         # Get the current working directory
         current_dir = Path.cwd()
@@ -164,7 +167,7 @@ class UiService:
     def clear_webview_preloads(self) -> None:
         self._send_event(name=UiFrontendEvent.ClearWebviewPreloads, payload={})
 
-    def handle_msg(self, msg: CommMessage[UiBackendMessageContent], raw_msg: JsonRecord) -> None:
+    def handle_msg(self, msg: CommMessage[UiBackendMessageContent], _raw_msg: JsonRecord) -> None:
         request = msg.content.data
 
         if isinstance(request, CallMethodRequest):
@@ -188,13 +191,13 @@ class UiService:
 
         if self._comm is not None:
             self._comm.send_result(data=result)
+            return None
+        return None
 
     def shutdown(self) -> None:
         if self._comm is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self._comm.close()
-            except Exception:
-                pass
 
     def _send_event(self, name: str, payload: Union[BaseModel, JsonRecord]) -> None:
         if self._comm is not None:
@@ -214,7 +217,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         self.name = name
         self._comm = comm
 
-    def open(self, url, new=0, autoraise=True) -> bool:
+    def open(self, url, new=0, autoraise=True) -> bool:  # noqa: ARG002, FBT002
         if not self._comm:
             return False
 
@@ -257,7 +260,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                         return True
         return False
 
-    def _send_show_html_event(self, url: str, is_plot: bool) -> bool:
+    def _send_show_html_event(self, url: str, is_plot: bool) -> bool:  # noqa: FBT001
         if self._comm is None:
             logger.warning("No comm available to send ShowHtmlFile event")
             return False

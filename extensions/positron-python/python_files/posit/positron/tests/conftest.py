@@ -3,6 +3,7 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+from http.server import HTTPServer
 from typing import Iterable
 from unittest.mock import MagicMock, Mock
 
@@ -20,15 +21,12 @@ from positron.positron_ipkernel import (
 )
 from positron.session_mode import SessionMode
 from positron.variables import VariablesService
-from http.server import HTTPServer
 
 utils.TESTING = True
 
 
 class DummyComm(comm.base_comm.BaseComm):
-    """
-    A comm that records published messages for testing purposes.
-    """
+    """A comm that records published messages for testing purposes."""
 
     def __init__(self, *args, **kwargs):
         self.messages = []
@@ -38,7 +36,7 @@ class DummyComm(comm.base_comm.BaseComm):
         msg["msg_type"] = msg_type
         self.messages.append(msg)
 
-    def handle_msg(self, msg, raise_errors=True):
+    def handle_msg(self, msg, *, raise_errors=True):
         message_count = len(self.messages)
 
         super().handle_msg(msg)
@@ -53,9 +51,7 @@ class DummyComm(comm.base_comm.BaseComm):
 
 
 class TestSession(Session):
-    """
-    A session that records sent messages for testing purposes.
-    """
+    """A session that records sent messages for testing purposes."""
 
     def __init__(self, *args, **kwargs):
         self.messages = []
@@ -70,9 +66,7 @@ class TestSession(Session):
 # Enable autouse so that all comms are created as DummyComms.
 @pytest.fixture(autouse=True)
 def patch_create_comm(monkeypatch: pytest.MonkeyPatch) -> None:
-    """
-    Patch the `comm.create_comm` function to use our dummy comm.
-    """
+    """Patch the `comm.create_comm` function to use our dummy comm."""
     monkeypatch.setattr(comm, "create_comm", DummyComm)
 
 
@@ -98,9 +92,7 @@ def _prepare_shell(shell: PositronShell) -> None:
 
 @pytest.fixture
 def kernel() -> PositronIPyKernel:
-    """
-    The Positron kernel, configured for testing purposes.
-    """
+    """The Positron kernel, configured for testing purposes."""
     # Mock the application object. We haven't needed to use it in tests yet, but we do need it to
     # pass our custom attributes down to the shell.
     app = MagicMock(PositronIPKernelApp)
@@ -205,17 +197,13 @@ def mock_handle_request(monkeypatch: pytest.MonkeyPatch) -> Mock:
 
 @pytest.fixture
 def variables_service(kernel: PositronIPyKernel) -> VariablesService:
-    """
-    The Positron variables service.
-    """
+    """The Positron variables service."""
     return kernel.variables_service
 
 
 @pytest.fixture
 def variables_comm(variables_service: VariablesService) -> DummyComm:
-    """
-    Convenience fixture for accessing the variables comm.
-    """
+    """Convenience fixture for accessing the variables comm."""
     # Open a comm
     variables_comm = DummyComm("dummy_variables_comm")
     variables_service.on_comm_open(variables_comm, {})
@@ -228,9 +216,7 @@ def variables_comm(variables_service: VariablesService) -> DummyComm:
 
 @pytest.fixture
 def de_service(kernel: PositronIPyKernel):
-    """
-    The Positron dataviewer service.
-    """
+    """The Positron dataviewer service."""
     fixture = kernel.data_explorer_service
     yield fixture
     fixture.shutdown()
@@ -238,9 +224,7 @@ def de_service(kernel: PositronIPyKernel):
 
 @pytest.fixture
 def connections_service(kernel: PositronIPyKernel) -> ConnectionsService:
-    """
-    The Positron connections service.
-    """
+    """The Positron connections service."""
     return kernel.connections_service
 
 

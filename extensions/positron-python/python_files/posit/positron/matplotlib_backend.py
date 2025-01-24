@@ -19,21 +19,23 @@ from __future__ import annotations
 import hashlib
 import io
 import logging
-from typing import Optional, Union, cast
+from typing import TYPE_CHECKING, cast
 
 import matplotlib
 from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
-from matplotlib.figure import Figure
 
-from .plot_comm import PlotSize
+if TYPE_CHECKING:
+    from matplotlib.figure import Figure
+
+    from .plot_comm import PlotSize
 
 logger = logging.getLogger(__name__)
 
 
 # Enable interactive mode (i.e. redraw after every plotting command).
 # This is expected to run when the backend is selected. See the note at the top of the file.
-matplotlib.interactive(True)
+matplotlib.interactive(True)  # noqa: FBT003
 
 
 class FigureManagerPositron(FigureManagerBase):
@@ -55,7 +57,7 @@ class FigureManagerPositron(FigureManagerBase):
 
     canvas: FigureCanvasPositron
 
-    def __init__(self, canvas: FigureCanvasPositron, num: Union[int, str]):
+    def __init__(self, canvas: FigureCanvasPositron, num: int | str):
         from .positron_ipkernel import PositronIPyKernel
 
         super().__init__(canvas, num)
@@ -69,15 +71,11 @@ class FigureManagerPositron(FigureManagerBase):
         return self._plot.closed
 
     def show(self) -> None:
-        """
-        Called by matplotlib when a figure is shown via `plt.show()` or `figure.show()`.
-        """
+        """Called by matplotlib when a figure is shown via `plt.show()` or `figure.show()`."""
         self._plot.show()
 
     def destroy(self) -> None:
-        """
-        Called by matplotlib when a figure is closed via `plt.close()`.
-        """
+        """Called by matplotlib when a figure is closed via `plt.close()`."""
         self._plot.close()
 
     def update(self) -> None:
@@ -108,7 +106,7 @@ class FigureCanvasPositron(FigureCanvasAgg):
 
     manager_class = FigureManagerPositron  # type: ignore
 
-    def __init__(self, figure: Optional[Figure] = None) -> None:
+    def __init__(self, figure: Figure | None = None) -> None:
         super().__init__(figure)
 
         # Hash of the canvas contents after the previous render for change detection.
@@ -120,7 +118,7 @@ class FigureCanvasPositron(FigureCanvasAgg):
         # Store the intrinsic size of the figure.
         self.intrinsic_size = tuple(self.figure.get_size_inches())
 
-    def draw(self, is_rendering=False) -> None:
+    def draw(self, *, is_rendering=False) -> None:
         """
         Draw the canvas; send an update event if the canvas has changed.
 
@@ -137,16 +135,16 @@ class FigureCanvasPositron(FigureCanvasAgg):
             # Do nothing if the canvas has not been rendered yet, to avoid an unnecessary update
             # since opening the comm will trigger a render from the frontend.
             if not self._first_render_completed:
-                return
+                return  # noqa: B012
 
             # Do nothing if the canvas is currently being rendered, to avoid an infinite draw-render loop.
             if is_rendering:
-                return
+                return  # noqa: B012
 
             # If the plot was closed after being opened, request an update to re-open the plot.
             if self.manager.closed:
                 self.manager.update()
-                return
+                return  # noqa: B012
 
             # Check if the canvas contents have changed, and request an update if they have.
             current_hash = self._hash_buffer_rgba()
@@ -154,12 +152,12 @@ class FigureCanvasPositron(FigureCanvasAgg):
             logger.debug(f"Canvas: current hash: {current_hash[:6]}")
             if current_hash == self._previous_hash:
                 logger.debug("Canvas: hash is the same, no need to update")
-                return
+                return  # noqa: B012
 
             logger.debug("Canvas: hash changed, requesting an update")
             self.manager.update()
 
-    def render(self, size: Optional[PlotSize], pixel_ratio: float, format: str) -> bytes:
+    def render(self, size: PlotSize | None, pixel_ratio: float, format_: str) -> bytes:
         # Set the device pixel ratio to the requested value.
         self._set_device_pixel_ratio(pixel_ratio)  # type: ignore
 
@@ -190,7 +188,7 @@ class FigureCanvasPositron(FigureCanvasAgg):
         with io.BytesIO() as figure_buffer:
             self.print_figure(
                 figure_buffer,
-                format=format,
+                format=format_,
                 dpi=self.figure.dpi,
                 bbox_inches=bbox_inches,
             )

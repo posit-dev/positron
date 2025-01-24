@@ -378,7 +378,7 @@ def test_positron_comment():
         1
         """
     )
-    result = normalizeSelection.traverse_file(src, 1, 1, False)
+    result = normalizeSelection.traverse_file(src, 1, 1, was_highlighted=False)
     assert result["normalized_smart_result"] == expected
 
 

@@ -6,8 +6,7 @@
 import os
 from functools import partial
 from pathlib import Path
-from threading import Timer
-from typing import Any, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -50,12 +49,13 @@ from positron.positron_jedilsp import (
     positron_help_topic_request,
 )
 
+if TYPE_CHECKING:
+    from threading import Timer
+
 
 @pytest.fixture(autouse=True)
 def _reduce_debounce_time(monkeypatch):
-    """
-    Reduce the debounce time for diagnostics to be published to speed up tests.
-    """
+    """Reduce the debounce time for diagnostics to be published to speed up tests."""
     monkeypatch.setattr(_clear_diagnostics_debounced, "interval_s", 0.05)
     monkeypatch.setattr(_publish_diagnostics_debounced, "interval_s", 0.05)
 
@@ -249,7 +249,7 @@ def test_path_completion(tmp_path) -> None:
     _assert_has_path_completion = partial(assert_has_path_completion, root_path=tmp_path)
 
     # Check directory completions at various points around symbols.
-    _assert_has_path_completion('""', f"my-notebooks.new/")
+    _assert_has_path_completion('""', "my-notebooks.new/")
     # Quotes aren't automatically closed for directories, since the user may want a file.
     _assert_has_path_completion('"', "my-notebooks.new/", 0)
     _assert_has_path_completion('"my"', "-notebooks.new/")

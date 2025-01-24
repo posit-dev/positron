@@ -42,10 +42,7 @@ TESTING = False
 
 
 def get_qualname(value: Any) -> str:
-    """
-    Utility to manually construct a qualified type name as
-    __qualname__ does not work for all types
-    """
+    """Utility to manually construct a qualified type name as __qualname__ does not work for all types."""
     # Get a named object corresponding to the value, e.g. an instance's class or a property's getter
     if (
         isinstance(value, type)
@@ -87,9 +84,7 @@ def get_qualname(value: Any) -> str:
 
 
 def get_module_name(value: Any) -> Optional[str]:
-    """
-    Get the name of the module defining `value`.
-    """
+    """Get the name of the module defining `value`."""
     # It's already a module, return its name
     if inspect.ismodule(value):
         return value.__name__
@@ -113,13 +108,10 @@ def get_module_name(value: Any) -> Optional[str]:
     return None
 
 
-def is_numpy_ufunc(object: Any) -> bool:
+def is_numpy_ufunc(object_: Any) -> bool:
     # We intentionally don't use get_qualname here to avoid an infinite recursion
-    object_type = type(object)
-    return (
-        getattr(object_type, "__module__") == "numpy"
-        and getattr(object_type, "__name__") == "ufunc"
-    )
+    object_type = type(object_)
+    return object_type.__module__ == "numpy" and object_type.__name__ == "ufunc"
 
 
 def pretty_format(
@@ -139,9 +131,9 @@ def pretty_format(
     return s, False
 
 
-def truncate_string(value: str, max: int) -> Tuple[str, bool]:
-    if len(value) > max:
-        return (value[:max], True)
+def truncate_string(value: str, max_: int) -> Tuple[str, bool]:
+    if len(value) > max_:
+        return (value[:max_], True)
     else:
         return (value, False)
 
@@ -218,7 +210,7 @@ def json_clean(obj):
         return obj.strftime(ISO8601)
 
     # we don't understand it, it's probably an unserializable object
-    raise ValueError("Can't clean for JSON: %r" % obj)
+    raise ValueError(f"Can't clean for JSON: {obj!r}")
 
 
 def create_task(coro: Coroutine, pending_tasks: Set[asyncio.Task], **kwargs) -> asyncio.Task:
@@ -236,9 +228,7 @@ def create_task(coro: Coroutine, pending_tasks: Set[asyncio.Task], **kwargs) -> 
 
 
 async def cancel_tasks(tasks: Set[asyncio.Task]) -> None:
-    """
-    Cancel and await a set of tasks.
-    """
+    """Cancel and await a set of tasks."""
     for task in tasks:
         task.cancel()
     await asyncio.gather(*tasks)
@@ -246,10 +236,7 @@ async def cancel_tasks(tasks: Set[asyncio.Task]) -> None:
 
 
 class BackgroundJobQueue:
-    """
-    Simple threadpool-based background job queue for
-    pseudo-asynchronous request handling in kernel services.
-    """
+    """Simple threadpool-based background job queue for pseudo-asynchronous request handling in kernel services."""
 
     def __init__(self, max_workers=None):
         # Initialize the ThreadPoolExecutor with the specified number
@@ -281,7 +268,7 @@ class BackgroundJobQueue:
         for future in futures:
             future.result()  # This will block until the future is done
 
-    def shutdown(self, wait=True):
+    def shutdown(self, *, wait=True):
         # Shut down the executor and optionally wait for all running
         # futures to complete
         self.executor.shutdown(wait=wait)
@@ -304,17 +291,13 @@ def safe_isinstance(obj: Any, module: str, class_name: str, *attrs: str) -> bool
 
 
 def not_none(value: Optional[T]) -> T:
-    """
-    Assert that a value is not None.
-    """
+    """Assert that a value is not None."""
     assert value is not None
     return value
 
 
 def alias_home(path: Path) -> Path:
-    """
-    Alias the home directory to ~ in a path.
-    """
+    """Alias the home directory to ~ in a path."""
     home_dir = Path.home()
     try:
         # relative_to will raise a ValueError if path is not within the home directory
@@ -330,7 +313,7 @@ def guid():
 def positron_ipykernel_usage():
     """
 
-    Positron Console Help
+    Positron Console Help.
     =========================================
 
     The Positron Console offers a fully compatible replacement for the standard Python
@@ -394,8 +377,7 @@ def positron_ipykernel_usage():
 
     * Clickable links in exception traceback printouts.
 
-    """
-    pass
+    """  # noqa: D205
 
 
 numpy_numeric_scalars = [
@@ -447,10 +429,7 @@ def is_local_html_file(url: str) -> bool:
 
         # Check if the path contains the .html or .htm extensions
         ext = Path(path).suffix.lower()
-        if ext in (".html", ".htm"):
-            return True
-
-        return False
+        return ext in (".html", ".htm")
 
     except Exception:
         return False

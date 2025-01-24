@@ -10,7 +10,7 @@ from ..session_mode import SessionMode
 logger = logging.getLogger(__name__)
 
 
-def _positron_no_access(filename: str):
+def _positron_no_access(_filename: str):
     return True
 
 
@@ -20,7 +20,7 @@ def patch_bokeh_no_access():
     try:
         from bokeh.io import util
 
-        util._no_access = _positron_no_access
+        util._no_access = _positron_no_access  # noqa: SLF001
     except ImportError:
         pass
 
@@ -45,6 +45,8 @@ def handle_bokeh_output(session_mode: SessionMode) -> None:
 
 def add_preload_mime_type():
     """
+    Override bokeh.io.notebook.publish_display_data.
+
     Override the bokeh notebook display function to add a flag that the front-end can pick up on to
     know that the data coming over should be replayed in multiple steps.
     """
@@ -75,7 +77,9 @@ def add_preload_mime_type():
 
 def hide_glyph_renderer_output():
     """
-    Disable the `_repr_html_` method on the Model class to prevent it from being called when the
+    Disable the `_repr_html_` method on the Model class.
+
+    This is to prevent it from being called when the
     model is displayed and thus confusing positron into thinking it's a plot to show.
     """
     try:

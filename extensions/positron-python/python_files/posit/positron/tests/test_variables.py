@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, List, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import ANY, Mock, patch
 
 import numpy as np
@@ -18,7 +18,6 @@ from positron import variables as variables_module
 from positron.access_keys import encode_access_key
 from positron.inspectors import get_inspector
 from positron.positron_comm import JsonRpcErrorCode
-from positron.positron_ipkernel import PositronIPyKernel
 from positron.utils import JsonData, JsonRecord, not_none
 from positron.variables import VariablesService, _summarize_variable
 from positron.variables_comm import Variable
@@ -33,6 +32,9 @@ from .utils import (
     json_rpc_response,
 )
 
+if TYPE_CHECKING:
+    from positron.positron_ipkernel import PositronIPyKernel
+
 BIG_ARRAY_LENGTH = 10_000_001
 TARGET_NAME = "target_name"
 
@@ -41,7 +43,7 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
     service = VariablesService(kernel)
 
     # Double-check that comm is not yet open
-    assert service._comm is None
+    assert service._comm is None  # noqa: SLF001
 
     # Open a comm
     variables_comm = DummyComm(TARGET_NAME)
@@ -101,13 +103,11 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
 )
 def test_change_detection(
     import_code: str,
-    value_codes: List[str],
+    value_codes: list[str],
     shell: PositronShell,
     variables_comm: DummyComm,
 ) -> None:
-    """
-    Test change detection when updating the value of the same name.
-    """
+    """Test change detection when updating the value of the same name."""
     _import_library(shell, import_code)
     for value_code in value_codes:
         _assert_assigned(shell, value_code, variables_comm)
@@ -210,7 +210,7 @@ def _do_list(variables_comm: DummyComm):
 def test_list_1000(shell: PositronShell, variables_comm: DummyComm) -> None:
     # Create 1000 variables
     for j in range(0, 1000, 1):
-        shell.user_ns["var{}".format(j)] = j
+        shell.user_ns[f"var{j}"] = j
 
     # Request the list of variables
     msg = json_rpc_request("list", comm_id="dummy_comm_id")
@@ -229,18 +229,16 @@ def test_list_1000(shell: PositronShell, variables_comm: DummyComm) -> None:
 def test_list_falls_back_on_variable_error(
     shell: PositronShell, variables_comm: DummyComm, monkeypatch
 ) -> None:
-    """
-    Should fall back to a basic variable summary if the inspector encounters an error (#4777).
-    """
+    """Should fall back to a basic variable summary if the inspector encounters an error (#4777)."""
     shell.user_ns["x"] = 1
 
     # Temporarily break the NumberInspector.
-    def NumberInspector(*args, **kwargs):
-        raise Exception()
+    def number_inspector(*_args, **_kwargs):
+        raise Exception
 
     from positron.inspectors import INSPECTOR_CLASSES
 
-    monkeypatch.setitem(INSPECTOR_CLASSES, "number", NumberInspector)
+    monkeypatch.setitem(INSPECTOR_CLASSES, "number", number_inspector)
 
     # Request the list of variables.
     list_result = _do_list(variables_comm)
@@ -305,7 +303,7 @@ def create_and_update_n_vars(
     # Create n variables
     assign_n = ""
     for j in range(0, n, 1):
-        assign_n += "x{} = {}".format(j, j) + "\n"
+        assign_n += f"x{j} = {j}" + "\n"
 
     shell.run_cell(assign_n)
     variables_comm.messages.clear()
@@ -313,14 +311,14 @@ def create_and_update_n_vars(
     # Re-assign the variables to trigger an update message
     update_n = ""
     for j in range(0, n, 1):
-        update_n += "x{} = {}".format(j, j + add_value) + "\n"
+        update_n += f"x{j} = {j + add_value}" + "\n"
 
     shell.run_cell(update_n)
     return variables_comm.messages[0]
 
 
 # TODO(seem): Should be typed as List[str] but that makes pyright unhappy; might be a pyright bug
-def _encode_path(path: List[Any]) -> List[JsonData]:
+def _encode_path(path: list[Any]) -> list[JsonData]:
     return [encode_access_key(key) for key in path]
 
 
@@ -336,7 +334,7 @@ async def test_clear(
     variables_comm.handle_msg(msg)
 
     # Wait until all resulting kernel tasks are processed
-    await asyncio.gather(*variables_service._pending_tasks)
+    await asyncio.gather(*variables_service._pending_tasks)  # noqa: SLF001
 
     # We should get a result
     assert variables_comm.messages == [
@@ -382,7 +380,7 @@ def test_delete_error(variables_comm: DummyComm) -> None:
 
 
 # TODO(seem): encoded_path should be typed as List[str] but that makes pyright unhappy; might be a pyright bug
-def _do_inspect(encoded_path: List[JsonData], variables_comm: DummyComm) -> List[Variable]:
+def _do_inspect(encoded_path: list[JsonData], variables_comm: DummyComm) -> list[Variable]:
     msg = json_rpc_request(
         "inspect",
         {"path": encoded_path},
@@ -423,7 +421,9 @@ class TestClass:
 _test_obj = TestClass()
 
 
-def variable(display_name: str, display_value: str, children: List[Dict[str, Any]] = []):
+def variable(display_name: str, display_value: str, children: list[dict[str, Any]] | None = None):
+    if children is None:
+        children = []
     return {
         "display_name": display_name,
         "display_value": display_value,
@@ -596,9 +596,7 @@ def variable(display_name: str, display_value: str, children: List[Dict[str, Any
 def test_list_and_recursive_inspect(
     value, expected, shell: PositronShell, variables_comm: DummyComm
 ) -> None:
-    """
-    Simulate a user recursively expanding a variable's children in the UI.
-    """
+    """Simulate a user recursively expanding a variable's children in the UI."""
     shell.user_ns["root"] = value
 
     # Get the variable itself via a list request.
@@ -609,9 +607,9 @@ def test_list_and_recursive_inspect(
 
 
 def _verify_inspect(
-    encoded_path: List[JsonData],
-    children: List[Variable],
-    expected_children: List[Dict[str, Any]],
+    encoded_path: list[JsonData],
+    children: list[Variable],
+    expected_children: list[dict[str, Any]],
     variables_comm: DummyComm,
 ) -> None:
     assert len(children) == len(expected_children)
@@ -627,7 +625,7 @@ def _verify_inspect(
             # Check the variable's children by doing another inspect request using the previously
             # returned access_key. This simulates a user recursively expanding a variable's children in
             # the UI.
-            child_path = encoded_path + [child.access_key]
+            child_path = [*encoded_path, child.access_key]
             child_children = _do_inspect(child_path, variables_comm)
             _verify_inspect(child_path, child_children, expected_child_children, variables_comm)
 
@@ -760,7 +758,7 @@ def test_view_error_when_pandas_not_loaded(
 
     # Cases where the object has a viewer action, but no service reports it as
     # supported.
-    def not_supported(value):
+    def not_supported(_value):
         return False
 
     mock_dataexplorer_service.is_supported = not_supported
@@ -778,7 +776,7 @@ def test_view_error_when_pandas_not_loaded(
 
     # Case where the object has a viewer, but somehting wrong happens when checking
     # if the object is supported.
-    def fail_is_supported(value):
+    def fail_is_supported(_value):
         raise TypeError("Not supported")
 
     mock_dataexplorer_service.is_supported = fail_is_supported
@@ -807,9 +805,9 @@ def test_unknown_method(variables_comm: DummyComm) -> None:
 @pytest.mark.asyncio
 async def test_shutdown(variables_service: VariablesService, variables_comm: DummyComm) -> None:
     # Double-check that the comm is not yet closed
-    assert not variables_comm._closed
+    assert not variables_comm._closed  # noqa: SLF001
 
     await variables_service.shutdown()
 
     # Comm is closed
-    assert variables_comm._closed
+    assert variables_comm._closed  # noqa: SLF001

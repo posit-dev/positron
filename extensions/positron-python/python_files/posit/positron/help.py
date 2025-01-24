@@ -5,9 +5,11 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import pydoc
-from typing import TYPE_CHECKING, Any, Optional, Union
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any
 
 from .help_comm import (
     HelpBackendMessageContent,
@@ -26,7 +28,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def help(topic="help"):
+def help(topic="help"):  # noqa: A001
     """
     Show help for the given topic.
 
@@ -61,29 +63,27 @@ def help(topic="help"):
 
 
 class HelpService:
-    """
-    Manages the help server and submits help-related events to the `FrontendService`.
-    """
+    """Manages the help server and submits help-related events to the `FrontendService`."""
 
     # Not sure why, but some qualified names cause errors in pydoc. Manually replace these with
     # names that are known to work.
-    _QUALNAME_OVERRIDES = {
-        "pandas.core.frame": "pandas",
-        "pandas.core.series": "pandas",
-    }
+    _QUALNAME_OVERRIDES = MappingProxyType(
+        {
+            "pandas.core.frame": "pandas",
+            "pandas.core.series": "pandas",
+        }
+    )
 
     def __init__(self):
-        self._comm: Optional[PositronComm] = None
+        self._comm: PositronComm | None = None
         self._pydoc_thread = None
 
-    def on_comm_open(self, comm: BaseComm, msg: JsonRecord) -> None:
+    def on_comm_open(self, comm: BaseComm, _msg: JsonRecord) -> None:
         self._comm = PositronComm(comm)
         self._comm.on_msg(self.handle_msg, HelpBackendMessageContent)
 
-    def handle_msg(self, msg: CommMessage[HelpBackendMessageContent], raw_msg: JsonRecord) -> None:
-        """
-        Handle messages received from the client via the positron.help comm.
-        """
+    def handle_msg(self, msg: CommMessage[HelpBackendMessageContent], _raw_msg: JsonRecord) -> None:
+        """Handle messages received from the client via the positron.help comm."""
         request = msg.content.data
 
         if isinstance(request, ShowHelpTopicRequest):
@@ -102,15 +102,13 @@ class HelpService:
             logger.info("Pydoc server thread stopped")
         # shutdown comm
         if self._comm is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self._comm.close()
-            except Exception:
-                pass
 
     def start(self):
         self._pydoc_thread = start_server()
 
-    def show_help(self, request: Optional[Union[str, Any]]) -> None:
+    def show_help(self, request: str | Any | None) -> None:
         if self._pydoc_thread is None or not self._pydoc_thread.serving:
             logger.warning("Ignoring help request, the pydoc server is not serving")
             return
@@ -118,10 +116,8 @@ class HelpService:
         # Map from the object to the URL for the pydoc server.
         # We first use pydoc.resolve, which lets us handle an object or an import path.
         result = None
-        try:
+        with contextlib.suppress(ImportError):
             result = pydoc.resolve(thing=request)
-        except ImportError:
-            pass
 
         if result is None:
             # We could not resolve to an object, try to get help for the request as a string.

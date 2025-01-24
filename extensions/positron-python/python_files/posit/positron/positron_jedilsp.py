@@ -136,15 +136,13 @@ class HelpTopicRequest:
 
 @attrs.define
 class PositronInitializationOptions:
-    """
-    Positron-specific language server initialization options.
-    """
+    """Positron-specific language server initialization options."""
 
     notebook_path: Optional[Path] = attrs.field(default=None)
 
 
 class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
-    @lru_cache()
+    @lru_cache  # noqa: B019
     def get_message_type(self, method: str) -> Optional[Type]:
         # Overriden to include custom Positron LSP messages.
         # Doing so ensures that the corresponding feature function receives `params` of the correct type.
@@ -174,10 +172,7 @@ class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
         # If a notebook path was provided, set the project path to the notebook's parent.
         # See https://github.com/posit-dev/positron/issues/5948.
         notebook_path = initialization_options.notebook_path
-        if notebook_path:
-            path = notebook_path.parent
-        else:
-            path = self._server.workspace.root_path
+        path = notebook_path.parent if notebook_path else self._server.workspace.root_path
 
         # Create the Jedi Project.
         # Note that this overwrites a Project already created in the parent class.
@@ -210,7 +205,7 @@ class PositronJediLanguageServer(JediLanguageServer):
         self._comm: Optional[BaseComm] = None
 
         # Reference to the user's namespace set on server start
-        self.shell: Optional["PositronShell"] = None
+        self.shell: Optional[PositronShell] = None
 
         # The LSP server is started in a separate thread
         self._server_thread: Optional[threading.Thread] = None
@@ -271,7 +266,9 @@ class PositronJediLanguageServer(JediLanguageServer):
 
     def start(self, lsp_host: str, lsp_port: int, shell: "PositronShell", comm: BaseComm) -> None:
         """
-        Start the LSP with a reference to Positron's IPyKernel to enhance
+        Start the LSP.
+
+        Starts with a reference to Positron's IPyKernel to enhance
         completions with awareness of live variables from user's namespace.
         """
         # Give the LSP server access to the LSP comm to notify the frontend when the server is ready
@@ -283,7 +280,7 @@ class PositronJediLanguageServer(JediLanguageServer):
         # If self.lsp has been used previously in this process and sucessfully exited, it will be
         # marked with a shutdown flag, which makes it ignore all messages.
         # We reset it here, so we allow the server to start again.
-        self.lsp._shutdown = False
+        self.lsp._shutdown = False  # noqa: SLF001
 
         if self._server_thread is not None:
             logger.warning("LSP server thread was not properly shutdown")
@@ -332,7 +329,7 @@ class PositronJediLanguageServer(JediLanguageServer):
 
         self._stop_event.set()
 
-    def set_debug(self, debug: bool) -> None:
+    def set_debug(self, debug: bool) -> None:  # noqa: FBT001
         self._debug = debug
 
 
@@ -366,9 +363,7 @@ _MAGIC_COMPLETIONS: Dict[str, Any] = {}
 def positron_completion(
     server: PositronJediLanguageServer, params: CompletionParams
 ) -> Optional[CompletionList]:
-    """
-    Completion feature.
-    """
+    """Completion feature."""
     # pylint: disable=too-many-locals
     snippet_disable = server.initialization_options.completion.disable_snippets
     resolve_eagerly = server.initialization_options.completion.resolve_eagerly
@@ -403,7 +398,7 @@ def positron_completion(
         snippet_support = get_capability(
             server.client_capabilities,
             "text_document.completion.completion_item.snippet_support",
-            False,
+            default=False,
         )
         markup_kind = _choose_markup(server)
         is_import_context = jedi_utils.is_import(
@@ -568,7 +563,7 @@ def positron_completion_item_resolve(
         return params
 
     # Try to include extra information for objects in the user's namespace e.g. dataframes and columns.
-    completion = jedi_utils._MOST_RECENT_COMPLETIONS[params.label]
+    completion = jedi_utils._MOST_RECENT_COMPLETIONS[params.label]  # noqa: SLF001
     obj, is_found = get_python_object(completion)
     if is_found:
         inspector = get_inspector(obj)
@@ -663,7 +658,7 @@ def positron_rename(
 def positron_help_topic_request(
     server: PositronJediLanguageServer, params: HelpTopicParams
 ) -> Optional[ShowHelpTopicParams]:
-    """Return topic to display in Help pane"""
+    """Return topic to display in Help pane."""
     document = server.workspace.get_text_document(params.text_document.uri)
     jedi_script = interpreter(server.project, document, server.shell)
     jedi_lines = jedi_utils.line_column(params.position)
@@ -691,7 +686,8 @@ def positron_help_topic_request(
     ),
 )
 def positron_code_action(
-    server: PositronJediLanguageServer, params: CodeActionParams
+    server: PositronJediLanguageServer,  # noqa: ARG001
+    params: CodeActionParams,  # noqa: ARG001
 ) -> Optional[List[CodeAction]]:
     # Code Actions are currently causing the kernel process to hang in certain cases, for example,
     # when the document contains `from fastai.vision.all import *`. Temporarily disable these
@@ -826,9 +822,7 @@ def did_close_diagnostics(server: JediLanguageServer, params: DidCloseTextDocume
 def interpreter(
     project: Optional[Project], document: TextDocument, shell: Optional["PositronShell"]
 ) -> Interpreter:
-    """
-    Return a `jedi.Interpreter` with a reference to the shell's user namespace.
-    """
+    """Return a `jedi.Interpreter` with a reference to the shell's user namespace."""
     namespaces: List[Dict[str, Any]] = []
     if shell is not None:
         namespaces.append(shell.user_ns)

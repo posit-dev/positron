@@ -5,25 +5,21 @@
 
 # flake8: ignore E203
 # pyright: reportOptionalMemberAccess=false
+from __future__ import annotations
 
-import abc
 import logging
 import math
 import operator
 from datetime import datetime
+from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Dict,
-    List,
-    Optional,
-    Set,
     Tuple,
 )
 
 import comm
-from IPython.core.error import UsageError
 
 from .access_keys import decode_access_key
 from .data_explorer_comm import (
@@ -124,15 +120,15 @@ SCHEMA_CACHE_THRESHOLD = 100
 
 class DataExplorerState:
     name: str
-    column_filters: List[ColumnFilter]
-    row_filters: List[RowFilter]
-    sort_keys: List[ColumnSortKey]
+    column_filters: list[ColumnFilter]
+    row_filters: list[RowFilter]
+    sort_keys: list[ColumnSortKey]
 
     # Maintain a mapping of column index to inferred dtype for any
     # object columns, to avoid recomputing. If the underlying
     # object is changed, this needs to be reset
-    inferred_dtypes: Dict[int, str]
-    schema_cache: Optional[List[ColumnSchema]] = None
+    inferred_dtypes: dict[int, str]
+    schema_cache: list[ColumnSchema] | None = None
 
     def __init__(
         self,
@@ -156,12 +152,14 @@ class DataExplorerState:
 StateUpdate = Tuple[bool, DataExplorerState]
 
 
-class DataExplorerTableView(abc.ABC):
+class DataExplorerTableView:
     """
+    A table interface.
+
     Interface providing a consistent wrapper around different data
     frame / table types for the data explorer for serving requests from
     the front end. This includes pandas.DataFrame, polars.DataFrame,
-    pyarrow.Table, and any others
+    pyarrow.Table, and any others.
     """
 
     def __init__(
@@ -203,7 +201,7 @@ class DataExplorerTableView(abc.ABC):
         # without having to recompute the search. If the search term
         # changes, we discard the last search result. We might add an
         # LRU cache here or something if it helps performance.
-        self._search_schema_last_result: Optional[Tuple[List[ColumnFilter], List[int]]] = None
+        self._search_schema_last_result: tuple[list[ColumnFilter], list[int]] | None = None
 
         self._update_schema_cache()
 
@@ -224,7 +222,7 @@ class DataExplorerTableView(abc.ABC):
         return False
 
     @classmethod
-    def _should_cache_schema(cls, table):
+    def _should_cache_schema(cls, _table):
         return False
 
     def _set_sort_keys(self, sort_keys):
@@ -293,18 +291,16 @@ class DataExplorerTableView(abc.ABC):
             total_num_matches=len(matches),
         ).dict()
 
-    def _column_filter_get_matches(self, filters: List[ColumnFilter]):
+    def _column_filter_get_matches(self, filters: list[ColumnFilter]):
         matchers = self._get_column_filter_functions(filters)
 
-        matches = [
+        return [
             column_index
             for column_index in range(self.table.shape[1])
             if all(matcher(column_index) for matcher in matchers)
         ]
 
-        return matches
-
-    def _get_column_filter_functions(self, filters: List[ColumnFilter]):
+    def _get_column_filter_functions(self, filters: list[ColumnFilter]):
         def _match_text_search(params: FilterTextSearch):
             term = params.term
             if not params.case_sensitive:
@@ -360,7 +356,7 @@ class DataExplorerTableView(abc.ABC):
             request.params.format_options,
         )
 
-    def _get_row_labels(self, selection: ArraySelection, format_options: FormatOptions):
+    def _get_row_labels(self, _selection: ArraySelection, _format_options: FormatOptions):
         # By default, the table has no row labels, so this will only
         # be implemented for pandas
         return {"row_labels": []}
@@ -415,13 +411,13 @@ class DataExplorerTableView(abc.ABC):
     def set_column_filters(self, request: SetColumnFiltersRequest):
         return self._set_column_filters(request.params.filters)
 
-    def _set_column_filters(self, filters: List[ColumnFilter]):
+    def _set_column_filters(self, filters: list[ColumnFilter]):
         raise NotImplementedError
 
     def set_row_filters(self, request: SetRowFiltersRequest):
         return self._set_row_filters(request.params.filters)
 
-    def _set_row_filters(self, filters: List[RowFilter]):
+    def _set_row_filters(self, filters: list[RowFilter]):
         self.state.row_filters = filters
         for filt in filters:
             # If is_valid isn't set, set it based on what is currently
@@ -510,7 +506,7 @@ class DataExplorerTableView(abc.ABC):
                     request.params.format_options,
                 )
                 results.append(result.dict())
-            except Exception as e:
+            except Exception as e:  # noqa: PERF203
                 # Error computing a profile -- don't swallow it and timeout
                 logger.error(e, exc_info=True)
                 # Append an empty result so the other profiles get computed
@@ -524,7 +520,7 @@ class DataExplorerTableView(abc.ABC):
     def _compute_profiles(
         self,
         column_index: int,
-        profiles: List[ColumnProfileSpec],
+        profiles: list[ColumnProfileSpec],
         format_options: FormatOptions,
     ):
         results = {}
@@ -691,12 +687,12 @@ class DataExplorerTableView(abc.ABC):
 
     def _get_data_values(
         self,
-        selections: List[ColumnSelection],
+        selections: list[ColumnSelection],
         format_options: FormatOptions,
     ) -> dict:
         raise NotImplementedError
 
-    SUPPORTED_FILTERS = set()
+    SUPPORTED_FILTERS = frozenset()
 
     def _is_supported_filter(self, filt: RowFilter) -> bool:
         if filt.filter_type not in self.SUPPORTED_FILTERS:
@@ -743,7 +739,7 @@ class DataExplorerTableView(abc.ABC):
     def _prof_null_count(self, column_index: int) -> int:
         raise NotImplementedError
 
-    _SUMMARIZERS: Dict[str, SummarizerType] = {}
+    _SUMMARIZERS: MappingProxyType[str, SummarizerType] = MappingProxyType({})
 
     def _prof_summary_stats(self, column_index: int, options: FormatOptions):
         col_schema = self._get_single_column_schema(column_index)
@@ -968,9 +964,10 @@ _FILTER_RANGE_COMPARE_SUPPORTED = {
 def _pandas_datetimetz_mapper(type_name):
     if "datetime64" in type_name:
         return "datetime"
+    return None
 
 
-def _pandas_summarize_number(col: "pd.Series", options: FormatOptions):
+def _pandas_summarize_number(col: pd.Series, options: FormatOptions):
     import numpy as np
 
     math_helper = NumPyMathHelper()
@@ -1010,20 +1007,20 @@ def _pandas_summarize_number(col: "pd.Series", options: FormatOptions):
     )
 
 
-def _pandas_summarize_string(col: "pd.Series", options: FormatOptions):
+def _pandas_summarize_string(col: pd.Series, _options: FormatOptions):
     num_empty = (col.str.len() == 0).sum()
     num_unique = col.nunique()
     return _box_string_stats(num_empty, num_unique)
 
 
-def _pandas_summarize_boolean(col: "pd.Series", options: FormatOptions):
-    null_count = col.isnull().sum()
+def _pandas_summarize_boolean(col: pd.Series, _options: FormatOptions):
+    null_count = col.isna().sum()
     true_count = col.sum()
     false_count = len(col) - true_count - null_count
     return _box_boolean_stats(true_count, false_count)
 
 
-def _pandas_summarize_date(col: "pd.Series", options: FormatOptions):
+def _pandas_summarize_date(col: pd.Series, _options: FormatOptions):
     import pandas as pd
 
     col_dttm = pd.to_datetime(col)
@@ -1035,7 +1032,7 @@ def _pandas_summarize_date(col: "pd.Series", options: FormatOptions):
     return _box_date_stats(num_unique, min_date, mean_date, median_date, max_date)
 
 
-def _pandas_summarize_datetime(col: "pd.Series", options: FormatOptions):
+def _pandas_summarize_datetime(col: pd.Series, _options: FormatOptions):
     # when there are mixed timezones in a single column, it's
     # possible that any of the operations below can
     # fail. specially if they mix timezone aware datetimes with
@@ -1053,7 +1050,7 @@ def _pandas_summarize_datetime(col: "pd.Series", options: FormatOptions):
     if len(timezones) == 1:
         timezone = str(timezones[0])
     else:
-        timezone = [f"{str(x)}" for x in timezones[:2]]
+        timezone = [f"{x!s}" for x in timezones[:2]]
         timezone = ", ".join(timezone)
         if len(timezones) > 2:
             timezone = timezone + f", ... ({len(timezones) - 2} more)"
@@ -1091,11 +1088,11 @@ PANDAS_INFER_DTYPE_SIZE_LIMIT = 1_000_000
 
 
 class PandasView(DataExplorerTableView):
-    TYPE_NAME_MAPPING = {"boolean": "bool"}
+    TYPE_NAME_MAPPING = MappingProxyType({"boolean": "bool"})
 
     def __init__(
         self,
-        table: "pd.DataFrame",
+        table: pd.DataFrame,
         comm: PositronComm,
         state: DataExplorerState,
         job_queue: BackgroundJobQueue,
@@ -1144,11 +1141,11 @@ class PandasView(DataExplorerTableView):
         # TODO: duplicate column names are a can of worms here, and we
         # will need to return to make this logic robust to that
         old_columns = self.table.columns
-        shifted_columns: Dict[int, int] = {}
-        schema_changes: Dict[int, ColumnSchema] = {}
+        shifted_columns: dict[int, int] = {}
+        schema_changes: dict[int, ColumnSchema] = {}
 
         # First, we look for detectable deleted columns
-        deleted_columns: Set[int] = set()
+        deleted_columns: set[int] = set()
         if not self.table.columns.equals(new_table.columns):
             for old_index, column in enumerate(self.table.columns):
                 if column not in new_table.columns:
@@ -1313,55 +1310,57 @@ class PandasView(DataExplorerTableView):
         type_display = cls._get_type_display(type_name)
         return type_name, type_display
 
-    TYPE_DISPLAY_MAPPING = {
-        "integer": "number",
-        "int8": "number",
-        "int16": "number",
-        "int32": "number",
-        "int64": "number",
-        "uint8": "number",
-        "uint16": "number",
-        "uint32": "number",
-        "uint64": "number",
-        "floating": "number",
-        "float16": "number",
-        "float32": "number",
-        "float64": "number",
-        "complex64": "number",
-        "complex128": "number",
-        "complex256": "number",
-        "mixed-integer": "number",
-        "mixed-integer-float": "number",
-        "mixed": "object",
-        "decimal": "number",
-        "complex": "number",
-        "categorical": "categorical",
-        "bool": "boolean",
-        "datetime64": "datetime",
-        "datetime64[ns]": "datetime",
-        "datetime": "datetime",
-        "date": "date",
-        "time": "time",
-        "bytes": "string",
-        "empty": "unknown",
-        # NA-enabled numeric data types
-        "Int8": "number",
-        "Int16": "number",
-        "Int32": "number",
-        "Int64": "number",
-        "UInt8": "number",
-        "UInt16": "number",
-        "UInt32": "number",
-        "UInt64": "number",
-        "Float32": "number",
-        "Float64": "number",
-        # NA-enabled bool
-        "boolean": "boolean",
-        # NA-enabled string
-        "string": "string",
-    }
+    TYPE_DISPLAY_MAPPING = MappingProxyType(
+        {
+            "integer": "number",
+            "int8": "number",
+            "int16": "number",
+            "int32": "number",
+            "int64": "number",
+            "uint8": "number",
+            "uint16": "number",
+            "uint32": "number",
+            "uint64": "number",
+            "floating": "number",
+            "float16": "number",
+            "float32": "number",
+            "float64": "number",
+            "complex64": "number",
+            "complex128": "number",
+            "complex256": "number",
+            "mixed-integer": "number",
+            "mixed-integer-float": "number",
+            "mixed": "object",
+            "decimal": "number",
+            "complex": "number",
+            "categorical": "categorical",
+            "bool": "boolean",
+            "datetime64": "datetime",
+            "datetime64[ns]": "datetime",
+            "datetime": "datetime",
+            "date": "date",
+            "time": "time",
+            "bytes": "string",
+            "empty": "unknown",
+            # NA-enabled numeric data types
+            "Int8": "number",
+            "Int16": "number",
+            "Int32": "number",
+            "Int64": "number",
+            "UInt8": "number",
+            "UInt16": "number",
+            "UInt32": "number",
+            "UInt64": "number",
+            "Float32": "number",
+            "Float64": "number",
+            # NA-enabled bool
+            "boolean": "boolean",
+            # NA-enabled string
+            "string": "string",
+        }
+    )
 
-    TYPE_MAPPERS = [_pandas_datetimetz_mapper]
+    TYPE_MAPPERS = (_pandas_datetimetz_mapper,)
 
     @classmethod
     def _get_type_display(cls, type_name):
@@ -1399,7 +1398,7 @@ class PandasView(DataExplorerTableView):
 
     def _get_data_values(
         self,
-        selections: List[ColumnSelection],
+        selections: list[ColumnSelection],
         format_options: FormatOptions,
     ) -> dict:
         formatted_columns = []
@@ -1448,11 +1447,11 @@ class PandasView(DataExplorerTableView):
         row_labels = [[str(x) for x in indices]]
         return {"row_labels": row_labels}
 
-    def _format_values(self, values, options: FormatOptions) -> List[ColumnValue]:
+    def _format_values(self, values, options: FormatOptions) -> list[ColumnValue]:
         import pandas as pd
 
-        NaT = pd.NaT
-        NA = pd.NA
+        nat = pd.NaT
+        na = pd.NA
         float_format = _get_float_formatter(options)
         max_length = options.max_value_length
 
@@ -1466,9 +1465,9 @@ class PandasView(DataExplorerTableView):
                     return float_format(x)
             elif x is None:
                 return _VALUE_NONE
-            elif x is NaT:
+            elif x is nat:
                 return _VALUE_NAT
-            elif x is NA:
+            elif x is na:
                 return _VALUE_NA
             else:
                 return _safe_stringify(x, max_length)
@@ -1503,11 +1502,12 @@ class PandasView(DataExplorerTableView):
         return ExportedData(data=result, format=fmt).dict()
 
     def _export_cell(self, row_index: int, column_index: int, fmt: ExportFormat):
-        return ExportedData(data=str(self.table.iat[row_index, column_index]), format=fmt).dict()
+        return ExportedData(data=str(self.table.iloc[row_index, column_index]), format=fmt).dict()
 
     def _mask_to_indices(self, mask):
         if mask is not None:
             return mask.nonzero()[0]
+        return None
 
     def _eval_filter(self, filt: RowFilter):
         import pandas as pd
@@ -1544,11 +1544,11 @@ class PandasView(DataExplorerTableView):
         elif filt.filter_type == RowFilterType.IsEmpty:
             mask = col.str.len() == 0
         elif filt.filter_type == RowFilterType.IsNull:
-            mask = col.isnull()
+            mask = col.isna()
         elif filt.filter_type == RowFilterType.NotEmpty:
             mask = col.str.len() != 0
         elif filt.filter_type == RowFilterType.NotNull:
-            mask = col.notnull()
+            mask = col.notna()
         elif filt.filter_type == RowFilterType.IsTrue:
             mask = col == True  # noqa: E712
         elif filt.filter_type == RowFilterType.IsFalse:
@@ -1558,7 +1558,7 @@ class PandasView(DataExplorerTableView):
             assert isinstance(params, FilterSetMembership)
 
             boxed_values = pd.Series(
-                [self._coerce_value(val, dtype, inferred_type) for val in params.values]
+                [self._coerce_value(val, dtype, inferred_type) for val in params.values]  # noqa: PD011
             )
             # IN
             mask = col.isin(boxed_values)
@@ -1612,7 +1612,7 @@ class PandasView(DataExplorerTableView):
                 try:
                     return pd.Series([value], dtype="float64").iloc[0]
                 except ValueError:
-                    raise e1
+                    raise e1 from None
         elif pat.is_bool_dtype(dtype):
             lvalue = value.lower()
             if lvalue == "true":
@@ -1672,22 +1672,24 @@ class PandasView(DataExplorerTableView):
             # This will be None if the data is unfiltered
             self.row_view_indices = self.filtered_indices
 
-    def _get_column(self, column_index: int) -> "pd.Series":
+    def _get_column(self, column_index: int) -> pd.Series:
         column = self.table.iloc[:, column_index]
         if self.filtered_indices is not None:
             column = column.take(self.filtered_indices)
         return column
 
     def _prof_null_count(self, column_index: int) -> int:
-        return int(self._get_column(column_index).isnull().sum())
+        return int(self._get_column(column_index).isna().sum())
 
-    _SUMMARIZERS = {
-        ColumnDisplayType.Boolean: _pandas_summarize_boolean,
-        ColumnDisplayType.Number: _pandas_summarize_number,
-        ColumnDisplayType.String: _pandas_summarize_string,
-        ColumnDisplayType.Date: _pandas_summarize_date,
-        ColumnDisplayType.Datetime: _pandas_summarize_datetime,
-    }
+    _SUMMARIZERS = MappingProxyType(
+        {
+            ColumnDisplayType.Boolean: _pandas_summarize_boolean,
+            ColumnDisplayType.Number: _pandas_summarize_number,
+            ColumnDisplayType.String: _pandas_summarize_string,
+            ColumnDisplayType.Date: _pandas_summarize_date,
+            ColumnDisplayType.Datetime: _pandas_summarize_datetime,
+        }
+    )
 
     def _prof_freq_table(
         self,
@@ -1747,19 +1749,21 @@ class PandasView(DataExplorerTableView):
             quantiles=[],
         )
 
-    SUPPORTED_FILTERS = {
-        RowFilterType.Between,
-        RowFilterType.Compare,
-        RowFilterType.IsEmpty,
-        RowFilterType.IsFalse,
-        RowFilterType.IsNull,
-        RowFilterType.IsTrue,
-        RowFilterType.NotBetween,
-        RowFilterType.NotEmpty,
-        RowFilterType.NotNull,
-        RowFilterType.Search,
-        RowFilterType.SetMembership,
-    }
+    SUPPORTED_FILTERS = frozenset(
+        {
+            RowFilterType.Between,
+            RowFilterType.Compare,
+            RowFilterType.IsEmpty,
+            RowFilterType.IsFalse,
+            RowFilterType.IsNull,
+            RowFilterType.IsTrue,
+            RowFilterType.NotBetween,
+            RowFilterType.NotEmpty,
+            RowFilterType.NotNull,
+            RowFilterType.Search,
+            RowFilterType.SetMembership,
+        }
+    )
 
     FEATURES = SupportedFeatures(
         search_schema=SearchSchemaFeatures(
@@ -1855,10 +1859,7 @@ def _get_histogram_numpy(data, num_bins, method="fd"):
     import numpy as np
 
     assert num_bins is not None
-    if method == "fixed":
-        hist_params = {"bins": num_bins}
-    else:
-        hist_params = {"bins": method}
+    hist_params = {"bins": num_bins} if method == "fixed" else {"bins": method}
 
     # We optimistically compute the histogram once, and then do extra
     # work in the special cases where the binning method produces a
@@ -1908,7 +1909,7 @@ def _get_histogram_numpy(data, num_bins, method="fd"):
 
 def _date_median(x):
     """
-    Computes the median of a date or datetime series
+    Computes the median of a date or datetime series.
 
     It converts to the integer representation of the datetime,
     then computes the median, and then converts back to a datetime
@@ -1923,9 +1924,7 @@ def _date_median(x):
 
 
 def _possibly(f, otherwise=None):
-    """
-    Executes a function an if an error occurs, returns `otherwise`.
-    """
+    """Executes a function an if an error occurs, returns `otherwise`."""
     try:
         return f()
     except Exception:
@@ -1944,7 +1943,7 @@ def _parse_iso8601_like(x, tz=None):
 
     for fmt in _ISO_8601_FORMATS:
         try:
-            result = datetime.strptime(x, fmt)
+            result = datetime.strptime(x, fmt)  # noqa: DTZ007
 
             # Localize tz-naive datetime if needed to avoid TypeError
             if tz is not None:
@@ -1953,7 +1952,7 @@ def _parse_iso8601_like(x, tz=None):
                 result = result.replace(tzinfo=tz)
 
             return result
-        except ValueError:
+        except ValueError:  # noqa: PERF203
             continue
 
     raise ValueError(f'"{x}" not ISO8601 YYYY-MM-DD HH:MM:SS format')
@@ -1963,7 +1962,7 @@ def _parse_iso8601_like(x, tz=None):
 # polars Data Explorer RPC implementations
 
 
-def _polars_summarize_number(col: "pl.Series", options: FormatOptions):
+def _polars_summarize_number(col: pl.Series, options: FormatOptions):
     float_format = _get_float_formatter(options)
     min_val = max_val = median_val = mean_val = std_val = None
 
@@ -1992,20 +1991,20 @@ def _polars_summarize_number(col: "pl.Series", options: FormatOptions):
     )
 
 
-def _polars_summarize_string(col: "pl.Series", _):
+def _polars_summarize_string(col: pl.Series, _):
     num_empty = (col.str.len_chars() == 0).sum()
     num_unique = col.n_unique()
     return _box_string_stats(num_empty, num_unique)
 
 
-def _polars_summarize_boolean(col: "pl.Series", _):
+def _polars_summarize_boolean(col: pl.Series, _):
     null_count = col.is_null().sum()
     true_count = col.sum()
     false_count = len(col) - true_count - null_count
     return _box_boolean_stats(true_count, false_count)
 
 
-def _polars_summarize_date(col: "pl.Series", _):
+def _polars_summarize_date(col: pl.Series, _):
     import polars as pl
 
     min_date = col.min()
@@ -2030,7 +2029,7 @@ def _polars_box_value(val, dtype):
     return Series([val], dtype=dtype)[0]
 
 
-def _polars_summarize_datetime(col: "pl.Series", _):
+def _polars_summarize_datetime(col: pl.Series, _):
     import polars as pl
 
     as_int64 = col.cast(pl.Int64)
@@ -2054,7 +2053,7 @@ def _polars_summarize_datetime(col: "pl.Series", _):
 class PolarsView(DataExplorerTableView):
     def __init__(
         self,
-        table: "pl.DataFrame",
+        table: pl.DataFrame,
         comm: PositronComm,
         state: DataExplorerState,
         job_queue: BackgroundJobQueue,
@@ -2094,9 +2093,9 @@ class PolarsView(DataExplorerTableView):
 
         # We go through the columns in the new table and see whether
         # there is a type change or whether a column name moved.
-        shifted_columns: Dict[int, int] = {}
-        deleted_columns: Set[int] = set()
-        schema_changes: Dict[int, ColumnSchema] = {}
+        shifted_columns: dict[int, int] = {}
+        deleted_columns: set[int] = set()
+        schema_changes: dict[int, ColumnSchema] = {}
 
         new_columns = new_table.columns
         new_columns_set = {c: i for i, c in enumerate(new_columns)}
@@ -2173,7 +2172,7 @@ class PolarsView(DataExplorerTableView):
     @classmethod
     def _construct_schema(
         cls,
-        column: "pl.Series",
+        column: pl.Series,
         column_name: str,
         column_index: int,
     ):
@@ -2186,47 +2185,49 @@ class PolarsView(DataExplorerTableView):
             type_display=type_display,
         )
 
-    TYPE_DISPLAY_MAPPING = {
-        "Boolean": "boolean",
-        "Int8": "number",
-        "Int16": "number",
-        "Int32": "number",
-        "Int64": "number",
-        "UInt8": "number",
-        "UInt16": "number",
-        "UInt32": "number",
-        "UInt64": "number",
-        "Float32": "number",
-        "Float64": "number",
-        "Binary": "string",
-        "String": "string",
-        "Date": "date",
-        "Datetime": "datetime",
-        "Time": "time",
-        "Decimal": "number",
-        "Object": "object",
-        "List": "array",
-        "Struct": "struct",
-        "Categorical": "unknown",  # See #3417
-        "Duration": "unknown",  # See #3418
-        "Enum": "unknown",
-        "Null": "unknown",  # Not yet implemented
-        "Unknown": "unknown",
-    }
+    TYPE_DISPLAY_MAPPING = MappingProxyType(
+        {
+            "Boolean": "boolean",
+            "Int8": "number",
+            "Int16": "number",
+            "Int32": "number",
+            "Int64": "number",
+            "UInt8": "number",
+            "UInt16": "number",
+            "UInt32": "number",
+            "UInt64": "number",
+            "Float32": "number",
+            "Float64": "number",
+            "Binary": "string",
+            "String": "string",
+            "Date": "date",
+            "Datetime": "datetime",
+            "Time": "time",
+            "Decimal": "number",
+            "Object": "object",
+            "List": "array",
+            "Struct": "struct",
+            "Categorical": "unknown",  # See #3417
+            "Duration": "unknown",  # See #3418
+            "Enum": "unknown",
+            "Null": "unknown",  # Not yet implemented
+            "Unknown": "unknown",
+        }
+    )
 
     @classmethod
-    def _get_type_display(cls, dtype: "pl.DataType"):
+    def _get_type_display(cls, dtype: pl.DataType):
         key = str(dtype.base_type())
         return cls.TYPE_DISPLAY_MAPPING.get(key, "unknown")
 
     def _search_schema(
-        self, filters: List[ColumnFilter], start_index: int, max_results: int
+        self, filters: list[ColumnFilter], start_index: int, max_results: int
     ) -> SearchSchemaResult:
         raise NotImplementedError
 
     def _get_data_values(
         self,
-        selections: List[ColumnSelection],
+        selections: list[ColumnSelection],
         format_options: FormatOptions,
     ) -> dict:
         formatted_columns = []
@@ -2251,7 +2252,7 @@ class PolarsView(DataExplorerTableView):
         return {"columns": formatted_columns}
 
     @classmethod
-    def _format_values(cls, values, options: FormatOptions) -> List[ColumnValue]:
+    def _format_values(cls, values, options: FormatOptions) -> list[ColumnValue]:
         import polars as pl
 
         float_format = _get_float_formatter(options)
@@ -2307,24 +2308,27 @@ class PolarsView(DataExplorerTableView):
     def _export_cell(self, row_index: int, column_index: int, fmt: ExportFormat):
         return ExportedData(data=str(self.table[row_index, column_index]), format=fmt).dict()
 
-    SUPPORTED_FILTERS = {
-        RowFilterType.Between,
-        RowFilterType.Compare,
-        RowFilterType.NotBetween,
-        RowFilterType.IsNull,
-        RowFilterType.NotNull,
-        RowFilterType.IsEmpty,
-        RowFilterType.NotEmpty,
-        RowFilterType.IsTrue,
-        RowFilterType.IsFalse,
-        RowFilterType.Search,
-        RowFilterType.SetMembership,
-    }
+    SUPPORTED_FILTERS = frozenset(
+        {
+            RowFilterType.Between,
+            RowFilterType.Compare,
+            RowFilterType.NotBetween,
+            RowFilterType.IsNull,
+            RowFilterType.NotNull,
+            RowFilterType.IsEmpty,
+            RowFilterType.NotEmpty,
+            RowFilterType.IsTrue,
+            RowFilterType.IsFalse,
+            RowFilterType.Search,
+            RowFilterType.SetMembership,
+        }
+    )
 
     def _mask_to_indices(self, mask):
         # Boolean array -> int32 array of true indices
         if mask is not None:
             return mask.arg_true()
+        return None
 
     def _eval_filter(self, filt: RowFilter):
         import polars as pl
@@ -2387,7 +2391,7 @@ class PolarsView(DataExplorerTableView):
             # Per https://github.com/pola-rs/polars/issues/17771, we
             # have to be really careful here because this can fail on
             # polars 1.x or 0.x
-            coerced_values = [self._coerce_value(val, dtype, display_type) for val in params.values]
+            coerced_values = [self._coerce_value(val, dtype, display_type) for val in params.values]  # noqa: PD011
             try:
                 boxed_values = pl.Series(coerced_values, dtype=col.dtype)
             except TypeError:
@@ -2444,7 +2448,7 @@ class PolarsView(DataExplorerTableView):
                 try:
                     return pl.Series([value]).cast(pl.Float64)[0]
                 except ValueError:
-                    raise e
+                    raise e from None
         elif dtype.is_(pl.Boolean):
             lvalue = value.lower()
             if lvalue == "true":
@@ -2509,19 +2513,21 @@ class PolarsView(DataExplorerTableView):
     def _prof_null_count(self, column_index: int) -> int:
         return self._get_column(column_index).null_count()
 
-    def _get_column(self, column_index: int) -> "pl.Series":
+    def _get_column(self, column_index: int) -> pl.Series:
         column = self.table[:, column_index]
         if self.filtered_indices is not None:
             column = column.gather(self.filtered_indices)
         return column
 
-    _SUMMARIZERS = {
-        ColumnDisplayType.Boolean: _polars_summarize_boolean,
-        ColumnDisplayType.Number: _polars_summarize_number,
-        ColumnDisplayType.String: _polars_summarize_string,
-        ColumnDisplayType.Date: _polars_summarize_date,
-        ColumnDisplayType.Datetime: _polars_summarize_datetime,
-    }
+    _SUMMARIZERS = MappingProxyType(
+        {
+            ColumnDisplayType.Boolean: _polars_summarize_boolean,
+            ColumnDisplayType.Number: _polars_summarize_number,
+            ColumnDisplayType.String: _polars_summarize_string,
+            ColumnDisplayType.Date: _polars_summarize_date,
+            ColumnDisplayType.Datetime: _polars_summarize_datetime,
+        }
+    )
 
     def _prof_freq_table(
         self,
@@ -2640,9 +2646,7 @@ def _is_pandas(table):
     except ImportError:
         return False
 
-    if isinstance(table, (pd.DataFrame, pd.Series)):
-        return True
-    return False
+    return bool(isinstance(table, (pd.DataFrame, pd.Series)))
 
 
 def _is_polars(table):
@@ -2651,9 +2655,7 @@ def _is_polars(table):
     except ImportError:
         return False
 
-    if isinstance(table, (pl.DataFrame, pl.Series)):
-        return True
-    return False
+    return bool(isinstance(table, (pl.DataFrame, pl.Series)))
 
 
 def _get_table_view(
@@ -2675,9 +2677,7 @@ def _get_table_view(
 def _value_type_is_supported(value):
     if _is_pandas(value):
         return True
-    if _is_polars(value):
-        return True
-    return False
+    return bool(_is_polars(value))
 
 
 class DataExplorerService:
@@ -2686,16 +2686,16 @@ class DataExplorerService:
         self.job_queue = job_queue
 
         # Maps comm_id for each dataset being viewed to PositronComm
-        self.comms: Dict[str, PositronComm] = {}
-        self.table_views: Dict[str, DataExplorerTableView] = {}
+        self.comms: dict[str, PositronComm] = {}
+        self.table_views: dict[str, DataExplorerTableView] = {}
 
         # Maps from variable path to set of comm_ids serving DE
         # requests. The user could have multiple DE windows open
         # referencing the same dataset.
-        self.path_to_comm_ids: Dict[PathKey, Set[str]] = {}
+        self.path_to_comm_ids: dict[PathKey, set[str]] = {}
 
         # Mapping from comm_id to the corresponding variable path, if any
-        self.comm_id_to_path: Dict[str, PathKey] = {}
+        self.comm_id_to_path: dict[str, PathKey] = {}
 
         # Called when comm closure is initiated from the backend
         self._close_callback = None
@@ -2713,12 +2713,11 @@ class DataExplorerService:
         self,
         table,
         title,
-        variable_path: Optional[List[str]] = None,
+        variable_path: list[str] | None = None,
         comm_id=None,
     ):
         """
-        Set up a new comm and data explorer table query wrapper to
-        handle requests and manage state.
+        Set up a new comm and data explorer table query wrapper to handle requests and manage state.
 
         Parameters
         ----------
@@ -2790,7 +2789,6 @@ class DataExplorerService:
             self.comms[comm_id].close()
         except Exception as err:
             logger.warning(err, exc_info=True)
-            pass
 
         del self.comms[comm_id]
         del self.table_views[comm_id]
@@ -2801,9 +2799,7 @@ class DataExplorerService:
             del self.comm_id_to_path[comm_id]
 
     def on_comm_closed(self, callback: Callable[[str], None]):
-        """
-        Register a callback to invoke when a comm was closed in the backend.
-        """
+        """Register a callback to invoke when a comm was closed in the backend."""
         self._close_callback = callback
 
     def variable_has_active_explorers(self, variable_name):
@@ -2823,6 +2819,8 @@ class DataExplorerService:
 
     def handle_variable_deleted(self, variable_name):
         """
+        Clean up.
+
         If a variable with active data explorers is deleted, we must
         shut down and delete unneeded state and object references
         stored here.
@@ -2840,7 +2838,7 @@ class DataExplorerService:
 
     def _update_explorer_for_comm(self, comm_id: str, path: PathKey, new_variable):
         """
-        If a variable is updated, we have to handle the different scenarios:
+        If a variable is updated, we have to handle the different scenarios.
 
         * The variable type is the same and the schema is the same,
           but the data is possibly different (e.g. if the object is
@@ -2904,14 +2902,13 @@ class DataExplorerService:
 
         if schema_updated:
             comm.send_event(DataExplorerFrontendEvent.SchemaUpdate.value, {})
+            return None
         else:
             comm.send_event(DataExplorerFrontendEvent.DataUpdate.value, {})
+            return None
 
-    def handle_msg(self, msg: CommMessage[DataExplorerBackendMessageContent], raw_msg):
-        """
-        Handle messages received from the client via the
-        positron.data_explorer comm.
-        """
+    def handle_msg(self, msg: CommMessage[DataExplorerBackendMessageContent], _raw_msg):
+        """Handle messages received from the client via the positron.data_explorer comm."""
         comm_id = msg.content.comm_id
         request = msg.content.data
 

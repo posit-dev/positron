@@ -46,9 +46,7 @@ except ImportError:
     + TIMESTAMP_CASES,
 )
 def test_encode_decode_access_key(case: Any) -> None:
-    """
-    Test that we can encode and decode to recovery supported data types.
-    """
+    """Test that we can encode and decode to recovery supported data types."""
     access_key = encode_access_key(case)
     result = decode_access_key(access_key)
     # Handle the float('nan') case since nan != nan
@@ -73,9 +71,7 @@ def test_encode_decode_access_key(case: Any) -> None:
     ],
 )
 def test_encode_access_key_not_hashable_error(case: Any) -> None:
-    """
-    Encoding an access key of an unhashable type raises an error.
-    """
+    """Encoding an access key of an unhashable type raises an error."""
     with pytest.raises(TypeError):
         encode_access_key(case)
 
@@ -88,9 +84,7 @@ def test_encode_access_key_not_hashable_error(case: Any) -> None:
     ],
 )
 def test_encode_access_key_not_implemented_error(case: Any) -> None:
-    """
-    Encoding an access key of an unsupported type raises an error.
-    """
+    """Encoding an access key of an unsupported type raises an error."""
     access_key = None
 
     with pytest.raises(NotImplementedError):
@@ -110,9 +104,7 @@ def test_encode_access_key_not_implemented_error(case: Any) -> None:
     ],
 )
 def test_decode_access_key_not_implemented_error(type_name: str) -> None:
-    """
-    Decoding an access key of an unsupported type raises an error.
-    """
+    """Decoding an access key of an unsupported type raises an error."""
     access_key = json.dumps({"type": type_name, "data": None})
     with pytest.raises(NotImplementedError):
         decode_access_key(access_key)

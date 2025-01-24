@@ -14,7 +14,7 @@ from ipykernel.compiler import get_tmp_directory
 from IPython.utils.syspathcontext import prepended_to_syspath
 
 from positron.access_keys import encode_access_key
-from positron.help import help
+from positron.help import help  # noqa: A004
 from positron.session_mode import SessionMode
 from positron.utils import alias_home
 
@@ -37,9 +37,7 @@ def warning_kwargs():
 
 
 def test_override_help(shell: PositronShell) -> None:
-    """
-    Check that we override the shell's `help` function with our own.
-    """
+    """Check that we override the shell's `help` function with our own."""
     assert shell.user_ns["help"] == help
     assert shell.user_ns_hidden["help"] == help
 
@@ -169,29 +167,7 @@ def test_console_traceback(
     #
     # File /private/var/folders/.../test_traceback.py:11, in func()
     #
-    traceback_frame_header = "".join(
-        [
-            "File ",
-            colors.filenameEm,
-            # File paths are replaced with OSC8 links.
-            osc8,
-            ";line={line};",
-            uri,
-            st,
-            path,
-            ":{line}",
-            osc8,
-            ";;",
-            st,
-            colors.Normal,
-            ", in ",
-            colors.vName,
-            "{func}",
-            colors.valEm,
-            "()",
-            colors.Normal,
-        ]
-    )
+    traceback_frame_header = f"File {colors.filenameEm}{osc8};line={{line}};{uri}{st}{path}:{{line}}{osc8};;{st}{colors.Normal}, in {colors.vName}{{func}}{colors.valEm}(){colors.Normal}"
 
     # Check that a single message was sent to the frontend.
     call_args_list = mock_displayhook.session.send.call_args_list
@@ -261,8 +237,9 @@ def test_notebook_traceback(
 
 def assert_ansi_string_startswith(actual: str, expected: str) -> None:
     """
-    Assert that an ansi-formatted string starts with an expected string, in a way that gets pytest
-    to print a helpful diff.
+    Assert that an ansi-formatted string starts with an expected string.
+
+    In a way that gets pytest to print a helpful diff.
     """
     # We manually trim each string instead of using str.startswith else pytest doesn't highlight
     # where strings differ. We compare reprs so that pytest displays escape codes instead of
@@ -274,18 +251,14 @@ def assert_ansi_string_startswith(actual: str, expected: str) -> None:
 
 
 def test_pinfo(shell: PositronShell, mock_help_service: Mock) -> None:
-    """
-    Redirect `object?` to the Positron help service's `show_help` method.
-    """
+    """Redirect `object?` to the Positron help service's `show_help` method."""
     shell.run_cell("object?")
 
     mock_help_service.show_help.assert_called_once_with(object)
 
 
 def test_pinfo_2(shell: PositronShell, tmp_path: Path, mock_ui_service: Mock) -> None:
-    """
-    Redirect `object??` to the Positron UI service's `open_editor` method.
-    """
+    """Redirect `object??` to the Positron UI service's `open_editor` method."""
     # Create a temporary module using a predefined code snippet, so that we know the expected
     # file and line number where the object is defined.
     file = tmp_path / "test_pinfo_2.py"
@@ -302,32 +275,25 @@ def test_pinfo_2(shell: PositronShell, tmp_path: Path, mock_ui_service: Mock) ->
 
 
 def test_clear(shell: PositronShell, mock_ui_service: Mock) -> None:
-    """
-    Redirect `%clear` to the Positron UI service's `clear_console` method.
-    """
+    """Redirect `%clear` to the Positron UI service's `clear_console` method."""
     shell.run_cell("%clear")
 
     mock_ui_service.clear_console.assert_called_once_with()
 
 
 def test_question_mark_help(shell: PositronShell, mock_help_service: Mock) -> None:
-    """
-    Redirect `?` to the Positron Help service.
-    """
-
+    """Redirect `?` to the Positron Help service."""
     shell.run_cell("?")
 
     mock_help_service.show_help.assert_called_once_with("positron.utils.positron_ipykernel_usage")
 
 
 def test_console_warning(shell: PositronShell, warning_kwargs):
-    """
-    Check message for warnings
-    """
+    """Check message for warnings."""
     filename = get_tmp_directory() + os.sep + "12345678.py"
 
     with pytest.warns() as record:
-        shell.kernel._showwarning(filename=filename, **warning_kwargs)
+        shell.kernel._showwarning(filename=filename, **warning_kwargs)  # noqa: SLF001
 
         assert len(record) == 1
         assert record[0].filename == "<positron-console-cell-1>"
@@ -335,12 +301,9 @@ def test_console_warning(shell: PositronShell, warning_kwargs):
 
 
 def test_console_warning_logger(shell: PositronShell, caplog, warning_kwargs):
-    """
-    Check that Positron files are sent to logs
-    """
-
+    """Check that Positron files are sent to logs."""
     with caplog.at_level(logging.WARNING):
-        shell.kernel._showwarning(filename=Path(__file__), **warning_kwargs)
+        shell.kernel._showwarning(filename=Path(__file__), **warning_kwargs)  # noqa: SLF001
         assert "this is a warning" in caplog.text
 
 

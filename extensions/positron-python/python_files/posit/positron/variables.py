@@ -4,15 +4,12 @@
 #
 from __future__ import annotations
 
-import asyncio
+import contextlib
 import copy
 import logging
 import time
 import types
-from collections.abc import Iterable, Mapping
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
-
-from comm.base_comm import BaseComm
+from typing import TYPE_CHECKING, Any
 
 from .access_keys import decode_access_key, encode_access_key
 from .inspectors import get_inspector
@@ -44,6 +41,11 @@ from .variables_comm import (
 )
 
 if TYPE_CHECKING:
+    import asyncio
+    from collections.abc import Iterable, Mapping
+
+    from comm.base_comm import BaseComm
+
     from .positron_ipkernel import PositronIPyKernel
 
 logger = logging.getLogger(__name__)
@@ -62,16 +64,12 @@ MAX_SNAPSHOT_COMPARISON_BUDGET: int = 10_000_000
 
 
 def timestamp() -> int:
-    """
-    Returns the current time in milliseconds; used for timestamping updates.
-    """
+    """Returns the current time in milliseconds; used for timestamping updates."""
     return int(time.time() * 1000)
 
 
 def _resolve_value_from_path(context: Any, path: Iterable[str]) -> Any:
-    """
-    Use inspectors to possibly resolve nested value from context
-    """
+    """Use inspectors to possibly resolve nested value from context."""
     is_known = False
     value = None
     for access_key in path:
@@ -95,17 +93,15 @@ class VariablesService:
     def __init__(self, kernel: PositronIPyKernel) -> None:
         self.kernel = kernel
 
-        self._comm: Optional[PositronComm] = None
+        self._comm: PositronComm | None = None
 
         # Hold strong references to pending tasks to prevent them from being garbage collected
-        self._pending_tasks: Set[asyncio.Task] = set()
+        self._pending_tasks: set[asyncio.Task] = set()
 
-        self._snapshot: Optional[Dict[str, Any]] = None
+        self._snapshot: dict[str, Any] | None = None
 
-    def on_comm_open(self, comm: BaseComm, msg: JsonRecord) -> None:
-        """
-        Setup positron.variables comm to receive messages.
-        """
+    def on_comm_open(self, comm: BaseComm, _msg: JsonRecord) -> None:
+        """Setup positron.variables comm to receive messages."""
         self._comm = PositronComm(comm)
         self._comm.on_msg(self.handle_msg, VariablesBackendMessageContent)
 
@@ -117,9 +113,7 @@ class VariablesService:
         msg: CommMessage[VariablesBackendMessageContent],
         raw_msg: JsonRecord,
     ) -> None:
-        """
-        Handle messages received from the client via the positron.variables comm.
-        """
+        """Handle messages received from the client via the positron.variables comm."""
         request = msg.content.data
 
         if isinstance(request, ListRequest):
@@ -147,11 +141,10 @@ class VariablesService:
         self,
         assigned: Mapping[str, Any],
         unevaluated: Mapping[str, Any],
-        removed: Set[str],
+        removed: set[str],
     ) -> None:
         """
-        Sends the list of variables that have changed in the current
-        user session through the variables comm to the client.
+        Sends the list of variables that have changed in the current user session through the variables comm to the client.
 
         TODO: Fix below docstring, see positron#2319
 
@@ -217,11 +210,12 @@ class VariablesService:
                 version=0,
             )
             self._send_event(VariablesFrontendEvent.Update.value, msg.dict())
+            return None
+        return None
 
     def send_refresh_event(self) -> None:
         """
-        Sends a refresh message summarizing the variables of the current user
-        session through the variables comm to the client.
+        Sends a refresh message summarizing the variables of the current user session through the variables comm to the client.
 
         For example:
         {
@@ -251,10 +245,8 @@ class VariablesService:
         await cancel_tasks(self._pending_tasks)
 
         if self._comm is not None:
-            try:
+            with contextlib.suppress(Exception):
                 self._comm.close()
-            except Exception:
-                pass
 
     def poll_variables(self) -> None:
         # First check pre_execute snapshot exists
@@ -270,6 +262,8 @@ class VariablesService:
 
     def snapshot_user_ns(self) -> None:
         """
+        Snapshot.
+
         Creates a conservative "snapshot" of the user namespace to
         enable variable change detection without having to do a full
         refresh of the variables view any time the user executes
@@ -337,7 +331,7 @@ class VariablesService:
 
     def _compare_user_ns(
         self,
-    ) -> Tuple[Dict[str, Any], Dict[str, Any], Set[str]]:
+    ) -> tuple[dict[str, Any], dict[str, Any], set[str]]:
         """
         Attempts to detect changes to variables in the user's environment.
 
@@ -369,7 +363,7 @@ class VariablesService:
 
             return type(inspector1) is not type(inspector2) or not inspector1.equals(v2)
 
-        def _compare_always_different(v1, v2):
+        def _compare_always_different(_v1, _v2):
             return True
 
         all_snapshot_keys = set()
@@ -396,9 +390,17 @@ class VariablesService:
 
         start = time.time()
 
-        _check_ns_subset(snapshot["immutable"], True, _compare_immutable)
-        _check_ns_subset(snapshot["mutable_copied"], True, _compare_mutable)
-        _check_ns_subset(snapshot["mutable_excluded"], False, _compare_always_different)
+        _check_ns_subset(
+            snapshot["immutable"], evaluated=True, are_different_func=_compare_immutable
+        )
+        _check_ns_subset(
+            snapshot["mutable_copied"], evaluated=True, are_different_func=_compare_mutable
+        )
+        _check_ns_subset(
+            snapshot["mutable_excluded"],
+            evaluated=False,
+            are_different_func=_compare_always_different,
+        )
 
         for key, value in after.items():
             if key in hidden:
@@ -412,16 +414,18 @@ class VariablesService:
 
         return assigned, unevaluated, removed
 
-    def _get_user_ns(self) -> Dict[str, Any]:
+    def _get_user_ns(self) -> dict[str, Any]:
         return self.kernel.shell.user_ns or {}
 
-    def _get_user_ns_hidden(self) -> Dict[str, Any]:
+    def _get_user_ns_hidden(self) -> dict[str, Any]:
         return self.kernel.shell.user_ns_hidden or {}
 
     # -- Private Methods --
 
-    def _get_filtered_vars(self, variables: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+    def _get_filtered_vars(self, variables: Mapping[str, Any] | None = None) -> dict[str, Any]:
         """
+        Get filtered vars.
+
         Returns
         -------
         A filtered dict of the variables, excluding hidden variables. If variables
@@ -432,13 +436,9 @@ class VariablesService:
         if variables is None:
             variables = self._get_user_ns()
 
-        filtered_variables = {}
-        for key, value in variables.items():
-            if key not in hidden:
-                filtered_variables[key] = value
-        return filtered_variables
+        return {key: value for key, value in variables.items() if key not in hidden}
 
-    def _find_var(self, path: Iterable[str]) -> Tuple[bool, Any]:
+    def _find_var(self, path: Iterable[str]) -> tuple[bool, Any]:
         """
         Finds the variable at the requested path in the current user session.
 
@@ -452,13 +452,12 @@ class VariablesService:
         A tuple (bool, Any) containing a boolean indicating whether the variable was found, as well
         as the value of the variable, if found.
         """
-
         if path is None:
             return False, None
 
         return _resolve_value_from_path(self._get_user_ns(), path)
 
-    def _list_all_vars(self) -> List[Variable]:
+    def _list_all_vars(self) -> list[Variable]:
         variables = self._get_filtered_vars()
         return _summarize_children(variables, MAX_ITEMS)
 
@@ -471,7 +470,7 @@ class VariablesService:
         )
         self._send_result(msg.dict())
 
-    def _delete_all_vars(self, parent: Dict[str, Any]) -> None:
+    def _delete_all_vars(self, parent: dict[str, Any]) -> None:
         """
         Deletes all of the variables in the current user session.
 
@@ -487,11 +486,8 @@ class VariablesService:
         # Note that this must be received before the update/refresh event from the async task.
         self._send_result({})
 
-    async def _soft_reset(self, parent: Dict[str, Any]) -> None:
-        """
-        Use %reset with the soft switch to delete all user defined
-        variables from the environment.
-        """
+    async def _soft_reset(self, parent: dict[str, Any]) -> None:
+        """Use %reset with the soft switch to delete all user defined variables from the environment."""
         # Run the %reset magic to clear user variables
         code = "%reset -sf"
         await self.kernel.do_execute(code, silent=False, store_history=False)
@@ -502,7 +498,7 @@ class VariablesService:
         # Refresh the client state
         self.send_refresh_event()
 
-    def _delete_vars(self, names: Iterable[str], parent: Dict[str, Any]) -> None:
+    def _delete_vars(self, names: Iterable[str], parent: dict[str, Any]) -> None:
         """
         Deletes the requested variables by name from the current user session.
 
@@ -521,10 +517,9 @@ class VariablesService:
 
         for name in names:
             try:
-                self.kernel.shell.del_var(name, False)
-            except Exception:
+                self.kernel.shell.del_var(name, by_name=False)
+            except Exception:  # noqa: PERF203
                 logger.warning(f"Unable to delete variable '{name}'")
-                pass
 
         _, _, removed = self._compare_user_ns()
 
@@ -542,7 +537,7 @@ class VariablesService:
 
         self._send_result([encode_access_key(name) for name in sorted(removed)])
 
-    def _inspect_var(self, path: List[str]) -> None:
+    def _inspect_var(self, path: list[str]) -> None:
         """
         Describes the variable at the requested path in the current user session.
 
@@ -551,7 +546,6 @@ class VariablesService:
         path : List[str]
             A list of names describing the path to the variable.
         """
-
         is_known, value = self._find_var(path)
         if is_known:
             self._send_details(path, value)
@@ -561,13 +555,10 @@ class VariablesService:
                 f"Cannot find variable at '{path}' to inspect",
             )
 
-    def _perform_view_action(self, path: List[str]) -> None:
-        """
-        Performs the view action depending of the variable type.
-        """
-
+    def _perform_view_action(self, path: list[str]) -> None:
+        """Performs the view action depending of the variable type."""
         if path is None:
-            return
+            return None
 
         is_known, value = self._find_var(path)
         if not is_known:
@@ -593,10 +584,8 @@ class VariablesService:
             )
             logger.error(err, exc_info=True)
 
-    def _open_data_explorer(self, path: List[str], value: Any) -> None:
-        """Opens a DataExplorer comm for the variable at the requested
-        path in the current user session.
-        """
+    def _open_data_explorer(self, path: list[str], value: Any) -> None:
+        """Opens a DataExplorer comm for the variable at the requested path in the current user session."""
         # Use the leaf segment to get the title
         access_key = path[-1]
 
@@ -604,35 +593,27 @@ class VariablesService:
         comm_id = self.kernel.data_explorer_service.register_table(value, title, variable_path=path)
         self._send_result(comm_id)
 
-    def _open_connections_pane(self, path: List[str], value: Any) -> None:
-        """Opens a Connections comm for the variable at the requested
-        path in the current user session.
-        """
+    def _open_connections_pane(self, path: list[str], value: Any) -> None:
+        """Opens a Connections comm for the variable at the requested path in the current user session."""
         self.kernel.connections_service.register_connection(value, variable_path=path)
         self._send_result({})
 
     def _send_event(self, name: str, payload: JsonRecord) -> None:
-        """
-        Send an event payload to the client.
-        """
+        """Send an event payload to the client."""
         if self._comm is not None:
             self._comm.send_event(name, payload)
         else:
             logger.warning(f"Cannot send {name} event: comm is not open")
 
     def _send_error(self, code: JsonRpcErrorCode, message: str) -> None:
-        """
-        Send an error message to the client.
-        """
+        """Send an error message to the client."""
         if self._comm is not None:
             self._comm.send_error(code, message)
         else:
             logger.warning(f"Cannot send error {message} (code {code}): comm is not open)")
 
     def _send_result(self, data: JsonData = None) -> None:
-        """
-        Send an RPC result value to the client.
-        """
+        """Send an RPC result value to the client."""
         if self._comm is not None:
             self._comm.send_result(data)
         else:
@@ -640,10 +621,12 @@ class VariablesService:
 
     def _send_formatted_var(
         self,
-        path: List[str],
+        path: list[str],
         clipboard_format: ClipboardFormatFormat = ClipboardFormatFormat.TextPlain,
     ) -> None:
         """
+        Sends a formatted variable.
+
         Formats the variable at the requested path in the current user session
         using the requested clipboard format and sends the result through the
         variables comm to the client.
@@ -670,8 +653,10 @@ class VariablesService:
                 f"Cannot find variable at '{path}' to format",
             )
 
-    def _send_details(self, path: List[str], value: Any = None):
+    def _send_details(self, _path: list[str], value: Any = None):
         """
+        Sends details.
+
         Sends a detailed list of children of the value (or just the value
         itself, if is a leaf node on the path) as a message through the
         variables comm to the client.
@@ -703,7 +688,6 @@ class VariablesService:
         value : Any
             The variable's value to summarize.
         """
-
         children = []
         inspector = get_inspector(value)
         if inspector.has_children():
@@ -719,9 +703,7 @@ class VariablesService:
         self._send_result(msg.dict())
 
 
-def _summarize_variable(
-    key: Any, value: Any, display_name: Optional[str] = None
-) -> Optional[Variable]:
+def _summarize_variable(key: Any, value: Any, display_name: str | None = None) -> Variable | None:
     """
     Summarizes the given variable into a Variable object.
 
@@ -796,7 +778,7 @@ def _summarize_variable(
         )
 
 
-def _summarize_children(parent: Any, limit: int = MAX_CHILDREN) -> List[Variable]:
+def _summarize_children(parent: Any, limit: int = MAX_CHILDREN) -> list[Variable]:
     inspector = get_inspector(parent)
     children = inspector.get_children()
     summaries = []
@@ -816,9 +798,7 @@ def _summarize_children(parent: Any, limit: int = MAX_CHILDREN) -> List[Variable
 
 
 def _format_value(value: Any, clipboard_format: ClipboardFormatFormat) -> str:
-    """
-    Formats the given value using the requested clipboard format.
-    """
+    """Formats the given value using the requested clipboard format."""
     inspector = get_inspector(value)
 
     if clipboard_format == ClipboardFormatFormat.TextHtml:
