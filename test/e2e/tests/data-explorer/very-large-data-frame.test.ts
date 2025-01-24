@@ -41,7 +41,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 
 	test.describe('Python Data Explorer (Very Large Data Frame)', () => {
 		if (githubActions) {
-			test('Python - Verifies data explorer functionality with very large unique data dataframe [C804823]', async function ({ app, logger, python }) {
+			test('Python - Verifies data explorer functionality with very large unique data dataframe', async function ({ app, logger, python }) {
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.py'));
 				await app.workbench.quickaccess.runCommand('python.execInConsole');
 				const startTime = performance.now();
@@ -66,7 +66,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			});
 		} else {
 
-			test('Python - Verifies data explorer functionality with very large duplicated data dataframe [C807824]', async function ({ app, logger, python }) {
+			test('Python - Verifies data explorer functionality with very large duplicated data dataframe', async function ({ app, logger, python }) {
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.py'));
 				await app.workbench.quickaccess.runCommand('python.execInConsole');
 				const startTime = performance.now();
@@ -95,7 +95,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 
 	test.describe('R Data Explorer (Very Large Data Frame)', () => {
 		if (githubActions) {
-			test('R - Verifies data explorer functionality with very large unique data dataframe [C804824]', async function ({ app, logger, r }) {
+			test('R - Verifies data explorer functionality with very large unique data dataframe', async function ({ app, logger, r }) {
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.r'));
 				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 				const startTime = performance.now();
@@ -121,7 +121,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			});
 		} else {
 
-			test('R - Verifies data explorer functionality with very large duplicated data dataframe [C807825]', async function ({ app, logger, r }) {
+			test('R - Verifies data explorer functionality with very large duplicated data dataframe', async function ({ app, logger, r }) {
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.r'));
 				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 				const startTime = performance.now();

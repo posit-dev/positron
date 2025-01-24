@@ -12,7 +12,7 @@ import nox
 @nox.parametrize('torch', ['1.12.1'])
 @nox.parametrize('lightning', ['2.1.4'])
 def test_minimum_reqs(session, pandas, torch, lightning):
-    session.install("-r", "python_files/positron/pinned-test-requirements.txt")
+    session.install("-r", "python_files/posit/pinned-test-requirements.txt")
     session.install('--force-reinstall', f'pandas=={pandas}')
     session.install('--force-reinstall', f'torch=={torch}')
     session.install('--force-reinstall', f'lightning=={lightning}')

@@ -74,7 +74,7 @@
     "python.testing.pytestArgs": [
         "python_files/tests",
          // --- Start Positron ---
-         "python_files/positron/positron_ipykernel"
+         "python_files/posit/positron"
          // --- End Positron ---
     ],
     "python.testing.unittestEnabled": false,

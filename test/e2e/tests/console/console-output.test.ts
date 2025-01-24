@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Console Output', { tag: [tags.WIN, tags.CONSOLE, tags.WEB] }, () => {
-	test('R - Console output in a loop with short pauses [C885225]', async function ({ app, r }) {
+	test('R - Console output in a loop with short pauses', async function ({ app, r }) {
 		await app.workbench.console.pasteCodeToConsole(rCode);
 		await app.workbench.console.sendEnterKey();
 		await app.workbench.console.waitForConsoleContents('Why do programmers prefer dark mode');

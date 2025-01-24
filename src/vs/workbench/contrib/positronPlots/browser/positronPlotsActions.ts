@@ -627,7 +627,7 @@ export class PlotsSizingPolicyAction extends AbstractPlotsAction {
 		return items;
 	}
 
-	override plotActionFilter(plotClient: IPositronPlotClient): boolean {
+	protected override plotActionFilter(plotClient: IPositronPlotClient): boolean {
 		return plotClient instanceof PlotClientInstance;
 	}
 }

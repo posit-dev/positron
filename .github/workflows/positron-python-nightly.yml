@@ -117,10 +117,10 @@ jobs:
         run: python scripts/vendor.py
 
       - name: Install latest versions Positron IPyKernel test requirements
-        run: python -m pip install --prefer-binary --upgrade -r python_files/positron/test-requirements.txt
+        run: python -m pip install --prefer-binary --upgrade -r python_files/posit/test-requirements.txt
 
       - name: Run Positron IPyKernel unit tests
-        run: pytest python_files/positron --junit-xml=python-test-results.xml
+        run: pytest python_files/posit --junit-xml=python-test-results.xml
 
       - name: Upload test artifacts
         uses: actions/upload-artifact@v4
