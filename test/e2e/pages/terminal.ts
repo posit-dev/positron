@@ -72,18 +72,16 @@ export class Terminal {
 	}
 
 	async logTerminalContents() {
-		const plainText = await this.code.driver.page.evaluate(() => {
-			const rows = document.querySelectorAll('.xterm-rows > div');
-			return Array.from(rows)
-				.map((row) => {
-					const spans = row.querySelectorAll('span');
-					return Array.from(spans)
-						.map((span) => span.textContent?.trim() || '')
-						.join(' '); // Join spans within a row with a space
-				})
-				.filter((line) => line && line.length > 0) // Remove empty lines
-				.join('\n'); // Join rows with newlines
-		});
+		const locator = this.code.driver.page.locator('.xterm-rows > div');
+		const plainText = (await locator.evaluateAll((rows) =>
+			rows.map((row) => {
+				const spans = row.querySelectorAll('span');
+				return Array.from(spans)
+					.map((span) => span.textContent?.trim() || '')
+					.join(' '); // Join spans within a row with a space
+			})
+		)).filter((line) => line && line.length > 0) // Remove empty lines
+			.join('\n'); // Join rows with newlines
 
 		this.code.logger.log('---- START: Terminal Contents ----');
 		this.code.logger.log(plainText);
