@@ -77,7 +77,7 @@ jobs:
     secrets: inherit
 
   slack-notify:
-    needs: [e2e-linux-electron, e2e-windows-electron, e2e-linux-browser]
+    needs: [e2e-linux-electron] #, e2e-windows-electron, e2e-linux-browser]
     runs-on: ubuntu-latest
     steps:
       - name: Send Slack Notification
