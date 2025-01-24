@@ -179,7 +179,7 @@ class OllamaCompletion extends CompletionModel {
 		defaults: {
 			name: 'Qwen 2.5 Base',
 			model: 'qwen2.5-coder:7b-base',
-			baseUrl: 'http://localhost:11434',
+			baseUrl: 'http://localhost:11434/api',
 		},
 	};
 
@@ -198,17 +198,14 @@ class OllamaCompletion extends CompletionModel {
 			return [];
 		}
 
-		const filename = document.fileName;
 		const { prefix, suffix, prevLines, nextLines } = this.getDocumentContext(document, position);
-
 		const controller = new AbortController();
 		const signal = controller.signal;
 
 		const { textStream } = await ai.streamText({
 			model: this.model,
-			prompt: `<|file_sep|>${filename}\n${document.getText()}\n<|fim_prefix|>${prevLines}\n${prefix}<|fim_suffix|>${suffix}\n${nextLines}<|fim_middle|>`,
-			stopSequences: [`\n\n`],
-			maxTokens: 256,
+			prompt: `<|fim_prefix|>${prevLines}\n${prefix}<|fim_suffix|>${suffix}\n${nextLines}\n<|fim_middle|>`,
+			maxTokens: 64,
 			abortSignal: signal,
 		});
 

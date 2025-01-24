@@ -49,7 +49,12 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext) 
 	if (!userConfig) {
 		return;
 	}
-	const { name, provider, model, type, baseUrl, apiKey } = userConfig;
+
+	let { name, provider, model, type, baseUrl, apiKey } = userConfig;
+	name = name.trim();
+	model = model.trim();
+	baseUrl = baseUrl?.trim();
+	apiKey = apiKey?.trim();
 
 	// Create unique ID for the configuration
 	const id = randomUUID();

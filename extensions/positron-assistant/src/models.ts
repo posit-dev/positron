@@ -226,7 +226,7 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 		this.model = createOllama({ baseURL: this._config.baseUrl })(this._config.model);
 	}
 
-	async provideLanguageModelResponse2(
+	async provideLanguageModelResponse(
 		messages: vscode.LanguageModelChatMessage[],
 		options: vscode.LanguageModelChatRequestOptions,
 		extensionId: string,
