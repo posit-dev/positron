@@ -209,11 +209,46 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				else if (!this.hasAffiliatedRuntime() &&
 					!this._runtimeSessionService.hasStartingOrRunningConsole()) {
 					const languageRuntimes = this._languageRuntimeService.registeredRuntimes
-						.filter(metadata =>
-							metadata.startupBehavior === LanguageRuntimeStartupBehavior.Immediate);
+						.filter(metadata => {
+							// Filter out runtimes that don't have immediate
+							// startup behavior
+							return metadata.startupBehavior === LanguageRuntimeStartupBehavior.Immediate;
+						})
+						.filter(metadata => {
+							// Filter out runtimes that don't auto-start
+							const startupBehavior = this.getStartupBehavior(metadata.languageId);
+							return startupBehavior !== StartupBehavior.Disabled &&
+								startupBehavior !== StartupBehavior.Manual;
+						});
+
+					// Start the first runtime that has Immediate startup behavior
 					if (languageRuntimes.length) {
+						const extension = languageRuntimes[0].extensionId;
 						this._runtimeSessionService.autoStartRuntime(languageRuntimes[0],
-							`An extension requested the runtime to be started immediately.`,
+							`The ${extension.value} extension requested the runtime to be started immediately.`,
+							true);
+						return;
+					}
+
+					// Okay, no immediate startup runtimes found. Let's try to start
+					// runtimes for any languages that are marked to start Always.
+					let languageId = '';
+					const alwaysStarted = this._languageRuntimeService.registeredRuntimes
+						.filter(metadata => {
+							// Only one language ID can be auto-started. If
+							// there are multiple, only the first is started.
+							if (languageId !== '') {
+								return false;
+							}
+							const always = this.getStartupBehavior(metadata.languageId) === StartupBehavior.Always;
+							if (always) {
+								languageId = metadata.languageId;
+							}
+							return always;
+						});
+					if (alwaysStarted.length) {
+						this._runtimeSessionService.autoStartRuntime(alwaysStarted[0],
+							`The configuration specifies that a runtime should always start for the '${languageId}' language.`,
 							true);
 					}
 				}
@@ -543,11 +578,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Ensure all extension hosts are started before we start activating extensions
 		await this._extensionService.whenAllExtensionHostsStarted();
 
+		// Filter out any language packs that are disabled.
 		const disabledLanguages = new Array<string>();
 		const enabledLanguages = Array.from(this._languagePacks.keys()).filter(languageId => {
-			const startupBehavior: StartupBehavior = this._configurationService.getValue(
-				'interpreters.startupBehavior', { overrideIdentifier: languageId });
-			if (startupBehavior === StartupBehavior.Disabled) {
+			if (this.getStartupBehavior(languageId) === StartupBehavior.Disabled) {
 				this._logService.debug(`[Runtime startup] Skipping language runtime discovery for language ID '${languageId}' because its startup behavior is disabled.`);
 				disabledLanguages.push(languageId);
 				return false;
@@ -599,13 +633,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			try {
 
 				// Check the setting to see if we should be auto-starting.
-				const autoStart = this._configurationService.getValue<boolean>(
-					'interpreters.automaticStartup');
-				if (!autoStart) {
+				const startupBehavior = this.getStartupBehavior(metadata.languageId);
+				if (startupBehavior === StartupBehavior.Disabled ||
+					startupBehavior === StartupBehavior.Manual) {
 					this._logService.info(`Language runtime ` +
 						`${formatLanguageRuntimeMetadata(affiliated.metadata)} ` +
-						`is affiliated with this workspace, but won't be started because automatic ` +
-						`startup is disabled in configuration.`);
+						`is affiliated with this workspace, but won't be started because ` +
+						`the ${metadata.languageName} startup behavior is ${startupBehavior}.`);
 					return;
 				}
 
@@ -1188,6 +1222,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// We include the workspace ID in the key since ephemeral storage can
 		// be shared among workspaces in e.g. Positron Server.
 		return `${PERSISTENT_WORKSPACE_SESSIONS}.${this._workspaceContextService.getWorkspace().id}`;
+	}
+
+	/**
+	 * Gets the startup behavior for a language.
+	 *
+	 * @param languageId The language ID for which to get the startup behavior.
+	 * @returns The startup behavior for the language.
+	 */
+	private getStartupBehavior(languageId: string): StartupBehavior {
+		return this._configurationService.getValue(
+			'interpreters.startupBehavior', { overrideIdentifier: languageId });
 	}
 }
 

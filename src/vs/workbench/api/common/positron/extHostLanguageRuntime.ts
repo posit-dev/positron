@@ -562,6 +562,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			!disabledLanguageIds.includes(discoverer.languageId)
 		);
 
+		// Early exit if there are no discoverers
+		if (discoverers.length === 0) {
+			return;
+		}
+
 		// Utility function to get the next runtime from a provider and amend an
 		// index. If the provider throws an error attempting to get the next
 		// provider, then the error is logged and the function signals that the
