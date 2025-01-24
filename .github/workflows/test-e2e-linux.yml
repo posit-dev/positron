@@ -6,7 +6,7 @@ on:
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
-        default: "@:critical"
+        default: "@:editor-action-bar"
         type: string
       project:
         required: false
@@ -78,90 +78,97 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # - name: Transform to Playwright tags $PW_TAGS
-      #   run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
-      #   shell: bash
+      - name: Transform to Playwright tags $PW_TAGS
+        run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
+        shell: bash
 
-      # - name: Cache node_modules, build, extensions, and remote
-      #   uses: ./.github/actions/cache-multi-paths
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
 
-      # - name: Attempt 1 - Setup Build and Compile
-      #   id: attempt1
-      #   uses: ./.github/actions/setup-build-env
-      #   continue-on-error: true
+      - name: Attempt 1 - Setup Build and Compile
+        id: attempt1
+        uses: ./.github/actions/setup-build-env
+        continue-on-error: true
 
-      # - name: Attempt 2 - Setup Build and Compile
-      #   if: ${{ steps.attempt1.outcome == 'failure' }}
-      #   id: attempt2
-      #   uses: ./.github/actions/setup-build-env
-      #   continue-on-error: true
+      - name: Attempt 2 - Setup Build and Compile
+        if: ${{ steps.attempt1.outcome == 'failure' }}
+        id: attempt2
+        uses: ./.github/actions/setup-build-env
+        continue-on-error: true
 
-      # - name: Attempt 3 - Setup Build and Compile
-      #   if: ${{ steps.attempt2.outcome == 'failure' }}
-      #   uses: ./.github/actions/setup-build-env
+      - name: Attempt 3 - Setup Build and Compile
+        id: attempt3
+        if: ${{ steps.attempt2.outcome == 'failure' }}
+        uses: ./.github/actions/setup-build-env
 
-      # - name: Fail if Retries Exhausted
-      #   if: ${{ steps.attempt3.outcome == 'failure' }}
-      #   run: exit 1
+      - name: Fail if Retries Exhausted
+        if: ${{ steps.attempt3.outcome == 'failure' }}
+        run: exit 1
 
-      # - name: Install Positron License
-      #   uses: ./.github/actions/install-license
-      #   with:
-      #     github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
-      #     license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
+      - name: Install Positron License
+        uses: ./.github/actions/install-license
+        with:
+          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      # - name: Setup E2E Test Environment
-      #   uses: ./.github/actions/setup-test-env
-      #   with:
-      #     aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-      #     aws-region: ${{ secrets.QA_AWS_REGION }}
-      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup E2E Test Environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # # Preloading ensures the Node.js binary is fully built and ready before
-      # # any parallel processes start, preventing runtime conflicts
-      # - name: Preload Node.js Binary
-      #   if: ${{ inputs.project == 'e2e-browser' }}
-      #   run: npm run gulp node
+      # Preloading ensures the Node.js binary is fully built and ready before
+      # any parallel processes start, preventing runtime conflicts
+      - name: Preload Node.js Binary
+        if: ${{ inputs.project == 'e2e-browser' }}
+        run: npm run gulp node
 
-      # - name: Send Results to GH Summary
-      #   uses: ./.github/actions/gen-report-dir
-      #   if: ${{ !cancelled() }}
+      - name: Send Results to GH Summary
+        uses: ./.github/actions/gen-report-dir
+        if: ${{ !cancelled() }}
 
-      # - name: Alter AppArmor Restrictions for Playwright (Electron)
-      #   run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Alter AppArmor Restrictions for Playwright (Electron)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
-      # - name: Run Playwright Tests (Electron)
-      #   env:
-      #     POSITRON_PY_VER_SEL: 3.12.3
-      #     POSITRON_R_VER_SEL: 4.4.0
-      #     CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
-      #     CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
-      #     COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
-      #     PWTEST_BLOB_DO_NOT_REMOVE: 1
-      #     CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/linux' }}
-      #   run: |
-      #     DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 --grep "${{ env.PW_TAGS }}" --repeat-each ${{ inputs.repeat_each }}
+      - name: Run Playwright Tests (Electron)
+        env:
+          POSITRON_PY_VER_SEL: 3.12.3
+          POSITRON_R_VER_SEL: 4.4.0
+          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
+          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/linux' }}
+        run: |
+          DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 --grep "${{ env.PW_TAGS }}" --repeat-each ${{ inputs.repeat_each }}
 
-      # - name: Upload Playwright Report to S3
-      #   if: ${{ success() || failure() }}
-      #   uses: ./.github/actions/upload-report-to-s3
-      #   with:
-      #     role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-      #     report-dir: ${{ env.REPORT_DIR }}
+      - name: Upload Playwright Report to S3
+        if: ${{ success() || failure() }}
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
 
-      # - name: Install trcli
-      #   if: ${{ inputs.report_testrail }}
-      #   shell: bash
-      #   run: sudo apt-get update && sudo apt-get install -y python3-pip && pip3 install trcli
+      - name: Upload JUnit report
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-junit-report
+          path: test-results/junit.xml
 
-      # - name: Upload Test Results to TestRail
-      #   if: ${{ inputs.report_testrail }}
-      #   shell: bash
-      #   run: |
-      #     TESTRAIL_TITLE="$(date +'%Y-%m-%d') ${{ env.TESTRAIL_TITLE }} - $GITHUB_REF_NAME"
-      #     echo "TESTRAIL_TITLE=$TESTRAIL_TITLE" >> $GITHUB_ENV
-      #     trcli --host "https://posit.testrail.io/" --project "${{ env.TESTRAIL_PROJECT }}" --username testrailautomation@posit.co --key "${{ env.TESTRAIL_API_KEY }}" parse_junit --file "./test-results/junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
-      #   env:
-      #     TESTRAIL_TITLE: ${{ inputs.project }}
-      #     TESTRAIL_PROJECT: "Positron"
-      #     TESTRAIL_API_KEY: ${{ secrets.TESTRAIL_API_KEY }}
+      - name: Install trcli
+        if: ${{ inputs.report_testrail }}
+        shell: bash
+        run: sudo apt-get update && sudo apt-get install -y python3-pip && pip3 install trcli
+
+      - name: Upload Test Results to TestRail
+        if: ${{ inputs.report_testrail }}
+        shell: bash
+        run: |
+          TESTRAIL_TITLE="$(date +'%Y-%m-%d') ${{ env.TESTRAIL_TITLE }} - $GITHUB_REF_NAME"
+          echo "TESTRAIL_TITLE=$TESTRAIL_TITLE" >> $GITHUB_ENV
+          trcli --host "https://posit.testrail.io/" --project "${{ env.TESTRAIL_PROJECT }}" --username testrailautomation@posit.co --key "${{ env.TESTRAIL_API_KEY }}" parse_junit --file "./test-results/junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+        env:
+          TESTRAIL_TITLE: ${{ inputs.project }}
+          TESTRAIL_PROJECT: "Positron"
+          TESTRAIL_API_KEY: ${{ secrets.TESTRAIL_API_KEY }}
