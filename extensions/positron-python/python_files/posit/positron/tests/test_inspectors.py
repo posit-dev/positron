@@ -21,13 +21,13 @@ import pytest
 from fastcore.foundation import L
 from shapely.geometry import Polygon
 
-from positron_ipykernel.inspectors import (
+from positron.inspectors import (
     PRINT_WIDTH,
     TRUNCATE_AT,
     get_inspector,
 )
-from positron_ipykernel.utils import get_qualname
-from positron_ipykernel.variables_comm import VariableKind
+from positron.utils import get_qualname
+from positron.variables_comm import VariableKind
 
 from .data import (
     BOOL_CASES,
@@ -594,7 +594,7 @@ def test_inspect_object(value: Any) -> None:
         display_value=str(value),
         kind=VariableKind.Other,
         display_type="HelperClass",
-        type_info="positron_ipykernel.tests.test_inspectors.HelperClass",
+        type_info="positron.tests.test_inspectors.HelperClass",
         supports_deepcopy=False,
     )
 

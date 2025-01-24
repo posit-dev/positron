@@ -25,8 +25,8 @@ def main() -> None:
 
     cfg = Configuration(
         base_directory=project_path,
-        destination=Path("python_files/positron/positron_ipykernel/_vendor/"),
-        namespace="positron_ipykernel._vendor",
+        destination=Path("python_files/posit/positron/_vendor/"),
+        namespace="positron._vendor",
         requirements=Path(
             "python_files/jedilsp_requirements/requirements.txt"
         ),
@@ -35,7 +35,7 @@ def main() -> None:
             # Fix pygments.lexers._mapping strings, via: https://github.com/pypa/pip/blob/main/pyproject.toml
             {
                 "match": r"\('pygments\.lexers\.",
-                "replace": r"('positron_ipykernel._vendor.pygments.lexers.",
+                "replace": r"('positron._vendor.pygments.lexers.",
             }
         ],
     )

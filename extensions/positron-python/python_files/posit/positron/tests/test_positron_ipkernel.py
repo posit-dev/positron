@@ -13,10 +13,10 @@ import pytest
 from ipykernel.compiler import get_tmp_directory
 from IPython.utils.syspathcontext import prepended_to_syspath
 
-from positron_ipykernel.access_keys import encode_access_key
-from positron_ipykernel.help import help
-from positron_ipykernel.session_mode import SessionMode
-from positron_ipykernel.utils import alias_home
+from positron.access_keys import encode_access_key
+from positron.help import help
+from positron.session_mode import SessionMode
+from positron.utils import alias_home
 
 from .conftest import PositronShell
 from .utils import assert_register_table_called
@@ -317,9 +317,7 @@ def test_question_mark_help(shell: PositronShell, mock_help_service: Mock) -> No
 
     shell.run_cell("?")
 
-    mock_help_service.show_help.assert_called_once_with(
-        "positron_ipykernel.utils.positron_ipykernel_usage"
-    )
+    mock_help_service.show_help.assert_called_once_with("positron.utils.positron_ipykernel_usage")
 
 
 def test_console_warning(shell: PositronShell, warning_kwargs):

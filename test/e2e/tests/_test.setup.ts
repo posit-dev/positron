@@ -293,7 +293,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(app.code.driver.page);
 	},
 
-	autoTestFixture: [async ({ logger, suiteId }, use, testInfo) => {
+	autoTestFixture: [async ({ logger, suiteId, app }, use, testInfo) => {
 		if (!suiteId) { throw new Error('suiteId is required'); }
 
 		logger.log('');
@@ -301,6 +301,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		logger.log('');
 
 		await use();
+
+		await app.workbench.console.logConsoleContents();
+		await app.workbench.terminal.logTerminalContents();
 
 		const failed = testInfo.status !== testInfo.expectedStatus;
 		const testTitle = testInfo.title;
