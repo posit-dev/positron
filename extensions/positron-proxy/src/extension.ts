@@ -92,6 +92,28 @@ export function activate(context: vscode.ExtensionContext) {
 			async (path: vscode.Uri) => {
 				let targetPath = path;
 
+				// If the path isn't supplied, use the active text editor's path.
+				if (!targetPath) {
+					const activeEditor = vscode.window.activeTextEditor;
+					if (activeEditor) {
+						targetPath = activeEditor.document.uri;
+
+						// Check that the URI refers to an HTML file. We are
+						// ultimately going to call `openExternal` which
+						// doesn't invoke a web browser unless the file is
+						// actually HTML since it relies on the system open
+						// behavior in desktop environments.
+						const extension = targetPath.fsPath.split('.').pop()?.toLowerCase();
+						if (extension !== 'html' && extension !== 'htm') {
+							vscode.window.showErrorMessage(vscode.l10n.t('The file {0} does not appear to be an HTML file, so it will not be opened in the browser.', targetPath.fsPath));
+							return;
+						}
+					} else {
+						vscode.window.showErrorMessage(vscode.l10n.t('No selected file to open in the browser. Open an HTML file in an editor before running this command.'));
+						return;
+					}
+				}
+
 				// On a native desktop build, we can open the file directly in
 				// the browser, without starting a proxy server. But in all
 				// other cases (web, remote SSH, etc), the file is not likely
