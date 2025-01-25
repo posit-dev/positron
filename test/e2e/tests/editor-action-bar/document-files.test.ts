@@ -30,7 +30,6 @@ test.describe('Editor Action Bar: Document Files', {
 	test('R Markdown Document', {
 		tag: [tags.R_MARKDOWN]
 	}, async function ({ app, openFile }) {
-		expect(1).toBe(2);
 		await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
 		await verifyPreviewRendersHtml('Getting startedAnchor');
 		await verifySplitEditor('basicRmd.rmd');
