@@ -79,6 +79,9 @@ import { RemoteUserDataProfilesServiceChannel } from '../../platform/userDataPro
 import { NodePtyHostStarter } from '../../platform/terminal/node/nodePtyHostStarter.js';
 import { CSSDevelopmentService, ICSSDevelopmentService } from '../../platform/cssDev/node/cssDevService.js';
 import { AllowedExtensionsService } from '../../platform/extensionManagement/common/allowedExtensionsService.js';
+// -- Start PWB: Heartbeat
+import { IPwbHeartbeatService, PwbHeartbeatService } from './pwbHeartbeat.js';
+// -- End PWB: Heartbeat
 
 // --- Start Positron ---
 import { EphemeralStateService } from '../../platform/ephemeralState/common/ephemeralStateService.js';
@@ -91,6 +94,10 @@ const eventPrefix = 'monacoworkbench';
 export async function setupServerServices(connectionToken: ServerConnectionToken, args: ServerParsedArgs, REMOTE_DATA_FOLDER: string, disposables: DisposableStore) {
 	const services = new ServiceCollection();
 	const socketServer = new SocketServer<RemoteAgentConnectionContext>();
+
+	// -- Start PWB: Heartbeat
+	services.set(IPwbHeartbeatService, new PwbHeartbeatService());
+	// -- End PWB: Heartbeat
 
 	const productService: IProductService = { _serviceBrand: undefined, ...product };
 	services.set(IProductService, productService);

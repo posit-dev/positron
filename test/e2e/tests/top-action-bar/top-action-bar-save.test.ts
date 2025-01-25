@@ -20,7 +20,7 @@ test.describe('Top Action Bar - Save Actions', {
 		}
 	});
 
-	test('Save and Save All both disabled when no unsaved editors are open [C656253]', async function ({ app }) {
+	test('Save and Save All both disabled when no unsaved editors are open', async function ({ app }) {
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 		await expect(async () => {
 			expect(await app.workbench.topActionBar.saveButton.isDisabled()).toBeTruthy();
@@ -28,7 +28,7 @@ test.describe('Top Action Bar - Save Actions', {
 		}).toPass({ timeout: 20000 });
 	});
 
-	test('Save enabled and Save All disabled when a single unsaved file is open [C656254]', async function ({ app }) {
+	test('Save enabled and Save All disabled when a single unsaved file is open', async function ({ app }) {
 		const fileName = 'README.md';
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, fileName));
@@ -52,7 +52,7 @@ test.describe('Top Action Bar - Save Actions', {
 		}).toPass({ timeout: 10000 });
 	});
 
-	test('Save and Save All both enabled when multiple unsaved files are open [C656255]', async function ({ app }) {
+	test('Save and Save All both enabled when multiple unsaved files are open', async function ({ app }) {
 		const fileName1 = 'README.md';
 		const fileName2 = 'DESCRIPTION';
 		const text = 'Kittens playing with yarn';
@@ -85,7 +85,7 @@ test.describe('Top Action Bar - Save Actions', {
 		}).toPass({ timeout: 10000 });
 	});
 
-	test('Save and Save All both enabled when an unsaved new file is open [C656256]', async function ({ app }) {
+	test('Save and Save All both enabled when an unsaved new file is open', async function ({ app }) {
 		const fileName = 'Untitled-1';
 		const text = 'Bunnies hopping through a field of clover';
 		// Open a new file and type in some text

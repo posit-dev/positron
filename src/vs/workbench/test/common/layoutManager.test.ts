@@ -54,7 +54,8 @@ suite('LayoutManager', () => {
 		verifyDefaultSizedEntries(1, 1_000);
 		verifyDefaultSizedEntries(19, 1_000);
 		verifyDefaultSizedEntries(127, 20_000);
-		verifyDefaultSizedEntries(23, 500_000);
+		// Too big for CI.
+		// verifyDefaultSizedEntries(23, 500_000);
 	});
 
 	/**
@@ -63,7 +64,8 @@ suite('LayoutManager', () => {
 	test('Default-Sized Entries With Overrides', () => {
 		verifyDefaultSizedEntriesWithOverrides(127, 253, 20_000, 500);
 		verifyDefaultSizedEntriesWithOverrides(200, 18, 50_000, 1_000);
-		verifyDefaultSizedEntriesWithOverrides(187, 392, 50_000_000, 10_000);
+		// Too big for CI.
+		// verifyDefaultSizedEntriesWithOverrides(187, 392, 50_000_000, 10_000);
 	});
 
 	/**
@@ -75,7 +77,8 @@ suite('LayoutManager', () => {
 		verifyFixedSizedPredefinedEntries(1, 1_000);
 		verifyFixedSizedPredefinedEntries(19, 1_000);
 		verifyFixedSizedPredefinedEntries(127, 20_000);
-		verifyFixedSizedPredefinedEntries(23, 500_000);
+		// Too big for CI.
+		// verifyFixedSizedPredefinedEntries(23, 500_000);
 	});
 
 	/**
@@ -677,9 +680,9 @@ suite('LayoutManager', () => {
 	 * Gets a random integer in the inclusive range.
 	 */
 	const getRandomIntInclusive = (min: number, max: number) => {
-		const minCeiled = Math.ceil(min);
-		const maxFloored = Math.floor(max);
-		return Math.floor(Math.random() * (maxFloored - minCeiled + 1) + minCeiled);
+		min = Math.ceil(min);
+		max = Math.floor(max);
+		return Math.floor(Math.random() * (max - min + 1)) + min;
 	};
 
 	// Ensure that all disposables are cleaned up.

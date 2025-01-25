@@ -12,7 +12,7 @@ test.use({
 test.describe('Console Autocomplete', {
 	tag: [tags.WEB, tags.WIN, tags.CONSOLE]
 }, () => {
-	test('Python - Verify Console Autocomplete [C947968]', async function ({ app, python }) {
+	test('Python - Verify Console Autocomplete', async function ({ app, python }) {
 		await app.workbench.console.pasteCodeToConsole('import pandas as pd');
 		await app.workbench.console.sendEnterKey();
 
@@ -20,7 +20,7 @@ test.describe('Console Autocomplete', {
 		await expect(app.workbench.console.suggestionList).toHaveCount(8, { timeout: 15000 });
 	});
 
-	test('R - Verify Console Autocomplete [C947969]', async function ({ app, r }) {
+	test('R - Verify Console Autocomplete', async function ({ app, r }) {
 		await app.workbench.console.pasteCodeToConsole('library(arrow)');
 		await app.workbench.console.sendEnterKey();
 

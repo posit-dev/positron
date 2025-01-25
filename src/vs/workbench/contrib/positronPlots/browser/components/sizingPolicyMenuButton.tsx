@@ -43,7 +43,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 
 	// State.
 	const [activePolicyLabel, setActivePolicyLabel] =
-		React.useState(props.plotsService.selectedSizingPolicy.getName(props.plotClient));
+		React.useState(props.plotClient.sizingPolicy.getName(props.plotClient));
 
 	React.useEffect(() => {
 		const disposables = new DisposableStore();
@@ -76,7 +76,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 		let policyDisposables = attachPolicy(props.plotsService.selectedSizingPolicy);
 
 		// Update the active policy label when the selected policy changes.
-		disposables.add(props.plotsService.onDidChangeSizingPolicy(policy => {
+		disposables.add(props.plotClient.onDidChangeSizingPolicy(policy => {
 			policyDisposables.dispose();
 			policyDisposables = attachPolicy(policy);
 		}));
@@ -106,7 +106,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 					enabled,
 					checked: policy.id === selectedPolicy.id,
 					run: () => {
-						props.plotsService.selectSizingPolicy(policy.id);
+						props.plotClient.sizingPolicy = policy;
 					}
 				});
 			}
@@ -125,7 +125,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 				enabled: true,
 				checked: customPolicy.id === selectedPolicy.id,
 				run: () => {
-					props.plotsService.selectSizingPolicy(customPolicy.id);
+					props.plotClient.sizingPolicy = customPolicy;
 				}
 			});
 		}
@@ -162,6 +162,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 							} else {
 								// The user entered a valid size; set the custom policy.
 								props.plotsService.setCustomPlotSize(result.size);
+								props.plotClient.sizingPolicy = new PlotSizingPolicyCustom(result.size);
 							}
 						}
 					}

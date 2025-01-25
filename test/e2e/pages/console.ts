@@ -107,11 +107,10 @@ export class Console {
 	}
 
 	async logConsoleContents() {
-		this.code.logger.log('------------------');
-		this.code.logger.log('Console contents:');
-		this.code.logger.log('------------------');
+		this.code.logger.log('---- START: Console Contents ----');
 		const contents = await this.code.driver.page.locator(CONSOLE_LINES).allTextContents();
 		contents.forEach(line => this.code.logger.log(line));
+		this.code.logger.log('---- END: Console Contents ----');
 	}
 
 	async typeToConsole(text: string, delay = 30, pressEnter = false) {

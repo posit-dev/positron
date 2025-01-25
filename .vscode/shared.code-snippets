@@ -49,5 +49,15 @@
 			"private readonly _onDid$1 = new Emitter<$2>();",
 			"readonly onDid$1: Event<$2> = this._onDid$1.event;"
 		],
+	},
+	"Positron Markers": {
+		"scope": "javascript,typescript",
+		"prefix": "// --- Start Positron ---",
+		"description": "Add Positron overlay markers",
+		"body": [
+			"// --- Start Positron ---",
+			"$0",
+			"// --- End Positron ---"
+		]
 	}
 }

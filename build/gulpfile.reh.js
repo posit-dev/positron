@@ -342,7 +342,8 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		// --- Start Positron ---
 		// Note: The remote/reh-web/package.json is generated/updated in build/npm/postinstall.js
 		const packageJsonBase = type === 'reh-web' ? 'remote/reh-web' : 'remote';
-		const packageJsonStream = gulp.src(['remote/package.json'], { base: packageJsonBase })
+		const packageJsonStream = gulp.src([`${packageJsonBase}/package.json`], { base: packageJsonBase })
+			// --- End Positron ---
 			.pipe(json({ name, version, dependencies: undefined, optionalDependencies: undefined, type: 'module' }))
 			.pipe(es.through(function (file) {
 				packageJsonContents = file.contents.toString();
@@ -391,7 +392,9 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 			].map(resource => gulp.src(resource, { base: '.' }).pipe(rename(resource)));
 		}
 
-		const all = es.merge(
+		// --- Start Positron ---
+		let all = es.merge(
+			// --- End Positron ---
 			packageJsonStream,
 			productJsonStream,
 			license,
@@ -400,6 +403,14 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 			node,
 			...web
 		);
+
+		// --- Start Positron ---
+		if (type === 'reh-web') {
+			// External modules (React, etc.)
+			const moduleSources = gulp.src('src/esm-package-dependencies/**').pipe(rename(function (p) { p.dirname = path.join('out', 'esm-package-dependencies', p.dirname) }));
+			all = es.merge(all, moduleSources);
+		}
+		// --- End Positron ---
 
 		let result = all
 			.pipe(util.skipDirectories())

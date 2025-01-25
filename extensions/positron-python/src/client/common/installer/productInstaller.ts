@@ -304,7 +304,10 @@ export class DataScienceInstaller extends BaseInstaller {
             if (pipInstaller) {
                 traceInfo(`Installing pip as its not available to install ${moduleName}.`);
                 await pipInstaller
-                    .installModule(Product.pip, interpreter, cancel)
+                    // --- Start Positron ---
+                    // installAsProcess is required to respect the "Install in Terminal" setting?
+                    .installModule(Product.pip, interpreter, cancel, undefined, { installAsProcess: true })
+                    // --- End Positron ---
                     .catch((ex) =>
                         traceError(
                             `Error in installing the module '${moduleName} as Pip could not be installed', ${ex}`,
@@ -418,17 +421,37 @@ export class DataScienceInstaller extends BaseInstaller {
     ): Promise<InstallerResponse> {
         // --- Start Positron ---
         const productName = ProductNames.get(product)!;
-        const install = await positron.window.showSimpleModalDialogPrompt(
-            l10n.t('Install Python package "{0}"?', productName),
-            message ??
-                l10n.t(
-                    'To enable Python support, Positron needs to install the package "{0}" for the active interpreter.',
-                    productName,
-                ),
-            l10n.t('Install'),
-        );
+
+        let hasPip = true;
+        if (_flags && _flags & ModuleInstallFlags.installPipIfRequired) {
+            const installer = this.serviceContainer.get<IInstaller>(IInstaller);
+            hasPip = await installer.isInstalled(Product.pip, resource);
+        }
+
+        let install;
+        if (hasPip) {
+            install = await positron.window.showSimpleModalDialogPrompt(
+                l10n.t('Install Python package "{0}"?', productName),
+                message ??
+                    l10n.t(
+                        'To enable Python support, Positron needs to install the package "{0}" for the active interpreter.',
+                        productName,
+                    ),
+                l10n.t('Install'),
+            );
+        } else {
+            install = await positron.window.showSimpleModalDialogPrompt(
+                l10n.t('Install Python packages "{0}" and "{1}"?', ProductNames.get(Product.pip)!, productName),
+                message ??
+                    l10n.t(
+                        'To enable Python support, Positron needs to install the package "{0}" for the active interpreter.',
+                        productName,
+                    ),
+                l10n.t('Install'),
+            );
+        }
         if (install) {
-            return this.install(product, resource, cancel, undefined, options);
+            return this.install(product, resource, cancel, _flags, options);
         }
         // --- End Positron ---
         return InstallerResponse.Ignore;

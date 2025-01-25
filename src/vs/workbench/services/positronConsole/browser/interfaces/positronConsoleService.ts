@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../../../base/common/event.js';
-import { IEditor } from '../../../../../editor/common/editorCommon.js';
+import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { RuntimeItem } from '../classes/runtimeItem.js';
 import { ILanguageRuntimeSession } from '../../../runtimeSession/common/runtimeSessionService.js';
@@ -53,10 +53,10 @@ export interface IPositronConsoleService {
 	readonly activePositronConsoleInstance?: IPositronConsoleInstance;
 
 	/**
-	 * Gets the text editor (mini editor used to enter code at the REPL) for the
-	 * active Positron console instance.
+	 * Gets the active code editor (CodeEditorWidget used to enter code) for the active Positron
+	 * console instance.
 	 */
-	readonly activeInputTextEditor: IEditor | undefined;
+	readonly activeCodeEditor: ICodeEditor | undefined;
 
 	/**
 	 * The onDidStartPositronConsoleInstance event.
@@ -279,9 +279,9 @@ export interface IPositronConsoleInstance {
 	getWidthInChars(): number;
 
 	/**
-	 * Returns the active text editor widget for the console, if it exists.
+	 * Returns the active code editor for the console, if it exists.
 	 */
-	inputTextEditor: IEditor | undefined;
+	codeEditor: ICodeEditor | undefined;
 
 	/**
 	 * Toggles trace.
