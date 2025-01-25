@@ -3,6 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import './consoleInstanceInfoButton.css';
+
 // React.
 import React, { useRef } from 'react';
 
@@ -13,8 +16,11 @@ import { PositronModalPopup } from '../../../../browser/positronComponents/posit
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
+import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 
 const positronConsoleInfo = localize('positronConsoleInfo', "Console information");
+const showKernelOutputChannel = localize('positron.showKernelOutputChannel', "Show Kernel Output Channel");
 
 export const ConsoleInstanceInfoButton = () => {
 	// Hooks.
@@ -36,6 +42,7 @@ export const ConsoleInstanceInfoButton = () => {
 			<ConsoleInstanceInfoModalPopup
 				anchorElement={ref.current}
 				renderer={renderer}
+				session={positronConsoleContext.activePositronConsoleInstance?.session}
 			/>
 		);
 	}
@@ -55,22 +62,26 @@ export const ConsoleInstanceInfoButton = () => {
 
 interface ConsoleInstanceInfoModalPopupProps {
 	anchorElement: HTMLElement;
-	renderer: PositronModalReactRenderer
+	renderer: PositronModalReactRenderer;
+	session: ILanguageRuntimeSession | undefined;
 }
 
 const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps) => {
-	// Hooks.
-	const positronConsoleContext = usePositronConsoleContext();
+	const session = props.session;
 
-	// Constants
-	const activeConsoleInstance = positronConsoleContext.positronConsoleService.activePositronConsoleInstance;
-	const session = activeConsoleInstance?.session;
+	const showKernelOutputChannelClickHandler = () => {
+		session?.showOutput();
+	}
+
+	if (!session) {
+		return null;
+	}
 
 	// Render.
 	return (
 		<PositronModalPopup
 			anchorElement={props.anchorElement}
-			height={200}
+			height='min-content'
 			keyboardNavigationStyle='menu'
 			renderer={props.renderer}
 			popupAlignment='auto'
@@ -78,11 +89,21 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 			width={400}
 		>
 			<div className='console-instance-info'>
-				<p>Name: {session?.metadata.sessionName}</p>
-				<p>ID: {session?.sessionId}</p>
-				<p>State: {session?.getRuntimeState()}</p>
-				<p>Path: {session?.runtimeMetadata.runtimePath}</p>
-				<p>Source: {session?.runtimeMetadata.runtimeSource}</p>
+				<div className='content'>
+					<div className='line'>{session?.metadata.sessionName}</div>
+					<div className='top-separator'>
+						<div className='line'>Session ID: {session?.sessionId}</div>
+					</div>
+					<div className='top-separator'>
+						<div className='line'>Path: {session?.runtimeMetadata.runtimePath}</div>
+						<div className='line'>Source: {session?.runtimeMetadata.runtimeSource}</div>
+					</div>
+				</div>
+				<div className='top-separator actions'>
+					<PositronButton className='link' onPressed={showKernelOutputChannelClickHandler}>
+						{showKernelOutputChannel}
+					</PositronButton>
+				</div>
 			</div>
 		</PositronModalPopup>
 	)
