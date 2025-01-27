@@ -2,7 +2,7 @@ bokeh
 fastcore
 geopandas
 holoviews
-ibis-framework[duckdb]; python_version >= '3.10'
+ibis-framework[duckdb]; python_version >= '3.10' and python_version < '3.13'
 ipykernel
 ipywidgets
 lightning
@@ -12,7 +12,8 @@ pandas
 plotly
 polars; python_version >= '3.9'
 polars[timezone]; python_version < '3.9' or sys_platform == 'win32'
-pyarrow
+pyarrow; python_version < '3.13'
+pyarrow>=19.0.0; python_version >= '3.13'
 pytest<8.1.1
 pytest-asyncio
 pytest-mock
