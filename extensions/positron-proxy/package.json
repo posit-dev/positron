@@ -25,12 +25,22 @@
           "when": "resourceLangId == html && resourceScheme == file",
           "command": "positronProxy.showHtmlPreview",
           "group": "navigation"
+        },
+        {
+          "when": "resourceLangId == html && resourceScheme == file",
+          "command": "positronProxy.openBrowserPreview",
+          "group": "navigation"
         }
       ],
       "editor/title": [
         {
           "when": "resourceLangId == html  && resourceScheme == file",
           "command": "positronProxy.showHtmlPreview",
+          "group": "navigation"
+        },
+        {
+          "when": "resourceLangId == html  && resourceScheme == file",
+          "command": "positronProxy.openBrowserPreview",
           "group": "navigation"
         }
       ]
@@ -39,7 +49,12 @@
       {
         "command": "positronProxy.showHtmlPreview",
         "title": "%command.positronProxy.showHtmlPreview.title%",
-        "icon": "$(eye)"
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "positronProxy.openBrowserPreview",
+        "title": "%command.positronProxy.openBrowserPreview.title%",
+        "icon": "$(browser)"
       }
     ]
   },

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -169,7 +169,7 @@ export class PositronProxy implements Disposable {
 	 * @param targetPath The target path
 	 * @returns The server URL.
 	 */
-	async startHtmlProxyServer(targetPath: string) {
+	async startHtmlProxyServer(targetPath: string): Promise<string> {
 		log.debug(`Starting an HTML proxy server for target: ${targetPath}...`);
 
 		if (!this._htmlProxyServer) {
