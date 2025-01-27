@@ -150,11 +150,12 @@ jobs:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
 
-      - name: Upload JUnit report
-        uses: actions/upload-artifact@v3
+      - name: Save and Upload Artifacts for Slack Notification
+        uses: midleman/slack-workflow-status/.github/actions/upload-artifacts@mi/comment-thread
         with:
-          name: ${{ github.job }}
-          path: test-results/junit.xml
+          job_name: ${{ github.job }}
+          junit_path: test-results/junit.xml
+          report_url: ${{ env.REPORT_URL }}
 
       - name: Install trcli
         if: ${{ inputs.report_testrail }}

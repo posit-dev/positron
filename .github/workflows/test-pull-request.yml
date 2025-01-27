@@ -2,10 +2,10 @@ name: "Test: PR"
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-      - 'prerelease/**'
+  # pull_request:
+  #   branches:
+  #     - main
+  #     - 'prerelease/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
