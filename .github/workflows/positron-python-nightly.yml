@@ -140,7 +140,7 @@ jobs:
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-        channel: "#test-slack-notifications"
+        channel: "#positron-test-results"
         include_jobs_time: "false"
-        notify_on: "always"
+        notify_on: "failure"
 

@@ -6,7 +6,7 @@ on:
       grep:
         required: false
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
-        default: "@:editor-action-bar"
+        default: "@:critical"
         type: string
       project:
         required: false
@@ -149,14 +149,6 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
-
-      - name: Save and Upload Artifacts for Slack Notification
-        if: ${{ !cancelled() }}
-        uses: midleman/slack-workflow-status/.github/actions/upload-artifacts@mi/comment-thread
-        with:
-          job_name: ${{ github.job }}
-          junit_path: test-results/junit.xml
-          report_url: ${{ env.REPORT_URL }}
 
       - name: Install trcli
         if: ${{ inputs.report_testrail }}

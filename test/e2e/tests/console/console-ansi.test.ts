@@ -16,7 +16,6 @@ test.describe('Console ANSI styling', { tag: [tags.CRITICAL, tags.CONSOLE, tags.
 	});
 
 	test("R - Can produce clickable file links", async function ({ app, r }) {
-		expect(1).toBe(2);
 		// Can be any file on the workkspace. We use .gitignore as it's probably
 		// always there.
 		const fileName = '.gitignore';
@@ -36,12 +35,7 @@ test.describe('Console ANSI styling', { tag: [tags.CRITICAL, tags.CONSOLE, tags.
 		}).toPass({ timeout: 60000 });
 	});
 
-	test("R - Can produce clickable help links", async function ({ app, r }, testInfo) {
-		if (testInfo.retry) {
-			expect(2).toBe(2); // Intentionally fail
-		} else {
-			expect(1).toBe(2); // Pass
-		}
+	test("R - Can produce clickable help links", async function ({ app, r }) {
 		const inputCode = `cli::cli_inform("{.fun base::mean}")`;
 
 		await expect(async () => {

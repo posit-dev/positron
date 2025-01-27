@@ -53,7 +53,7 @@ jobs:
     needs: [unit-tests, integration-tests, e2e-electron, e2e-windows-electron, e2e-linux-browser]
     runs-on: ubuntu-latest
     steps:
-      - name: Send Slack Notification
+      - name: Notify Slack
         uses: midleman/slack-workflow-status@v2.0.0-beta.1
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
