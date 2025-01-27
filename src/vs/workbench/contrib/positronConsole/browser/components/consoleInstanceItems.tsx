@@ -66,17 +66,6 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 
 		let extensionHostDisconnected = false;
 
-		const reversedItems = this.props.positronConsoleInstance.runtimeItems.slice().reverse();
-		for (const item of reversedItems) {
-			if (item instanceof RuntimeItemStartup) {
-				break;
-			} else if (item instanceof RuntimeItemExited && item.reason == "extensionHost") {
-				extensionHostDisconnected = true;
-				break;
-			}
-
-		}
-
 		return (
 			<>
 				<div className='top-spacer' />
@@ -86,8 +75,10 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 					} else if (runtimeItem instanceof RuntimeItemPendingInput) {
 						return <RuntimePendingInput key={runtimeItem.id} fontInfo={this.props.editorFontInfo} runtimeItemPendingInput={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemStartup) {
+						extensionHostDisconnected = false;
 						return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemReconnected) {
+						extensionHostDisconnected = true;
 						return null;
 					} else if (runtimeItem instanceof RuntimeItemStarting) {
 						return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
@@ -96,6 +87,9 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 					} else if (runtimeItem instanceof RuntimeItemOffline) {
 						return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemExited) {
+						if (runtimeItem.reason === 'extensionHost') {
+							extensionHostDisconnected = true;
+						}
 						return null;
 					} else if (runtimeItem instanceof RuntimeItemRestartButton) {
 						return <RuntimeRestartButton key={runtimeItem.id} runtimeItemRestartButton={runtimeItem} positronConsoleInstance={this.props.positronConsoleInstance} />;
