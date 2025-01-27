@@ -97,6 +97,7 @@ jobs:
         continue-on-error: true
 
       - name: Attempt 3 - Setup Build and Compile
+        id: attempt3
         if: ${{ steps.attempt2.outcome == 'failure' }}
         uses: ./.github/actions/setup-build-env
 
