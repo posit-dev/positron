@@ -57,6 +57,10 @@ export class Variables {
 		return variables;
 	}
 
+	async focusVariablesView() {
+		await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+K+V' : 'Control+K+V');
+	}
+
 	async waitForVariableRow(variableName: string): Promise<Locator> {
 		const desiredRow = this.code.driver.page.locator(VARIABLES_NAME_COLUMN).filter({ hasText: variableName });
 		await expect(desiredRow).toBeVisible();
