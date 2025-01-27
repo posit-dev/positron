@@ -584,7 +584,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 					// There are multiple errors (AggregateError)
 					this._startupFailureEmitter.fire({
 						message: err.message,
-						details: err.errors.join('\n\n')
+						details: err.errors.map((e: any) => e.toString()).join('\n\n')
 					} satisfies ILanguageRuntimeStartupFailure);
 					reject(err.message);
 				} else if (err.name && err.message) {
