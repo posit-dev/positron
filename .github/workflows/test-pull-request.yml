@@ -75,22 +75,3 @@ jobs:
     uses: ./.github/workflows/test-integration.yml
     secrets: inherit
 
-  slack-notify:
-    if: always()
-    needs: [e2e-linux-electron, e2e-windows-electron, e2e-linux-browser, unit-tests, integration-tests]
-    runs-on: ubuntu-latest
-    env:
-      notify_on: 'always'
-    steps:
-      - run: |
-          echo "Will notify on: ${{ env.notify_on }}"
-      - name: Send Slack Notification
-        uses: midleman/slack-workflow-status@mi/comment-thread
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          comment_junit_failures: "true"
-          comment_junit_flakes: "true"
-          # comment_junit_failures_emoji: ":skull:"
-          notify_on: "always"
-          channel: "U07KNKY6S5C"
