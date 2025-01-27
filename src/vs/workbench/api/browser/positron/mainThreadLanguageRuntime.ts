@@ -580,6 +580,20 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 					// We have an error message and details; use both
 					this._startupFailureEmitter.fire(err satisfies ILanguageRuntimeStartupFailure);
 					reject(err.message);
+				} else if (err.message && err.errors) {
+					// There are multiple errors (AggregateError)
+					this._startupFailureEmitter.fire({
+						message: err.message,
+						details: err.errors.join('\n\n')
+					} satisfies ILanguageRuntimeStartupFailure);
+					reject(err.message);
+				} else if (err.name && err.message) {
+					// We have a name and a message.
+					this._startupFailureEmitter.fire({
+						message: err.name,
+						details: err.message
+					} satisfies ILanguageRuntimeStartupFailure);
+					reject(err.message);
 				} else if (err.message) {
 					// We only have a message.
 					this._startupFailureEmitter.fire({
