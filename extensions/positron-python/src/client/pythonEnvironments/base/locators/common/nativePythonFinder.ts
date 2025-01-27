@@ -25,8 +25,11 @@ import { untildify } from '../../../../common/helpers';
 import { traceError } from '../../../../logging';
 
 const PYTHON_ENV_TOOLS_PATH = isWindows()
-    ? path.join(EXTENSION_ROOT_DIR, 'python-env-tools', 'bin', 'pet.exe')
-    : path.join(EXTENSION_ROOT_DIR, 'python-env-tools', 'bin', 'pet');
+    ? // --- Start Positron ---
+      // update path to reflect the location of the PET binary
+      path.join(EXTENSION_ROOT_DIR, 'python-env-tools', 'pet.exe')
+    : path.join(EXTENSION_ROOT_DIR, 'python-env-tools', 'pet');
+// --- End Positron ---
 
 export interface NativeEnvInfo {
     displayName?: string;
