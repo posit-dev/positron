@@ -5,6 +5,13 @@ on:
   schedule:
     - cron: "0 2 * * 1-5"
   workflow_dispatch:
+  pull_request:
+    branches:
+      - 'update-nightly'
+    paths:
+      - '.github/workflows/positron-python-ci.yml'
+      - 'extensions/positron-python/**'
+
 
 defaults:
  run:
