@@ -1,4 +1,4 @@
-name: "Nightly: Python CI"
+name: 'Nightly: Python CI'
 
 # Run builds daily at 2am UTC (10p EST) on weekdays for now, or manually
 on:
@@ -7,23 +7,23 @@ on:
   workflow_dispatch:
 
 defaults:
-  run:
-    working-directory: "extensions/positron-python"
+ run:
+  working-directory: 'extensions/positron-python'
 
 env:
-  NODE_VERSION: "18.17.1"
-  PYTHON_VERSION: "3.10"
-  PROJECT_DIR: "extensions/positron-python"
-  PYTHON_SRC_DIR: "extensions/positron-python/python_files"
+  NODE_VERSION: '18.17.1'
+  PYTHON_VERSION: '3.10'
+  PROJECT_DIR: 'extensions/positron-python'
+  PYTHON_SRC_DIR: 'extensions/positron-python/python_files'
   # Force a path with spaces and to test extension works in these scenarios
   # Unicode characters are causing 2.7 failures so skip that for now.
-  special-working-directory: "./path with spaces"
-  special-working-directory-relative: "path with spaces"
+  special-working-directory: './path with spaces'
+  special-working-directory-relative: 'path with spaces'
 
 jobs:
   # Run full suite of upstream tests
   vscode-python-tests:
-    name: "vscode-python"
+    name: 'vscode-python'
     # The value of runs-on is the OS of the current job (specified in the strategy matrix below) instead of being hardcoded.
     runs-on: ${{ matrix.os }}
     defaults:
@@ -33,18 +33,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: "ubuntu-latest"
-            python: "3.8"
-          - os: "ubuntu-latest"
-            python: "3.9"
-          - os: "windows-latest"
-            python: "3.10"
-          - os: "ubuntu-latest"
-            python: "3.11"
-          - os: "ubuntu-latest"
-            python: "3.12"
-          - os: "ubuntu-latest"
-            python: "3.13"
+          - os: 'ubuntu-latest'
+            python: '3.8'
+          - os: 'ubuntu-latest'
+            python: '3.9'
+          - os: 'windows-latest'
+            python: '3.10'
+          - os: 'ubuntu-latest'
+            python: '3.11'
+          - os: 'ubuntu-latest'
+            python: '3.12'
+          - os: 'ubuntu-latest'
+            python: '3.13'
+
 
     steps:
       - name: Checkout
@@ -65,7 +66,7 @@ jobs:
         run: python -m pytest --version
 
       - name: Install base Python requirements
-        run: "python -m pip install --no-deps --require-hashes --only-binary :all: -t ./python_files/lib/python --no-cache-dir --implementation py -r requirements.txt"
+        run: 'python -m pip install --no-deps --require-hashes --only-binary :all: -t ./python_files/lib/python --no-cache-dir --implementation py -r requirements.txt'
 
       - name: Install test requirements
         run: python -m pip install -r build/test-requirements.txt
@@ -81,23 +82,24 @@ jobs:
 
   # Install the latest releases of test dependencies
   ipykernel-tests-latest:
-    name: "ipykernel"
+    name: 'ipykernel'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - os: "ubuntu-latest"
-            python: "3.8"
-          - os: "macos-13"
-            python: "3.9"
-          - os: "windows-latest"
-            python: "3.10"
-          - os: "ubuntu-latest"
-            python: "3.11"
-          - os: "ubuntu-latest"
-            python: "3.12"
-          - os: "ubuntu-latest"
-            python: "3.13"
+          - os: 'ubuntu-latest'
+            python: '3.8'
+          - os: 'macos-13'
+            python: '3.9'
+          - os: 'windows-latest'
+            python: '3.10'
+          - os: 'ubuntu-latest'
+            python: '3.11'
+          - os: 'ubuntu-latest'
+            python: '3.12'
+          - os: 'ubuntu-latest'
+            python: '3.13'
+
 
     steps:
       - name: Checkout
@@ -107,7 +109,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-          cache: "pip"
+          cache: 'pip'
 
       - name: Install Positron IPyKernel requirements
         run: python scripts/vendor.py
@@ -125,16 +127,17 @@ jobs:
           path: extensions/positron-python/python-test-results.xml
 
   slack-notification:
-    name: "Send Slack notification"
+    name: 'Send Slack notification'
     runs-on: ubuntu-latest
     needs: [vscode-python-tests, ipykernel-tests-latest]
     if: always()
 
     steps:
-      - name: Send Slack Notification
-        uses: midleman/slack-workflow-status@master
-        with:
-          repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL }}
-          include_jobs_time: "false"
-          notify_on: "failure"
+    - name: Send Slack Notification
+      uses: midleman/slack-workflow-status@master
+      with:
+        repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+        slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL }}
+        include_jobs_time: "false"
+        notify_on: "failure"
+
