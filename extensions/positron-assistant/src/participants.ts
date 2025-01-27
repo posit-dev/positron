@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 
 import { EXTENSION_ROOT_DIR } from './constants';
-import { toLanguageModelChatMessage } from './utils';
+import { arrayBufferToBase64, BinaryMessageReferences, toLanguageModelChatMessage } from './utils';
 import { getStoredModels } from './config';
 import { executeToolAdapter, getPlotToolAdapter, positronToolAdapters, textEditToolAdapter } from './tools';
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
@@ -90,16 +90,18 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 		// System prompt
 		let system: string = await fs.promises.readFile(`${mdDir}/prompts/chat/default.md`, 'utf8');
 
-		// Tools
-		const tools: vscode.LanguageModelChatTool[] = [
-			...vscode.lm.tools.filter(tool => tool.tags.includes('positron-assistant'))
-		];
+		// List of tools for use by the Language Model
 		const toolOptions: Record<string, any> = {};
+		const tools: vscode.LanguageModelChatTool[] = [
+			...vscode.lm.tools.filter(tool => tool.tags.includes('positron-assistant')),
+			getPlotToolAdapter.lmTool
+		];
 
-		// Add getPlot tool
-		tools.push(getPlotToolAdapter.lmTool);
+		// Binary references for use by the Language Model
+		const binaryReferences: BinaryMessageReferences = {};
 
-		// Language model chat history
+		// Start the list of messages to send to the Language Model with the persisted chat history.
+		// Transient messages are appended next, but not stored in the history for future use.
 		let messages: vscode.LanguageModelChatMessage[] = toLanguageModelChatMessage(context.history);
 
 		// Add Positron specific context
@@ -109,7 +111,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 			vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
 		]);
 
-		// If the workspace has an llms.txt document, add it to the message thread.
+		// If the workspace has an llms.txt document, add it's current value to the message thread.
 		if (vscode.workspace.workspaceFolders) {
 			const fileUri = vscode.Uri.joinPath(vscode.workspace.workspaceFolders[0].uri, `llms.txt`);
 			const fileExists = await vscode.workspace.fs.stat(fileUri).then(() => true, () => false);
@@ -124,35 +126,46 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 			}
 		}
 
-		// If the user has explicitly attached files as context, add them to the message thread
+		// If the user has explicitly attached files as context, add them to the message thread.
+		// Store binary references to be passed as a Language Model option and referenced later.
 		if (request.references.length > 0) {
-			let referencesText = await fs.promises.readFile(`${mdDir}/prompts/chat/attachments.md`, 'utf8');
+			const attachmentsText = await fs.promises.readFile(`${mdDir}/prompts/chat/attachments.md`, 'utf8');
+			const textParts: vscode.LanguageModelTextPart[] = [
+				new vscode.LanguageModelTextPart(attachmentsText)
+			];
 
 			for (const reference of request.references) {
-				const value = reference.value as vscode.Uri | vscode.Location;
+				const value = reference.value as vscode.Uri | vscode.Location | vscode.ChatReferenceBinaryData;
 				if ('uri' in value) {
 					const location = (reference.value as vscode.Location);
 					const description = reference.modelDescription;
 					const document = await vscode.workspace.openTextDocument(location.uri);
+					const documentText = document.getText();
 					const selectionText = document.getText(location.range);
 					const ref = {
 						id: reference.id,
 						name: reference.name,
 						description,
+						documentText,
 						selectionText,
 					};
-					referencesText += `\n\n${JSON.stringify(ref)}`;
+					textParts.push(new vscode.LanguageModelTextPart(`\n\n${JSON.stringify(ref)}`));
 				} else if (reference.id.startsWith('file://')) {
 					const uri = (reference.value as vscode.Uri);
 					const document = await vscode.workspace.openTextDocument(uri);
 					const documentText = document.getText();
 					const ref = { id: reference.id, name: reference.name, documentText };
-					referencesText += `\n\n${JSON.stringify(ref)}`;
+					textParts.push(new vscode.LanguageModelTextPart(`\n\n${JSON.stringify(ref)}`));
+				} else if ('mimeType' in value) {
+					const binaryValue = value as vscode.ChatReferenceBinaryData;
+					const data = await binaryValue.data();
+					binaryReferences[reference.id] = { data: arrayBufferToBase64(data), mimeType: binaryValue.mimeType };
+					textParts.push(new vscode.LanguageModelTextPart(`<<referenceBinary:${reference.id}>>`));
 				}
-
 			}
+
 			messages.push(...[
-				vscode.LanguageModelChatMessage.User(referencesText),
+				vscode.LanguageModelChatMessage.User(textParts),
 				vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
 			]);
 		}
@@ -204,6 +217,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 				modelOptions: {
 					toolInvocationToken: request.toolInvocationToken,
 					toolOptions,
+					binaryReferences,
 					system
 				},
 			}, token);

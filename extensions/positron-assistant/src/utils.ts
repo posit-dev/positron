@@ -6,9 +6,7 @@
 import * as vscode from 'vscode';
 import * as ai from 'ai';
 
-export type AIMessage = ai.CoreSystemMessage | ai.CoreUserMessage | ai.CoreAssistantMessage | ai.CoreToolMessage;
-
-export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): AIMessage[] {
+export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): ai.CoreMessage[] {
 	// Gather all tool call references
 	const toolCalls = messages.reduce<Record<string, vscode.LanguageModelToolCallPart>>((acc, message) => {
 		for (const part of message.content) {
@@ -28,7 +26,13 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): AIMess
 			if (textParts.length > 0) {
 				aiMessages.push({
 					role: 'user',
-					content: textParts.map((part) => ({ type: 'text', text: part.value })),
+					content: textParts.map((part) => {
+						const binaryMatch = /<<referenceBinary:(\w+)>>/;
+						if (part.value.match(binaryMatch)) {
+							return { type: 'text', text: part.value };
+						}
+						return { type: 'text', text: part.value };
+					}),
 				});
 			}
 			if (toolParts.length > 0) {
@@ -65,6 +69,40 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): AIMess
 	return aiMessages.filter((message) => message.content.length > 0);
 }
 
+export type BinaryMessageReferences = Record<string, { mimeType: string; data: string }>;
+
+export function replaceBinaryMessageParts(messages: ai.CoreMessage[], references: BinaryMessageReferences): ai.CoreMessage[] {
+	const binaryMatch = /<<referenceBinary:(\w+)>>/;
+
+	return messages.map((message): ai.CoreMessage => {
+		if (typeof message.content === 'string' || message.role !== 'user') {
+			return message;
+		}
+
+		const content = message.content.map((part) => {
+			if (part.type === 'text') {
+				const match = part.text.match(binaryMatch);
+				if (match) {
+					const id = match[1];
+					const ref = references[id];
+					switch (ref.mimeType) {
+						case 'image/jpeg':
+						case 'image/png':
+						case 'image/gif':
+						case 'image/webp':
+							return { type: 'image' as const, image: ref.data, mimeType: ref.mimeType };
+						default:
+							return { type: 'file' as const, data: ref.data, mimeType: ref.mimeType };
+					}
+				}
+			}
+			return part;
+		});
+
+		return { ...message, content };
+	});
+}
+
 export function toLanguageModelChatMessage(turns: vscode.ChatContext['history']): vscode.LanguageModelChatMessage[] {
 	return turns.map((turn) => {
 		if (turn instanceof vscode.ChatRequestTurn) {
@@ -93,4 +131,14 @@ export function padBase64String(base64: string): string {
 		return base64;
 	}
 	return base64 + '='.repeat(padding);
+}
+
+export function arrayBufferToBase64(array: ArrayBufferLike): string {
+	const uint8Array = new Uint8Array(array);
+	let binary = '';
+	const len = array.byteLength;
+	for (let i = 0; i < len; i++) {
+		binary += String.fromCharCode(uint8Array[i]);
+	}
+	return btoa(binary);
 }

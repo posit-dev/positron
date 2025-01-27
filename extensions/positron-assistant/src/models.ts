@@ -10,7 +10,7 @@ import { ModelConfig } from './config';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOllama } from 'ollama-ai-provider';
-import { toAIMessage } from './utils';
+import { replaceBinaryMessageParts, toAIMessage } from './utils';
 import { positronToolAdapters } from './tools';
 
 class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -94,7 +94,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const signal = controller.signal;
 		let tools: Record<string, ai.CoreTool> | undefined;
 
-		const _messages = toAIMessage(messages);
+		const _messages = replaceBinaryMessageParts(
+			toAIMessage(messages),
+			options.modelOptions?.binaryReferences ?? {}
+		);
 
 		if (options.tools && options.tools.length > 0) {
 			tools = options.tools.reduce((acc: Record<string, ai.CoreTool>, tool: vscode.LanguageModelChatTool) => {
