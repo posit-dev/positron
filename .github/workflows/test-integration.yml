@@ -22,57 +22,57 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # - uses: actions/setup-node@v4
-      #   with:
-      #     node-version-file: .nvmrc
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
 
-      # - name: Cache node_modules, build, extensions, and remote
-      #   uses: ./.github/actions/cache-multi-paths
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
 
-      # - name: Attempt 1 - Setup Build and Compile
-      #   id: attempt1
-      #   uses: ./.github/actions/setup-build-env
-      #   continue-on-error: true
+      - name: Attempt 1 - Setup Build and Compile
+        id: attempt1
+        uses: ./.github/actions/setup-build-env
+        continue-on-error: true
 
-      # - name: Attempt 2 - Setup Build and Compile
-      #   if: ${{ steps.attempt1.outcome == 'failure' }}
-      #   id: attempt2
-      #   uses: ./.github/actions/setup-build-env
-      #   continue-on-error: true
+      - name: Attempt 2 - Setup Build and Compile
+        if: ${{ steps.attempt1.outcome == 'failure' }}
+        id: attempt2
+        uses: ./.github/actions/setup-build-env
+        continue-on-error: true
 
-      # - name: Attempt 3 - Setup Build and Compile
-      #   if: ${{ steps.attempt2.outcome == 'failure' }}
-      #   uses: ./.github/actions/setup-build-env
+      - name: Attempt 3 - Setup Build and Compile
+        if: ${{ steps.attempt2.outcome == 'failure' }}
+        uses: ./.github/actions/setup-build-env
 
-      # - name: Fail if Retries Exhausted
-      #   if: ${{ steps.attempt3.outcome == 'failure' }}
-      #   run: exit 1
+      - name: Fail if Retries Exhausted
+        if: ${{ steps.attempt3.outcome == 'failure' }}
+        run: exit 1
 
-      # - name: Install Positron License
-      #   uses: ./.github/actions/install-license
-      #   with:
-      #     github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
-      #     license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
+      - name: Install Positron License
+        uses: ./.github/actions/install-license
+        with:
+          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      # # one integration test needs this: Connections pane works for R
-      # - name: Setup R
-      #   uses: ./.github/actions/install-r
-      #   with:
-      #       version: "4.4.0"
+      # one integration test needs this: Connections pane works for R
+      - name: Setup R
+        uses: ./.github/actions/install-r
+        with:
+            version: "4.4.0"
 
-      # - name: Compile Integration Tests
-      #   run: npm run --prefix test/integration/browser compile
+      - name: Compile Integration Tests
+        run: npm run --prefix test/integration/browser compile
 
-      # - name: Run Integration Tests (Electron)
-      #   id: electron-integration-tests
-      #   run: DISPLAY=:10 ./scripts/test-integration-pr.sh
+      - name: Run Integration Tests (Electron)
+        id: electron-integration-tests
+        run: DISPLAY=:10 ./scripts/test-integration-pr.sh
 
-      # - name: Run Integration Tests (Remote)
-      #   if: ${{ job.status != 'cancelled' && (success() || failure()) }}
-      #   id: electron-remote-integration-tests
-      #   run: DISPLAY=:10 ./scripts/test-remote-integration.sh
+      - name: Run Integration Tests (Remote)
+        if: ${{ job.status != 'cancelled' && (success() || failure()) }}
+        id: electron-remote-integration-tests
+        run: DISPLAY=:10 ./scripts/test-remote-integration.sh
 
-      # - name: Run Integration Tests (Browser, Chromium)
-      #   if: ${{ job.status != 'cancelled' && (success() || failure()) }}
-      #   id: browser-integration-tests
-      #   run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
+      - name: Run Integration Tests (Browser, Chromium)
+        if: ${{ job.status != 'cancelled' && (success() || failure()) }}
+        id: browser-integration-tests
+        run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
