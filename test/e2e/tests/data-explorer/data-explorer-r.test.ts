@@ -12,7 +12,7 @@ test.use({
 
 test.beforeEach(async function ({ app, runCommand }) {
 	await app.workbench.layouts.enterLayout('stacked');
-	await runCommand('workbench.panel.positronVariables.focus');
+	await app.workbench.variables.focusVariablesView();
 });
 
 test.afterEach(async function ({ runCommand }) {
@@ -49,7 +49,7 @@ test.describe('Data Explorer - R ', {
 	}, async function ({ app, r, runCommand, executeCode }) {
 		// Execute code to generate data frames
 		await executeCode('R', `Data_Frame <- mtcars`);
-		await runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.variables.focusVariablesView();
 
 		// Open Data Explorer
 		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
@@ -57,7 +57,7 @@ test.describe('Data Explorer - R ', {
 
 		// Now move focus out of the the data explorer pane
 		await app.workbench.editors.newUntitledFile();
-		await runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.variables.focusVariablesView();
 		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: false });
 		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
 		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: true });

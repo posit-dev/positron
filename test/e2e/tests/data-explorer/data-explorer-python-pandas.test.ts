@@ -193,7 +193,7 @@ Data_Frame = pd.DataFrame({
 	"carb": [4, 4, 1, 1, 2]
 })`;
 		await app.workbench.console.executeCode('Python', script);
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.variables.focusVariablesView();
 
 		await expect(async () => {
 			await app.workbench.variables.doubleClickVariableRow('Data_Frame');
@@ -202,7 +202,7 @@ Data_Frame = pd.DataFrame({
 
 		// Now move focus out of the the data explorer pane
 		await app.workbench.editors.newUntitledFile();
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.variables.focusVariablesView();
 		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
 
 		await expect(async () => {
@@ -210,7 +210,7 @@ Data_Frame = pd.DataFrame({
 		}).toPass();
 
 		await app.workbench.dataExplorer.closeDataExplorer();
-		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.variables.focusVariablesView();
 	});
 
 	test('Python - Check blank spaces in data explorer', async function ({ app, python }) {
