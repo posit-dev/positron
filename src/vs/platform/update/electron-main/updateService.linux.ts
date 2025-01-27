@@ -33,10 +33,9 @@ export class LinuxUpdateService extends AbstractUpdateService {
 
 	protected buildUpdateFeedUrl(channel: string): string {
 		const arch = process.arch === 'x64' ? 'x86_64' : 'arm64';
-		const platform = `deb/${arch}`;
+		const platform = `${this.productService.packageType ?? 'deb'}/${arch}`;
 		const baseUrl = createUpdateURL(platform, channel, this.productService);
 
-		// TODO: properly determine deb or rpm
 		return `${baseUrl}/releases.json`;
 	}
 	// --- End Positron ---

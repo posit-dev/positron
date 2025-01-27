@@ -59,6 +59,8 @@ function prepareDebPackage(arch) {
 			.pipe(replace('@@URLPROTOCOL@@', product.urlProtocol));
 
 		// --- Start Positron ---
+		const json = require('gulp-json-editor');
+
 		const appdata = gulp.src('resources/linux/positron.appdata.xml', { base: '.' })
 			.pipe(replace('@@NAME_LONG@@', product.nameLong))
 			.pipe(replace('@@NAME@@', product.applicationName))
@@ -74,6 +76,11 @@ function prepareDebPackage(arch) {
 		// --- Start Positron ---
 		const icon = gulp.src('resources/linux/positron.png', { base: '.' })
 			.pipe(rename('usr/share/pixmaps/' + product.linuxIconName + '.png'));
+
+		console.log('Updating product.json with DEB package type');
+		gulp.src([binaryDir + '/resources/app/product.json'], { base: '.' })
+			.pipe(json({ packageType: 'deb' }))
+			.pipe(gulp.dest(binaryDir));
 		// --- End Positron ---
 
 		const bash_completion = gulp.src('resources/completions/bash/code')
@@ -189,11 +196,18 @@ function prepareRpmPackage(arch) {
 			.pipe(replace('@@URLPROTOCOL@@', product.urlProtocol));
 
 		// --- Start Positron ---
+		const json = require('gulp-json-editor');
+
 		const appdata = gulp.src('resources/linux/positron.appdata.xml', { base: '.' })
 			.pipe(replace('@@NAME_LONG@@', product.nameLong))
 			.pipe(replace('@@NAME@@', product.applicationName))
 			.pipe(replace('@@LICENSE@@', product.licenseName))
 			.pipe(rename('BUILD/usr/share/appdata/' + product.applicationName + '.appdata.xml'));
+
+		console.log('Updating product.json with RPM package type');
+		gulp.src([binaryDir + '/resources/app/product.json'], { base: '.' })
+			.pipe(json({ packageType: 'rpm' }))
+			.pipe(gulp.dest(binaryDir));
 		// --- End Positron ---
 
 		const workspaceMime = gulp.src('resources/linux/code-workspace.xml', { base: '.' })
