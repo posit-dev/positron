@@ -3,9 +3,6 @@ name: "Test: Full Suite"
 on:
   schedule:
     - cron: "0 6 * * 1-5" # Run at 6 AM UTC on weekdays
-  pull_request:
-    branches:
-      - main
 
   workflow_dispatch:
       inputs:
@@ -51,7 +48,7 @@ concurrency:
 jobs:
   e2e-electron:
     name: e2e
-    # if: ${{ github.event_name == 'schedule' || inputs.run_e2e_linux  }}
+    if: ${{ github.event_name == 'schedule' || inputs.run_e2e_linux  }}
     uses: ./.github/workflows/test-e2e-linux.yml
     secrets: inherit
     with:
@@ -63,7 +60,7 @@ jobs:
 
   e2e-windows:
     name: e2e
-    # if: ${{ github.event_name == 'schedule' || inputs.run_e2e_windows }}
+    if: ${{ github.event_name == 'schedule' || inputs.run_e2e_windows }}
     uses: ./.github/workflows/test-e2e-windows.yml
     secrets: inherit
     with:
@@ -74,7 +71,7 @@ jobs:
 
   e2e-browser:
     name: e2e
-    # if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser }}
+    if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-linux.yml
     secrets: inherit
     with:
@@ -98,12 +95,10 @@ jobs:
 
   slack-notify:
     if: always()
-    # needs: [e2e-electron, e2e-windows, e2e-browser, unit-tests, integration-tests]
-    needs: [e2e-electron, e2e-windows, e2e-browser]
+    needs: [e2e-electron, e2e-windows, e2e-browser, unit-tests, integration-tests]
     runs-on: ubuntu-latest
     env:
-      # notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
-      notify_on: 'always'
+      notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
     steps:
       - run: |
           echo "Will notify on: ${{ env.notify_on }}"
@@ -112,9 +107,10 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          notify_on: ${{ env.notify_on }}
+          channel: "U07KNKY6S5C"
           comment_junit_failures: "true"
           comment_junit_flakes: "true"
-          # comment_junit_failures_emoji: ":skull:"
-          notify_on: "always"
-          channel: "U07KNKY6S5C"
+          comment_junit_failures_emoji: ":small_red_x:"
+
 
