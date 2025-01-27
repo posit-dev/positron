@@ -88,6 +88,7 @@ async function verifyOpenInNewWindow(app: Application, text: string) {
 }
 
 async function verifyOpenViewerRendersHtml(app: Application, title: string) {
+	await editorActionBar.openInViewerButton.hover();
 	await editorActionBar.openInViewerButton.click();
 	await editorActionBar.verifyOpenViewerRendersHtml(app.web, title);
 }
