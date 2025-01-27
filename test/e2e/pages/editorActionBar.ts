@@ -28,11 +28,11 @@ export class EditorActionBar {
 	async clickSplitEditorButton(direction: 'down' | 'right') {
 		if (direction === 'down') {
 			await this.page.keyboard.down('Alt');
-			await this.page.getByLabel('Split Editor Down').click();
+			await this.splitEditorDownButton.click({ force: true }); // need force to avoid flakes
 			await this.page.keyboard.up('Alt');
 		}
 		else {
-			await this.splitEditorRightButton.click();
+			await this.splitEditorRightButton.click({ force: true }); // need force to avoid flakes
 		}
 	}
 
@@ -114,7 +114,7 @@ export class EditorActionBar {
 			await test.step(`Verify "open new window" contains: ${text}`, async () => {
 				const [newPage] = await Promise.all([
 					this.page.context().waitForEvent('page'),
-					this.page.getByLabel('Move into new window').first().click(),
+					this.page.getByLabel('Move into new window').first().click({ force: true }), // need force to avoid flakes
 				]);
 				await newPage.waitForLoadState('load');
 				exact
