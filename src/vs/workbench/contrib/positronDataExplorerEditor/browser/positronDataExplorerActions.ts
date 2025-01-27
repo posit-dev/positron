@@ -708,12 +708,18 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 			menu: [
 				{
 					id: MenuId.EditorActionsLeft,
-					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+					when: ContextKeyExpr.and(
+						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+						POSITRON_DATA_EXPLORER_IS_PLAINTEXT
+					)
 				},
 				{
 					id: MenuId.EditorTitle,
 					group: 'navigation',
-					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+					when: ContextKeyExpr.and(
+						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+						POSITRON_DATA_EXPLORER_IS_PLAINTEXT
+					)
 				}
 			]
 		});
