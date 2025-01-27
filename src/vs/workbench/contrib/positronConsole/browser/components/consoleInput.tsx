@@ -861,7 +861,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			}
 
 			// Ensure that the code editor widget is scrolled into view.
-			codeEditorWidgetContainerRef.current?.scrollIntoView({ behavior: 'auto' });
+			codeEditorWidgetContainerRef.current?.scrollIntoView({
+				behavior: 'auto',
+				block: 'end'
+			});
 		}));
 
 		// Add the onDidClearConsole event handler.
