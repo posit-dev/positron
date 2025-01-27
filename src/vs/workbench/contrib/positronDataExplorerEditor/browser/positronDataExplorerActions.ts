@@ -18,7 +18,7 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { IPositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
-import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -701,7 +701,8 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 			category,
 			f1: true,
 			precondition: ContextKeyExpr.and(
-				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR
+				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				POSITRON_DATA_EXPLORER_IS_PLAINTEXT
 			),
 			icon: Codicon.fileText,
 			menu: [
@@ -727,11 +728,6 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 		// const textEditorService = accessor.get(ITextEditorService);
 		const editorService = accessor.get(IEditorService);
 		const dataExplorerUri = URI.parse(PositronDataExplorerUri.parse(EditorResourceAccessor.getOriginalUri(editorService.activeEditor)!)!);
-
-		if (dataExplorerUri.scheme !== 'duckdb') {
-			return;
-		}
-
 		await editorService.openEditor({ resource: URI.parse(dataExplorerUri.fsPath), options: { override: DEFAULT_EDITOR_ASSOCIATION.id, source: EditorOpenSource.USER } });
 	}
 }

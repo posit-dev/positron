@@ -35,7 +35,8 @@ import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
-import { POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
+import { URI } from '../../../../base/common/uri.js';
 
 /**
  * IPositronDataExplorerEditorOptions interface.
@@ -95,6 +96,11 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Gets the is column sorting context key.
 	 */
 	private readonly _isColumnSortingContextKey: IContextKey<boolean>;
+
+	/**
+	 * Gets the is plaintext editable context key.
+	 */
+	private readonly _isPlaintextContextKey: IContextKey<boolean>;
 
 	/**
 	 * The onSizeChanged event emitter.
@@ -251,6 +257,9 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		this._isColumnSortingContextKey = POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING.bindTo(
 			this._group.scopedContextKeyService
 		);
+		this._isPlaintextContextKey = POSITRON_DATA_EXPLORER_IS_PLAINTEXT.bindTo(
+			this._group.scopedContextKeyService
+		);
 	}
 
 	/**
@@ -352,6 +361,14 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 				this._isColumnSortingContextKey.set(
 					positronDataExplorerInstance.tableDataDataGridInstance.isColumnSorting
 				);
+
+				const uri = URI.parse(this._identifier);
+				if (uri.scheme === 'duckdb') {
+					this._isPlaintextContextKey.set(PLAINTEXT_EXTS.some(ext => uri.path.endsWith(ext)));
+				} else {
+					this._isPlaintextContextKey.reset();
+				}
+
 
 				// Render the PositronDataExplorer.
 				this._positronReactRenderer.render(
@@ -493,3 +510,8 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 
 	//#endregion Private Methods
 }
+
+const PLAINTEXT_EXTS = [
+	".csv",
+	".tsv"
+]
