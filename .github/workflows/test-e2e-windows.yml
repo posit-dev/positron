@@ -167,6 +167,7 @@ jobs:
           report-dir: ${{ env.REPORT_DIR }}
 
       - name: Save and Upload Artifacts for Slack Notification
+        if: ${{ !cancelled() }}
         uses: midleman/slack-workflow-status/.github/actions/upload-artifacts@mi/comment-thread
         with:
           job_name: ${{ github.job }}
