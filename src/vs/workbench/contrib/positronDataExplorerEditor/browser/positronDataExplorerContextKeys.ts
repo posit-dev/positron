@@ -26,3 +26,7 @@ export const POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING = new RawContextKey<boolea
 	'positronDataExplorerIsColumnSorting',
 	false
 );
+export const POSITRON_DATA_EXPLORER_IS_PLAINTEXT = new RawContextKey<boolean>(
+	'positronDataExplorerIsPlaintext',
+	false
+);
