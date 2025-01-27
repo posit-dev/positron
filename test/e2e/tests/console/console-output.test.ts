@@ -23,8 +23,8 @@ test.describe('Console Output', { tag: [tags.WIN, tags.CONSOLE, tags.WEB] }, () 
 		await app.workbench.console.sendEnterKey();
 		await app.workbench.console.waitForReady('>>>');
 
-		const el = page.locator('.console-instance');
-		await expect(await el.evaluate((el) => el.scrollWidth)).toBeLessThanOrEqual(await el.evaluate((el) => el.clientWidth));
+		const el = app.workbench.console.activeConsole;
+		expect(await el.evaluate((el) => el.scrollWidth)).toBeLessThanOrEqual(await el.evaluate((el) => el.clientWidth));
 	});
 });
 
