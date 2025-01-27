@@ -665,11 +665,30 @@ export interface ILanguageRuntimeMetadata {
 	readonly extraRuntimeData: any;
 }
 
+/**
+ * Represents an object that manages the discovery of language runtimes. This
+ * is implemented by each extension host in the form of a
+* `MainThreadLanguageRuntime`.
+ */
 export interface IRuntimeManager {
+	/** A unique ID for this manager */
 	id: number;
 
+	/**
+	 * Discovers all available runtimes on the machine.
+	 *
+	 * @param disabledLanguageIds Languages for which discovery should be
+	 * skipped.
+	 */
 	discoverAllRuntimes(disabledLanguageIds: string[]): Promise<void>;
 
+	/**
+	 * Recommend runtimes for this specific workspace.
+	 *
+	 * @param disabledLanguageIds Languages for which no recommendations should
+	 * be made.
+	 * @returns A list of recommended runtimes, asynchronously.
+	 */
 	recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
 }
 

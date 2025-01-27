@@ -121,6 +121,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// Whether we are shutting down
 	private _shuttingDown = false;
 
+	/// The active set of runtime managers. Each represents an extension host
+	/// running one or extensions that provide runtimes.
 	private _runtimeManagers: IRuntimeManager[] = [];
 
 	constructor(
@@ -701,6 +703,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		return affiliated.metadata;
 	}
 
+	/**
+	 * Get all the recommended runtimes for this workspace.
+	 *
+	 * @param disabledLanguageIds The language IDs that are disabled.
+	 * @returns An array of recommended runtimes.
+	 */
 	private async getRecommendedRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
 
 		// Ask each extension to recommend runtimes for this workspace.
@@ -825,7 +833,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		const promises = runtimes.map((runtime, idx) => {
 			if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
 				this._runtimeSessionService.autoStartRuntime(runtime,
-					`The ${runtime.extensionId.value} extension recommended the runtime to be started in this workspac.`,
+					`The ${runtime.extensionId.value} extension recommended the runtime to be started in this workspace.`,
 					idx === 0);
 			}
 			// TODO: If the startup behavior is not Immediate, we could
