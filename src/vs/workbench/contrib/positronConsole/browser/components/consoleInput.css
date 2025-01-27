@@ -8,3 +8,9 @@
 	padding-bottom: 10px;
 	position: relative;
 }
+
+
+.console-input.hidden {
+	display: none;
+	background-color: red;
+}
