@@ -18,7 +18,7 @@ test.describe('Console Input', {
 	});
 
 
-	test('Python - Get Input String Console [C667516]', async function ({ app, python }) {
+	test('Python - Get Input String Console', async function ({ app, python }) {
 		const inputCode = `val = input("Enter your name: "); print(f'Hello {val}!');`;
 
 		await app.workbench.console.pasteCodeToConsole(inputCode);
@@ -32,7 +32,7 @@ test.describe('Console Input', {
 	});
 
 
-	test('R - Get Input String Console [C667517]', async function ({ app, r }) {
+	test('R - Get Input String Console', async function ({ app, r }) {
 		const inputCode = `val <- readline(prompt = "Enter your name: ")
 cat(sprintf('Hello %s!\n', val))`;
 		await app.workbench.console.pasteCodeToConsole(inputCode);
@@ -46,7 +46,7 @@ cat(sprintf('Hello %s!\n', val))`;
 		await app.workbench.console.waitForConsoleContents('Hello John Doe!');
 	});
 
-	test('R - Can use `menu` to select alternatives [C684749]', async function ({ app, r }) {
+	test('R - Can use `menu` to select alternatives', async function ({ app, r }) {
 		const inputCode = `x <- menu(letters)`;
 
 		await app.workbench.console.pasteCodeToConsole(inputCode);
@@ -62,7 +62,7 @@ cat(sprintf('Hello %s!\n', val))`;
 		await app.workbench.console.waitForConsoleContents('[1] 1');
 	});
 
-	test("R - Esc only dismisses autocomplete not full text typed into console [C685868]", async function ({ app, page, r }) {
+	test("R - Esc only dismisses autocomplete not full text typed into console", async function ({ app, page, r }) {
 		// This is a regression test for https://github.com/posit-dev/positron/issues/1161
 
 		const inputCode = `base::mea`;

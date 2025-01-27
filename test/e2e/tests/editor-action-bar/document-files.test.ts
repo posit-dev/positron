@@ -27,7 +27,7 @@ test.describe('Editor Action Bar: Document Files', {
 		await runCommand('workbench.action.closeAllEditors');
 	});
 
-	test('R Markdown Document [C1080703]', {
+	test('R Markdown Document', {
 		tag: [tags.R_MARKDOWN]
 	}, async function ({ app, openFile }) {
 		await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
@@ -36,7 +36,7 @@ test.describe('Editor Action Bar: Document Files', {
 		await verifyOpenInNewWindow(app, 'This post examines the features');
 	});
 
-	test('Quarto Document [C1080700]', {
+	test('Quarto Document', {
 		tag: [tags.QUARTO]
 	}, async function ({ app, page, openFile }) {
 		await openFile('workspaces/quarto_basic/quarto_basic.qmd');
@@ -46,14 +46,14 @@ test.describe('Editor Action Bar: Document Files', {
 		await verifyOpenInNewWindow(app, 'Diamond sizes');
 	});
 
-	test('HTML Document [C1080701]', { tag: [tags.HTML] }, async function ({ app, page, openFile }) {
+	test('HTML Document', { tag: [tags.HTML] }, async function ({ app, page, openFile }) {
 		await openFile('workspaces/dash-py-example/data/OilandGasMetadata.html');
 		await verifyOpenViewerRendersHtml(app, 'Oil, Gas, and Other Regulated');
 		await verifySplitEditor('OilandGasMetadata.html');
 		await verifyOpenInNewWindow(app, '<title> Oil &amp; Gas Wells - Metadata</title>');
 	});
 
-	test('Jupyter Notebook [C1080702]', {
+	test('Jupyter Notebook', {
 		tag: [tags.NOTEBOOKS],
 	}, async function ({ app, page, openDataFile }) {
 		await openDataFile('workspaces/large_r_notebook/spotify.ipynb');

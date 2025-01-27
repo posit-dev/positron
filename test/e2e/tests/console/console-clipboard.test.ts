@@ -13,11 +13,11 @@ test.use({
 
 // web disabled because of security dialog playwright cannot interact with
 test.describe('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN] }, () => {
-	test('Python - Copy from console & paste to console [C608100]', async ({ app, python }) => {
+	test('Python - Copy from console & paste to console', async ({ app, python }) => {
 		await testConsoleClipboard(app);
 	});
 
-	test('R - Copy from console & paste to console [C663725]', async ({ app, r }) => {
+	test('R - Copy from console & paste to console ', async ({ app, r }) => {
 		await testConsoleClipboard(app);
 	});
 });

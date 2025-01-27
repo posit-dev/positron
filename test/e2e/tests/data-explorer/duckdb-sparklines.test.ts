@@ -3,19 +3,22 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { join } from 'path';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
+test.afterEach(async function ({ runCommand }) {
+	runCommand('workbench.action.closeAllEditors');
+});
+
 test.describe('Data Explorer - DuckDB Column Summary', {
 	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.DATA_EXPLORER, tags.DUCK_DB]
 }, () => {
-	test('Verifies basic duckdb column summary functionality [C1053635]', async function ({ app }) {
+	test('Verifies basic duckdb column summary functionality', async function ({ app, openDataFile }) {
 
-		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'data-files', '100x100', '100x100.parquet'));
+		await openDataFile('data-files/100x100/100x100.parquet');
 
 		await app.workbench.layouts.enterLayout('notebook');
 
@@ -107,12 +110,5 @@ test.describe('Data Explorer - DuckDB Column Summary', {
 				'0.0',
 			]);
 		});
-
-		await app.workbench.layouts.enterLayout('stacked');
-		await app.workbench.sideBar.closeSecondarySideBar();
-
-		await app.workbench.dataExplorer.closeDataExplorer();
-		await app.workbench.variables.toggleVariablesView();
-
 	});
 });

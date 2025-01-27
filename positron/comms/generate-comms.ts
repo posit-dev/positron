@@ -46,7 +46,7 @@ const tsOutputDir = `${__dirname}/../../src/vs/workbench/services/languageRuntim
 const rustOutputDir = `${__dirname}/../../../ark/crates/amalthea/src/comm`;
 
 /// The directory to write the generated Python files to
-const pythonOutputDir = `${__dirname}/../../extensions/positron-python/python_files/positron/positron_ipykernel`;
+const pythonOutputDir = `${__dirname}/../../extensions/positron-python/python_files/posit/positron`;
 
 const year = new Date().getFullYear();
 

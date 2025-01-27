@@ -23,7 +23,7 @@ test.describe('SQLite DB Connection', {
 		await app.workbench.connections.deleteConnection();
 	});
 
-	test('Python - SQLite DB Connection [C628636]', {
+	test('Python - SQLite DB Connection', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5692' }]
 	}, async function ({ app, python }) {
 		await test.step('Open a Python file and run it', async () => {
@@ -55,7 +55,7 @@ test.describe('SQLite DB Connection', {
 		});
 	});
 
-	test('R - SQLite DB Connection [C628637]', {
+	test('R - SQLite DB Connection', {
 		tag: [tags.WIN]
 	}, async function ({ app, r }) {
 		await test.step('Open an R file and run it', async () => {
@@ -84,7 +84,7 @@ test.describe('SQLite DB Connection', {
 
 	});
 
-	test('R - Connections are update after adding a database,[C663724]', {
+	test('R - Connections are update after adding a database', {
 		tag: [tags.WIN]
 	}, async function ({ app, page, r }) {
 		await test.step('Open an empty connection', async () => {

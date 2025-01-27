@@ -24,27 +24,27 @@ test.describe('Quarto', { tag: [tags.WEB, tags.WIN, tags.QUARTO] }, () => {
 		await deleteGeneratedFiles(app);
 	});
 
-	test('should be able to render html [C842847]', async function ({ app }) {
+	test('should be able to render html', async function ({ app }) {
 		await renderQuartoDocument(app, 'html');
 		await verifyDocumentExists(app, 'html');
 	});
 
-	test('should be able to render docx [C842848]', async function ({ app }) {
+	test('should be able to render docx ', async function ({ app }) {
 		await renderQuartoDocument(app, 'docx');
 		await verifyDocumentExists(app, 'docx');
 	});
 
-	test('should be able to render pdf (LaTeX) [C842890]', async function ({ app }) {
+	test('should be able to render pdf (LaTeX)', async function ({ app }) {
 		await renderQuartoDocument(app, 'pdf');
 		await verifyDocumentExists(app, 'pdf');
 	});
 
-	test('should be able to render pdf (typst) [C842889]', async function ({ app }) {
+	test('should be able to render pdf (typst)', async function ({ app }) {
 		await renderQuartoDocument(app, 'typst');
 		await verifyDocumentExists(app, 'pdf');
 	});
 
-	test('should be able to generate preview [C842891]', async function ({ app }) {
+	test('should be able to generate preview', async function ({ app }) {
 		await app.workbench.quickaccess.runCommand('quarto.preview', { keepOpen: true });
 		const viewerFrame = app.workbench.viewer.getViewerFrame().frameLocator('iframe');
 

@@ -12,7 +12,7 @@ test.use({
 
 test.beforeEach(async function ({ app, runCommand }) {
 	await app.workbench.layouts.enterLayout('stacked');
-	await runCommand('workbench.panel.positronVariables.focus');
+	await app.workbench.variables.focusVariablesView();
 });
 
 test.afterEach(async function ({ runCommand }) {
@@ -22,7 +22,7 @@ test.afterEach(async function ({ runCommand }) {
 test.describe('Data Explorer - R ', {
 	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER]
 }, () => {
-	test('R - Verifies basic data explorer functionality [C609620]', { tag: [tags.CRITICAL] }, async function ({ app, r, openFile, runCommand }) {
+	test('R - Verifies basic data explorer functionality', { tag: [tags.CRITICAL] }, async function ({ app, r, openFile, runCommand }) {
 		// Execute code to generate data frames
 		await openFile('workspaces/generate-data-frames-r/simple-data-frames.r');
 		await app.workbench.editor.playButton.click();
@@ -40,7 +40,7 @@ test.describe('Data Explorer - R ', {
 		await verifyColumnData(app);
 	});
 
-	test('R - Open Data Explorer for the second time brings focus back [C701143]', {
+	test('R - Open Data Explorer for the second time brings focus back', {
 		annotation: [{
 			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5714'
 		}, {
@@ -49,7 +49,7 @@ test.describe('Data Explorer - R ', {
 	}, async function ({ app, r, runCommand, executeCode }) {
 		// Execute code to generate data frames
 		await executeCode('R', `Data_Frame <- mtcars`);
-		await runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.variables.focusVariablesView();
 
 		// Open Data Explorer
 		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
@@ -57,13 +57,13 @@ test.describe('Data Explorer - R ', {
 
 		// Now move focus out of the the data explorer pane
 		await app.workbench.editors.newUntitledFile();
-		await runCommand('workbench.panel.positronVariables.focus');
+		await app.workbench.variables.focusVariablesView();
 		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: false });
 		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
 		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: true });
 	});
 
-	test('R - Check blank spaces in data explorer [C1078834]', async function ({ app, r, executeCode }) {
+	test('R - Check blank spaces in data explorer', async function ({ app, r, executeCode }) {
 		// Execute code to generate data frames
 		await executeCode('R', `df = data.frame(x = c("a ", "a", "   ", ""))`);
 

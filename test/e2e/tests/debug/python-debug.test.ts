@@ -16,7 +16,7 @@ test.describe('Python Debugging', {
 	tag: [tags.DEBUG, tags.WEB, tags.WIN]
 }, () => {
 
-	test('Python - Verify Basic Script Debugging [C1163800]', { tag: [tags.WIN] }, async function ({ app, python, openFile }) {
+	test('Python - Verify Basic Script Debugging', { tag: [tags.WIN] }, async function ({ app, python, openFile }) {
 
 		await test.step('Open file, set breakpoint and start debugging', async () => {
 			await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));

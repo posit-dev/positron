@@ -1836,7 +1836,7 @@
         "updateBuildNumber": "gulp updateBuildNumber",
         "verifyBundle": "gulp verifyBundle",
         "webpack": "webpack",
-        "positron:testMinimumPythonReqs": "nox --noxfile noxfile-positron.py -- python_files/positron"
+        "positron:testMinimumPythonReqs": "nox --noxfile noxfile-positron.py -- python_files/posit"
     },
     "dependencies": {
         "@iarna/toml": "^2.2.5",

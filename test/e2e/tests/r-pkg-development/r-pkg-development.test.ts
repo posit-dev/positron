@@ -24,7 +24,7 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 		}
 	});
 
-	test('R Package Development Tasks [C809821]', async function ({ app, logger }) {
+	test('R Package Development Tasks', async function ({ app, logger }) {
 		test.slow();
 
 		await test.step('Open R Package', async () => {
