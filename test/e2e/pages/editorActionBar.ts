@@ -23,7 +23,7 @@ export class EditorActionBar {
 	 * @param button - Name of the button to click in the editor action bar.
 	 */
 	async clickButton(
-		button: 'Split Editor Right' | 'Split Editor Down' | 'Preview' | 'Open Changes' | 'Open in Viewer'
+		button: 'Split Editor Right' | 'Split Editor Down' | 'Preview' | 'Open Changes' | 'Open in Viewer' | 'Move into new window'
 	): Promise<void> {
 		const buttonLocator = this.page.getByLabel(button, { exact: true });
 
@@ -118,11 +118,7 @@ export class EditorActionBar {
 			await test.step(`Verify "open new window" contains: ${text}`, async () => {
 				const [newPage] = await Promise.all([
 					this.page.context().waitForEvent('page'),
-					(async () => {
-						const button = this.page.getByLabel('Move into new window').first();
-						await button.hover();
-						await button.click();
-					})()
+					this.clickButton('Move into new window')
 				]);
 				await newPage.waitForLoadState('load');
 				exact
