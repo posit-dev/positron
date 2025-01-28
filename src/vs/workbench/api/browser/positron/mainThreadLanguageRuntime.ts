@@ -1198,14 +1198,36 @@ export class MainThreadLanguageRuntime
 		this._disposables.add(this._runtimeSessionService.registerSessionManager(this));
 	}
 
+	/**
+	 * Unique ID for this instance.
+	 *
+	 * (part of implementation of IRuntimeManager)
+	 */
 	get id() {
 		return this._id;
 	}
 
+	/**
+	 * Discover all of the runtimes that are available to the extension host.
+	 *
+	 * (part of implementation of IRuntimeManager)
+	 *
+	 * @param disabledLanguageIds The list of language IDs for which runtimes
+	 * should not be discovered
+	 */
 	async discoverAllRuntimes(disabledLanguageIds: string[]): Promise<void> {
 		this._proxy.$discoverLanguageRuntimes(disabledLanguageIds);
 	}
 
+	/**
+	 * Return a list of runtimes that are recommended for the current workspace.
+	 *
+	 * (part of implementation of IRuntimeManager)
+	 *
+	 * @param disabledLanguageIds The list of language IDs for which runtimes
+	 * should not be recommended
+	 * @returns A list of runtimes
+	 */
 	async recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
 		return this._proxy.$recommendWorkspaceRuntimes(disabledLanguageIds);
 	}

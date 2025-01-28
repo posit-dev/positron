@@ -541,16 +541,6 @@ export enum LanguageRuntimeStartupBehavior {
 }
 
 /**
- * An event fired when runtime discovery begins.
- */
-export interface RuntimeDiscoveryStartedEvent {
-	/**
-	 * The set of language IDs for which discovery should be skipped/disabled.
-	 */
-	disabledLanguageIds: string[];
-}
-
-/**
  * The phases through which the runtime startup service progresses as Positron
  * starts.
  */

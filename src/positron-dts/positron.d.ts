@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -657,11 +657,16 @@ declare module 'positron' {
 		discoverAllRuntimes(): AsyncGenerator<LanguageRuntimeMetadata>;
 
 		/**
-		 * Returns a runtime metadata object representing the runtime that should
-		 * be used in the current workspace, if any.
+		 * Returns a single runtime metadata object representing the runtime
+		 * that should be used in the current workspace, if any.
 		 *
 		 * Note that this is called before `discoverAllRuntimes` during
-		 * startup, and should return quickly.
+		 * startup, and should return `undefined` if no runtime is recommended.
+		 *
+		 * If a runtime is returned, `startupBehavior` property of the runtime
+		 * metadata is respected here; use `Immediately` to start the runtime
+		 * right away, or any other value to save the runtime as the project
+		 * default without starting it.
 		 */
 		recommendedWorkspaceRuntime(): Thenable<LanguageRuntimeMetadata | undefined>;
 

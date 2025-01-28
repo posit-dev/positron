@@ -200,8 +200,21 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// auto-start a runtime.
 		this._register(this._languageRuntimeService.onDidChangeRuntimeStartupPhase(phase => {
 			if (phase === RuntimeStartupPhase.Complete) {
-				// if no runtimes were found, notify the user about the problem
-				if (this._languageRuntimeService.registeredRuntimes.length === 0) {
+
+				// Check to see if every single language runtime has been disabled.
+				const languageIds = this._languagePacks.keys();
+				let allDisabled = true;
+				for (const languageId of languageIds) {
+					if (this.getStartupBehavior(languageId) !== StartupBehavior.Disabled) {
+						allDisabled = false;
+						break;
+					}
+				}
+
+				// If there are no runtimes registered, but it isn't because
+				// everything was disabled, show an error.
+				if (this._languageRuntimeService.registeredRuntimes.length === 0 &&
+					!allDisabled) {
 					this._notificationService.error(nls.localize('positron.runtimeStartupService.noRuntimesMessage',
 						"No interpreters found. Please see the [Get Started](https://positron.posit.co/start) \
 						documentation to learn how to prepare your Python and/or R environments to work with Positron."));
@@ -244,6 +257,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 							if (languageId !== '') {
 								return false;
 							}
+
+							// Consider: This has fallback behavior that can be
+							// counterintuitive. The configuration service
+							// looks up a global value if it can't find a
+							// language-specific value. So if you set 'Always'
+							// as the global default, it will make every
+							// language start. This is probably not what is
+							// desired.
 							const always = this.getStartupBehavior(metadata.languageId) === StartupBehavior.Always;
 							if (always) {
 								languageId = metadata.languageId;
