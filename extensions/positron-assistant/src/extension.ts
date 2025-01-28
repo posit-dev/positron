@@ -10,6 +10,7 @@ import { newLanguageModel } from './models';
 import participants from './participants';
 import { newCompletionProvider } from './completion';
 import { editsProvider } from './edits';
+import { setContext } from './context';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -111,9 +112,13 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.chat.registerMappedEditsProvider({ pattern: '**/*' }, editsProvider)
 	);
 
+	// Configuation modal command
 	context.subscriptions.push(
 		registerAddModelConfigurationCommand(context)
 	);
+
+	// Register context singleton
+	setContext(context);
 
 	context.subscriptions.push({
 		dispose: () => {
