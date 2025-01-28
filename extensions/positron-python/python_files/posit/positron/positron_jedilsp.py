@@ -114,20 +114,29 @@ _HELP_PREFIX_OR_SUFFIX = "?"
 _HELP_TOPIC = "positron/textDocument/helpTopic"
 _VSCODE_NOTEBOOK_CELL_SCHEME = "vscode-notebook-cell"
 
+# Apply Positron patches to Jedi itself.
 apply_jedi_patches()
 
 
-def script(project: Optional[Project], document: TextDocument) -> Script:
+def _jedi_utils_script(project: Optional[Project], document: TextDocument) -> Script:
+    """
+    Search the caller stack for the server object and return a Jedi Interpreter object.
+
+    This lets us use an `Interpreter` (with reference to the shell's user namespace) for all LSP
+    methods without having to vendor all of that code from `jedi-language-server`.
+    """
     # Get the server object from the caller's scope.
     frame = inspect.currentframe()
     if frame is not None and frame.f_back is not None:
+        # Get the server object from the caller's scope.
         server = frame.f_back.f_locals.get("server")
         if isinstance(server, PositronJediLanguageServer):
+            # Return a Jedi Interpreter.
             return _interpreter(project, document, server.shell)
     raise AssertionError("Could not find server object in the caller's scope")
 
 
-jedi_utils.script = script
+jedi_utils.script = _jedi_utils_script
 
 
 @enum.unique
@@ -451,10 +460,10 @@ def positron_completion(
                     sort_append_text=completion.name,
                 )
 
-                # Set the most recent completion using the label.
-                # jedi_utils.lsp_completion_item uses completion.name which isn't available when
-                # accessing the most recent completions dict (in positron_completion_item_resolve),
-                # and which may differ from the label.
+                # Set the most recent completion using the `label`.
+                # `jedi_utils.lsp_completion_item` uses `completion.name` as the key, but
+                # `completion` isn't available when accessing the most recent completions dict
+                # (in `positron_completion_item_resolve`), and it may differ from the `label`.
                 jedi_utils._MOST_RECENT_COMPLETIONS[jedi_completion_item.label] = cast(  # noqa: SLF001
                     Completion, completion
                 )
