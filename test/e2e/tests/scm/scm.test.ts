@@ -32,7 +32,7 @@ test.describe('SCM', {
 
 		});
 
-		await test.step('Open scm vieweer and await change appearance', async () => {
+		await test.step('Open scm viewer and await change appearance', async () => {
 			await app.workbench.scm.openSCMViewlet();
 
 			await app.workbench.scm.waitForChange(file, 'Modified');
@@ -48,8 +48,9 @@ test.describe('SCM', {
 			await app.workbench.layouts.enterLayout('stacked');
 		});
 
-		const message = 'Add print statement';
 		await test.step('Stage, commit change, and verify history', async () => {
+			const message = 'Add print statement';
+
 			await app.workbench.scm.stage(file);
 
 			await app.workbench.scm.commit(message);
