@@ -882,6 +882,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Start the recommended runtimes.
 		const promises = runtimes.map((runtime, idx) => {
+
+			// Register the runtime with the language runtime service.
+			// Pre-registering prevents the runtime from being unnecessarily
+			// validated later.
+			this._languageRuntimeService.registerRuntime(runtime);
+
 			if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
 				// Start the runtime immediately if it has Immediate startup
 				// behavior.
