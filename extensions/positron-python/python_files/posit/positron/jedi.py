@@ -8,29 +8,16 @@ import pathlib
 import platform
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Iterable, List, Optional, Union, cast
+from typing import Any, Iterable, List, Optional, Union
 
 from IPython.core import oinspect
 
-from ._vendor.jedi import cache, debug, settings
+from ._vendor.jedi import settings
 from ._vendor.jedi.api import Interpreter, strings
 from ._vendor.jedi.api.classes import BaseName, Completion, Name
 
 # Rename to avoid conflict with classes.Completion
-from ._vendor.jedi.api.completion import (
-    Completion as CompletionAPI,
-)
-from ._vendor.jedi.api.completion import (
-    _extract_string_while_in_string,
-    _remove_duplicates,
-    filter_names,
-)
-from ._vendor.jedi.api.file_name import complete_file_name
-from ._vendor.jedi.api.helpers import validate_line_column
 from ._vendor.jedi.api.interpreter import (
-    MergedFilter,
-    MixedModuleContext,
-    MixedParserTreeFilter,
     MixedTreeName,
 )
 from ._vendor.jedi.cache import memoize_method
@@ -38,17 +25,9 @@ from ._vendor.jedi.inference import InferenceState
 from ._vendor.jedi.inference.base_value import HasNoContext, Value, ValueSet, ValueWrapper
 from ._vendor.jedi.inference.compiled import ExactValue
 from ._vendor.jedi.inference.compiled.mixed import MixedName, MixedObject
-from ._vendor.jedi.inference.compiled.value import CompiledName, CompiledValue, CompiledValueFilter
-from ._vendor.jedi.inference.context import AbstractContext, ModuleContext, ValueContext
-from ._vendor.jedi.inference.filters import ParserTreeFilter
-from ._vendor.jedi.inference.helpers import infer_call_of_leaf
+from ._vendor.jedi.inference.compiled.value import CompiledName, CompiledValue
+from ._vendor.jedi.inference.context import ValueContext
 from ._vendor.jedi.inference.lazy_value import LazyKnownValue
-from ._vendor.jedi.inference.names import BaseTreeParamName
-from ._vendor.jedi.inference.signature import AbstractSignature
-from ._vendor.jedi.parser_utils import cut_value_at_position
-from ._vendor.jedi.plugins import plugin_manager
-from ._vendor.parso.python.tree import Leaf
-from ._vendor.parso.python.tree import Name as ParsoName
 from .inspectors import (
     BaseColumnInspector,
     BaseTableInspector,
@@ -64,6 +43,17 @@ from .utils import get_qualname
 #
 # https://github.com/davidhalter/jedi
 #
+
+# update Jedi cache to not conflict with other Jedi instances
+# adapted from jedi.settings.cache_directory
+
+if platform.system().lower() == "windows":
+    _cache_directory = pathlib.Path(os.getenv("LOCALAPPDATA") or "~") / "Jedi" / "Positron-Jedi"
+elif platform.system().lower() == "darwin":
+    _cache_directory = pathlib.Path("~") / "Library" / "Caches" / "Positron-Jedi"
+else:
+    _cache_directory = pathlib.Path(os.getenv("XDG_CACHE_HOME") or "~/.cache") / "positron-jedi"
+settings.cache_directory = _cache_directory.expanduser()
 
 
 _original_Interpreter_complete = Interpreter.complete

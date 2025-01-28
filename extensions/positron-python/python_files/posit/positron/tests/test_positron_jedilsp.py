@@ -17,17 +17,11 @@ from positron._vendor import cattrs
 from positron._vendor.jedi_language_server import jedi_utils
 from positron._vendor.lsprotocol.types import (
     ClientCapabilities,
-    CodeAction,
-    CodeActionContext,
-    CodeActionParams,
     CompletionClientCapabilities,
     CompletionClientCapabilitiesCompletionItemType,
     CompletionItem,
     CompletionParams,
     DidCloseTextDocumentParams,
-    DocumentHighlight,
-    DocumentSymbol,
-    DocumentSymbolParams,
     Hover,
     InitializeParams,
     Location,
@@ -36,20 +30,16 @@ from positron._vendor.lsprotocol.types import (
     ParameterInformation,
     Position,
     Range,
-    RenameParams,
     SignatureHelp,
     SignatureInformation,
-    SymbolKind,
     TextDocumentClientCapabilities,
     TextDocumentIdentifier,
     TextDocumentItem,
     TextDocumentPositionParams,
     TextEdit,
-    WorkspaceEdit,
 )
 from positron._vendor.pygls.workspace.text_document import TextDocument
 from positron.help_comm import ShowHelpTopicParams
-from positron.jedi import PositronCompletion, PositronInterpreter, PositronName
 from positron.positron_jedilsp import (
     HelpTopicParams,
     PositronInitializationOptions,
@@ -59,18 +49,13 @@ from positron.positron_jedilsp import (
     _MagicType,
     _publish_diagnostics,
     _publish_diagnostics_debounced,
-    positron_code_action,
     positron_completion,
     positron_completion_item_resolve,
     positron_declaration,
     positron_definition,
     positron_did_close_diagnostics,
-    positron_document_symbol,
     positron_help_topic_request,
-    positron_highlight,
     positron_hover,
-    positron_references,
-    positron_rename,
     positron_signature_help,
     positron_type_definition,
 )
