@@ -22,6 +22,7 @@ from positron._vendor.lsprotocol.types import (
     CompletionItem,
     CompletionParams,
     DidCloseTextDocumentParams,
+    DocumentHighlight,
     Hover,
     InitializeParams,
     Location,
@@ -55,6 +56,7 @@ from positron.positron_jedilsp import (
     positron_definition,
     positron_did_close_diagnostics,
     positron_help_topic_request,
+    positron_highlight,
     positron_hover,
     positron_signature_help,
     positron_type_definition,
@@ -482,7 +484,7 @@ def test_positron_completion_item_resolve(
         ("object??  ", []),
     ],
 )
-def test_publish_diagnostics(source: str, messages: List[str]):
+def test_publish_diagnostics(source: str, messages: List[str]) -> None:
     server = create_server()
     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
 
@@ -495,7 +497,7 @@ def test_publish_diagnostics(source: str, messages: List[str]):
         assert actual_messages == messages
 
 
-def test_close_notebook_cell_clears_diagnostics():
+def test_close_notebook_cell_clears_diagnostics() -> None:
     # See: https://github.com/posit-dev/positron/issues/4160
     server = create_server()
     source = """\
@@ -519,7 +521,7 @@ echo: false
         mock.assert_called_once_with(params.text_document.uri, [])
 
 
-def test_notebook_path_completions(tmp_path):
+def test_notebook_path_completions(tmp_path) -> None:
     # Notebook path completions should be in the notebook's parent, not root path.
     # See: https://github.com/posit-dev/positron/issues/5948
     notebook_parent = tmp_path / "notebooks"
@@ -694,7 +696,7 @@ def test_positron_definition(
 )
 def test_positron_type_definition(
     source: str, namespace: Dict[str, Any], expected_location: Location
-):
+) -> None:
     server = create_server(namespace)
     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
 
@@ -707,29 +709,35 @@ def test_positron_type_definition(
     assert type_definition == [expected_location]
 
 
-# @pytest.mark.parametrize(
-#     ("source", "namespace", "position", "expected_highlights"),
-#     [
-#         (
-#             "x = 1\nx",
-#             {},
-#             Position(1, 0),
-#             [
-#                 DocumentHighlight(range=Range(start=Position(0, 0), end=Position(0, 1))),
-#                 DocumentHighlight(range=Range(start=Position(1, 0), end=Position(1, 1))),
-#             ],
-#         ),
-#     ],
-# )
-# def test_positron_highlight(source, namespace, position, expected_highlights):
-#     server = create_server(namespace)
-#     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+@pytest.mark.parametrize(
+    ("source", "namespace", "position", "expected_highlights"),
+    [
+        pytest.param(
+            "x = 1\nx",
+            {},
+            Position(1, 0),
+            [
+                DocumentHighlight(range=Range(start=Position(0, 0), end=Position(0, 1))),
+                DocumentHighlight(range=Range(start=Position(1, 0), end=Position(1, 1))),
+            ],
+            id="simple_assignment",
+        ),
+    ],
+)
+def test_positron_highlight(
+    source: str,
+    namespace: Dict[str, Any],
+    position: Position,
+    expected_highlights: List[DocumentHighlight],
+) -> None:
+    server = create_server(namespace)
+    text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
 
-#     params = TextDocumentPositionParams(TextDocumentIdentifier(text_document.uri), position)
+    params = TextDocumentPositionParams(TextDocumentIdentifier(text_document.uri), position)
 
-#     highlights = positron_highlight(server, params)
+    highlights = positron_highlight(server, params)
 
-#     assert highlights == expected_highlights
+    assert highlights == expected_highlights
 
 
 @pytest.mark.parametrize(
