@@ -12,7 +12,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, StartupBehavior, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeStartupService } from './runtimeStartupService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
@@ -195,7 +195,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				const languageIds = this._languagePacks.keys();
 				let allDisabled = true;
 				for (const languageId of languageIds) {
-					if (this.getStartupBehavior(languageId) !== StartupBehavior.Disabled) {
+					if (this.getStartupBehavior(languageId) !== LanguageStartupBehavior.Disabled) {
 						allDisabled = false;
 						break;
 					}
@@ -224,8 +224,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 						.filter(metadata => {
 							// Filter out runtimes that don't auto-start
 							const startupBehavior = this.getStartupBehavior(metadata.languageId);
-							return startupBehavior !== StartupBehavior.Disabled &&
-								startupBehavior !== StartupBehavior.Manual;
+							return startupBehavior !== LanguageStartupBehavior.Disabled &&
+								startupBehavior !== LanguageStartupBehavior.Manual;
 						});
 
 					// Start the first runtime that has Immediate startup behavior
@@ -255,7 +255,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 							// as the global default, it will make every
 							// language start. This is probably not what is
 							// desired.
-							const always = this.getStartupBehavior(metadata.languageId) === StartupBehavior.Always;
+							const always = this.getStartupBehavior(metadata.languageId) === LanguageStartupBehavior.Always;
 							if (always) {
 								languageId = metadata.languageId;
 							}
@@ -454,7 +454,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		const disabledLanguages = new Array<string>();
 		const enabledLanguages = Array.from(this._languagePacks.keys()).filter(languageId => {
-			if (this.getStartupBehavior(languageId) === StartupBehavior.Disabled) {
+			if (this.getStartupBehavior(languageId) === LanguageStartupBehavior.Disabled) {
 				this._logService.debug(`[Runtime startup] Skipping language runtime startup for language ID '${languageId}' because its startup behavior is disabled.`);
 				disabledLanguages.push(languageId);
 				return false;
@@ -648,7 +648,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Filter out any language packs that are disabled.
 		const disabledLanguages = new Array<string>();
 		const enabledLanguages = Array.from(this._languagePacks.keys()).filter(languageId => {
-			if (this.getStartupBehavior(languageId) === StartupBehavior.Disabled) {
+			if (this.getStartupBehavior(languageId) === LanguageStartupBehavior.Disabled) {
 				this._logService.debug(`[Runtime startup] Skipping language runtime discovery for language ID '${languageId}' because its startup behavior is disabled.`);
 				disabledLanguages.push(languageId);
 				return false;
@@ -705,8 +705,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 				// Check the setting to see if we should be auto-starting.
 				const startupBehavior = this.getStartupBehavior(metadata.languageId);
-				if (startupBehavior === StartupBehavior.Disabled ||
-					startupBehavior === StartupBehavior.Manual) {
+				if (startupBehavior === LanguageStartupBehavior.Disabled ||
+					startupBehavior === LanguageStartupBehavior.Manual) {
 					this._logService.info(`Language runtime ` +
 						`${formatLanguageRuntimeMetadata(affiliated.metadata)} ` +
 						`is affiliated with this workspace, but won't be started because ` +
@@ -921,9 +921,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private async startAffiliatedLanguageRuntimes(disabledLanguageIds: string[], _enabledLanguageIds: string[]): Promise<void> {
 		let languageIds = this.getAffiliatedRuntimeLanguageIds();
 
-		// Remove any disabled languages
+		// Remove any fully disabled languages
 		languageIds = languageIds.filter(languageId => {
 			return !disabledLanguageIds.includes(languageId);
+		});
+
+		// Ensure the startup behavior is set to 'Always' or 'Auto' for each language.
+		languageIds = languageIds.filter(languageId => {
+			const startupBehavior = this.getStartupBehavior(languageId);
+			return startupBehavior === LanguageStartupBehavior.Always || startupBehavior === LanguageStartupBehavior.Auto;
 		});
 
 		// No affiliated runtimes; move on to the next phase.
@@ -1371,7 +1377,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * @param languageId The language ID for which to get the startup behavior.
 	 * @returns The startup behavior for the language.
 	 */
-	private getStartupBehavior(languageId: string): StartupBehavior {
+	private getStartupBehavior(languageId: string): LanguageStartupBehavior {
 		return this._configurationService.getValue(
 			'interpreters.startupBehavior', { overrideIdentifier: languageId });
 	}
