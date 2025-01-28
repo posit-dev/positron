@@ -58,6 +58,7 @@ from positron.positron_jedilsp import (
     positron_help_topic_request,
     positron_highlight,
     positron_hover,
+    positron_references,
     positron_signature_help,
     positron_type_definition,
 )
@@ -720,7 +721,7 @@ def test_positron_type_definition(
                 DocumentHighlight(range=Range(start=Position(0, 0), end=Position(0, 1))),
                 DocumentHighlight(range=Range(start=Position(1, 0), end=Position(1, 1))),
             ],
-            id="simple_assignment",
+            id="assignment",
         ),
     ],
 )
@@ -746,7 +747,7 @@ def test_positron_highlight(
         pytest.param(
             f"{_func_str}\nfunc",
             {},
-            # TODO: For some reason, using a PositronInterpreter here returns __main__ as the module name instead of the actual module...
+            # TODO: Ideally, this should be the name of the text document.
             f"__main__.{_func_name}",
             id="from_source",
         ),
@@ -784,32 +785,62 @@ def test_positron_hover(source: str, namespace: Dict[str, Any], expected_fullnam
     )
 
 
-# @pytest.mark.parametrize(
-#     ("source", "namespace", "expected_references"),
-#     [
-#         (
-#             "x = 1\nx",
-#             {},
-#             [Location(uri=TEST_DOCUMENT_URI, range=Range(start=Position(1, 0), end=Position(1, 1)))],
-#         ),
-#         (
-#             "def foo():\n    pass\nfoo()",
-#             {},
-#             [Location(uri=TEST_DOCUMENT_URI, range=Range(start=Position(2, 0), end=Position(2, 3)))],
-#         ),
-#     ],
-# )
-# def test_positron_references(
-#     source: str, namespace: Dict[str, Any], expected_references: List[Location]
-# ) -> None:
-#     server = create_server(namespace)
-#     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+@pytest.mark.parametrize(
+    ("source", "namespace", "expected_references"),
+    [
+        pytest.param(
+            "x = 1\nx",
+            {},
+            [
+                Location(
+                    uri=TEST_DOCUMENT_URI, range=Range(start=Position(0, 0), end=Position(0, 1))
+                ),
+                Location(
+                    uri=TEST_DOCUMENT_URI, range=Range(start=Position(1, 0), end=Position(1, 1))
+                ),
+            ],
+            id="assignment",
+        ),
+        pytest.param(
+            "def foo():\n    pass\nfoo",
+            {},
+            [
+                Location(
+                    uri=TEST_DOCUMENT_URI, range=Range(start=Position(0, 4), end=Position(0, 7))
+                ),
+                Location(
+                    uri=TEST_DOCUMENT_URI, range=Range(start=Position(2, 0), end=Position(2, 3))
+                ),
+            ],
+            id="function_definition",
+        ),
+        pytest.param(
+            "func",
+            {"func": func},
+            [
+                # TODO: Ideally, this would include `func`'s definition, but seems to be a
+                #       limitation of Jedi.
+                Location(
+                    uri=TEST_DOCUMENT_URI, range=Range(start=Position(0, 0), end=Position(0, 4))
+                ),
+            ],
+            id="from_namespace",
+        ),
+    ],
+)
+def test_positron_references(
+    source: str, namespace: Dict[str, Any], expected_references: List[Location]
+) -> None:
+    server = create_server(namespace)
+    text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
 
-#     params = TextDocumentPositionParams(TextDocumentIdentifier(text_document.uri), Position(1, 0))
+    params = TextDocumentPositionParams(
+        TextDocumentIdentifier(text_document.uri), _end_of_document(text_document)
+    )
 
-#     references = positron_references(server, params)
+    references = positron_references(server, params)
 
-#     assert references == expected_references
+    assert references == expected_references
 
 
 # @pytest.mark.parametrize(
