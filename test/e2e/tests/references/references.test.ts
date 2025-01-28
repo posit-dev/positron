@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -15,14 +15,14 @@ test.describe('References', {
 	tag: [tags.REFERENCES, tags.WEB, tags.WIN]
 }, () => {
 
-	test.afterEach(async ({ app }) => {
+	test.afterEach(async ({ app, runCommand }) => {
 
 		await app.workbench.references.close();
-		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+		await runCommand('workbench.action.closeAllEditors');
 
 	});
 
-	test('Python - Verify References Functionality', { tag: [tags.WIN, tags.WEB, tags.REFERENCES] }, async function ({ app, python, openFile }) {
+	test('Python - Verify References Functionality', async function ({ app, python, openFile }) {
 
 		const helper = 'helper.py';
 		await test.step('Open helper file and select function name', async () => {
@@ -32,7 +32,7 @@ test.describe('References', {
 
 		});
 
-		await sharedSteps(app, helper);
+		await openAndCommonValidations(app, helper);
 
 		await test.step('Verify reference files', async () => {
 			await app.workbench.references.waitForReferenceFiles(['main.py', 'another_script.py', helper]);
@@ -41,7 +41,7 @@ test.describe('References', {
 	});
 
 
-	test('R - Verify References Functionality', { tag: [tags.WIN, tags.WEB, tags.REFERENCES] }, async function ({ app, r, openFile }) {
+	test('R - Verify References Functionality', async function ({ app, r, openFile }) {
 
 		const helper = 'helper.R';
 		await test.step('Open helper file and select function name', async () => {
@@ -51,7 +51,7 @@ test.describe('References', {
 
 		});
 
-		await sharedSteps(app, helper);
+		await openAndCommonValidations(app, helper);
 
 		await test.step('Verify reference files', async () => {
 			await app.workbench.references.waitForReferenceFiles(['main.R', 'another_script.R', helper]);
@@ -60,7 +60,7 @@ test.describe('References', {
 
 });
 
-async function sharedSteps(app: Application, helper: string) {
+async function openAndCommonValidations(app: Application, helper: string) {
 	await test.step('Open references view', async () => {
 		await app.code.driver.page.keyboard.press('F12');
 
