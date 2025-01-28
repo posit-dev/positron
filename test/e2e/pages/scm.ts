@@ -5,6 +5,7 @@
 
 import { expect } from '@playwright/test';
 import { Code } from '../infra/code';
+import { Layouts } from './layouts';
 
 /*
  *  Reuseable Positron SCM functionality for tests to leverage.
@@ -20,7 +21,7 @@ const HISTORY_ITEM_CURRENT = '.scm-history-view .history-item-current .label-nam
 
 export class SCM {
 
-	constructor(private code: Code) { }
+	constructor(private code: Code, private layout: Layouts) { }
 
 	async openSCMViewlet(): Promise<any> {
 		await this.code.driver.page.keyboard.press('Control+Shift+G');
@@ -29,6 +30,9 @@ export class SCM {
 
 	async waitForChange(name: string, type: string): Promise<void> {
 		await expect(async () => {
+
+			await this.layout.enterLayout('fullSizedSidebar');
+
 			const scmResources = await this.code.driver.page.locator(SCM_RESOURCE).all();
 
 			const resources: { name: string; type: string }[] = [];
@@ -48,6 +52,9 @@ export class SCM {
 			expect(resources).toEqual(
 				expect.arrayContaining([{ name, type }])
 			);
+
+			await this.layout.enterLayout('stacked');
+
 		}).toPass({ timeout: 20000 });
 	}
 
