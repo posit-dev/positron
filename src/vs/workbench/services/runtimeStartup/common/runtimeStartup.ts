@@ -832,13 +832,27 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Start the recommended runtimes.
 		const promises = runtimes.map((runtime, idx) => {
 			if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
+				// Start the runtime immediately if it has Immediate startup
+				// behavior.
 				this._runtimeSessionService.autoStartRuntime(runtime,
 					`The ${runtime.extensionId.value} extension recommended the runtime to be started in this workspace.`,
 					idx === 0);
+			} else {
+				// For other startup behaviors, we just save the runtime as the
+				// default (unless the workspace already has an affiliated
+				// runtime for this language).
+				const oldAffiliation = this.getAffiliatedRuntime(runtime.languageId);
+				if (!oldAffiliation) {
+					const affiliated: IAffiliatedRuntimeMetadata = {
+						metadata: runtime,
+						// Marking lastUsed = lastStarted = 0 will prevent
+						// auto-startup.
+						lastUsed: 0,
+						lastStarted: 0
+					};
+					this.saveAffiliatedRuntime(affiliated);
+				}
 			}
-			// TODO: If the startup behavior is not Immediate, we could
-			// associate the runtime with the workspace without actually
-			// starting it
 		});
 
 		await Promise.all(promises);
@@ -881,7 +895,19 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				return true;
 			}
 
+			// Runtimes that have never been started are used are not
+			// auto-started; they are just used to set defaults.
+			if (affiliation.lastStarted === 0 &&
+				affiliation.lastUsed === 0) {
+				this._logService.debug(`[Runtime startup] Affiliated runtime ` +
+					`${formatLanguageRuntimeMetadata(affiliation.metadata)} ` +
+					`not marked for autostart`);
+
+				return false;
+			}
+
 			// Compare the last used time to the last started time; log if
+			//
 			// we're going to forget a runtime.
 			if (affiliation.lastStarted > affiliation.lastUsed) {
 				this._logService.debug(`[Runtime startup] Affiliated runtime ` +
