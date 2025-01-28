@@ -30,7 +30,6 @@ from positron._vendor.lsprotocol.types import (
     Location,
     MarkupContent,
     MarkupKind,
-    OptionalVersionedTextDocumentIdentifier,
     ParameterInformation,
     Position,
     Range,
@@ -45,7 +44,6 @@ from positron._vendor.lsprotocol.types import (
     TextDocumentItem,
     TextDocumentPositionParams,
     TextEdit,
-    WorkspaceEdit,
 )
 from positron._vendor.pygls.workspace.text_document import TextDocument
 from positron.help_comm import ShowHelpTopicParams
@@ -77,15 +75,13 @@ from positron.utils import get_qualname
 from .lsp_data.func import func
 from .lsp_data.type import Type
 
+if TYPE_CHECKING:
+    from threading import Timer
+
+
 LSP_DATA_DIR = Path(__file__).parent / "lsp_data"
 TEST_DOCUMENT_PATH = Path("foo.py").absolute()
 TEST_DOCUMENT_URI = TEST_DOCUMENT_PATH.as_uri()
-
-if TYPE_CHECKING:
-    from threading import Timer
-
-if TYPE_CHECKING:
-    from threading import Timer
 
 
 @pytest.fixture(autouse=True)
@@ -939,29 +935,3 @@ def test_positron_rename(
     text_document_edit = workspace_edit.document_changes[0]
     assert isinstance(text_document_edit, TextDocumentEdit)
     assert text_document_edit.edits == expected_text_edits
-
-
-# @pytest.mark.parametrize(
-#     ("source", "namespace", "expected_code_actions"),
-#     [
-#         ("x = 1\nx", {}, []),
-#         ("def foo():\n    pass\nfoo()", {}, []),
-#     ],
-# )
-# def test_positron_code_action(
-#     source: str, namespace: Dict[str, Any], expected_code_actions: List[CodeAction]
-# ) -> None:
-#     server = create_server(namespace)
-#     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
-
-#     params = CodeActionParams(
-#         text_document=TextDocumentIdentifier(text_document.uri),
-#         range=Range(start=Position(1, 0), end=Position(1, 1)),
-#         context=CodeActionContext(
-#             diagnostics=[],
-#         ),
-#     )
-
-#     code_actions = positron_code_action(server, params)
-
-#     assert code_actions == expected_code_actions
