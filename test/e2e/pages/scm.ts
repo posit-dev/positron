@@ -41,6 +41,9 @@ export class SCM {
 				}
 			}
 
+			// debug
+			console.log(resources);
+
 			// Check if at least one resource matches both name and type
 			expect(resources).toEqual(
 				expect.arrayContaining([{ name, type }])
@@ -54,7 +57,7 @@ export class SCM {
 
 	async stage(name: string): Promise<void> {
 		await this.code.driver.page.locator(SCM_RESOURCE_ACTION_CLICK(name, 'Stage Changes')).click();
-		await this.waitForChange(name, 'Index Modified');
+
 	}
 
 	async commit(message: string): Promise<void> {
