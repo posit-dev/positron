@@ -13,7 +13,7 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
-import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType, RuntimeStartMode } from '../../common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageRuntimeSession.js';
 import { createRuntimeServices, createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
@@ -60,7 +60,7 @@ suite('Positron - RuntimeSessionService', () => {
 		unregisteredRuntime = { runtimeId: 'unregistered-runtime-id' } as ILanguageRuntimeMetadata;
 
 		// Enable automatic startup.
-		configService.setUserConfiguration('interpreters.automaticStartup', true);
+		configService.setUserConfiguration('interpreters.startupBehavior', LanguageStartupBehavior.Auto);
 
 		// Trust the workspace.
 		workspaceTrustManagementService.setWorkspaceTrust(true);
@@ -625,7 +625,7 @@ suite('Positron - RuntimeSessionService', () => {
 	});
 
 	test('auto start console does nothing if automatic startup is disabled', async () => {
-		configService.setUserConfiguration('interpreters.automaticStartup', false);
+		configService.setUserConfiguration('interpreters.startupBehavior', LanguageStartupBehavior.Disabled);
 
 		const sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason, true);
 
