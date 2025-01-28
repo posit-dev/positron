@@ -30,18 +30,22 @@ from positron._vendor.lsprotocol.types import (
     Location,
     MarkupContent,
     MarkupKind,
+    OptionalVersionedTextDocumentIdentifier,
     ParameterInformation,
     Position,
     Range,
+    RenameParams,
     SignatureHelp,
     SignatureInformation,
     SymbolInformation,
     SymbolKind,
     TextDocumentClientCapabilities,
+    TextDocumentEdit,
     TextDocumentIdentifier,
     TextDocumentItem,
     TextDocumentPositionParams,
     TextEdit,
+    WorkspaceEdit,
 )
 from positron._vendor.pygls.workspace.text_document import TextDocument
 from positron.help_comm import ShowHelpTopicParams
@@ -64,6 +68,7 @@ from positron.positron_jedilsp import (
     positron_highlight,
     positron_hover,
     positron_references,
+    positron_rename,
     positron_signature_help,
     positron_type_definition,
 )
@@ -889,55 +894,51 @@ def test_positron_document_symbol(
     assert symbols == expected_symbols
 
 
-# @pytest.mark.parametrize(
-#     ("source", "namespace", "new_name", "expected_edit"),
-#     [
-#         (
-#             "x = 1\nx",
-#             {},
-#             "y",
-#             WorkspaceEdit(
-#                 changes={
-#                     TEST_DOCUMENT_URI: [
-#                         TextEdit(
-#                             range=Range(start=Position(1, 0), end=Position(1, 1)), new_text="y"
-#                         )
-#                     ]
-#                 }
-#             ),
-#         ),
-#         (
-#             "def foo():\n    pass\nfoo()",
-#             {},
-#             "bar",
-#             WorkspaceEdit(
-#                 changes={
-#                     TEST_DOCUMENT_URI: [
-#                         TextEdit(
-#                             range=Range(start=Position(2, 0), end=Position(2, 3)),
-#                             new_text="bar",
-#                         )
-#                     ]
-#                 }
-#             ),
-#         ),
-#     ],
-# )
-# def test_positron_rename(
-#     source: str, namespace: Dict[str, Any], new_name: str, expected_edit: WorkspaceEdit
-# ) -> None:
-#     server = create_server(namespace)
-#     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+@pytest.mark.parametrize(
+    ("source", "namespace", "new_name", "expected_text_edits"),
+    [
+        pytest.param(
+            "x = 1\nx",
+            {},
+            "y",
+            [
+                TextEdit(Range(Position(0, 0), Position(0, 1)), new_text="y"),
+                TextEdit(Range(Position(1, 0), Position(1, 1)), new_text="y"),
+            ],
+            id="assignment",
+        ),
+        pytest.param(
+            "def foo(): pass\nfoo",
+            {},
+            "bar",
+            [
+                TextEdit(Range(Position(0, 4), Position(0, 7)), new_text="bar"),
+                TextEdit(Range(Position(1, 0), Position(1, 3)), new_text="bar"),
+            ],
+            id="function",
+        ),
+    ],
+)
+def test_positron_rename(
+    source: str, namespace: Dict[str, Any], new_name: str, expected_text_edits: List[TextEdit]
+) -> None:
+    server = create_server(namespace)
+    text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
 
-#     params = RenameParams(
-#         text_document=TextDocumentIdentifier(text_document.uri),
-#         position=Position(1, 0),
-#         new_name=new_name,
-#     )
+    params = RenameParams(
+        text_document=TextDocumentIdentifier(text_document.uri),
+        position=_end_of_document(text_document),
+        new_name=new_name,
+    )
 
-#     edit = positron_rename(server, params)
+    workspace_edit = positron_rename(server, params)
 
-#     assert edit == expected_edit
+    assert workspace_edit is not None
+    assert workspace_edit.document_changes is not None
+    assert len(workspace_edit.document_changes) == 1
+    text_document_edit = workspace_edit.document_changes[0]
+    assert isinstance(text_document_edit, TextDocumentEdit)
+    assert text_document_edit.edits == expected_text_edits
 
 
 # @pytest.mark.parametrize(
