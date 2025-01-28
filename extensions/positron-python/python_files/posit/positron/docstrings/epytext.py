@@ -119,12 +119,12 @@ class Section:
                     # --- Start Positron ---
                     # arg and description are on the same line
                     # for epytext docstrings
-                    self.content += "- `{}`: {}".format(arg, description).rstrip()
+                    self.content += f"- `{arg}`: {description}".rstrip()
                     skip_first = True
                 else:
-                    self.content += " {}\n".format(arg)
+                    self.content += f" {arg}\n"
             else:
-                self.content += "{}\n".format(part[0])
+                self.content += f"{part[0]}\n"
                 # --- End Positron ---
 
             for n, line in enumerate(part[1:]):
@@ -133,17 +133,17 @@ class Section:
                     # previous line
                     # --- Start Positron ---
                     # previous lines lose spaces between words
-                    self.content += " {}\n".format(line.lstrip())
+                    self.content += f" {line.lstrip()}\n"
                     # --- End Positron ---
                     continue
 
-                self.content += "{}{}\n".format(indentation, line.lstrip())
+                self.content += f"{indentation}{line.lstrip()}\n"
 
         # remove trailing whitespaces and trailing newlines
         self.content = self.content.rstrip("\n").rstrip()
 
     def as_markdown(self) -> str:
-        return "#### {}\n\n{}\n\n".format(self.name, self.content)
+        return f"#### {self.name}\n\n{self.content}\n\n"
 
 
 # similar to docstring_to_markdown.google.GoogleDocstring
@@ -222,9 +222,7 @@ class EpytextDocstring:
                     unique_sections[name] = section
 
         # Convert back to a list of Sections
-        unique_sections_list = list(unique_sections.values())
-
-        return unique_sections_list
+        return list(unique_sections.values())
 
     # --- End Positron ---
 
@@ -257,28 +255,18 @@ def custom_sort_key(section):
 # adapted from docstring_to_markdown.looks_like_google
 # --- Start Positron ---
 def looks_like_epytext(value: str) -> bool:
-    for field in EPYTEXT_FIELDS:
-        if re.search(r"{}".format(field), value):
-            # --- End Positron ---
-            return True
-
-    return False
+    return any(re.search(f"{field}", value) for field in EPYTEXT_FIELDS)
 
 
 # adapted from docstring_to_markdown.google.is_section
 def is_section(line: str) -> bool:
     # --- Start Positron ---
-    for field in EPYTEXT_FIELDS:
-        if re.search(r"{}".format(field), line):
-            # --- End Positron ---
-            return True
-
-    return False
+    return any(re.search(f"{field}", line) for field in EPYTEXT_FIELDS)
 
 
 # adapted from docstring_to_markdown.google.google_to_markdown
 # --- Start Positron ---
-def epytext_to_markdown(text: str, extract_signature: bool = True) -> str:
+def epytext_to_markdown(text: str) -> str:
     # --- End Positron ---
     # Escape parts we don't want to render
     for pattern, replacement in ESCAPE_RULES.items():

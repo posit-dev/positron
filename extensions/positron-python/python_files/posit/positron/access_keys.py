@@ -4,10 +4,12 @@
 #
 
 import json
-from typing import Any, Dict, Hashable, cast
+from typing import TYPE_CHECKING, Any, Dict, Hashable, cast
 
 from .inspectors import INSPECTOR_CLASSES, PositronInspector, get_inspector
-from .utils import JsonData
+
+if TYPE_CHECKING:
+    from .utils import JsonData
 
 
 def encode_access_key(key: Any) -> str:

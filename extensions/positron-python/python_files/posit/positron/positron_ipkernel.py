@@ -13,11 +13,10 @@ import os
 import re
 import warnings
 from pathlib import Path
-from typing import Any, Callable, Container, Dict, List, Optional, Type, cast
+from typing import TYPE_CHECKING, Any, Callable, Container, cast
 
 import psutil
 import traitlets
-from ipykernel.comm.manager import CommManager
 from ipykernel.compiler import get_tmp_directory
 from ipykernel.ipkernel import IPythonKernel
 from ipykernel.kernelapp import IPKernelApp
@@ -31,7 +30,7 @@ from IPython.utils import PyColorize
 from .access_keys import encode_access_key
 from .connections import ConnectionsService
 from .data_explorer import DataExplorerService
-from .help import HelpService, help
+from .help import HelpService, help  # noqa: A004
 from .lsp import LSPService
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
 from .patch.holoviews import set_holoviews_extension
@@ -40,6 +39,9 @@ from .session_mode import SessionMode
 from .ui import UiService
 from .utils import BackgroundJobQueue, JsonRecord, get_qualname
 from .variables import VariablesService
+
+if TYPE_CHECKING:
+    from ipykernel.comm.manager import CommManager
 
 
 class _CommTarget(str, enum.Enum):
@@ -63,10 +65,10 @@ class PositronIPythonInspector(oinspect.Inspector):
         self,
         obj: Any,
         oname: str = "",
-        formatter: Optional[Callable[[str], Dict[str, str]]] = None,
-        info: Optional[oinspect.OInfo] = None,
+        formatter: Callable[[str], dict[str, str]] | None = None,
+        info: oinspect.OInfo | None = None,
         detail_level: int = 0,
-        enable_html_pager: bool = True,
+        enable_html_pager: bool = True,  # noqa: FBT001, FBT002
         omit_sections: Container[str] = (),
     ) -> None:
         kernel = self.parent.kernel
@@ -74,7 +76,7 @@ class PositronIPythonInspector(oinspect.Inspector):
         # Intercept `%pinfo obj` / `obj?` calls, and instead use Positron's help service
         if detail_level == 0:
             kernel.help_service.show_help(obj)
-            return
+            return None
 
         # For `%pinfo2 obj` / `obj??` calls, try to open an editor via Positron's UI service
         fname = oinspect.find_file(obj)
@@ -94,6 +96,7 @@ class PositronIPythonInspector(oinspect.Inspector):
         # If we got a filename, try to get the line number and open an editor.
         lineno = oinspect.find_source_lines(obj) or 0
         kernel.ui_service.open_editor(fname, lineno, 0)
+        return None
 
     pinfo.__doc__ = oinspect.Inspector.pinfo.__doc__
 
@@ -104,7 +107,7 @@ class PositronMagics(Magics):
 
     # This will override the default `clear` defined in `ipykernel.zmqshell.KernelMagics`.
     @line_magic
-    def clear(self, line: str) -> None:
+    def clear(self, line: str) -> None:  # noqa: ARG002
         """Clear the console."""
         # Send a message to the frontend to clear the console.
         self.shell.kernel.ui_service.clear_console()
@@ -142,11 +145,11 @@ class PositronMagics(Magics):
                 and isinstance(e.args[0], str)
                 and e.args[0].startswith("unrecognized arguments")
             ):
-                raise UsageError(f"{e.args[0]}. Did you quote the title?")
+                raise UsageError(f"{e.args[0]}. Did you quote the title?") from e
             raise
 
         # Find the object.
-        info = self.shell._ofind(args.object)
+        info = self.shell._ofind(args.object)  # noqa: SLF001
         if not info.found:
             raise UsageError(f"name '{args.object}' is not defined")
 
@@ -166,8 +169,8 @@ class PositronMagics(Magics):
             self.shell.kernel.data_explorer_service.register_table(
                 obj, title, variable_path=[encode_access_key(args.object)]
             )
-        except TypeError:
-            raise UsageError(f"cannot view object of type '{get_qualname(obj)}'")
+        except TypeError as e:
+            raise UsageError(f"cannot view object of type '{get_qualname(obj)}'") from e
 
     @magic_arguments.magic_arguments()
     @magic_arguments.argument(
@@ -180,7 +183,7 @@ class PositronMagics(Magics):
         args = magic_arguments.parse_argstring(self.connection_show, line)
 
         # Find the object.
-        info = self.shell._ofind(args.object)
+        info = self.shell._ofind(args.object)  # noqa: SLF001
         if not info.found:
             raise UsageError(f"name '{args.object}' is not defined")
 
@@ -188,8 +191,8 @@ class PositronMagics(Magics):
             self.shell.kernel.connections_service.register_connection(
                 info.obj, variable_path=args.object
             )
-        except TypeError:
-            raise UsageError(f"cannot show object of type '{get_qualname(info.obj)}'")
+        except TypeError as e:
+            raise UsageError(f"cannot show object of type '{get_qualname(info.obj)}'") from e
 
 
 _traceback_file_link_re = re.compile(r"^(File \x1b\[\d+;\d+m)(.+):(\d+)")
@@ -204,7 +207,7 @@ class PositronShell(ZMQInteractiveShell):
     magics_manager: MagicsManager
     display_pub: ZMQDisplayPublisher
 
-    inspector_class: Type[PositronIPythonInspector] = traitlets.Type(
+    inspector_class: type[PositronIPythonInspector] = traitlets.Type(
         PositronIPythonInspector,  # type: ignore
         help="Class to use to instantiate the shell inspector",
     ).tag(config=True)
@@ -232,7 +235,7 @@ class PositronShell(ZMQInteractiveShell):
         self.events.register("post_run_cell", self._handle_post_run_cell)
 
     @traitlets.observe("colors")
-    def init_inspector(self, changes: Optional[traitlets.Bunch] = None) -> None:
+    def init_inspector(self, changes: traitlets.Bunch | None = None) -> None:  # noqa: ARG002
         # Override to pass `parent=self` to the inspector so that the inspector can send messages
         # over the kernel's comms.
         self.inspector = self.inspector_class(
@@ -274,17 +277,17 @@ class PositronShell(ZMQInteractiveShell):
             }
         )
 
-    def _handle_pre_run_cell(self, info: ExecutionInfo) -> None:
-        """
-        Prior to execution, reset the user environment watch state.
-        """
+    def _handle_pre_run_cell(self, _info: ExecutionInfo) -> None:
+        """Prior to execution, reset the user environment watch state."""
         try:
             self.kernel.variables_service.snapshot_user_ns()
         except Exception:
             logger.warning("Failed to snapshot user namespace", exc_info=True)
 
-    def _handle_post_run_cell(self, info: ExecutionInfo) -> None:
+    def _handle_post_run_cell(self, _info: ExecutionInfo) -> None:
         """
+        Send a msg.
+
         After execution, sends an update message to the client to summarize
         the changes observed to variables in the user's environment.
         """
@@ -308,12 +311,12 @@ class PositronShell(ZMQInteractiveShell):
         self.kernel.io_loop.stop()
 
     def show_usage(self):
-        """Show a usage message"""
+        """Show a usage message."""
         self.kernel.help_service.show_help("positron.utils.positron_ipykernel_usage")
 
     @traitlets.observe("exit_now")
     def _update_exit_now(self, change):
-        """stop eventloop when exit_now fires"""
+        """Stop eventloop when exit_now fires."""
         if change["new"]:
             if hasattr(self.kernel, "io_loop"):
                 loop = self.kernel.io_loop
@@ -330,10 +333,8 @@ class PositronShell(ZMQInteractiveShell):
                 if exit_hook:
                     exit_hook(self.kernel)
 
-    def _showtraceback(self, etype, evalue: Exception, stb: List[str]):  # type: ignore IPython type annotation is wrong
-        """
-        Enhance tracebacks for the Positron frontend.
-        """
+    def _showtraceback(self, etype, evalue: Exception, stb: list[str]):  # type: ignore IPython type annotation is wrong
+        """Enhance tracebacks for the Positron frontend."""
         if self.session_mode == SessionMode.NOTEBOOK:
             # Don't modify the traceback in a notebook. The frontend assumes that it's unformatted
             # and applies its own formatting.
@@ -364,9 +365,7 @@ class PositronShell(ZMQInteractiveShell):
 
 
 def _add_osc8_link(match: re.Match) -> str:
-    """
-    Convert a link matched by `_traceback_file_link_re` to an OSC8 link.
-    """
+    """Convert a link matched by `_traceback_file_link_re` to an OSC8 link."""
     pre, path, line = match.groups()
     abs_path = Path(path).expanduser()
     try:
@@ -462,10 +461,8 @@ class PositronIPyKernel(IPythonKernel):
         # Start Positron services
         self.help_service.start()
 
-    async def do_shutdown(self, restart: bool) -> JsonRecord:  # type: ignore ReportIncompatibleMethodOverride
-        """
-        Handle kernel shutdown.
-        """
+    async def do_shutdown(self, restart: bool) -> JsonRecord:  # type: ignore ReportIncompatibleMethodOverride  # noqa: FBT001
+        """Handle kernel shutdown."""
         logger.info("Shutting down the kernel")
 
         # Shut down thread pool for background job queue
@@ -483,14 +480,14 @@ class PositronIPyKernel(IPythonKernel):
         # We don't call super().do_shutdown since it sets shell.exit_now = True which tries to
         # stop the event loop at the same time as self.shutdown_request (since self.shell_stream.io_loop
         # points to the same underlying asyncio loop).
-        return dict(status="ok", restart=restart)
+        return {"status": "ok", "restart": restart}
 
     def _signal_children(self, signum: int) -> None:
         super()._signal_children(signum)
 
         # Reap zombie processes.
         # See https://github.com/posit-dev/positron/issues/3344
-        children: List[psutil.Process] = self._process_children()
+        children: list[psutil.Process] = self._process_children()
         for child in children:
             if child.status() == psutil.STATUS_ZOMBIE:
                 self.log.debug("Reaping zombie subprocess %s", child)
@@ -525,7 +522,7 @@ class PositronIPyKernel(IPythonKernel):
         if str(positron_files_path) in str(filename) or str(filename) == "<>":
             msg = f"{filename}-{lineno}: {category}: {message}"
             logger.warning(msg)
-            return
+            return None
 
         msg = warnings.WarningMessage(message, category, filename, lineno, file, line)
 
@@ -536,7 +533,7 @@ class PositronIPKernelApp(IPKernelApp):
     kernel: PositronIPyKernel
 
     # Use the PositronIPyKernel class.
-    kernel_class: Type[PositronIPyKernel] = traitlets.Type(PositronIPyKernel)  # type: ignore
+    kernel_class: type[PositronIPyKernel] = traitlets.Type(PositronIPyKernel)  # type: ignore
 
     # Positron-specific attributes:
     session_mode: SessionMode = SessionMode.trait()  # type: ignore
@@ -544,11 +541,10 @@ class PositronIPKernelApp(IPKernelApp):
     def init_gui_pylab(self):
         # Enable the Positron matplotlib backend if we're not in a notebook.
         # If we're in a notebook, use IPython's default backend via the super() call below.
-        if self.session_mode != SessionMode.NOTEBOOK:
-            # Matplotlib uses the MPLBACKEND environment variable to determine the backend to use.
-            # It imports the backend module when it's first needed.
-            if not os.environ.get("MPLBACKEND"):
-                os.environ["MPLBACKEND"] = "module://positron.matplotlib_backend"
+        # Matplotlib uses the MPLBACKEND environment variable to determine the backend to use.
+        # It imports the backend module when it's first needed.
+        if self.session_mode != SessionMode.NOTEBOOK and not os.environ.get("MPLBACKEND"):
+            os.environ["MPLBACKEND"] = "module://positron.matplotlib_backend"
 
         return super().init_gui_pylab()
 
@@ -566,23 +562,21 @@ _OSC8 = _OSC + "8"
 _ST = _ESC + "\\"
 
 
-def _start_hyperlink(uri: str = "", params: Dict[str, str] = {}) -> str:
-    """
-    Start sequence for a hyperlink.
-    """
+def _start_hyperlink(uri: str = "", params: dict[str, str] | None = None) -> str:
+    """Start sequence for a hyperlink."""
+    if params is None:
+        params = {}
     params_str = ":".join(f"{key}={value}" for key, value in params.items())
-    return ";".join([_OSC8, params_str, uri]) + _ST
+    return f"{_OSC8};{params_str};{uri}" + _ST
 
 
 def _end_hyperlink() -> str:
-    """
-    End sequence for a hyperlink.
-    """
+    """End sequence for a hyperlink."""
     return _start_hyperlink()
 
 
-def _link(uri: str, label: str, params: Dict[str, str] = {}) -> str:
-    """
-    Create a hyperlink with the given label, URI, and params.
-    """
+def _link(uri: str, label: str, params: dict[str, str] | None = None) -> str:
+    """Create a hyperlink with the given label, URI, and params."""
+    if params is None:
+        params = {}
     return _start_hyperlink(uri, params) + label + _end_hyperlink()

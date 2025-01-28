@@ -45,4 +45,4 @@ def _sqlalchemy():
     return sqlalchemy
 
 
-__all__ = ["_numpy", "_pandas", "_polars", "_torch", "_pyarrow", "_sqlalchemy"]
+__all__ = ["_numpy", "_pandas", "_polars", "_pyarrow", "_sqlalchemy", "_torch"]

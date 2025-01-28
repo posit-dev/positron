@@ -64,16 +64,8 @@ class TestSQLiteConnectionsService:
         comm_id = connections_service.register_connection(con)
         assert comm_id in connections_service.comms
 
-    @pytest.mark.parametrize(
-        "path,expected",
-        [
-            ([], False),
-            ([{"kind": "schema", "name": "main"}], True),
-        ],
-    )
-    def test_contains_data(
-        self, connections_comm: Tuple[ConnectionsService, DummyComm], path, expected
-    ):
+    @pytest.mark.parametrize("path", [[], [{"kind": "schema", "name": "main"}]])
+    def test_contains_data(self, connections_comm: Tuple[ConnectionsService, DummyComm], path):
         _, comm = connections_comm
 
         msg = _make_msg(params={"path": path}, method="contains_data", comm_id=comm.comm_id)
@@ -83,7 +75,7 @@ class TestSQLiteConnectionsService:
         assert result is False
 
     @pytest.mark.parametrize(
-        "path,expected",
+        ("path", "expected"),
         [
             ([], ""),
             ([{"kind": "schema", "name": "main"}], ""),
@@ -98,7 +90,7 @@ class TestSQLiteConnectionsService:
         assert result == expected
 
     @pytest.mark.parametrize(
-        "path,expected",
+        ("path", "expected"),
         [
             ([], [{"kind": "schema", "name": "main"}]),
             ([{"kind": "schema", "name": "main"}], [{"kind": "table", "name": "movie"}]),
@@ -145,7 +137,7 @@ class TestSQLiteConnectionsService:
         )
         comm.handle_msg(msg)
         # cleanup the data_explorer state, so we don't break its own tests
-        service._kernel.data_explorer_service.shutdown()
+        service._kernel.data_explorer_service.shutdown()  # noqa: SLF001
         result = comm.messages[0]["data"]["result"]
         assert result is None
 

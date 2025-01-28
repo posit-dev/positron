@@ -9,9 +9,7 @@ import traitlets
 
 
 class SessionMode(str, enum.Enum):
-    """
-    The mode that the kernel application was started in.
-    """
+    """The mode that the kernel application was started in."""
 
     CONSOLE = "console"
     NOTEBOOK = "notebook"

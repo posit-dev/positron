@@ -21,7 +21,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - name: Parse Tags from PR Body
         id: pr-tags
         run: bash scripts/pr-tags-parse.sh
@@ -75,3 +74,4 @@ jobs:
     name: test
     uses: ./.github/workflows/test-integration.yml
     secrets: inherit
+

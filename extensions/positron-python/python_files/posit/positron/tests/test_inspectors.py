@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
+import torch
 from fastcore.foundation import L
 from shapely.geometry import Polygon
 
@@ -42,13 +43,9 @@ from .data import (
 )
 from .utils import get_type_as_str
 
-try:
-    import torch  # type: ignore [reportMissingImports] for 3.12
-except ImportError:
-    torch = None
-
 
 def verify_inspector(
+    *,
     value: Any,
     length: int,
     display_value: str,
@@ -108,9 +105,7 @@ def verify_inspector(
 
 
 class HelperClass:
-    """
-    A helper class for testing method functions.
-    """
+    """A helper class for testing method functions."""
 
     def __init__(self):
         self._x = 1
@@ -135,7 +130,7 @@ class HelperClass:
 
 
 @pytest.mark.parametrize("value", BOOL_CASES)
-def test_inspect_boolean(value: bool) -> None:
+def test_inspect_boolean(*, value: bool) -> None:
     verify_inspector(
         value=value,
         length=0,
@@ -377,7 +372,7 @@ def test_inspect_none(value: None) -> None:
 
 SET_CASES = [
     set(),
-    set([None]),
+    {None},
     set(BOOL_CASES),
     set(INT_CASES),
     set(FLOAT_CASES),
@@ -403,7 +398,7 @@ def test_inspect_set(value: set) -> None:
 
 
 def test_inspect_set_truncated() -> None:
-    value = set(list(range(TRUNCATE_AT * 2)))
+    value = set(range(TRUNCATE_AT * 2))
     length = len(value)
     verify_inspector(
         value=value,
@@ -417,7 +412,7 @@ def test_inspect_set_truncated() -> None:
     )
 
 
-LIST_WITH_CYCLE = list([1, 2])
+LIST_WITH_CYCLE = [1, 2]
 LIST_WITH_CYCLE.append(LIST_WITH_CYCLE)  # type: ignore
 LIST_CASES = [
     [],
@@ -789,7 +784,7 @@ def test_inspect_geopandas_series() -> None:
 
     verify_inspector(
         value=value,
-        display_value=f"geopandas.GeoSeries {repr([p1, p2, p3])}",
+        display_value=f"geopandas.GeoSeries {[p1, p2, p3]!r}",
         kind=VariableKind.Table,
         display_type=f"geometry [{rows}]",
         type_info=get_type_as_str(value),
@@ -866,13 +861,18 @@ def test_inspect_polars_series() -> None:
         (pl.Series([0, 1]), range(2)),
         (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), range(2)),
         (pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}), ["a", "b"]),
-        (pd.Index([0, 1]), range(0, 2)),
+        (pd.Index([0, 1]), range(2)),
         (
-            pd.Index([datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)]),
-            range(0, 2),
+            pd.Index(
+                [
+                    datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc),
+                    datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc),
+                ]
+            ),
+            range(2),
         ),
-        (np.array([0, 1]), range(0, 2)),  # 1D
-        (np.array([[0, 1], [2, 3]]), range(0, 2)),  # 2D
+        (np.array([0, 1]), range(2)),  # 1D
+        (np.array([[0, 1], [2, 3]]), range(2)),  # 2D
     ],
 )
 def test_get_children(data: Any, expected: Iterable) -> None:
@@ -902,9 +902,14 @@ def test_get_children(data: Any, expected: Iterable) -> None:
         ),
         (pd.Index([0, 1]), 0, 0),
         (
-            pd.Index([datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)]),
+            pd.Index(
+                [
+                    datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc),
+                    datetime.datetime(2021, 1, 2, tzinfo=datetime.timezone.utc),
+                ]
+            ),
             0,
-            datetime.datetime(2021, 1, 1),
+            datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc),
         ),
         (np.array([0, 1]), 0, 0),  # 1D
         (np.array([[0, 1], [2, 3]]), 0, [0, 1]),  # 2D
@@ -915,6 +920,8 @@ def test_get_child(value: Any, key: Any, expected: Any) -> None:
     assert get_inspector(child).equals(expected)
 
 
+# TODO: 3.13 maint. run this test once ibis is available in 3.13
+@pytest.mark.xfail(sys.version_info >= (3, 13), reason="ibis not available in 3.13", strict=True)
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="requires Python 3.10 or higher")
 def test_inspect_ibis_exprs() -> None:
     import ibis
@@ -922,16 +929,16 @@ def test_inspect_ibis_exprs() -> None:
     # Make sure we don't return an executed repr
     ibis.options.interactive = True
 
-    df = pd.DataFrame({"a": [1, 2, 1, 1, 2], "b": ["foo", "bar", "baz", "qux", None]})
+    test_df = pd.DataFrame({"a": [1, 2, 1, 1, 2], "b": ["foo", "bar", "baz", "qux", None]})
 
-    t = ibis.memtable(df, name="df")
+    t = ibis.memtable(test_df, name="df")
     table_type = "ibis.expr.types.relations.Table"
 
     verify_inspector(
         value=t,
         display_value=table_type,
         kind=VariableKind.Other,
-        display_type=f"ibis.Expr",
+        display_type="ibis.Expr",
         type_info=get_type_as_str(t),
         has_children=False,
         is_truncated=True,
@@ -946,7 +953,7 @@ def test_inspect_ibis_exprs() -> None:
         value=a_sum,
         display_value=int_type,
         kind=VariableKind.Other,
-        display_type=f"ibis.Expr",
+        display_type="ibis.Expr",
         type_info=get_type_as_str(a_sum),
         has_children=False,
         is_truncated=True,
@@ -962,7 +969,7 @@ def test_inspect_ibis_exprs() -> None:
     ("value", "expected"),
     [
         (np.array([[1, 2, 3], [4, 5, 6]], dtype="int64"), 48),
-        (torch.Tensor([[1, 2, 3], [4, 5, 6]]) if torch else None, 24),
+        (torch.Tensor([[1, 2, 3], [4, 5, 6]]), 24),
         (pd.Series([1, 2, 3, 4]), 32),
         (pl.Series([1, 2, 3, 4]), 32),
         (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), 4),

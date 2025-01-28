@@ -20,7 +20,9 @@ from collections.abc import (
     MutableSequence,
     MutableSet,
     Sequence,
-    Set,
+)
+from collections.abc import (
+    Set as AbstractSet,
 )
 from inspect import getattr_static
 from typing import (
@@ -28,44 +30,39 @@ from typing import (
     Any,
     Callable,
     Collection,
-    Dict,
     FrozenSet,
     Generic,
     Iterable,
-    Optional,
     Sized,
     Tuple,
-    Type,
     TypeVar,
     Union,
     cast,
 )
 
 from .third_party import _numpy, _pandas, _torch
-
 from .utils import (
     JsonData,
     get_qualname,
-    not_none,
     numpy_numeric_scalars,
     pretty_format,
     safe_isinstance,
 )
 
 if TYPE_CHECKING:
+    import contextlib
+
     import numpy as np
     import pandas as pd
     import polars as pl
 
-    try:  # temporary try/except for python 3.12
+    # temporary suppress for python 3.12
+    with contextlib.suppress(ImportError):
         import torch  # type: ignore [reportMissingImports]
-    except ImportError:
-        pass
 
-    try:
-        import ibis  # python >= 3.10
-    except ImportError:
-        pass
+    # python >= 3.10
+    with contextlib.suppress(ImportError):
+        import ibis  # noqa: F401
 
 
 # General display settings
@@ -129,9 +126,7 @@ def _get_simplified_qualname(value):
 
 
 class PositronInspector(Generic[T]):
-    """
-    Base inspector for any type
-    """
+    """Base inspector for any type."""
 
     def __init__(self, value: T) -> None:
         self.value = value
@@ -141,9 +136,9 @@ class PositronInspector(Generic[T]):
 
     def get_display_value(
         self,
-        print_width: Optional[int] = PRINT_WIDTH,
+        print_width: int | None = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
-    ) -> Tuple[str, bool]:
+    ) -> tuple[str, bool]:
         return pretty_format(self.value, print_width, truncate_at)
 
     def get_display_type(self) -> str:
@@ -170,10 +165,10 @@ class PositronInspector(Generic[T]):
     def has_children(self) -> bool:
         return self.get_length() > 0
 
-    def has_child(self, key: Any) -> bool:
+    def has_child(self, _key: Any) -> bool:
         return False
 
-    def get_child(self, key: Any) -> Any:
+    def get_child(self, _key: Any) -> Any:
         raise TypeError(f"get_child() is not implemented for type: {type(self.value)}")
 
     def get_children(self) -> Iterable[Any]:
@@ -201,6 +196,8 @@ class PositronInspector(Generic[T]):
 
     def deepcopy(self) -> T:
         """
+        Special deepcopy.
+
         Inspectors of mutable types are not deepcopyable by default, since deepcopying may have
         unintended side-effects (see https://github.com/posit-dev/positron/issues/2833). To support
         deepcopying, sub-classes must override `deepcopy`.
@@ -217,7 +214,7 @@ class PositronInspector(Generic[T]):
         return repr(self.value)
 
     def to_json(self) -> JsonData:
-        return dict(type=self.type_to_json(), data=self.value_to_json())
+        return {"type": self.type_to_json(), "data": self.value_to_json()}
 
     def type_to_json(self) -> str:
         return self.get_type_info()
@@ -266,7 +263,7 @@ class BooleanInspector(PositronInspector[bool]):
         return self.value
 
     @classmethod
-    def value_from_json(cls, type_name: str, data: JsonData) -> bool:
+    def value_from_json(cls, _type_name: str, data: JsonData) -> bool:
         if not isinstance(data, bool):
             raise ValueError(f"Expected data to be bool, got {data}")
 
@@ -286,9 +283,9 @@ class BytesInspector(PositronInspector[bytes]):
 
     def get_display_value(
         self,
-        print_width: Optional[int] = PRINT_WIDTH,
+        _print_width: int | None = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
-    ) -> Tuple[str, bool]:
+    ) -> tuple[str, bool]:
         # Ignore print_width for strings
         return super().get_display_value(None, truncate_at)
 
@@ -302,7 +299,7 @@ class BytesInspector(PositronInspector[bytes]):
         return self.value.decode()
 
     @classmethod
-    def value_from_json(cls, type_name: str, data: JsonData) -> bytes:
+    def value_from_json(cls, _type_name: str, data: JsonData) -> bytes:
         if not isinstance(data, str):
             raise ValueError(f"Expected data to be str, got {data}")
 
@@ -343,7 +340,7 @@ class ClassInspector(ObjectInspector[type]):
         return str(self.value)
 
     @classmethod
-    def value_from_json(cls, type_name: str, data: JsonData) -> type:
+    def value_from_json(cls, _type_name: str, data: JsonData) -> type:
         if not isinstance(data, str):
             raise ValueError(f"Expected data to be str, got {data}")
 
@@ -369,13 +366,10 @@ class FunctionInspector(PositronInspector[Callable]):
 
     def get_display_value(
         self,
-        print_width: Optional[int] = PRINT_WIDTH,
-        truncate_at: int = TRUNCATE_AT,
-    ) -> Tuple[str, bool]:
-        if callable(self.value):
-            sig = inspect.signature(self.value)
-        else:
-            sig = "()"
+        _print_width: int | None = PRINT_WIDTH,
+        _truncate_at: int = TRUNCATE_AT,
+    ) -> tuple[str, bool]:
+        sig = inspect.signature(self.value) if callable(self.value) else "()"
         return (f"{self.value.__qualname__}{sig}", False)
 
     def get_kind(self) -> str:
@@ -425,7 +419,7 @@ class NumberInspector(PositronInspector[NT], ABC):
         return super().value_to_json()
 
     @classmethod
-    def value_from_json(cls, type_name: str, data: JsonData) -> Union[NT, numbers.Number]:
+    def value_from_json(cls, type_name: str, data: JsonData) -> NT | numbers.Number:
         if type_name == "int":
             if not isinstance(data, numbers.Integral):
                 raise ValueError(f"Expected data to be int, got {data}")
@@ -449,9 +443,9 @@ class NumpyNumberInspector(NumberInspector["np.number"]):
 
     def get_display_value(
         self,
-        print_width: Optional[int] = PRINT_WIDTH,
+        print_width: int | None = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
-    ) -> Tuple[str, bool]:
+    ) -> tuple[str, bool]:
         # numpy numbers do not print cleanly as of numpy 2.0
         # use the self.value.item() to retrieve the actual number
         return pretty_format(self.value.item(), print_width, truncate_at)
@@ -463,9 +457,9 @@ class StringInspector(PositronInspector[str]):
 
     def get_display_value(
         self,
-        print_width: Optional[int] = PRINT_WIDTH,
+        _print_width: int | None = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
-    ) -> Tuple[str, bool]:
+    ) -> tuple[str, bool]:
         # Ignore print_width for strings
         display_value, is_truncated = super().get_display_value(None, truncate_at)
 
@@ -486,7 +480,7 @@ class StringInspector(PositronInspector[str]):
         return self.value
 
     @classmethod
-    def value_from_json(cls, type_name: str, data: JsonData) -> str:
+    def value_from_json(cls, _type_name: str, data: JsonData) -> str:
         if not isinstance(data, str):
             raise ValueError(f"Expected data to be str, got {data}")
 
@@ -509,7 +503,7 @@ class _BaseTimestampInspector(PositronInspector[Timestamp], ABC):
         return self.value.isoformat()
 
     @classmethod
-    def value_from_json(cls, type_name: str, data: JsonData) -> Timestamp:
+    def value_from_json(cls, _type_name: str, data: JsonData) -> Timestamp:
         if not isinstance(data, str):
             raise ValueError(f"Expected data to be str, got {data}")
 
@@ -536,7 +530,7 @@ class PandasTimestampInspector(_BaseTimestampInspector["pd.Timestamp"]):
 # Collections
 #
 
-CollectionT = Union[range, FrozenSet, Sequence, Set, Tuple]
+CollectionT = Union[range, FrozenSet, Sequence, AbstractSet, Tuple]
 CT = TypeVar("CT", CollectionT, "np.ndarray", "torch.Tensor")
 
 
@@ -549,7 +543,7 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
         # implied as a contiguous set of integers in a range.
         # For sets, we don't visualize the children as they're
         # not subscriptable objects.
-        if isinstance(self.value, (range, Set, FrozenSet)):
+        if isinstance(self.value, (range, AbstractSet, FrozenSet)):
             return False
 
         return super().has_children()
@@ -559,7 +553,7 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
 
     def get_child(self, key: int) -> Any:
         # Don't allow indexing into ranges or sets.
-        if isinstance(self.value, (range, Set, FrozenSet)):
+        if isinstance(self.value, (range, AbstractSet, FrozenSet)):
             raise TypeError(f"get_child() is not implemented for type: {type(self.value)}")
 
         # TODO(pyright): type should be narrowed to exclude frozen set, retry in a future version of pyright
@@ -581,7 +575,7 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
         type_name = type(self.value).__name__
         length = self.get_length()
 
-        if isinstance(self.value, Set):
+        if isinstance(self.value, AbstractSet):
             return f"{type_name} {{{length}}}"
         elif isinstance(self.value, tuple):
             return f"{type_name} ({length})"
@@ -665,9 +659,7 @@ class _BaseArrayInspector(_BaseCollectionInspector[Array], ABC):
         return self.get_num_cells()
 
     def get_num_cells(self) -> int:
-        """
-        Return the number of value cells in the array
-        """
+        """Return the number of value cells in the array."""
         if self.value.ndim == 0:
             return 0
 
@@ -697,9 +689,9 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
 
     def get_display_value(
         self,
-        print_width: Optional[int] = PRINT_WIDTH,
-        truncate_at: int = TRUNCATE_AT,
-    ) -> Tuple[str, bool]:
+        print_width: int | None = PRINT_WIDTH,
+        _truncate_at: int = TRUNCATE_AT,
+    ) -> tuple[str, bool]:
         return (
             _numpy().array2string(
                 self.value,
@@ -725,9 +717,9 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
 
     def get_display_value(
         self,
-        print_width: Optional[int] = PRINT_WIDTH,
-        truncate_at: int = TRUNCATE_AT,
-    ) -> Tuple[str, bool]:
+        print_width: int | None = PRINT_WIDTH,
+        _truncate_at: int = TRUNCATE_AT,
+    ) -> tuple[str, bool]:
         # NOTE:
         # Once https://github.com/pytorch/pytorch/commit/e03800a93af55ef61f2e610d65ac7194c0614edc
         # is in a stable version we can use it to temporarily set print options
@@ -738,7 +730,7 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
             "edgeitems": ARRAY_EDGEITEMS,
             "linewidth": print_width,
         }
-        options_obj = torch._tensor_str.PRINT_OPTS  # type: ignore[reportGeneralTypeIssues]
+        options_obj = torch._tensor_str.PRINT_OPTS  # type: ignore[reportGeneralTypeIssues]  # noqa: SLF001
         original_options = {k: getattr(options_obj, k) for k in new_options}
 
         torch.set_printoptions(**new_options)
@@ -837,9 +829,9 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
 
     def get_display_value(
         self,
-        print_width: Optional[int] = PRINT_WIDTH,
-        truncate_at: int = TRUNCATE_AT,
-    ) -> Tuple[str, bool]:
+        _print_width: int | None = PRINT_WIDTH,
+        _truncate_at: int = TRUNCATE_AT,
+    ) -> tuple[str, bool]:
         display_value = _get_simplified_qualname(self.value)
         column_values = str(cast(Column, self.value[:100]).to_list())
         display_value = f"{display_value} {column_values}"
@@ -857,10 +849,10 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
 
 class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
     # Simplified names
-    CLASS_QNAME = [
+    CLASS_QNAME = (
         "pandas.Series",
         "geopandas.GeoSeries",
-    ]
+    )
 
     def get_display_name(self, key: int) -> str:
         return str(self.value.index[key])
@@ -893,22 +885,22 @@ class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
 
 
 class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
-    CLASS_QNAME = [
+    CLASS_QNAME = (
         "pandas.core.indexes.base.Index",
         "pandas.core.indexes.datetimes.DatetimeIndex",
         "pandas.core.indexes.range.RangeIndex",
         "pandas.core.indexes.multi.MultiIndex",
         "pandas.core.indexes.numeric.Int64Index",
-    ]
+    )
 
     def is_mutable(self) -> bool:
         return False
 
     def get_display_value(
         self,
-        print_width: Optional[int] = PRINT_WIDTH,
-        truncate_at: int = TRUNCATE_AT,
-    ) -> Tuple[str, bool]:
+        _print_width: int | None = PRINT_WIDTH,
+        _truncate_at: int = TRUNCATE_AT,
+    ) -> tuple[str, bool]:
         # RangeIndexes don't need to be truncated.
         if isinstance(self.value, _pandas().RangeIndex):
             return str(self.value), False
@@ -937,9 +929,7 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
 
 class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
     # Simplified class names
-    CLASS_QNAME = [
-        "polars.Series",
-    ]
+    CLASS_QNAME = ("polars.Series",)
 
     def equals(self, value: pl.Series) -> bool:
         try:
@@ -964,9 +954,7 @@ Table = TypeVar("Table", "pd.DataFrame", "pl.DataFrame")
 
 
 class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
-    """
-    Base inspector for tabular data
-    """
+    """Base inspector for tabular data."""
 
     def get_display_type(self) -> str:
         type_name = type(self.value).__name__
@@ -989,9 +977,9 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
 
     def get_display_value(
         self,
-        print_width: Optional[int] = PRINT_WIDTH,
-        truncate_at: int = TRUNCATE_AT,
-    ) -> Tuple[str, bool]:
+        _print_width: int | None = PRINT_WIDTH,
+        _truncate_at: int = TRUNCATE_AT,
+    ) -> tuple[str, bool]:
         display_value = _get_simplified_qualname(self.value)
         if hasattr(self.value, "shape"):
             shape = self.value.shape
@@ -1007,10 +995,10 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
 
 class PandasDataFrameInspector(BaseTableInspector["pd.DataFrame", "pd.Series"]):
     # Simplified names
-    CLASS_QNAME = [
+    CLASS_QNAME = (
         "pandas.DataFrame",
         "geopandas.GeoDataFrame",
-    ]
+    )
 
     def get_display_name(self, key: int) -> str:
         return str(self.value.columns[key])
@@ -1038,18 +1026,16 @@ class PandasDataFrameInspector(BaseTableInspector["pd.DataFrame", "pd.Series"]):
 
 class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
     # Simplified class name
-    CLASS_QNAME = [
-        "polars.DataFrame",
-    ]
+    CLASS_QNAME = ("polars.DataFrame",)
 
     def get_children(self):
         return self.value.columns
 
     def get_display_value(
         self,
-        print_width: Optional[int] = PRINT_WIDTH,
-        truncate_at: int = TRUNCATE_AT,
-    ) -> Tuple[str, bool]:
+        _print_width: int | None = PRINT_WIDTH,
+        _truncate_at: int = TRUNCATE_AT,
+    ) -> tuple[str, bool]:
         qualname = _get_simplified_qualname(self.value)
         shape = self.value.shape
         display_value = f"[{shape[0]} rows x {shape[1]} columns] {qualname}"
@@ -1093,7 +1079,7 @@ class BaseConnectionInspector(ObjectInspector):
 
 class SQLiteConnectionInspector(BaseConnectionInspector):
     # in older Python versions (eg 3.9) the qualname for sqlite3.Connection is just "Connection"
-    CLASS_QNAME = ["Connection", "sqlite3.Connection"]
+    CLASS_QNAME = ("Connection", "sqlite3.Connection")
 
     def _is_active(self, value) -> bool:
         try:
@@ -1105,7 +1091,7 @@ class SQLiteConnectionInspector(BaseConnectionInspector):
 
 
 class SQLAlchemyEngineInspector(BaseConnectionInspector):
-    CLASS_QNAME = ["sqlalchemy.engine.base.Engine"]
+    CLASS_QNAME = ("sqlalchemy.engine.base.Engine",)
 
     def _is_active(self, value) -> bool:
         try:
@@ -1128,9 +1114,9 @@ class IbisExprInspector(PositronInspector["ibis.Expr"]):
 
     def get_display_value(
         self,
-        print_width: Optional[int] = PRINT_WIDTH,
-        truncate_at: int = TRUNCATE_AT,
-    ) -> Tuple[str, bool]:
+        _print_width: int | None = PRINT_WIDTH,
+        _truncate_at: int = TRUNCATE_AT,
+    ) -> tuple[str, bool]:
         # Just use the default object.__repr__ for now
         simplified_name = get_qualname(self.value)
         return (f"{simplified_name}", True)
@@ -1145,7 +1131,7 @@ class IbisExprInspector(PositronInspector["ibis.Expr"]):
         return self.get_display_value()[0]
 
 
-INSPECTOR_CLASSES: Dict[str, Type[PositronInspector]] = {
+INSPECTOR_CLASSES: dict[str, type[PositronInspector]] = {
     **dict.fromkeys(PandasDataFrameInspector.CLASS_QNAME, PandasDataFrameInspector),
     **dict.fromkeys(PandasSeriesInspector.CLASS_QNAME, PandasSeriesInspector),
     **dict.fromkeys(PandasIndexInspector.CLASS_QNAME, PandasIndexInspector),
@@ -1185,20 +1171,18 @@ def get_inspector(value: T) -> PositronInspector[T]:
         qualname = "property"
     else:
         qualname = _get_simplified_qualname(value)
-    inspector_cls = INSPECTOR_CLASSES.get(qualname, None)
+    inspector_cls = INSPECTOR_CLASSES.get(qualname)
 
     if inspector_cls is None:
         # Otherwise, look for an inspector by kind
         kind = _get_kind(value)
-        inspector_cls = INSPECTOR_CLASSES.get(kind, None)
+        inspector_cls = INSPECTOR_CLASSES.get(kind)
 
     # Otherwise, default to generic inspector
     if inspector_cls is None:
         inspector_cls = PositronInspector
 
-    inspector = inspector_cls(value)
-
-    return inspector
+    return inspector_cls(value)
 
 
 def _get_kind(value: Any) -> str:
@@ -1212,7 +1196,7 @@ def _get_kind(value: Any) -> str:
         return "map"
     elif isinstance(value, (bytes, bytearray, memoryview)):
         return "bytes"
-    elif isinstance(value, (Sequence, Set)):
+    elif isinstance(value, (Sequence, AbstractSet)):
         return "collection"
     elif isinstance(value, (types.FunctionType, types.MethodType)):
         return "function"

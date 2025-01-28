@@ -123,7 +123,7 @@ def test_looks_like_epytext_ignores_plain_text():
 
 
 @pytest.mark.parametrize(
-    "epytext,markdown",
+    ("epytext", "markdown"),
     [[case["epytext"], case["md"]] for case in EPYTEXT_CASES.values()],
     ids=EPYTEXT_CASES.keys(),
 )

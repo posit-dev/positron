@@ -4,9 +4,10 @@
 #
 from __future__ import annotations
 
+import contextlib
 import logging
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Tuple, TypedDict
 
 import comm
 
@@ -16,12 +17,12 @@ from .connections_comm import (
     ConnectionsFrontendEvent,
     ContainsDataRequest,
     GetIconRequest,
+    GetMetadataRequest,
     ListFieldsRequest,
     ListObjectsRequest,
+    MetadataSchema,
     ObjectSchema,
     PreviewObjectRequest,
-    MetadataSchema,
-    GetMetadataRequest,
 )
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 from .utils import JsonData, JsonRecord, safe_isinstance
@@ -39,8 +40,8 @@ logger = logging.getLogger(__name__)
 
 
 class ConnectionObjectInfo(TypedDict):
-    icon: Optional[str]
-    contains: Union[Dict[str, "ConnectionObjectInfo"], Optional[str]]
+    icon: str | None
+    contains: dict[str, ConnectionObjectInfo] | str | None
 
 
 class ConnectionObject(TypedDict):
@@ -77,17 +78,17 @@ class Connection:
 
     type: str
     host: str
-    display_name: Optional[str] = None
-    icon: Optional[str] = None
-    code: Optional[str] = None
+    display_name: str | None = None
+    icon: str | None = None
+    code: str | None = None
     conn: Any = None
     actions: Any = None
 
     def disconnect(self) -> None:
         "Callback executed when the connection is closed in the UI."
-        raise NotImplementedError()
+        raise NotImplementedError
 
-    def list_object_types(self) -> Dict[str, ConnectionObjectInfo]:
+    def list_object_types(self) -> dict[str, ConnectionObjectInfo]:
         """
         Returns a dictionary of object types and their properties.
 
@@ -98,9 +99,9 @@ class Connection:
 
         The `icon` property is the path to an icon to be used by the UI.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
-    def list_objects(self, path: List[ObjectSchema]) -> List[ConnectionObject]:
+    def list_objects(self, path: list[ObjectSchema]) -> list[ConnectionObject]:
         """
         Returns the list of objects at the given path.
 
@@ -111,9 +112,9 @@ class Connection:
         Args:
             path: The path to the object.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
-    def list_fields(self, path: List[ObjectSchema]) -> List[ConnectionObjectFields]:
+    def list_fields(self, path: list[ObjectSchema]) -> list[ConnectionObjectFields]:
         """
         Returns the list of fields for the given object.
 
@@ -124,9 +125,9 @@ class Connection:
         Args:
             path: The path to the object.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
-    def preview_object(self, path: List[ObjectSchema]) -> Any:
+    def preview_object(self, path: list[ObjectSchema]) -> Any:
         """
         Returns a small sample of the object's data for previewing.
 
@@ -136,7 +137,7 @@ class Connection:
         Args:
             path: The path to the object.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def get_metadata(self) -> MetadataSchema:
         """
@@ -159,29 +160,28 @@ class Connection:
 
 
 class ConnectionsService:
-    """
-    A service that manages connections to data sources.
-    """
+    """A service that manages connections to data sources."""
 
     def __init__(self, kernel: PositronIPyKernel, comm_target_name: str):
-        self.comms: Dict[str, PositronComm] = {}
-        self.comm_id_to_connection: Dict[str, Connection] = {}
+        self.comms: dict[str, PositronComm] = {}
+        self.comm_id_to_connection: dict[str, Connection] = {}
         self._kernel = kernel
         self._comm_target_name = comm_target_name
 
         # Maps from variable path to set of comm_ids serving requests.
         # A variable can point to a single connection object in the pane.
         # But a comm_id can be shared by multiple variable paths.
-        self.path_to_comm_ids: Dict[PathKey, str] = {}
+        self.path_to_comm_ids: dict[PathKey, str] = {}
 
         # Mapping from comm_id to the corresponding variable path.
         # Multiple variables paths, might point to the same commm_id.
-        self.comm_id_to_path: Dict[str, Set[PathKey]] = {}
+        self.comm_id_to_path: dict[str, set[PathKey]] = {}
 
     def register_connection(
         self,
         connection: Any,
-        variable_path: Optional[List[str] | str] = None,
+        variable_path: list[str] | str | None = None,
+        *,
         display_pane: bool = True,
     ) -> str:
         """
@@ -195,7 +195,6 @@ class ConnectionsService:
             display_pane: Wether the Connection Pane view container should be
                 displayed in the UI once the connection is registered.
         """
-
         if not isinstance(connection, Connection):
             connection = self._wrap_connection(connection)
 
@@ -240,9 +239,7 @@ class ConnectionsService:
 
         return comm_id
 
-    def _register_variable_path(
-        self, variable_path: Optional[List[str] | str], comm_id: str
-    ) -> None:
+    def _register_variable_path(self, variable_path: list[str] | str | None, comm_id: str) -> None:
         if variable_path is None:
             return
 
@@ -281,7 +278,7 @@ class ConnectionsService:
 
     def on_comm_open(self, comm: BaseComm):
         comm_id = comm.comm_id
-        comm.on_close(lambda msg: self._on_comm_close(comm_id))
+        comm.on_close(lambda _msg: self._on_comm_close(comm_id))
         connections_comm = PositronComm(comm)
         connections_comm.on_msg(self.handle_msg, ConnectionsBackendMessageContent)
         self.comms[comm_id] = connections_comm
@@ -303,9 +300,7 @@ class ConnectionsService:
             raise UnsupportedConnectionError(f"Unsupported connection type {type(obj)}")
 
     def object_is_supported(self, obj: Any) -> bool:
-        """
-        Checks if an object is supported by the connections pane.
-        """
+        """Checks if an object is supported by the connections pane."""
         try:
             # This block might fail if for some reason 'Connection' or 'Engine' are
             # not available in their modules.
@@ -317,15 +312,11 @@ class ConnectionsService:
             return False
 
     def variable_has_active_connection(self, variable_name: str) -> bool:
-        """
-        Checks if the given variable path has an active connection.
-        """
+        """Checks if the given variable path has an active connection."""
         return any(decode_access_key(path[0]) == variable_name for path in self.path_to_comm_ids)
 
     def handle_variable_updated(self, variable_name: str, value: Any) -> None:
-        """
-        Handles a variable being updated in the kernel.
-        """
+        """Handles a variable being updated in the kernel."""
         variable_path = [encode_access_key(variable_name)]
         comm_id = self.path_to_comm_ids.get(tuple(variable_path))
 
@@ -351,9 +342,7 @@ class ConnectionsService:
             return
 
     def handle_variable_deleted(self, variable_name: str) -> None:
-        """
-        Handles a variable being deleted in the kernel.
-        """
+        """Handles a variable being deleted in the kernel."""
         # copy the keys, as we might modify the dict in the loop
         paths = set(self.path_to_comm_ids.keys())
         for path in paths:
@@ -362,10 +351,8 @@ class ConnectionsService:
                 self._unregister_variable_path(path)
 
     def _on_comm_close(self, comm_id: str):
-        """
-        Handles front-end initiated close requests
-        """
-        paths: Set[PathKey] = set(self.comm_id_to_path.get(comm_id, set()))
+        """Handles front-end initiated close requests."""
+        paths: set[PathKey] = set(self.comm_id_to_path.get(comm_id, set()))
 
         if not paths:
             # id the connection is not associated with any variable path, we close it
@@ -400,9 +387,7 @@ class ConnectionsService:
         del self.comm_id_to_connection[comm_id]
 
     def shutdown(self):
-        """
-        Closes all comms and runs the `disconnect` callback.
-        """
+        """Closes all comms and runs the `disconnect` callback."""
         for comm_id in list(self.comms.keys()):
             self._close_connection(comm_id)
 
@@ -412,10 +397,7 @@ class ConnectionsService:
     def handle_msg(
         self, msg: CommMessage[ConnectionsBackendMessageContent], raw_msg: JsonRecord
     ) -> None:
-        """
-        Handles messages from the frontend.
-        """
-
+        """Handles messages from the frontend."""
         try:
             return self._handle_msg(msg, raw_msg)
         except Exception as err:
@@ -428,7 +410,7 @@ class ConnectionsService:
                 logger.error(
                     "Failed to process positron.connection request. No comm_id found in the message."
                 )
-                return
+                return None
 
             logger.warning(err, exc_info=True)
             self.comms[comm_id].send_error(
@@ -437,7 +419,7 @@ class ConnectionsService:
             )
 
     def _handle_msg(
-        self, msg: CommMessage[ConnectionsBackendMessageContent], raw_msg: JsonRecord
+        self, msg: CommMessage[ConnectionsBackendMessageContent], _raw_msg: JsonRecord
     ) -> None:
         comm_id = msg.content.comm_id
         request = msg.content.data
@@ -471,7 +453,7 @@ class ConnectionsService:
         if len(path) == 0:
             return False
 
-        object_types: Dict[str, Any] = conn.list_object_types()
+        object_types: dict[str, Any] = conn.list_object_types()
         try:
             contains = object_types[path[-1].kind].get("contains", "not_data")
         except KeyError:
@@ -485,11 +467,9 @@ class ConnectionsService:
         if len(path) == 0:
             icon = getattr(conn, "icon", None)
         else:
-            object_types: Dict[str, Any] = conn.list_object_types()
-            try:
+            object_types: dict[str, Any] = conn.list_object_types()
+            with contextlib.suppress(KeyError):
                 icon = object_types[path[-1].kind].get("icon", None)
-            except KeyError:
-                pass
 
         if icon is None:
             return ""
@@ -497,12 +477,12 @@ class ConnectionsService:
 
     def handle_list_objects_request(
         self, conn: Connection, request: ListObjectsRequest
-    ) -> List[ConnectionObject]:
+    ) -> list[ConnectionObject]:
         return conn.list_objects(request.params.path)
 
     def handle_list_fields_request(
         self, conn: Connection, request: ListFieldsRequest
-    ) -> List[ConnectionObjectFields]:
+    ) -> list[ConnectionObjectFields]:
         return conn.list_fields(request.params.path)
 
     def handle_preview_object_request(
@@ -513,16 +493,13 @@ class ConnectionsService:
         self._kernel.data_explorer_service.register_table(res, title)
 
     def handle_get_metadata_request(
-        self, conn: Connection, request: GetMetadataRequest
+        self, conn: Connection, _request: GetMetadataRequest
     ) -> MetadataSchema:
-        res = conn.get_metadata()
-        return res
+        return conn.get_metadata()
 
 
 class SQLite3Connection(Connection):
-    """
-    Support for sqlite3 connections to databases.
-    """
+    """Support for sqlite3 connections to databases."""
 
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
@@ -536,6 +513,7 @@ class SQLite3Connection(Connection):
     def _find_path(self, conn: sqlite3.Connection):
         """
         Find the path to the database file or the in-memory database.
+
         The path is used as the `host` property and is important to indentify
         a unique sqlite3 connection.
         """
@@ -545,13 +523,13 @@ class SQLite3Connection(Connection):
         row = cursor.fetchone()
         return row[2]
 
-    def list_objects(self, path: List[ObjectSchema]):
+    def list_objects(self, path: list[ObjectSchema]):
         if len(path) == 0:
             # we are at the root of the database, thus we return the list of attached 'databases'
             # in general there's only `main` and `temp` but it seems users can attach other
             # dbs to the connection
             res = self.conn.cursor().execute("PRAGMA database_list;")
-            schemas: List[ConnectionObject] = []
+            schemas: list[ConnectionObject] = []
             for _, name, _ in res.fetchall():
                 schemas.append(ConnectionObject({"name": name, "kind": "schema"}))
             return schemas
@@ -573,7 +551,7 @@ class SQLite3Connection(Connection):
                 """
             )
 
-            tables: List[ConnectionObject] = []
+            tables: list[ConnectionObject] = []
             for name, kind in res.fetchall():
                 # We drop the internal schema objects as defined in:
                 # https://www.sqlite.org/fileformat.html#internal_schema_objects
@@ -588,7 +566,7 @@ class SQLite3Connection(Connection):
         # it means the path is invalid.
         raise ValueError(f"Path length must be at most 1, but got {len(path)}. Path: {path}")
 
-    def list_fields(self, path: List[ObjectSchema]):
+    def list_fields(self, path: list[ObjectSchema]):
         if len(path) != 2:
             raise ValueError(f"Path length must be 2, but got {len(path)}. Path: {path}")
 
@@ -600,7 +578,7 @@ class SQLite3Connection(Connection):
 
         # https://www.sqlite.org/pragma.html#pragma_table_info
         res = self.conn.cursor().execute(f"PRAGMA {schema.name}.table_info({table.name});")
-        fields: List[ConnectionObjectFields] = []
+        fields: list[ConnectionObjectFields] = []
         for _, name, dtype, _, _, _ in res.fetchall():
             fields.append(ConnectionObjectFields({"name": name, "dtype": dtype}))
 
@@ -609,11 +587,11 @@ class SQLite3Connection(Connection):
     def disconnect(self):
         self.conn.close()
 
-    def preview_object(self, path: List[ObjectSchema]):
+    def preview_object(self, path: list[ObjectSchema]):
         try:
             import pandas as pd
-        except ImportError:
-            raise ModuleNotFoundError("Pandas is required for previewing SQLite tables.")
+        except ImportError as e:
+            raise ModuleNotFoundError("Pandas is required for previewing SQLite tables.") from e
 
         if len(path) != 2:
             raise ValueError(f"Path length must be 2, but got {len(path)}. Path: {path}")
@@ -639,9 +617,7 @@ class SQLite3Connection(Connection):
 
 
 class SQLAlchemyConnection(Connection):
-    """
-    Support for SQLAlchemy connections to databases.
-    """
+    """Support for SQLAlchemy connections to databases."""
 
     def __init__(self, conn):
         self.conn: sqlalchemy.Engine = conn
@@ -654,13 +630,13 @@ class SQLAlchemyConnection(Connection):
             "%connection_show engine\n"
         )
 
-    def list_objects(self, path: List[ObjectSchema]):
+    def list_objects(self, path: list[ObjectSchema]):
         try:
             import sqlalchemy
-        except ImportError:
+        except ImportError as e:
             raise ModuleNotFoundError(
                 "SQLAlchemy is required for listing objects in SQLAlchemy connections."
-            )
+            ) from e
 
         if len(path) == 0:
             # we at the root of the database so we return the list of schemas
@@ -685,13 +661,13 @@ class SQLAlchemyConnection(Connection):
 
         raise ValueError(f"Path length must be at most 1, but got {len(path)}. Path: {path}")
 
-    def list_fields(self, path: List[ObjectSchema]):
+    def list_fields(self, path: list[ObjectSchema]):
         try:
             import sqlalchemy
-        except ImportError:
+        except ImportError as e:
             raise ModuleNotFoundError(
                 "SQLAlchemy is required for listing fields in SQLAlchemy connections."
-            )
+            ) from e
 
         self._check_table_path(path)
 
@@ -712,18 +688,18 @@ class SQLAlchemyConnection(Connection):
             "database": ConnectionObjectInfo({"contains": None, "icon": None}),
         }
 
-    def preview_object(self, path: List[ObjectSchema]):
+    def preview_object(self, path: list[ObjectSchema]):
         try:
             import sqlalchemy
-        except ImportError:
+        except ImportError as e:
             raise ModuleNotFoundError(
                 "SQLAlchemy is required for previewing objects in SQLAlchemy connections."
-            )
+            ) from e
 
         try:
             import pandas as pd
-        except ImportError:
-            raise ModuleNotFoundError("Pandas is required for previewing SQLAlchemy tables.")
+        except ImportError as e:
+            raise ModuleNotFoundError("Pandas is required for previewing SQLAlchemy tables.") from e
 
         self._check_table_path(path)
         schema, table = path
@@ -739,7 +715,7 @@ class SQLAlchemyConnection(Connection):
     def disconnect(self):
         self.conn.dispose()
 
-    def _check_table_path(self, path: List[ObjectSchema]):
+    def _check_table_path(self, path: list[ObjectSchema]):
         if len(path) != 2:
             raise ValueError(
                 f"Invalid path. Length path ({len(path)}) expected to be 2.", f"Path: {path}"

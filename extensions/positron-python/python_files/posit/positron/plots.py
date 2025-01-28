@@ -8,7 +8,7 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
-from typing import List, Optional, Protocol, Tuple
+from typing import TYPE_CHECKING, Protocol
 
 from .plot_comm import (
     GetIntrinsicSizeRequest,
@@ -21,8 +21,10 @@ from .plot_comm import (
     RenderRequest,
 )
 from .positron_comm import CommMessage, PositronComm
-from .session_mode import SessionMode
-from .utils import JsonRecord
+
+if TYPE_CHECKING:
+    from .session_mode import SessionMode
+    from .utils import JsonRecord
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +56,7 @@ class Plot:
         self,
         comm: PositronComm,
         render: Renderer,
-        intrinsic_size: Tuple[int, int],
+        intrinsic_size: tuple[int, int],
     ) -> None:
         self._comm = comm
         self._render = render
@@ -67,15 +69,11 @@ class Plot:
 
     @property
     def closed(self) -> bool:
-        """
-        Whether the plot is closed.
-        """
+        """Whether the plot is closed."""
         return self._closed
 
     def _open(self) -> None:
-        """
-        Re-open the plot after it's been closed.
-        """
+        """Re-open the plot after it's been closed."""
         if not self._closed:
             return
 
@@ -83,18 +81,14 @@ class Plot:
         self._closed = False
 
     def close(self) -> None:
-        """
-        Close the plot.
-        """
+        """Close the plot."""
         if self._closed:
             return
         self._closed = True
         self._comm.close()
 
     def show(self) -> None:
-        """
-        Show the plot.
-        """
+        """Show the plot."""
         if self._closed:
             # No need to send a show event since opening the comm will trigger a render from the frontend.
             self._open()
@@ -102,16 +96,16 @@ class Plot:
             self._comm.send_event(PlotFrontendEvent.Show, {})
 
     def update(self) -> None:
-        """
-        Notify the frontend that the plot needs to be rerendered.
-        """
+        """Notify the frontend that the plot needs to be rerendered."""
         if self._closed:
             # No need to send an update event since opening the comm will trigger a render from the frontend.
             self._open()
         else:
             self._comm.send_event(PlotFrontendEvent.Update, {})
 
-    def _handle_msg(self, msg: CommMessage[PlotBackendMessageContent], raw_msg: JsonRecord) -> None:
+    def _handle_msg(
+        self, msg: CommMessage[PlotBackendMessageContent], _raw_msg: JsonRecord
+    ) -> None:
         request = msg.content.data
         if isinstance(request, RenderRequest):
             self._handle_render(
@@ -126,13 +120,13 @@ class Plot:
 
     def _handle_render(
         self,
-        size: Optional[PlotSize],
+        size: PlotSize | None,
         pixel_ratio: float,
-        format: str,
+        format_: str,
     ) -> None:
-        rendered = self._render(size, pixel_ratio, format)
+        rendered = self._render(size, pixel_ratio, format_)
         data = base64.b64encode(rendered).decode()
-        result = PlotResult(data=data, mime_type=MIME_TYPE[format]).dict()
+        result = PlotResult(data=data, mime_type=MIME_TYPE[format_]).dict()
         self._comm.send_result(data=result)
 
     def _handle_get_intrinsic_size(self) -> None:
@@ -147,16 +141,14 @@ class Plot:
             ).dict()
         self._comm.send_result(data=result)
 
-    def _handle_close(self, msg: JsonRecord) -> None:
+    def _handle_close(self, _msg: JsonRecord) -> None:
         self.close()
 
 
 class Renderer(Protocol):
-    """
-    A callable that renders a plot. See `plot_comm.RenderRequest` for parameter details.
-    """
+    """A callable that renders a plot. See `plot_comm.RenderRequest` for parameter details."""
 
-    def __call__(self, size: Optional[PlotSize], pixel_ratio: float, format: str) -> bytes: ...
+    def __call__(self, size: PlotSize | None, pixel_ratio: float, format_: str) -> bytes: ...
 
 
 class PlotsService:
@@ -175,9 +167,9 @@ class PlotsService:
         self._target_name = target_name
         self._session_mode = session_mode
 
-        self._plots: List[Plot] = []
+        self._plots: list[Plot] = []
 
-    def create_plot(self, render: Renderer, intrinsic_size: Tuple[int, int]) -> Plot:
+    def create_plot(self, render: Renderer, intrinsic_size: tuple[int, int]) -> Plot:
         """
         Create a plot.
 
@@ -200,9 +192,7 @@ class PlotsService:
         return plot
 
     def shutdown(self) -> None:
-        """
-        Shutdown the plots service.
-        """
+        """Shutdown the plots service."""
         for plot in list(self._plots):
             plot.close()
             self._plots.remove(plot)
