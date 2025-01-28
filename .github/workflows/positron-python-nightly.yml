@@ -53,8 +53,6 @@ jobs:
         with:
           path: ${{ env.special-working-directory-relative }}
 
-      - run: exit 1
-
       - name: Use Python ${{ matrix.python }}
         uses: actions/setup-python@v5
         with:
@@ -93,8 +91,8 @@ jobs:
             python: '3.8'
           - os: 'macos-13'
             python: '3.9'
-          # - os: 'windows-latest'
-          #   python: '3.10'
+          - os: 'windows-latest'
+            python: '3.10'
           - os: 'ubuntu-latest'
             python: '3.11'
           - os: 'ubuntu-latest'
@@ -140,7 +138,7 @@ jobs:
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-        channel: "U07KNKY6S5C"
+        channel: "#positron-test-results"
         include_jobs_time: "false"
         notify_on: "failure"
 
