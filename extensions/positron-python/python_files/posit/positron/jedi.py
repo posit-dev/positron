@@ -8,7 +8,7 @@ import pathlib
 import platform
 from functools import cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Union
+from typing import Any, Iterable, List, Optional, Union
 
 from IPython.core import oinspect
 
@@ -21,7 +21,7 @@ from ._vendor.jedi.api.interpreter import (
 from ._vendor.jedi.cache import memoize_method
 from ._vendor.jedi.inference import InferenceState
 from ._vendor.jedi.inference.base_value import HasNoContext, Value, ValueSet, ValueWrapper
-from ._vendor.jedi.inference.compiled import ExactValue
+from ._vendor.jedi.inference.compiled import ExactValue, create_simple_object
 from ._vendor.jedi.inference.compiled.mixed import MixedName, MixedObject
 from ._vendor.jedi.inference.compiled.value import CompiledName, CompiledValue
 from ._vendor.jedi.inference.context import ValueContext
@@ -32,9 +32,6 @@ from .inspectors import (
     get_inspector,
 )
 from .utils import get_qualname
-
-if TYPE_CHECKING:
-    from ._vendor.jedi.inference.lazy_value import LazyKnownValue
 
 #
 # We adapt code from the MIT-licensed jedi static analysis library to provide enhanced completions
@@ -167,12 +164,14 @@ class SafeDictLikeMixedObjectWrapper(ValueWrapper):
 
 class PolarsDataFrameMixedObjectWrapper(SafeDictLikeMixedObjectWrapper):
     def get_key_values(self):
-        # Polars dataframes don't have `.keys()`, instead iterate through `.columns`.
-        for columns in self._wrapped_value.py__getattribute__("columns"):
-            columns: CompiledValue
-            for values in columns.py__iter__():
-                values: LazyKnownValue
-                yield from values.infer()
+        # Polars dataframes don't have `.keys()`, directly access `.columns` instead.
+        for column in _directly_access_compiled_value(self.compiled_value).columns:
+            yield create_simple_object(self._wrapped_value.inference_state, column)
+
+
+def _directly_access_compiled_value(compiled_value: CompiledValue) -> Any:
+    """Directly access an object referenced by a `CompiledValue`. Should be used sparingly."""
+    return compiled_value.access_handle.access._obj  # noqa: SLF001
 
 
 def _mixed_tree_name_infer(self: MixedTreeName) -> ValueSet:
@@ -208,12 +207,11 @@ class PositronName(Name):
         name = self._wrapped_name._name  # noqa: SLF001
         # Does the wrapped name reference an actual object?
         if isinstance(name, (CompiledName, MixedName)):
-            # Infer the object.
+            # Infer the name's value.
             value = name.infer_compiled_value()
-            # Can we access the underlying object itself?
+            # Get an inspector for the object.
             if isinstance(value, CompiledValue):
-                # Get an inspector for the object.
-                obj = value.access_handle.access._obj  # noqa: SLF001
+                obj = _directly_access_compiled_value(value)
                 return get_inspector(obj)
         return None
 
