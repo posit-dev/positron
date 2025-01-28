@@ -259,9 +259,6 @@ jobs:
       - name: Install Node dependencies
         run: npm ci --fetch-timeout 120000
 
-      - name: LS
-        run: ls -la
-
       - name: Run `gulp prePublishNonBundle`
         run: npm run prePublish
 
