@@ -22,6 +22,7 @@ runs:
         # Generate the REPORT_URL
         REPORT_URL="${{ inputs.bucket-url }}/$REPORT_DIR/index.html"
         echo "Report URL: $REPORT_URL"
+        echo "REPORT_URL=$REPORT_URL" >> $GITHUB_ENV
 
         # Append REPORT_URL to the GitHub Step summary
         echo "📄 [Playwright Report]($REPORT_URL) <br>" >> $GITHUB_STEP_SUMMARY

@@ -53,11 +53,12 @@ jobs:
     needs: [unit-tests, integration-tests, e2e-electron, e2e-windows-electron, e2e-linux-browser]
     runs-on: ubuntu-latest
     steps:
-      - name: Send Slack Notification
-        uses: midleman/slack-workflow-status@master
+      - name: Notify Slack
+        uses: midleman/slack-workflow-status@v2.0.1
         with:
-          repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          channel: "#positron-test-results"
           notify_on: "failure"
 
 
