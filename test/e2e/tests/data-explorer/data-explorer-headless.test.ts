@@ -62,5 +62,11 @@ async function testBody(app: Application, logger: Logger, fileName: string) {
 		const lastRow = tableData.at(-1);
 		const lastHour = lastRow!['time_hour'];
 		expect(lastHour).toBe(LAST_CELL_CONTENTS);
+
+		// If file is plaintext (csv, tsv), check for the plaintext button in the actiobar
+		// Otherwise, ensure the button is not present
+		const shouldHavePlaintext = fileName.endsWith('.csv') || fileName.endsWith('.tsv');
+		const plaintextEl = app.code.driver.page.getByLabel('Open as Plain Text File');
+		expect(await plaintextEl.isVisible()).toBe(shouldHavePlaintext);
 	}).toPass();
 }

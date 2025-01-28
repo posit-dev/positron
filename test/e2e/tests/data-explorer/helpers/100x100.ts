@@ -98,6 +98,10 @@ export const testDataExplorer = async (
 
 	// Return to Stacked layout
 	await app.workbench.layouts.enterLayout('stacked');
+
+	// Check that "open as plaintext" button is not available
+	const plaintextEl = app.code.driver.page.getByLabel('Open as Plain Text File');
+	expect(await plaintextEl.isVisible()).toBe(false);
 };
 
 export const parquetFilePath = (app: Application) => {
