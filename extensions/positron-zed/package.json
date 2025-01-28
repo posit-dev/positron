@@ -42,7 +42,33 @@
           "application/vnd.zed.clock"
         ]
       }
-    ]
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Zed Language",
+      "properties": {
+        "zedLanguage.preferredZed": {
+          "type": "string",
+          "default": "none",
+          "description": "The preferred version of Zed to use",
+          "enum": [
+            "none",
+            "1.0.0",
+            "2.0.0"
+          ],
+          "enumDescriptions": [
+            "No version is preferred",
+            "Zed 1.0.0",
+            "Zed 2.0.0"
+          ]
+        },
+        "zedLanguage.autoStartup": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically start Zed in new workspaces"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
