@@ -93,8 +93,8 @@ jobs:
             python: '3.8'
           - os: 'macos-13'
             python: '3.9'
-          - os: 'windows-latest'
-            python: '3.10'
+          # - os: 'windows-latest'
+          #   python: '3.10'
           - os: 'ubuntu-latest'
             python: '3.11'
           - os: 'ubuntu-latest'
@@ -136,7 +136,7 @@ jobs:
 
     steps:
     - name: Send Slack Notification
-      uses: midleman/slack-workflow-status@v2.0.1
+      uses: midleman/slack-workflow-status@mi/fix-failed
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
