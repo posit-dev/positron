@@ -23,6 +23,8 @@ from positron._vendor.lsprotocol.types import (
     CompletionParams,
     DidCloseTextDocumentParams,
     DocumentHighlight,
+    DocumentSymbol,
+    DocumentSymbolParams,
     Hover,
     InitializeParams,
     Location,
@@ -33,6 +35,8 @@ from positron._vendor.lsprotocol.types import (
     Range,
     SignatureHelp,
     SignatureInformation,
+    SymbolInformation,
+    SymbolKind,
     TextDocumentClientCapabilities,
     TextDocumentIdentifier,
     TextDocumentItem,
@@ -55,6 +59,7 @@ from positron.positron_jedilsp import (
     positron_declaration,
     positron_definition,
     positron_did_close_diagnostics,
+    positron_document_symbol,
     positron_help_topic_request,
     positron_highlight,
     positron_hover,
@@ -843,54 +848,45 @@ def test_positron_references(
     assert references == expected_references
 
 
-# @pytest.mark.parametrize(
-#     ("source", "namespace", "expected_symbols"),
-#     [
-#         (
-#             "def foo():\n    pass",
-#             {},
-#             [
-#                 DocumentSymbol(
-#                     name="foo",
-#                     kind=SymbolKind.Function,
-#                     range=Range(start=Position(0, 0), end=Position(1, 8)),
-#                     selection_range=Range(start=Position(0, 4), end=Position(0, 7)),
-#                 )
-#             ],
-#         ),
-#         (
-#             "class Bar:\n    def baz(self):\n        pass",
-#             {},
-#             [
-#                 DocumentSymbol(
-#                     name="Bar",
-#                     kind=SymbolKind.Class,
-#                     range=Range(start=Position(0, 0), end=Position(2, 12)),
-#                     selection_range=Range(start=Position(0, 6), end=Position(0, 9)),
-#                     children=[
-#                         DocumentSymbol(
-#                             name="baz",
-#                             kind=SymbolKind.Method,
-#                             range=Range(start=Position(1, 4), end=Position(2, 12)),
-#                             selection_range=Range(start=Position(1, 8), end=Position(1, 11)),
-#                         )
-#                     ],
-#                 )
-#             ],
-#         ),
-#     ],
-# )
-# def test_positron_document_symbol(
-#     source: str, namespace: Dict[str, Any], expected_symbols: List[DocumentSymbol]
-# ) -> None:
-#     server = create_server(namespace)
-#     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+@pytest.mark.parametrize(
+    ("source", "namespace", "expected_symbols"),
+    [
+        pytest.param(
+            "def foo():\n    pass",
+            {},
+            [
+                SymbolInformation(
+                    name="foo",
+                    kind=SymbolKind.Function,
+                    location=Location(
+                        TEST_DOCUMENT_URI, Range(start=Position(0, 4), end=Position(0, 7))
+                    ),
+                    # TODO: Ideally, this should be the name of the text document.
+                    container_name="__main__.foo",
+                )
+            ],
+            id="from_source",
+        ),
+        # Namespace objects are excluded from the document's symbols since they aren't definitions.
+        pytest.param(
+            "func",
+            {"func": func},
+            None,
+            id="from_namespace",
+        ),
+    ],
+)
+def test_positron_document_symbol(
+    source: str, namespace: Dict[str, Any], expected_symbols: Optional[List[DocumentSymbol]]
+) -> None:
+    server = create_server(namespace)
+    text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
 
-#     params = DocumentSymbolParams(text_document=TextDocumentIdentifier(text_document.uri))
+    params = DocumentSymbolParams(text_document=TextDocumentIdentifier(text_document.uri))
 
-#     symbols = positron_document_symbol(server, params)
+    symbols = positron_document_symbol(server, params)
 
-#     assert symbols == expected_symbols
+    assert symbols == expected_symbols
 
 
 # @pytest.mark.parametrize(
