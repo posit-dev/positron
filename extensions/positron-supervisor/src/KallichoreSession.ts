@@ -1260,7 +1260,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 		if (this._runtimeState === positron.RuntimeState.Offline &&
 			newState !== positron.RuntimeState.Exited &&
-			newState === positron.RuntimeState.Offline) {
+			newState !== positron.RuntimeState.Offline) {
 			// The kernel was offline but is back online; open the connected
 			// barrier
 			this.log(`The kernel is back online.`, vscode.LogLevel.Info);
