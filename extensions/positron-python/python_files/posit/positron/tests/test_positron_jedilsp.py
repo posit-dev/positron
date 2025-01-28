@@ -233,13 +233,6 @@ def _completions(
             marks=pytest.mark.skip(reason="Completing integer dict keys not supported"),
         ),
         pytest.param(
-            'x["',
-            {"x": pd.DataFrame({"a": []})},
-            None,
-            ['a"'],
-            id="pandas_dataframe_string_dict_key",
-        ),
-        pytest.param(
             'x["', {"x": pd.Series({"a": 0})}, None, ['a"'], id="pandas_series_string_dict_key"
         ),
         pytest.param(

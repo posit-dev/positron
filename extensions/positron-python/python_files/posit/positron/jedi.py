@@ -8,15 +8,13 @@ import pathlib
 import platform
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Union
 
 from IPython.core import oinspect
 
 from ._vendor.jedi import settings
 from ._vendor.jedi.api import Interpreter, strings
 from ._vendor.jedi.api.classes import BaseName, Completion, Name
-
-# Rename to avoid conflict with classes.Completion
 from ._vendor.jedi.api.interpreter import (
     MixedTreeName,
 )
@@ -27,7 +25,6 @@ from ._vendor.jedi.inference.compiled import ExactValue
 from ._vendor.jedi.inference.compiled.mixed import MixedName, MixedObject
 from ._vendor.jedi.inference.compiled.value import CompiledName, CompiledValue
 from ._vendor.jedi.inference.context import ValueContext
-from ._vendor.jedi.inference.lazy_value import LazyKnownValue
 from .inspectors import (
     BaseColumnInspector,
     BaseTableInspector,
@@ -35,6 +32,9 @@ from .inspectors import (
     get_inspector,
 )
 from .utils import get_qualname
+
+if TYPE_CHECKING:
+    from ._vendor.jedi.inference.lazy_value import LazyKnownValue
 
 #
 # We adapt code from the MIT-licensed jedi static analysis library to provide enhanced completions
@@ -56,14 +56,14 @@ else:
 settings.cache_directory = _cache_directory.expanduser()
 
 
-_original_Interpreter_complete = Interpreter.complete
-_original_Interpreter_help = Interpreter.help
-_original_Interpreter_goto = Interpreter.goto
-_original_MixedName_infer = MixedName.infer
-_original_MixedTreeName_infer = MixedTreeName.infer
+_original_interpreter_complete = Interpreter.complete
+_original_interpreter_help = Interpreter.help
+_original_interpreter_goto = Interpreter.goto
+_original_mixed_name_infer = MixedName.infer
+_original_mixed_tree_name_infer = MixedTreeName.infer
 
 
-def _Interpreter_complete(
+def _interpreter_complete(
     self: Interpreter,
     line: Optional[int] = None,
     column: Optional[int] = None,
@@ -72,17 +72,17 @@ def _Interpreter_complete(
 ) -> List["PositronCompletion"]:
     return [
         PositronCompletion(name)
-        for name in _original_Interpreter_complete(self, line, column, fuzzy=fuzzy)
+        for name in _original_interpreter_complete(self, line, column, fuzzy=fuzzy)
     ]
 
 
-def _Interpreter_help(
+def _interpreter_help(
     self: Interpreter, line: Optional[int] = None, column: Optional[int] = None
 ) -> List["PositronName"]:
-    return [PositronName(name) for name in _original_Interpreter_help(self, line, column)]
+    return [PositronName(name) for name in _original_interpreter_help(self, line, column)]
 
 
-def _Interpreter_goto(
+def _interpreter_goto(
     self: Interpreter,
     line: Optional[int] = None,
     column: Optional[int] = None,
@@ -94,7 +94,7 @@ def _Interpreter_goto(
 ) -> List["PositronName"]:
     return [
         PositronName(name)
-        for name in _original_Interpreter_goto(
+        for name in _original_interpreter_goto(
             self,
             line,
             column,
@@ -106,8 +106,8 @@ def _Interpreter_goto(
     ]
 
 
-def _MixedName_infer(self: MixedName) -> ValueSet:
-    return ValueSet(_wrap_value(value) for value in _original_MixedName_infer(self))
+def _mixed_name_infer(self: MixedName) -> ValueSet:
+    return ValueSet(_wrap_value(value) for value in _original_mixed_name_infer(self))
 
 
 def _wrap_value(value: MixedObject):
@@ -164,22 +164,17 @@ class PolarsDataFrameMixedObjectWrapper(SafeDictLikeMixedObjectWrapper):
                     yield value
 
 
-def _MixedTreeName_infer(self: MixedTreeName) -> ValueSet:
+def _mixed_tree_name_infer(self: MixedTreeName) -> ValueSet:
     # First try to use the namespace, then fall back to static analysis.
-    # This is the reverse of MixedTreeName.
+    # This is the reverse of `MixedTreeName.infer`.
     # See: TODO: Link issue here.
-    """
-    In IPython notebook it is typical that some parts of the code that is
-    provided was already executed. In that case if something is not properly
-    inferred, it should still infer from the variables it already knows.
-    """
     for compiled_value in self.parent_context.mixed_values:
         for f in compiled_value.get_filters():
             values = ValueSet.from_sets(n.infer() for n in f.get(self.string_name))
             if values:
                 return values
 
-    return _original_MixedTreeName_infer(self)
+    return _original_mixed_tree_name_infer(self)
 
 
 class PositronName(Name):
@@ -192,20 +187,18 @@ class PositronName(Name):
     """
 
     def __init__(self, name: BaseName) -> None:
-        super().__init__(name._inference_state, name._name)
+        super().__init__(name._inference_state, name._name)  # noqa: SLF001
 
         self._wrapped_name = name
 
     @cached_property
     def _inspector(self) -> Optional[PositronInspector]:
-        """
-        A `PositronInspector` for the object referenced by this name, if available.
-        """
-        name = self._wrapped_name._name
+        """A `PositronInspector` for the object referenced by this name, if available."""
+        name = self._wrapped_name._name  # noqa: SLF001
         if isinstance(name, (CompiledName, MixedName)):
             value = name.infer_compiled_value()
             if isinstance(value, CompiledValue):
-                obj = value.access_handle.access._obj
+                obj = value.access_handle.access._obj  # noqa: SLF001
                 return get_inspector(obj)
         return None
 
@@ -231,7 +224,7 @@ class PositronName(Name):
                 return Path(fname)
         return super().module_path
 
-    def docstring(self, raw=False, fast=True):
+    def docstring(self, raw=False, fast=True):  # noqa: ARG002, FBT002
         if self._inspector:
             return self._inspector.get_docstring()
         return super().docstring(raw=raw)
@@ -255,16 +248,14 @@ class PositronCompletion(PositronName):
 
 
 class DictKeyName(CompiledName):
-    """
-    A dictionary key with support for inferring its value.
-    """
+    """A dictionary key with support for inferring its value."""
 
     def __init__(
         self,
         inference_state: InferenceState,
         parent_value: CompiledValue,
         name: str,
-        is_descriptor: bool,
+        is_descriptor: bool,  # noqa: FBT001
         key: Any,
     ):
         self._inference_state = inference_state
@@ -289,8 +280,9 @@ class DictKeyName(CompiledName):
             # ExactValue()._compiled_value.get_signatures() returns the correct signatures,
             # so we return the wrapped compiled value instead.
             if isinstance(value, ExactValue):
-                return value._compiled_value
+                return value._compiled_value  # noqa: SLF001
             return value
+        return None
 
 
 # Adapted from jedi.api.strings._completions_for_dicts.
@@ -299,18 +291,18 @@ def _completions_for_dicts(
     dicts: Iterable[CompiledValue],
     literal_string: str,
     cut_end_quote: str,
-    fuzzy: bool,
+    fuzzy: bool,  # noqa: FBT001
 ) -> Iterable[Completion]:
     for dct in dicts:
         if dct.array_type == "dict":
             for key in dct.get_key_values():
                 if key:
-                    dict_key = key.get_safe_value(default=strings._sentinel)
-                    if dict_key is not strings._sentinel:
-                        dict_key_str = strings._create_repr_string(literal_string, dict_key)
+                    dict_key = key.get_safe_value(default=strings._sentinel)  # noqa: SLF001
+                    if dict_key is not strings._sentinel:  # noqa: SLF001
+                        dict_key_str = strings._create_repr_string(literal_string, dict_key)  # noqa: SLF001
                         if dict_key_str.startswith(literal_string):
                             string_name = dict_key_str[: -len(cut_end_quote) or None]
-                            name = DictKeyName(inference_state, dct, string_name, False, dict_key)
+                            name = DictKeyName(inference_state, dct, string_name, False, dict_key)  # noqa: FBT003
                             yield Completion(
                                 inference_state,
                                 name,
@@ -322,9 +314,9 @@ def _completions_for_dicts(
 
 def apply_jedi_patches():
     # Apply our patches to Jedi.
-    Interpreter.complete = _Interpreter_complete
-    Interpreter.help = _Interpreter_help
-    Interpreter.goto = _Interpreter_goto
-    MixedName.infer = _MixedName_infer
-    MixedTreeName.infer = _MixedTreeName_infer
-    strings._completions_for_dicts = _completions_for_dicts
+    Interpreter.complete = _interpreter_complete
+    Interpreter.help = _interpreter_help
+    Interpreter.goto = _interpreter_goto
+    MixedName.infer = _mixed_name_infer
+    MixedTreeName.infer = _mixed_tree_name_infer
+    strings._completions_for_dicts = _completions_for_dicts  # noqa: SLF001

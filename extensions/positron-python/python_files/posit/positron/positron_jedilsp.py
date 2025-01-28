@@ -120,11 +120,10 @@ apply_jedi_patches()
 def script(project: Optional[Project], document: TextDocument) -> Script:
     # Get the server object from the caller's scope.
     frame = inspect.currentframe()
-    if frame is not None:
-        if frame.f_back is not None:
-            server = frame.f_back.f_locals.get("server")
-            if isinstance(server, PositronJediLanguageServer):
-                return _interpreter(project, document, server.shell)
+    if frame is not None and frame.f_back is not None:
+        server = frame.f_back.f_locals.get("server")
+        if isinstance(server, PositronJediLanguageServer):
+            return _interpreter(project, document, server.shell)
     raise AssertionError("Could not find server object in the caller's scope")
 
 
@@ -456,7 +455,7 @@ def positron_completion(
                 # jedi_utils.lsp_completion_item uses completion.name which isn't available when
                 # accessing the most recent completions dict (in positron_completion_item_resolve),
                 # and which may differ from the label.
-                jedi_utils._MOST_RECENT_COMPLETIONS[jedi_completion_item.label] = cast(
+                jedi_utils._MOST_RECENT_COMPLETIONS[jedi_completion_item.label] = cast(  # noqa: SLF001
                     Completion, completion
                 )
 
