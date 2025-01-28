@@ -541,6 +541,16 @@ export enum LanguageRuntimeStartupBehavior {
 }
 
 /**
+ * Possible values for the `interpreters.startupBehavior` configuration setting.
+ */
+export enum StartupBehavior {
+	Always = 'always',
+	Auto = 'auto',
+	Manual = 'manual',
+	Disabled = 'disabled'
+}
+
+/**
  * The phases through which the runtime startup service progresses as Positron
  * starts.
  */

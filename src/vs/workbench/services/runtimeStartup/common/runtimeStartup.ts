@@ -12,7 +12,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, StartupBehavior, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeStartupService } from './runtimeStartupService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
@@ -27,16 +27,6 @@ import { isWeb } from '../../../../base/common/platform.js';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
-}
-
-/**
- * Possible values for the `interpreters.startupBehavior` configuration setting.
- */
-enum StartupBehavior {
-	Always = 'always',
-	Auto = 'auto',
-	Manual = 'manual',
-	Disabled = 'disabled'
 }
 
 /**
@@ -476,14 +466,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// If no sessions were restored, and we have affiliated runtimes,
 		// try to start them.
-		if (!this._runtimeSessionService.hasStartingOrRunningConsole() &&
-			this.hasAffiliatedRuntime()) {
-			await this.startAffiliatedLanguageRuntimes(disabledLanguages, enabledLanguages);
-		}
+		try {
+			if (!this._runtimeSessionService.hasStartingOrRunningConsole() &&
+				this.hasAffiliatedRuntime()) {
+				await this.startAffiliatedLanguageRuntimes(disabledLanguages, enabledLanguages);
+			}
 
-		// Start any runtimes recommended by the extensions.
-		if (!this._runtimeSessionService.hasStartingOrRunningConsole()) {
-			await this.startRecommendedLanguageRuntimes(disabledLanguages, enabledLanguages);
+			// Start any runtimes recommended by the extensions.
+			if (!this._runtimeSessionService.hasStartingOrRunningConsole()) {
+				await this.startRecommendedLanguageRuntimes(disabledLanguages, enabledLanguages);
+			}
+		} catch (err) {
+			this._logService.error(`[Runtime startup] Error starting affiliated runtimes: ${err}`);
 		}
 
 		// Then, discover all language runtimes.
@@ -496,6 +490,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * @param affiliated The runtime affiliation to save.
 	 */
 	private saveAffiliatedRuntime(affiliated: IAffiliatedRuntimeMetadata): void {
+
+		if (!affiliated || !affiliated.metadata || !affiliated.metadata.languageId) {
+			// Don't save invalid affiliations
+			this._logService.debug(`[Runtime startup] Not saving invalid affiliation ${JSON.stringify(affiliated)}.`);
+			return;
+		}
+
 		this._storageService.store(this.storageKeyForRuntime(affiliated.metadata),
 			JSON.stringify(affiliated),
 			this.affiliationStorageScope(),
