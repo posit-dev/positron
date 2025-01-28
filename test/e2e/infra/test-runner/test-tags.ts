@@ -44,6 +44,7 @@ export enum TestTags {
 	R_MARKDOWN = '@:r-markdown',
 	R_PKG_DEVELOPMENT = '@:r-pkg-development',
 	RETICULATE = '@:reticulate',
+	SCM = '@:scm',
 	TEST_EXPLORER = '@:test-explorer',
 	TOP_ACTION_BAR = '@:top-action-bar',
 	VARIABLES = '@:variables',

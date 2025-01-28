@@ -65,6 +65,10 @@ export class Editors {
 		await expect(this.code.driver.page.locator(`.tabs-container div.tab${isDirty ? '.dirty' : ''}[data-resource-name$="${fileName}"]`)).toBeVisible();
 	}
 
+	async waitForSCMTab(fileName: string): Promise<void> {
+		await expect(this.code.driver.page.locator(`.tabs-container div.tab[aria-label^="${fileName}"]`)).toBeVisible();
+	}
+
 	async saveOpenedFile(): Promise<any> {
 		if (process.platform === 'darwin') {
 			await this.code.driver.page.keyboard.press('Meta+S');
