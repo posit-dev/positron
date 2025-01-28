@@ -502,7 +502,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			}
 			).map(async m => {
 				// Get the recommended runtime from the provider, if any
-				return m.manager.recommendedWorkspaceRuntime();
+				const recommended = await m.manager.recommendedWorkspaceRuntime();
+				if (recommended) {
+					return {
+						extensionId: m.extension.identifier,
+						...recommended
+					};
+				}
+				return undefined;
 			})
 		);
 
