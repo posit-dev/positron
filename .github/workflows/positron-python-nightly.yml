@@ -53,6 +53,8 @@ jobs:
         with:
           path: ${{ env.special-working-directory-relative }}
 
+      - run: exit 1
+
       - name: Use Python ${{ matrix.python }}
         uses: actions/setup-python@v5
         with:
