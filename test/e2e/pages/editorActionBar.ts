@@ -10,31 +10,33 @@ import { QuickAccess } from './quickaccess';
 
 export class EditorActionBar {
 
-	previewButton = this.page.getByLabel('Preview', { exact: true });
-	openChangesButton = this.page.getByLabel('Open Changes');
-	splitEditorRightButton = this.page.getByLabel('Split Editor Right', { exact: true });
-	splitEditorDownButton = this.page.getByLabel('Split Editor Down', { exact: true });
-	openInViewerButton = this.page.getByLabel('Open in Viewer');
-
 	constructor(private page: Page, private viewer: Viewer, private quickaccess: QuickAccess) {
 	}
 
 	// --- Actions ---
 
 	/**
-	 * Action: Click the "Split Editor" button. Handles pressing the 'Alt' key for 'down' direction.
-	 * @param direction 'down' or 'right'
+	 * Action: Click a specified button in the editor action bar.
+	 * Note: Adds hover before click to prevent test flakes in CI.
+	 * Special handling is included for the "Split Editor Down" action (requires holding Alt key).
+	 *
+	 * @param button - Name of the button to click in the editor action bar.
 	 */
-	async clickSplitEditorButton(direction: 'down' | 'right') {
-		if (direction === 'down') {
+	async clickButton(
+		button: 'Split Editor Right' | 'Split Editor Down' | 'Preview' | 'Open Changes' | 'Open in Viewer'
+	): Promise<void> {
+		const buttonLocator = this.page.getByLabel(button, { exact: true });
+
+		if (button === 'Split Editor Down') {
+			// Special case: "Split Editor Down" requires holding Alt key
 			await this.page.keyboard.down('Alt');
-			await this.splitEditorDownButton.hover();
-			await this.splitEditorDownButton.click();
+			await buttonLocator.hover();
+			await buttonLocator.click();
 			await this.page.keyboard.up('Alt');
-		}
-		else {
-			await this.splitEditorRightButton.hover();
-			await this.splitEditorRightButton.click();
+		} else {
+			// General case: Hover and click the button
+			await buttonLocator.hover();
+			await buttonLocator.click();
 		}
 	}
 
