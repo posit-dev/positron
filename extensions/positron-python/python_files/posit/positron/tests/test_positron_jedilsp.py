@@ -4,7 +4,6 @@
 #
 
 import os
-import sys
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
@@ -13,6 +12,7 @@ from unittest.mock import Mock, patch
 import pandas as pd
 import polars as pl
 import pytest
+from python_files.posit.positron._vendor.pygls.uris import from_fs_path
 
 from positron._vendor import cattrs
 from positron._vendor.jedi_language_server import jedi_utils
@@ -81,8 +81,9 @@ if TYPE_CHECKING:
 
 
 LSP_DATA_DIR = Path(__file__).parent / "lsp_data"
-TEST_DOCUMENT_PATH = Path("foo.py").absolute()
-TEST_DOCUMENT_URI = TEST_DOCUMENT_PATH.as_uri()
+TEST_DOCUMENT_PATH = Path("foo.py")
+# Use `from_fs_path` to ensure the same URI format as used by the server.
+TEST_DOCUMENT_URI = from_fs_path(str(TEST_DOCUMENT_PATH))
 
 
 @pytest.fixture(autouse=True)
@@ -474,7 +475,7 @@ def test_positron_completion_item_resolve(
             "1 +",
             [
                 (
-                    "SyntaxError: invalid syntax (TEST_DOCUMENT_URI, line 1)"
+                    f"SyntaxError: invalid syntax ({TEST_DOCUMENT_URI}, line 1)"
                     if os.name == "nt"
                     else "SyntaxError: invalid syntax (foo.py, line 1)"
                 )

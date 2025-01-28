@@ -31,7 +31,6 @@ from ._vendor.jedi_language_server.server import (
     document_symbol,
     highlight,
     hover,
-    references,
     rename,
     signature_help,
     type_definition,
