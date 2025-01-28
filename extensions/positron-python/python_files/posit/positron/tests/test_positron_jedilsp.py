@@ -12,7 +12,6 @@ from unittest.mock import Mock, patch
 import pandas as pd
 import polars as pl
 import pytest
-from python_files.posit.positron._vendor.pygls.uris import from_fs_path
 
 from positron._vendor import cattrs
 from positron._vendor.jedi_language_server import jedi_utils
@@ -46,6 +45,7 @@ from positron._vendor.lsprotocol.types import (
     TextDocumentPositionParams,
     TextEdit,
 )
+from positron._vendor.pygls.uris import from_fs_path
 from positron._vendor.pygls.workspace.text_document import TextDocument
 from positron.help_comm import ShowHelpTopicParams
 from positron.positron_jedilsp import (
