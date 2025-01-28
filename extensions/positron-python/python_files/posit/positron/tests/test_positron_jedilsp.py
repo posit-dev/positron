@@ -822,13 +822,6 @@ def test_positron_hover(source: str, namespace: Dict[str, Any], expected_fullnam
                 Location(TEST_DOCUMENT_URI, Range(Position(0, 0), Position(0, 4))),
             ],
             id="from_namespace",
-            marks=pytest.mark.skipif(
-                sys.version_info <= (3, 9),
-                reason=(
-                    "Fails due to a missing Parso cache entry. "
-                    "Probably not worth debugging at this point."
-                ),
-            ),
         ),
     ],
 )
