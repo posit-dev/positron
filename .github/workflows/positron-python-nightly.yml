@@ -12,7 +12,6 @@ defaults:
 
 env:
   NODE_VERSION: '18.17.1'
-  PET_BRANCH: 'release/latest'
   PYTHON_VERSION: '3.10'
   PROJECT_DIR: 'extensions/positron-python'
   PYTHON_SRC_DIR: 'extensions/positron-python/python_files'
@@ -126,41 +125,6 @@ jobs:
         with:
           name: ipykernel-test-output-${{ matrix.os }}-${{ matrix.python }}
           path: extensions/positron-python/python-test-results.xml
-
-  native-tests:
-    name: Native Tests
-    # The value of runs-on is the OS of the current job (specified in the strategy matrix below) instead of being hardcoded.
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        working-directory: ${{ env.special-working-directory }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # We're not running CI on macOS for now because it's one less matrix entry to lower the number of runners used,
-        # macOS runners are expensive, and we assume that Ubuntu is enough to cover the Unix case.
-        os: [ubuntu-latest, windows-latest]
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          path: ${{ env.special-working-directory-relative }}
-
-      - name: Checkout Python Environment Tools
-        uses: actions/checkout@v4
-        with:
-          repository: 'microsoft/python-environment-tools'
-          path: ${{ env.special-working-directory-relative }}/python-env-tools
-          sparse-checkout: |
-            crates
-            Cargo.toml
-            Cargo.lock
-          sparse-checkout-cone-mode: false
-
-      - name: Python Environment Tools tests
-        run: cargo test -- --nocapture
-        working-directory: ${{ env.special-working-directory }}/python-env-tools
 
   slack-notification:
     name: 'Send Slack notification'

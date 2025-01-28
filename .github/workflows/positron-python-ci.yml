@@ -21,9 +21,7 @@ defaults:
 
 env:
   NODE_VERSION: '20.12.1'
-  PET_BRANCH: 'release/latest'
   PYTHON_VERSION: '3.10'
-  ARTIFACT_NAME_VSIX: positron-python-dev-vsix
   PROJECT_DIR: 'extensions/positron-python'
   PYTHON_SRC_DIR: 'extensions/positron-python/python_files'
   # Force a path with spaces and to test extension works in these scenarios
@@ -245,18 +243,6 @@ jobs:
         with:
           path: ${{ env.special-working-directory-relative }}
 
-      - name: Checkout Python Environment Tools
-        uses: actions/checkout@v4
-        with:
-          repository: 'microsoft/python-environment-tools'
-          path: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR}}/python-env-tools
-          branch: ${{ env.PET_BRANCH }}
-          sparse-checkout: |
-            crates
-            Cargo.toml
-            Cargo.lock
-          sparse-checkout-cone-mode: false
-
       - name: Install Node ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v3
         with:
@@ -280,16 +266,7 @@ jobs:
         run: npx @vscode/l10n-dev@latest export ./src
 
       - name: Install test requirements
-        run: |
-          python -m pip install --upgrade -r ./build/test-requirements.txt
-          python -m pip install nox
-
-      - name: Rust Tool Chain setup
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build Native Binaries
-        run: nox --session native_build
-        shell: bash
+        run: python -m pip install --upgrade -r ./build/test-requirements.txt
 
       - name: Install functional test requirements
         run: python -m pip install --upgrade -r ./build/functional-test-requirements.txt
@@ -425,123 +402,3 @@ jobs:
       - name: Run TypeScript functional tests
         run: npm run test:functional
         if: matrix.test-suite == 'functional'
-
-  build-vsix:
-    name: Create VSIX
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # - os: windows-latest
-          #   target: x86_64-pc-windows-msvc
-          #   vsix-target: win32-x64
-          # - os: windows-latest
-          #   target: aarch64-pc-windows-msvc
-          #   vsix-target: win32-arm64
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-            vsix-target: linux-x64
-          # - os: ubuntu-latest
-          #   target: x86_64-unknown-linux-musl
-          #   vsix-target: alpine-x64
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Checkout Python Environment Tools
-        uses: actions/checkout@v4
-        with:
-          repository: 'microsoft/python-environment-tools'
-          branch: ${{ env.PET_BRANCH }}
-          path: '${{ env.PROJECT_DIR}}/python-env-tools'
-          sparse-checkout: |
-            crates
-            Cargo.toml
-            Cargo.lock
-          sparse-checkout-cone-mode: false
-
-      - name: Build VSIX
-        uses: ./.github/actions/python-build-vsix
-        with:
-          node_version: ${{ env.NODE_VERSION}}
-          vsix_name: 'positron-python-dev-${{ matrix.vsix-target }}.vsix'
-          artifact_name: '${{ env.ARTIFACT_NAME_VSIX }}-${{ matrix.vsix-target }}'
-          cargo_target: ${{ matrix.target }}
-          vsix_target: ${{ matrix.vsix-target }}
-          path: '${{ env.PROJECT_DIR}}/python-env-tools'
-
-  smoke-tests:
-    name: Smoke tests
-    # The value of runs-on is the OS of the current job (specified in the strategy matrix below) instead of being hardcoded.
-    runs-on: ${{ matrix.os }}
-    needs: [build-vsix]
-    strategy:
-      fail-fast: false
-      matrix:
-        # We're not running CI on macOS for now because it's one less matrix entry to lower the number of runners used,
-        # macOS runners are expensive, and we assume that Ubuntu is enough to cover the UNIX case.
-        include:
-          # - os: windows-latest
-          #   vsix-target: win32-x64
-          - os: ubuntu-latest
-            vsix-target: linux-x64
-
-    steps:
-      # Need the source to have the tests available.
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Checkout Python Environment Tools
-        uses: actions/checkout@v4
-        with:
-          repository: 'microsoft/python-environment-tools'
-          branch: ${{ env.PET_BRANCH }}
-          path: '${{ env.special-working-directory }}/${{ env.PROJECT_DIR}}/python-env-tools'
-          sparse-checkout: |
-            crates
-            Cargo.toml
-            Cargo.lock
-          sparse-checkout-cone-mode: false
-
-      - name: Smoke tests
-        uses: ./.github/actions/python-smoke-tests
-        with:
-          node_version: ${{ env.NODE_VERSION }}
-          artifact_name: '${{ env.ARTIFACT_NAME_VSIX }}-${{ matrix.vsix-target }}'
-
-  native-tests:
-    name: Native Tests
-    # The value of runs-on is the OS of the current job (specified in the strategy matrix below) instead of being hardcoded.
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        working-directory: ${{ env.special-working-directory }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # We're not running CI on macOS for now because it's one less matrix entry to lower the number of runners used,
-        # macOS runners are expensive, and we assume that Ubuntu is enough to cover the Unix case.
-        os: [ubuntu-latest, windows-latest]
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          path: ${{ env.special-working-directory-relative }}
-
-      - name: Checkout Python Environment Tools
-        uses: actions/checkout@v4
-        with:
-          repository: 'microsoft/python-environment-tools'
-          branch: ${{ env.PET_BRANCH }}
-          path: '${{ env.special-working-directory }}/${{ env.PROJECT_DIR}}/python-env-tools'
-          sparse-checkout: |
-            crates
-            Cargo.toml
-            Cargo.lock
-          sparse-checkout-cone-mode: false
-
-      - name: Python Environment Tools tests
-        run: cargo test -- --nocapture
-        working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR}}/python-env-tools

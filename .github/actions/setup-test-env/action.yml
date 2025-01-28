@@ -45,9 +45,6 @@ runs:
     - name: Setup Python
       uses: ./.github/actions/install-python
 
-    - name: Setup Python Environment Tools
-      uses: ./.github/actions/install-pet
-
     - name: Setup R
       uses: ./.github/actions/install-r
       with:
