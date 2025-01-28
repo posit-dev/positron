@@ -44,6 +44,16 @@ export interface IRuntimeStartupService {
 	getAffiliatedRuntimeMetadata(languageId: string): ILanguageRuntimeMetadata | undefined;
 
 	/**
+	 * Gets all the affiliated runtimes for the workspace.
+	 */
+	getAffiliatedRuntimes(): Array<ILanguageRuntimeMetadata>;
+
+	/**
+	 * Clears a specific runtime from the list of affiliated runtimes.
+	 */
+	clearAffiliatedRuntime(languageId: string): void;
+
+	/**
 	 * Signal that discovery of language runtimes is completed for an extension host.
 	 *
 	 * @param id the id of the MainThreadLanguageRuntime instance for the extension host

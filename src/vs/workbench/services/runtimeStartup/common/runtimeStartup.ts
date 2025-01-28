@@ -403,6 +403,35 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}));
 	}
 
+
+	/**
+	 * Gets all the affiliated runtimes for the workspace.
+	 *
+	 * @returns An array of affiliated runtime metadata. May be empty if no
+	 * runtimes are affiliated.
+	 */
+	getAffiliatedRuntimes(): Array<ILanguageRuntimeMetadata> {
+		const languageIds = this.getAffiliatedRuntimeLanguageIds();
+		const runtimes: ILanguageRuntimeMetadata[] = [];
+		for (const languageId of languageIds) {
+			const metadata = this.getAffiliatedRuntimeMetadata(languageId);
+			if (metadata) {
+				runtimes.push(metadata);
+			}
+		}
+		return runtimes;
+	}
+
+	/**
+	 * Clears a specific runtime from the list of affiliated runtimes.
+	 *
+	 * @param languageId The language ID of the runtime to clear.
+	 */
+	clearAffiliatedRuntime(languageId: string): void {
+		this._storageService.remove(`${this.storageKey}.${languageId}`, this.affiliationStorageScope());
+		this._logService.debug(`[Runtime startup] Cleared affiliated runtime for language ID '${languageId}'`);
+	}
+
 	/**
 	 * Convenience method for setting the startup phase.
 	 */
