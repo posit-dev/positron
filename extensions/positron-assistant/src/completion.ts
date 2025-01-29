@@ -13,6 +13,7 @@ import { createOllama } from 'ollama-ai-provider';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { EXTENSION_ROOT_DIR } from './constants';
 import { createOpenAI } from '@ai-sdk/openai';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
@@ -104,95 +105,6 @@ class MistralCompletion extends CompletionModel {
 	}
 }
 
-class AnthropicCompletion extends CompletionModel {
-	protected model: ai.LanguageModelV1;
-
-	static source: positron.ai.LanguageModelSource = {
-		type: 'completion',
-		provider: {
-			id: 'anthropic',
-			displayName: 'Anthropic'
-		},
-		supportedOptions: ['apiKey'],
-		defaults: {
-			name: 'Claude 3.5 Sonnet',
-			model: 'claude-3-5-sonnet-latest',
-		},
-	};
-
-	constructor(protected readonly _config: ModelConfig) {
-		super(_config);
-		this.model = createAnthropic({ apiKey: this._config.apiKey })(this._config.model);
-	}
-
-	async provideInlineCompletionItems(
-		document: vscode.TextDocument,
-		position: vscode.Position,
-		context: vscode.InlineCompletionContext,
-		token: vscode.CancellationToken
-	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList> {
-		// Delay a little before hitting the network, we might be cancelled by further keystokes
-		await new Promise(resolve => setTimeout(resolve, 200));
-
-		if (token.isCancellationRequested) {
-			return [];
-		}
-
-		// TODO: Include additional files in <file></file> tags as context.
-		const filename = document.fileName;
-		const { prefix, suffix, prevLines, nextLines } = this.getDocumentContext(document, position);
-
-		const controller = new AbortController();
-		const signal = controller.signal;
-
-		const system: string = await fs.promises.readFile(`${mdDir}/prompts/completion/fim.md`, 'utf8');
-		const { textStream } = await ai.streamText({
-			model: this.model,
-			system: system,
-			messages: [{ role: 'user', content: `<file>${filename}\n${document.getText()}\n</file><prefix>${prevLines}\n${prefix}</prefix><suffix>${suffix}\n${nextLines}</suffix>` }],
-			maxTokens: 128,
-			abortSignal: signal,
-		});
-
-		let text = '';
-		for await (const delta of textStream) {
-			if (token.isCancellationRequested) {
-				controller.abort();
-				break;
-			}
-			text += delta;
-		}
-
-		return [{ insertText: text }];
-	}
-}
-
-class OpenAICompletion extends AnthropicCompletion {
-	protected model: ai.LanguageModelV1;
-
-	static source: positron.ai.LanguageModelSource = {
-		type: 'completion',
-		provider: {
-			id: 'openai',
-			displayName: 'OpenAI'
-		},
-		supportedOptions: ['apiKey', 'baseUrl'],
-		defaults: {
-			name: 'GPT-4o',
-			model: 'gpt-4o',
-			baseUrl: 'https://api.openai.com',
-		},
-	};
-
-	constructor(protected readonly _config: ModelConfig) {
-		super(_config);
-		this.model = createOpenAI({
-			apiKey: this._config.apiKey,
-			baseURL: this._config.baseUrl,
-		})(this._config.model);
-	}
-}
-
 class OllamaCompletion extends CompletionModel {
 	protected model: ai.LanguageModelV1;
 
@@ -249,12 +161,134 @@ class OllamaCompletion extends CompletionModel {
 	}
 }
 
+abstract class FimPromptCompletion extends CompletionModel {
+	protected abstract model: ai.LanguageModelV1;
+
+	async provideInlineCompletionItems(
+		document: vscode.TextDocument,
+		position: vscode.Position,
+		context: vscode.InlineCompletionContext,
+		token: vscode.CancellationToken
+	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList> {
+		// Delay a little before hitting the network, we might be cancelled by further keystokes
+		await new Promise(resolve => setTimeout(resolve, 200));
+
+		if (token.isCancellationRequested) {
+			return [];
+		}
+
+		// TODO: Include additional files in <file></file> tags as context.
+		// TODO: We should have some way for the user to override how the FIM prompt is built,
+		//       particularly for OpenRouter models.
+		const filename = document.fileName;
+		const { prefix, suffix, prevLines, nextLines } = this.getDocumentContext(document, position);
+
+		const controller = new AbortController();
+		const signal = controller.signal;
+
+		const system: string = await fs.promises.readFile(`${mdDir}/prompts/completion/fim.md`, 'utf8');
+		const { textStream } = await ai.streamText({
+			model: this.model,
+			system: system,
+			messages: [{ role: 'user', content: `<file>${filename}\n${document.getText()}\n</file><prefix>${prevLines}\n${prefix}</prefix><suffix>${suffix}\n${nextLines}</suffix>` }],
+			maxTokens: 128,
+			abortSignal: signal,
+		});
+
+		let text = '';
+		for await (const delta of textStream) {
+			if (token.isCancellationRequested) {
+				controller.abort();
+				break;
+			}
+			text += delta;
+		}
+
+		return [{ insertText: text }];
+	}
+}
+
+class AnthropicCompletion extends FimPromptCompletion {
+	protected model;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: 'completion',
+		provider: {
+			id: 'anthropic',
+			displayName: 'Anthropic'
+		},
+		supportedOptions: ['apiKey'],
+		defaults: {
+			name: 'Claude 3.5 Sonnet',
+			model: 'claude-3-5-sonnet-latest',
+		},
+	};
+
+	constructor(protected readonly _config: ModelConfig) {
+		super(_config);
+		this.model = createAnthropic({ apiKey: this._config.apiKey })(this._config.model);
+	}
+}
+
+class OpenAICompletion extends FimPromptCompletion {
+	protected model;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: 'completion',
+		provider: {
+			id: 'openai',
+			displayName: 'OpenAI'
+		},
+		supportedOptions: ['apiKey', 'baseUrl'],
+		defaults: {
+			name: 'GPT-4o',
+			model: 'gpt-4o',
+			baseUrl: 'https://api.openai.com',
+		},
+	};
+
+	constructor(protected readonly _config: ModelConfig) {
+		super(_config);
+		this.model = createOpenAI({
+			apiKey: this._config.apiKey,
+			baseURL: this._config.baseUrl,
+		})(this._config.model);
+	}
+}
+
+class OpenRouterCompletion extends FimPromptCompletion {
+	protected model: ai.LanguageModelV1;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: 'completion',
+		provider: {
+			id: 'openrouter',
+			displayName: 'OpenRouter'
+		},
+		supportedOptions: ['apiKey', 'baseUrl'],
+		defaults: {
+			name: 'Claude 3.5 Sonnet',
+			model: 'anthropic/claude-3.5-sonnet',
+			baseUrl: 'https://openrouter.ai/api/v1',
+		},
+	};
+
+	constructor(protected readonly _config: ModelConfig) {
+		super(_config);
+		this.model = createOpenRouter({
+			apiKey: this._config.apiKey,
+			baseURL: this._config.baseUrl,
+		})(this._config.model);
+	}
+}
+
 export function newCompletionProvider(config: ModelConfig): vscode.InlineCompletionItemProvider {
 	const providerClasses = {
 		'ollama': OllamaCompletion,
 		'openai': OpenAICompletion,
 		'mistral': MistralCompletion,
 		'anthropic': AnthropicCompletion,
+		'openrouter': OpenRouterCompletion,
 	};
 
 	if (!(config.provider in providerClasses)) {
@@ -269,4 +303,5 @@ export const completionModels = [
 	OllamaCompletion,
 	AnthropicCompletion,
 	OpenAICompletion,
+	OpenRouterCompletion,
 ];

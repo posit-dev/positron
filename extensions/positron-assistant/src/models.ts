@@ -10,6 +10,7 @@ import { ModelConfig } from './config';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOllama } from 'ollama-ai-provider';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { replaceBinaryMessageParts, toAIMessage } from './utils';
 import { positronToolAdapters } from './tools';
 
@@ -218,6 +219,33 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 	}
 }
 
+class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
+	protected model: ai.LanguageModelV1;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: 'chat',
+		provider: {
+			id: 'openrouter',
+			displayName: 'OpenRouter'
+		},
+		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
+		defaults: {
+			name: 'Claude 3.5 Sonnet',
+			model: 'anthropic/claude-3.5-sonnet',
+			baseUrl: 'https://openrouter.ai/api/v1',
+			toolCalls: true,
+		},
+	};
+
+	constructor(_config: ModelConfig) {
+		super(_config);
+		this.model = createOpenRouter({
+			apiKey: this._config.apiKey,
+			baseURL: this._config.baseUrl,
+		})(this._config.model);
+	}
+}
+
 class OllamaLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected model;
 
@@ -247,6 +275,7 @@ export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModel
 		'echo': EchoLanguageModel,
 		'error': ErrorLanguageModel,
 		'openai': OpenAILanguageModel,
+		'openrouter': OpenRouterLanguageModel,
 		'anthropic': AnthropicLanguageModel,
 		'ollama': OllamaLanguageModel,
 	};
@@ -261,5 +290,6 @@ export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModel
 export const languageModels = [
 	AnthropicLanguageModel,
 	OpenAILanguageModel,
+	OpenRouterLanguageModel,
 	OllamaLanguageModel,
 ];
