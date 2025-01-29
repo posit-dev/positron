@@ -172,6 +172,78 @@ class PositronMagics(Magics):
         except TypeError as e:
             raise UsageError(f"cannot view object of type '{get_qualname(obj)}'") from e
 
+    def ai_input(self, user_input: str, system_prompt: str) -> None:
+        from chatlas import ChatAnthropic
+        from dotenv import load_dotenv
+
+        load_dotenv("/Users/isabelizimm/code/llm-quickstart/.env")
+
+        chat_session = ChatAnthropic(
+            model="claude-3-5-sonnet-latest",
+            system_prompt=system_prompt
+        )
+        response = chat_session.chat(str(user_input))
+        print(response)
+
+    @line_magic
+    def explainthis(self, line: str) -> None:
+        """
+        Use OpenAI to explain a Python object.
+
+        Examples
+        --------
+        View an object:
+
+        >>> %explainthis df
+        """
+        try:
+            args = magic_arguments.parse_argstring(self.view, line)
+        except UsageError as e:
+            if (
+                len(e.args) > 0
+                and isinstance(e.args[0], str)
+                and e.args[0].startswith("unrecognized arguments")
+            ):
+                raise UsageError(f"{e.args[0]}. Did you quote the title?") from e
+            raise
+
+        # Find the object.
+        potential = {repr(args.object): str(self.shell.user_ns[args.object])}
+        print(potential)
+        info = self.shell._ofind(args.object)  # noqa: SLF001
+        if not info.found:
+            raise UsageError(f"name '{args.object}' is not defined")
+
+        system_prompt = "You're a Python software engineer teaching a\
+                new learner. They will pass to you a dictionary of information \
+                about a variable. Your job is to clearly and concisely explain \
+                the variable and give an example of using it. The examples should be\
+                completely self-contained and runnable as-is. If you don't know \
+                how to use the variable or anything about it, say so."
+
+        self.ai_input(potential, system_prompt)
+
+    @line_magic
+    def explainerror(self, line: str) -> None:
+        """
+        Use OpenAI to explain a Python object.
+
+        Examples
+        --------
+        View an object:
+
+        >>> %explainthis df
+        """
+        import sys
+
+        system_prompt = "You're a Python software engineer teaching a\
+            new learner. You have recieved a dictionary of \{error type: traceback\} \
+            Your job is to clearly and concisely explain the error \
+            and give an example of how to fix it. If you don't know \
+            how to fix the error or anything about it, say so."
+
+        self.ai_input({sys.last_type.__name__: str(sys.last_value)}, system_prompt)
+
     @magic_arguments.magic_arguments()
     @magic_arguments.argument(
         "object",
