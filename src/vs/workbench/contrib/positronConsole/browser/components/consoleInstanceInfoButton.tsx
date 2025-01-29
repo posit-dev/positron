@@ -7,7 +7,7 @@
 import './consoleInstanceInfoButton.css';
 
 // React.
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -18,6 +18,7 @@ import { PositronModalReactRenderer } from '../../../../browser/positronModalRea
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 
 const positronConsoleInfo = localize('positronConsoleInfo', "Console information");
 const showKernelOutputChannel = localize('positron.showKernelOutputChannel', "Show Kernel Output Channel");
@@ -30,6 +31,10 @@ export const ConsoleInstanceInfoButton = () => {
 	const ref = useRef<HTMLButtonElement>(undefined!);
 
 	const handlePressed = () => {
+		if (!positronConsoleContext.activePositronConsoleInstance) {
+			return;
+		}
+
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
 			keybindingService: positronConsoleContext.keybindingService,
@@ -42,7 +47,7 @@ export const ConsoleInstanceInfoButton = () => {
 			<ConsoleInstanceInfoModalPopup
 				anchorElement={ref.current}
 				renderer={renderer}
-				session={positronConsoleContext.activePositronConsoleInstance?.session}
+				session={positronConsoleContext.activePositronConsoleInstance.session}
 			/>
 		);
 	}
@@ -63,17 +68,26 @@ export const ConsoleInstanceInfoButton = () => {
 interface ConsoleInstanceInfoModalPopupProps {
 	anchorElement: HTMLElement;
 	renderer: PositronModalReactRenderer;
-	session: ILanguageRuntimeSession | undefined;
+	session: ILanguageRuntimeSession;
 }
 
 const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps) => {
-	const session = props.session;
+	const [sessionState, setSessionState] = useState(props.session?.getRuntimeState());
+
+	// Main useEffect hook.
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+		disposableStore.add(props.session.onDidChangeRuntimeState(state => {
+			setSessionState(state);
+		}));
+		return () => disposableStore.dispose();
+	});
 
 	const showKernelOutputChannelClickHandler = () => {
-		session?.showOutput();
+		props.session?.showOutput();
 	}
 
-	if (!session) {
+	if (!props.session) {
 		return null;
 	}
 
@@ -90,13 +104,14 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 		>
 			<div className='console-instance-info'>
 				<div className='content'>
-					<div className='line'>{session?.metadata.sessionName}</div>
+					<div className='line'>{props.session?.metadata.sessionName}</div>
 					<div className='top-separator'>
-						<div className='line'>Session ID: {session?.sessionId}</div>
+						<div className='line'>Session ID: {props.session?.sessionId}</div>
+						<div className='line'>State: {sessionState}</div>
 					</div>
 					<div className='top-separator'>
-						<div className='line'>Path: {session?.runtimeMetadata.runtimePath}</div>
-						<div className='line'>Source: {session?.runtimeMetadata.runtimeSource}</div>
+						<div className='line'>Path: {props.session?.runtimeMetadata.runtimePath}</div>
+						<div className='line'>Source: {props.session?.runtimeMetadata.runtimeSource}</div>
 					</div>
 				</div>
 				<div className='top-separator actions'>
