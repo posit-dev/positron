@@ -45,7 +45,6 @@ from positron._vendor.lsprotocol.types import (
     TextDocumentPositionParams,
     TextEdit,
 )
-from positron._vendor.pygls.uris import from_fs_path
 from positron._vendor.pygls.workspace.text_document import TextDocument
 from positron.help_comm import ShowHelpTopicParams
 from positron.positron_jedilsp import (
@@ -80,10 +79,12 @@ if TYPE_CHECKING:
     from threading import Timer
 
 
-LSP_DATA_DIR = Path(__file__).parent / "lsp_data"
-TEST_DOCUMENT_PATH = Path("foo.py")
-# Use `from_fs_path` to ensure the same URI format as used by the server.
-TEST_DOCUMENT_URI = from_fs_path(str(TEST_DOCUMENT_PATH))
+# NOTE: We have to construct paths via __file__ so that the casing matches Jedi-produced paths
+#       on Windows.
+DIR = Path(__file__).parent
+LSP_DATA_DIR = DIR / "lsp_data"
+TEST_DOCUMENT_PATH = DIR / "foo.py"
+TEST_DOCUMENT_URI = TEST_DOCUMENT_PATH.as_uri()
 
 
 @pytest.fixture(autouse=True)
