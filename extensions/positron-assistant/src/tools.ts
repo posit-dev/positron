@@ -61,7 +61,7 @@ export const getPlotToolAdapter: PositronToolAdapter = {
 
 export const executeToolAdapter: PositronToolAdapter = {
 	name: 'execute',
-	description: 'Execute code in the active console. The result will be silently returned.',
+	description: 'Given some code, execute the code in the currently running active console. You can provide code to be evaluated by the active console using the execute tool.',
 
 	get lmTool() {
 		return {
@@ -74,7 +74,7 @@ export const executeToolAdapter: PositronToolAdapter = {
 		return ai.tool({
 			description: this.description,
 			parameters: z.object({
-				code: z.string().describe('Code to execute.'),
+				code: z.string().describe('The code to be evaluated by the currently active console.'),
 			}),
 			execute: async ({ code }) => executeCodeInActiveConsole(code, token),
 		});

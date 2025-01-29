@@ -126,7 +126,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			system: modelOptions.system ?? undefined,
 			messages: _messages,
 			maxSteps: modelOptions.maxSteps ?? 50,
-			tools,
+			tools: this._config.toolCalls ? tools : undefined,
 			abortSignal: signal,
 		});
 
@@ -151,7 +151,14 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 
 			if (part.type === 'error') {
-				throw new Error(part.error as string);
+				if (typeof part.error === 'string') {
+					throw new Error(part.error);
+				}
+				if ((part.error as any).responseBody) {
+					const error = (part.error as any).responseBody as string;
+					throw new Error(error);
+				}
+				throw new Error(JSON.stringify(part.error));
 			}
 		}
 	}
@@ -193,17 +200,21 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 			id: 'openai',
 			displayName: 'OpenAI'
 		},
-		supportedOptions: ['apiKey', 'baseUrl'],
+		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
 		defaults: {
 			name: 'GPT-4o',
 			model: 'gpt-4o',
 			baseUrl: 'https://api.openai.com',
+			toolCalls: true,
 		},
 	};
 
 	constructor(_config: ModelConfig) {
 		super(_config);
-		this.model = createOpenAI({ apiKey: this._config.apiKey })(this._config.model);
+		this.model = createOpenAI({
+			apiKey: this._config.apiKey,
+			baseURL: this._config.baseUrl,
+		})(this._config.model);
 	}
 }
 
@@ -216,29 +227,18 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 			id: 'ollama',
 			displayName: 'Ollama'
 		},
-		supportedOptions: ['baseUrl'],
+		supportedOptions: ['baseUrl', 'toolCalls'],
 		defaults: {
 			name: 'Qwen 2.5',
 			model: 'qwen2.5-coder:7b',
 			baseUrl: 'http://localhost:11434/api',
+			toolCalls: false,
 		},
 	};
 
 	constructor(_config: ModelConfig) {
 		super(_config);
 		this.model = createOllama({ baseURL: this._config.baseUrl })(this._config.model);
-	}
-
-	async provideLanguageModelResponse(
-		messages: vscode.LanguageModelChatMessage[],
-		options: vscode.LanguageModelChatRequestOptions,
-		extensionId: string,
-		progress: vscode.Progress<vscode.ChatResponseFragment2>,
-		token: vscode.CancellationToken
-	) {
-		// Ollama does not support streaming with tool calls yet
-		options.tools = undefined;
-		return super.provideLanguageModelResponse(messages, options, extensionId, progress, token);
 	}
 }
 

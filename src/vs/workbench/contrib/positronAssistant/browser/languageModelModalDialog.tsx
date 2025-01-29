@@ -68,6 +68,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const [source, setSource] = React.useState<IPositronLanguageModelSource>(defaultSource);
 	const [apiKey, setApiKey] = React.useState<string | undefined>();
 	const [baseUrl, setBaseUrl] = React.useState<string | undefined>();
+	const [toolCalls, setToolCalls] = React.useState<boolean | undefined>();
 	const [model, setModel] = React.useState<string | undefined>();
 	const [name, setName] = React.useState<string | undefined>();
 
@@ -82,6 +83,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		if (name === '') setName(undefined);
 		if (apiKey === '' || !source.supportedOptions.includes('apiKey')) setApiKey(undefined);
 		if (baseUrl === '' || !source.supportedOptions.includes('baseUrl')) setBaseUrl(undefined);
+		if (source.supportedOptions.includes('toolCalls')) setToolCalls(source?.defaults.toolCalls);
 	}, [source]);
 
 	const providers = props.sources
@@ -102,6 +104,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			name: name ?? source.defaults.name,
 			apiKey: apiKey ?? source?.defaults.apiKey,
 			baseUrl: baseUrl ?? source?.defaults.baseUrl,
+			toolCalls: toolCalls ?? source?.defaults.toolCalls,
 		})
 		props.renderer.dispose();
 	}
@@ -178,6 +181,19 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 					label={(() => localize('positron.newConnectionModalDialog.apiKey', "API Key"))()}
 					onChange={e => { setApiKey(e.currentTarget.value) }}
 				/>
+			}
+			{source?.supportedOptions.includes('toolCalls') &&
+				<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+					<input
+						type="checkbox"
+						id="toolCallsCheckbox"
+						checked={toolCalls}
+						onChange={e => { setToolCalls(e.target.checked) }}
+					/>
+					<label htmlFor="toolCallsCheckbox">
+						{(() => localize('positron.newConnectionModalDialog.toolCalls', "Enable tool calling"))()}
+					</label>
+				</div>
 			}
 		</VerticalStack>
 	</OKCancelModalDialog>

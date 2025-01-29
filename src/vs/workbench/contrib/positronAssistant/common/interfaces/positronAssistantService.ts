@@ -33,7 +33,7 @@ export interface IPositronChatContext {
 
 export type PositronLanguageModelType = 'chat' | 'completion';
 
-export type PositronLanguageModelOptions = 'apiKey' | 'baseUrl';
+export type PositronLanguageModelOptions = 'apiKey' | 'baseUrl' | 'toolCalls';
 
 export interface IPositronLanguageModelSource {
 	type: PositronLanguageModelType;
@@ -47,6 +47,7 @@ export interface IPositronLanguageModelSource {
 		model: string;
 		baseUrl?: string;
 		apiKey?: string;
+		toolCalls?: boolean;
 	};
 }
 
@@ -57,6 +58,7 @@ export interface IPositronLanguageModelConfig {
 	model: string;
 	baseUrl?: string;
 	apiKey?: string;
+	toolCalls?: boolean;
 }
 
 //#endregion

@@ -68,6 +68,10 @@
                 "type": "string",
                 "description": "URL prefix for API calls."
               },
+              "toolCalls": {
+                "type": "boolean",
+                "description": "Should the LLM make tool calls?"
+              },
               "provider": {
                 "type": "string",
                 "enum": [
