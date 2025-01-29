@@ -29,15 +29,16 @@ export class SCM {
 	}
 
 	async waitForChange(name: string, type: string): Promise<void> {
-		await expect(async () => {
 
-			await this.layout.enterLayout('fullSizedSidebar');
+		await this.layout.enterLayout('fullSizedSidebar');
+
+		await expect(async () => {
 
 			const scmResources = await this.code.driver.page.locator(SCM_RESOURCE).all();
 
 			const resources: { name: string; type: string }[] = [];
 			for (const resource of scmResources) {
-				const text = await resource.locator('.label-name').textContent();
+				const text = await resource.locator('.label-name').textContent({ timeout: 5000 });
 				const tooltip = await resource.getAttribute('data-tooltip') || '';
 
 				if (text !== null) {
@@ -53,9 +54,9 @@ export class SCM {
 				expect.arrayContaining([{ name, type }])
 			);
 
-			await this.layout.enterLayout('stacked');
+		}).toPass({ timeout: 30000 });
 
-		}).toPass({ timeout: 60000 });
+		await this.layout.enterLayout('stacked');
 	}
 
 	async openChange(name: string): Promise<void> {
@@ -64,6 +65,7 @@ export class SCM {
 
 	async stage(name: string): Promise<void> {
 		await this.code.driver.page.locator(SCM_RESOURCE_ACTION_CLICK(name, 'Stage Changes')).click();
+		// this means a staged change:
 		await this.waitForChange(name, 'Index Modified');
 	}
 

@@ -44,6 +44,10 @@ runs:
     - name: Install Alternate Python Version
       shell: bash
       run: |
+        export PATH="$HOME/.pyenv/bin:$PATH"
+        eval "$(pyenv init --path)"
+        eval "$(pyenv virtualenv-init -)"
+
         PYTHON_ALTERNATE_VERSION="${{ inputs.alternate_version }}"
         echo "Installing Python version $PYTHON_ALTERNATE_VERSION using pyenv..."
         pyenv install -s "$PYTHON_ALTERNATE_VERSION"
