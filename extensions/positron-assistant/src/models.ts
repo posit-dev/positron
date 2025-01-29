@@ -95,7 +95,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const modelOptions = options.modelOptions ?? {};
 		const controller = new AbortController();
 		const signal = controller.signal;
-		let tools: Record<string, ai.CoreTool> | undefined;
+		let tools: Record<string, ai.Tool> | undefined;
 
 		const _messages = replaceBinaryMessageParts(
 			toAIMessage(messages),
@@ -103,8 +103,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		);
 
 		if (options.tools && options.tools.length > 0) {
-			tools = options.tools.reduce((acc: Record<string, ai.CoreTool>, tool: vscode.LanguageModelChatTool) => {
-				/* For the tools in this extension, create an ai.CoreTool object using the given
+			tools = options.tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
+				/* For the tools in this extension, create an ai.Tool object using the given
 				 * invocation token. This enables our tools to stream back to the chat response
 				 * model directly.
 				 */
@@ -114,7 +114,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 						modelOptions.toolOptions[tool.name]
 					);
 				} else {
-					// For any other tool, create an ai.CoreTool object from scratch.
+					// For any other tool, create an ai.Tool object from scratch.
 					acc[tool.name] = ai.tool({
 						description: tool.description,
 						parameters: ai.jsonSchema(tool.inputSchema ?? { type: 'object', properties: {} }),
@@ -137,6 +137,13 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			if (token.isCancellationRequested) {
 				controller.abort();
 				break;
+			}
+
+			if (part.type === 'reasoning') {
+				progress.report({
+					index: 0,
+					part: new vscode.LanguageModelTextPart(part.textDelta)
+				});
 			}
 
 			if (part.type === 'text-delta') {

@@ -15,7 +15,7 @@ export interface PositronToolAdapter {
 	name: string;
 	description: string;
 	lmTool: vscode.LanguageModelChatTool;
-	aiTool(token: unknown, toolOptions: unknown): ai.CoreTool;
+	aiTool(token: unknown, toolOptions: unknown): ai.Tool;
 }
 
 export const getPlotToolAdapter: PositronToolAdapter = {
@@ -29,7 +29,7 @@ export const getPlotToolAdapter: PositronToolAdapter = {
 		};
 	},
 
-	aiTool(token: unknown): ai.CoreTool {
+	aiTool(token: unknown): ai.Tool {
 		const push = (part: vscode.ChatResponsePart) => positron.ai.responseProgress(token, part);
 		return ai.tool({
 			description: this.description,
@@ -70,7 +70,7 @@ export const executeToolAdapter: PositronToolAdapter = {
 		};
 	},
 
-	aiTool(token: unknown): ai.CoreTool {
+	aiTool(token: unknown): ai.Tool {
 		return ai.tool({
 			description: this.description,
 			parameters: z.object({
@@ -93,7 +93,7 @@ export const textEditToolAdapter: PositronToolAdapter = {
 		};
 	},
 
-	aiTool(token: unknown, options: { document: vscode.TextDocument; selection: vscode.Selection }): ai.CoreTool {
+	aiTool(token: unknown, options: { document: vscode.TextDocument; selection: vscode.Selection }): ai.Tool {
 		const push = (part: vscode.ChatResponseTextEditPart) => positron.ai.responseProgress(token, part);
 
 		return ai.tool({
