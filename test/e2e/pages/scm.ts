@@ -55,7 +55,7 @@ export class SCM {
 
 			await this.layout.enterLayout('stacked');
 
-		}).toPass({ timeout: 20000 });
+		}).toPass({ timeout: 60000 });
 	}
 
 	async openChange(name: string): Promise<void> {

@@ -22,7 +22,31 @@ runs:
         python3 --version
         which python
 
-    - name: Install alternate Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "${{ inputs.alternate_version }}"
+    - name: Install pyenv
+      shell: bash
+      run: |
+        echo "Installing pyenv..."
+        curl https://pyenv.run | bash
+
+        # Add pyenv to PATH in bashrc (for later steps and tests)
+        echo 'export PATH="$HOME/.pyenv/bin:$PATH"' >> ~/.bashrc
+        echo 'eval "$(pyenv init --path)"' >> ~/.bashrc
+        echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc
+
+        # Apply changes for the current session
+        export PATH="$HOME/.pyenv/bin:$PATH"
+        eval "$(pyenv init --path)"
+        eval "$(pyenv virtualenv-init -)"
+
+        # Verify installation
+        pyenv --version
+
+    - name: Install Alternate Python Version
+      shell: bash
+      run: |
+        PYTHON_ALTERNATE_VERSION="${{ inputs.alternate_version }}"
+        echo "Installing Python version $PYTHON_ALTERNATE_VERSION using pyenv..."
+        pyenv install -s "$PYTHON_ALTERNATE_VERSION"
+
+        # Verify installation (but don't set it as default)
+        pyenv versions
