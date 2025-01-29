@@ -26,47 +26,52 @@ export class DefaultExtensionsInitializer extends Disposable {
 	) {
 		super();
 
-		if (isWindows && storageService.getBoolean(defaultExtensionsInitStatusKey, StorageScope.APPLICATION, true)) {
+		if (storageService.getBoolean(defaultExtensionsInitStatusKey, StorageScope.APPLICATION, true)) {
 			storageService.store(defaultExtensionsInitStatusKey, true, StorageScope.APPLICATION, StorageTarget.MACHINE);
 			this.initializeDefaultExtensions().then(() => storageService.store(defaultExtensionsInitStatusKey, false, StorageScope.APPLICATION, StorageTarget.MACHINE));
 		}
 	}
 
 	private async initializeDefaultExtensions(): Promise<void> {
-		const extensionsLocation = this.getDefaultExtensionVSIXsLocation();
-		let stat: IFileStat;
-		try {
-			stat = await this.fileService.resolve(extensionsLocation);
-			if (!stat.children) {
-				this.logService.debug('There are no default extensions to initialize', extensionsLocation.toString());
-				return;
-			}
-		} catch (error) {
-			if (toFileOperationResult(error) === FileOperationResult.FILE_NOT_FOUND) {
-				this.logService.debug('There are no default extensions to initialize', extensionsLocation.toString());
-				return;
-			}
-			this.logService.error('Error initializing extensions', error);
-			return;
-		}
+		// --- Start Positron ---
+		const extensionsLocation = isWindows ? [this.getDefaultExtensionVSIXsLocation(), this.getBootstrapExtensionVSIXsLocation()] : [this.getBootstrapExtensionVSIXsLocation()];
 
-		const vsixs = stat.children.filter(child => child.name.endsWith('.vsix'));
-		if (vsixs.length === 0) {
-			this.logService.debug('There are no default extensions to initialize', extensionsLocation.toString());
-			return;
-		}
-
-		this.logService.info('Initializing default extensions', extensionsLocation.toString());
-		await Promise.all(vsixs.map(async vsix => {
-			this.logService.info('Installing default extension', vsix.resource.toString());
+		for (const location of extensionsLocation) {
+			let stat: IFileStat;
 			try {
-				await this.extensionManagementService.install(vsix.resource, { donotIncludePackAndDependencies: true, keepExisting: false });
-				this.logService.info('Default extension installed', vsix.resource.toString());
+				stat = await this.fileService.resolve(location);
+				if (!stat.children) {
+					this.logService.debug('There are no default extensions to initialize', location.toString());
+					return;
+				}
 			} catch (error) {
-				this.logService.error('Error installing default extension', vsix.resource.toString(), getErrorMessage(error));
+				if (toFileOperationResult(error) === FileOperationResult.FILE_NOT_FOUND) {
+					this.logService.debug('There are no default extensions to initialize', location.toString());
+					return;
+				}
+				this.logService.error('Error initializing extensions', error);
+				return;
 			}
-		}));
-		this.logService.info('Default extensions initialized', extensionsLocation.toString());
+
+			const vsixs = stat.children.filter(child => child.name.endsWith('.vsix'));
+			if (vsixs.length === 0) {
+				this.logService.debug('There are no default extensions to initialize', location.toString());
+				return;
+			}
+
+			this.logService.info('Initializing default extensions', location.toString());
+			await Promise.all(vsixs.map(async vsix => {
+				this.logService.info('Installing default extension', vsix.resource.toString());
+				try {
+					await this.extensionManagementService.install(vsix.resource, { donotIncludePackAndDependencies: true, keepExisting: false });
+					this.logService.info('Default extension installed', vsix.resource.toString());
+				} catch (error) {
+					this.logService.error('Error installing default extension', vsix.resource.toString(), getErrorMessage(error));
+				}
+			}));
+			this.logService.info('Default extensions initialized', location.toString());
+		}
+		// --- End Positron ---
 	}
 
 	private getDefaultExtensionVSIXsLocation(): URI {
@@ -75,4 +80,10 @@ export class DefaultExtensionsInitializer extends Disposable {
 		return URI.file(join(dirname(dirname(this.environmentService.appRoot)), 'bootstrap', 'extensions'));
 	}
 
+	// --- Start Positron ---
+	private getBootstrapExtensionVSIXsLocation(): URI {
+		this.logService.debug('App root', this.environmentService.appRoot);
+		return URI.file(join(this.environmentService.appRoot, 'extensions', 'bootstrap'));
+	}
+	// --- End Positron ---
 }
