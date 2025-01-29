@@ -17,7 +17,9 @@ from ._vendor.jedi.api import Completion as CompletionAPI
 from ._vendor.jedi.api import Interpreter, strings
 from ._vendor.jedi.api import completion as completion_api
 from ._vendor.jedi.api.classes import BaseName, BaseSignature, Completion, Name
-from ._vendor.jedi.api.interpreter import MixedTreeName
+from ._vendor.jedi.api.interpreter import (
+    MixedTreeName,
+)
 from ._vendor.jedi.cache import memoize_method
 from ._vendor.jedi.inference import InferenceState
 from ._vendor.jedi.inference.base_value import HasNoContext, Value, ValueSet, ValueWrapper
@@ -47,6 +49,8 @@ from .utils import get_qualname
 #
 # https://github.com/davidhalter/jedi
 #
+
+ValueType = Union[CompiledValue, MixedObject, Value]
 
 # update Jedi cache to not conflict with other Jedi instances
 # adapted from jedi.settings.cache_directory
