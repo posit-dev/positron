@@ -186,7 +186,7 @@ configurationRegistry.registerConfiguration({
 			enumDescriptions: [
 				nls.localize(
 					'positron.runtime.startupBehavior.always',
-					"An interpreter will start in each new Positron window."),
+					"An interpreter will always start when a new Positron window is opened; the last used interpreter will start if available, and a default will be chosen otherwise."),
 				nls.localize(
 					'positron.runtime.startupBehavior.auto',
 					"An interpreter will start when needed, or if it was previously used in the workspace."),
