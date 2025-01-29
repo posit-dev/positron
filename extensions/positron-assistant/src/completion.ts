@@ -12,6 +12,7 @@ import { ModelConfig } from './config';
 import { createOllama } from 'ollama-ai-provider';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { EXTENSION_ROOT_DIR } from './constants';
+import { createOpenAI } from '@ai-sdk/openai';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
@@ -144,7 +145,7 @@ class AnthropicCompletion extends CompletionModel {
 		const controller = new AbortController();
 		const signal = controller.signal;
 
-		const system: string = await fs.promises.readFile(`${mdDir}/prompts/completion/anthropic.md`, 'utf8');
+		const system: string = await fs.promises.readFile(`${mdDir}/prompts/completion/fim.md`, 'utf8');
 		const { textStream } = await ai.streamText({
 			model: this.model,
 			system: system,
@@ -163,6 +164,32 @@ class AnthropicCompletion extends CompletionModel {
 		}
 
 		return [{ insertText: text }];
+	}
+}
+
+class OpenAICompletion extends AnthropicCompletion {
+	protected model: ai.LanguageModelV1;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: 'completion',
+		provider: {
+			id: 'openai',
+			displayName: 'OpenAI'
+		},
+		supportedOptions: ['apiKey', 'baseUrl'],
+		defaults: {
+			name: 'GPT-4o',
+			model: 'gpt-4o',
+			baseUrl: 'https://api.openai.com',
+		},
+	};
+
+	constructor(protected readonly _config: ModelConfig) {
+		super(_config);
+		this.model = createOpenAI({
+			apiKey: this._config.apiKey,
+			baseURL: this._config.baseUrl,
+		})(this._config.model);
 	}
 }
 
@@ -225,6 +252,7 @@ class OllamaCompletion extends CompletionModel {
 export function newCompletionProvider(config: ModelConfig): vscode.InlineCompletionItemProvider {
 	const providerClasses = {
 		'ollama': OllamaCompletion,
+		'openai': OpenAICompletion,
 		'mistral': MistralCompletion,
 		'anthropic': AnthropicCompletion,
 	};
@@ -240,4 +268,5 @@ export const completionModels = [
 	MistralCompletion,
 	OllamaCompletion,
 	AnthropicCompletion,
+	OpenAICompletion,
 ];
