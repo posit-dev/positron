@@ -79,9 +79,8 @@ if TYPE_CHECKING:
     from threading import Timer
 
 
-# NOTE: We have to construct paths via __file__ so that the casing matches Jedi-produced paths
-#       on Windows.
-DIR = Path(__file__).parent
+# Normalize casing to match Jedi-produced paths on Windows.
+DIR = Path(os.path.normcase(__file__)).parent
 LSP_DATA_DIR = DIR / "lsp_data"
 TEST_DOCUMENT_PATH = DIR / "foo.py"
 TEST_DOCUMENT_URI = TEST_DOCUMENT_PATH.as_uri()
