@@ -115,6 +115,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/// running one or extensions that provide runtimes.
 	private _runtimeManagers: IRuntimeManager[] = [];
 
+	private _startMs: number = Date.now();
+
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
@@ -145,7 +147,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		this._register(
 			this._languageRuntimeService.onDidChangeRuntimeStartupPhase(
 				(phase) => {
-					this._logService.debug(`[Runtime startup] Phase changed to '${phase}'`);
+					const elapsed = Date.now() - this._startMs;
+					this._logService.debug(`[Runtime startup, ${elapsed}ms] Phase changed to '${phase}'`);
 					this._startupPhase = phase;
 				}));
 
@@ -160,6 +163,35 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		this._register(this._runtimeSessionService.onDidFailStartRuntime(e => {
 			// Update the set of workspace sessions
 			this.saveWorkspaceSessions();
+		}));
+
+		this._register(this._extensionService.onDidChangeExtensionsStatus((extensions) => {
+			const elapsed = Date.now() - this._startMs;
+			const statuses = this._extensionService.getExtensionsStatus();
+			// Note the number of extensions that have already started activating
+			let started = 0;
+			for (const extension of extensions) {
+				const status = statuses[extension.value];
+				if (status && status.activationStarted) {
+					started++;
+				}
+			}
+			if (extensions.length === 1) {
+				this._logService.debug(`[Runtime startup, ${elapsed}ms] *** Extension status changed for '${extensions[0].value}', started count: ${started} ***`);
+			} else {
+				this._logService.debug(`[Runtime startup, ${elapsed}ms] *** Extension status changed for ${extensions.length} extensions, started count: ${started} ***`);
+			}
+			const packs = this._languagePacks.values();
+			for (const extension of extensions) {
+				for (const pack of packs) {
+					if (pack.includes(extension)) {
+						const status = statuses[extension.value];
+						if (status && status.activationTimes) {
+							this._logService.debug(`[Runtime startup] Extension ${extension.value} status: ${JSON.stringify(status.activationTimes)} (started = ${status.activationStarted})`);
+						}
+					}
+				}
+			}
 		}));
 
 		// Listen for runtime start events and update the most recently started
@@ -313,7 +345,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Wait for all extension hosts to start before beginning the main
 		// startup sequence.
+		const elapsed = Date.now() - this._startMs;
+		this._logService.debug(`[Runtime startup, ${elapsed}ms] *** Waiting for all extension hosts to start ***`);
 		this._extensionService.whenAllExtensionHostsStarted().then(async () => {
+			const elapsed = Date.now() - this._startMs;
+			this._logService.debug(`[Runtime startup, ${elapsed} ms] *** All extension hosts have started ***`);
 			if (this._workspaceTrustManagementService.isWorkspaceTrusted()) {
 				// In a trusted workspace, we can start the startup sequence
 				// immediately.
@@ -340,6 +376,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// language packs.
 			this._languagePacks.clear();
 
+			const elapsed = Date.now() - this._startMs;
+			this._logService.debug(`[Runtime startup, ${elapsed}ms] Got new set of extensions contributing language runtimes.`);
 			// Loop over each extension that contributes language runtimes.
 			for (const extension of extensions) {
 				for (const value of extension.value) {
@@ -512,7 +550,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	public completeDiscovery(id: number): void {
 		// Update the extension host's runtime discovery state to 'Complete'
 		this._discoveryCompleteByExtHostId.set(id, true);
-		this._logService.debug(`[Runtime startup] Discovery completed for extension host with id: ${id}.`);
+		const elapsed = Date.now() - this._startMs;
+		this._logService.debug(`[Runtime startup, ${elapsed}ms] Discovery completed for extension host with id: ${id}.`);
 
 		// Determine if all extension hosts have completed discovery
 		let discoveryCompletedByAllExtensionHosts = true;
@@ -548,7 +587,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Add the mainThreadLanguageRuntime instance id to the set of mainThreadLanguageRuntimes.
 		// this._discoveryCompleteByExtHostId.set(id, false);
 		this._runtimeManagers.push(manager);
-		this._logService.debug(`[Runtime startup] Registered runtime manager (ext host) with id: ${manager.id}.`);
+		const elapsed = Date.now() - this._startMs;
+		this._logService.debug(`[Runtime startup, ${elapsed}ms] Registered runtime manager (ext host) with id: ${manager.id}.`);
 
 		return {
 			dispose: () => {

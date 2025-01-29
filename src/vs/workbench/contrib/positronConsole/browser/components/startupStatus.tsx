@@ -77,6 +77,8 @@ export const StartupStatus = () => {
 		};
 	});
 
+	console.log('[Runtime Startup] *** StartupStatus: startupPhase:', startupPhase, 'discovered:', discovered);
+
 	// Render.
 	return (
 		<div className='startup-status'>
