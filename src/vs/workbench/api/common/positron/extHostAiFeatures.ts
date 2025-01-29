@@ -59,7 +59,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return this._proxy.$getPositronChatContext(agentRequest);
 	}
 
-	responseProgress(context: IToolInvocationContext, part: vscode.ChatResponsePart | vscode.ChatResponseTextEditPart): void {
+	responseProgress(context: IToolInvocationContext, part: vscode.ChatResponsePart | vscode.ChatResponseTextEditPart | vscode.ChatResponseConfirmationPart): void {
 		if (!isToolInvocationContext(context)) {
 			throw new Error('Invalid tool invocation token');
 		}

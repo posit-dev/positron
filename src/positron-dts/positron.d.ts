@@ -1632,6 +1632,13 @@ declare module 'positron' {
 		 * Send a progress response to the chat response stream.
 		 */
 		export function responseProgress(token: unknown, part: vscode.ChatResponsePart | {
+			// vscode.ChatResponseConfirmationPart
+			title: string;
+			message: string;
+			data: any;
+			buttons?: string[];
+		} | {
+			// vscode.ChatResponseTextEditPart
 			uri: vscode.Uri;
 			edits: vscode.TextEdit[];
 		}): void;

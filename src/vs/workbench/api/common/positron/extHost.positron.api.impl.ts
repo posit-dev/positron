@@ -220,7 +220,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			registerChatAgent(agentData: positron.ai.ChatAgentData): Thenable<vscode.Disposable> {
 				return extHostAiFeatures.registerChatAgent(extension, agentData);
 			},
-			responseProgress(token: unknown, part: vscode.ChatResponsePart | vscode.ChatResponseTextEditPart): void {
+			responseProgress(token: unknown, part: vscode.ChatResponsePart | vscode.ChatResponseTextEditPart | vscode.ChatResponseConfirmationPart): void {
 				const context = token as IToolInvocationContext;
 				return extHostAiFeatures.responseProgress(context, part);
 			},
