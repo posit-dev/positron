@@ -6,7 +6,7 @@
 import os
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional, Union, cast
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -202,6 +202,9 @@ def _completions(
     return completion_list.items
 
 
+_environment_variable_key = "SOME_ENVIRONMENT_VARIABLE"
+
+
 @pytest.mark.parametrize(
     ("source", "namespace", "character", "expected_labels"),
     [
@@ -251,22 +254,130 @@ def _completions(
             id="polars_series_dict_key",
             marks=pytest.mark.skip(reason="Completing integer dict keys not supported"),
         ),
+        pytest.param(
+            'os.environ["',
+            {"os": os},
+            None,
+            [f'{_environment_variable_key}"'],
+            id="os_environ",
+        ),
+        pytest.param(
+            'import os; os.environ[""]',
+            {},
+            -2,
+            [_environment_variable_key],
+            id="os_environ_from_source",
+        ),
+        pytest.param(
+            'import os; os.environ["',
+            {},
+            None,
+            [f'{_environment_variable_key}"'],
+            id="os_environ_from_source_unclosed",
+        ),
+        pytest.param(
+            'os.getenv("")',
+            {"os": os},
+            -2,
+            [_environment_variable_key],
+            id="os_getenv",
+        ),
+        pytest.param(
+            'import os; os.getenv("")',
+            {},
+            -2,
+            [_environment_variable_key],
+            id="os_getenv_from_source",
+        ),
+        pytest.param(
+            'os.getenv(key="")',
+            {"os": os},
+            -2,
+            [_environment_variable_key],
+            id="os_getenv_keyword",
+        ),
+        pytest.param(
+            'os.getenv(default="")',
+            {"os": os},
+            -2,
+            lambda completions: _environment_variable_key not in completions,
+            id="os_getenv_keyword_default",
+        ),
+        pytest.param(
+            'os.getenv(key="',
+            {"os": os},
+            None,
+            [f'{_environment_variable_key}"'],
+            id="os_getenv_keyword_unclosed",
+        ),
+        pytest.param(
+            'os.getenv(default="',
+            {"os": os},
+            None,
+            lambda completions: f'{_environment_variable_key}"' not in completions,
+            id="os_getenv_keyword_default_unclosed",
+        ),
+        pytest.param(
+            'os.getenv("", "")',
+            {"os": os},
+            len('os.getenv("'),
+            [_environment_variable_key],
+            id="os_getenv_with_default",
+        ),
+        pytest.param(
+            'os.getenv("", default="")',
+            {"os": os},
+            len('os.getenv("'),
+            [_environment_variable_key],
+            id="os_getenv_with_keyword_default",
+        ),
+        pytest.param(
+            'os.getenv("',
+            {"os": os},
+            None,
+            [f'{_environment_variable_key}"'],
+            id="os_getenv_unclosed",
+        ),
+        pytest.param(
+            'os.getenv("", "")',
+            {"os": os},
+            -2,
+            lambda completions: _environment_variable_key not in completions,
+            id="os_getenv_wrong_arg",
+        ),
+        pytest.param(
+            'os.getenv("", "',
+            {"os": os},
+            None,
+            lambda completions: f'{_environment_variable_key}"' not in completions,
+            id="os_getenv_wrong_arg_unclosed",
+        ),
     ],
 )
-def test_positron_completion_exact(
+def test_positron_completion(
     source: str,
     namespace: Dict[str, Any],
     character: Optional[int],
-    expected_labels: List[str],
+    expected_labels: Union[List[str], Callable[[List[Optional[str]]], bool]],
+    monkeypatch,
 ) -> None:
     server = create_server(namespace)
     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
-    completions = _completions(server, text_document, character)
+
+    # Patch environment variables for the `os.environ` test.
+    with patch.dict(os.environ, clear=True):
+        monkeypatch.setenv(_environment_variable_key, "")
+
+        completions = _completions(server, text_document, character)
+
     completion_labels = [
         completion.text_edit.new_text if completion.text_edit else completion.insert_text
         for completion in completions
     ]
-    assert completion_labels == expected_labels
+    if callable(expected_labels):
+        assert expected_labels(completion_labels)
+    else:
+        assert completion_labels == expected_labels
 
 
 def test_parameter_completions_appear_first() -> None:
