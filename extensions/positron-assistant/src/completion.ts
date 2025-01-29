@@ -14,6 +14,8 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { EXTENSION_ROOT_DIR } from './constants';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
+import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
@@ -281,6 +283,32 @@ class OpenRouterCompletion extends FimPromptCompletion {
 		})(this._config.model);
 	}
 }
+export class AWSLanguageModel extends FimPromptCompletion {
+	protected model;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: 'completion',
+		provider: {
+			id: 'bedrock',
+			displayName: 'AWS Bedrock'
+		},
+		supportedOptions: [],
+		defaults: {
+			name: 'Claude 3.5 Sonnet v2',
+			model: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+		},
+	};
+
+	constructor(_config: ModelConfig) {
+		super(_config);
+
+		this.model = createAmazonBedrock({
+			bedrockOptions: {
+				credentials: fromNodeProviderChain(),
+			}
+		})(this._config.model);
+	}
+}
 
 export function newCompletionProvider(config: ModelConfig): vscode.InlineCompletionItemProvider {
 	const providerClasses = {
@@ -289,6 +317,7 @@ export function newCompletionProvider(config: ModelConfig): vscode.InlineComplet
 		'mistral': MistralCompletion,
 		'anthropic': AnthropicCompletion,
 		'openrouter': OpenRouterCompletion,
+		'bedrock': AWSLanguageModel,
 	};
 
 	if (!(config.provider in providerClasses)) {
@@ -304,4 +333,5 @@ export const completionModels = [
 	AnthropicCompletion,
 	OpenAICompletion,
 	OpenRouterCompletion,
+	AWSLanguageModel,
 ];
