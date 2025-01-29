@@ -44,8 +44,11 @@ runs:
 
     - name: Setup Python
       uses: ./.github/actions/install-python
+      with:
+        alternate_version: "3.13.0"
 
     - name: Setup R
       uses: ./.github/actions/install-r
       with:
         version: "4.4.0"
+        alternate_version: "4.4.2"

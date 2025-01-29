@@ -1,5 +1,10 @@
 name: "Setup Python"
-description: "Install Python dependencies."
+description: "Install Python dependencies and alternate version."
+inputs:
+  alternate_version:
+    description: "The alternate version of Python to install (e.g., 3.13.0)"
+    required: true
+    default: "3.13.0"
 runs:
   using: "composite"
   steps:
@@ -7,12 +12,17 @@ runs:
       shell: bash
       run: |
         curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-        python -m pip install --upgrade pip
-        python -m pip install -r requirements.txt
-        python -m pip install ipykernel trcli
+        python3 -m pip install --upgrade pip
+        python3 -m pip install -r requirements.txt
+        python3 -m pip install ipykernel trcli
 
     - name: Verify Python Version
       shell: bash
       run: |
-        python3 --version
+        python --version
         which python
+
+    - name: Install alternate Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "${{ inputs.alternate_version }}"

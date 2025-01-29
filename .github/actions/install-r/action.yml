@@ -1,18 +1,21 @@
 name: "Setup Rig, R, and R Packages"
-description: "Install a specified R version using rig, with an option to install additional R packages."
+description: "Install a specified R version using Rig, with an option to install additional R packages."
 inputs:
   version:
     description: "The R version to install (e.g., 4.4.0)"
     required: false
     default: "4.4.0"
+  alternate_version:
+    description: "The alternate R version to install (e.g., 4.4.2)"
+    required: false
+    default: "4.4.2"
 runs:
   using: "composite"
   steps:
     - name: Install Rig and R
       shell: bash
-      env:
-        R_VERSION: "${{ inputs.version }}"
       run: |
+        R_VERSION="${{ inputs.version }}"
         echo "Installing R version $R_VERSION using Rig..."
         curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | sudo tar xz -C /usr/local
         rig add "$R_VERSION"
@@ -44,3 +47,10 @@ runs:
         curl -s https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
         Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://cran.rstudio.com')"
         Rscript -e "options(pak.install_binary = TRUE); pak::local_install_dev_deps(ask = FALSE)"
+
+    - name: Install alternate R version
+      shell: bash
+      run: |
+        R_ALTERNATE_VERSION="${{ inputs.alternate_version }}"
+        echo "Installing R version $R_ALTERNATE_VERSION using Rig..."
+        rig add "$R_ALTERNATE_VERSION"
