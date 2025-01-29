@@ -958,7 +958,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				return true;
 			}
 
-			// Runtimes that have never been started are used are not
+			// Runtimes that have never been started or used are not
 			// auto-started; they are just used to set defaults.
 			if (affiliation.lastStarted === 0 &&
 				affiliation.lastUsed === 0) {
@@ -970,7 +970,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 
 			// Compare the last used time to the last started time; log if
-			//
 			// we're going to forget a runtime.
 			if (affiliation.lastStarted > affiliation.lastUsed) {
 				this._logService.debug(`[Runtime startup] Affiliated runtime ` +
@@ -1070,7 +1069,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
-		// Save the start time of the affliated runtime.
+		// Save the start time of the affiliated runtime.
 		affiliatedRuntime.lastStarted = Date.now();
 		this.saveAffiliatedRuntime(affiliatedRuntime);
 
