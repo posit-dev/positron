@@ -13,6 +13,8 @@ import { createOllama } from 'ollama-ai-provider';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { replaceBinaryMessageParts, toAIMessage } from './utils';
 import { positronToolAdapters } from './tools';
+import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
+import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 
 class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly name = 'Error Language Model';
@@ -270,6 +272,34 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 	}
 }
 
+export class AWSLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
+	protected model;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: 'chat',
+		provider: {
+			id: 'bedrock',
+			displayName: 'AWS Bedrock'
+		},
+		supportedOptions: ['toolCalls'],
+		defaults: {
+			name: 'Claude 3.5 Sonnet v2',
+			model: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+			toolCalls: true,
+		},
+	};
+
+	constructor(_config: ModelConfig) {
+		super(_config);
+
+		this.model = createAmazonBedrock({
+			bedrockOptions: {
+				credentials: fromNodeProviderChain(),
+			}
+		})(this._config.model);
+	}
+}
+
 export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModelChatProvider {
 	const providerClasses = {
 		'echo': EchoLanguageModel,
@@ -278,6 +308,7 @@ export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModel
 		'openrouter': OpenRouterLanguageModel,
 		'anthropic': AnthropicLanguageModel,
 		'ollama': OllamaLanguageModel,
+		'bedrock': AWSLanguageModel,
 	};
 
 	if (!(config.provider in providerClasses)) {
@@ -289,6 +320,7 @@ export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModel
 
 export const languageModels = [
 	AnthropicLanguageModel,
+	AWSLanguageModel,
 	OpenAILanguageModel,
 	OpenRouterLanguageModel,
 	OllamaLanguageModel,

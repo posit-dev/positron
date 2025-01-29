@@ -81,7 +81,8 @@
                   "mistral",
                   "ollama",
                   "openai",
-                  "openrouter"
+                  "openrouter",
+                  "bedrock"
                 ],
                 "description": "The language model provider."
               },
@@ -110,14 +111,16 @@
     "lint": "eslint src --ext ts"
   },
   "devDependencies": {
+    "@ai-sdk/amazon-bedrock": "^1.1.5",
     "@ai-sdk/anthropic": "^1.0.5",
     "@ai-sdk/openai": "^1.0.8",
+    "@aws-sdk/credential-providers": "^3.734.0",
     "@eslint/js": "^9.13.0",
     "@openrouter/ai-sdk-provider": "^0.0.6",
     "@stylistic/eslint-plugin": "^2.9.0",
     "@types/node": "^20",
     "@types/vscode": "^1.73.0",
-    "ai": "^4.0.14",
+    "ai": "^4.1.0",
     "eslint": "^9.13.0",
     "ollama-ai-provider": "^1.1.0",
     "typescript": "^5.6.2",
