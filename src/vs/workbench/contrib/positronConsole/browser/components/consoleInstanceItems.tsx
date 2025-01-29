@@ -14,10 +14,10 @@ import React, { Component } from 'react';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { ConsoleInput } from './consoleInput.js';
 import { RuntimeTrace } from './runtimeTrace.js';
-import { RuntimeExited } from './runtimeExited.js';
 import { RuntimeStartup } from './runtimeStartup.js';
 import { RuntimeStarted } from './runtimeStarted.js';
 import { RuntimeOffline } from './runtimeOffline.js';
+import { RuntimeExited } from './runtimeExited.js';
 import { RuntimeItemTrace } from '../../../../services/positronConsole/browser/classes/runtimeItemTrace.js';
 import { RuntimeStarting } from './runtimeStarting.js';
 import { RuntimeActivity } from './runtimeActivity.js';
@@ -25,7 +25,6 @@ import { RuntimeItemExited } from '../../../../services/positronConsole/browser/
 import { RuntimeItemStartup } from '../../../../services/positronConsole/browser/classes/runtimeItemStartup.js';
 import { RuntimeItemStarted } from '../../../../services/positronConsole/browser/classes/runtimeItemStarted.js';
 import { RuntimeItemOffline } from '../../../../services/positronConsole/browser/classes/runtimeItemOffline.js';
-import { RuntimeReconnected } from './runtimeReconnected.js';
 import { RuntimeItemStarting } from '../../../../services/positronConsole/browser/classes/runtimeItemStarting.js';
 import { RuntimeItemActivity } from '../../../../services/positronConsole/browser/classes/runtimeItemActivity.js';
 import { RuntimePendingInput } from './runtimePendingInput.js';
@@ -36,6 +35,7 @@ import { RuntimeItemPendingInput } from '../../../../services/positronConsole/br
 import { RuntimeItemRestartButton } from '../../../../services/positronConsole/browser/classes/runtimeItemRestartButton.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { RuntimeItemStartupFailure } from '../../../../services/positronConsole/browser/classes/runtimeItemStartupFailure.js';
+import { localize } from '../../../../../nls.js';
 
 /**
  * ConsoleInstanceItemsProps interface.
@@ -65,6 +65,9 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 	 * @returns The rendered component.
 	 */
 	override render() {
+
+		let extensionHostDisconnected = false;
+
 		return (
 			<>
 				<div className='top-spacer' />
@@ -74,9 +77,11 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 					} else if (runtimeItem instanceof RuntimeItemPendingInput) {
 						return <RuntimePendingInput key={runtimeItem.id} fontInfo={this.props.editorFontInfo} runtimeItemPendingInput={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemStartup) {
+						extensionHostDisconnected = false;
 						return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemReconnected) {
-						return <RuntimeReconnected key={runtimeItem.id} runtimeItemReconnected={runtimeItem} />;
+						extensionHostDisconnected = false;
+						return null;
 					} else if (runtimeItem instanceof RuntimeItemStarting) {
 						return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemStarted) {
@@ -84,6 +89,10 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 					} else if (runtimeItem instanceof RuntimeItemOffline) {
 						return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemExited) {
+						if (runtimeItem.reason === 'extensionHost') {
+							extensionHostDisconnected = true;
+							return null;
+						}
 						return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemRestartButton) {
 						return <RuntimeRestartButton key={runtimeItem.id} runtimeItemRestartButton={runtimeItem} positronConsoleInstance={this.props.positronConsoleInstance} />;
@@ -96,17 +105,27 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 						return null;
 					}
 				})}
-				{!this.props.positronConsoleInstance.promptActive && this.props.runtimeAttached &&
-					<ConsoleInput
-						width={this.props.consoleInputWidth}
-						positronConsoleInstance={this.props.positronConsoleInstance}
-						onSelectAll={this.props.onSelectAll}
-						onCodeExecuted={() =>
-							// Update the component to eliminate flickering.
-							flushSync(() => this.forceUpdate()
-							)}
-					/>
+				{extensionHostDisconnected ?
+					(<div className='console-item-reconnecting'>
+						<span className='codicon codicon-loading codicon-modifier-spin'></span>
+						<span>{localize(
+							"positron.console.extensionsRestarting",
+							"Extensions restarting..."
+						)}</span>
+					</div>) :
+					null
 				}
+
+				<ConsoleInput
+					hidden={this.props.positronConsoleInstance.promptActive || !this.props.runtimeAttached}
+					width={this.props.consoleInputWidth}
+					positronConsoleInstance={this.props.positronConsoleInstance}
+					onSelectAll={this.props.onSelectAll}
+					onCodeExecuted={() =>
+						// Update the component to eliminate flickering.
+						flushSync(() => this.forceUpdate()
+						)}
+				/>
 			</>
 		);
 	}
