@@ -198,7 +198,7 @@ configurationRegistry.registerConfiguration({
 					"Interpreters will only start when manually selected."),
 				nls.localize(
 					'positron.runtime.startupBehavior.disabled',
-					"Interpreters are disabled."),
+					"Interpreters are disabled. You will not be able to select an interpreter."),
 			],
 			description: nls.localize(
 				'positron.runtime.automaticStartup',

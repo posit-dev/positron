@@ -62,7 +62,7 @@ class JavascriptRuntimeManager implements positron.LanguageRuntimeManager {
 	}
 
 	/**
-	 * Returns the recommended runtime for the current workspace. Javascipt is
+	 * Returns the recommended runtime for the current workspace. Javascript is
 	 * not currently detected as a recommended environment, so this always
 	 * returns nothing.
 	 */

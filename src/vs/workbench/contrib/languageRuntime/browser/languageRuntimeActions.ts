@@ -438,7 +438,7 @@ export function registerLanguageRuntimeActions() {
 			'Select the interpreter for which to show profile output'))?.showProfile();
 	});
 
-	// Registers the set active language runtime action.
+	// Registers the clear affiliated language runtime / clear saved interpreter action.
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.clearAffiliation', 'Clear Saved Interpreter', async accessor => {
 		const runtimeSessionService = accessor.get(IRuntimeStartupService);
 		const quickInputService = accessor.get(IQuickInputService);
