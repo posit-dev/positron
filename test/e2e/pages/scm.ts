@@ -46,7 +46,7 @@ export class SCM {
 			}
 
 			// debug
-			console.log(resources);
+			resources.forEach(resource => this.code.logger.log(`Name: ${resource.name}, Type: ${resource.type}`));
 
 			// Check if at least one resource matches both name and type
 			expect(resources).toEqual(
@@ -59,7 +59,7 @@ export class SCM {
 	}
 
 	async openChange(name: string): Promise<void> {
-		await this.code.driver.page.locator(SCM_RESOURCE_CLICK(name)).click();
+		await this.code.driver.page.locator(SCM_RESOURCE_CLICK(name)).last().click();
 	}
 
 	async stage(name: string): Promise<void> {
