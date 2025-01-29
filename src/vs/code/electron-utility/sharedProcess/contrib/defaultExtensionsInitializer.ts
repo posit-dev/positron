@@ -26,10 +26,10 @@ export class DefaultExtensionsInitializer extends Disposable {
 	) {
 		super();
 
-		if (storageService.getBoolean(defaultExtensionsInitStatusKey, StorageScope.APPLICATION, true)) {
-			storageService.store(defaultExtensionsInitStatusKey, true, StorageScope.APPLICATION, StorageTarget.MACHINE);
-			this.initializeDefaultExtensions().then(() => storageService.store(defaultExtensionsInitStatusKey, false, StorageScope.APPLICATION, StorageTarget.MACHINE));
-		}
+		//if (storageService.getBoolean(defaultExtensionsInitStatusKey, StorageScope.APPLICATION, true)) {
+		storageService.store(defaultExtensionsInitStatusKey, true, StorageScope.APPLICATION, StorageTarget.MACHINE);
+		this.initializeDefaultExtensions().then(() => storageService.store(defaultExtensionsInitStatusKey, false, StorageScope.APPLICATION, StorageTarget.MACHINE));
+		//}
 	}
 
 	private async initializeDefaultExtensions(): Promise<void> {
