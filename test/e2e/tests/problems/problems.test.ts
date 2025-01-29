@@ -36,9 +36,11 @@ test.describe('Problems', {
 		await app.workbench.problems.showProblemsView();
 
 		await test.step('Verify Problems Count', async () => {
-			const errorLocators = await app.code.driver.page.locator(errorsSelector).all();
+			await expect(async () => {
+				const errorLocators = await app.code.driver.page.locator(errorsSelector).all();
 
-			expect(errorLocators.length).toBe(4);
+				expect(errorLocators.length).toBe(4);
+			}).toPass({ timeout: 20000 });
 		});
 
 		await test.step('Revert error', async () => {
