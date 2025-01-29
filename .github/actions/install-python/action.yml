@@ -19,7 +19,7 @@ runs:
     - name: Verify Python Version
       shell: bash
       run: |
-        python --version
+        python3 --version
         which python
 
     - name: Install alternate Python
