@@ -319,7 +319,11 @@ def assert_has_path_completion(
 ):
     # Replace separators for testing cross-platform.
     source = source.replace("/", os.path.sep)
-    expected_completion = expected_completion.replace("/", os.path.sep)
+
+    # On Windows, expect escaped backslashes in paths to avoid inserting invalid strings.
+    # See: https://github.com/posit-dev/positron/issues/3758.
+    if os.name == "nt":
+        expected_completion = expected_completion.replace("/", "\\" + os.path.sep)
 
     server = create_server(root_path=root_path, notebook_path=notebook_path)
     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
