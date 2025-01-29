@@ -546,7 +546,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	public registerRuntimeManager(manager: IRuntimeManager): IDisposable {
 		// Add the mainThreadLanguageRuntime instance id to the set of mainThreadLanguageRuntimes.
-		// this._discoveryCompleteByExtHostId.set(id, false);
+		this._discoveryCompleteByExtHostId.set(manager.id, false);
 		this._runtimeManagers.push(manager);
 		this._logService.debug(`[Runtime startup] Registered runtime manager (ext host) with id: ${manager.id}.`);
 
