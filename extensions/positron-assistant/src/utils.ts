@@ -106,7 +106,11 @@ export function replaceBinaryMessageParts(messages: ai.CoreMessage[], references
 export function toLanguageModelChatMessage(turns: vscode.ChatContext['history']): vscode.LanguageModelChatMessage[] {
 	return turns.map((turn) => {
 		if (turn instanceof vscode.ChatRequestTurn) {
-			return vscode.LanguageModelChatMessage.User(turn.prompt);
+			let textValue = turn.prompt;
+			if (turn.command) {
+				textValue = `${turn.command} ${turn.prompt}`;
+			}
+			return vscode.LanguageModelChatMessage.User(textValue);
 		} else if (turn.result.errorDetails) {
 			return vscode.LanguageModelChatMessage.Assistant(`ERROR MESSAGE: "${turn.result.errorDetails.message}"`);
 		} else {
@@ -120,9 +124,9 @@ export function toLanguageModelChatMessage(turns: vscode.ChatContext['history'])
 					throw new Error('Unsupported response kind when lowering chat agent response');
 				}
 			}, '');
-			return vscode.LanguageModelChatMessage.Assistant(textValue);
+			return textValue === '' ? null : vscode.LanguageModelChatMessage.Assistant(textValue);
 		}
-	});
+	}).filter((message) => !!message);
 }
 
 export function padBase64String(base64: string): string {
