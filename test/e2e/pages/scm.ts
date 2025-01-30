@@ -27,7 +27,7 @@ export class SCM {
 		await expect(this.code.driver.page.locator(SCM_INPUT_TEXTAREA)).toBeVisible();
 	}
 
-	async waitForChange(name: string, type: string): Promise<void> {
+	async waitForChange(name: string, type: 'Staged' | 'Modified'): Promise<void> {
 		await this.layout.enterLayout('fullSizedSidebar');
 
 		const tooltip = type === 'Staged' ? 'Index Modified' : 'Modified';
@@ -46,7 +46,7 @@ export class SCM {
 
 	async stage(name: string): Promise<void> {
 		await this.code.driver.page.locator(SCM_RESOURCE_ACTION_CLICK(name, 'Stage Changes')).click();
-		await this.waitForChange(name, 'Index Modified');
+		await this.waitForChange(name, 'Staged');
 	}
 
 	async commit(message: string): Promise<void> {
