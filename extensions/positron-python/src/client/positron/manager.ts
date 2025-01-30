@@ -54,7 +54,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
     ) {
         this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
 
-        positron.runtime.registerLanguageRuntimeManager(this);
+        positron.runtime.registerLanguageRuntimeManager('python', this);
 
         this.disposables.push(
             // When an interpreter is added, register a corresponding language runtime.
@@ -90,8 +90,17 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
      *
      * @returns An async generator that yields Python language runtime metadata.
      */
-    discoverRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+    discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
         return this.discoverPythonRuntimes();
+    }
+
+    /**
+     * Recommend a Python language runtime based on the workspace.
+     */
+    async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+        // TODO: This is where we could recommend a runtime based on the
+        // workspace, e.g. if it contains a virtualenv
+        return undefined;
     }
 
     /**
