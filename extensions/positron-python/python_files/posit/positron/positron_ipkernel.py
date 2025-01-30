@@ -176,11 +176,18 @@ class PositronMagics(Magics):
         from chatlas import ChatAnthropic
         from dotenv import load_dotenv
 
+        system_prompt += "All examples should be \
+                completely self-contained and runnable as-is. If you don't know \
+                how to use the variable or anything about it, say so. \
+                Always tell users that they can use the built-in help \
+                function or a question mark to view Python object documentation \
+                in the Positron Help Pane. The user is in an ipykernel REPL, \
+                so only give advice that will work in an ipykernel REPL."
+
         load_dotenv("/Users/isabelizimm/code/llm-quickstart/.env")
 
         chat_session = ChatAnthropic(
-            model="claude-3-5-sonnet-latest",
-            system_prompt=system_prompt
+            model="claude-3-5-sonnet-latest", system_prompt=system_prompt, stream=False
         )
         response = chat_session.chat(str(user_input))
         print(response)
@@ -217,14 +224,12 @@ class PositronMagics(Magics):
         system_prompt = "You're a Python software engineer teaching a\
                 new learner. They will pass to you a dictionary of information \
                 about a variable. Your job is to clearly and concisely explain \
-                the variable and give an example of using it. The examples should be\
-                completely self-contained and runnable as-is. If you don't know \
-                how to use the variable or anything about it, say so."
+                the variable and give an example of using it. "
 
         self.ai_input(potential, system_prompt)
 
     @line_magic
-    def explainerror(self, line: str) -> None:
+    def helpme(self, line: str) -> None:
         """
         Use OpenAI to explain a Python object.
 
@@ -239,8 +244,7 @@ class PositronMagics(Magics):
         system_prompt = "You're a Python software engineer teaching a\
             new learner. You have recieved a dictionary of \{error type: traceback\} \
             Your job is to clearly and concisely explain the error \
-            and give an example of how to fix it. If you don't know \
-            how to fix the error or anything about it, say so."
+            and give an example of how to fix it."
 
         self.ai_input({sys.last_type.__name__: str(sys.last_value)}, system_prompt)
 
