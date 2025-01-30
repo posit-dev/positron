@@ -64,7 +64,7 @@ test.describe('Console Pane: R', {
 
 			await app.workbench.console.barClearButton.click();
 
-			await app.workbench.console.pasteCodeToConsole('R.version.string');
+			await app.workbench.console.pasteCodeToConsole('R.version.string', true);
 			await app.workbench.console.sendEnterKey();
 
 			await app.workbench.console.waitForConsoleContents(primaryR);
@@ -80,7 +80,7 @@ test.describe('Console Pane: R', {
 
 			await app.workbench.console.barClearButton.click();
 
-			await app.workbench.console.pasteCodeToConsole(`R.version.string`);
+			await app.workbench.console.pasteCodeToConsole(`R.version.string`, true);
 			await app.workbench.console.sendEnterKey();
 			await app.workbench.console.waitForConsoleContents(secondaryR);
 		} else {
