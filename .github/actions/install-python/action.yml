@@ -1,5 +1,10 @@
 name: "Setup Python"
-description: "Install Python dependencies."
+description: "Install Python dependencies and alternate version."
+inputs:
+  alternate_version:
+    description: "The alternate version of Python to install (e.g., 3.13.0)"
+    required: true
+    default: "3.13.0"
 runs:
   using: "composite"
   steps:
@@ -7,12 +12,56 @@ runs:
       shell: bash
       run: |
         curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-        python -m pip install --upgrade pip
-        python -m pip install -r requirements.txt
-        python -m pip install ipykernel trcli
+        python3 -m pip install --upgrade pip
+        python3 -m pip install -r requirements.txt
+        python3 -m pip install ipykernel
 
     - name: Verify Python Version
       shell: bash
       run: |
         python3 --version
         which python
+
+    - name: Install pyenv
+      shell: bash
+      run: |
+        echo "Installing pyenv..."
+        curl https://pyenv.run | bash
+
+        # Add pyenv to PATH in bashrc (for later steps and tests)
+        echo 'export PATH="$HOME/.pyenv/bin:$PATH"' >> ~/.bashrc
+        echo 'eval "$(pyenv init --path)"' >> ~/.bashrc
+        echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bashrc
+
+        # Apply changes for the current session
+        export PATH="$HOME/.pyenv/bin:$PATH"
+        eval "$(pyenv init --path)"
+        eval "$(pyenv virtualenv-init -)"
+
+        # Verify installation
+        pyenv --version
+
+    - name: Install Alternate Python Version
+      shell: bash
+      run: |
+        export PATH="$HOME/.pyenv/bin:$PATH"
+        eval "$(pyenv init --path)"
+        eval "$(pyenv virtualenv-init -)"
+
+        PYTHON_ALTERNATE_VERSION="${{ inputs.alternate_version }}"
+        echo "Installing Python version $PYTHON_ALTERNATE_VERSION using pyenv..."
+        pyenv install -s "$PYTHON_ALTERNATE_VERSION"
+        
+        pyenv versions
+
+        pyenv global "$PYTHON_ALTERNATE_VERSION"
+        python --version
+        python -m pip install --upgrade pip
+        python -m pip install ipykernel
+
+        # Undo the change and reset to system Python
+        echo "Resetting pyenv to system Python..."
+        pyenv global system
+
+        # Verify that Python is reset
+        python --version
