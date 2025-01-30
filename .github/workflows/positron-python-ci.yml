@@ -258,9 +258,9 @@ jobs:
           cache: 'pip'
 
       - name: Install Node dependencies
-        env:
-          GH_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
-        run: npm ci --fetch-timeout 120000
+        run: |
+          git config credential.https://api.github.com.token ${{ secrets.POSITRON_GITHUB_PAT }}
+          npm ci --fetch-timeout 120000
 
       - name: Run `gulp prePublishNonBundle`
         run: npm run prePublish
