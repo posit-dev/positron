@@ -14,7 +14,7 @@ runs:
         curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
         python3 -m pip install --upgrade pip
         python3 -m pip install -r requirements.txt
-        python3 -m pip install ipykernel trcli
+        python3 -m pip install ipykernel
 
     - name: Verify Python Version
       shell: bash
@@ -51,6 +51,17 @@ runs:
         PYTHON_ALTERNATE_VERSION="${{ inputs.alternate_version }}"
         echo "Installing Python version $PYTHON_ALTERNATE_VERSION using pyenv..."
         pyenv install -s "$PYTHON_ALTERNATE_VERSION"
-
-        # Verify installation (but don't set it as default)
+        
         pyenv versions
+
+        pyenv global "$PYTHON_ALTERNATE_VERSION"
+        python --version
+        python -m pip install --upgrade pip
+        python -m pip install ipykernel
+
+        # Undo the change and reset to system Python
+        echo "Resetting pyenv to system Python..."
+        pyenv global --unset || pyenv global system
+
+        # Verify that Python is reset
+        python --version
