@@ -14,7 +14,7 @@ from IPython.core import oinspect
 
 from ._vendor.jedi import settings
 from ._vendor.jedi.api import Interpreter, strings
-from ._vendor.jedi.api.classes import BaseName, Completion, Name
+from ._vendor.jedi.api.classes import BaseName, BaseSignature, Completion, Name
 from ._vendor.jedi.api.interpreter import (
     MixedTreeName,
 )
@@ -55,8 +55,9 @@ settings.cache_directory = _cache_directory.expanduser()
 
 # Store the original versions of Jedi functions/methods that we patch.
 _original_interpreter_complete = Interpreter.complete
-_original_interpreter_help = Interpreter.help
 _original_interpreter_goto = Interpreter.goto
+_original_interpreter_help = Interpreter.help
+_original_interpreter_infer = Interpreter.infer
 _original_mixed_name_infer = MixedName.infer
 _original_mixed_tree_name_infer = MixedTreeName.infer
 
@@ -73,13 +74,6 @@ def _interpreter_complete(
         PositronCompletion(name)
         for name in _original_interpreter_complete(self, line, column, fuzzy=fuzzy)
     ]
-
-
-def _interpreter_help(
-    self: Interpreter, line: Optional[int] = None, column: Optional[int] = None
-) -> List["PositronName"]:
-    # Wrap original help items in `PositronName`.
-    return [PositronName(name) for name in _original_interpreter_help(self, line, column)]
 
 
 def _interpreter_goto(
@@ -103,6 +97,30 @@ def _interpreter_goto(
             follow_builtin_imports=follow_builtin_imports,
             only_stubs=only_stubs,
             prefer_stubs=prefer_stubs,
+        )
+    ]
+
+
+def _interpreter_help(
+    self: Interpreter, line: Optional[int] = None, column: Optional[int] = None
+) -> List["PositronName"]:
+    # Wrap original help items in `PositronName`.
+    return [PositronName(name) for name in _original_interpreter_help(self, line, column)]
+
+
+def _interpreter_infer(
+    self: Interpreter,
+    line: Optional[int] = None,
+    column: Optional[int] = None,
+    *,
+    only_stubs=False,
+    prefer_stubs=False,
+) -> List["PositronName"]:
+    # Wrap original inferred items in `PositronName`.
+    return [
+        PositronName(name)
+        for name in _original_interpreter_infer(
+            self, line, column, only_stubs=only_stubs, prefer_stubs=prefer_stubs
         )
     ]
 
@@ -216,26 +234,33 @@ class PositronName(Name):
         return None
 
     @property
-    def full_name(self):  # type: ignore
+    def full_name(self) -> str:  # type: ignore
         if self._inspector:
             return get_qualname(self._inspector.value)
         return super().full_name
 
     @property
-    def description(self):
+    def description(self) -> str:
         if self._inspector:
             return self._inspector.get_display_type()
         return super().description
 
     @property
-    def module_path(self):
+    def module_path(self) -> Optional[Path]:
         if self._inspector:
             fname = oinspect.find_file(self._inspector.value)
             if fname is not None:
-                return Path(fname)
-        return super().module_path
+                # Normalize case for consistency in tests on Windows.
+                return Path(os.path.normcase(fname))
 
-    def docstring(self, raw=False, fast=True):  # noqa: ARG002, FBT002
+        module_path = super().module_path
+        if module_path is not None:
+            # Normalize case for consistency in tests on Windows.
+            return Path(os.path.normcase(module_path))
+
+        return None
+
+    def docstring(self, raw=False, fast=True) -> str:  # noqa: ARG002, FBT002
         if self._inspector:
             if isinstance(self._inspector, (BaseColumnInspector, BaseTableInspector)):
                 # Return a preview of the column/table.
@@ -246,7 +271,7 @@ class PositronName(Name):
 
         return super().docstring(raw=raw)
 
-    def get_signatures(self):
+    def get_signatures(self) -> List[BaseSignature]:
         if isinstance(self._inspector, (BaseColumnInspector, BaseTableInspector)):
             return []
         return super().get_signatures()
@@ -262,7 +287,7 @@ class PositronCompletion(PositronName):
         self._wrapped_completion = completion
 
     @property
-    def complete(self):
+    def complete(self) -> Optional[str]:
         return self._wrapped_completion.complete
 
 
@@ -335,8 +360,9 @@ def _completions_for_dicts(
 def apply_jedi_patches():
     """Apply Positron patches to Jedi."""
     Interpreter.complete = _interpreter_complete
-    Interpreter.help = _interpreter_help
     Interpreter.goto = _interpreter_goto
+    Interpreter.help = _interpreter_help
+    Interpreter.infer = _interpreter_infer
     MixedName.infer = _mixed_name_infer
     MixedTreeName.infer = _mixed_tree_name_infer
     strings._completions_for_dicts = _completions_for_dicts  # noqa: SLF001
