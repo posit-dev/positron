@@ -34,10 +34,10 @@ export class SCM {
 		const tooltip = type === 'Staged' ? 'Index Modified' : 'Modified';
 		const locator = this.code.driver.page
 			.getByLabel('Source Control Management')
-			.locator(`[data-tooltip="${tooltip}"] .file-icon`);
+			.locator(`[data-tooltip="${tooltip}"] .file-icon`)
+			.filter({ hasText: name });
 
-		await expect(locator).toContainText(name);
-
+		await expect(locator).toBeVisible();
 		await this.layout.enterLayout('stacked');
 	}
 
