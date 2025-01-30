@@ -14,9 +14,10 @@ on:
       - '.github/workflows/positron-python-ci.yml'
       - 'extensions/positron-python/**'
 
+
 defaults:
-  run:
-    working-directory: 'extensions/positron-python'
+ run:
+   working-directory: 'extensions/positron-python'
 
 env:
   NODE_VERSION: '20.12.1'
@@ -258,7 +259,7 @@ jobs:
 
       - name: Install Node dependencies
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
         run: npm ci --fetch-timeout 120000
 
       - name: Run `gulp prePublishNonBundle`
@@ -318,7 +319,7 @@ jobs:
         run: |
           python -m venv .venv
           if ('${{ matrix.os }}' -match 'windows-latest') {
-            & ".venv/Scripts/python.exe' ./build/ci/addEnvPath.py ${{ env.PYTHON_VIRTUAL_ENVS_LOCATION }} venvPath
+            & ".venv/Scripts/python.exe" ./build/ci/addEnvPath.py ${{ env.PYTHON_VIRTUAL_ENVS_LOCATION }} venvPath
           } else {
             & ".venv/bin/python" ./build/ci/addEnvPath.py ${{ env.PYTHON_VIRTUAL_ENVS_LOCATION }} venvPath
           }
@@ -327,7 +328,7 @@ jobs:
         uses: conda-incubator/setup-miniconda@v3
         if: matrix.os == 'macos-latest' && matrix.test-suite == 'venv'
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Prepare conda for venv tests
         env:
@@ -354,8 +355,8 @@ jobs:
 
       - name: Set CI_PYTHON_PATH and CI_DISABLE_AUTO_SELECTION
         run: |
-          echo 'CI_PYTHON_PATH=$(which python)' >> $GITHUB_ENV
-          echo 'CI_DISABLE_AUTO_SELECTION=1' >> $GITHUB_ENV
+          echo "CI_PYTHON_PATH=$(which python)" >> $GITHUB_ENV
+          echo "CI_DISABLE_AUTO_SELECTION=1" >> $GITHUB_ENV
         shell: bash
         if: matrix.test-suite != 'ts-unit'
 
