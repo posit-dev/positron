@@ -184,7 +184,8 @@ class PositronMagics(Magics):
                 in the Positron Help Pane. The user is in an ipykernel REPL, \
                 so only give advice that will work in an ipykernel REPL."
 
-        load_dotenv("/Users/isabelizimm/code/llm-quickstart/.env")
+        # NOTE: ADD PATH TO ENV FILE WITH CREDS HERE
+        load_dotenv("PATH_TO_YOUR_ENV_HERE/.env")
 
         chat_session = ChatAnthropic(model="claude-3-5-sonnet-latest", system_prompt=system_prompt)
         response = chat_session.chat(str(user_input), stream=False)
