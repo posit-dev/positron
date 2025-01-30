@@ -9,11 +9,11 @@ import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { IQuickInputService, IQuickPickItem, IQuickPickSeparator } from '../../../../platform/quickinput/common/quickInput.js';
+import { IQuickInputButton, IQuickInputService, IQuickPickItem, IQuickPickSeparator } from '../../../../platform/quickinput/common/quickInput.js';
 import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
@@ -25,6 +25,8 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { ExplorerFolderContext } from '../../files/common/files.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
@@ -167,6 +169,12 @@ const selectLanguageRuntime = async (
 			input.items = picks;
 		};
 
+		const refreshButton: IQuickInputButton = {
+			iconClass: ThemeIcon.asClassName(Codicon.refresh),
+			tooltip: nls.localize('positron.languageRuntime.select.refresh', 'Refresh interpreters'),
+		};
+		input.buttons = [refreshButton];
+
 		const disposables = [
 			input,
 			input.onDidAccept(() => {
@@ -176,6 +184,13 @@ const selectLanguageRuntime = async (
 			input.onDidHide(() => {
 				dispose(disposables);
 				resolve(undefined);
+			}),
+			input.onDidTriggerButton(async (button) => {
+				if (button === refreshButton) {
+					input.busy = true;
+					languageRuntimeService.setStartupPhase(RuntimeStartupPhase.Discovering);
+					input.busy = false;
+				}
 			}),
 			languageRuntimeService.onDidRegisterRuntime((runtimeMetadata) => {
 				if (runtimeMetadata.languageId === languageId) {
