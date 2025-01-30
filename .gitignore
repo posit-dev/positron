@@ -29,4 +29,5 @@ product.overrides.json
 /blob-report/
 /playwright/.cache/
 /test-logs/
+.venv
 # --- End Positron ---

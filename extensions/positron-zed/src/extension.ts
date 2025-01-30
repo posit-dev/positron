@@ -13,5 +13,5 @@ import { ZedRuntimeManager } from './manager';
  */
 export function activate(context: vscode.ExtensionContext) {
 	// Register the Zed runtime manager with the Positron runtime.
-	positron.runtime.registerLanguageRuntimeManager(new ZedRuntimeManager(context));
+	positron.runtime.registerLanguageRuntimeManager('zed', new ZedRuntimeManager(context));
 }

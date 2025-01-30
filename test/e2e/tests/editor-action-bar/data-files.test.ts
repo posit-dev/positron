@@ -74,10 +74,10 @@ test.describe('Editor Action Bar: Data Files', {
 			await editorActionBar.selectSummaryOn(app.web, 'Right');
 			await editorActionBar.verifySummaryPosition('Right');
 
-			await editorActionBar.clickSplitEditorButton('right');
+			await editorActionBar.clickButton('Split Editor Right');
 			await editorActionBar.verifySplitEditor('right', testCase.tabName);
 
-			await editorActionBar.clickSplitEditorButton('down');
+			await editorActionBar.clickButton('Split Editor Down');
 			await editorActionBar.verifySplitEditor('down', testCase.tabName);
 
 			await editorActionBar.verifyOpenInNewWindow(app.web, testCase.tabName);

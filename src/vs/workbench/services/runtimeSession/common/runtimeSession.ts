@@ -11,7 +11,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from '../../../../platform/opener/common/opener.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode } from './runtimeSessionService.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -887,13 +887,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		activate: boolean
 	): Promise<string> {
 		// Check the setting to see if we should be auto-starting.
-		const autoStart = this._configurationService.getValue<boolean>(
-			'interpreters.automaticStartup');
-		if (!autoStart) {
+		const startupBehavior = this._configurationService.getValue<LanguageStartupBehavior>(
+			'interpreters.startupBehavior', { overrideIdentifier: metadata.languageId });
+		if (startupBehavior === LanguageStartupBehavior.Disabled || startupBehavior === LanguageStartupBehavior.Manual) {
 			this._logService.info(`Language runtime ` +
 				`${formatLanguageRuntimeMetadata(metadata)} ` +
 				`was scheduled for automatic start, but won't be started because automatic ` +
-				`startup is disabled in configuration. Source: ${source}`);
+				`startup for the ${metadata.languageName} language is set to ${startupBehavior}. Source: ${source}`);
 			return '';
 		}
 

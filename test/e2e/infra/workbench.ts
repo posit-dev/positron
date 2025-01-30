@@ -34,6 +34,8 @@ import { Settings } from '../pages/settings';
 import { Debug } from '../pages/debug';
 import { EditorActionBar } from '../pages/editorActionBar';
 import { Problems } from '../pages/problems';
+import { References } from '../pages/references';
+import { SCM } from '../pages/scm';
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -71,6 +73,8 @@ export class Workbench {
 	readonly debug: Debug;
 	readonly editorActionBar: EditorActionBar;
 	readonly problems: Problems;
+	readonly references: References;
+	readonly scm: SCM;
 
 	constructor(code: Code) {
 
@@ -105,6 +109,8 @@ export class Workbench {
 		this.debug = new Debug(code);
 		this.editorActionBar = new EditorActionBar(code.driver.page, this.viewer, this.quickaccess);
 		this.problems = new Problems(code, this.quickaccess);
+		this.references = new References(code);
+		this.scm = new SCM(code, this.layouts);
 	}
 }
 

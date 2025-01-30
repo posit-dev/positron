@@ -172,11 +172,37 @@ configurationRegistry.registerConfiguration({
 			default: true,
 			description: nls.localize('positron.runtime.restartOnCrash', "When enabled, interpreters are automatically restarted after a crash.")
 		},
-		'interpreters.automaticStartup': {
-			scope: ConfigurationScope.MACHINE_OVERRIDABLE,
-			type: 'boolean',
-			default: true,
-			description: nls.localize('positron.runtime.automaticStartup', "When enabled, interpreters can start automatically.")
+		'interpreters.startupBehavior': {
+			scope: ConfigurationScope.LANGUAGE_OVERRIDABLE,
+			type: 'string',
+			enum: [
+				'always',
+				'auto',
+				'recommended',
+				'manual',
+				'disabled'
+			],
+			default: 'auto',
+			enumDescriptions: [
+				nls.localize(
+					'positron.runtime.startupBehavior.always',
+					"An interpreter will always start when a new Positron window is opened; the last used interpreter will start if available, and a default will be chosen otherwise."),
+				nls.localize(
+					'positron.runtime.startupBehavior.auto',
+					"An interpreter will start when needed, or if it was previously used in the workspace."),
+				nls.localize(
+					'positron.runtime.startupBehavior.recommended',
+					"An interpreter will start when the extension providing the interpreter recommends it."),
+				nls.localize(
+					'positron.runtime.startupBehavior.manual',
+					"Interpreters will only start when manually selected."),
+				nls.localize(
+					'positron.runtime.startupBehavior.disabled',
+					"Interpreters are disabled. You will not be able to select an interpreter."),
+			],
+			description: nls.localize(
+				'positron.runtime.automaticStartup',
+				"How interpreters are started in new Positron windows."),
 		}
 	}
 });

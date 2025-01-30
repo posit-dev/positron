@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -23,7 +23,13 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
  * A language runtime manager and metadata about the extension that registered it.
  */
 interface LanguageRuntimeManager {
+	/** The language for which the manager provides runtimes */
+	languageId: string;
+
+	/** The manager itself */
 	manager: positron.LanguageRuntimeManager;
+
+	/** The extension that supplied the manager */
 	extension: IExtensionDescription;
 }
 
@@ -487,10 +493,36 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
+	public async $recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
+		// Get the recommended runtimes from each provider
+		const metadata = await Promise.all(
+			this._runtimeManagers.filter(m => {
+				// Remove disabled languages from the list of runtime managers
+				return !disabledLanguageIds.includes(m.languageId);
+			}
+			).map(async m => {
+				// Get the recommended runtime from the provider, if any
+				const recommended = await m.manager.recommendedWorkspaceRuntime();
+				if (recommended) {
+					return {
+						extensionId: m.extension.identifier,
+						...recommended
+					};
+				}
+				return undefined;
+			})
+		);
+
+		// Return all the metadata from the providers
+		return metadata.filter(metadata => metadata !== undefined) as ILanguageRuntimeMetadata[];
+	}
+
 	/**
 	 * Discovers language runtimes and registers them with the main thread.
+	 *
+	 * @param disabledLanguageIds The set of language IDs to exclude from discovery
 	 */
-	public async $discoverLanguageRuntimes(): Promise<void> {
+	public async $discoverLanguageRuntimes(disabledLanguageIds: string[]): Promise<void> {
 		// Extract all the runtime discoverers from the runtime managers
 		let start = 0;
 		let end = this._runtimeManagers.length;
@@ -501,7 +533,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// runtimes from it
 			const managers = this._runtimeManagers.slice(start, end);
 			try {
-				await this.discoverLanguageRuntimes(managers);
+				await this.discoverLanguageRuntimes(managers, disabledLanguageIds);
 			} catch (err) {
 				// Log and continue if errors occur during registration; this is
 				// a safeguard to ensure we always signal the main thread when
@@ -526,11 +558,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * Discovers language runtimes in parallel and registers each one with the main thread.
 	 *
 	 * @param discoverers The set of discoverers to discover runtimes from
+	 * @param disabledLanguageIds The set of language IDs to exclude from discovery
 	 */
-	private async discoverLanguageRuntimes(managers: Array<LanguageRuntimeManager>): Promise<void> {
-
-		// The number of discoverers we're waiting on (initially all discoverers)
-		let count = managers.length;
+	private async discoverLanguageRuntimes(managers: Array<LanguageRuntimeManager>, disabledLanguageIds: string[]): Promise<void> {
 
 		// Utility promise
 		const never: Promise<never> = new Promise(() => { });
@@ -546,8 +576,21 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		const discoverers: Array<Discoverer> = managers.map(manager => ({
 			extension: manager.extension,
 			manager: manager.manager,
-			discoverer: manager.manager.discoverRuntimes()
-		}));
+			languageId: manager.languageId,
+			discoverer: manager.manager.discoverAllRuntimes()
+		})).filter(discoverer =>
+			// Do not discover runtimes for disabled languages
+			!disabledLanguageIds.includes(discoverer.languageId)
+		);
+
+		// The number of discoverers we're waiting on (initially all
+		// discoverers)
+		let count = discoverers.length;
+
+		// Early exit if there are no discoverers
+		if (count === 0) {
+			return;
+		}
 
 		// Utility function to get the next runtime from a provider and amend an
 		// index. If the provider throws an error attempting to get the next
@@ -677,11 +720,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * Registers a new language runtime manager with the extension host.
 	 *
 	 * @param extension The extension that is registering the manager
+	 * @param languageId The language ID for which the manager provides runtimes
 	 * @param manager The manager to register
 	 * @returns A disposable that unregisters the manager when disposed
 	 */
 	public registerLanguageRuntimeManager(
 		extension: IExtensionDescription,
+		languageId: string,
 		manager: positron.LanguageRuntimeManager): IDisposable {
 
 		const disposables = new DisposableStore();
@@ -690,7 +735,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// resolve the promise now.
 		const pending = this._pendingRuntimeManagers.get(ExtensionIdentifier.toKey(extension.identifier));
 		if (pending) {
-			pending.complete({ manager, extension });
+			pending.complete({ manager, languageId, extension });
 			this._pendingRuntimeManagers.delete(ExtensionIdentifier.toKey(extension.identifier));
 		}
 
@@ -702,7 +747,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// provider's async generator will be invoked as part of the
 			// discovery process, and we don't need to do anything here.
 			void (async () => {
-				const discoverer = manager.discoverRuntimes();
+				const discoverer = manager.discoverAllRuntimes();
 				for await (const runtime of discoverer) {
 					disposables.add(this.registerLanguageRuntime(extension, manager, runtime));
 				}
@@ -718,7 +763,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			}));
 		}
 
-		this._runtimeManagers.push({ manager, extension });
+		this._runtimeManagers.push({ manager, languageId, extension });
 
 		return new Disposable(() => {
 			// Clean up disposables
@@ -752,7 +797,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 		// Save the manager associated with this runtime, too; we'll need to use
 		// it to create a runtime session later
-		this._runtimeManagersByRuntimeId.set(runtime.runtimeId, { manager, extension });
+		this._runtimeManagersByRuntimeId.set(runtime.runtimeId, { manager, languageId: runtime.languageId, extension });
 
 		return new Disposable(() => {
 			this._proxy.$unregisterLanguageRuntime(handle);

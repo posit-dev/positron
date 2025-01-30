@@ -26,6 +26,10 @@ export function summarizeError(err: any): string {
 	if (err instanceof HttpError) {
 		// HTTP errors are common and should be summarized
 		return summarizeHttpError(err);
+	} else if (err.errors) {
+		// If we have multiple errors (as in the case of an AggregateError),
+		// summarize each one
+		return err.errors.map(summarizeError).join('\n\n');
 	} else if (err instanceof Error) {
 		// Other errors should be summarized as their message
 		return err.message;

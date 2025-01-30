@@ -59,6 +59,7 @@ type ILineNumbersOptions = Pick<IEditorOptions, 'lineNumbers' | 'lineNumbersMinC
 // ConsoleInputProps interface.
 interface ConsoleInputProps {
 	readonly width: number;
+	readonly hidden: boolean;
 	readonly positronConsoleInstance: IPositronConsoleInstance;
 	readonly onSelectAll: () => void;
 	readonly onCodeExecuted: () => void;
@@ -815,32 +816,56 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Add the onDidPasteText event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidPasteText(text => {
-			// Get the selections.
-			const selections = codeEditorWidget.getSelections();
+			// Get the selections. If there are no selections, there is no model, so return.
+			let selections = codeEditorWidget.getSelections();
 			if (!selections || !selections.length) {
 				return;
 			}
 
-			// Build the edits and the updated selections.
+			// Split the text being pasted into lines.
+			const lines = text.split('\n');
+
+			// If the number of lines being pasted is the same as the number of selections, paste
+			// each line over its corresponding selection. Otherwise, paste the text being pasted
+			// over all the selections.
 			const edits: ISingleEditOperation[] = [];
-			const updatedSelections: ISelection[] = [];
-			for (const selection of selections) {
-				edits.push(EditOperation.replace(selection, text));
-				updatedSelections.push({
-					selectionStartLineNumber: selection.selectionStartLineNumber,
-					selectionStartColumn: selection.selectionStartColumn + text.length,
-					positionLineNumber: selection.positionLineNumber,
-					positionColumn: selection.selectionStartColumn + text.length
-				});
+			if (lines.length === selections.length) {
+				for (let i = 0; i < lines.length; i++) {
+					edits.push(EditOperation.replace(selections[i], lines[i]));
+				}
+			} else {
+				for (const selection of selections) {
+					edits.push(EditOperation.replace(selection, text));
+				}
 			}
 
-			// Execute the edits and set the updated selections.
+			// Execute the edits.
 			codeEditorWidget.executeEdits('console', edits);
-			codeEditorWidget.setSelections(
-				updatedSelections,
-				'console',
-				CursorChangeReason.Paste
-			);
+
+			// Update the resulting selections to be empty.
+			selections = codeEditorWidget.getSelections();
+			if (selections && selections.length) {
+				const updatedSelections: ISelection[] = [];
+				for (const selection of selections) {
+					updatedSelections.push(selection.setStartPosition(
+						selection.endLineNumber,
+						selection.endColumn
+					));
+				}
+
+				// Set the updated selections.
+				codeEditorWidget.setSelections(
+					updatedSelections,
+					'console',
+					CursorChangeReason.Paste
+				);
+			}
+
+			// Ensure that the code editor widget is scrolled into view.
+			codeEditorWidgetContainerRef.current?.scrollIntoView({
+				behavior: 'auto',
+				block: 'end'
+			});
 		}));
 
 		// Add the onDidClearConsole event handler.
@@ -960,7 +985,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 	// Render.
 	return (
-		<div className='console-input' tabIndex={0} onFocus={focusHandler}>
+		<div className={props.hidden ? 'console-input hidden' : 'console-input'} tabIndex={0} onFocus={focusHandler}>
 			<div ref={codeEditorWidgetContainerRef} />
 			{historyBrowserActive &&
 				<HistoryBrowserPopup

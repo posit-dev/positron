@@ -13,10 +13,10 @@ test.use({
 });
 
 test.describe('Problems', {
-	tag: [tags.DEBUG, tags.WEB, tags.WIN]
+	tag: [tags.PROBLEMS, tags.WEB, tags.WIN]
 }, () => {
 
-	test('Python - Verify Problems Functionality', { tag: [tags.WIN, tags.WEB, tags.PROBLEMS] }, async function ({ app, python, openFile }) {
+	test('Python - Verify Problems Functionality', async function ({ app, python, openFile }) {
 
 		await test.step('Open file and replace "rows" on line 9 with exclamation point', async () => {
 			await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
@@ -36,9 +36,11 @@ test.describe('Problems', {
 		await app.workbench.problems.showProblemsView();
 
 		await test.step('Verify Problems Count', async () => {
-			const errorLocators = await app.code.driver.page.locator(errorsSelector).all();
+			await expect(async () => {
+				const errorLocators = await app.code.driver.page.locator(errorsSelector).all();
 
-			expect(errorLocators.length).toBe(4);
+				expect(errorLocators.length).toBe(4);
+			}).toPass({ timeout: 20000 });
 		});
 
 		await test.step('Revert error', async () => {
@@ -62,7 +64,7 @@ test.describe('Problems', {
 
 	});
 
-	test('R - Verify Problems Functionality', { tag: [tags.WIN, tags.WEB, tags.PROBLEMS] }, async function ({ app, r, openFile }) {
+	test('R - Verify Problems Functionality', async function ({ app, r, openFile }) {
 
 		await test.step('Open file and replace "albums" on line 5 with exclamation point', async () => {
 			await openFile(join('workspaces', 'chinook-db-r', 'chinook-sqlite.r'));

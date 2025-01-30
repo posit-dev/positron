@@ -7,7 +7,7 @@
 import './actionBars.css';
 
 // React.
-import React, { PropsWithChildren, useEffect } from 'react';
+import React, { PropsWithChildren } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -15,7 +15,7 @@ import { ICommandService } from '../../../../../platform/commands/common/command
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
-import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
 import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
@@ -32,7 +32,6 @@ import { INotificationService } from '../../../../../platform/notification/commo
 import { PlotActionTarget, PlotsClearAction, PlotsCopyAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from '../positronPlotsActions.js';
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { HtmlPlotClient } from '../htmlPlotClient.js';
-import { POSITRON_EDITOR_PLOTS, positronPlotsEditorEnabled } from '../../../positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
 import { IAccessibilityService } from '../../../../../platform/accessibility/common/accessibility.js';
 import { OpenInEditorMenuButton } from './openInEditorMenuButton.js';
 
@@ -66,7 +65,6 @@ export interface ActionBarsProps {
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Hooks.
 	const positronPlotsContext = usePositronPlotsContext();
-	const [useEditorPlots, setUseEditorPlots] = React.useState<boolean>(positronPlotsEditorEnabled(props.configurationService));
 
 	// Do we have any plots?
 	const noPlots = positronPlotsContext.positronPlotInstances.length === 0;
@@ -94,18 +92,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const enablePopoutPlot = hasPlots &&
 		selectedPlot instanceof HtmlPlotClient;
 
-	const enableEditorPlot = hasPlots && useEditorPlots
+	const enableEditorPlot = hasPlots
 		&& (selectedPlot instanceof PlotClientInstance
 			|| selectedPlot instanceof StaticPlotClient);
-
-	useEffect(() => {
-		const disposable = props.configurationService.onDidChangeConfiguration((event: IConfigurationChangeEvent) => {
-			if (event.affectedKeys.has(POSITRON_EDITOR_PLOTS)) {
-				setUseEditorPlots(positronPlotsEditorEnabled(props.configurationService));
-			}
-		});
-		return () => disposable.dispose();
-	}, [props.configurationService]);
 
 	// Clear all the plots from the service.
 	const clearAllPlotsHandler = () => {

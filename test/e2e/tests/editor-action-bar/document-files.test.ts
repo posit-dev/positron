@@ -71,15 +71,15 @@ test.describe('Editor Action Bar: Document Files', {
 // Helper functions
 
 async function verifyPreviewRendersHtml(heading: string) {
-	await editorActionBar.previewButton.click();
+	await editorActionBar.clickButton('Preview');
 	await editorActionBar.verifyPreviewRendersHtml(heading);
 }
 
 async function verifySplitEditor(tabName: string) {
-	await editorActionBar.clickSplitEditorButton('right');
+	await editorActionBar.clickButton('Split Editor Right');
 	await editorActionBar.verifySplitEditor('right', tabName);
 
-	await editorActionBar.clickSplitEditorButton('down');
+	await editorActionBar.clickButton('Split Editor Down');
 	await editorActionBar.verifySplitEditor('down', tabName);
 }
 
@@ -88,7 +88,7 @@ async function verifyOpenInNewWindow(app: Application, text: string) {
 }
 
 async function verifyOpenViewerRendersHtml(app: Application, title: string) {
-	await editorActionBar.openInViewerButton.click();
+	await editorActionBar.clickButton('Open in Viewer');
 	await editorActionBar.verifyOpenViewerRendersHtml(app.web, title);
 }
 
@@ -104,7 +104,7 @@ async function verifyOpenChanges(page: Page) {
 		await bindPlatformHotkey(page, 'S');
 
 		// click open changes & verify
-		await page.getByLabel('Open Changes').click();
+		await editorActionBar.clickButton('Open Changes');
 		await expect(page.getByLabel('Revert Block')).toBeVisible();
 		await expect(page.getByLabel('Stage Block')).toBeVisible();
 		await page.getByRole('tab', { name: 'quarto_basic.qmd (Working' }).getByLabel('Close').click();

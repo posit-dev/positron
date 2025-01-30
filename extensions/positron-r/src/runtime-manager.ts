@@ -14,8 +14,14 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 	constructor(private readonly _context: vscode.ExtensionContext) { }
 
-	discoverRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+	discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
 		return rRuntimeDiscoverer();
+	}
+
+	async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+		// TODO: If the workspace contains an R project, we could recommend an
+		// R runtime from e.g. the `DESCRIPTION` file or an renv lockfile.
+		return undefined;
 	}
 
 	createSession(

@@ -39,14 +39,16 @@ export enum TestTags {
 	OUTLINE = '@:outline',
 	OUTPUT = '@:output',
 	PLOTS = '@:plots',
+	PROBLEMS = '@:problems',
+	REFERENCES = '@:references',
 	R_MARKDOWN = '@:r-markdown',
 	R_PKG_DEVELOPMENT = '@:r-pkg-development',
 	RETICULATE = '@:reticulate',
+	SCM = '@:scm',
 	TEST_EXPLORER = '@:test-explorer',
 	TOP_ACTION_BAR = '@:top-action-bar',
 	VARIABLES = '@:variables',
 	WELCOME = '@:welcome',
-	PROBLEMS = '@:problems',
 
 	// platform  tags
 	WEB = '@:web',

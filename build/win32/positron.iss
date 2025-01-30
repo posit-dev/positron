@@ -1519,7 +1519,8 @@ begin
 
       StopTunnelServiceIfNeeded();
 
-      Exec(ExpandConstant('{app}\tools\inno_updater.exe'), ExpandConstant('"{app}\{#ExeBasename}.exe" ' + BoolToStr(LockFileExists())), '', SW_SHOW, ewWaitUntilTerminated, UpdateResultCode);
+      // inno_updater requires 3 arguments (exe of current installation, lock file status, and a string for the log)
+      Exec(ExpandConstant('{app}\tools\inno_updater.exe'), ExpandConstant('"{app}\{#ExeBasename}.exe" ' + BoolToStr(LockFileExists()) + ' "Updating Positron..."'), '', SW_SHOW, ewWaitUntilTerminated, UpdateResultCode);
     end;
 
     if ShouldRestartTunnelService then

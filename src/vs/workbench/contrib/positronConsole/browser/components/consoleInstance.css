@@ -58,3 +58,10 @@
 .console-core .console-instance:focus {
 	outline: none !important;
 }
+
+.console-core .console-instance .console-instance-container .console-item-reconnecting {
+	display: flex;
+	flex-direction: row;
+	justify-items: center;
+	gap: 0.25rem;
+}

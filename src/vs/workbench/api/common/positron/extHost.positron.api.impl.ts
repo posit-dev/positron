@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -82,8 +82,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostLanguageRuntime.executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior);
 			},
 			registerLanguageRuntimeManager(
+				languageId: string,
 				manager: positron.LanguageRuntimeManager): vscode.Disposable {
-				return extHostLanguageRuntime.registerLanguageRuntimeManager(extension, manager);
+				return extHostLanguageRuntime.registerLanguageRuntimeManager(extension, languageId, manager);
 			},
 			getRegisteredRuntimes(): Thenable<positron.LanguageRuntimeMetadata[]> {
 				return extHostLanguageRuntime.getRegisteredRuntimes();

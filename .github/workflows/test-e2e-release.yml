@@ -104,6 +104,8 @@ jobs:
         env:
           POSITRON_PY_VER_SEL: 3.12.3
           POSITRON_R_VER_SEL: 4.4.0
+          POSITRON_PY_ALT_VER_SEL: 3.13.0
+          POSITRON_R_ALT_VER_SEL: 4.4.2
           CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
@@ -131,8 +133,9 @@ jobs:
       - run: |
           echo "Will notify on: ${{ env.notify_on }}"
       - name: Notify Slack
-        uses: midleman/slack-workflow-status@master
+        uses: midleman/slack-workflow-status@v2.2.0
         with:
-          repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          channel: "#positron-test-results"
           notify_on: ${{ env.notify_on }}

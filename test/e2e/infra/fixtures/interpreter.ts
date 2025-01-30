@@ -82,7 +82,8 @@ export class Interpreter {
 				await selectedPrimaryInterpreter.click();
 			} else {
 				primaryInterpreterByType.getByRole('button', { name: '' }).click();
-				await secondaryInterpreterOption.click();
+				// first() here is a workaround because we are detecting the same interpreter twice
+				await secondaryInterpreterOption.first().click();
 			}
 
 			if (waitForReady) {

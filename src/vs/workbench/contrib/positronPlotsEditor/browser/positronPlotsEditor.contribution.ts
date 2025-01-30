@@ -6,14 +6,11 @@
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { localize } from '../../../../nls.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
-import { applicationConfigurationNodeBase } from '../../../common/configuration.js';
 import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { EditorExtensions } from '../../../common/editor.js';
 import { PositronPlotsEditor } from './positronPlotsEditor.js';
@@ -78,23 +75,5 @@ registerWorkbenchContribution2(
 	PositronPlotsEditorContribution,
 	WorkbenchPhase.AfterRestored
 );
-
-const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
-configurationRegistry.registerConfiguration({
-	...applicationConfigurationNodeBase,
-	properties: {
-		[POSITRON_EDITOR_PLOTS]: {
-			scope: ConfigurationScope.APPLICATION,
-			type: 'boolean',
-			default: false,
-			tags: ['experimental'],
-			description: localize('workbench.positronPlotsEditor.description', 'When enabled, plots can be opened in an editor tab.')
-		}
-	}
-});
-
-export function positronPlotsEditorEnabled(configurationService: IConfigurationService) {
-	return Boolean(configurationService.getValue(POSITRON_EDITOR_PLOTS));
-}
 
 export const PLOT_IS_ACTIVE_EDITOR = ContextKeyExpr.equals('activeEditor', PositronPlotsEditorInput.EditorID);

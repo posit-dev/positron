@@ -455,11 +455,11 @@ export class PlotsActiveEditorCopyAction extends Action2 {
 			category,
 			f1: false, // do not show in the command palette
 			icon: Codicon.copy,
-			precondition: ContextKeyExpr.and(ContextKeyExpr.equals(`config.${POSITRON_EDITOR_PLOTS}`, true), PLOT_IS_ACTIVE_EDITOR),
+			precondition: PLOT_IS_ACTIVE_EDITOR,
 			menu: [
 				{
 					id: MenuId.EditorTitle,
-					when: ContextKeyExpr.and(ContextKeyExpr.equals(`config.${POSITRON_EDITOR_PLOTS}`, true), PLOT_IS_ACTIVE_EDITOR),
+					when: PLOT_IS_ACTIVE_EDITOR,
 					group: 'navigation',
 					order: 2,
 				}
@@ -492,11 +492,11 @@ export class PlotsActiveEditorSaveAction extends Action2 {
 			category,
 			f1: false, // do not show in the command palette
 			icon: Codicon.positronSave,
-			precondition: ContextKeyExpr.and(ContextKeyExpr.equals(`config.${POSITRON_EDITOR_PLOTS}`, true), PLOT_IS_ACTIVE_EDITOR),
+			precondition: PLOT_IS_ACTIVE_EDITOR,
 			menu: [
 				{
 					id: MenuId.EditorTitle,
-					when: ContextKeyExpr.and(ContextKeyExpr.equals(`config.${POSITRON_EDITOR_PLOTS}`, true), PLOT_IS_ACTIVE_EDITOR),
+					when: PLOT_IS_ACTIVE_EDITOR,
 					group: 'navigation',
 					order: 1,
 				}
