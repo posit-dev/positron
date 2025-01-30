@@ -234,7 +234,7 @@ class PositronName(Name):
         return None
 
     @property
-    def full_name(self) -> str:  # type: ignore
+    def full_name(self) -> Optional[str]:
         if self._inspector:
             return get_qualname(self._inspector.value)
         return super().full_name
