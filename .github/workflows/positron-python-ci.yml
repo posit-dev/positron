@@ -258,7 +258,7 @@ jobs:
 
       - name: Install Node dependencies
         env:
-          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm ci --fetch-timeout 120000
 
       - name: Run `gulp prePublishNonBundle`
