@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { IEditorPane } from '../../../common/editor.js';
+import { DEFAULT_EDITOR_ASSOCIATION, EditorResourceAccessor, IEditorPane } from '../../../common/editor.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
@@ -18,8 +18,11 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { IPositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
-import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
 import { Codicon } from '../../../../base/common/codicons.js';
+import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
+import { URI } from '../../../../base/common/uri.js';
+import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
 
 /**
  * Positron data explorer action category.
@@ -47,7 +50,8 @@ export const enum PositronDataExplorerCommandId {
 	ExpandSummaryAction = 'workbench.action.positronDataExplorer.expandSummary',
 	SummaryOnLeftAction = 'workbench.action.positronDataExplorer.summaryOnLeft',
 	SummaryOnRightAction = 'workbench.action.positronDataExplorer.summaryOnRight',
-	ClearColumnSortingAction = 'workbench.action.positronDataExplorer.clearColumnSorting'
+	ClearColumnSortingAction = 'workbench.action.positronDataExplorer.clearColumnSorting',
+	OpenAsPlaintext = 'workbench.action.positronDataExplorer.openAsPlaintext'
 }
 
 /**
@@ -680,6 +684,61 @@ class PositronDataExplorerClearColumnSortingAction extends Action2 {
 }
 
 /**
+ * PositronDataExplorerOpenAsPlaintextAction action.
+ */
+class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.OpenAsPlaintext,
+			title: {
+				value: localize('positronDataExplorer.openAsPlaintext', 'Open as Plain Text File'),
+				original: 'Open as Plain Text File'
+			},
+			displayTitleOnActionBar: true,
+			category,
+			f1: true,
+			precondition: ContextKeyExpr.and(
+				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				POSITRON_DATA_EXPLORER_IS_PLAINTEXT
+			),
+			icon: Codicon.fileText,
+			menu: [
+				{
+					id: MenuId.EditorActionsLeft,
+					when: ContextKeyExpr.and(
+						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+						POSITRON_DATA_EXPLORER_IS_PLAINTEXT
+					)
+				},
+				{
+					id: MenuId.EditorTitle,
+					group: 'navigation',
+					when: ContextKeyExpr.and(
+						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+						POSITRON_DATA_EXPLORER_IS_PLAINTEXT
+					)
+				}
+			]
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Access the services we need.
+		// const textEditorService = accessor.get(ITextEditorService);
+		const editorService = accessor.get(IEditorService);
+		const dataExplorerUri = URI.parse(PositronDataExplorerUri.parse(EditorResourceAccessor.getOriginalUri(editorService.activeEditor)!)!);
+		await editorService.openEditor({ resource: URI.parse(dataExplorerUri.fsPath), options: { override: DEFAULT_EDITOR_ASSOCIATION.id, source: EditorOpenSource.USER } });
+	}
+}
+
+/**
  * Registers Positron data explorer actions.
  */
 export function registerPositronDataExplorerActions() {
@@ -690,4 +749,5 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerSummaryOnLeftAction);
 	registerAction2(PositronDataExplorerSummaryOnRightAction);
 	registerAction2(PositronDataExplorerClearColumnSortingAction);
+	registerAction2(PositronDataExplorerOpenAsPlaintextAction);
 }
