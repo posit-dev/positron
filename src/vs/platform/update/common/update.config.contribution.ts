@@ -34,11 +34,11 @@ configurationRegistry.registerConfiguration({
 				minimumVersion: '2025.1.0',
 			}
 		},
-		'update.autoUpdateExperimental': {
+		'update.autoUpdate': {
 			type: 'boolean',
 			default: false,
 			scope: ConfigurationScope.APPLICATION,
-			description: localize('experimentalAutoUpdate', "CAUTION: Enable automatic update checking. Requires a restart after change to take effect."),
+			description: localize('autoUpdateEnable', "Enable automatic updates. Requires a restart after change to take effect."),
 			tags: ['usesOnlineServices'],
 		},
 		'update.channel': {
