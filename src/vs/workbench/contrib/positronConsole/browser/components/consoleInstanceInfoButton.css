@@ -8,7 +8,7 @@
 }
 
 .console-instance-info .top-separator {
-	border-top: 1px solid var(--vscode-positronModalDialog-separator);
+	border-top: 1px solid var(--vscode-editorHoverWidget-border);
 }
 
 .console-instance-info .actions {

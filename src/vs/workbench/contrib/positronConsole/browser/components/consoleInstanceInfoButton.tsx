@@ -104,14 +104,14 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 		>
 			<div className='console-instance-info'>
 				<div className='content'>
-					<div className='line'>{props.session?.metadata.sessionName}</div>
+					<p className='line'>{props.session?.metadata.sessionName}</p>
 					<div className='top-separator'>
-						<div className='line'>Session ID: {props.session?.sessionId}</div>
-						<div className='line'>State: {sessionState}</div>
+						<p className='line'>Session ID: {props.session?.sessionId}</p>
+						<p className='line'>State: {sessionState}</p>
 					</div>
 					<div className='top-separator'>
-						<div className='line'>Path: {props.session?.runtimeMetadata.runtimePath}</div>
-						<div className='line'>Source: {props.session?.runtimeMetadata.runtimeSource}</div>
+						<p className='line'>Path: {props.session?.runtimeMetadata.runtimePath}</p>
+						<p className='line'>Source: {props.session?.runtimeMetadata.runtimeSource}</p>
 					</div>
 				</div>
 				<div className='top-separator actions'>
