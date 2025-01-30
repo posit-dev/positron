@@ -61,7 +61,7 @@ runs:
 
         # Undo the change and reset to system Python
         echo "Resetting pyenv to system Python..."
-        pyenv global --unset || pyenv global system
+        pyenv global system
 
         # Verify that Python is reset
         python --version

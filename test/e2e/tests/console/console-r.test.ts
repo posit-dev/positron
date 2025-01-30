@@ -3,7 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { fail } from 'assert';
 import { test, expect, tags } from '../_test.setup';
+import { InterpreterType } from '../../infra';
 
 test.use({
 	suiteId: __filename
@@ -44,6 +46,40 @@ test.describe('Console Pane: R', {
 		await app.workbench.console.interruptExecution();
 
 		// nothing appears in console after interrupting execution
+	});
+
+	test('Verify multiple versions', async function ({ app, r }) {
+
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+
+		const primaryR = process.env.POSITRON_R_VER_SEL;
+
+		if (primaryR) {
+
+			await app.workbench.console.barClearButton.click();
+
+			await app.workbench.console.pasteCodeToConsole('R.version.string');
+			await app.workbench.console.sendEnterKey();
+
+			await app.workbench.console.waitForConsoleContents(primaryR);
+		} else {
+			fail('Primary R version not set');
+		}
+
+		const secondaryR = process.env.POSITRON_R_ALT_VER_SEL;
+
+		if (secondaryR) {
+
+			await app.workbench.interpreter.selectInterpreter(InterpreterType.R, secondaryR, true);
+
+			await app.workbench.console.barClearButton.click();
+
+			await app.workbench.console.pasteCodeToConsole(`R.version.string`);
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.waitForConsoleContents(secondaryR);
+		} else {
+			fail('Secondary R version not set');
+		}
 	});
 });
 

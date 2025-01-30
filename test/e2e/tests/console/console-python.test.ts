@@ -3,7 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { fail } from 'assert';
 import { test, expect, tags } from '../_test.setup';
+import { InterpreterType } from '../../infra';
 
 test.use({
 	suiteId: __filename
@@ -49,5 +51,39 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.WIN, tags.CONSOLE] 
 
 		await app.workbench.console.interruptExecution();
 
+	});
+
+	test('Verify multiple versions', async function ({ app, python }) {
+
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+
+		const primaryPython = process.env.POSITRON_PY_VER_SEL;
+
+		if (primaryPython) {
+
+			await app.workbench.console.barClearButton.click();
+
+			await app.workbench.console.pasteCodeToConsole('import platform; print(platform.python_version())');
+			await app.workbench.console.sendEnterKey();
+
+			await app.workbench.console.waitForConsoleContents(primaryPython);
+		} else {
+			fail('Primary Python version not set');
+		}
+
+		const secondaryPython = process.env.POSITRON_PY_ALT_VER_SEL;
+
+		if (secondaryPython) {
+
+			await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, `${secondaryPython} (Pyenv)`, true);
+
+			await app.workbench.console.barClearButton.click();
+
+			await app.workbench.console.pasteCodeToConsole(`import platform; print(platform.python_version())`);
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.waitForConsoleContents(secondaryPython);
+		} else {
+			fail('Secondary Python version not set');
+		}
 	});
 });
