@@ -11,9 +11,11 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Console Pane: Python', { tag: [tags.WEB, tags.WIN, tags.CONSOLE] }, () => {
+test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 
-	test('Verify restart button inside the console', async function ({ app, python }) {
+	test('Verify restart button inside the console', {
+		tag: [tags.WIN]
+	}, async function ({ app, python }) {
 		await expect(async () => {
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 			await app.workbench.console.barClearButton.click();
@@ -30,6 +32,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.WIN, tags.CONSOLE] 
 	});
 
 	test('Verify restart button on console bar', {
+		tag: [tags.WIN]
 	}, async function ({ app, python }) {
 		// Need to make console bigger to see all bar buttons
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
@@ -44,6 +47,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.WIN, tags.CONSOLE] 
 	});
 
 	test('Verify cancel button on console bar', {
+		tag: [tags.WIN]
 	}, async function ({ app, python }) {
 
 		await app.workbench.console.pasteCodeToConsole('import time; time.sleep(10)');
@@ -53,6 +57,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.WIN, tags.CONSOLE] 
 
 	});
 
+	// not enabled for WIN yet; need to add additional versions
 	test('Verify multiple versions', async function ({ app, python }) {
 
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');

@@ -12,14 +12,16 @@ test.use({
 });
 
 test.describe('Console Pane: R', {
-	tag: [tags.WEB, tags.WIN, tags.CONSOLE]
+	tag: [tags.WEB, tags.CONSOLE]
 }, () => {
 	test.beforeAll(async function ({ app }) {
 		// Need to make console bigger to see all bar buttons
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
-	test('Verify restart button inside the console', async function ({ app, r }) {
+	test('Verify restart button inside the console', {
+		tag: [tags.WIN]
+	}, async function ({ app, r }) {
 		await expect(async () => {
 			await app.workbench.console.barClearButton.click();
 			await app.workbench.console.barPowerButton.click();
@@ -29,7 +31,9 @@ test.describe('Console Pane: R', {
 		}).toPass();
 	});
 
-	test('Verify restart button on console bar', async function ({ app, r }) {
+	test('Verify restart button on console bar', {
+		tag: [tags.WIN]
+	}, async function ({ app, r }) {
 		await expect(async () => {
 			await app.workbench.console.barClearButton.click();
 			await app.workbench.console.barRestartButton.click();
@@ -38,6 +42,7 @@ test.describe('Console Pane: R', {
 	});
 
 	test('Verify cancel button on console bar', {
+		tag: [tags.WIN]
 	}, async function ({ app, r }) {
 
 		await app.workbench.console.pasteCodeToConsole('Sys.sleep(10)');
@@ -48,6 +53,7 @@ test.describe('Console Pane: R', {
 		// nothing appears in console after interrupting execution
 	});
 
+	// not enabled for WIN yet; need to add additional versions
 	test('Verify multiple versions', async function ({ app, r }) {
 
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
