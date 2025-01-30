@@ -186,10 +186,8 @@ class PositronMagics(Magics):
 
         load_dotenv("/Users/isabelizimm/code/llm-quickstart/.env")
 
-        chat_session = ChatAnthropic(
-            model="claude-3-5-sonnet-latest", system_prompt=system_prompt, stream=False
-        )
-        response = chat_session.chat(str(user_input))
+        chat_session = ChatAnthropic(model="claude-3-5-sonnet-latest", system_prompt=system_prompt)
+        response = chat_session.chat(str(user_input), stream=False)
         print(response)
 
     @line_magic
@@ -216,7 +214,6 @@ class PositronMagics(Magics):
 
         # Find the object.
         potential = {repr(args.object): str(self.shell.user_ns[args.object])}
-        print(potential)
         info = self.shell._ofind(args.object)  # noqa: SLF001
         if not info.found:
             raise UsageError(f"name '{args.object}' is not defined")
@@ -240,13 +237,16 @@ class PositronMagics(Magics):
         >>> %explainthis df
         """
         import sys
+        import traceback
 
         system_prompt = "You're a Python software engineer teaching a\
             new learner. You have recieved a dictionary of \{error type: traceback\} \
             Your job is to clearly and concisely explain the error \
             and give an example of how to fix it."
-
-        self.ai_input({sys.last_type.__name__: str(sys.last_value)}, system_prompt)
+        last_traceback_str = "".join(
+            traceback.format_exception(sys.last_type, sys.last_value, sys.last_traceback)
+        )
+        self.ai_input({sys.last_type: last_traceback_str}, system_prompt)
 
     @magic_arguments.magic_arguments()
     @magic_arguments.argument(
