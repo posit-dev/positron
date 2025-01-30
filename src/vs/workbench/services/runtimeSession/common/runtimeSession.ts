@@ -974,6 +974,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param source The source of the request to start the runtime.
 	 * @param activate Whether to activate/focus the new session after it is
 	 * started.
+	 *
+	 * @returns A promise that resolves with a session ID for the new session,
+	 * if one was started.
 	 */
 	private async doAutoStartRuntime(
 		metadata: ILanguageRuntimeMetadata,

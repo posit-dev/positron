@@ -117,6 +117,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	private _startMs: number = Date.now();
 
+	private _eagerExtensionCount: number = 0;
+
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
@@ -177,9 +179,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				}
 			}
 			if (extensions.length === 1) {
-				this._logService.debug(`[Runtime startup, ${elapsed}ms] *** Extension status changed for '${extensions[0].value}', started count: ${started} ***`);
+				this._logService.debug(`[Runtime startup, ${elapsed}ms] *** Extension status changed for '${extensions[0].value}', eager left: ${--this._eagerExtensionCount} ***`);
 			} else {
-				this._logService.debug(`[Runtime startup, ${elapsed}ms] *** Extension status changed for ${extensions.length} extensions, started count: ${started} ***`);
+				this._eagerExtensionCount = this._extensionService.getEagerActivatedExtensionIds().length;
+				this._logService.debug(`[Runtime startup, ${elapsed}ms] *** Extension status changed for ${extensions.length} extensions, started count: ${started}. eager = ${this._eagerExtensionCount} ***`);
 			}
 			const packs = this._languagePacks.values();
 			for (const extension of extensions) {
@@ -343,35 +346,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 		}));
 
-		// Wait for all extension hosts to start before beginning the main
-		// startup sequence.
-		const elapsed = Date.now() - this._startMs;
-		this._logService.debug(`[Runtime startup, ${elapsed}ms] *** Waiting for all extension hosts to start ***`);
-		this._extensionService.whenAllExtensionHostsStarted().then(async () => {
-			const elapsed = Date.now() - this._startMs;
-			this._logService.debug(`[Runtime startup, ${elapsed} ms] *** All extension hosts have started ***`);
-			if (this._workspaceTrustManagementService.isWorkspaceTrusted()) {
-				// In a trusted workspace, we can start the startup sequence
-				// immediately.
-				await this.startupSequence();
-			} else {
-				// If we are not in a trusted workspace, wait for the workspace to become
-				// trusted before starting the startup sequence.
-				this.setStartupPhase(RuntimeStartupPhase.AwaitingTrust);
-				this._register(this._workspaceTrustManagementService.onDidChangeTrust((trusted) => {
-					if (!trusted) {
-						return;
-					}
-					// If the workspace becomse trusted while we are awaiting trust,
-					// move on to the startup sequence.
-					if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust) {
-						this.startupSequence();
-					}
-				}));
-			}
-		});
-
-		this._register(languageRuntimeExtPoint.setHandler((extensions) => {
+		this._register(languageRuntimeExtPoint.setHandler(async (extensions) => {
 			// This new set of extensions replaces the old set, so clear the
 			// language packs.
 			this._languagePacks.clear();
@@ -388,6 +363,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 						this._languagePacks.set(value.languageId, [extension.description.identifier]);
 					}
 				}
+			}
+
+			if (extensions.length > 0 && this._startupPhase === RuntimeStartupPhase.Initializing) {
+				await this.startupAfterTrust();
 			}
 
 			// If we were awaiting trust, and we now have language packs, move on
@@ -551,7 +530,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Update the extension host's runtime discovery state to 'Complete'
 		this._discoveryCompleteByExtHostId.set(id, true);
 		const elapsed = Date.now() - this._startMs;
-		this._logService.debug(`[Runtime startup, ${elapsed}ms] Discovery completed for extension host with id: ${id}.`);
+		this._eagerExtensionCount = this._extensionService.getEagerActivatedExtensionIds().length;
+		this._logService.debug(`[Runtime startup, ${elapsed}ms] Discovery completed for extension host with id: ${id}, eager left = ${this._eagerExtensionCount}.`);
 
 		// Determine if all extension hosts have completed discovery
 		let discoveryCompletedByAllExtensionHosts = true;
@@ -1025,10 +1005,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Sort the affiliations by last used time, so that the most recently
 			// used runtime is started first
 			return b.lastUsed - a.lastUsed;
-		}).map((affiliation, idx) => {
+		}).map(async (affiliation, idx) => {
 			// Start each runtime. Activate the first one as soon as it's
 			// ready; let the others start in the background.
-			this.startAffiliatedRuntime(affiliation, idx === 0);
+			await this.startAffiliatedRuntime(affiliation, idx === 0);
 		});
 	}
 
@@ -1067,7 +1047,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		const activationPromises = languageIds.map(
 			async (languageId) => {
 				for (const extension of this._languagePacks.get(languageId) || []) {
-					this._logService.debug(`[Runtime startup] Activating extension ${extension.value} for language ID ${languageId}`);
+					const elapsed = Date.now() - this._startMs;
+					this._logService.debug(`[Runtime startup, ${elapsed}ms] Activating extension ${extension.value} for language ID ${languageId}`);
 					try {
 						await this._extensionService.activateById(extension,
 							{
@@ -1090,10 +1071,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * @param affiliatedRuntimeMetadata The metadata for the affiliated runtime.
 	 * @param activate Whether to activate/focus the new session
 	 */
-	private startAffiliatedRuntime(
+	private async startAffiliatedRuntime(
 		affiliatedRuntime: IAffiliatedRuntimeMetadata,
 		activate: boolean
-	): void {
+	): Promise<void> {
 
 		// No-op if no affiliated runtime metadata.
 		if (!affiliatedRuntime.metadata) {
@@ -1114,9 +1095,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		affiliatedRuntime.lastStarted = Date.now();
 		this.saveAffiliatedRuntime(affiliatedRuntime);
 
-		this._runtimeSessionService.autoStartRuntime(affiliatedRuntimeMetadata,
+		let elapsed = Date.now() - this._startMs;
+		this._logService.debug(`[Runtime startup, ${elapsed}ms] Starting affiliated runtime ` +
+			`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} for workspace`);
+		const sessionId = await this._runtimeSessionService.autoStartRuntime(affiliatedRuntimeMetadata,
 			`Affiliated ${affiliatedRuntimeMetadata.languageName} runtime for workspace`,
 			activate);
+		elapsed = Date.now() - this._startMs;
+		this._logService.debug(`[Runtime startup, ${elapsed}ms] Session ${sessionId} started for affiliated runtime ${affiliatedRuntimeMetadata.runtimeName} (${affiliatedRuntimeMetadata.runtimeId})`);
 	}
 
 	/**
@@ -1420,6 +1406,28 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private getStartupBehavior(languageId: string): LanguageStartupBehavior {
 		return this._configurationService.getValue(
 			'interpreters.startupBehavior', { overrideIdentifier: languageId });
+	}
+
+	private async startupAfterTrust(): Promise<void> {
+		if (this._workspaceTrustManagementService.isWorkspaceTrusted()) {
+			// In a trusted workspace, we can start the startup sequence
+			// immediately.
+			await this.startupSequence();
+		} else {
+			// If we are not in a trusted workspace, wait for the workspace to become
+			// trusted before starting the startup sequence.
+			this.setStartupPhase(RuntimeStartupPhase.AwaitingTrust);
+			this._register(this._workspaceTrustManagementService.onDidChangeTrust((trusted) => {
+				if (!trusted) {
+					return;
+				}
+				// If the workspace becomse trusted while we are awaiting trust,
+				// move on to the startup sequence.
+				if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust) {
+					this.startupSequence();
+				}
+			}));
+		}
 	}
 }
 

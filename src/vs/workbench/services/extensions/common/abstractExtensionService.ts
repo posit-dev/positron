@@ -1025,6 +1025,21 @@ export abstract class AbstractExtensionService extends Disposable implements IEx
 	public whenAllExtensionHostsStarted(): Promise<boolean> {
 		return this._allExtensionHostsStarted.wait();
 	}
+
+	/**
+	 * Get the extension IDs of all extensions that are activated eagerly.
+	 * @returns
+	 */
+	getEagerActivatedExtensionIds(): ExtensionIdentifier[] {
+		const eagerActivatedExtensions: ExtensionIdentifier[] = [];
+		for (const extension of this._registry.getAllExtensionDescriptions()) {
+			const activationEvents = this._activationEventReader.readActivationEvents(extension);
+			if (activationEvents.includes('*')) {
+				eagerActivatedExtensions.push(extension.identifier);
+			}
+		}
+		return eagerActivatedExtensions;
+	}
 	// --- End Positron ---
 
 	get extensions(): IExtensionDescription[] {

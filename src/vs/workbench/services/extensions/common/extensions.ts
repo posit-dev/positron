@@ -482,6 +482,11 @@ export interface IExtensionService {
 
 	// --- Start Positron ---
 	/**
+	 * Returns the extension ids of all extensions that are marked for eager activation.
+	 */
+	getEagerActivatedExtensionIds(): ExtensionIdentifier[];
+
+	/**
 	 * An promise that resolves when all the extension hosts have started and
 	 * eager extensions have been activated.
 	 */
@@ -604,6 +609,9 @@ export class NullExtensionService implements IExtensionService {
 	activationEventIsDone(_activationEvent: string): boolean { return false; }
 	whenInstalledExtensionsRegistered(): Promise<boolean> { return Promise.resolve(true); }
 	// --- Start Positron ---
+	getEagerActivatedExtensionIds(): ExtensionIdentifier[] {
+		return [];
+	}
 	whenAllExtensionHostsStarted(): Promise<boolean> { return Promise.resolve(true); }
 	// --- End Positron ---
 	getExtension() { return Promise.resolve(undefined); }
