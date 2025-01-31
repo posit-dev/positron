@@ -410,7 +410,9 @@ jobs:
         env:
           POSITRON_GITHUB_PAT: ${{ github.token }}
         run: |
-          ls python-env-tools
+          ls -lf ./python-env-tools/pet
+          chmod +x ./python-env-tools/*
+          ls -lf ./python-env-tools
           cd npx tsc && node ./out/test/smokeTest.js
         if: matrix.test-suite == 'smoke'
 
