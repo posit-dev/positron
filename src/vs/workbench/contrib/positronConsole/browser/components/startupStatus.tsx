@@ -42,6 +42,8 @@ export const StartupStatus = () => {
 		useState(positronConsoleContext.languageRuntimeService.registeredRuntimes.length);
 	const [startupPhase, setStartupPhase] =
 		useState(positronConsoleContext.languageRuntimeService.startupPhase);
+	const [runtimeName, setRuntimeName] =
+		useState('');
 
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
@@ -70,6 +72,13 @@ export const StartupStatus = () => {
 					setStartupPhase(phase);
 				}));
 
+		disposableStore.add(
+			positronConsoleContext.runtimeStartupService.onWillAutoStartRuntime(
+				evt => {
+					setRuntimeName(
+						evt.runtime.runtimeName);
+				}));
+
 		// Return the cleanup function that will dispose of the disposables.
 		return () => {
 			bar?.done();
@@ -85,13 +94,13 @@ export const StartupStatus = () => {
 				<div className='initializing'>{initalizing}...</div>
 			}
 			{startupPhase === RuntimeStartupPhase.Reconnecting &&
-				<div className='initializing'>{reconnecting}...</div>
+				<div className='initializing'>{runtimeName === '' ? reconnecting : runtimeName}...</div>
 			}
 			{startupPhase === RuntimeStartupPhase.AwaitingTrust &&
 				<div className='awaiting'>{awaitingTrust}...</div>
 			}
 			{startupPhase === RuntimeStartupPhase.Starting &&
-				<div className='starting'>{starting}...</div>
+				<div className='starting'>{runtimeName === '' ? starting : runtimeName}...</div>
 			}
 			{startupPhase === RuntimeStartupPhase.Discovering &&
 				<div className='discovery'>{discoveringIntrepreters}

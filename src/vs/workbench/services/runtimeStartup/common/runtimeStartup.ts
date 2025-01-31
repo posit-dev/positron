@@ -1130,6 +1130,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		this.setStartupPhase(RuntimeStartupPhase.Reconnecting);
 
+		// Sort the sessions by last used time, so that we reconnect to the
+		// most recently used sessions first. Default 0 so we can restore
+		// sessions that didn't persist this information.
+		sessions.sort((a, b) => (b.lastUsed ?? 0) - (a.lastUsed ?? 0));
+
+		// Let the UI know we're about to try reconnecting to this session
+		this._onWillAutoStartRuntime.fire({
+			runtime: sessions[0].runtimeMetadata,
+			newSession: false
+		});
+
 		// Activate any extensions needed for the sessions that are persistent on the machine.
 		const activatedExtensions: Array<ExtensionIdentifier> = [];
 		await Promise.all(sessions.filter(async session =>
@@ -1188,11 +1199,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Remove all the sessions that are no longer valid.
 		sessions = sessions.filter((_, i) => validSessions[i]);
-
-		// Sort the sessions by last used time, so that we reconnect to the
-		// most recently used sessions first. Default 0 so we can restore
-		// sessions that didn't persist this information.
-		sessions.sort((a, b) => (b.lastUsed ?? 0) - (a.lastUsed ?? 0));
 
 		// Reconnect to the remaining sessions.
 		this._logService.debug(`Reconnecting to sessions: ` +
@@ -1394,6 +1400,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 	}
 
+	/**
+	 * Starts a new runtime session from implicit state.
+	 */
 	private async autoStartRuntime(
 		metadata: ILanguageRuntimeMetadata,
 		source: string,
@@ -1401,6 +1410,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	) {
 		this._onWillAutoStartRuntime.fire({
 			runtime: metadata,
+			newSession: true
 		});
 		this._runtimeSessionService.autoStartRuntime(metadata, source, activate);
 	}
