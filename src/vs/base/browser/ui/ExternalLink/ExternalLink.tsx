@@ -22,7 +22,6 @@ interface ExternalLinkProps extends React.ComponentPropsWithoutRef<'a'> {
  * @returns The rendered link component that opens in the opener service.
  */
 export function ExternalLink(props: ExternalLinkProps) {
-	// eslint-disable-next-line react/prop-types
 	const { href, openerService, ...otherProps } = props;
 
 	return <a

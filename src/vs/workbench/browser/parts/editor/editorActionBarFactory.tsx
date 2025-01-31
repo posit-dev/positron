@@ -178,7 +178,7 @@ export class EditorActionBarFactory extends Disposable {
 
 		// Build the right action bar elements from the editor actions right menu and the editor
 		// title menu.
-		let rightActionBarElements = [
+		const rightActionBarElements = [
 			// Build the right action bar elements from the editor actions right menu.
 			...this.buildActionBarElements(
 				processedActions,
