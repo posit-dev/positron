@@ -157,7 +157,7 @@ jobs:
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/win'}}
         if: ${{ !cancelled() }}
-        run: npx playwright test --project "e2e-windows" --grep "${{ env.PW_TAGS }}" --workers 2 --repeat-each ${{ inputs.repeat_each }} --pwc-cancel-after-failures 10
+        run: npx playwright test --project "e2e-windows" --grep "${{ env.PW_TAGS }}" --workers 2 --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
