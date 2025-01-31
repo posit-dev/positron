@@ -10,10 +10,13 @@
 
 .runtime-starting .action,
 .runtime-starting .runtime-name {
-	font-size: 11px;
 	margin: 2px;
 	text-transform: uppercase;
 	text-align: center;
+}
+
+.runtime-starting .action {
+	font-size: 11px;
 }
 
 .runtime-starting .runtime-name {
