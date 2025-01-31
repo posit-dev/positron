@@ -16,12 +16,7 @@ test.use({
 });
 
 test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
-	// Some tests are not tagged @:win because they would require a new master image.
 	test.describe('Python Plots', () => {
-
-		test.beforeAll(async function ({ userSettings }) {
-			await userSettings.set([['application.experimental.positronPlotsInEditorTab', 'true']]);
-		});
 
 		test.beforeEach(async function ({ app, interpreter }) {
 			// Set the viewport to a size that ensures all the plots view actions are visible
