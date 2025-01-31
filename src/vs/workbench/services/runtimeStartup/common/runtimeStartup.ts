@@ -923,10 +923,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
-		// Activate all the extensions that provide language runtimes for the
-		// affiliated languages.
-		await this.activateExtensionsForLanguages(languageIds);
-
 		// Start the affiliated runtimes.
 		languageIds.map(languageId => {
 			// Get the affiliated runtime metadata.
@@ -970,7 +966,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Sort the affiliations by last used time, so that the most recently
 			// used runtime is started first
 			return b.lastUsed - a.lastUsed;
-		}).map((affiliation, idx) => {
+		}).map(async (affiliation, idx) => {
+			if (idx === 0) {
+				// Let the UI know we're about to try starting this session
+				this._onWillAutoStartRuntime.fire({
+					runtime: affiliation.metadata,
+					newSession: true
+				});
+			}
+
+			// Activate the associated extension
+			await this.activateExtensionsForLanguages([affiliation.metadata.languageId]);
+
 			// Start each runtime. Activate the first one as soon as it's
 			// ready; let the others start in the background.
 			this.startAffiliatedRuntime(affiliation, idx === 0);
