@@ -50,7 +50,7 @@ export const PositronConsole = (props: PropsWithChildren<PositronConsoleProps>) 
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.reactComponentContainer]);
 
 	// Render.
 	return (
