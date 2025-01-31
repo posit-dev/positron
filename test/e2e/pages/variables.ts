@@ -33,8 +33,8 @@ export class Variables {
 
 	async getFlatVariables(): Promise<Map<string, FlatVariables>> {
 		const variables = new Map<string, FlatVariables>();
-		await expect(this.code.driver.page.locator(VARIABLE_ITEMS).first()).toBeVisible();
-		const variableItems = await this.code.driver.page.locator(VARIABLE_ITEMS).all();
+		await expect(this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).first()).toBeVisible();
+		const variableItems = await this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).all();
 
 		for (const item of variableItems) {
 			const nameElement = item.locator(`.${VARIABLE_NAMES}`).first();
@@ -167,7 +167,7 @@ export class Variables {
 
 	async clickDatabaseIconForVariableRow(rowName: string) {
 		const DATABASE_ICON = '.codicon-database';
-		await this.code.driver.page.locator(VARIABLE_ITEMS).filter({ hasText: rowName }).locator(DATABASE_ICON).click();
+		await this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).filter({ hasText: rowName }).locator(DATABASE_ICON).click();
 	}
 
 	async clickSessionLink() {
