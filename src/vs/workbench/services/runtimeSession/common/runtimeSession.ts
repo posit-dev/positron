@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as nls from '../../../../nls.js';
-import { DeferredPromise, disposableTimeout } from '../../../../base/common/async.js';
+import { DeferredPromise, disposableTimeout, timeout } from '../../../../base/common/async.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -23,6 +23,7 @@ import { IStorageService, StorageScope } from '../../../../platform/storage/comm
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
 import { basename } from '../../../../base/common/resources.js';
+import { IUpdateService } from '../../../../platform/update/common/update.js';
 
 /**
  * Get a map key corresponding to a session.
@@ -129,7 +130,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
-		@IStorageService private readonly _storageService: IStorageService) {
+		@IStorageService private readonly _storageService: IStorageService,
+		@IUpdateService private readonly _updateService: IUpdateService
+	) {
 
 		super();
 
@@ -197,6 +200,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				this._disconnectedSessions.clear();
 			}
 		}));
+
+		this.scheduleUpdateActiveLanguages(25 * 1000);
 	}
 
 	//#region ILanguageRuntimeService Implementation
@@ -1666,6 +1671,22 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		return id;
 	}
 
+	private async scheduleUpdateActiveLanguages(delay = 60 * 60 * 1000): Promise<void> {
+		return timeout(delay)
+			.then(() => {
+				const languages: string[] = [];
+				this._activeSessionsBySessionId.forEach(activeSession => {
+					// if lastUsed in the past 24 hours, include it
+					if (activeSession.session.lastUsed > Date.now() - 24 * 60 * 60 * 1000) {
+						languages.push(activeSession.session.runtimeMetadata.languageId);
+					}
+				});
+				this._updateService.updateActiveLanguages(languages);
+			})
+			.then(() => {
+				return this.scheduleUpdateActiveLanguages();
+			});
+	}
 
 }
 registerSingleton(IRuntimeSessionService, RuntimeSessionService, InstantiationType.Eager);

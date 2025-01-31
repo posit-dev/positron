@@ -29,6 +29,7 @@ export class UpdateChannel implements IServerChannel {
 			case '_getInitialState': return Promise.resolve(this.service.state);
 			case 'isLatestVersion': return this.service.isLatestVersion();
 			case '_applySpecificUpdate': return this.service._applySpecificUpdate(arg);
+			case 'updateActiveLanguages': return Promise.resolve(this.service.updateActiveLanguages(arg));
 		}
 
 		throw new Error(`Call not found: ${command}`);
@@ -82,4 +83,10 @@ export class UpdateChannelClient implements IUpdateService {
 	dispose(): void {
 		this.disposables.dispose();
 	}
+
+	// --- Start Positron ---
+	updateActiveLanguages(languages: string[]): void {
+		this.channel.call('updateActiveLanguages', languages);
+	}
+	// --- End Positron ---
 }

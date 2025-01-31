@@ -53,6 +53,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	protected url: string | undefined;
 
 	// --- Start Positron ---
+	private _activeLanguages: string[];
 	// enable the service to download and apply updates automatically
 	protected enableAutoUpdate = false;
 	// --- End Positron ---
@@ -83,6 +84,10 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		@INativeHostMainService protected readonly nativeHostMainService: INativeHostMainService
 		// --- End Positron ---
 	) {
+		// --- Start Positron ---
+		this._activeLanguages = [];
+		// --- End Positron ---
+
 		lifecycleMainService.when(LifecycleMainPhase.AfterWindowOpen)
 			.finally(() => this.initialize());
 	}
@@ -179,6 +184,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	async checkForUpdates(explicit: boolean): Promise<void> {
 		this.logService.trace('update#checkForUpdates, state = ', this.state.type);
 
+		this.logService.debug('update#checkForUpdates, languages =', this._activeLanguages.join(', '));
 		if (this.state.type !== StateType.Idle) {
 			return;
 		}
@@ -320,6 +326,9 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	protected abstract buildUpdateFeedUrl(channel: string): string | undefined;
 	protected updateAvailable(context: IUpdate): void {
 		this.setState(State.AvailableForDownload(context));
+	}
+	updateActiveLanguages(languages: string[]): void {
+		this._activeLanguages = languages;
 	}
 	// --- End Positron ---
 }

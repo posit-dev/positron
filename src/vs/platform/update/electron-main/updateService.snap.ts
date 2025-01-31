@@ -135,6 +135,12 @@ abstract class AbstractUpdateService implements IUpdateService {
 	}
 
 	protected abstract doCheckForUpdates(context: any): void;
+
+	// --- Start Positron ---
+	updateActiveLanguages(languages: string[]): void {
+		// no-op
+	}
+	// --- End Positron ---
 }
 
 export class SnapUpdateService extends AbstractUpdateService {
