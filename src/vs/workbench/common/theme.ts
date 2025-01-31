@@ -1568,15 +1568,6 @@ export const POSITRON_DROP_DOWN_SEPARATOR_BACKGROUND = registerColor('positronDr
 	hcLight: menuBorder
 }, localize('positronDropDownListBox.separatorBackground', "Positron drop down list box separator background color."));
 
-
-
-
-
-
-
-
-
-
 // < --- Positron Console --- >
 
 // Positron console background color.
