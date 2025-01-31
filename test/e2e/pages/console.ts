@@ -219,9 +219,13 @@ export class Console {
 		await this.code.driver.page.locator(MAXIMIZE_CONSOLE).click();
 	}
 
-	async pasteCodeToConsole(code: string) {
+	async pasteCodeToConsole(code: string, sendEnterKey = false) {
 		const consoleInput = this.activeConsole.locator(CONSOLE_INPUT);
 		await this.pasteInMonaco(consoleInput!, code);
+
+		if (sendEnterKey) {
+			await this.sendEnterKey();
+		}
 	}
 
 	async pasteInMonaco(
