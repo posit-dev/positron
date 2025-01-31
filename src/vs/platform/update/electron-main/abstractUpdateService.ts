@@ -120,7 +120,9 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		this.url = this.buildUpdateFeedUrl(updateChannel);
 		this.logService.debug('update#ctor - update URL is', this.url);
 
-		if (!this.environmentMainService.isBuilt) {
+		// disables update checking in dev unless auto-updates are off
+		// auto-updates do not work in dev and we don't want to trigger unwanted update downloads
+		if (!this.environmentMainService.isBuilt && this.enableAutoUpdate) {
 			this.setState(State.Disabled(DisablementReason.NotBuilt));
 			return; // updates are never enabled when running out of sources
 		}
@@ -223,12 +225,12 @@ export abstract class AbstractUpdateService implements IUpdateService {
 
 	// --- Start Positron ---
 	protected async doDownloadUpdate(state: AvailableForDownload): Promise<void> {
-		if (this.productService.downloadUrl && this.productService.downloadUrl.length > 0) {
+		if (state.update.url) {
+			this.nativeHostMainService.openExternal(undefined, state.update.url);
+		} else if (this.productService.downloadUrl && this.productService.downloadUrl.length > 0) {
 			// Use the download URL if available as we don't currently detect the package type that was
 			// installed and the website download page is more useful than the tarball generally.
 			this.nativeHostMainService.openExternal(undefined, this.productService.downloadUrl);
-		} else if (state.update.url) {
-			this.nativeHostMainService.openExternal(undefined, state.update.url);
 		}
 
 		this.setState(State.Idle(this.getUpdateType()));
