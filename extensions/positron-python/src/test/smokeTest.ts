@@ -109,7 +109,11 @@ class TestRunner {
             glob.default('*.vsix', (ex, files) => (ex ? reject(ex) : resolve(files[0]))),
         );
         await unzip(extensionFile, targetDir);
-        await fs.ensureDir(path.join(SMOKE_TEST_EXTENSIONS_DIR, 'python-pet-tools'));
+        if (!(await fs.pathExists(path.join(SMOKE_TEST_EXTENSIONS_DIR, 'python-env-tools')))) {
+            throw new Error(`Directory ${path.join(SMOKE_TEST_EXTENSIONS_DIR, 'python-env-tools')} does not exist`);
+        } else {
+            await fs.chmod(path.join(SMOKE_TEST_EXTENSIONS_DIR, 'python-env-tools'), 0o755);
+        }
     }
 }
 
