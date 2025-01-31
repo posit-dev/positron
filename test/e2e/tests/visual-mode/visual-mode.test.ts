@@ -11,97 +11,87 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Visual Mode: Quarto File', {
-	tag: [tags.WEB, tags.WIN, tags.EDITOR]
-}, () => {
-	test.beforeAll(async function ({ }, testInfo) {
-		// This test can only run in the browser due to native menu interactions
-		if (testInfo.project.name !== 'e2e-browser') {
-			test.skip();
-		}
-	});
+const testCases = [
+	{
+		title: 'Quarto Markdown',
+		filePath: 'workspaces/visual-mode/visual-mode.qmd',
+		tags: [tags.WEB, tags.EDITOR, tags.QUARTO]
+	},
+	// {
+	// 	title: 'Markdown File',
+	// 	filePath: 'workspaces/visual-mode/visual-mode.md',
+	// 	tags: [tags.WEB, tags.EDITOR]
+	// },
+	{
+		title: 'R Markdown',
+		filePath: 'workspaces/visual-mode/visual-mode.rmd',
+		tags: [tags.WEB, tags.EDITOR, tags.R_MARKDOWN]
+	}
+];
 
-	test.afterEach(async function ({ app, hotKeys }) {
-		// close all editors
-		await hotKeys.press('Cmd+K');
-		await hotKeys.press('Cmd+W');
-	});
-
-	// test('Markdown', { tag: [tags.HTML] }, async function ({ app, page, openFile }) {
-	// 	await openFile('workspaces/dash-py-example/data/OilandGasMetadata.html');
-
-	// 	await verifyMarkdownSyntaxRendering();
-	// 	await verifyModeContentSync();
-	// 	await verifyCodeBlockRendering();
-	// });
-
-	// test('R Markdown Document', {
-	// 	tag: [tags.R_MARKDOWN]
-	// }, async function ({ app, openFile }) {
-	// 	await openFile('workspaces/basic-rmd/basic-rmd.rmd');
-
-	// 	await verifyMarkdownSyntaxRendering();
-	// 	await verifyModeContentSync();
-	// 	await verifyCodeBlockRendering();
-	// 	await verifyYamlRendering();
-	// 	await verifyEquationRendering();
-	// 	await verifyCodeExecution();
-	// });
-
-	test.beforeAll(async function ({ openFile, runCommand, page }) {
-		await openFile('workspaces/visual-mode/visual-mode.qmd', false);
-		await runCommand('edit in visual mode');
-		await page.getByText('Use Visual Mode').click();
-	});
-
-	// Quarto:
-	// 		// await verifyYamlRendering(app);
-	// await verifyEquationRendering(app);
-	// await verifyCodeExecution(app);
-
-	test('Verify Markdown Syntax Rendering', {
-		tag: [tags.QUARTO, tags.WEB]
-	}, async function ({ page, app }) {
-		await verifyMarkdownSyntaxRendering(page);
-	});
-
-	test('Verify Mode Content Sync', {
-		tag: [tags.QUARTO, tags.WEB]
-	}, async function ({ app, page }) {
-		await changeEditMode(app, 'Visual');
-		await verifyModeContentSync(app);
-		try {
-			await page.getByText('YOLO').dblclick();
-			await page.keyboard.press('Backspace');
-			await page.keyboard.press('Backspace');
-			await changeEditMode(app, 'Visual');
-		} catch (error) {
-			// ignore
-		}
-	});
-
-	test('Verify Code Block Execution', {
-		tag: [tags.QUARTO, tags.WEB]
-	}, async function ({ app }) {
-		await changeEditMode(app, 'Visual');
-		await verifyCodeExecution(app);
-	});
-
-	test('Verify Outline', {
-		tag: [tags.QUARTO, tags.WEB]
-	}, async function ({ }) {
-	});
+test.beforeAll(async function ({ }, testInfo) {
+	if (testInfo.project.name !== 'e2e-browser') {
+		test.skip();
+	}
 });
+
+test.beforeAll(async function ({ openFile, runCommand, page, hotKeys }) {
+	await openFile(testCases[0].filePath, false);
+	await runCommand('edit in visual mode');
+	await page.getByText('Use Visual Mode').click();
+	await hotKeys.press('Cmd+K');
+	await hotKeys.press('Cmd+W');
+});
+
+
+for (const { title, filePath, tags } of testCases) {
+	test.describe(`Visual Mode: ${title} file`, { tag: tags }, () => {
+		test.beforeEach(async function ({ openFile }) {
+			await openFile(filePath, false);
+		});
+
+		test.afterEach(async function ({ app, hotKeys }) {
+			await hotKeys.press('Cmd+K');
+			await hotKeys.press('Cmd+W');
+		});
+
+		test('Verify Markdown Syntax Rendering', async function ({ page, app }) {
+			await changeEditMode(app, 'Visual');
+			await verifyMarkdownSyntaxRendering(page, title);
+		});
+
+		test('Verify Mode Content Sync', async function ({ app, page }) {
+			await verifyModeContentSync(app);
+			try {
+				await page.getByText('YOLO').dblclick();
+				await page.keyboard.press('Backspace');
+				await page.keyboard.press('Backspace');
+				await changeEditMode(app, 'Visual');
+			} catch (error) {
+				// ignore
+			}
+		});
+
+		test('Verify Code Block Execution', async function ({ app }) {
+			await changeEditMode(app, 'Visual');
+			await verifyCodeExecution(app);
+		});
+
+		test('Verify Outline', async function ({ }) {
+			// Add outline test logic if needed
+		});
+	});
+}
 
 
 // Helper functions
 
-async function verifyMarkdownSyntaxRendering(page: Page) {
+async function verifyMarkdownSyntaxRendering(page: Page, title: string) {
 	await test.step('verify markdown syntax rendering', async () => {
 		const viewerFrame = page.frameLocator('.webview').frameLocator('#active-frame');
 
 		// verify heading
-		await expect(viewerFrame.getByRole('heading', { name: 'Quarto Markdown Testing Document' })).toBeVisible();
+		await expect(viewerFrame.getByRole('heading', { name: `${title} Testing Document` })).toBeVisible();
 
 		// verify bold text
 		const boldElement = viewerFrame.getByText('bold');
@@ -166,6 +156,7 @@ async function verifyModeContentSync(app: Application): Promise<void> {
 	const page = app.code.driver.page;
 	const testText = 'YOLO ';
 	const viewerFrame = page.frameLocator('.webview').frameLocator('#active-frame');
+
 	// Edit Content in Source Mode
 	await changeEditMode(app, 'Source');
 	await page.getByText('"Test Title"').click();
@@ -192,3 +183,24 @@ async function verifyCodeExecution(app: Application) {
 	await viewerFrame.getByTitle('Run Cell', { exact: true }).click();
 	await app.workbench.plots.waitForCurrentPlot();
 }
+
+// test('Markdown', { tag: [tags.HTML] }, async function ({ app, page, openFile }) {
+// 	await openFile('workspaces/dash-py-example/data/OilandGasMetadata.html');
+
+// 	await verifyMarkdownSyntaxRendering();
+// 	await verifyModeContentSync();
+// 	await verifyCodeBlockRendering();
+// });
+
+// test('R Markdown Document', {
+// 	tag: [tags.R_MARKDOWN]
+// }, async function ({ app, openFile }) {
+// 	await openFile('workspaces/basic-rmd/basic-rmd.rmd');
+
+// 	await verifyMarkdownSyntaxRendering();
+// 	await verifyModeContentSync();
+// 	await verifyCodeBlockRendering();
+// 	await verifyYamlRendering();
+// 	await verifyEquationRendering();
+// 	await verifyCodeExecution();
+// });
