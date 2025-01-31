@@ -143,7 +143,7 @@ jobs:
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/linux' }}
         run: |
-          DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 --grep "${{ env.PW_TAGS }}" --repeat-each ${{ inputs.repeat_each }}
+          DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 --grep "${{ env.PW_TAGS }}" --repeat-each ${{ inputs.repeat_each }} --pwc-cancel-after-failures 10
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
