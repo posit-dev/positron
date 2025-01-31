@@ -311,30 +311,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 		}));
 
-		// Wait for all extension hosts to start before beginning the main
-		// startup sequence.
-		this._extensionService.whenAllExtensionHostsStarted().then(async () => {
-			if (this._workspaceTrustManagementService.isWorkspaceTrusted()) {
-				// In a trusted workspace, we can start the startup sequence
-				// immediately.
-				await this.startupSequence();
-			} else {
-				// If we are not in a trusted workspace, wait for the workspace to become
-				// trusted before starting the startup sequence.
-				this.setStartupPhase(RuntimeStartupPhase.AwaitingTrust);
-				this._register(this._workspaceTrustManagementService.onDidChangeTrust((trusted) => {
-					if (!trusted) {
-						return;
-					}
-					// If the workspace becomse trusted while we are awaiting trust,
-					// move on to the startup sequence.
-					if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust) {
-						this.startupSequence();
-					}
-				}));
-			}
-		});
-
 		this._register(languageRuntimeExtPoint.setHandler((extensions) => {
 			// This new set of extensions replaces the old set, so clear the
 			// language packs.
@@ -362,6 +338,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					this._logService.debug(`[Runtime startup] No language packs were found.`);
 					this.setStartupPhase(RuntimeStartupPhase.Complete);
 				}
+			} else if (this._startupPhase === RuntimeStartupPhase.Initializing && this._languagePacks.size > 0) {
+				// If we just got language packs, and we were in the Initializing
+				// phase, move on to the startup phase.
+				this.startupAfterTrust();
 			}
 		}));
 
@@ -641,9 +621,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}, 5000);
 			return;
 		}
-
-		// Ensure all extension hosts are started before we start activating extensions
-		await this._extensionService.whenAllExtensionHostsStarted();
 
 		// Filter out any language packs that are disabled.
 		const disabledLanguages = new Array<string>();
@@ -1379,6 +1356,33 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private getStartupBehavior(languageId: string): LanguageStartupBehavior {
 		return this._configurationService.getValue(
 			'interpreters.startupBehavior', { overrideIdentifier: languageId });
+	}
+
+
+	/**
+	 * Fires the main startup sequence, possibly after waiting for the
+	 * workspace to be trusted.
+	 */
+	private async startupAfterTrust(): Promise<void> {
+		if (this._workspaceTrustManagementService.isWorkspaceTrusted()) {
+			// In a trusted workspace, we can start the startup sequence
+			// immediately.
+			await this.startupSequence();
+		} else {
+			// If we are not in a trusted workspace, wait for the workspace to become
+			// trusted before starting the startup sequence.
+			this.setStartupPhase(RuntimeStartupPhase.AwaitingTrust);
+			this._register(this._workspaceTrustManagementService.onDidChangeTrust((trusted) => {
+				if (!trusted) {
+					return;
+				}
+				// If the workspace becomse trusted while we are awaiting trust,
+				// move on to the startup sequence.
+				if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust) {
+					this.startupSequence();
+				}
+			}));
+		}
 	}
 }
 
