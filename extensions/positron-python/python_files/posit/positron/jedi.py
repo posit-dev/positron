@@ -275,7 +275,7 @@ def _complete_pandas_columns(
     *,
     fuzzy: bool,
 ):
-    def _complete(node, columns_atom=None):
+    def _complete(node):
         if node:
             atom_expr = node.search_ancestor("atom_expr")
             if atom_expr and atom_expr.children:
@@ -284,8 +284,8 @@ def _complete_pandas_columns(
                 values = module_context.infer_node(dataframe)
 
                 specified_columns = []
-                if columns_atom:
-                    for columns_values in infer_call_of_leaf(module_context, columns_atom):
+                if node.type == "atom":
+                    for columns_values in infer_call_of_leaf(module_context, node):
                         for lazy_value in columns_values.py__iter__():
                             for column in lazy_value.infer():
                                 column_value = column.get_safe_value(default=_sentinel)
@@ -336,6 +336,41 @@ def _complete_pandas_columns(
         position: int
         name: str
         types: Set[str]
+
+        def accepts(self, node: NodeOrLeaf):
+            if node.type not in self.types:
+                return False
+
+            parent = node.parent
+            if not parent:
+                return False
+
+            if (
+                # Single positional.
+                parent.type == "trailer"
+                # Does this method accept a scalar as first argument?
+                and self.position == 0
+            ):
+                return True
+
+            if (
+                # One of multiple positional.
+                parent.type == "arglist"
+                # Does this method accept a scalar at this position?
+                # (// 2 since every second child is a comma.)
+                and self.position == parent.children.index(node) // 2
+            ):
+                return True
+
+            if (  # noqa: SIM103
+                # Keyword (single or multiple).
+                parent.type == "argument"
+                and parent.children
+                and self.name == parent.children[0].value
+            ):
+                return True
+
+            return False
 
     pandas_dataframe_methods = {
         "pandas.core.generic.NDFrame.filter": [ColumnArg(0, "items", {"atom"})],
@@ -392,56 +427,8 @@ def _complete_pandas_columns(
     # TODO: Could optimize by early exiting if the type is not at all supported by the method.
     # TODO: Could rather loop through column args?
     for column_arg in column_args:
-        if columns.type in column_arg.types:
-            parent = columns.parent
-            if parent and (
-                (
-                    # Single positional.
-                    parent.type == "trailer"
-                    # Does this method accept a scalar as first argument?
-                    and column_arg.position == 0
-                )
-                or (
-                    # One of multiple positional.
-                    parent.type == "arglist"
-                    # Does this method accept a scalar at this position?
-                    # (// 2 since every second child is a comma.)
-                    and column_arg.position == parent.children.index(columns) // 2
-                )
-                or (
-                    # Keyword (single or multiple).
-                    parent.type == "argument"
-                    and parent.children
-                    and column_arg.name == parent.children[0].value
-                    and parent.parent
-                    and (
-                        (
-                            # If there are other keyword arguments, check that axis is "columns" or 1.
-                            # TODO: Should we also check positional axis?
-                            parent.parent.type == "arglist"
-                            and any(
-                                arg.type == "argument"
-                                and len(arg.children) >= 3
-                                and arg.children[0].value == "axis"
-                                and (
-                                    (
-                                        arg.children[2].type == "string"
-                                        and safe_literal_eval(arg.children[2].value) == "columns"
-                                    )
-                                    or (
-                                        arg.children[2].type == "number"
-                                        and safe_literal_eval(arg.children[2].value) == 1
-                                    )
-                                )
-                                for arg in parent.parent.children
-                            )
-                        )
-                        # TODO: What's this case? Nicer way to do this?
-                        or (parent.parent.type != "arglist")
-                    )
-                )
-            ):
-                return _complete(parent, columns)
+        if column_arg.accepts(columns):
+            return _complete(columns)
 
     return []
     # if leaf.parent.type == "argument" and leaf.parent.children[0].value == "axis":
