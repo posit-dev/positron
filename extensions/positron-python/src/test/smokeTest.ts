@@ -34,10 +34,6 @@ class TestRunner {
         const env: Record<string, {}> = {
             VSC_PYTHON_SMOKE_TEST: '1',
             CODE_EXTENSIONS_PATH: SMOKE_TEST_EXTENSIONS_DIR,
-            // --- Start Positron ---
-            // update root dir to start up PET successfully
-            EXTENSION_ROOT_DIR: EXTENSION_ROOT_DIR_FOR_TESTS,
-            // --- End Positron ---
         };
 
         await this.launchTest(env);
