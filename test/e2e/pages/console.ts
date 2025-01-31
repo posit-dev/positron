@@ -224,6 +224,7 @@ export class Console {
 		await this.pasteInMonaco(consoleInput!, code);
 
 		if (sendEnterKey) {
+			await expect(this.code.driver.page.getByLabel('Interrupt execution')).not.toBeVisible();
 			await this.sendEnterKey();
 		}
 	}

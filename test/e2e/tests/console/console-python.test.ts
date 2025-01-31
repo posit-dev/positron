@@ -68,9 +68,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 
 			await app.workbench.console.barClearButton.click();
 
-			await app.workbench.console.pasteCodeToConsole('import platform; print(platform.python_version())');
-			await app.code.driver.page.waitForTimeout(1000);
-			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.pasteCodeToConsole('import platform; print(platform.python_version())', true);
 
 			await app.workbench.console.waitForConsoleContents(primaryPython);
 		} else {
@@ -85,9 +83,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 
 			await app.workbench.console.barClearButton.click();
 
-			await app.workbench.console.pasteCodeToConsole(`import platform; print(platform.python_version())`);
-			await app.code.driver.page.waitForTimeout(1000);
-			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.pasteCodeToConsole(`import platform; print(platform.python_version())`, true);
 			await app.workbench.console.waitForConsoleContents(secondaryPython);
 		} else {
 			fail('Secondary Python version not set');
