@@ -1800,7 +1800,7 @@
         }
     },
     "scripts": {
-        "package": "gulp clean && gulp prePublishBundle && vsce package -o ms-python-insiders.vsix",
+        "package": "gulp clean && gulp prePublishBundle && vsce package -o positron-python-insiders.vsix",
         "prePublish": "gulp clean && gulp prePublishNonBundle",
         "compile": "tsc -watch -p ./",
         "compileApi": "node ./node_modules/typescript/lib/tsc.js -b ./pythonExtensionApi/tsconfig.json",
