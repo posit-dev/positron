@@ -23,7 +23,9 @@ test.describe('References', {
 
 	});
 
-	test('Python - Verify References Functionality', async function ({ app, python, openFile }) {
+	test('Python - Verify References Functionality', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6211' }]
+	}, async function ({ app, python, openFile }) {
 		const helper = 'helper.py';
 
 		await openFile(join('workspaces', 'references_tests', 'python', helper));
