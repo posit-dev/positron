@@ -15,7 +15,7 @@ const testCases = [
 	{
 		title: 'Quarto Markdown',
 		filePath: 'workspaces/visual-mode/visual-mode.qmd',
-		tags: [tags.WEB, tags.EDITOR, tags.QUARTO]
+		tags: [tags.WEB, tags.VISUAL_MODE, tags.EDITOR, tags.QUARTO]
 	},
 	// {
 	// 	title: 'Markdown File',
@@ -25,7 +25,7 @@ const testCases = [
 	{
 		title: 'R Markdown',
 		filePath: 'workspaces/visual-mode/visual-mode.rmd',
-		tags: [tags.WEB, tags.EDITOR, tags.R_MARKDOWN]
+		tags: [tags.WEB, tags.VISUAL_MODE, tags.EDITOR, tags.R_MARKDOWN]
 	}
 ];
 
