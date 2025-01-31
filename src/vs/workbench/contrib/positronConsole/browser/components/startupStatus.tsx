@@ -74,6 +74,9 @@ export const StartupStatus = () => {
 					setStartupPhase(phase);
 				}));
 
+		// When we're notified that a runtime may auto-start in the workspace,
+		// show it. Note that this event is not reliable as a signal that a
+		// runtime will actually start; see notes in the RuntimeStartupService.
 		disposableStore.add(
 			positronConsoleContext.runtimeStartupService.onWillAutoStartRuntime(
 				evt => {

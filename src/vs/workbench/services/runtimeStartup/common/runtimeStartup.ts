@@ -116,7 +116,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/// running one or extensions that provide runtimes.
 	private _runtimeManagers: IRuntimeManager[] = [];
 
-	/// The event emitter for the onDidAutoStartRuntime event.
+	/// The event emitter for the onWillAutoStartRuntime event.
 	private readonly _onWillAutoStartRuntime: Emitter<IRuntimeAutoStartEvent>;
 
 	constructor(

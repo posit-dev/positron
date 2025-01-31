@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -20,9 +20,16 @@ export interface RuntimeStartupProgressProps {
 
 const preparing = localize('positron.runtimeStartup.newSession', "Preparing");
 const reconnecting = localize('positron.runtimeStartup.existingSession', "Reconnecting");
+
 /**
  * RuntimeStartupProgress component.
- * @param props A RuntimeStartupProgressProps that contains the component properties.
+ *
+ * This component renders the status for a runtime that is about to start up.
+ * It's only rendered before any runtime actually starts in new Positron
+ * windows.
+ *
+ * @param props A RuntimeStartupProgressProps that contains the component
+ * properties.
  * @returns The rendered component.
  */
 export const RuntimeStartupProgress = (props: RuntimeStartupProgressProps) => {

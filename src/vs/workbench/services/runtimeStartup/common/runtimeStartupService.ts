@@ -64,7 +64,15 @@ export interface IRuntimeStartupService {
 	clearAffiliatedRuntime(languageId: string): void;
 
 	/**
-	 * An event that is emitted when a runtime is automatically started.
+	 * An event that is emitted when a runtime about to be automatically
+	 * started or resumed in a new Positron window.
+	 *
+	 * This event is intended to help communicate startup information to the
+	 * UI; it is not reliable as a signal that a runtime will actually start.
+	 * It may fire for runtimes that ultimately do not start (due to e.g. stale
+	 * metadata), and may fire multiple times for the same runtime.
+	 *
+	 * Use `onWillStartSession` for a reliable start signal.
 	 */
 	onWillAutoStartRuntime: Event<IRuntimeAutoStartEvent>;
 
