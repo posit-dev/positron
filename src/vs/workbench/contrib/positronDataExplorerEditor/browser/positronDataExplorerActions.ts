@@ -23,6 +23,9 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { URI } from '../../../../base/common/uri.js';
 import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
+import { toLocalResource } from '../../../../base/common/resources.js';
+import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 
 /**
  * Positron data explorer action category.
@@ -731,10 +734,27 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 	 */
 	async run(accessor: ServicesAccessor): Promise<void> {
 		// Access the services we need.
-		// const textEditorService = accessor.get(ITextEditorService);
+		const pathService = accessor.get(IPathService);
+		const environmentService = accessor.get(IWorkbenchEnvironmentService);
 		const editorService = accessor.get(IEditorService);
-		const dataExplorerUri = URI.parse(PositronDataExplorerUri.parse(EditorResourceAccessor.getOriginalUri(editorService.activeEditor)!)!);
-		await editorService.openEditor({ resource: URI.parse(dataExplorerUri.fsPath), options: { override: DEFAULT_EDITOR_ASSOCIATION.id, source: EditorOpenSource.USER } });
+
+		// Grab Data Explorer URI (scheme = positron-data-explorer)
+		const originalURI = EditorResourceAccessor.getOriginalUri(editorService.activeEditor);
+		if (!originalURI) {
+			return;
+		}
+
+		// Parse this URI - gives underlying FS URI if not memory-backed (scheme = duckdb)
+		const parsedDataExplorerURI = PositronDataExplorerUri.parse(originalURI);
+		if (!parsedDataExplorerURI) {
+			return;
+		}
+
+		// Convert raw duckdb URI to appropriate file URI (scheme = file if local, vscode-remote if server)
+		const localURI = toLocalResource(URI.parse(parsedDataExplorerURI), environmentService.remoteAuthority, pathService.defaultUriScheme);
+
+		// Invoke editor for file, using default editor (text) association
+		await editorService.openEditor({ resource: localURI, options: { override: DEFAULT_EDITOR_ASSOCIATION.id, source: EditorOpenSource.USER } });
 	}
 }
 
