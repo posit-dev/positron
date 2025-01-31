@@ -65,13 +65,8 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 		const primaryPython = process.env.POSITRON_PY_VER_SEL;
 
 		if (primaryPython) {
-
 			await app.workbench.console.barClearButton.click();
-
-			await app.workbench.console.pasteCodeToConsole('import platform; print(platform.python_version())');
-			await app.code.driver.page.waitForTimeout(1000);
-			await app.workbench.console.sendEnterKey();
-
+			await app.workbench.console.pasteCodeToConsole('import platform; print(platform.python_version())', true);
 			await app.workbench.console.waitForConsoleContents(primaryPython);
 		} else {
 			fail('Primary Python version not set');
@@ -80,14 +75,9 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 		const secondaryPython = process.env.POSITRON_PY_ALT_VER_SEL;
 
 		if (secondaryPython) {
-
 			await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, `${secondaryPython} (Pyenv)`, true);
-
 			await app.workbench.console.barClearButton.click();
-
-			await app.workbench.console.pasteCodeToConsole(`import platform; print(platform.python_version())`);
-			await app.code.driver.page.waitForTimeout(1000);
-			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.pasteCodeToConsole(`import platform; print(platform.python_version())`, true);
 			await app.workbench.console.waitForConsoleContents(secondaryPython);
 		} else {
 			fail('Secondary Python version not set');
