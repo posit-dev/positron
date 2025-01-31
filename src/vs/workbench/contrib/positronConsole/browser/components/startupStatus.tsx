@@ -15,6 +15,8 @@ import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeAutoStartEvent } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { RuntimeStartupProgress } from './runtimeStartupProgress.js';
 
 // Load localized copy for control.
 const initalizing = localize('positron.console.initializing', "Starting up");
@@ -42,8 +44,8 @@ export const StartupStatus = () => {
 		useState(positronConsoleContext.languageRuntimeService.registeredRuntimes.length);
 	const [startupPhase, setStartupPhase] =
 		useState(positronConsoleContext.languageRuntimeService.startupPhase);
-	const [runtimeName, setRuntimeName] =
-		useState('');
+	const [runtimeStartupEvent, setRuntimeStartupEvent] =
+		useState<IRuntimeAutoStartEvent | undefined>(undefined);
 
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
@@ -75,8 +77,7 @@ export const StartupStatus = () => {
 		disposableStore.add(
 			positronConsoleContext.runtimeStartupService.onWillAutoStartRuntime(
 				evt => {
-					setRuntimeName(
-						evt.runtime.runtimeName);
+					setRuntimeStartupEvent(evt);
 				}));
 
 		// Return the cleanup function that will dispose of the disposables.
@@ -90,19 +91,22 @@ export const StartupStatus = () => {
 	return (
 		<div className='startup-status'>
 			<div className='progress' ref={progressRef}></div>
+			{runtimeStartupEvent &&
+				<RuntimeStartupProgress evt={runtimeStartupEvent} />
+			}
 			{startupPhase === RuntimeStartupPhase.Initializing &&
 				<div className='initializing'>{initalizing}...</div>
 			}
-			{startupPhase === RuntimeStartupPhase.Reconnecting &&
-				<div className='initializing'>{runtimeName === '' ? reconnecting : runtimeName}...</div>
+			{startupPhase === RuntimeStartupPhase.Reconnecting && !runtimeStartupEvent &&
+				<div className='reconnecting'>{reconnecting}...</div>
 			}
 			{startupPhase === RuntimeStartupPhase.AwaitingTrust &&
 				<div className='awaiting'>{awaitingTrust}...</div>
 			}
-			{startupPhase === RuntimeStartupPhase.Starting &&
-				<div className='starting'>{runtimeName === '' ? starting : runtimeName}...</div>
+			{startupPhase === RuntimeStartupPhase.Starting && !runtimeStartupEvent &&
+				<div className='starting'>{starting}...</div>
 			}
-			{startupPhase === RuntimeStartupPhase.Discovering &&
+			{startupPhase === RuntimeStartupPhase.Discovering && !runtimeStartupEvent &&
 				<div className='discovery'>{discoveringIntrepreters}
 					{discovered > 0 && <span> ({discovered})</span>}...</div>
 			}
