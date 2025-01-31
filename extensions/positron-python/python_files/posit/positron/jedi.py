@@ -15,9 +15,7 @@ from IPython.core import oinspect
 from ._vendor.jedi import settings
 from ._vendor.jedi.api import Interpreter, strings
 from ._vendor.jedi.api.classes import BaseName, BaseSignature, Completion, Name
-from ._vendor.jedi.api.interpreter import (
-    MixedTreeName,
-)
+from ._vendor.jedi.api.interpreter import MixedTreeName
 from ._vendor.jedi.cache import memoize_method
 from ._vendor.jedi.inference import InferenceState
 from ._vendor.jedi.inference.base_value import HasNoContext, Value, ValueSet, ValueWrapper
@@ -25,12 +23,7 @@ from ._vendor.jedi.inference.compiled import ExactValue, create_simple_object
 from ._vendor.jedi.inference.compiled.mixed import MixedName, MixedObject
 from ._vendor.jedi.inference.compiled.value import CompiledName, CompiledValue
 from ._vendor.jedi.inference.context import ValueContext
-from .inspectors import (
-    BaseColumnInspector,
-    BaseTableInspector,
-    PositronInspector,
-    get_inspector,
-)
+from .inspectors import BaseColumnInspector, BaseTableInspector, PositronInspector, get_inspector
 from .utils import get_qualname
 
 #
@@ -288,6 +281,13 @@ class PositronCompletion(PositronName):
 
     @property
     def complete(self) -> Optional[str]:
+        # On Windows, escape backslashes in paths to avoid inserting invalid strings.
+        # See: https://github.com/posit-dev/positron/issues/3758.
+        if os.name == "nt" and self._name.api_type == "path":
+            name = self._name.string_name.replace(os.path.sep, "\\" + os.path.sep)
+            # Remove the common prefix from the inserted text.
+            return name[self._wrapped_completion._like_name_length :]  # noqa: SLF001
+
         return self._wrapped_completion.complete
 
 
