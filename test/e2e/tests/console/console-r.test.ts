@@ -61,12 +61,8 @@ test.describe('Console Pane: R', {
 		const primaryR = process.env.POSITRON_R_VER_SEL;
 
 		if (primaryR) {
-
 			await app.workbench.console.barClearButton.click();
-
 			await app.workbench.console.pasteCodeToConsole('R.version.string', true);
-			await app.workbench.console.sendEnterKey();
-
 			await app.workbench.console.waitForConsoleContents(primaryR);
 		} else {
 			fail('Primary R version not set');
@@ -75,11 +71,8 @@ test.describe('Console Pane: R', {
 		const secondaryR = process.env.POSITRON_R_ALT_VER_SEL;
 
 		if (secondaryR) {
-
 			await app.workbench.interpreter.selectInterpreter(InterpreterType.R, secondaryR, true);
-
 			await app.workbench.console.barClearButton.click();
-
 			await app.workbench.console.pasteCodeToConsole(`R.version.string`, true);
 			await app.workbench.console.waitForConsoleContents(secondaryR);
 		} else {
