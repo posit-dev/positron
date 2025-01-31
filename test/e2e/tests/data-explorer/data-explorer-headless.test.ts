@@ -88,6 +88,12 @@ async function testBody(app: Application, logger: Logger, fileName: string) {
 async function openAsPlaintext(app: Application, fileName: string, searchString: string | RegExp) {
 	await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'data-files', 'flights', fileName));
 	await app.workbench.quickaccess.runCommand('workbench.action.positronDataExplorer.openAsPlaintext');
+
+	const openAnyway = app.code.driver.page.getByText("Open Anyway");
+	if (await openAnyway.isVisible({ timeout: 1000 })) {
+		await openAnyway.click();
+	}
+
 	await app.workbench.editor.waitForEditorContents(fileName, (contents) => {
 		if (searchString instanceof RegExp) {
 			return contents.search(searchString) !== -1;
