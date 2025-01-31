@@ -20,8 +20,8 @@ import { PositronButton } from '../../../../../base/browser/ui/positronComponent
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 
-const positronConsoleInfo = localize('positronConsoleInfo', "Console information");
-const showKernelOutputChannel = localize('positron.showKernelOutputChannel', "Show Kernel Output Channel");
+const positronConsoleInfo = localize('positron.console.info.label', "Console information");
+const showKernelOutputChannel = localize('positron.console.info.showKernelOutputChannel', "Show Kernel Output Channel");
 
 export const ConsoleInstanceInfoButton = () => {
 	// Hooks.
@@ -106,12 +106,26 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 				<div className='content'>
 					<p className='line'>{props.session?.metadata.sessionName}</p>
 					<div className='top-separator'>
-						<p className='line'>Session ID: {props.session?.sessionId}</p>
-						<p className='line'>State: {sessionState}</p>
+						<p className='line'>
+							{(() => localize(
+								'positron.console.info.sessionId', 'Session ID: {0}',
+								props.session.sessionId
+							))()}
+						</p>
+						<p className='line'>{(() => localize(
+							'positron.console.info.state', 'State: {0}',
+							sessionState))()}
+						</p>
 					</div>
 					<div className='top-separator'>
-						<p className='line'>Path: {props.session?.runtimeMetadata.runtimePath}</p>
-						<p className='line'>Source: {props.session?.runtimeMetadata.runtimeSource}</p>
+						<p className='line'>{(() => localize(
+							'positron.console.info.runtimePath', 'Path: {0}',
+							props.session.runtimeMetadata.runtimePath))()}
+						</p>
+						<p className='line'>{(() => localize(
+							'positron.console.info.runtimeSource', 'Source: {0}',
+							props.session.runtimeMetadata.runtimeSource))()}
+						</p>
 					</div>
 				</div>
 				<div className='top-separator actions'>
