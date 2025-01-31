@@ -323,7 +323,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 // Runs once per worker. If a worker handles multiple specs, these hooks only run for the first spec.
 // However, we are using `suiteId` to ensure each suite gets a new worker (and a fresh app
 // instance). This also ensures these before/afterAll hooks will run for EACH spec
-test.beforeAll(async ({ logger }, testInfo) => {
+test.beforeAll('Mark test start in logger', async ({ logger }, testInfo) => {
 	// since the worker doesn't know or have access to the spec name when it starts,
 	// we store the spec name in a global variable. this ensures logs are written
 	// to the correct folder even when the app is scoped to "worker".
@@ -336,7 +336,7 @@ test.beforeAll(async ({ logger }, testInfo) => {
 	logger.log('');
 });
 
-test.afterAll(async function ({ logger }, testInfo) {
+test.afterAll('Mark test end in logger', async function ({ logger }, testInfo) {
 	try {
 		logger.log('');
 		logger.log(`>>> Suite end: '${testInfo.titlePath[0] ?? 'unknown'}' <<<`);

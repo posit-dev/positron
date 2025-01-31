@@ -29,13 +29,13 @@ const testCases = [
 	}
 ];
 
-test.beforeAll(async function ({ }, testInfo) {
+test.beforeAll('Check project name', async function ({ }, testInfo) {
 	if (testInfo.project.name !== 'e2e-browser') {
 		test.skip();
 	}
 });
 
-test.beforeAll(async function ({ openFile, runCommand, page, hotKeys }) {
+test.beforeAll('Trigger and accept visual mode dialog', async function ({ openFile, runCommand, page, hotKeys }) {
 	await openFile(testCases[0].filePath, false);
 	await runCommand('edit in visual mode');
 	await page.getByText('Use Visual Mode').click();
@@ -46,11 +46,11 @@ test.beforeAll(async function ({ openFile, runCommand, page, hotKeys }) {
 
 for (const { title, filePath, tags } of testCases) {
 	test.describe(`Visual Mode: ${title} file`, { tag: tags }, () => {
-		test.beforeEach(async function ({ openFile }) {
+		test.beforeEach(`Open file: ${filePath}`, async function ({ openFile }) {
 			await openFile(filePath, false);
 		});
 
-		test.afterEach(async function ({ app, hotKeys }) {
+		test.afterEach('close all editors', async function ({ app, hotKeys }) {
 			await hotKeys.press('Cmd+K');
 			await hotKeys.press('Cmd+W');
 		});
@@ -62,14 +62,16 @@ for (const { title, filePath, tags } of testCases) {
 
 		test('Verify Mode Content Sync', async function ({ app, page }) {
 			await verifyModeContentSync(app);
-			try {
-				await page.getByText('YOLO').dblclick();
-				await page.keyboard.press('Backspace');
-				await page.keyboard.press('Backspace');
-				await changeEditMode(app, 'Visual');
-			} catch (error) {
-				// ignore
-			}
+			await test.step('Clean up file edits', async () => {
+				try {
+					await page.getByText('YOLO').dblclick();
+					await page.keyboard.press('Backspace');
+					await page.keyboard.press('Backspace');
+					await changeEditMode(app, 'Visual');
+				} catch (error) {
+					// ignore
+				}
+			});
 		});
 
 		test('Verify Code Block Execution', async function ({ app }) {
@@ -87,7 +89,7 @@ for (const { title, filePath, tags } of testCases) {
 // Helper functions
 
 async function verifyMarkdownSyntaxRendering(page: Page, title: string) {
-	await test.step('verify markdown syntax rendering', async () => {
+	await test.step('Verify markdown syntax rendering', async () => {
 		const viewerFrame = page.frameLocator('.webview').frameLocator('#active-frame');
 
 		// verify heading
@@ -127,7 +129,7 @@ async function verifyMarkdownSyntaxRendering(page: Page, title: string) {
 }
 
 async function changeEditMode(app: Application, mode: 'Source' | 'Visual') {
-	await test.step(`change edit mode to ${mode}`, async () => {
+	await test.step(`Change edit mode to ${mode}`, async () => {
 		const page = app.code.driver.page;
 
 		try {
@@ -157,31 +159,38 @@ async function verifyModeContentSync(app: Application): Promise<void> {
 	const testText = 'YOLO ';
 	const viewerFrame = page.frameLocator('.webview').frameLocator('#active-frame');
 
-	// Edit Content in Source Mode
-	await changeEditMode(app, 'Source');
-	await page.getByText('"Test Title"').click();
-	await page.keyboard.type(testText);
+	await test.step('Edit content in source mode', async () => {
+		await changeEditMode(app, 'Source');
+		await page.getByText('"Test Title"').click();
+		await page.keyboard.type(testText);
+	});
 
-	// Verify content in Visual Mode
-	await changeEditMode(app, 'Visual');
-	await expect(viewerFrame.getByText(`Test ${testText} Title`)).toBeVisible();
+	await test.step('Verify content in visual mode', async () => {
+		await changeEditMode(app, 'Visual');
+		await expect(viewerFrame.getByText(`Test ${testText} Title`)).toBeVisible();
+	});
 
-	// Verify content in Source Mode
-	await changeEditMode(app, 'Source');
-	await expect(page.getByText(`Test ${testText} Title`)).toBeVisible();
+	await test.step('Re-verify content in source mode', async () => {
+		await changeEditMode(app, 'Source');
+		await expect(page.getByText(`Test ${testText} Title`)).toBeVisible();
+	});
 }
 
 async function verifyCodeExecution(app: Application) {
 	const page = app.code.driver.page;
 	const viewerFrame = page.frameLocator('.webview').frameLocator('#active-frame');
 
-	await viewerFrame.getByText('{python}# A simple Python').click();
-	await viewerFrame.getByTitle('Run Cell', { exact: true }).click();
-	await expect(page.getByText('Hello, Python!', { exact: true })).toBeVisible();
+	await test.step('Verify Python cell code execution', async () => {
+		await viewerFrame.getByText('{python}# A simple Python').click();
+		await viewerFrame.getByTitle('Run Cell', { exact: true }).click();
+		await expect(page.getByText('Hello, Python!', { exact: true })).toBeVisible();
+	});
 
-	await viewerFrame.getByText('{r}# A simple R').click();
-	await viewerFrame.getByTitle('Run Cell', { exact: true }).click();
-	await app.workbench.plots.waitForCurrentPlot();
+	await test.step('Verify R cell code execution', async () => {
+		await viewerFrame.getByText('{r}# A simple R').click();
+		await viewerFrame.getByTitle('Run Cell', { exact: true }).click();
+		await app.workbench.plots.waitForCurrentPlot();
+	});
 }
 
 // test('Markdown', { tag: [tags.HTML] }, async function ({ app, page, openFile }) {
