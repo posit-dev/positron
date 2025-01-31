@@ -72,7 +72,7 @@ interface ConsoleInstanceInfoModalPopupProps {
 }
 
 const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps) => {
-	const [sessionState, setSessionState] = useState(props.session.getRuntimeState());
+	const [sessionState, setSessionState] = useState(() => props.session.getRuntimeState());
 
 	// Main useEffect hook.
 	useEffect(() => {
