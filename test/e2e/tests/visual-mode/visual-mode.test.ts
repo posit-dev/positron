@@ -11,7 +11,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Visual Mode', {
+test.describe('Visual Mode: Quarto File', {
 	tag: [tags.WEB, tags.WIN, tags.EDITOR]
 }, () => {
 	test.beforeAll(async function ({ }, testInfo) {
@@ -22,16 +22,6 @@ test.describe('Visual Mode', {
 	});
 
 	test.afterEach(async function ({ app, hotKeys }) {
-		const page = app.code.driver.page;
-		try {
-			await page.getByText('YOLO').dblclick();
-			await page.keyboard.press('Backspace');
-			await page.keyboard.press('Backspace');
-			await changeEditMode(app, 'Visual');
-		} catch (error) {
-			// ignore
-		}
-
 		// close all editors
 		await hotKeys.press('Cmd+K');
 		await hotKeys.press('Cmd+W');
@@ -58,23 +48,48 @@ test.describe('Visual Mode', {
 	// 	await verifyCodeExecution();
 	// });
 
-	test('Quarto Markdown Document', {
-		tag: [tags.QUARTO, tags.WEB]
-	}, async function ({ app, page, openFile, runCommand }) {
-		// open file and accent visual mode via native dialog
+	test.beforeAll(async function ({ openFile, runCommand, page }) {
 		await openFile('workspaces/visual-mode/visual-mode.qmd', false);
 		await runCommand('edit in visual mode');
 		await page.getByText('Use Visual Mode').click();
+	});
 
-		// verifications
+	// Quarto:
+	// 		// await verifyYamlRendering(app);
+	// await verifyEquationRendering(app);
+	// await verifyCodeExecution(app);
+
+	test('Verify Markdown Syntax Rendering', {
+		tag: [tags.QUARTO, tags.WEB]
+	}, async function ({ page, app }) {
 		await verifyMarkdownSyntaxRendering(page);
-		await verifyModeContentSync(app, runCommand);
-		// await verifyCodeBlockRendering(app);
-		// await verifyYamlRendering(app);
-		// await verifyEquationRendering(app);
-		// await verifyCodeExecution(app);
-		// await verifyOutline(app);
+	});
 
+	test('Verify Mode Content Sync', {
+		tag: [tags.QUARTO, tags.WEB]
+	}, async function ({ app, page }) {
+		await changeEditMode(app, 'Visual');
+		await verifyModeContentSync(app);
+		try {
+			await page.getByText('YOLO').dblclick();
+			await page.keyboard.press('Backspace');
+			await page.keyboard.press('Backspace');
+			await changeEditMode(app, 'Visual');
+		} catch (error) {
+			// ignore
+		}
+	});
+
+	test('Verify Code Block Execution', {
+		tag: [tags.QUARTO, tags.WEB]
+	}, async function ({ app }) {
+		await changeEditMode(app, 'Visual');
+		await verifyCodeExecution(app);
+	});
+
+	test('Verify Outline', {
+		tag: [tags.QUARTO, tags.WEB]
+	}, async function ({ }) {
 	});
 });
 
@@ -124,34 +139,56 @@ async function verifyMarkdownSyntaxRendering(page: Page) {
 async function changeEditMode(app: Application, mode: 'Source' | 'Visual') {
 	await test.step(`change edit mode to ${mode}`, async () => {
 		const page = app.code.driver.page;
-		await app.workbench.hotKeys.press('Cmd+Shift+F4');
 
-		if (mode === 'Source') {
-			await expect(page.locator('div.line-numbers').first()).toBeVisible();
+		try {
+			// if we are in mode 'source' we should see line numbers
+			await expect(page.locator('div.line-numbers').first()).toBeVisible({ timeout: 2500 });
+			if (mode === 'Visual') {
+				await app.workbench.hotKeys.press('Cmd+Shift+F4');
+			}
+		} catch (error) {
+			// only get here if we are currently in visual mode
+			if (mode === 'Source') {
+				await app.workbench.hotKeys.press('Cmd+Shift+F4');
+			}
 		}
-		else {
-			const viewerFrame = page.frameLocator('.webview').frameLocator('#active-frame');
-			await expect(viewerFrame.getByRole('button', { name: 'Show Outline (⌃⌥O)' })).toBeVisible();
-		}
+
+		const viewerFrame = page.frameLocator('.webview').frameLocator('#active-frame');
+
+		// validate we are in correct mode
+		mode === 'Source'
+			? await expect(page.locator('div.line-numbers').first()).toBeVisible()
+			: await expect(viewerFrame.getByRole('button', { name: 'Show Outline (⌃⌥O)' })).toBeVisible();
 	});
 }
 
-async function verifyModeContentSync(app: Application, runCommand: (command: string) => Promise<void>) {
+async function verifyModeContentSync(app: Application): Promise<void> {
 	const page = app.code.driver.page;
-	await test.step('verify mode content sync', async () => {
-		const testText = 'YOLO ';
-		const viewerFrame = page.frameLocator('.webview').frameLocator('#active-frame');
-		// Edit Content in Source Mode
-		await changeEditMode(app, 'Source');
-		await page.getByText('"Test Title"').click();
-		await page.keyboard.type(testText);
+	const testText = 'YOLO ';
+	const viewerFrame = page.frameLocator('.webview').frameLocator('#active-frame');
+	// Edit Content in Source Mode
+	await changeEditMode(app, 'Source');
+	await page.getByText('"Test Title"').click();
+	await page.keyboard.type(testText);
 
-		// Verify content in Visual Mode
-		await changeEditMode(app, 'Visual');
-		await expect(viewerFrame.getByText(`Test ${testText} Title`)).toBeVisible();
+	// Verify content in Visual Mode
+	await changeEditMode(app, 'Visual');
+	await expect(viewerFrame.getByText(`Test ${testText} Title`)).toBeVisible();
 
-		// Verify content in Source Mode
-		await changeEditMode(app, 'Source');
-		await expect(page.getByText(`Test ${testText} Title`)).toBeVisible();
-	});
+	// Verify content in Source Mode
+	await changeEditMode(app, 'Source');
+	await expect(page.getByText(`Test ${testText} Title`)).toBeVisible();
+}
+
+async function verifyCodeExecution(app: Application) {
+	const page = app.code.driver.page;
+	const viewerFrame = page.frameLocator('.webview').frameLocator('#active-frame');
+
+	await viewerFrame.getByText('{python}# A simple Python').click();
+	await viewerFrame.getByTitle('Run Cell', { exact: true }).click();
+	await expect(page.getByText('Hello, Python!', { exact: true })).toBeVisible();
+
+	await viewerFrame.getByText('{r}# A simple R').click();
+	await viewerFrame.getByTitle('Run Cell', { exact: true }).click();
+	await app.workbench.plots.waitForCurrentPlot();
 }
