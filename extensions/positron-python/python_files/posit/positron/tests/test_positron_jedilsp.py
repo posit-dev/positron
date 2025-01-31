@@ -6,7 +6,7 @@
 import os
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -52,7 +52,6 @@ from positron.positron_jedilsp import (
     PositronInitializationOptions,
     PositronJediLanguageServer,
     PositronJediLanguageServerProtocol,
-    _clear_diagnostics_debounced,
     _MagicType,
     _publish_diagnostics,
     _publish_diagnostics_debounced,
@@ -75,10 +74,6 @@ from positron.utils import get_qualname
 from .lsp_data.func import func
 from .lsp_data.type import Type
 
-if TYPE_CHECKING:
-    from threading import Timer
-
-
 # Normalize casing to match Jedi-produced paths on Windows.
 DIR = Path(os.path.normcase(__file__)).parent
 LSP_DATA_DIR = DIR / "lsp_data"
@@ -89,7 +84,6 @@ TEST_DOCUMENT_URI = TEST_DOCUMENT_PATH.as_uri()
 @pytest.fixture(autouse=True)
 def _reduce_debounce_time(monkeypatch):
     """Reduce the debounce time for diagnostics to be published to speed up tests."""
-    monkeypatch.setattr(_clear_diagnostics_debounced, "interval_s", 0.05)
     monkeypatch.setattr(_publish_diagnostics_debounced, "interval_s", 0.05)
 
 
@@ -506,27 +500,33 @@ def test_publish_diagnostics(source: str, messages: List[str]) -> None:
         assert actual_messages == messages
 
 
-def test_close_notebook_cell_clears_diagnostics() -> None:
-    # See: https://github.com/posit-dev/positron/issues/4160
-    server = create_server()
-    source = """\
+@pytest.mark.parametrize(
+    ("source", "uri"),
+    [
+        pytest.param(
+            "1 +",
+            TEST_DOCUMENT_URI,
+            id="text_document",
+        ),
+        # https://github.com/posit-dev/positron/issues/4160
+        pytest.param(
+            """\
 ---
 echo: false
----
-"""
-    text_document = create_text_document(
-        server, "vscode-notebook-cell://foo.ipynb#W0sZmlsZQ%3D%3D", source
-    )
+---""",
+            "vscode-notebook-cell://foo.ipynb#W0sZmlsZQ%3D%3D",
+            id="notebook_cell",
+        ),
+    ],
+)
+def test_positron_did_close_diagnostics(source: str, uri: str) -> None:
+    server = create_server()
+    text_document = create_text_document(server, uri, source)
 
     with patch.object(server, "publish_diagnostics") as mock:
         params = DidCloseTextDocumentParams(TextDocumentIdentifier(text_document.uri))
         positron_did_close_diagnostics(server, params)
 
-        # Wait for the diagnostics to be published
-        mock.assert_not_called()
-        timers: List[Timer] = list(_clear_diagnostics_debounced.timers.values())  # type: ignore
-        for timer in timers:
-            timer.join()
         mock.assert_called_once_with(params.text_document.uri, [])
 
 

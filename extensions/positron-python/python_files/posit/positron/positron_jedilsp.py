@@ -28,6 +28,7 @@ from ._vendor.jedi_language_server.server import (
     declaration,
     definition,
     did_change_configuration,
+    did_close_diagnostics,
     document_symbol,
     highlight,
     hover,
@@ -768,24 +769,7 @@ def positron_did_open_diagnostics(
 def positron_did_close_diagnostics(
     server: PositronJediLanguageServer, params: DidCloseTextDocumentParams
 ) -> None:
-    # When a notebook cell is closed, clear the diagnostics for the cell.
-    # This happens when a cell's language is changed from python e.g. to raw,
-    # see: https://github.com/posit-dev/positron/issues/4160.
-    if params.text_document.uri.startswith(_VSCODE_NOTEBOOK_CELL_SCHEME):
-        return _clear_diagnostics_debounced(server, params.text_document.uri)
-
     return did_close_diagnostics(server, params)
-
-
-@debounce(1, keyed_by="uri")
-def _clear_diagnostics_debounced(server: PositronJediLanguageServer, uri: str) -> None:
-    # Catch and log any exceptions. Exceptions should be handled by pygls, but the debounce
-    # decorator causes the function to run in a separate thread thus a separate stack from pygls'
-    # exception handler.
-    try:
-        server.publish_diagnostics(uri, [])
-    except Exception:
-        logger.exception(f"Failed to clear diagnostics for uri {uri}", exc_info=True)
 
 
 @debounce(1, keyed_by="uri")
@@ -844,11 +828,6 @@ def did_change_diagnostics(server: JediLanguageServer, params: DidChangeTextDocu
 
 def did_open_diagnostics(server: JediLanguageServer, params: DidOpenTextDocumentParams) -> None:
     """Actions run on textDocument/didOpen: diagnostics."""
-    _publish_diagnostics_debounced(server, params.text_document.uri)  # type: ignore - pyright bug
-
-
-def did_close_diagnostics(server: JediLanguageServer, params: DidCloseTextDocumentParams) -> None:
-    """Actions run on textDocument/didClose: diagnostics."""
     _publish_diagnostics_debounced(server, params.text_document.uri)  # type: ignore - pyright bug
 
 
