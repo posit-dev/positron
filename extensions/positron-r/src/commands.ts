@@ -11,6 +11,7 @@ import { getRPackageName } from './contexts';
 import { getRPackageTasks } from './tasks';
 import { randomUUID } from 'crypto';
 import { RSessionManager } from './session-manager';
+import { quickPickRuntime } from './runtime-quickpick';
 import { MINIMUM_RENV_VERSION, MINIMUM_R_VERSION } from './constants';
 
 export async function registerCommands(context: vscode.ExtensionContext) {
@@ -157,7 +158,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		}),
 
 		vscode.commands.registerCommand('r.selectInterpreter', async () => {
-			await vscode.commands.executeCommand('workbench.action.languageRuntime.select', 'r');
+			await quickPickRuntime();
 		}),
 
 		// Commands used to source the current file
