@@ -751,10 +751,20 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 		}
 
 		// Convert raw duckdb URI to appropriate file URI (scheme = file if local, vscode-remote if server)
-		const localURI = toLocalResource(URI.parse(parsedDataExplorerURI), environmentService.remoteAuthority, pathService.defaultUriScheme);
+		const localURI = toLocalResource(
+			URI.parse(parsedDataExplorerURI),
+			environmentService.remoteAuthority,
+			pathService.defaultUriScheme
+		);
 
 		// Invoke editor for file, using default editor (text) association
-		await editorService.openEditor({ resource: localURI, options: { override: DEFAULT_EDITOR_ASSOCIATION.id, source: EditorOpenSource.USER } });
+		await editorService.openEditor({
+			resource: localURI,
+			options: {
+				override: DEFAULT_EDITOR_ASSOCIATION.id,
+				source: EditorOpenSource.USER
+			}
+		});
 	}
 }
 
