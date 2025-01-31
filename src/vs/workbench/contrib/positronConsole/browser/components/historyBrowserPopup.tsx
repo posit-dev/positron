@@ -73,7 +73,7 @@ export const HistoryBrowserPopup = (props: HistoryBrowserPopupProps) => {
 		return () => {
 			DOM.getActiveWindow().removeEventListener('click', clickHandler);
 		};
-	}, [props.selectedIndex]);
+	}, [props]);
 
 	const noMatch = nls.localize('positronConsoleHistoryMatchesEmpty', "No matching history items");
 

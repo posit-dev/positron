@@ -17,7 +17,6 @@ import { Button } from '../../../../../base/browser/ui/positronComponents/button
  * @param props The props for the button
  * @return A button with `action` and `action-button` classes added to it.
  */
-// eslint-disable-next-line react/prop-types
 export function ActionButton({ className, ...props }: React.ComponentProps<typeof Button>) {
 	return <Button className={`action action-button ${className}`} {...props} />;
 }

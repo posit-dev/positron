@@ -59,7 +59,7 @@ export const RuntimeSessionCard = (props: runtimeSessionCardProps) => {
 			setSessionState(state);
 		}));
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.session]);
 
 	return (
 		<tr>

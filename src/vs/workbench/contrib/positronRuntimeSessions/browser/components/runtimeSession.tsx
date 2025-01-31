@@ -44,7 +44,7 @@ export const RuntimeSession = (props: RuntimeSessionProps) => {
 			setSessionState(state);
 		}));
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.session]);
 
 	// Render.
 	return (

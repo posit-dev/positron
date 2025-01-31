@@ -63,7 +63,7 @@ export const PositronVariables = (props: PropsWithChildren<PositronVariablesProp
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.reactComponentContainer]);
 
 	// Render.
 	return (

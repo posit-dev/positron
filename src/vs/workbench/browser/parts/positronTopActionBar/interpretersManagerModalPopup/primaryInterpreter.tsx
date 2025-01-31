@@ -69,7 +69,7 @@ export const PrimaryInterpreter = (props: PrimaryInterpreterProps) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.runtime.runtimeId, props.runtimeSessionService, session]);
 
 	// Render.
 	return (

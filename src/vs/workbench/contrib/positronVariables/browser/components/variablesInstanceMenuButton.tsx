@@ -46,7 +46,7 @@ export const VariablesInstanceMenuButton = () => {
 			setActiveRuntimeLabel(labelForRuntime(e?.session));
 		}));
 		return () => disposables.dispose();
-	}, [positronVariablesContext.activePositronVariablesInstance]);
+	}, [positronVariablesContext.activePositronVariablesInstance, positronVariablesContext.positronVariablesService]);
 
 	// Builds the actions.
 	const actions = () => {

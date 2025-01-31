@@ -27,5 +27,5 @@ export const useRegisterWithActionBar = (refs: MutableRefObject<HTMLElement>[]) 
 		return () => {
 			refs.forEach(ref => focusableComponents.delete(ref.current));
 		};
-	}, []);
+	}, [focusableComponents, refs]);
 };

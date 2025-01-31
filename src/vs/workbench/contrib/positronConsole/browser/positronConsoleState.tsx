@@ -89,7 +89,7 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [services.positronConsoleService]);
 
 	// Return the Positron console state.
 	return {

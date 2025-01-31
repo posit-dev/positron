@@ -58,7 +58,7 @@ export const RuntimeClient = (props: runtimeClientProps) => {
 		return () => {
 			disposableStore.dispose();
 		};
-	}, []);
+	}, [props.client.clientState, props.client.messageCounter]);
 
 	return <tr className='runtime-client'>
 		<td>

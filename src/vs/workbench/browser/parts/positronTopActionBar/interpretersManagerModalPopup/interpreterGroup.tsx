@@ -7,7 +7,7 @@
 import './interpreterGroup.css';
 
 // React.
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
@@ -38,7 +38,7 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 	 * Determines whether an alternate runtime is alive.
 	 * @returns A value which indicates whether an alternate runtime is alive.
 	 */
-	const isAlternateRuntimeAlive = () => {
+	const isAlternateRuntimeAlive = useCallback(() => {
 		// Get the active sessions.
 		const activeSessions = props.runtimeSessionService.activeSessions;
 
@@ -66,7 +66,7 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 
 		// An alternate runtime is not alive.
 		return false;
-	};
+	}, [props.interpreterGroup.alternateRuntimes, props.runtimeSessionService.activeSessions]);
 
 	// State hooks.
 	const [alternateRuntimeAlive, setAlternateRuntimeAlive] = useState(isAlternateRuntimeAlive());
@@ -91,7 +91,7 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [isAlternateRuntimeAlive, props.runtimeSessionService]);
 
 	// Render.
 	return (

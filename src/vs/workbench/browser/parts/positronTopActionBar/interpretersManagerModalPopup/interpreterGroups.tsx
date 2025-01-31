@@ -108,7 +108,7 @@ export const InterpreterGroups = (props: InterpreterGroupsProps) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.languageRuntimeService, props.runtimeAffiliationService]);
 
 	// Render.
 	return (

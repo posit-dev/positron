@@ -118,7 +118,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.positronHelpService, props.reactComponentContainer]);
 
 	// useEffect for currentHelpEntry.
 	useEffect(() => {

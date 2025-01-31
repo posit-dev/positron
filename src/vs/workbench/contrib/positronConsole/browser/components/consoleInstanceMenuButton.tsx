@@ -52,7 +52,7 @@ export const ConsoleInstanceMenuButton = (props: ConsoleInstanceMenuButtonProps)
 			setActiveRuntimeLabel(labelForSession(e?.session));
 		}));
 		return () => disposables.dispose();
-	}, [positronConsoleContext.activePositronConsoleInstance]);
+	}, [positronConsoleContext.activePositronConsoleInstance, positronConsoleContext.positronConsoleService]);
 
 	// Builds the actions.
 	const actions = () => {

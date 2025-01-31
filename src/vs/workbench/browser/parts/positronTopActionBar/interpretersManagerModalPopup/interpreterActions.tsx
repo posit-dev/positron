@@ -67,7 +67,7 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.runtime.runtimeId, props.runtimeSessionService, session]);
 
 	// Interrupt the session, if we have one.
 	const interrupt = () => {

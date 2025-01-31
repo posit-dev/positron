@@ -51,7 +51,7 @@ export const PositronSessions = (props: PropsWithChildren<PositronSessionsProps>
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.reactComponentContainer]);
 
 	// Render.
 	return (

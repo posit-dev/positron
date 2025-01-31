@@ -72,7 +72,7 @@ export const OpenInEditorMenuButton = (props: OpenInEditorMenuButtonProps) => {
 			};
 		});
 		setActions(actions);
-	}, [defaultAction]);
+	}, [defaultAction, openEditorPlotHandler]);
 
 
 	return (

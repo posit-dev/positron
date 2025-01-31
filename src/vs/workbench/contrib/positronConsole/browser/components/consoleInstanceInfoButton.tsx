@@ -81,7 +81,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 			setSessionState(state);
 		}));
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.session]);
 
 	const showKernelOutputChannelClickHandler = () => {
 		props.session.showOutput();

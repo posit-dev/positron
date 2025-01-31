@@ -42,7 +42,7 @@ export const RuntimeClientList = (props: runtimeClientListProps) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [clients, props.session]);
 
 	return <div className='runtime-client-list'>
 		<table>

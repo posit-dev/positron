@@ -7,7 +7,7 @@
 import './positronPlots.css';
 
 // React.
-import React, { PropsWithChildren, useEffect, useState } from 'react';
+import React, { PropsWithChildren, useCallback, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
@@ -42,7 +42,7 @@ export interface PositronPlotsProps extends PositronPlotsServices {
 export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 
 	// Compute the history visibility based on the history policy.
-	const computeHistoryVisibility = (policy: HistoryPolicy) => {
+	const computeHistoryVisibility = useCallback((policy: HistoryPolicy) => {
 		switch (policy) {
 			case HistoryPolicy.AlwaysVisible:
 				return true;
@@ -63,7 +63,7 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 				// Show the history.
 				return true;
 		}
-	};
+	}, [props.positronPlotsService.positronPlotInstances.length, props.reactComponentContainer.height, props.reactComponentContainer.width]);
 
 	const zoomHandler = (zoom: number) => {
 		setZoom(zoom);

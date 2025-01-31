@@ -45,7 +45,7 @@ export const usePositronTopActionBarState = (services: PositronTopActionBarServi
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [services.workspaceContextService]);
 
 	// Return the Positron top action bar state.
 	return {
