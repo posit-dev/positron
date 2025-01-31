@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { isWeb, isWindows } from '../../../base/common/platform.js';
+import { isMacintosh, isWeb, isWindows } from '../../../base/common/platform.js';
 import { localize } from '../../../nls.js';
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../configuration/common/configurationRegistry.js';
 import { Registry } from '../../registry/common/platform.js';
@@ -31,7 +31,7 @@ configurationRegistry.registerConfiguration({
 			],
 			policy: {
 				name: 'UpdateMode',
-				minimumVersion: '2025.1.0',
+				minimumVersion: '2025.02.0',
 			}
 		},
 		'update.autoUpdate': {
@@ -40,6 +40,7 @@ configurationRegistry.registerConfiguration({
 			scope: ConfigurationScope.APPLICATION,
 			description: localize('autoUpdateEnable', "Enable automatic updates. Requires a restart after change to take effect."),
 			tags: ['usesOnlineServices'],
+			included: (isWindows || isMacintosh) && !isWeb
 		},
 		'update.channel': {
 			type: 'string',
