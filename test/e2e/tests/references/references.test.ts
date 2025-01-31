@@ -57,7 +57,7 @@ async function openAndCommonValidations(app: Application, helper: string) {
 		await app.workbench.editor.clickOnTerm(helper, 'add', 1, true);
 
 		await test.step('Open references view', async () => {
-			await app.code.driver.page.keyboard.press('F12');
+			await app.code.driver.page.keyboard.press('Shift+F12');
 
 			await app.workbench.references.waitUntilOpen();
 		});
