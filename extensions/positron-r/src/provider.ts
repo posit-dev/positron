@@ -31,6 +31,15 @@ export interface RBinary {
 }
 
 /**
+ * The source for the R runtime, in the order that we display these sources in the quick pick.
+ */
+export enum RRuntimeSource {
+	system = 'System',
+	user = 'User',
+	homebrew = 'Homebrew',
+}
+
+/**
  * Discovers R language runtimes for Positron; implements positron.LanguageRuntimeDiscoverer.
  *
  * @param context The extension context.
@@ -185,9 +194,9 @@ export async function makeMetadata(
 	// it's a Homebrew installation if it does)
 	const isHomebrewInstallation = rInst.binpath.includes('/homebrew/');
 
-	const runtimeSource = isHomebrewInstallation ? 'Homebrew' :
+	const runtimeSource = isHomebrewInstallation ? RRuntimeSource.homebrew :
 		isUserInstallation ?
-			'User' : 'System';
+			RRuntimeSource.user : RRuntimeSource.system;
 
 	// Short name shown to users (when disambiguating within a language)
 	const runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
