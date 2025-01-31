@@ -34,7 +34,7 @@ from ._vendor.jedi.inference.compiled.value import (
 from ._vendor.jedi.inference.context import ModuleContext, ValueContext
 from ._vendor.jedi.inference.helpers import infer_call_of_leaf
 from ._vendor.jedi.parser_utils import safe_literal_eval
-from ._vendor.parso.tree import Leaf
+from ._vendor.parso.tree import Leaf, NodeOrLeaf
 from .inspectors import (
     BaseColumnInspector,
     BaseTableInspector,
@@ -385,63 +385,63 @@ def _complete_pandas_columns(
     # atom:               [""]
     # string:              "      <-- `leaf`, starting point
 
+    # TODO: Can this be wrong if the pandas dataframe method is called in a list? [df.filter(...)]
+    #       Maybe we should use Jedi's approach of searching up to trailer/arglist/argument, then
+    #       get the child of that.
     columns = leaf.search_ancestor("atom") or leaf
-    parent = columns.parent
-    if parent and (
-        (
-            # Single positional.
-            parent.type == "trailer"
-            # Does this method accept a scalar as first argument?
-            and any(columns.type in ca.types and ca.position == 0 for ca in column_args)
-        )
-        or (
-            # One of multiple positional.
-            parent.type == "arglist"
-            # Does this method accept a scalar at this position?
-            # (// 2 since every second child is a comma.)
-            and (
-                any(
-                    columns.type in ca.types and ca.position == parent.children.index(columns) // 2
-                    for ca in column_args
-                )
-            )
-        )
-        or (
-            # Keyword (single or multiple).
-            parent.type == "argument"
-            and any(
-                columns.type in ca.types and parent.children and ca.name == parent.children[0].value
-                for ca in column_args
-            )
-            and parent.parent
-            and (
+    # TODO: Could optimize by early exiting if the type is not at all supported by the method.
+    # TODO: Could rather loop through column args?
+    for column_arg in column_args:
+        if columns.type in column_arg.types:
+            parent = columns.parent
+            if parent and (
                 (
-                    # If there are other keyword arguments, check that axis is "columns" or 1.
-                    # TODO: Should we also check positional axis?
-                    parent.parent.type == "arglist"
-                    and any(
-                        arg.type == "argument"
-                        and len(arg.children) >= 3
-                        and arg.children[0].value == "axis"
-                        and (
-                            (
-                                arg.children[2].type == "string"
-                                and safe_literal_eval(arg.children[2].value) == "columns"
-                            )
-                            or (
-                                arg.children[2].type == "number"
-                                and safe_literal_eval(arg.children[2].value) == 1
+                    # Single positional.
+                    parent.type == "trailer"
+                    # Does this method accept a scalar as first argument?
+                    and column_arg.position == 0
+                )
+                or (
+                    # One of multiple positional.
+                    parent.type == "arglist"
+                    # Does this method accept a scalar at this position?
+                    # (// 2 since every second child is a comma.)
+                    and column_arg.position == parent.children.index(columns) // 2
+                )
+                or (
+                    # Keyword (single or multiple).
+                    parent.type == "argument"
+                    and parent.children
+                    and column_arg.name == parent.children[0].value
+                    and parent.parent
+                    and (
+                        (
+                            # If there are other keyword arguments, check that axis is "columns" or 1.
+                            # TODO: Should we also check positional axis?
+                            parent.parent.type == "arglist"
+                            and any(
+                                arg.type == "argument"
+                                and len(arg.children) >= 3
+                                and arg.children[0].value == "axis"
+                                and (
+                                    (
+                                        arg.children[2].type == "string"
+                                        and safe_literal_eval(arg.children[2].value) == "columns"
+                                    )
+                                    or (
+                                        arg.children[2].type == "number"
+                                        and safe_literal_eval(arg.children[2].value) == 1
+                                    )
+                                )
+                                for arg in parent.parent.children
                             )
                         )
-                        for arg in parent.parent.children
+                        # TODO: What's this case? Nicer way to do this?
+                        or (parent.parent.type != "arglist")
                     )
                 )
-                # TODO: What's this case? Nicer way to do this?
-                or (parent.parent.type != "arglist")
-            )
-        )
-    ):
-        return _complete(parent, columns)
+            ):
+                return _complete(parent, columns)
 
     return []
     # if leaf.parent.type == "argument" and leaf.parent.children[0].value == "axis":
