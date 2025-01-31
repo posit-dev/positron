@@ -17,9 +17,9 @@
 }
 
 .console-instance-info .content .line {
-	margin: 8px 0px;
+	margin: 8px 0;
 	overflow-wrap: break-word;
-	padding: 0px 8px;
+	padding: 0 8px;
 }
 
 .console-instance-info .actions .link {
@@ -27,6 +27,6 @@
 	cursor: pointer;
 	font-size: 12px;
 	line-height: 22px;
-	padding: 0px 8px;
+	padding: 0 8px;
 	text-decoration: underline;
 }
