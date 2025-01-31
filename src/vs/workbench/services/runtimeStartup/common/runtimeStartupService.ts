@@ -6,9 +6,18 @@
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILanguageRuntimeMetadata, IRuntimeManager } from '../../languageRuntime/common/languageRuntimeService.js';
+import { Event } from '../../../../base/common/event.js';
 
 export const IRuntimeStartupService =
 	createDecorator<IRuntimeStartupService>('runtimeStartupService');
+
+
+/**
+ * An event that is emitted when a runtime is automatically started.
+ */
+export interface IRuntimeAutoStartEvent {
+	runtime: ILanguageRuntimeMetadata;
+}
 
 /**
  * The IRuntimeStartupService is responsible for coordinating the process by
@@ -52,6 +61,11 @@ export interface IRuntimeStartupService {
 	 * Clears a specific runtime from the list of affiliated runtimes.
 	 */
 	clearAffiliatedRuntime(languageId: string): void;
+
+	/**
+	 * An event that is emitted when a runtime is automatically started.
+	 */
+	onWillAutoStartRuntime: Event<IRuntimeAutoStartEvent>;
 
 	/**
 	 * Signal that discovery of language runtimes is completed for an extension host.
