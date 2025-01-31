@@ -8,7 +8,7 @@ import pathlib
 import platform
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
+from typing import Any, Callable, Iterable, List, Optional, Set, Tuple, Union
 
 from IPython.core import oinspect
 
@@ -33,6 +33,7 @@ from ._vendor.jedi.inference.compiled.value import (
 )
 from ._vendor.jedi.inference.context import ModuleContext, ValueContext
 from ._vendor.jedi.inference.helpers import infer_call_of_leaf
+from ._vendor.jedi.parser_utils import safe_literal_eval
 from ._vendor.parso.tree import Leaf
 from .inspectors import (
     BaseColumnInspector,
@@ -62,6 +63,8 @@ elif platform.system().lower() == "darwin":
 else:
     _cache_directory = pathlib.Path(os.getenv("XDG_CACHE_HOME") or "~/.cache") / "positron-jedi"
 settings.cache_directory = _cache_directory.expanduser()
+
+_sentinel = strings._sentinel  # noqa: SLF001
 
 
 # Store the original versions of Jedi functions/methods that we patch.
@@ -164,6 +167,19 @@ def _completion_api_complete(self: CompletionAPI) -> List[Completion]:
         if completions:
             return completions
 
+        # Try to complete pandas dataframe methods.
+        completions = _complete_pandas_columns(
+            start_leaf,
+            self._module_context,
+            prefixed_string,
+            cut_end_quote,
+            self._signatures_callback,
+            self._original_position,
+            fuzzy=self._fuzzy,
+        )
+        if completions:
+            return completions
+
     return _original_completion_api_complete(self)
 
 
@@ -246,6 +262,202 @@ def _complete_environment_variables(
             return complete()
 
     return []
+
+
+def _complete_pandas_columns(
+    leaf: Leaf,
+    module_context: ModuleContext,
+    # The string that's being completed, including quotes.
+    string: str,
+    cut_end_quote: str,
+    signatures_callback: Callable[[int, int], List[BaseSignature]],
+    position: Tuple[int, int],
+    *,
+    fuzzy: bool,
+):
+    def _complete(node, columns_atom=None):
+        if node:
+            atom_expr = node.search_ancestor("atom_expr")
+            if atom_expr and atom_expr.children:
+                dataframe = atom_expr.children[0]
+                # TODO: Should we narrow the context?
+                values = module_context.infer_node(dataframe)
+
+                specified_columns = []
+                if columns_atom:
+                    for columns_values in infer_call_of_leaf(module_context, columns_atom):
+                        for lazy_value in columns_values.py__iter__():
+                            for column in lazy_value.infer():
+                                column_value = column.get_safe_value(default=_sentinel)
+                                if column_value is not _sentinel:
+                                    specified_columns.append(column_value)
+
+                return list(
+                    _completions_for_dicts(
+                        module_context.inference_state,
+                        values,
+                        string,
+                        cut_end_quote,
+                        fuzzy=fuzzy,
+                        exclude=specified_columns,
+                    )
+                )
+        return []
+
+    # Below is extracted and adapted from Jedi's complete_dict.
+
+    # A good reference is jedi.api.file_name._add_os_path_join since it also adds string completions
+    # to a function, e.g. `os.path.join('`.
+
+    subscriptlist = leaf.search_ancestor("subscriptlist")
+    if subscriptlist and subscriptlist.parent:
+        # loc[:, ""] or loc[:, [""]]
+        trailer = subscriptlist.parent
+        loc_trailer = trailer.get_previous_sibling()
+        if loc_trailer:
+            loc_name = loc_trailer.children[-1]
+            if loc_name and loc_name.type == "name" and loc_name:
+                loc_values = infer_call_of_leaf(module_context, loc_name)
+                for loc_value in loc_values:
+                    if (
+                        loc_value.py__name__() == "_LocIndexer"
+                        and loc_value.get_root_context().py__name__() == "pandas.core.indexing"
+                    ):
+                        columns = leaf.search_ancestor("atom")
+                        return _complete(
+                            loc_trailer,
+                            columns,
+                        )
+
+    from typing import NamedTuple
+
+    # TODO: Could include "condition" / "predicate" to handle the "axis==columns" situation
+    class ColumnArg(NamedTuple):
+        position: int
+        name: str
+        types: Set[str]
+
+    pandas_dataframe_methods = {
+        "pandas.core.generic.NDFrame.filter": [ColumnArg(0, "items", {"atom"})],
+        "pandas.core.frame.DataFrame.drop": [
+            ColumnArg(0, "labels", {"atom", "string"}),
+            ColumnArg(3, "columns", {"atom", "string"}),
+        ],
+        "pandas.core.frame.DataFrame.groupby": [ColumnArg(0, "by", {"atom", "string"})],
+        "pandas.core.frame.DataFrame.sort_values": [ColumnArg(0, "by", {"atom", "string"})],
+        "pandas.core.frame.DataFrame.set_index": [ColumnArg(0, "keys", {"atom", "string"})],
+        "pandas.core.frame.DataFrame.merge": [
+            ColumnArg(2, "on", {"atom", "string"}),
+            ColumnArg(3, "left_on", {"atom", "string"}),
+        ],
+    }
+
+    # Are we in a pandas DataFrame filter method?
+    # TODO: Generalize this to other pandas dataframe and series filter methods.
+    signatures = signatures_callback(*position)
+    if not signatures:
+        return []
+    in_pandas_dataframe_filter_method = all(
+        s.full_name in pandas_dataframe_methods for s in signatures
+    )
+    if not in_pandas_dataframe_filter_method:
+        return []
+
+    column_args = next(
+        pandas_dataframe_methods[s.full_name]
+        for s in signatures
+        if s.full_name in pandas_dataframe_methods
+    )
+
+    # Keyword argument last in the list:
+    #
+    # atom_expr: x.filter(axis="columns", items=[""])
+    # trailer:           (axis="columns", items=[""])
+    # arglist:            axis="columns", items=[""]
+    # argument:                           items=[""]
+    # atom:                                     [""]
+    # string:                                    "      <-- `leaf`, starting point
+
+    # Positional argument:
+    #
+    # atom_expr: x.filter([""])
+    # trailer:           ([""])
+    # atom:               [""]
+    # string:              "      <-- `leaf`, starting point
+
+    columns = leaf.search_ancestor("atom") or leaf
+    parent = columns.parent
+    if parent and (
+        (
+            # Single positional.
+            parent.type == "trailer"
+            # Does this method accept a scalar as first argument?
+            and any(columns.type in ca.types and ca.position == 0 for ca in column_args)
+        )
+        or (
+            # One of multiple positional.
+            parent.type == "arglist"
+            # Does this method accept a scalar at this position?
+            # (// 2 since every second child is a comma.)
+            and (
+                any(
+                    columns.type in ca.types and ca.position == parent.children.index(columns) // 2
+                    for ca in column_args
+                )
+            )
+        )
+        or (
+            # Keyword (single or multiple).
+            parent.type == "argument"
+            and any(
+                columns.type in ca.types and parent.children and ca.name == parent.children[0].value
+                for ca in column_args
+            )
+            and parent.parent
+            and (
+                (
+                    # If there are other keyword arguments, check that axis is "columns" or 1.
+                    # TODO: Should we also check positional axis?
+                    parent.parent.type == "arglist"
+                    and any(
+                        arg.type == "argument"
+                        and len(arg.children) >= 3
+                        and arg.children[0].value == "axis"
+                        and (
+                            (
+                                arg.children[2].type == "string"
+                                and safe_literal_eval(arg.children[2].value) == "columns"
+                            )
+                            or (
+                                arg.children[2].type == "number"
+                                and safe_literal_eval(arg.children[2].value) == 1
+                            )
+                        )
+                        for arg in parent.parent.children
+                    )
+                )
+                # TODO: What's this case? Nicer way to do this?
+                or (parent.parent.type != "arglist")
+            )
+        )
+    ):
+        return _complete(parent, columns)
+
+    return []
+    # if leaf.parent.type == "argument" and leaf.parent.children[0].value == "axis":
+    #     for completion_string in ["columns", "rows"]:
+    #         completion_string_repr = strings._create_repr_string(literal_string, completion_string)
+    #         if completion_string_repr.startswith(literal_string):
+    #             string_name = completion_string_repr[: -len(cut_end_quote) or None]
+    #             name = strings.StringName(module_context.inference_state, string_name)
+    #             completion = Completion(
+    #                 module_context.inference_state,
+    #                 name,
+    #                 stack=None,
+    #                 like_name_length=len("" if string is None else string),
+    #                 is_fuzzy=fuzzy,
+    #             )
+    #             yield completion
 
 
 class _OsEnvironCompiledValueWrapper(ValueWrapper):
@@ -477,13 +689,14 @@ def _completions_for_dicts(
     literal_string: str,
     cut_end_quote: str,
     fuzzy: bool,  # noqa: FBT001
+    exclude: Optional[List[str]] = None,
 ) -> Iterable[Completion]:
     for dct in dicts:
         if dct.array_type == "dict":
             for key in dct.get_key_values():
                 if key:
-                    dict_key = key.get_safe_value(default=strings._sentinel)  # noqa: SLF001
-                    if dict_key is not strings._sentinel:  # noqa: SLF001
+                    dict_key = key.get_safe_value(default=_sentinel)
+                    if dict_key is not _sentinel and (exclude is None or dict_key not in exclude):
                         dict_key_str = strings._create_repr_string(literal_string, dict_key)  # noqa: SLF001
                         if dict_key_str.startswith(literal_string):
                             string_name = dict_key_str[: -len(cut_end_quote) or None]

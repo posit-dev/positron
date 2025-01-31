@@ -197,12 +197,134 @@ def _completions(
     )
     completion_list = positron_completion(server, params)
 
-    assert completion_list is not None, "No completions returned"
-
-    return completion_list.items
+    return [] if completion_list is None else completion_list.items
 
 
 _environment_variable_key = "SOME_ENVIRONMENT_VARIABLE"
+
+_pd_df2 = pd.DataFrame({"a": [], "b": []})
+
+
+_pandas_completion_tests = []
+for method, pos, arg, accepts_list, accepts_scalar in [
+    ("filter", 0, "items", True, False),
+    ("drop", 0, "labels", True, True),
+    ("drop", 3, "columns", True, True),
+    ("groupby", 0, "by", True, True),
+    ("sort_values", 0, "by", True, True),
+    ("set_index", 0, "keys", True, True),
+    ("merge", 2, "on", True, True),
+    ("merge", 3, "left_on", True, True),
+]:
+    pos_string = ", ".join((['""'] * pos) + ['""'])
+    _pandas_completion_tests.extend(
+        [
+            pytest.param(
+                f"x.{method}({pos_string})",
+                {"x": _pd_df2},
+                -2,
+                ["a", "b"] if accepts_scalar else [],
+                id=f"pandas_dataframe_{method}_{arg}_positional_scalar",
+            ),
+            pytest.param(
+                f'x.{method}({arg}="")',
+                {"x": _pd_df2},
+                -2,
+                ["a", "b"] if accepts_scalar else [],
+                id=f"pandas_dataframe_{method}_{arg}_keyword_scalar",
+            ),
+            pytest.param(
+                f'x.{method}(axis="columns", {arg}="")',
+                {"x": _pd_df2},
+                -2,
+                ["a", "b"] if accepts_scalar else [],
+                id=f"pandas_dataframe_{method}_{arg}_keyword_scalar_out_of_order",
+            ),
+            pytest.param(
+                f'x.{method}(axis="rows", {arg}="")',
+                {"x": _pd_df2},
+                -2,
+                [],
+                id=f"pandas_dataframe_{method}_{arg}_keyword_scalar_wrong_axis",
+            ),
+        ]
+    )
+
+    if accepts_list:
+        pos_list_of_one = ", ".join((['""'] * pos) + ['[""]'])
+        pos_list_of_two = ", ".join((['""'] * pos) + ['["a", ""]'])
+        _pandas_completion_tests.extend(
+            [
+                pytest.param(
+                    f"x.{method}({pos_list_of_one})",
+                    {"x": _pd_df2},
+                    -3,
+                    ["a", "b"],
+                    id=f"pandas_dataframe_{method}_{arg}_positional_list_of_one",
+                ),
+                pytest.param(
+                    f"x.{method}({pos_list_of_two})",
+                    {"x": _pd_df2},
+                    -3,
+                    ["b"],
+                    id=f"pandas_dataframe_{method}_{arg}_positional_list_of_two",
+                ),
+                pytest.param(
+                    f'x.{method}({arg}=[""])',
+                    {"x": _pd_df2},
+                    -3,
+                    ["a", "b"],
+                    id=f"pandas_dataframe_{method}_{arg}_keyword_list_of_one",
+                ),
+                pytest.param(
+                    f'x.{method}({arg}=["a", ""])',
+                    {"x": _pd_df2},
+                    -3,
+                    ["b"],
+                    id=f"pandas_dataframe_{method}_{arg}_keyword_list_of_two",
+                ),
+                pytest.param(
+                    f'x.{method}(axis="columns", {arg}=[""])',
+                    {"x": _pd_df2},
+                    -3,
+                    ["a", "b"],
+                    id=f"pandas_dataframe_{method}_{arg}_keyword_list_out_of_order",
+                ),
+                pytest.param(
+                    f'x.{method}(axis="rows", {arg}=[""])',
+                    {"x": _pd_df2},
+                    -3,
+                    [],
+                    id=f"pandas_dataframe_{method}_{arg}_keyword_list_wrong_axis",
+                ),
+                # TODO: two keywords, correct order: 'x.filter(items=[""], axis="columns")',
+            ]
+        )
+_pandas_completion_tests.extend(
+    [
+        pytest.param(
+            'x.loc[:, ""]',
+            {"x": _pd_df2},
+            -2,
+            ["a", "b"],
+            id="pandas_dataframe_loc_column_scalar",
+        ),
+        pytest.param(
+            'x.loc[:, [""]]',
+            {"x": _pd_df2},
+            -3,
+            ["a", "b"],
+            id="pandas_dataframe_loc_column_list_of_one",
+        ),
+        pytest.param(
+            'x.loc[:, ["a", ""]]',
+            {"x": _pd_df2},
+            -3,
+            ["b"],
+            id="pandas_dataframe_loc_column_list_of_two",
+        ),
+    ]
+)
 
 
 @pytest.mark.parametrize(
@@ -300,7 +422,7 @@ _environment_variable_key = "SOME_ENVIRONMENT_VARIABLE"
             'os.getenv(default="")',
             {"os": os},
             -2,
-            lambda completions: _environment_variable_key not in completions,
+            [],
             id="os_getenv_keyword_default",
         ),
         pytest.param(
@@ -314,7 +436,7 @@ _environment_variable_key = "SOME_ENVIRONMENT_VARIABLE"
             'os.getenv(default="',
             {"os": os},
             None,
-            lambda completions: f'{_environment_variable_key}"' not in completions,
+            [],
             id="os_getenv_keyword_default_unclosed",
         ),
         pytest.param(
@@ -342,26 +464,29 @@ _environment_variable_key = "SOME_ENVIRONMENT_VARIABLE"
             'os.getenv("", "")',
             {"os": os},
             -2,
-            lambda completions: _environment_variable_key not in completions,
+            [],
             id="os_getenv_wrong_arg",
         ),
         pytest.param(
             'os.getenv("", "',
             {"os": os},
             None,
-            lambda completions: f'{_environment_variable_key}"' not in completions,
+            [],
             id="os_getenv_wrong_arg_unclosed",
         ),
+        *_pandas_completion_tests,
     ],
 )
 def test_positron_completion(
     source: str,
     namespace: Dict[str, Any],
     character: Optional[int],
-    expected_labels: Union[List[str], Callable[[List[Optional[str]]], bool]],
+    expected_labels: List[str],
     monkeypatch,
+    # Run from a temporary path to avoid file completions.
+    tmp_path,
 ) -> None:
-    server = create_server(namespace)
+    server = create_server(namespace, root_path=tmp_path)
     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
 
     # Patch environment variables for the `os.environ` test.
@@ -374,10 +499,7 @@ def test_positron_completion(
         completion.text_edit.new_text if completion.text_edit else completion.insert_text
         for completion in completions
     ]
-    if callable(expected_labels):
-        assert expected_labels(completion_labels)
-    else:
-        assert completion_labels == expected_labels
+    assert completion_labels == expected_labels
 
 
 def test_parameter_completions_appear_first() -> None:
