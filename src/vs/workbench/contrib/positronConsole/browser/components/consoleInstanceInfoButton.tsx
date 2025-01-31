@@ -72,7 +72,7 @@ interface ConsoleInstanceInfoModalPopupProps {
 }
 
 const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps) => {
-	const [sessionState, setSessionState] = useState(props.session?.getRuntimeState());
+	const [sessionState, setSessionState] = useState(props.session.getRuntimeState());
 
 	// Main useEffect hook.
 	useEffect(() => {
@@ -84,11 +84,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 	});
 
 	const showKernelOutputChannelClickHandler = () => {
-		props.session?.showOutput();
-	}
-
-	if (!props.session) {
-		return null;
+		props.session.showOutput();
 	}
 
 	// Render.
@@ -104,7 +100,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 		>
 			<div className='console-instance-info'>
 				<div className='content'>
-					<p className='line'>{props.session?.metadata.sessionName}</p>
+					<p className='line'>{props.session.metadata.sessionName}</p>
 					<div className='top-separator'>
 						<p className='line'>
 							{(() => localize(
