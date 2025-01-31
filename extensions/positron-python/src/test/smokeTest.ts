@@ -73,6 +73,11 @@ class TestRunner {
     // --- End Positron ---
     private async launchTest(customEnvVars: Record<string, {}>) {
         console.log('Launch tests in test runner');
+        if (!(await fs.pathExists(path.join(SMOKE_TEST_EXTENSIONS_DIR, 'python-env-tools')))) {
+            throw new Error(`Directory ${path.join(SMOKE_TEST_EXTENSIONS_DIR, 'python-env-tools')} does not exist`);
+        } else {
+            await fs.chmod(path.join(SMOKE_TEST_EXTENSIONS_DIR, 'python-env-tools'), 0o755);
+        }
         await new Promise<void>((resolve, reject) => {
             const env: Record<string, string> = {
                 TEST_FILES_SUFFIX: 'smoke.test',
@@ -109,11 +114,6 @@ class TestRunner {
             glob.default('*.vsix', (ex, files) => (ex ? reject(ex) : resolve(files[0]))),
         );
         await unzip(extensionFile, targetDir);
-        if (!(await fs.pathExists(path.join(SMOKE_TEST_EXTENSIONS_DIR, 'python-env-tools')))) {
-            throw new Error(`Directory ${path.join(SMOKE_TEST_EXTENSIONS_DIR, 'python-env-tools')} does not exist`);
-        } else {
-            await fs.chmod(path.join(SMOKE_TEST_EXTENSIONS_DIR, 'python-env-tools'), 0o755);
-        }
     }
 }
 
