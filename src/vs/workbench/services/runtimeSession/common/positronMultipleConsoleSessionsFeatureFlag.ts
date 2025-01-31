@@ -5,11 +5,7 @@
 
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import {
-	ConfigurationScope,
-	Extensions,
-	IConfigurationRegistry,
-} from '../../../../platform/configuration/common/configurationRegistry.js';
+import { ConfigurationScope, Extensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { positronConfigurationNodeBase } from '../../languageRuntime/common/languageRuntime.js';
 
