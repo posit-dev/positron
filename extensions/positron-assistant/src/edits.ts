@@ -12,8 +12,8 @@ const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 type LMTextEdit = { append: string } | { delete: string; replace: string };
 
 /**
- * A provider for the copilot "Aply in Editor" functionality. Sends text content of code blocks and
- * documents to a Language Model to calcualte how to apply the code block wihinin the document.
+ * A provider for the copilot "Apply in Editor" functionality. Send text content of code blocks and
+ * documents to a Language Model to calculate how to apply the code block within the document.
  */
 export const editsProvider: vscode.MappedEditsProvider = {
 	provideMappedEdits: async function (

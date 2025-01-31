@@ -112,7 +112,7 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.chat.registerMappedEditsProvider({ pattern: '**/*' }, editsProvider)
 	);
 
-	// Configuation modal command
+	// Configuration modal command
 	context.subscriptions.push(
 		registerAddModelConfigurationCommand(context)
 	);

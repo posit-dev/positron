@@ -30,8 +30,8 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 		disambiguation: []
 	};
 
-	readonly _recieveFeedbackEventEmitter = new vscode.EventEmitter<vscode.ChatResultFeedback>();
-	onDidReceiveFeedback: vscode.Event<vscode.ChatResultFeedback> = this._recieveFeedbackEventEmitter.event;
+	readonly _receiveFeedbackEventEmitter = new vscode.EventEmitter<vscode.ChatResultFeedback>();
+	onDidReceiveFeedback: vscode.Event<vscode.ChatResultFeedback> = this._receiveFeedbackEventEmitter.event;
 
 	readonly _performActionEventEmitter = new vscode.EventEmitter<vscode.ChatUserActionEvent>();
 	onDidPerformAction: vscode.Event<vscode.ChatUserActionEvent> = this._performActionEventEmitter.event;
@@ -262,7 +262,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 				return;
 			}
 
-			// Send messages to selected langauge model and stream back responses
+			// Send messages to selected language model and stream back responses
 			async function streamResponse(messages: vscode.LanguageModelChatMessage[]) {
 				const modelResponse = await request.model.sendRequest(messages, {
 					tools,
@@ -294,7 +294,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 					}
 				}
 
-				// If we do have tool requests to follow up on, use vscode.lm.invokeTool recusively
+				// If we do have tool requests to follow up on, use vscode.lm.invokeTool recursively
 				if (toolRequests.length > 0) {
 					for await (const req of toolRequests) {
 						const result = await vscode.lm.invokeTool(req.name, {

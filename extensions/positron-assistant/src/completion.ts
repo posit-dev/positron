@@ -71,7 +71,7 @@ class MistralCompletion extends CompletionModel {
 		context: vscode.InlineCompletionContext,
 		token: vscode.CancellationToken
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList> {
-		// Delay a little before hitting the network, we might be cancelled by further keystokes
+		// Delay a little before hitting the network, we might be cancelled by further keystrokes
 		await new Promise(resolve => setTimeout(resolve, 200));
 
 		if (token.isCancellationRequested) {
@@ -172,7 +172,7 @@ abstract class FimPromptCompletion extends CompletionModel {
 		context: vscode.InlineCompletionContext,
 		token: vscode.CancellationToken
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList> {
-		// Delay a little before hitting the network, we might be cancelled by further keystokes
+		// Delay a little before hitting the network, we might be cancelled by further keystrokes
 		await new Promise(resolve => setTimeout(resolve, 200));
 
 		if (token.isCancellationRequested) {

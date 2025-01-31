@@ -54,7 +54,7 @@
             "properties": {
               "id": {
                 "type": "string",
-                "description": "Idenitifier for the model provider, used for API key storage."
+                "description": "Identifier for the model provider, used for API key storage."
               },
               "name": {
                 "type": "string",
