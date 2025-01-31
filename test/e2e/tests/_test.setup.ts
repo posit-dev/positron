@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags } from '../infra';
+import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags, HotKeys } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -151,9 +151,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	// ex: await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
 	openFile: async ({ app }, use) => {
-		await use(async (filePath: string) => {
+		await use(async (filePath: string, waitForFocus = true) => {
 			await test.step(`Open file: ${path.basename(filePath)}`, async () => {
-				await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath));
+				await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath), waitForFocus);
 			});
 		});
 	},
@@ -179,6 +179,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(async (language: 'Python' | 'R', code: string) => {
 			await app.workbench.console.executeCode(language, code);
 		});
+	},
+
+	hotKeys: async ({ app }, use) => {
+		const hotKeys = new HotKeys(app.code);
+		await use(hotKeys);
 	},
 
 	// ex: await userSettings.set([['editor.actionBar.enabled', 'true']], false);
@@ -384,10 +389,11 @@ interface TestFixtures {
 	packages: PackageManager;
 	autoTestFixture: any;
 	devTools: void;
-	openFile: (filePath: string) => Promise<void>;
+	openFile: (filePath: string, waitForFocus?: boolean) => Promise<void>;
 	openDataFile: (filePath: string) => Promise<void>;
 	runCommand: (command: string) => Promise<void>;
 	executeCode: (language: 'Python' | 'R', code: string) => Promise<void>;
+	hotKeys: HotKeys;
 }
 
 interface WorkerFixtures {
