@@ -150,7 +150,7 @@ async function changeEditMode(app: Application, mode: 'Source' | 'Visual') {
 		// validate we are in correct mode
 		mode === 'Source'
 			? await expect(page.locator('div.line-numbers').first()).toBeVisible()
-			: await expect(viewerFrame.getByRole('button', { name: 'Show Outline (⌃⌥O)' })).toBeVisible();
+			: await expect(viewerFrame.getByRole('button', { name: /Show Outline/ })).toBeVisible();
 	});
 }
 
