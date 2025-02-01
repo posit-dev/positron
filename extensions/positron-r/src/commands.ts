@@ -13,8 +13,9 @@ import { randomUUID } from 'crypto';
 import { RSessionManager } from './session-manager';
 import { quickPickRuntime } from './runtime-quickpick';
 import { MINIMUM_RENV_VERSION, MINIMUM_R_VERSION } from './constants';
+import { RRuntimeManager } from './runtime-manager';
 
-export async function registerCommands(context: vscode.ExtensionContext) {
+export async function registerCommands(context: vscode.ExtensionContext, runtimeManager: RRuntimeManager) {
 
 	context.subscriptions.push(
 
@@ -158,7 +159,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		}),
 
 		vscode.commands.registerCommand('r.selectInterpreter', async () => {
-			await quickPickRuntime();
+			await quickPickRuntime(runtimeManager);
 		}),
 
 		// Commands used to source the current file

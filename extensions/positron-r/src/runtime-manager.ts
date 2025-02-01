@@ -12,11 +12,25 @@ import { createJupyterKernelSpec } from './kernel-spec';
 
 export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
-	constructor(private readonly _context: vscode.ExtensionContext) { }
+	private readonly onDidDiscoverRuntimeEmitter = new vscode.EventEmitter<positron.LanguageRuntimeMetadata>();
+
+	constructor(private readonly _context: vscode.ExtensionContext) {
+		this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
+	}
+
+	/**
+	 * An event that fires when a new R language runtime is discovered.
+	 */
+	onDidDiscoverRuntime: vscode.Event<positron.LanguageRuntimeMetadata>;
 
 	discoverRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
 		return rRuntimeDiscoverer();
 	}
+
+	registerLanguageRuntime(runtime: positron.LanguageRuntimeMetadata): void {
+		this.onDidDiscoverRuntimeEmitter.fire(runtime);
+	}
+
 
 	createSession(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,

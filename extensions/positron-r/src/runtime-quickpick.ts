@@ -6,6 +6,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { rRuntimeDiscoverer, RRuntimeSource } from './provider';
+import { RRuntimeManager } from './runtime-manager';
 
 class RuntimeQuickPickItem implements vscode.QuickPickItem {
 
@@ -22,7 +23,7 @@ class RuntimeQuickPickItem implements vscode.QuickPickItem {
 	}
 }
 
-export async function quickPickRuntime() {
+export async function quickPickRuntime(runtimeManager: RRuntimeManager) {
 
 	const runtime = await new Promise<positron.LanguageRuntimeMetadata | undefined>(
 		async (resolve) => {
@@ -84,8 +85,13 @@ export async function quickPickRuntime() {
 			input.show();
 		});
 
-	// If we got a runtime, select and start it
+	// If we did in fact get a runtime from the user, select and start it
 	if (runtime) {
+		const registeredRuntimes = await positron.runtime.getRegisteredRuntimes();
+		const runtimeIsRegistered = registeredRuntimes.filter((r) => r.runtimeId === runtime.runtimeId);
+		if (runtimeIsRegistered.length === 0) {
+			runtimeManager.registerLanguageRuntime(runtime);
+		}
 		positron.runtime.selectLanguageRuntime(runtime.runtimeId);
 	}
 };
