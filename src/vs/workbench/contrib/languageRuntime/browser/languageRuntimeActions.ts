@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -436,6 +436,43 @@ export function registerLanguageRuntimeActions() {
 			accessor.get(IRuntimeSessionService),
 			accessor.get(IQuickInputService),
 			'Select the interpreter for which to show profile output'))?.showProfile();
+	});
+
+	// Registers the clear affiliated language runtime / clear saved interpreter action.
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.clearAffiliation', 'Clear Saved Interpreter', async accessor => {
+		const runtimeSessionService = accessor.get(IRuntimeStartupService);
+		const quickInputService = accessor.get(IQuickInputService);
+		const notificationService = accessor.get(INotificationService);
+
+		// Build the language runtime quick pick items.
+		const runtimes = runtimeSessionService.getAffiliatedRuntimes();
+		const runtimeQuickPickItems = runtimes.map<LanguageRuntimeQuickPickItem>(runtime => ({
+			id: runtime.runtimeId,
+			label: `${runtime.languageName}: ${runtime.runtimeName}`,
+			description: runtime.runtimePath,
+			runtime
+		} satisfies LanguageRuntimeQuickPickItem));
+
+		if (runtimeQuickPickItems.length === 0) {
+			notificationService.info(nls.localize('noInterpretersSaved', 'No interpreters are currently saved in this workspace.'));
+			return;
+		}
+
+		// Prompt the user to select a language runtime.
+		const quickPickItem = await quickInputService
+			.pick<LanguageRuntimeQuickPickItem>(runtimeQuickPickItems, {
+				canPickMany: false,
+				placeHolder: nls.localize('selectInterpreterToClear', 'Select interpreter to clear')
+			});
+
+		// User didn't select a runtime.
+		if (!quickPickItem) {
+			return;
+		}
+
+		// Clear the selected interpreter.
+		runtimeSessionService.clearAffiliatedRuntime(quickPickItem.runtime.languageId);
+		notificationService.info(nls.localize('interpreterCleared', 'The {0} interpreter has been cleared from this workspace.', quickPickItem.runtime.runtimeName));
 	});
 
 	registerLanguageRuntimeAction('workbench.action.language.runtime.openClient', 'Create Runtime Client Widget', async accessor => {

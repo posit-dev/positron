@@ -95,10 +95,14 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 		}
 	}
 
-	discoverRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+	discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
 		// We never discover a runtime directly. We'll always check if R is available
 		// and then fire the onDidDiscoverRuntime event.
 		return (async function* () { })();
+	}
+
+	async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+		return undefined;
 	}
 
 	async createSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata): Promise<positron.LanguageRuntimeSession> {
@@ -722,7 +726,7 @@ export class ReticulateProvider {
 
 	constructor(readonly context: vscode.ExtensionContext) {
 		this.manager = new ReticulateRuntimeManager(this.context);
-		this.context.subscriptions.push(positron.runtime.registerLanguageRuntimeManager(this.manager));
+		this.context.subscriptions.push(positron.runtime.registerLanguageRuntimeManager('python', this.manager));
 	}
 
 	async registerClient(client: positron.RuntimeClientInstance) {

@@ -15,12 +15,14 @@ import { PositronZedRuntimeSession } from './positronZedLanguageRuntime';
  * @param context The VS Code extension context.
  * @param runtimeId The ID to assign to the runtime.
  * @param version The version of the runtime.
+ * @param startupBehavior The startup behavior for the runtime.
  *
  * @returns A full runtime metadata object.
  */
 function generateZedMetadata(context: vscode.ExtensionContext,
 	runtimeId: string,
-	version: string): positron.LanguageRuntimeMetadata {
+	version: string,
+	startupBehavior: positron.LanguageRuntimeStartupBehavior): positron.LanguageRuntimeMetadata {
 
 	// Create the icon SVG path.
 	const iconSvgPath = path.join(context.extensionPath, 'resources', 'zed-icon.svg');
@@ -41,7 +43,7 @@ function generateZedMetadata(context: vscode.ExtensionContext,
 		base64EncodedIconSvg: fs.readFileSync(iconSvgPath).toString('base64'),
 		runtimeVersion: '0.0.1',
 		sessionLocation: positron.LanguageRuntimeSessionLocation.Browser,
-		startupBehavior: positron.LanguageRuntimeStartupBehavior.Implicit,
+		startupBehavior,
 		extraRuntimeData: {}
 	};
 
@@ -62,25 +64,51 @@ export class ZedRuntimeManager implements positron.LanguageRuntimeManager {
 	 *
 	 * @returns An async generator that yields metadata for the Zed language
 	 */
-	discoverRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata, any, unknown> {
+	discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata, any, unknown> {
 		const context = this._context;
 
 		const generator = async function* getPositronZedLanguageRuntimes() {
 			yield generateZedMetadata(
 				context,
 				'00000000-0000-0000-0000-000000000200',
-				'2.0.0');
+				'2.0.0',
+				positron.LanguageRuntimeStartupBehavior.Implicit);
 			yield generateZedMetadata(
 				context,
 				'00000000-0000-0000-0000-000000000100',
-				'1.0.0');
+				'1.0.0',
+				positron.LanguageRuntimeStartupBehavior.Implicit);
 			yield generateZedMetadata(
 				context,
 				'00000000-0000-0000-0000-000000000098',
-				'0.98.0');
+				'0.98.0',
+				positron.LanguageRuntimeStartupBehavior.Implicit);
 		};
 
 		return generator();
+	}
+
+	/**
+	 * Recommends a Zed runtime for the workspace.
+	 */
+	async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+		// See if the user has a preferred Zed runtime.
+		const preferredZed = vscode.workspace.getConfiguration('zedLanguage').get<string>('preferredZed');
+		if (!preferredZed || preferredZed === 'none') {
+			return undefined;
+		}
+
+		// Determine the startup behavior.
+		const autoStart = vscode.workspace.getConfiguration('zedLanguage').get<boolean>('autoStartup');
+
+		// Create the metadata for the preferred Zed runtime.
+		return generateZedMetadata(
+			this._context,
+			preferredZed === '2.0.0' ? '00000000-0000-0000-0000-000000000200' :
+				preferredZed === '1.0.0' ? '00000000-0000-0000-0000-000000000100' :
+					'00000000-0000-0000-0000-000000000098',
+			preferredZed,
+			autoStart ? positron.LanguageRuntimeStartupBehavior.Immediate : positron.LanguageRuntimeStartupBehavior.Explicit);
 	}
 
 	/**

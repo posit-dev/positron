@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -33,7 +33,7 @@ class JavascriptRuntimeManager implements positron.LanguageRuntimeManager {
 	constructor(private readonly _context: vscode.ExtensionContext) {
 	}
 
-	discoverRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata, any, unknown> {
+	discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata, any, unknown> {
 		const version = process.version;
 
 		const iconSvgPath = path.join(this._context.extensionPath, 'resources', 'nodejs-icon.svg');
@@ -61,6 +61,15 @@ class JavascriptRuntimeManager implements positron.LanguageRuntimeManager {
 		}();
 	}
 
+	/**
+	 * Returns the recommended runtime for the current workspace. Javascript is
+	 * not currently detected as a recommended environment, so this always
+	 * returns nothing.
+	 */
+	recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+		return Promise.resolve(undefined);
+	}
+
 	createSession(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
 		sessionMetadata: positron.RuntimeSessionMetadata): Thenable<positron.LanguageRuntimeSession> {
@@ -79,7 +88,7 @@ function startExtHostRuntime(context: vscode.ExtensionContext): void {
 		try {
 			_manager = new JavascriptRuntimeManager(context);
 			context.subscriptions.push(
-				positron.runtime.registerLanguageRuntimeManager(_manager));
+				positron.runtime.registerLanguageRuntimeManager('javascript', _manager));
 			// Start the runtime on the next tick
 			setTimeout(() => {
 				positron.runtime.selectLanguageRuntime(runtimeId);

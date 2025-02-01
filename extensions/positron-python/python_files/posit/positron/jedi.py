@@ -6,35 +6,39 @@
 import os
 import pathlib
 import platform
-from typing import Any, Tuple
+from functools import cached_property
+from pathlib import Path
+from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
 
-from ._vendor.jedi import cache, debug, settings
-from ._vendor.jedi.api import Interpreter
-from ._vendor.jedi.api.classes import Completion
-from ._vendor.jedi.api.completion import (
-    Completion as CompletionAPI,
-)
+from IPython.core import oinspect
 
-# Rename to avoid conflict with classes.Completion
-from ._vendor.jedi.api.completion import (
-    _extract_string_while_in_string,
-    _remove_duplicates,
-    filter_names,
-)
-from ._vendor.jedi.api.file_name import complete_file_name
-from ._vendor.jedi.api.interpreter import MixedModuleContext
-from ._vendor.jedi.api.strings import get_quote_ending
+from ._vendor.jedi import settings
+from ._vendor.jedi.api import Completion as CompletionAPI
+from ._vendor.jedi.api import Interpreter, strings
+from ._vendor.jedi.api import completion as completion_api
+from ._vendor.jedi.api.classes import BaseName, BaseSignature, Completion, Name
+from ._vendor.jedi.api.interpreter import MixedTreeName
 from ._vendor.jedi.cache import memoize_method
-from ._vendor.jedi.file_io import KnownContentFileIO
-from ._vendor.jedi.inference.base_value import HasNoContext
-from ._vendor.jedi.inference.compiled import ExactValue
+from ._vendor.jedi.inference import InferenceState
+from ._vendor.jedi.inference.base_value import HasNoContext, Value, ValueSet, ValueWrapper
+from ._vendor.jedi.inference.compiled import ExactValue, create_simple_object
+from ._vendor.jedi.inference.compiled.access import create_access_path
 from ._vendor.jedi.inference.compiled.mixed import MixedName, MixedObject
-from ._vendor.jedi.inference.compiled.value import CompiledName, CompiledValue
-from ._vendor.jedi.inference.context import ValueContext
+from ._vendor.jedi.inference.compiled.value import (
+    CompiledName,
+    CompiledValue,
+    create_from_access_path,
+)
+from ._vendor.jedi.inference.context import ModuleContext, ValueContext
 from ._vendor.jedi.inference.helpers import infer_call_of_leaf
-from ._vendor.jedi.inference.value import ModuleValue
-from ._vendor.jedi.parser_utils import cut_value_at_position
-from .utils import safe_isinstance
+from ._vendor.parso.tree import Leaf
+from .inspectors import (
+    BaseColumnInspector,
+    BaseTableInspector,
+    PositronInspector,
+    get_inspector,
+)
+from .utils import get_qualname
 
 #
 # We adapt code from the MIT-licensed jedi static analysis library to provide enhanced completions
@@ -43,8 +47,6 @@ from .utils import safe_isinstance
 #
 # https://github.com/davidhalter/jedi
 #
-
-_sentinel = object()
 
 # update Jedi cache to not conflict with other Jedi instances
 # adapted from jedi.settings.cache_directory
@@ -58,151 +60,385 @@ else:
 settings.cache_directory = _cache_directory.expanduser()
 
 
-class PositronMixedModuleContext(MixedModuleContext):
-    """
-    Special MixedModuleContext.
-
-    A `jedi.api.interpreter.MixedModuleContext` that prefers values from the user's namespace over
-    static analysis.
-
-    For example, given the namespace: `{"x": {"a": 0}}`, and the code:
-
-    ```
-    x = {"b": 0}
-    x['
-    ```
-
-    Completing the line `x['` should return `a` and not `b`.
-    """
-
-    def get_filters(self, until_position=None, origin_scope=None):
-        filters = super().get_filters(until_position, origin_scope)
-
-        # Store the first filter, which corresponds to static analysis of the source code.
-        merged_filter = next(filters)
-
-        # Yield the remaining filters, which correspond to the user's namespaces.
-        yield from filters
-
-        # Finally, yield the first filter.
-        yield merged_filter
+# Store the original versions of Jedi functions/methods that we patch.
+_original_interpreter_complete = Interpreter.complete
+_original_interpreter_goto = Interpreter.goto
+_original_interpreter_help = Interpreter.help
+_original_interpreter_infer = Interpreter.infer
+_original_completion_api_complete = CompletionAPI.complete
+_original_mixed_name_infer = MixedName.infer
+_original_mixed_tree_name_infer = MixedTreeName.infer
 
 
-class PositronInterpreter(Interpreter):
-    """A `jedi.Interpreter` that provides enhanced completions for data science users."""
+def _interpreter_complete(
+    self: Interpreter,
+    line: Optional[int] = None,
+    column: Optional[int] = None,
+    *,
+    fuzzy: bool = False,
+) -> List["_PositronCompletion"]:
+    # Wrap original completions in `PositronCompletion`.
+    return [
+        _PositronCompletion(name)
+        for name in _original_interpreter_complete(self, line, column, fuzzy=fuzzy)
+    ]
 
-    @cache.memoize_method
-    def _get_module_context(self):
-        file_io = None if self.path is None else KnownContentFileIO(self.path, self._code)
-        tree_module_value = ModuleValue(
-            self._inference_state,
-            self._module_node,
-            file_io=file_io,
-            string_names=("__main__",),
-            code_lines=self._code_lines,
+
+def _interpreter_goto(
+    self: Interpreter,
+    line: Optional[int] = None,
+    column: Optional[int] = None,
+    *,
+    follow_imports: bool = False,
+    follow_builtin_imports: bool = False,
+    only_stubs: bool = False,
+    prefer_stubs: bool = False,
+) -> List["_PositronName"]:
+    # Wrap original goto items in `_PositronName`.
+    return [
+        _PositronName(name)
+        for name in _original_interpreter_goto(
+            self,
+            line,
+            column,
+            follow_imports=follow_imports,
+            follow_builtin_imports=follow_builtin_imports,
+            only_stubs=only_stubs,
+            prefer_stubs=prefer_stubs,
         )
-        # --- Start Positron ---
-        # Use our custom module context class.
-        return PositronMixedModuleContext(
-            tree_module_value,
-            self.namespaces,
+    ]
+
+
+def _interpreter_help(
+    self: Interpreter, line: Optional[int] = None, column: Optional[int] = None
+) -> List["_PositronName"]:
+    # Wrap original help items in `_PositronName`.
+    return [_PositronName(name) for name in _original_interpreter_help(self, line, column)]
+
+
+def _interpreter_infer(
+    self: Interpreter,
+    line: Optional[int] = None,
+    column: Optional[int] = None,
+    *,
+    only_stubs=False,
+    prefer_stubs=False,
+) -> List["_PositronName"]:
+    # Wrap original inferred items in `_PositronName`.
+    return [
+        _PositronName(name)
+        for name in _original_interpreter_infer(
+            self, line, column, only_stubs=only_stubs, prefer_stubs=prefer_stubs
         )
-        # --- End Positron ---
-
-    def complete(self, line=None, column=None, *, fuzzy=False):
-        self._inference_state.reset_recursion_limitations()
-        with debug.increase_indent_cm("complete"):
-            # --- Start Positron ---
-            # Use our custom completion class.
-            completion = PositronCompletion(
-                # --- End Positron ---
-                self._inference_state,
-                self._get_module_context(),
-                self._code_lines,
-                (line, column),
-                self.get_signatures,
-                fuzzy=fuzzy,
-            )
-            return completion.complete()
+    ]
 
 
-class PositronCompletion(CompletionAPI):
-    # As is from jedi.api.completion.Completion, copied here to use our `complete_dict`.
-    def complete(self):
-        leaf = self._module_node.get_leaf_for_position(
-            self._original_position, include_prefixes=True
+def _completion_api_complete(self: CompletionAPI) -> List[Completion]:
+    leaf = self._module_node.get_leaf_for_position(self._original_position, include_prefixes=True)
+    string, start_leaf, quote = completion_api._extract_string_while_in_string(  # noqa: SLF001
+        leaf, self._original_position
+    )
+
+    if string is not None and start_leaf is not None and quote is not None:
+        # Create the utility strings.
+        prefixed_string = quote + string
+        cut_end_quote = strings.get_quote_ending(
+            prefixed_string, self._code_lines, self._original_position, invert_result=True
         )
-        string, start_leaf, quote = _extract_string_while_in_string(leaf, self._original_position)
 
-        prefixed_completions = complete_dict(
+        # Try to complete environment variables.
+        completions = _complete_environment_variables(
+            start_leaf,
             self._module_context,
-            self._code_lines,
-            start_leaf or leaf,
+            self._inference_state,
+            prefixed_string,
+            cut_end_quote,
+            self._signatures_callback,
             self._original_position,
-            None if string is None else quote + string,  # type: ignore
             fuzzy=self._fuzzy,
         )
+        if completions:
+            return completions
 
-        if string is not None and not prefixed_completions:
-            prefixed_completions = list(
-                complete_file_name(
-                    self._inference_state,
-                    self._module_context,
-                    start_leaf,
-                    quote,
-                    string,
-                    self._like_name,
-                    self._signatures_callback,
-                    self._code_lines,
-                    self._original_position,
-                    self._fuzzy,
+    return _original_completion_api_complete(self)
+
+
+def _complete_environment_variables(
+    leaf: Leaf,
+    module_context: ModuleContext,
+    inference_state: InferenceState,
+    string: str,
+    cut_end_quote: str,
+    signatures_callback: Callable[[int, int], List[BaseSignature]],
+    position: Tuple[int, int],
+    *,
+    fuzzy: bool,
+) -> List[Completion]:
+    def complete():
+        # As a shortcut, create a compiled value for `os.environ` and use its dict completions.
+
+        # Create the compiled value for `os.environ`.
+        access_path = create_access_path(inference_state, os.environ)
+        compiled_value = create_from_access_path(inference_state, access_path)
+        dicts = ValueSet([_OsEnvironCompiledValueWrapper(compiled_value)])
+
+        # Return the completions.
+        return list(_completions_for_dicts(inference_state, dicts, string, cut_end_quote, fuzzy))
+
+    # First, try to complete `os.environ` dict access.
+    # See `jedi.api.strings.complete_dict` for a useful reference with similar behavior.
+    if (
+        isinstance(bracket := leaf.get_previous_leaf(), Leaf)
+        and bracket.type == "operator"
+        and bracket.value == "["
+        and isinstance(name := bracket.get_previous_leaf(), Leaf)
+        and name.type == "name"
+        and name.value == "environ"
+        and (context := module_context.create_context(bracket))
+        and (values := infer_call_of_leaf(context, name))
+        and all(_is_os_environ(value) for value in values)
+    ):
+        return complete()
+
+    # Next, try to complete `os.getenv` calls.
+    # See `jedi.api.file_name._add_os_path_join` for a useful reference with similar behavior.
+    signatures = signatures_callback(*position)
+    if signatures and all(s.full_name == "os.getenv" for s in signatures):
+        # Are we completing an unfinished string literal like `os.getenv("`?
+        if leaf.type == "error_leaf":
+            if (
+                isinstance(operator := leaf.get_previous_leaf(), Leaf)
+                and operator.type == "operator"
+                and (
+                    # Only complete `key=` keyword arguments.
+                    (
+                        operator.value == "="
+                        and isinstance(name := operator.get_previous_leaf(), Leaf)
+                        and name.type == "name"
+                        and name.value == "key"
+                    )
+                    # Only complete the first positional argument.
+                    or (operator.value == "(")
                 )
+            ):
+                return complete()
+            return []
+
+        # Complete with a fully parsed tree.
+        if leaf.parent is not None and (
+            # A single positional argument.
+            leaf.parent.type == "trailer"
+            # The first of multiple positional arguments.
+            or ((arglist := leaf.parent).type == "arglist" and arglist.children.index(leaf) == 0)
+            # The `key` keyword argument.
+            or (
+                (argument := leaf.parent).type == "argument"
+                and len(argument.children) >= 1
+                and isinstance(name := argument.children[0], Leaf)
+                and name.type == "name"
+                and name.value == "key"
             )
-        if string is not None:
-            if not prefixed_completions and "\n" in string:
-                # Complete only multi line strings
-                prefixed_completions = self._complete_in_string(start_leaf, string)
-            return prefixed_completions
+        ):
+            return complete()
 
-        cached_name, completion_names = self._complete_python(leaf)
-
-        imported_names = []
-        if leaf.parent is not None and leaf.parent.type in ["import_as_names", "dotted_as_names"]:
-            imported_names.extend(extract_imported_names(leaf.parent))  # type: ignore  # noqa: F821
-
-        completions = list(
-            filter_names(
-                self._inference_state,
-                completion_names,
-                self.stack,
-                self._like_name,
-                self._fuzzy,
-                imported_names,
-                cached_name=cached_name,
-            )
-        )
-
-        return (
-            # Removing duplicates mostly to remove False/True/None duplicates.
-            _remove_duplicates(prefixed_completions, completions)
-            + sorted(
-                completions,
-                key=lambda x: (
-                    not x.name.startswith(self._like_name),
-                    x.name.startswith("__"),
-                    x.name.startswith("_"),
-                    x.name.lower(),
-                ),
-            )
-        )
+    return []
 
 
-class DictKeyName(CompiledName):
-    """A dictionary key with support for inferring its value."""
+class _OsEnvironCompiledValueWrapper(ValueWrapper):
+    @property
+    def array_type(self) -> str:
+        return "dict"
 
-    def __init__(self, inference_state, parent_value, key):
+
+def _mixed_name_infer(self: MixedName) -> ValueSet:
+    # Wrap values of known types.
+    return ValueSet(_wrap_value(value) for value in _original_mixed_name_infer(self))
+
+
+def _wrap_value(value: MixedObject):
+    if _is_os_environ(value) or _is_pandas_dataframe(value) or _is_pandas_series(value):
+        return _SafeDictLikeMixedObjectWrapper(value)
+    if _is_polars_dataframe(value):
+        return _PolarsDataFrameMixedObjectWrapper(value)
+    return value
+
+
+def _is_os_environ(value: Union[MixedObject, Value]) -> bool:
+    return value.get_root_context().py__name__() == "os" and value.py__name__() == "_Environ"
+
+
+def _is_pandas_dataframe(value: Union[MixedObject, Value]) -> bool:
+    return (
+        value.get_root_context().py__name__() == "pandas.core.frame"
+        and value.py__name__() == "DataFrame"
+    )
+
+
+def _is_pandas_series(value: Union[MixedObject, Value]) -> bool:
+    return (
+        value.get_root_context().py__name__() == "pandas.core.series"
+        and value.py__name__() == "Series"
+    )
+
+
+def _is_polars_dataframe(value: Union[MixedObject, Value]) -> bool:
+    return (
+        value.get_root_context().py__name__() == "polars.dataframe.frame"
+        and value.py__name__() == "DataFrame"
+    )
+
+
+class _SafeDictLikeMixedObjectWrapper(ValueWrapper):
+    """
+    A `ValueWrapper` of a `MixedObject` that always allows getitem access.
+
+    This should only be used for known types with safe getitem implementations.
+    """
+
+    _wrapped_value: MixedObject
+    compiled_value: CompiledValue
+
+    def __init__(self, wrapped_value: MixedObject) -> None:
+        super().__init__(wrapped_value)
+
+        # Enable dict completion for this object.
+        self.array_type = "dict"
+
+    def py__simple_getitem__(self, index) -> ValueSet:
+        # Get the item without any safety checks.
+        return self.compiled_value.py__simple_getitem__(index)
+
+
+class _PolarsDataFrameMixedObjectWrapper(_SafeDictLikeMixedObjectWrapper):
+    def get_key_values(self):
+        # Polars dataframes don't have `.keys()`, directly access `.columns` instead.
+        for column in _directly_access_compiled_value(self.compiled_value).columns:
+            yield create_simple_object(self._wrapped_value.inference_state, column)
+
+
+def _directly_access_compiled_value(compiled_value: CompiledValue) -> Any:
+    """Directly access an object referenced by a `CompiledValue`. Should be used sparingly."""
+    return compiled_value.access_handle.access._obj  # noqa: SLF001
+
+
+def _mixed_tree_name_infer(self: MixedTreeName) -> ValueSet:
+    # First search the user's namespace, then fall back to static analysis.
+    # This is the reverse of the original implementation.
+    # See: https://github.com/posit-dev/positron/issues/601.
+    for compiled_value in self.parent_context.mixed_values:
+        for f in compiled_value.get_filters():
+            values = ValueSet.from_sets(n.infer() for n in f.get(self.string_name))
+            if values:
+                return values
+
+    return _original_mixed_tree_name_infer(self)
+
+
+class _PositronName(Name):
+    """
+    Wraps a `jedi.api.classes.BaseName` to customize LSP responses.
+
+    `jedi_language_server` accesses a name's properties to generate `lsprotocol` types which are
+    sent to the client. We override these properties to customize LSP responses.
+    """
+
+    def __init__(self, name: BaseName) -> None:
+        super().__init__(name._inference_state, name._name)  # noqa: SLF001
+
+        # Store the original name.
+        self._wrapped_name = name
+
+    @cached_property
+    def _inspector(self) -> Optional[PositronInspector]:
+        """A `PositronInspector` for the object referenced by this name, if available."""
+        name = self._wrapped_name._name  # noqa: SLF001
+        # Does the wrapped name reference an actual object?
+        if isinstance(name, (CompiledName, MixedName)):
+            # Infer the name's value.
+            value = name.infer_compiled_value()
+            # Get an inspector for the object.
+            if isinstance(value, CompiledValue):
+                obj = _directly_access_compiled_value(value)
+                return get_inspector(obj)
+        return None
+
+    @property
+    def full_name(self) -> Optional[str]:
+        if self._inspector:
+            return get_qualname(self._inspector.value)
+        return super().full_name
+
+    @property
+    def description(self) -> str:
+        if self._inspector:
+            return self._inspector.get_display_type()
+        return super().description
+
+    @property
+    def module_path(self) -> Optional[Path]:
+        if self._inspector:
+            fname = oinspect.find_file(self._inspector.value)
+            if fname is not None:
+                # Normalize case for consistency in tests on Windows.
+                return Path(os.path.normcase(fname))
+
+        module_path = super().module_path
+        if module_path is not None:
+            # Normalize case for consistency in tests on Windows.
+            return Path(os.path.normcase(module_path))
+
+        return None
+
+    def docstring(self, raw=False, fast=True) -> str:  # noqa: ARG002, FBT002
+        if self._inspector:
+            if isinstance(self._inspector, (BaseColumnInspector, BaseTableInspector)):
+                # Return a preview of the column/table.
+                return str(self._inspector.value)
+
+            # Return the value's docstring.
+            return self._inspector.value.__doc__ or ""
+
+        return super().docstring(raw=raw)
+
+    def get_signatures(self) -> List[BaseSignature]:
+        if isinstance(self._inspector, (BaseColumnInspector, BaseTableInspector)):
+            return []
+        return super().get_signatures()
+
+
+class _PositronCompletion(_PositronName):
+    """Wraps a `jedi.api.classes.Completion` to customize LSP responses."""
+
+    def __init__(self, completion: Completion) -> None:
+        super().__init__(completion)
+
+        # Store the original completion.
+        self._wrapped_completion = completion
+
+    @property
+    def complete(self) -> Optional[str]:
+        # On Windows, escape backslashes in paths to avoid inserting invalid strings.
+        # See: https://github.com/posit-dev/positron/issues/3758.
+        if os.name == "nt" and self._name.api_type == "path":
+            name = self._name.string_name.replace(os.path.sep, "\\" + os.path.sep)
+            # Remove the common prefix from the inserted text.
+            return name[self._wrapped_completion._like_name_length :]  # noqa: SLF001
+
+        return self._wrapped_completion.complete
+
+
+class _DictKeyName(CompiledName):
+    """A dictionary key which can infer its own value."""
+
+    def __init__(
+        self,
+        inference_state: InferenceState,
+        parent_value: CompiledValue,
+        name: str,
+        is_descriptor: bool,  # noqa: FBT001
+        key: Any,
+    ):
         self._inference_state = inference_state
-
         try:
             self.parent_context = parent_value.as_context()
         except HasNoContext:
@@ -210,148 +446,60 @@ class DictKeyName(CompiledName):
             # DictLiteralValue which does not override `as_context()`.
             # Manually create the context instead.
             self.parent_context = ValueContext(parent_value)
-
         self._parent_value = parent_value
+        self.string_name = name
+        self.is_descriptor = is_descriptor
         self._key = key
-        self.string_name = str(key)
-
-        # NOTE(seem): IIUC is_descriptor is used to return the api_type() 'instance' without an
-        # execution. If so, it should be safe to always set it to false, but I may have misread
-        # the jedi code.
-        self.is_descriptor = False
 
     @memoize_method
-    def infer_compiled_value(self) -> CompiledValue:
-        parent = self._parent_value
-
-        # We actually want to override MixedObject.py__simple_getitem__ to include objects from
-        # popular data science libraries as allowed getitem types. However, it's simpler to special
-        # case here instead of vendoring all instantiations of MixedObject.
-        # START: MixedObject.py__simple_getitem__
-        if isinstance(parent, MixedObject):
-            python_object = parent.compiled_value.access_handle.access._obj  # noqa: SLF001
-            if _is_allowed_getitem_type(python_object):
-                values = parent.compiled_value.py__simple_getitem__(self._key)
-            else:
-                values = parent._wrapped_value.py__simple_getitem__(self._key)  # noqa: SLF001
-        # END: MixedObject.py__simple_getitem__
-        else:
-            values = parent.py__simple_getitem__(self._key)
-
-        values = list(values)
-
-        if len(values) != 1:
-            raise ValueError(f"Expected exactly one value, got {len(values)}")
-        value = values[0]
-
-        # This may return an ExactValue which wraps a CompiledValue e.g. when completing a dict
-        # literal like: `{"a": 0}['`.
-        # For some reason, ExactValue().get_signatures() returns an empty list, but
-        # ExactValue()._compiled_value.get_signatures() returns the correct signatures,
-        # so we return the wrapped compiled value instead.
-        if isinstance(value, ExactValue):
-            return value._compiled_value  # noqa: SLF001
-
-        return value
+    def infer_compiled_value(self) -> Optional[CompiledValue]:
+        for value in self._parent_value.py__simple_getitem__(self._key):
+            # This may return an ExactValue which wraps a CompiledValue e.g. when completing a dict
+            # literal like: `{"a": 0}['`.
+            # For some reason, ExactValue().get_signatures() returns an empty list, but
+            # ExactValue()._compiled_value.get_signatures() returns the correct signatures,
+            # so we return the wrapped compiled value instead.
+            if isinstance(value, ExactValue):
+                return value._compiled_value  # noqa: SLF001
+            return value
+        return None
 
 
-# As is from jedi.api.completion.Completion, copied here to use our `_completions_for_dicts`.
-def complete_dict(module_context, code_lines, leaf, position, string, fuzzy):
-    bracket_leaf = leaf
-    if bracket_leaf != "[":
-        bracket_leaf = leaf.get_previous_leaf()
-
-    cut_end_quote = ""
-    if string:
-        cut_end_quote = get_quote_ending(string, code_lines, position, invert_result=True)
-
-    if bracket_leaf == "[":
-        if string is None and leaf is not bracket_leaf:
-            string = cut_value_at_position(leaf, position)
-
-        context = module_context.create_context(bracket_leaf)
-
-        before_node = before_bracket_leaf = bracket_leaf.get_previous_leaf()  # type: ignore
-        if before_node in (")", "]", "}"):
-            before_node = before_node.parent
-        if before_node.type in ("atom", "trailer", "name"):
-            values = infer_call_of_leaf(context, before_bracket_leaf)
-            return list(
-                _completions_for_dicts(
-                    module_context.inference_state,
-                    values,
-                    "" if string is None else string,
-                    cut_end_quote,
-                    fuzzy=fuzzy,
-                )
-            )
-    return []
-
-
-# Adapted from jedi.api.strings._completions_for_dicts.
-def _completions_for_dicts(inference_state, dicts, literal_string, _cut_end_quote, fuzzy):
-    # --- Start Positron ---
-    # Since we've modified _get_python_keys to return Names, sort by yielded value's string_name
-    # instead of the yielded value itself.
-    for name in sorted(_get_python_keys(inference_state, dicts), key=lambda x: repr(x.string_name)):
-        # --- End Positron ---
-        yield Completion(
-            inference_state,
-            name,
-            stack=None,
-            like_name_length=len(literal_string),
-            is_fuzzy=fuzzy,
-        )
-
-
-# Adapted from jedi.api.strings._get_python_keys.
-def _get_python_keys(inference_state, dicts):
+# Adapted from `jedi.api.strings._completions_for_dicts` to use a `DictKeyName`,
+# which shows a preview of tables/columns in the hover text.
+def _completions_for_dicts(
+    inference_state: InferenceState,
+    dicts: Iterable[CompiledValue],
+    literal_string: str,
+    cut_end_quote: str,
+    fuzzy: bool,  # noqa: FBT001
+) -> Iterable[Completion]:
     for dct in dicts:
-        # --- Start Positron ---
-        # Handle dict-like objects from popular data science libraries.
-        try:
-            obj = dct.compiled_value.access_handle.access._obj  # noqa: SLF001
-        except AttributeError:
-            pass
-        else:
-            if _is_allowed_getitem_type(obj) and hasattr(obj, "columns"):
-                for key in obj.columns:
-                    yield DictKeyName(inference_state, dct, key)
-                return
-
-        # --- End Positron ---
         if dct.array_type == "dict":
             for key in dct.get_key_values():
-                dict_key = key.get_safe_value(default=_sentinel)
-                if dict_key is not _sentinel:
-                    # --- Start Positron ---
-                    # Return a DictKeyName instead of a string.
-                    yield DictKeyName(inference_state, dct, dict_key)
-                    # --- End Positron ---
+                if key:
+                    dict_key = key.get_safe_value(default=strings._sentinel)  # noqa: SLF001
+                    if dict_key is not strings._sentinel:  # noqa: SLF001
+                        dict_key_str = strings._create_repr_string(literal_string, dict_key)  # noqa: SLF001
+                        if dict_key_str.startswith(literal_string):
+                            string_name = dict_key_str[: -len(cut_end_quote) or None]
+                            name = _DictKeyName(inference_state, dct, string_name, False, dict_key)  # noqa: FBT003
+                            yield Completion(
+                                inference_state,
+                                name,
+                                stack=None,
+                                like_name_length=len(literal_string),
+                                is_fuzzy=fuzzy,
+                            )
 
 
-def _is_allowed_getitem_type(obj: Any) -> bool:
-    """Answer to 'Can we safely call `obj.__getitem__`?'."""
-    # Only trust builtin types and types from popular data science libraries.
-    # We specifically compare type(obj) instead of using isinstance because we don't want to trust
-    # subclasses of builtin types.
-    return (
-        type(obj) in (str, list, tuple, bytes, bytearray, dict)
-        or safe_isinstance(obj, "pandas", "DataFrame")
-        or safe_isinstance(obj, "polars", "DataFrame")
-    )
-
-
-def get_python_object(completion: Completion) -> Tuple[Any, bool]:
-    """
-    Get the Python object corresponding to a completion.
-
-    And a boolean indicating whether an object was found.
-    """
-    name = completion._name  # noqa: SLF001
-    if isinstance(name, (CompiledName, MixedName)):
-        value = name.infer_compiled_value()
-        if isinstance(value, CompiledValue):
-            obj = value.access_handle.access._obj  # noqa: SLF001
-            return obj, True
-    return None, False
+def apply_jedi_patches():
+    """Apply Positron patches to Jedi."""
+    Interpreter.complete = _interpreter_complete
+    Interpreter.goto = _interpreter_goto
+    Interpreter.help = _interpreter_help
+    Interpreter.infer = _interpreter_infer
+    CompletionAPI.complete = _completion_api_complete
+    MixedName.infer = _mixed_name_infer
+    MixedTreeName.infer = _mixed_tree_name_infer
+    strings._completions_for_dicts = _completions_for_dicts  # noqa: SLF001

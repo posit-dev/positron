@@ -5,6 +5,7 @@
 
 import asyncio
 import enum
+import inspect
 import logging
 import re
 import threading
@@ -16,19 +17,21 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Uni
 from comm.base_comm import BaseComm
 
 from ._vendor import attrs, cattrs
-from ._vendor.jedi.api import Interpreter, Project
+from ._vendor.jedi.api import Interpreter, Project, Script
+from ._vendor.jedi.api.classes import Completion
 from ._vendor.jedi_language_server import jedi_utils, pygls_utils
 from ._vendor.jedi_language_server.server import (
     JediLanguageServer,
     JediLanguageServerProtocol,
     _choose_markup,
     completion_item_resolve,
+    declaration,
     definition,
     did_change_configuration,
+    did_close_diagnostics,
     document_symbol,
     highlight,
     hover,
-    references,
     rename,
     signature_help,
     type_definition,
@@ -39,6 +42,7 @@ from ._vendor.lsprotocol.types import (
     INITIALIZE,
     TEXT_DOCUMENT_CODE_ACTION,
     TEXT_DOCUMENT_COMPLETION,
+    TEXT_DOCUMENT_DECLARATION,
     TEXT_DOCUMENT_DEFINITION,
     TEXT_DOCUMENT_DID_CHANGE,
     TEXT_DOCUMENT_DID_CLOSE,
@@ -75,8 +79,6 @@ from ._vendor.lsprotocol.types import (
     InitializeResult,
     InsertTextFormat,
     Location,
-    MarkupContent,
-    MarkupKind,
     MessageType,
     Position,
     Range,
@@ -95,8 +97,7 @@ from ._vendor.pygls.feature_manager import has_ls_param_or_annotation
 from ._vendor.pygls.protocol import lsp_method
 from ._vendor.pygls.workspace.text_document import TextDocument
 from .help_comm import ShowHelpTopicParams
-from .inspectors import BaseColumnInspector, BaseTableInspector, get_inspector
-from .jedi import PositronInterpreter, get_python_object
+from .jedi import apply_jedi_patches
 from .utils import debounce
 
 if TYPE_CHECKING:
@@ -112,6 +113,30 @@ _SHELL_PREFIX = "!"
 _HELP_PREFIX_OR_SUFFIX = "?"
 _HELP_TOPIC = "positron/textDocument/helpTopic"
 _VSCODE_NOTEBOOK_CELL_SCHEME = "vscode-notebook-cell"
+
+# Apply Positron patches to Jedi itself.
+apply_jedi_patches()
+
+
+def _jedi_utils_script(project: Optional[Project], document: TextDocument) -> Script:
+    """
+    Search the caller stack for the server object and return a Jedi Interpreter object.
+
+    This lets us use an `Interpreter` (with reference to the shell's user namespace) for all LSP
+    methods without having to vendor all of that code from `jedi-language-server`.
+    """
+    # Get the server object from the caller's scope.
+    frame = inspect.currentframe()
+    if frame is not None and frame.f_back is not None:
+        # Get the server object from the caller's scope.
+        server = frame.f_back.f_locals.get("server")
+        if isinstance(server, PositronJediLanguageServer):
+            # Return a Jedi Interpreter.
+            return _interpreter(project, document, server.shell)
+    raise AssertionError("Could not find server object in the caller's scope")
+
+
+jedi_utils.script = _jedi_utils_script
 
 
 @enum.unique
@@ -378,7 +403,7 @@ def positron_completion(
         return None
 
     # Use Interpreter instead of Script to include the shell's namespaces in completions
-    jedi_script = interpreter(server.project, document, server.shell)
+    jedi_script = _interpreter(server.project, document, server.shell)
 
     # --- End Positron ---
 
@@ -426,13 +451,21 @@ def positron_completion(
         if not trimmed_line.startswith(_LINE_MAGIC_PREFIX):
             for completion in completions_jedi:
                 jedi_completion_item = jedi_utils.lsp_completion_item(
-                    completion=completion,
+                    completion=cast(Completion, completion),
                     char_before_cursor=char_before_cursor,
                     char_after_cursor=char_after_cursor,
                     enable_snippets=enable_snippets,
                     resolve_eagerly=resolve_eagerly,
                     markup_kind=markup_kind,
                     sort_append_text=completion.name,
+                )
+
+                # Set the most recent completion using the `label`.
+                # `jedi_utils.lsp_completion_item` uses `completion.name` as the key, but
+                # `completion` isn't available when accessing the most recent completions dict
+                # (in `positron_completion_item_resolve`), and it may differ from the `label`.
+                jedi_utils._MOST_RECENT_COMPLETIONS[jedi_completion_item.label] = cast(  # noqa: SLF001
+                    Completion, completion
                 )
 
                 # If Jedi knows how to complete the expression, use its suggestion.
@@ -561,23 +594,6 @@ def positron_completion_item_resolve(
     if magic_completion is not None:
         params.detail, params.documentation = magic_completion
         return params
-
-    # Try to include extra information for objects in the user's namespace e.g. dataframes and columns.
-    completion = jedi_utils._MOST_RECENT_COMPLETIONS[params.label]  # noqa: SLF001
-    obj, is_found = get_python_object(completion)
-    if is_found:
-        inspector = get_inspector(obj)
-        if isinstance(inspector, (BaseColumnInspector, BaseTableInspector)):
-            params.detail = inspector.get_display_type()
-
-            markup_kind = _choose_markup(server)
-            # TODO: We may want to use get_display_value when we update inspectors to return
-            # multiline display values once Positron supports it.
-            doc = str(obj)
-            if markup_kind == MarkupKind.Markdown:
-                doc = f"```text\n{doc}\n```"
-            params.documentation = MarkupContent(kind=markup_kind, value=doc)
-            return params
     # --- End Positron ---
     return completion_item_resolve(server, params)
 
@@ -590,6 +606,13 @@ def positron_signature_help(
     server: PositronJediLanguageServer, params: TextDocumentPositionParams
 ) -> Optional[SignatureHelp]:
     return signature_help(server, params)
+
+
+@POSITRON.feature(TEXT_DOCUMENT_DECLARATION)
+def positron_declaration(
+    server: PositronJediLanguageServer, params: TextDocumentPositionParams
+) -> Optional[List[Location]]:
+    return declaration(server, params)
 
 
 @POSITRON.feature(TEXT_DOCUMENT_DEFINITION)
@@ -630,7 +653,18 @@ def positron_hover(
 def positron_references(
     server: PositronJediLanguageServer, params: TextDocumentPositionParams
 ) -> Optional[List[Location]]:
-    return references(server, params)
+    document = server.workspace.get_text_document(params.text_document.uri)
+    # TODO: Don't use an Interpreter until we debug the corresponding test on Python <= 3.9.
+    #       Not missing out on much since references don't use namespace information anyway.
+    jedi_script = Script(code=document.source, path=document.path, project=server.project)
+    jedi_lines = jedi_utils.line_column(params.position)
+    names = jedi_script.get_references(*jedi_lines)
+    locations = [
+        location
+        for location in (jedi_utils.lsp_location(name) for name in names)
+        if location is not None
+    ]
+    return locations if locations else None
 
 
 @POSITRON.feature(TEXT_DOCUMENT_DOCUMENT_SYMBOL)
@@ -660,7 +694,7 @@ def positron_help_topic_request(
 ) -> Optional[ShowHelpTopicParams]:
     """Return topic to display in Help pane."""
     document = server.workspace.get_text_document(params.text_document.uri)
-    jedi_script = interpreter(server.project, document, server.shell)
+    jedi_script = _interpreter(server.project, document, server.shell)
     jedi_lines = jedi_utils.line_column(params.position)
     names = jedi_script.infer(*jedi_lines)
 
@@ -735,24 +769,7 @@ def positron_did_open_diagnostics(
 def positron_did_close_diagnostics(
     server: PositronJediLanguageServer, params: DidCloseTextDocumentParams
 ) -> None:
-    # When a notebook cell is closed, clear the diagnostics for the cell.
-    # This happens when a cell's language is changed from python e.g. to raw,
-    # see: https://github.com/posit-dev/positron/issues/4160.
-    if params.text_document.uri.startswith(_VSCODE_NOTEBOOK_CELL_SCHEME):
-        return _clear_diagnostics_debounced(server, params.text_document.uri)
-
     return did_close_diagnostics(server, params)
-
-
-@debounce(1, keyed_by="uri")
-def _clear_diagnostics_debounced(server: PositronJediLanguageServer, uri: str) -> None:
-    # Catch and log any exceptions. Exceptions should be handled by pygls, but the debounce
-    # decorator causes the function to run in a separate thread thus a separate stack from pygls'
-    # exception handler.
-    try:
-        server.publish_diagnostics(uri, [])
-    except Exception:
-        logger.exception(f"Failed to clear diagnostics for uri {uri}", exc_info=True)
 
 
 @debounce(1, keyed_by="uri")
@@ -814,12 +831,7 @@ def did_open_diagnostics(server: JediLanguageServer, params: DidOpenTextDocument
     _publish_diagnostics_debounced(server, params.text_document.uri)  # type: ignore - pyright bug
 
 
-def did_close_diagnostics(server: JediLanguageServer, params: DidCloseTextDocumentParams) -> None:
-    """Actions run on textDocument/didClose: diagnostics."""
-    _publish_diagnostics_debounced(server, params.text_document.uri)  # type: ignore - pyright bug
-
-
-def interpreter(
+def _interpreter(
     project: Optional[Project], document: TextDocument, shell: Optional["PositronShell"]
 ) -> Interpreter:
     """Return a `jedi.Interpreter` with a reference to the shell's user namespace."""
@@ -827,4 +839,4 @@ def interpreter(
     if shell is not None:
         namespaces.append(shell.user_ns)
 
-    return PositronInterpreter(document.source, namespaces, path=document.path, project=project)
+    return Interpreter(document.source, namespaces, path=document.path, project=project)

@@ -513,6 +513,9 @@ export enum LanguageRuntimeSessionLocation {
 	Browser = 'browser',
 }
 
+/**
+ * Possible values for individual language runtimes' `startupBehavior`.
+ */
 export enum LanguageRuntimeStartupBehavior {
 	/**
 	 * The runtime should be started immediately after registration; usually used for runtimes
@@ -538,6 +541,40 @@ export enum LanguageRuntimeStartupBehavior {
 	 * workspace.
 	 */
 	Manual = 'manual'
+}
+
+/**
+ * Possible values for the `interpreters.startupBehavior` configuration
+ * setting. This setting is used to control the startup behavior for a language
+ * itself rather than a specific interpreter.
+ */
+export enum LanguageStartupBehavior {
+	/**
+	 * A runtime for this language should be started in every new Positron
+	 * window.
+	 */
+	Always = 'always',
+
+	/**
+	 * The default; automatically start whatever was last used in the
+	 * workspace, or a recommended runtime if nothing was used.
+	 */
+	Auto = 'auto',
+
+	/**
+	 * Start whatever version of the runtime is recommended by the extension.
+	 */
+	Recommended = 'recommended',
+
+	/**
+	 * A runtime for this language should only start when manually selected.
+	 */
+	Manual = 'manual',
+
+	/**
+	 * Disable runtime startup entirely for this language.
+	 */
+	Disabled = 'disabled'
 }
 
 /**
@@ -653,6 +690,33 @@ export interface ILanguageRuntimeMetadata {
 
 	/** Extra data supplied by the extension; not read by Positron */
 	readonly extraRuntimeData: any;
+}
+
+/**
+ * Represents an object that manages the discovery of language runtimes. This
+ * is implemented by each extension host in the form of a
+* `MainThreadLanguageRuntime`.
+ */
+export interface IRuntimeManager {
+	/** A unique ID for this manager */
+	id: number;
+
+	/**
+	 * Discovers all available runtimes on the machine.
+	 *
+	 * @param disabledLanguageIds Languages for which discovery should be
+	 * skipped.
+	 */
+	discoverAllRuntimes(disabledLanguageIds: string[]): Promise<void>;
+
+	/**
+	 * Recommend runtimes for this specific workspace.
+	 *
+	 * @param disabledLanguageIds Languages for which no recommendations should
+	 * be made.
+	 * @returns A list of recommended runtimes, asynchronously.
+	 */
+	recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
 }
 
 export interface ILangaugeRuntimeDynState {

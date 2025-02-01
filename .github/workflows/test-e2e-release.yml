@@ -104,6 +104,8 @@ jobs:
         env:
           POSITRON_PY_VER_SEL: 3.12.3
           POSITRON_R_VER_SEL: 4.4.0
+          POSITRON_PY_ALT_VER_SEL: 3.13.0
+          POSITRON_R_ALT_VER_SEL: 4.4.2
           CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
@@ -112,7 +114,7 @@ jobs:
         id: electron-e2e-tests
         run: |
           export DISPLAY=:10
-          BUILD=/usr/share/positron npx playwright test --project e2e-electron --workers 2 --grep "${{ env.PW_TAGS }}"
+          BUILD=/usr/share/positron npx playwright test --project e2e-electron --workers 2 --grep "${{ env.PW_TAGS }}" --max-failures 10
 
       - name: Upload Playwright Report to S3
         if: ${{ !cancelled() }}

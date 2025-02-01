@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -648,13 +648,27 @@ declare module 'positron' {
 
 	export interface LanguageRuntimeManager {
 		/**
-		 * Returns a generator that yields metadata about the language runtimes
-		 * that are available to the user.
+		 * Returns a generator that yields metadata about all the language
+		 * runtimes that are available to the user.
 		 *
 		 * This metadata will be passed to `createSession` to create new runtime
 		 * sessions.
 		 */
-		discoverRuntimes(): AsyncGenerator<LanguageRuntimeMetadata>;
+		discoverAllRuntimes(): AsyncGenerator<LanguageRuntimeMetadata>;
+
+		/**
+		 * Returns a single runtime metadata object representing the runtime
+		 * that should be used in the current workspace, if any.
+		 *
+		 * Note that this is called before `discoverAllRuntimes` during
+		 * startup, and should return `undefined` if no runtime is recommended.
+		 *
+		 * If a runtime is returned, `startupBehavior` property of the runtime
+		 * metadata is respected here; use `Immediately` to start the runtime
+		 * right away, or any other value to save the runtime as the project
+		 * default without starting it.
+		 */
+		recommendedWorkspaceRuntime(): Thenable<LanguageRuntimeMetadata | undefined>;
 
 		/**
 		 * An optional event that fires when a new runtime is discovered.
@@ -1354,10 +1368,13 @@ declare module 'positron' {
 			errorBehavior?: RuntimeErrorBehavior): Thenable<boolean>;
 
 		/**
-		 * Register a language runtime manager with Positron. Returns a
-		 * disposable that unregisters the manager when disposed.
+		 * Register a language runtime manager with Positron.
+		 *
+		 * @param languageId The language ID for which the runtime
+		 * @returns A disposable that unregisters the manager when disposed.
+		 *
 		 */
-		export function registerLanguageRuntimeManager(manager: LanguageRuntimeManager): vscode.Disposable;
+		export function registerLanguageRuntimeManager(languageId: string, manager: LanguageRuntimeManager): vscode.Disposable;
 
 		/**
 		 * List all registered runtimes.
