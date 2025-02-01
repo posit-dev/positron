@@ -280,7 +280,9 @@ export class BrowserMain extends Disposable {
 		serviceCollection.set(IProductService, productService);
 
 		// Environment
-		const logsPath = URI.file(toLocalISOString(new Date()).replace(/-|:|\.\d+Z$/g, '')).with({ scheme: 'vscode-log' });
+		// --- Start PWB: Always use in-memory logger
+		const logsPath = URI.file(this.configuration.userDataPath + '/' + toLocalISOString(new Date()).replace(/-|:|\.\d+Z$/g, '')).with({ scheme: 'vscode-log' });
+		// --- End PWB
 		const environmentService = new BrowserWorkbenchEnvironmentService(workspace.id, logsPath, this.configuration, productService);
 		serviceCollection.set(IBrowserWorkbenchEnvironmentService, environmentService);
 
@@ -477,13 +479,9 @@ export class BrowserMain extends Disposable {
 		}
 
 		// Logger
-		if (indexedDB) {
-			const logFileSystemProvider = new IndexedDBFileSystemProvider(logsPath.scheme, indexedDB, logsStore, false);
-			this.indexedDBFileSystemProviders.push(logFileSystemProvider);
-			fileService.registerProvider(logsPath.scheme, logFileSystemProvider);
-		} else {
-			fileService.registerProvider(logsPath.scheme, new InMemoryFileSystemProvider());
-		}
+		// --- Start PWB: Always use in-memory logger
+		fileService.registerProvider(logsPath.scheme, new InMemoryFileSystemProvider());
+		// --- End PWB
 
 		// User data
 		let userDataProvider;
