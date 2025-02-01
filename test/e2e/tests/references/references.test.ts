@@ -23,7 +23,9 @@ test.describe('References', {
 
 	});
 
-	test('Python - Verify References Functionality', async function ({ app, python, openFile }) {
+	test('Python - Verify References Functionality', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6211' }]
+	}, async function ({ app, python, openFile }) {
 		const helper = 'helper.py';
 
 		await openFile(join('workspaces', 'references_tests', 'python', helper));
@@ -57,7 +59,7 @@ async function openAndCommonValidations(app: Application, helper: string) {
 		await app.workbench.editor.clickOnTerm(helper, 'add', 1, true);
 
 		await test.step('Open references view', async () => {
-			await app.code.driver.page.keyboard.press('F12');
+			await app.code.driver.page.keyboard.press('Shift+F12');
 
 			await app.workbench.references.waitUntilOpen();
 		});
