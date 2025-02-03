@@ -78,7 +78,9 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext) 
 		vscode.ConfigurationTarget.Global
 	);
 
-	vscode.window.showInformationMessage(`Language Model "${name}" has been added successfully.`);
+	vscode.window.showInformationMessage(
+		vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
+	);
 }
 
 export async function deleteConfiguration(context: vscode.ExtensionContext, id: string) {

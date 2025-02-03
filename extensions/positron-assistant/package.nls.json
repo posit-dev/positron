@@ -1,0 +1,6 @@
+{
+	"displayName": "Positron Assistant",
+	"description": "Provides default assistant and language models for Positron.",
+	"commands.addModelConfiguration.title": "Add Language Model",
+	"commands.addModelConfiguration.category": "Positron Assistant"
+}

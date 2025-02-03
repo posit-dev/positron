@@ -46,7 +46,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 
 			const models = await vscode.lm.selectChatModels({ id: result.metadata?.modelId });
 			if (models.length === 0) {
-				throw new Error('Selected model not available.');
+				throw new Error(vscode.l10n.t('Selected model not available.'));
 			}
 
 			const response = await models[0].sendRequest(messages, { modelOptions: { system } }, token);
@@ -71,10 +71,12 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 		async provideWelcomeMessage(token: vscode.CancellationToken) {
 			let welcomeText = await fs.promises.readFile(`${mdDir}/welcome.md`, 'utf8');
 
+			const addLanguageModelMessage = vscode.l10n.t('Add a Language Model.');
+
 			// Show an extra configuration link if there are no configured models yet
 			if (getStoredModels().length === 0) {
 				const commandUri = vscode.Uri.parse('command:positron.assistant.addModelConfiguration');
-				welcomeText += `\n\n[Add a Language Model](${commandUri})`;
+				welcomeText += `\n\n[${addLanguageModelMessage}](${commandUri})`;
 			}
 
 			const message = new vscode.MarkdownString(welcomeText);

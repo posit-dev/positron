@@ -20,15 +20,18 @@ async function checkExecuteConsent(token: unknown): Promise<boolean> {
 		return true;
 	}
 
-	positron.ai.responseProgress(token, new vscode.ChatResponseProgressPart('Asking for user consent to execute code...'));
+	positron.ai.responseProgress(token, new vscode.ChatResponseProgressPart(
+		vscode.l10n.t('Asking for user consent to execute code...')
+	));
 
+	const allowText = vscode.l10n.t('Allow');
 	const result = await vscode.window.showInformationMessage(
-		'Positron Assistant is about to execute code in your active console.\n\n AI-generated code may contain errors or unexpected behavior.',
+		vscode.l10n.t('Positron Assistant is about to execute code in your active console.\n\n AI-generated code may contain errors or unexpected behavior.'),
 		{ modal: true },
-		'Allow',
+		allowText,
 	);
 
-	if (result === 'Allow') {
+	if (result === allowText) {
 		await context.globalState.update(CONSENT_KEY, now);
 		return true;
 	}
@@ -58,7 +61,8 @@ export async function executeCodeInActiveConsole(code: string, token: unknown) {
 	// Ask user if we can go ahead and execute code.
 	const userConsent = await checkExecuteConsent(token);
 	if (!userConsent) {
-		return 'Error: The user denied the request to execute code.';
+		const deniedMessage = vscode.l10n.t('The user denied the request to execute code.');
+		return `Error: ${deniedMessage}`;
 	}
 
 	push(new vscode.ChatResponseProgressPart('Executing code...'));

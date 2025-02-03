@@ -12,7 +12,7 @@ import { toLanguageModelChatMessage } from '../utils';
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
 export const QUARTO_COMMAND = 'quarto';
-export const QUARTO_DESCRIPTION = 'Convert the conversation so far into a new Quarto document.';
+export const QUARTO_DESCRIPTION = vscode.l10n.t('Convert the conversation so far into a new Quarto document.');
 
 export async function quartoHandler(
 	request: vscode.ChatRequest,
@@ -22,8 +22,8 @@ export async function quartoHandler(
 ) {
 	const system = await fs.promises.readFile(`${mdDir}/prompts/chat/quarto.md`, 'utf8');
 
-	response.markdown('Okay!');
-	response.progress('Creating new Quarto document...');
+	response.markdown(vscode.l10n.t('Okay!'));
+	response.progress(vscode.l10n.t('Creating new Quarto document...'));
 	const document = await vscode.workspace.openTextDocument({
 		language: 'quarto',
 		content: ''
@@ -32,10 +32,10 @@ export async function quartoHandler(
 
 	const messages: vscode.LanguageModelChatMessage[] = toLanguageModelChatMessage(context.history);
 	messages.push(...[
-		vscode.LanguageModelChatMessage.User('Convert to Qmd.'),
+		vscode.LanguageModelChatMessage.User(vscode.l10n.t('Convert to Qmd.')),
 	]);
 
-	response.progress('Writing Quarto document...');
+	response.progress(vscode.l10n.t('Writing Quarto document...'));
 	const modelResponse = await request.model.sendRequest(messages, {
 		modelOptions: { system },
 	}, token);

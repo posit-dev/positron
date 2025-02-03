@@ -65,9 +65,8 @@ async function registerModels(context: vscode.ExtensionContext) {
 		vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
 
 	} catch (e) {
-		vscode.window.showErrorMessage(
-			`Positron Assistant: Failed to load model configurations - ${e}`
-		);
+		const failedMessage = vscode.l10n.t('Positron Assistant: Failed to load model configurations.');
+		vscode.window.showErrorMessage(`${failedMessage} ${e}`);
 	}
 }
 

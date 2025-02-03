@@ -1,7 +1,7 @@
 {
   "name": "positron-assistant",
-  "displayName": "Assistant",
-  "description": "Positron Assistant",
+  "displayName": "%displayName%",
+  "description": "%description%",
   "version": "0.0.1",
   "publisher": "positron",
   "engines": {
@@ -35,8 +35,8 @@
     "commands": [
       {
         "command": "positron-assistant.addModelConfiguration",
-        "title": "Add Language Model",
-        "category": "Positron Assistant"
+        "title": "%commands.addModelConfiguration.title%",
+        "category": "%commands.addModelConfiguration.category%"
       }
     ],
     "languageModels": [

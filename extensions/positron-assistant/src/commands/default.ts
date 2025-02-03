@@ -137,9 +137,9 @@ export async function defaultHandler(
 
 	if (!request.model) {
 		const commandUri = vscode.Uri.parse('command:positron.assistant.addModelConfiguration');
-		const message = new vscode.MarkdownString(
-			`No language models are available. [Click here to add one.](${commandUri})`
-		);
+		const modelsMessage = vscode.l10n.t('No language models are available.');
+		const addMessage = vscode.l10n.t('Click here to add one.');
+		const message = new vscode.MarkdownString(`${modelsMessage} [${addMessage}](${commandUri})`);
 		message.isTrusted = { enabledCommands: ['positron.assistant.addModelConfiguration'] };
 		response.warning(message);
 		return;
