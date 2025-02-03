@@ -111,7 +111,11 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				if (modelOptions.toolInvocationToken && tool.name in positronToolAdapters) {
 					acc[tool.name] = positronToolAdapters[tool.name].aiTool(
 						modelOptions.toolInvocationToken,
-						modelOptions.toolOptions[tool.name]
+						{
+							model: this.model,
+							signal: signal,
+							...modelOptions.toolOptions[tool.name],
+						}
 					);
 				} else {
 					// For any other tool, create an ai.Tool object from scratch.

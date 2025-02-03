@@ -29,7 +29,7 @@ export const getPlotToolAdapter: PositronToolAdapter = {
 		};
 	},
 
-	aiTool(token: unknown): ai.Tool {
+	aiTool(token: unknown, options: { model: ai.LanguageModelV1; signal: AbortSignal }): ai.Tool {
 		const push = (part: vscode.ChatResponsePart) => positron.ai.responseProgress(token, part);
 		return ai.tool({
 			description: this.description,
@@ -43,16 +43,25 @@ export const getPlotToolAdapter: PositronToolAdapter = {
 				}
 
 				push(new vscode.ChatResponseProgressPart('Analysing the plot image data...'));
-				return {
-					type: 'image' as const,
-					mimeType: matches[1],
-					data: padBase64String(matches[2]),
-				};
-			},
-			experimental_toToolResultContent(result) {
-				return typeof result === 'string'
-					? [{ type: 'text', text: result }]
-					: [result];
+
+				// Ask the model to describe the image in a new sub-conversation behind the scenes
+				const result = await ai.generateText({
+					model: options.model,
+					system: 'Describe the image provided by the user.',
+					messages: [
+						{
+							role: 'user',
+							content: [{
+								type: 'image' as const,
+								mimeType: matches[1],
+								image: padBase64String(matches[2]),
+							}],
+						}
+					],
+					abortSignal: options.signal,
+				});
+
+				return result.text;
 			},
 		});
 	}
