@@ -214,7 +214,7 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 		defaults: {
 			name: 'GPT-4o',
 			model: 'gpt-4o',
-			baseUrl: 'https://api.openai.com',
+			baseUrl: 'https://api.openai.com/v1',
 			toolCalls: true,
 		},
 	};
