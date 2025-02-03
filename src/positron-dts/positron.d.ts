@@ -1595,14 +1595,10 @@ declare module 'positron' {
 		export interface LanguageModelSource {
 			type: 'chat' | 'completion';
 			provider: { id: string; displayName: string };
-			supportedOptions: ('apiKey' | 'baseUrl' | 'toolCalls')[];
-			defaults: {
-				name: string;
-				model: string;
-				baseUrl?: string;
-				apiKey?: string;
-				toolCalls?: boolean;
-			};
+			supportedOptions: Exclude<{
+				[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K] ? K : never
+			}[keyof LanguageModelConfig], undefined>[];
+			defaults: Omit<LanguageModelConfig, 'provider' | 'type'>;
 		}
 
 		/**
@@ -1616,6 +1612,9 @@ declare module 'positron' {
 			baseUrl?: string;
 			apiKey?: string;
 			toolCalls?: boolean;
+			resourceName?: string;
+			project?: string;
+			location?: string;
 		}
 
 		/**

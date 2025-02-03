@@ -72,17 +72,31 @@
                 "type": "boolean",
                 "description": "Should the LLM make tool calls?"
               },
+              "project": {
+                "type": "string",
+                "description": "Google Cloud Project ID."
+              },
+              "location": {
+                "type": "string",
+                "description": "Google Cloud Location."
+              },
+              "resourceName": {
+                "type": "string",
+                "description": "Azure resource name."
+              },
               "provider": {
                 "type": "string",
                 "enum": [
                   "anthropic",
+                  "azure",
                   "echo",
                   "error",
                   "mistral",
                   "ollama",
                   "openai",
                   "openrouter",
-                  "bedrock"
+                  "bedrock",
+                  "vertex"
                 ],
                 "description": "The language model provider."
               },
@@ -113,6 +127,8 @@
   "devDependencies": {
     "@ai-sdk/amazon-bedrock": "^1.1.5",
     "@ai-sdk/anthropic": "^1.0.5",
+    "@ai-sdk/azure": "^1.1.9",
+    "@ai-sdk/google-vertex": "^2.1.8",
     "@ai-sdk/openai": "^1.0.8",
     "@aws-sdk/credential-providers": "^3.734.0",
     "@eslint/js": "^9.13.0",

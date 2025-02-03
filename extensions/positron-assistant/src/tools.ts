@@ -51,11 +51,16 @@ export const getPlotToolAdapter: PositronToolAdapter = {
 					messages: [
 						{
 							role: 'user',
-							content: [{
-								type: 'image' as const,
-								mimeType: matches[1],
-								image: padBase64String(matches[2]),
-							}],
+							content: [
+								{
+									type: 'text' as const,
+									text: 'The image is attached.'
+								}, {
+									type: 'image' as const,
+									mimeType: matches[1],
+									image: padBase64String(matches[2]),
+								}
+							],
 						}
 					],
 					abortSignal: options.signal,

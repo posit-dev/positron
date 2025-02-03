@@ -33,22 +33,15 @@ export interface IPositronChatContext {
 
 export type PositronLanguageModelType = 'chat' | 'completion';
 
-export type PositronLanguageModelOptions = 'apiKey' | 'baseUrl' | 'toolCalls';
+export type PositronLanguageModelOptions = Exclude<{
+	[K in keyof IPositronLanguageModelConfig]: undefined extends IPositronLanguageModelConfig[K] ? K : never
+}[keyof IPositronLanguageModelConfig], undefined>;
 
 export interface IPositronLanguageModelSource {
 	type: PositronLanguageModelType;
-	provider: {
-		id: string;
-		displayName: string;
-	};
+	provider: { id: string; displayName: string };
 	supportedOptions: PositronLanguageModelOptions[];
-	defaults: {
-		name: string;
-		model: string;
-		baseUrl?: string;
-		apiKey?: string;
-		toolCalls?: boolean;
-	};
+	defaults: Omit<IPositronLanguageModelConfig, 'provider' | 'type'>;
 }
 
 export interface IPositronLanguageModelConfig {
@@ -59,6 +52,9 @@ export interface IPositronLanguageModelConfig {
 	baseUrl?: string;
 	apiKey?: string;
 	toolCalls?: boolean;
+	resourceName?: string;
+	project?: string;
+	location?: string;
 }
 
 //#endregion

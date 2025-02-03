@@ -68,6 +68,9 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const [source, setSource] = React.useState<IPositronLanguageModelSource>(defaultSource);
 	const [apiKey, setApiKey] = React.useState<string | undefined>();
 	const [baseUrl, setBaseUrl] = React.useState<string | undefined>();
+	const [resourceName, setResourceName] = React.useState<string | undefined>();
+	const [project, setProject] = React.useState<string | undefined>();
+	const [location, setLocation] = React.useState<string | undefined>();
 	const [toolCalls, setToolCalls] = React.useState<boolean | undefined>();
 	const [model, setModel] = React.useState<string | undefined>();
 	const [name, setName] = React.useState<string | undefined>();
@@ -83,6 +86,9 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		if (name === '') setName(undefined);
 		if (apiKey === '' || !source.supportedOptions.includes('apiKey')) setApiKey(undefined);
 		if (baseUrl === '' || !source.supportedOptions.includes('baseUrl')) setBaseUrl(undefined);
+		if (resourceName === '' || !source.supportedOptions.includes('resourceName')) setResourceName(undefined);
+		if (project === '' || !source.supportedOptions.includes('project')) setProject(undefined);
+		if (location === '' || !source.supportedOptions.includes('location')) setLocation(undefined);
 		if (source.supportedOptions.includes('toolCalls')) setToolCalls(source?.defaults.toolCalls);
 	}, [source]);
 
@@ -104,6 +110,9 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			name: name ?? source.defaults.name,
 			apiKey: apiKey ?? source?.defaults.apiKey,
 			baseUrl: baseUrl ?? source?.defaults.baseUrl,
+			resourceName: resourceName ?? source?.defaults.resourceName,
+			project: project ?? source?.defaults.project,
+			location: location ?? source?.defaults.location,
 			toolCalls: toolCalls ?? source?.defaults.toolCalls,
 		})
 		props.renderer.dispose();
@@ -173,6 +182,24 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 					value={baseUrl ?? source.defaults.baseUrl ?? ''}
 					label={(() => localize('positron.newConnectionModalDialog.baseURL', "Base URL"))()}
 					onChange={e => { setBaseUrl(e.currentTarget.value) }}
+				/>}
+			{source?.supportedOptions.includes('project') &&
+				<LabeledTextInput
+					value={project ?? source.defaults.project ?? ''}
+					label={(() => localize('positron.newConnectionModalDialog.project', "Google Cloud Project ID"))()}
+					onChange={e => { setProject(e.currentTarget.value) }}
+				/>}
+			{source?.supportedOptions.includes('location') &&
+				<LabeledTextInput
+					value={location ?? source.defaults.location ?? ''}
+					label={(() => localize('positron.newConnectionModalDialog.location', "Google Cloud Location"))()}
+					onChange={e => { setLocation(e.currentTarget.value) }}
+				/>}
+			{source?.supportedOptions.includes('resourceName') &&
+				<LabeledTextInput
+					value={resourceName ?? source.defaults.resourceName ?? ''}
+					label={(() => localize('positron.newConnectionModalDialog.resourceName', "Azure resource name"))()}
+					onChange={e => { setResourceName(e.currentTarget.value) }}
 				/>}
 			{source?.supportedOptions.includes('apiKey') &&
 				<LabeledTextInput

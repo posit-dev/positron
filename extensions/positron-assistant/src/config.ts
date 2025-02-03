@@ -50,7 +50,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext) 
 		return;
 	}
 
-	let { name, provider, model, type, baseUrl, apiKey, toolCalls } = userConfig;
+	let { name, model, baseUrl, apiKey, ...otherConfig } = userConfig;
 	name = name.trim();
 	model = model.trim();
 	baseUrl = baseUrl?.trim();
@@ -69,7 +69,13 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext) 
 	const existingConfigs = config.get<StoredModelConfig[]>('models') || [];
 
 	// Add new configuration
-	const newConfig: StoredModelConfig = { id, name, model, provider, type, baseUrl, toolCalls };
+	const newConfig: StoredModelConfig = {
+		id,
+		name,
+		model,
+		baseUrl,
+		...otherConfig,
+	};
 
 	// Update settings.json
 	await config.update(

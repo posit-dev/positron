@@ -8,6 +8,8 @@ import * as positron from 'positron';
 import * as ai from 'ai';
 import { ModelConfig } from './config';
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { createAzure } from '@ai-sdk/azure';
+import { createVertex } from '@ai-sdk/google-vertex';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOllama } from 'ollama-ai-provider';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
@@ -206,7 +208,7 @@ class AnthropicLanguageModel extends AILanguageModel implements positron.ai.Lang
 }
 
 class OpenAILanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
-	protected model;
+	protected model: ai.LanguageModelV1;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: 'chat',
@@ -283,6 +285,61 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 	}
 }
 
+class AzureLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
+	protected model: ai.LanguageModelV1;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: 'chat',
+		provider: {
+			id: 'azure',
+			displayName: 'Azure'
+		},
+		supportedOptions: ['resourceName', 'apiKey', 'toolCalls'],
+		defaults: {
+			name: 'GPT 4o',
+			model: 'gpt-4o',
+			resourceName: undefined,
+			toolCalls: true,
+		},
+	};
+
+	constructor(_config: ModelConfig) {
+		super(_config);
+		this.model = createAzure({
+			apiKey: this._config.apiKey,
+			resourceName: this._config.resourceName
+		})(this._config.model);
+	}
+}
+
+class VertexLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
+	protected model: ai.LanguageModelV1;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: 'chat',
+		provider: {
+			id: 'vertex',
+			displayName: 'Google Vertex AI'
+		},
+		supportedOptions: ['toolCalls', 'project', 'location'],
+		defaults: {
+			name: 'Gemini 2.0 Flash',
+			model: 'gemini-2.0-flash-exp',
+			project: undefined,
+			location: undefined,
+			toolCalls: true,
+		},
+	};
+
+	constructor(_config: ModelConfig) {
+		super(_config);
+		this.model = createVertex({
+			project: this._config.project,
+			location: this._config.location,
+		})(this._config.model);
+	}
+}
+
 export class AWSLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected model;
 
@@ -315,11 +372,13 @@ export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModel
 	const providerClasses = {
 		'echo': EchoLanguageModel,
 		'error': ErrorLanguageModel,
+		'anthropic': AnthropicLanguageModel,
+		'azure': AzureLanguageModel,
+		'bedrock': AWSLanguageModel,
+		'ollama': OllamaLanguageModel,
 		'openai': OpenAILanguageModel,
 		'openrouter': OpenRouterLanguageModel,
-		'anthropic': AnthropicLanguageModel,
-		'ollama': OllamaLanguageModel,
-		'bedrock': AWSLanguageModel,
+		'vertex': VertexLanguageModel,
 	};
 
 	if (!(config.provider in providerClasses)) {
@@ -331,8 +390,10 @@ export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModel
 
 export const languageModels = [
 	AnthropicLanguageModel,
+	AzureLanguageModel,
 	AWSLanguageModel,
 	OpenAILanguageModel,
 	OpenRouterLanguageModel,
 	OllamaLanguageModel,
+	VertexLanguageModel
 ];
