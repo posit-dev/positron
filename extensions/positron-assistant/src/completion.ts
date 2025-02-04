@@ -16,6 +16,11 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
+import { createVertex } from '@ai-sdk/google-vertex';
+import { createAzure } from '@ai-sdk/azure';
+
+import { loadSetting } from '@ai-sdk/provider-utils';
+import { GoogleAuth } from 'google-auth-library';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
@@ -50,6 +55,8 @@ abstract class CompletionModel implements vscode.InlineCompletionItemProvider {
 }
 
 class MistralCompletion extends CompletionModel {
+	url: string;
+
 	static source: positron.ai.LanguageModelSource = {
 		type: 'completion',
 		provider: {
@@ -65,6 +72,16 @@ class MistralCompletion extends CompletionModel {
 		},
 	};
 
+	constructor(_config: ModelConfig) {
+		super(_config);
+		this.url = `${this._config.baseUrl}/v1/fim/completions`;
+	}
+
+	async getAccessToken() {
+		return this._config.apiKey;
+	}
+
+	// TODO: Can we use Vercel AI here?
 	async provideInlineCompletionItems(
 		document: vscode.TextDocument,
 		position: vscode.Position,
@@ -78,12 +95,13 @@ class MistralCompletion extends CompletionModel {
 			return [];
 		}
 
-		// Can we use Vercel AI here?
 		const { prefix, suffix, prevLines, nextLines } = this.getDocumentContext(document, position);
-		const response = await fetch(`${this._config.baseUrl}/v1/fim/completions`, {
+
+		const accessToken = await this.getAccessToken();
+		const response = await fetch(this.url, {
 			method: 'POST',
 			headers: {
-				'Authorization': `Bearer ${this._config.apiKey}`,
+				'Authorization': `Bearer ${accessToken}`,
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({
@@ -104,6 +122,64 @@ class MistralCompletion extends CompletionModel {
 		return [{
 			insertText: data.choices[0].message.content
 		}];
+	}
+}
+
+class VertexCodestralCompletion extends MistralCompletion {
+	authInstance: GoogleAuth;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: 'completion',
+		provider: {
+			id: 'vertex-codestral',
+			displayName: 'Google Vertex AI (Codestral)'
+		},
+		supportedOptions: ['project', 'location'],
+		defaults: {
+			name: 'Codestral (Google Vertex AI)',
+			model: 'codestral-2501',
+			project: undefined,
+			location: undefined,
+		},
+	};
+
+	constructor(_config: ModelConfig) {
+		super(_config);
+
+		const model = this._config.model;
+
+		const project = loadSetting({
+			settingValue: this._config.project,
+			settingName: 'project',
+			environmentVariableName: 'GOOGLE_VERTEX_PROJECT',
+			description: 'Google Vertex project',
+		});
+
+		const location = loadSetting({
+			settingValue: this._config.location,
+			settingName: 'location',
+			environmentVariableName: 'GOOGLE_VERTEX_LOCATION',
+			description: 'Google Vertex location',
+		});
+
+		this.authInstance = new GoogleAuth({
+			scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+			projectId: project,
+		});
+
+		this.url = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/mistralai/models/${model}:rawPredict`;
+	}
+
+	async getAccessToken() {
+		const client = await this.authInstance.getClient();
+		const accessToken = await client.getAccessToken();
+
+		if (!accessToken || !accessToken.token) {
+			const statusText = accessToken?.res?.statusText;
+			throw new Error(`Google Cloud Authentication failed: ${statusText}`);
+		}
+
+		return accessToken.token;
 	}
 }
 
@@ -283,7 +359,8 @@ class OpenRouterCompletion extends FimPromptCompletion {
 		})(this._config.model);
 	}
 }
-export class AWSLanguageModel extends FimPromptCompletion {
+
+class AWSCompletion extends FimPromptCompletion {
 	protected model;
 
 	static source: positron.ai.LanguageModelSource = {
@@ -310,14 +387,70 @@ export class AWSLanguageModel extends FimPromptCompletion {
 	}
 }
 
+class VertexGeminiCompletion extends FimPromptCompletion {
+	protected model: ai.LanguageModelV1;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: 'completion',
+		provider: {
+			id: 'vertex-gemini',
+			displayName: 'Google Vertex AI (Gemini)'
+		},
+		supportedOptions: ['project', 'location'],
+		defaults: {
+			name: 'Gemini 1.5 Flash',
+			model: 'gemini-1.5-flash-002',
+			project: undefined,
+			location: undefined,
+		},
+	};
+
+	constructor(_config: ModelConfig) {
+		super(_config);
+		this.model = createVertex({
+			project: this._config.project,
+			location: this._config.location,
+		})(this._config.model);
+	}
+}
+
+class AzureCompletion extends FimPromptCompletion {
+	protected model: ai.LanguageModelV1;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: 'completion',
+		provider: {
+			id: 'azure',
+			displayName: 'Azure'
+		},
+		supportedOptions: ['resourceName', 'apiKey'],
+		defaults: {
+			name: 'GPT 4o',
+			model: 'gpt-4o',
+			resourceName: undefined,
+		},
+	};
+
+	constructor(_config: ModelConfig) {
+		super(_config);
+		this.model = createAzure({
+			apiKey: this._config.apiKey,
+			resourceName: this._config.resourceName
+		})(this._config.model);
+	}
+}
+
 export function newCompletionProvider(config: ModelConfig): vscode.InlineCompletionItemProvider {
 	const providerClasses = {
+		'anthropic': AnthropicCompletion,
+		'azure': AzureCompletion,
+		'bedrock': AWSCompletion,
+		'mistral': MistralCompletion,
 		'ollama': OllamaCompletion,
 		'openai': OpenAICompletion,
-		'mistral': MistralCompletion,
-		'anthropic': AnthropicCompletion,
 		'openrouter': OpenRouterCompletion,
-		'bedrock': AWSLanguageModel,
+		'vertex-gemini': VertexGeminiCompletion,
+		'vertex-codestral': VertexCodestralCompletion,
 	};
 
 	if (!(config.provider in providerClasses)) {
@@ -328,10 +461,13 @@ export function newCompletionProvider(config: ModelConfig): vscode.InlineComplet
 }
 
 export const completionModels = [
+	AnthropicCompletion,
+	AWSCompletion,
+	AzureCompletion,
 	MistralCompletion,
 	OllamaCompletion,
-	AnthropicCompletion,
 	OpenAICompletion,
 	OpenRouterCompletion,
-	AWSLanguageModel,
+	VertexGeminiCompletion,
+	VertexCodestralCompletion,
 ];
