@@ -50,6 +50,8 @@ const stashPatterns = [
 	'**/ark',                   // Compiled R kernel and LSP
 	// Exclusions from Kallichore Jupyter supervisor
 	'**/kcserver',              // Compiled Jupyter supervisor
+	// Exclusions for Python Environment Tools
+	'**/python-env-tools/pet',
 	// Exclusions from Quarto
 	'**/quarto/bin/tools/**',
 	// Exclusions from Node Addon API
