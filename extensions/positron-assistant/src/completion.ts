@@ -218,6 +218,7 @@ class OllamaCompletion extends CompletionModel {
 		const { prefix, suffix, prevLines, nextLines } = this.getDocumentContext(document, position);
 		const controller = new AbortController();
 		const signal = controller.signal;
+		token.onCancellationRequested(() => controller.abort());
 
 		const { textStream } = await ai.streamText({
 			model: this.model,
@@ -229,7 +230,6 @@ class OllamaCompletion extends CompletionModel {
 		let text = '';
 		for await (const delta of textStream) {
 			if (token.isCancellationRequested) {
-				controller.abort();
 				break;
 			}
 			text += delta;
@@ -263,6 +263,7 @@ abstract class FimPromptCompletion extends CompletionModel {
 
 		const controller = new AbortController();
 		const signal = controller.signal;
+		token.onCancellationRequested(() => controller.abort());
 
 		const system: string = await fs.promises.readFile(`${mdDir}/prompts/completion/fim.md`, 'utf8');
 		const { textStream } = await ai.streamText({
@@ -276,7 +277,6 @@ abstract class FimPromptCompletion extends CompletionModel {
 		let text = '';
 		for await (const delta of textStream) {
 			if (token.isCancellationRequested) {
-				controller.abort();
 				break;
 			}
 			text += delta;

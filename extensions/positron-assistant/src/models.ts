@@ -95,8 +95,11 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		token: vscode.CancellationToken
 	) {
 		const modelOptions = options.modelOptions ?? {};
+
 		const controller = new AbortController();
 		const signal = controller.signal;
+		token.onCancellationRequested(() => controller.abort());
+
 		let tools: Record<string, ai.Tool> | undefined;
 
 		const _messages = replaceBinaryMessageParts(
@@ -141,7 +144,6 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		for await (const part of result.fullStream) {
 			if (token.isCancellationRequested) {
-				controller.abort();
 				break;
 			}
 
