@@ -38,6 +38,7 @@ from ._vendor.jedi_language_server.server import (
     workspace_symbol,
 )
 from ._vendor.lsprotocol.types import (
+    CANCEL_REQUEST,
     COMPLETION_ITEM_RESOLVE,
     INITIALIZE,
     TEXT_DOCUMENT_CODE_ACTION,
@@ -167,6 +168,12 @@ class PositronInitializationOptions:
 
 
 class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
+    def __init__(self, server, converter):
+        super().__init__(server, converter)
+
+        # See `self._data_received` for a description.
+        self._messages_to_handle = []
+
     @lru_cache  # noqa: B019
     def get_message_type(self, method: str) -> Optional[Type]:
         # Overriden to include custom Positron LSP messages.
@@ -215,6 +222,52 @@ class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
         )
 
         return result
+
+    def _data_received(self, data: bytes) -> None:
+        # Workaround to a pygls performance issue where the server still executes requests
+        # even if they're immediately cancelled.
+        # See: https://github.com/openlawlibrary/pygls/issues/517.
+
+        # This should parse `data` and call `self._procedure_handler` with each parsed message.
+        # That usually handles each message, but we've overridden it to just add them to a queue.
+        self._messages_to_handle = []
+        super()._data_received(data)
+
+        def is_request(message):
+            return hasattr(message, "method") and hasattr(message, "id")
+
+        def is_cancel_notification(message):
+            return getattr(message, "method", None) == CANCEL_REQUEST
+
+        # First pass: find all requests that were cancelled in the same batch of `data`.
+        request_ids = set()
+        cancelled_ids = set()
+        for message in self._messages_to_handle:
+            if is_request(message):
+                request_ids.add(message.id)
+            elif is_cancel_notification(message) and message.params.id in request_ids:
+                cancelled_ids.add(message.params.id)
+
+        # Second pass: remove all requests that were cancelled in the same batch of `data`,
+        # and the cancel notifications themselves.
+        self._messages_to_handle = [
+            msg
+            for msg in self._messages_to_handle
+            if not (
+                # Remove cancel notifications whose params.id is in cancelled_ids...
+                (is_cancel_notification(msg) and msg.params.id in cancelled_ids)
+                # ...or original messages whose id is in cancelled_ids.
+                or (is_request(msg) and msg.id in cancelled_ids)
+            )
+        ]
+
+        # Now handle the messages.
+        for message in self._messages_to_handle:
+            super()._procedure_handler(message)
+
+    def _procedure_handler(self, message) -> None:
+        # Overridden to just queue messages which are handled later in `self._data_received`.
+        self._messages_to_handle.append(message)
 
 
 class PositronJediLanguageServer(JediLanguageServer):
@@ -636,6 +689,7 @@ def positron_highlight(
     return highlight(server, params)
 
 
+@POSITRON.thread()
 @POSITRON.feature(TEXT_DOCUMENT_HOVER)
 def positron_hover(
     server: PositronJediLanguageServer, params: TextDocumentPositionParams
