@@ -24,6 +24,23 @@ import { GoogleAuth } from 'google-auth-library';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
+/**
+ * Models used for autocomplete/ghost text.
+ *
+ * A minor complication here is that there does not yet seem to be a universally agreed-upon FIM
+ * completions API. OpenAI has a completions API, but it is considered legacy and does not work with
+ * their latest models. Yet, some other providers still implement it for newer models.
+ *
+ * With local llama models, delimiter tokens are used to separate prefix and suffix content, but the
+ * specific tokens are subtly different between open source models. Ollama has the concept of a
+ * prompt template to help deal with this.
+ *
+ * Some providers do not provide completion models. For those providers we can emulate FIM with
+ * prompt engineering.
+ */
+
+//#region Document context
+
 abstract class CompletionModel implements vscode.InlineCompletionItemProvider {
 	public name;
 	public identifier;
@@ -41,6 +58,8 @@ abstract class CompletionModel implements vscode.InlineCompletionItemProvider {
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList>;
 
 	getDocumentContext(document: vscode.TextDocument, position: vscode.Position) {
+		// TODO: Use similarity scores with recently opened documents to build wider context
+		// TODO: Limit context to some number of tokens (probably just characters for now)
 		const prefix = document.lineAt(position.line).text.substring(0, position.character);
 		const suffix = document.lineAt(position.line).text.substring(position.character);
 		const prevLines = Array.from({ length: position.line }, (_, i) => {
@@ -54,34 +73,37 @@ abstract class CompletionModel implements vscode.InlineCompletionItemProvider {
 	}
 }
 
-class MistralCompletion extends CompletionModel {
+//#endregion
+//#region OpenAI Legacy API
+// (OpenAI FIM, DeepSeek, Mistral)
+
+class OpenAILegacyCompletion extends CompletionModel {
 	url: string;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
-			id: 'mistral',
-			displayName: 'Mistral'
+			id: 'openai-legacy',
+			displayName: 'OpenAI (Legacy)'
 		},
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {
-			name: 'Codestral',
-			model: 'codestral-latest',
+			name: 'GPT 3.5 Turbo',
+			model: 'gpt-3.5-turbo-instruct',
 			apiKey: '',
-			baseUrl: 'https://api.mistral.ai',
+			baseUrl: 'https://api.openai.com/v1',
 		},
 	};
 
 	constructor(_config: ModelConfig) {
 		super(_config);
-		this.url = `${this._config.baseUrl}/v1/fim/completions`;
+		this.url = `${this._config.baseUrl}/completions`;
 	}
 
 	async getAccessToken() {
 		return this._config.apiKey;
 	}
 
-	// TODO: Can we use Vercel AI here?
 	async provideInlineCompletionItems(
 		document: vscode.TextDocument,
 		position: vscode.Position,
@@ -110,7 +132,7 @@ class MistralCompletion extends CompletionModel {
 				prompt: `${prevLines}\n${prefix}`,
 				suffix: `${suffix}\n${nextLines}`,
 				max_tokens: 128,
-				stop: '\n\n',
+				stop: ['\n\n', '<|endoftext|>'],
 			})
 		});
 
@@ -118,25 +140,78 @@ class MistralCompletion extends CompletionModel {
 			throw new Error(response.statusText);
 		}
 
-		const data = await response.json() as { choices: { message: { content: string } }[] };
-		return [{
-			insertText: data.choices[0].message.content
-		}];
+		const data = await response.json() as {
+			choices: { message: { content: string } }[];
+		} | {
+			choices: { text: string }[];
+		};
+
+		return data.choices.map((choice) => {
+			if ('text' in choice) {
+				return { insertText: choice.text };
+			} else {
+				return { insertText: choice.message.content };
+			}
+		});
 	}
 }
 
-class VertexCodestralCompletion extends MistralCompletion {
+class MistralCompletion extends OpenAILegacyCompletion {
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Completion,
+		provider: {
+			id: 'mistral',
+			displayName: 'Mistral'
+		},
+		supportedOptions: ['baseUrl', 'apiKey'],
+		defaults: {
+			name: 'Codestral',
+			model: 'codestral-latest',
+			apiKey: '',
+			baseUrl: 'https://api.mistral.ai/v1',
+		},
+	};
+
+	constructor(_config: ModelConfig) {
+		super(_config);
+		this.url = `${this._config.baseUrl}/fim/completions`;
+	}
+}
+
+class DeepSeekCompletion extends OpenAILegacyCompletion {
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Completion,
+		provider: {
+			id: 'deepseek',
+			displayName: 'DeepSeek'
+		},
+		supportedOptions: ['baseUrl', 'apiKey'],
+		defaults: {
+			name: 'DeepSeek V3',
+			model: 'deepseek-chat',
+			apiKey: '',
+			baseUrl: 'https://api.deepseek.com/beta',
+		},
+	};
+
+	constructor(_config: ModelConfig) {
+		super(_config);
+		this.url = `${this._config.baseUrl}/completions`;
+	}
+}
+
+class VertexLegacyCompletion extends MistralCompletion {
 	authInstance: GoogleAuth;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
-			id: 'vertex-codestral',
-			displayName: 'Google Vertex AI (Codestral)'
+			id: 'vertex-legacy',
+			displayName: 'Google Vertex (OpenAI Legacy API)'
 		},
 		supportedOptions: ['project', 'location'],
 		defaults: {
-			name: 'Codestral (Google Vertex AI)',
+			name: 'Codestral (Google Vertex)',
 			model: 'codestral-2501',
 			project: undefined,
 			location: undefined,
@@ -182,6 +257,9 @@ class VertexCodestralCompletion extends MistralCompletion {
 		return accessToken.token;
 	}
 }
+
+//#endregion
+//#region Ollama API
 
 class OllamaCompletion extends CompletionModel {
 	protected model: ai.LanguageModelV1;
@@ -239,6 +317,10 @@ class OllamaCompletion extends CompletionModel {
 	}
 }
 
+//#endregion
+//#region FIM Prompt
+// (Anthropic, OpenAI, Bedrock, OpenRouter, Gemini, Azure)
+
 abstract class FimPromptCompletion extends CompletionModel {
 	protected abstract model: ai.LanguageModelV1;
 
@@ -256,8 +338,6 @@ abstract class FimPromptCompletion extends CompletionModel {
 		}
 
 		// TODO: Include additional files in <file></file> tags as context.
-		// TODO: We should have some way for the user to override how the FIM prompt is built,
-		//       particularly for OpenRouter models.
 		const filename = document.fileName;
 		const { prefix, suffix, prevLines, nextLines } = this.getDocumentContext(document, position);
 
@@ -269,7 +349,7 @@ abstract class FimPromptCompletion extends CompletionModel {
 		const { textStream } = await ai.streamText({
 			model: this.model,
 			system: system,
-			messages: [{ role: 'user', content: `<file>${filename}\n${document.getText()}\n</file><prefix>${prevLines}\n${prefix}</prefix><suffix>${suffix}\n${nextLines}</suffix>` }],
+			messages: [{ role: 'user', content: `<prefix>${prevLines}\n${prefix}</prefix><suffix>${suffix}\n${nextLines}</suffix>` }],
 			maxTokens: 128,
 			abortSignal: signal,
 		});
@@ -387,14 +467,14 @@ class AWSCompletion extends FimPromptCompletion {
 	}
 }
 
-class VertexGeminiCompletion extends FimPromptCompletion {
+class VertexCompletion extends FimPromptCompletion {
 	protected model: ai.LanguageModelV1;
 
 	static source: positron.ai.LanguageModelSource = {
-		type: 'completion',
+		type: positron.PositronLanguageModelType.Completion,
 		provider: {
-			id: 'vertex-gemini',
-			displayName: 'Google Vertex AI (Gemini)'
+			id: 'vertex',
+			displayName: 'Google Vertex'
 		},
 		supportedOptions: ['project', 'location'],
 		defaults: {
@@ -418,7 +498,7 @@ class AzureCompletion extends FimPromptCompletion {
 	protected model: ai.LanguageModelV1;
 
 	static source: positron.ai.LanguageModelSource = {
-		type: 'completion',
+		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'azure',
 			displayName: 'Azure'
@@ -440,17 +520,22 @@ class AzureCompletion extends FimPromptCompletion {
 	}
 }
 
+//#endregion
+//#region Module exports
+
 export function newCompletionProvider(config: ModelConfig): vscode.InlineCompletionItemProvider {
 	const providerClasses = {
 		'anthropic': AnthropicCompletion,
 		'azure': AzureCompletion,
 		'bedrock': AWSCompletion,
+		'deepseek': DeepSeekCompletion,
 		'mistral': MistralCompletion,
 		'ollama': OllamaCompletion,
 		'openai': OpenAICompletion,
+		'openai-legacy': OpenAILegacyCompletion,
 		'openrouter': OpenRouterCompletion,
-		'vertex-gemini': VertexGeminiCompletion,
-		'vertex-codestral': VertexCodestralCompletion,
+		'vertex': VertexCompletion,
+		'vertex-legacy': VertexLegacyCompletion,
 	};
 
 	if (!(config.provider in providerClasses)) {
@@ -464,10 +549,14 @@ export const completionModels = [
 	AnthropicCompletion,
 	AWSCompletion,
 	AzureCompletion,
+	DeepSeekCompletion,
 	MistralCompletion,
 	OllamaCompletion,
 	OpenAICompletion,
+	OpenAILegacyCompletion,
 	OpenRouterCompletion,
-	VertexGeminiCompletion,
-	VertexCodestralCompletion,
+	VertexCompletion,
+	VertexLegacyCompletion,
 ];
+
+//#endregion

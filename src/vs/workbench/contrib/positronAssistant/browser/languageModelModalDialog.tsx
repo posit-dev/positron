@@ -61,7 +61,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const [type, setType] = React.useState<PositronLanguageModelType>(PositronLanguageModelType.Chat);
 
 	const defaultSource = props.sources.find(source => {
-		const defaultProvider = type === 'chat' ? 'openai' : 'openai-legacy';
+		const defaultProvider = type === 'chat' ? 'anthropic' : 'mistral';
 		return source.provider.id === defaultProvider && source.type.includes(type);
 	})!;
 

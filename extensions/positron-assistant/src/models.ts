@@ -11,6 +11,7 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { createAzure } from '@ai-sdk/azure';
 import { createVertex } from '@ai-sdk/google-vertex';
 import { createOpenAI } from '@ai-sdk/openai';
+import { createMistral } from '@ai-sdk/mistral';
 import { createOllama } from 'ollama-ai-provider';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { replaceBinaryMessageParts, toAIMessage } from './utils';
@@ -18,6 +19,11 @@ import { positronToolAdapters } from './tools';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 
+/**
+ * Models used by chat participants and for vscode.lm.* API functionality.
+ */
+
+//#region Test Models
 class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly name = 'Error Language Model';
 	readonly provider = 'error';
@@ -74,6 +80,9 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		}
 	}
 }
+
+//#endregion
+//#region Language Models
 
 abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	public readonly name;
@@ -214,7 +223,7 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 	protected model: ai.LanguageModelV1;
 
 	static source: positron.ai.LanguageModelSource = {
-		type: 'chat',
+		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'openai',
 			displayName: 'OpenAI'
@@ -231,6 +240,33 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 	constructor(_config: ModelConfig) {
 		super(_config);
 		this.model = createOpenAI({
+			apiKey: this._config.apiKey,
+			baseURL: this._config.baseUrl,
+		})(this._config.model);
+	}
+}
+
+class MistralLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
+	protected model: ai.LanguageModelV1;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Chat,
+		provider: {
+			id: 'mistral',
+			displayName: 'Mistral'
+		},
+		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
+		defaults: {
+			name: 'Pixtral Large',
+			model: 'pixtral-large-latest',
+			baseUrl: 'https://api.mistral.ai/v1',
+			toolCalls: true,
+		},
+	};
+
+	constructor(_config: ModelConfig) {
+		super(_config);
+		this.model = createMistral({
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
 		})(this._config.model);
@@ -371,6 +407,9 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 	}
 }
 
+//#endregion
+//#region Module exports
+
 export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModelChatProvider {
 	const providerClasses = {
 		'echo': EchoLanguageModel,
@@ -378,6 +417,7 @@ export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModel
 		'anthropic': AnthropicLanguageModel,
 		'azure': AzureLanguageModel,
 		'bedrock': AWSLanguageModel,
+		'mistral': MistralLanguageModel,
 		'ollama': OllamaLanguageModel,
 		'openai': OpenAILanguageModel,
 		'openrouter': OpenRouterLanguageModel,
@@ -395,6 +435,7 @@ export const languageModels = [
 	AnthropicLanguageModel,
 	AzureLanguageModel,
 	AWSLanguageModel,
+	MistralLanguageModel,
 	OpenAILanguageModel,
 	OpenRouterLanguageModel,
 	OllamaLanguageModel,
