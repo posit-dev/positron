@@ -87,11 +87,7 @@ export async function quickPickRuntime(runtimeManager: RRuntimeManager) {
 
 	// If we did in fact get a runtime from the user, select and start it
 	if (runtime) {
-		const registeredRuntimes = await positron.runtime.getRegisteredRuntimes();
-		const runtimeIsRegistered = registeredRuntimes.filter((r) => r.runtimeId === runtime.runtimeId);
-		if (runtimeIsRegistered.length === 0) {
-			runtimeManager.registerLanguageRuntime(runtime);
-		}
+		runtimeManager.registerLanguageRuntime(runtime);
 		positron.runtime.selectLanguageRuntime(runtime.runtimeId);
 	}
 };
