@@ -603,6 +603,25 @@ declare module 'positron' {
 	}
 
 	/**
+	 * The possible types of language model that can be used with the Positron Assistant.
+	 */
+	export enum PositronLanguageModelType {
+		Chat = 'chat',
+		Completion = 'completion',
+	}
+
+	/**
+	 * The possible locations a Positron Assistant chat request can be invoked from.
+	 */
+	export enum PositronChatAgentLocation {
+		Panel = 'panel',
+		Terminal = 'terminal',
+		Notebook = 'notebook',
+		Editor = 'editor',
+		EditingSession = 'editing-session',
+	}
+
+	/**
 	 * A message received from a runtime client instance.
 	 */
 	export interface RuntimeClientOutput<T> {
@@ -1572,7 +1591,7 @@ declare module 'positron' {
 				description: string;
 				isSticky?: boolean;
 			}[];
-			locations: ('panel' | 'terminal' | 'notebook' | 'editor' | 'editing-session')[];
+			locations: PositronChatAgentLocation[];
 			disambiguation: { category: string; description: string; examples: string[] }[];
 		}
 
@@ -1593,20 +1612,26 @@ declare module 'positron' {
 		 * Positron Language Model source, used for user configuration of language models.
 		 */
 		export interface LanguageModelSource {
-			type: 'chat' | 'completion';
+			type: PositronLanguageModelType;
 			provider: { id: string; displayName: string };
 			supportedOptions: Exclude<{
 				[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K] ? K : never
 			}[keyof LanguageModelConfig], undefined>[];
-			defaults: Omit<LanguageModelConfig, 'provider' | 'type'>;
+			defaults: LanguageModelConfigOptions;
 		}
 
 		/**
 		 * Positron Language Model configuration.
 		 */
-		export interface LanguageModelConfig {
+		export interface LanguageModelConfig extends LanguageModelConfigOptions {
+			type: PositronLanguageModelType;
 			provider: string;
-			type: string;
+		}
+
+		/**
+		 * Positron Language Model configuration options.
+		 */
+		export interface LanguageModelConfigOptions {
 			name: string;
 			model: string;
 			baseUrl?: string;

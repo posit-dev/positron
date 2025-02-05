@@ -31,7 +31,10 @@ export interface IPositronChatContext {
 //#endregion
 //#region Model Configuration
 
-export type PositronLanguageModelType = 'chat' | 'completion';
+export enum PositronLanguageModelType {
+	Chat = 'chat',
+	Completion = 'completion',
+}
 
 export type PositronLanguageModelOptions = Exclude<{
 	[K in keyof IPositronLanguageModelConfig]: undefined extends IPositronLanguageModelConfig[K] ? K : never
@@ -45,8 +48,8 @@ export interface IPositronLanguageModelSource {
 }
 
 export interface IPositronLanguageModelConfig {
+	type: PositronLanguageModelType;
 	provider: string;
-	type: string;
 	name: string;
 	model: string;
 	baseUrl?: string;

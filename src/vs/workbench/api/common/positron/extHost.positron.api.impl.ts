@@ -240,6 +240,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			methods,
 			connections,
 			ai,
+			PositronLanguageModelType: extHostTypes.PositronLanguageModelType,
+			PositronChatAgentLocation: extHostTypes.PositronChatAgentLocation,
 			PositronOutputLocation: extHostTypes.PositronOutputLocation,
 			RuntimeClientType: extHostTypes.RuntimeClientType,
 			RuntimeClientState: extHostTypes.RuntimeClientState,

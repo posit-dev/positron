@@ -28,7 +28,12 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 			name: QUARTO_COMMAND,
 			description: QUARTO_DESCRIPTION,
 		}],
-		locations: ['panel', 'terminal', 'editor', 'notebook'],
+		locations: [
+			positron.PositronChatAgentLocation.Panel,
+			positron.PositronChatAgentLocation.Terminal,
+			positron.PositronChatAgentLocation.Editor,
+			positron.PositronChatAgentLocation.Notebook,
+		],
 		disambiguation: []
 	};
 

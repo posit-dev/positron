@@ -58,42 +58,40 @@ interface LanguageModelConfigurationProps {
 }
 
 const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModelConfigurationProps>) => {
-	const [type, setType] = React.useState<PositronLanguageModelType>('chat');
+	const [type, setType] = React.useState<PositronLanguageModelType>(PositronLanguageModelType.Chat);
 
 	const defaultSource = props.sources.find(source => {
-		const defaultProvider = type === 'chat' ? 'anthropic' : 'mistral';
+		const defaultProvider = type === 'chat' ? 'openai' : 'openai-legacy';
 		return source.provider.id === defaultProvider && source.type.includes(type);
 	})!;
 
 	const [source, setSource] = React.useState<IPositronLanguageModelSource>(defaultSource);
-	const [apiKey, setApiKey] = React.useState<string | undefined>();
-	const [baseUrl, setBaseUrl] = React.useState<string | undefined>();
-	const [resourceName, setResourceName] = React.useState<string | undefined>();
-	const [project, setProject] = React.useState<string | undefined>();
-	const [location, setLocation] = React.useState<string | undefined>();
-	const [toolCalls, setToolCalls] = React.useState<boolean | undefined>();
-	const [model, setModel] = React.useState<string | undefined>();
-	const [name, setName] = React.useState<string | undefined>();
+	const [apiKey, setApiKey] = React.useState<string>();
+	const [baseUrl, setBaseUrl] = React.useState<string | undefined>(defaultSource.defaults.baseUrl);
+	const [resourceName, setResourceName] = React.useState<string | undefined>(defaultSource.defaults.resourceName);
+	const [project, setProject] = React.useState<string | undefined>(defaultSource.defaults.project);
+	const [location, setLocation] = React.useState<string | undefined>(defaultSource.defaults.location);
+	const [toolCalls, setToolCalls] = React.useState<boolean | undefined>(defaultSource.defaults.toolCalls);
+	const [model, setModel] = React.useState<string>(defaultSource.defaults.model);
+	const [name, setName] = React.useState<string>(defaultSource.defaults.name);
 
 	useEffect(() => {
-		if (source?.type !== type) {
-			setSource(defaultSource);
-		}
-	}, [type]);
+		setSource(defaultSource);
+	}, [type, defaultSource]);
 
 	useEffect(() => {
-		if (model === '') setModel(undefined);
-		if (name === '') setName(undefined);
-		if (apiKey === '' || !source.supportedOptions.includes('apiKey')) setApiKey(undefined);
-		if (baseUrl === '' || !source.supportedOptions.includes('baseUrl')) setBaseUrl(undefined);
-		if (resourceName === '' || !source.supportedOptions.includes('resourceName')) setResourceName(undefined);
-		if (project === '' || !source.supportedOptions.includes('project')) setProject(undefined);
-		if (location === '' || !source.supportedOptions.includes('location')) setLocation(undefined);
-		if (source.supportedOptions.includes('toolCalls')) setToolCalls(source?.defaults.toolCalls);
+		setModel(source.defaults.model);
+		setName(source.defaults.name);
+		setApiKey(source.defaults.apiKey);
+		setBaseUrl(source.defaults.baseUrl);
+		setResourceName(source.defaults.resourceName);
+		setProject(source.defaults.project);
+		setLocation(source.defaults.location);
+		setToolCalls(source.defaults.toolCalls);
 	}, [source]);
 
 	const providers = props.sources
-		.filter(source => source.type == type)
+		.filter(source => source.type === type)
 		.sort((a, b) => a.provider.displayName.localeCompare(b.provider.displayName))
 		.map(source => new DropDownListBoxItem({
 			identifier: source.provider.id,
@@ -102,18 +100,20 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		}))
 
 	const onAccept = async () => {
-		if (!source) return;
+		if (!source) {
+			return;
+		}
 		props.onSave({
 			type: type,
 			provider: source.provider.id,
-			model: model ?? source.defaults.model,
-			name: name ?? source.defaults.name,
-			apiKey: apiKey ?? source?.defaults.apiKey,
-			baseUrl: baseUrl ?? source?.defaults.baseUrl,
-			resourceName: resourceName ?? source?.defaults.resourceName,
-			project: project ?? source?.defaults.project,
-			location: location ?? source?.defaults.location,
-			toolCalls: toolCalls ?? source?.defaults.toolCalls,
+			model: model,
+			name: name,
+			apiKey: apiKey,
+			baseUrl: baseUrl,
+			resourceName: resourceName,
+			project: project,
+			location: location,
+			toolCalls: toolCalls,
 		})
 		props.renderer.dispose();
 	}
@@ -168,42 +168,42 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			</label>
 
 			<LabeledTextInput
-				value={name ?? source.defaults.name}
+				value={name}
 				label={(() => localize('positron.newConnectionModalDialog.name', "Name"))()}
 				onChange={e => { setName(e.currentTarget.value) }}
 			/>
 			<LabeledTextInput
-				value={model ?? source.defaults.model}
+				value={model}
 				label={(() => localize('positron.newConnectionModalDialog.model', "Model"))()}
 				onChange={e => { setModel(e.currentTarget.value) }}
 			/>
 			{source?.supportedOptions.includes('baseUrl') &&
 				<LabeledTextInput
-					value={baseUrl ?? source.defaults.baseUrl ?? ''}
+					value={baseUrl ?? ''}
 					label={(() => localize('positron.newConnectionModalDialog.baseURL', "Base URL"))()}
 					onChange={e => { setBaseUrl(e.currentTarget.value) }}
 				/>}
 			{source?.supportedOptions.includes('project') &&
 				<LabeledTextInput
-					value={project ?? source.defaults.project ?? ''}
+					value={project ?? ''}
 					label={(() => localize('positron.newConnectionModalDialog.project', "Google Cloud Project ID"))()}
 					onChange={e => { setProject(e.currentTarget.value) }}
 				/>}
 			{source?.supportedOptions.includes('location') &&
 				<LabeledTextInput
-					value={location ?? source.defaults.location ?? ''}
+					value={location ?? ''}
 					label={(() => localize('positron.newConnectionModalDialog.location', "Google Cloud Location"))()}
 					onChange={e => { setLocation(e.currentTarget.value) }}
 				/>}
 			{source?.supportedOptions.includes('resourceName') &&
 				<LabeledTextInput
-					value={resourceName ?? source.defaults.resourceName ?? ''}
+					value={resourceName ?? ''}
 					label={(() => localize('positron.newConnectionModalDialog.resourceName', "Azure resource name"))()}
 					onChange={e => { setResourceName(e.currentTarget.value) }}
 				/>}
 			{source?.supportedOptions.includes('apiKey') &&
 				<LabeledTextInput
-					value={apiKey ?? source.defaults.apiKey ?? ''}
+					value={apiKey ?? ''}
 					type='password'
 					label={(() => localize('positron.newConnectionModalDialog.apiKey', "API Key"))()}
 					onChange={e => { setApiKey(e.currentTarget.value) }}
@@ -212,12 +212,12 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			{source?.supportedOptions.includes('toolCalls') &&
 				<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
 					<input
-						type="checkbox"
-						id="toolCallsCheckbox"
+						type='checkbox'
+						id='toolCallsCheckbox'
 						checked={toolCalls}
 						onChange={e => { setToolCalls(e.target.checked) }}
 					/>
-					<label htmlFor="toolCallsCheckbox">
+					<label htmlFor='toolCallsCheckbox'>
 						{(() => localize('positron.newConnectionModalDialog.toolCalls', "Enable tool calling"))()}
 					</label>
 				</div>

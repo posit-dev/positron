@@ -191,7 +191,7 @@ class AnthropicLanguageModel extends AILanguageModel implements positron.ai.Lang
 	protected model;
 
 	static source: positron.ai.LanguageModelSource = {
-		type: 'chat',
+		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'anthropic',
 			displayName: 'Anthropic'
@@ -200,6 +200,7 @@ class AnthropicLanguageModel extends AILanguageModel implements positron.ai.Lang
 		defaults: {
 			name: 'Claude 3.5 Sonnet',
 			model: 'claude-3-5-sonnet-latest',
+			toolCalls: true,
 		},
 	};
 
@@ -240,7 +241,7 @@ class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.Lan
 	protected model: ai.LanguageModelV1;
 
 	static source: positron.ai.LanguageModelSource = {
-		type: 'chat',
+		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'openrouter',
 			displayName: 'OpenRouter'
@@ -267,7 +268,7 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 	protected model;
 
 	static source: positron.ai.LanguageModelSource = {
-		type: 'chat',
+		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'ollama',
 			displayName: 'Ollama'
@@ -291,7 +292,7 @@ class AzureLanguageModel extends AILanguageModel implements positron.ai.Language
 	protected model: ai.LanguageModelV1;
 
 	static source: positron.ai.LanguageModelSource = {
-		type: 'chat',
+		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'azure',
 			displayName: 'Azure'
@@ -318,7 +319,7 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 	protected model: ai.LanguageModelV1;
 
 	static source: positron.ai.LanguageModelSource = {
-		type: 'chat',
+		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'vertex',
 			displayName: 'Google Vertex AI'
@@ -346,7 +347,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 	protected model;
 
 	static source: positron.ai.LanguageModelSource = {
-		type: 'chat',
+		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'bedrock',
 			displayName: 'AWS Bedrock'

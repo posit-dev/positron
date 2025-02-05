@@ -58,7 +58,7 @@ class MistralCompletion extends CompletionModel {
 	url: string;
 
 	static source: positron.ai.LanguageModelSource = {
-		type: 'completion',
+		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'mistral',
 			displayName: 'Mistral'
@@ -129,7 +129,7 @@ class VertexCodestralCompletion extends MistralCompletion {
 	authInstance: GoogleAuth;
 
 	static source: positron.ai.LanguageModelSource = {
-		type: 'completion',
+		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'vertex-codestral',
 			displayName: 'Google Vertex AI (Codestral)'
@@ -187,7 +187,7 @@ class OllamaCompletion extends CompletionModel {
 	protected model: ai.LanguageModelV1;
 
 	static source: positron.ai.LanguageModelSource = {
-		type: 'completion',
+		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'ollama',
 			displayName: 'Ollama'
@@ -290,7 +290,7 @@ class AnthropicCompletion extends FimPromptCompletion {
 	protected model;
 
 	static source: positron.ai.LanguageModelSource = {
-		type: 'completion',
+		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'anthropic',
 			displayName: 'Anthropic'
@@ -312,7 +312,7 @@ class OpenAICompletion extends FimPromptCompletion {
 	protected model;
 
 	static source: positron.ai.LanguageModelSource = {
-		type: 'completion',
+		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'openai',
 			displayName: 'OpenAI'
@@ -338,7 +338,7 @@ class OpenRouterCompletion extends FimPromptCompletion {
 	protected model: ai.LanguageModelV1;
 
 	static source: positron.ai.LanguageModelSource = {
-		type: 'completion',
+		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'openrouter',
 			displayName: 'OpenRouter'
@@ -364,7 +364,7 @@ class AWSCompletion extends FimPromptCompletion {
 	protected model;
 
 	static source: positron.ai.LanguageModelSource = {
-		type: 'completion',
+		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'bedrock',
 			displayName: 'AWS Bedrock'
