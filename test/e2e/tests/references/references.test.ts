@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import { Application } from '../../infra';
 import { test, tags } from '../_test.setup';
 import { join } from 'path';
@@ -22,15 +23,12 @@ test.describe('References', {
 
 	});
 
-	test('Python - Verify References Functionality', async function ({ app, python, openFile }) {
-
+	test('Python - Verify References Functionality', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6211' }]
+	}, async function ({ app, python, openFile }) {
 		const helper = 'helper.py';
-		await test.step('Open helper file and select function name', async () => {
-			await openFile(join('workspaces', 'references_tests', 'python', helper));
 
-			await app.workbench.editor.clickOnTerm(helper, 'add', 1, true);
-
-		});
+		await openFile(join('workspaces', 'references_tests', 'python', helper));
 
 		await openAndCommonValidations(app, helper);
 
@@ -42,14 +40,9 @@ test.describe('References', {
 
 
 	test('R - Verify References Functionality', async function ({ app, r, openFile }) {
-
 		const helper = 'helper.R';
-		await test.step('Open helper file and select function name', async () => {
-			await openFile(join('workspaces', 'references_tests', 'r', helper));
 
-			await app.workbench.editor.clickOnTerm(helper, 'add', 1, true);
-
-		});
+		await openFile(join('workspaces', 'references_tests', 'r', helper));
 
 		await openAndCommonValidations(app, helper);
 
@@ -61,11 +54,16 @@ test.describe('References', {
 });
 
 async function openAndCommonValidations(app: Application, helper: string) {
-	await test.step('Open references view', async () => {
-		await app.code.driver.page.keyboard.press('F12');
 
-		await app.workbench.references.waitUntilOpen();
-	});
+	await expect(async () => {
+		await app.workbench.editor.clickOnTerm(helper, 'add', 1, true);
+
+		await test.step('Open references view', async () => {
+			await app.code.driver.page.keyboard.press('Shift+F12');
+
+			await app.workbench.references.waitUntilOpen();
+		});
+	}).toPass({ timeout: 60000 });
 
 	await test.step('Verify title references count', async () => {
 		await app.workbench.sideBar.closeSecondarySideBar();

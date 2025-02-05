@@ -3,15 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { fail } from 'assert';
 import { test, expect, tags } from '../_test.setup';
+import { InterpreterType } from '../../infra';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Console Pane: Python', { tag: [tags.WEB, tags.WIN, tags.CONSOLE] }, () => {
+test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 
-	test('Verify restart button inside the console', async function ({ app, python }) {
+	test('Verify restart button inside the console', {
+		tag: [tags.WIN]
+	}, async function ({ app, python }) {
 		await expect(async () => {
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 			await app.workbench.console.barClearButton.click();
@@ -28,6 +32,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.WIN, tags.CONSOLE] 
 	});
 
 	test('Verify restart button on console bar', {
+		tag: [tags.WIN]
 	}, async function ({ app, python }) {
 		// Need to make console bigger to see all bar buttons
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
@@ -42,6 +47,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.WIN, tags.CONSOLE] 
 	});
 
 	test('Verify cancel button on console bar', {
+		tag: [tags.WIN]
 	}, async function ({ app, python }) {
 
 		await app.workbench.console.pasteCodeToConsole('import time; time.sleep(10)');
@@ -49,5 +55,32 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.WIN, tags.CONSOLE] 
 
 		await app.workbench.console.interruptExecution();
 
+	});
+
+	// not enabled for WIN yet; need to add additional versions
+	test('Verify multiple versions', async function ({ app, python }) {
+
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+
+		const primaryPython = process.env.POSITRON_PY_VER_SEL;
+
+		if (primaryPython) {
+			await app.workbench.console.barClearButton.click();
+			await app.workbench.console.pasteCodeToConsole('import platform; print(platform.python_version())', true);
+			await app.workbench.console.waitForConsoleContents(primaryPython);
+		} else {
+			fail('Primary Python version not set');
+		}
+
+		const secondaryPython = process.env.POSITRON_PY_ALT_VER_SEL;
+
+		if (secondaryPython) {
+			await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, `${secondaryPython} (Pyenv)`, true);
+			await app.workbench.console.barClearButton.click();
+			await app.workbench.console.pasteCodeToConsole(`import platform; print(platform.python_version())`, true);
+			await app.workbench.console.waitForConsoleContents(secondaryPython);
+		} else {
+			fail('Secondary Python version not set');
+		}
 	});
 });

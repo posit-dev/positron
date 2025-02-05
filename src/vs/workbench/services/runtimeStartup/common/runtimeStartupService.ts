@@ -3,8 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { ILanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, IRuntimeManager } from '../../languageRuntime/common/languageRuntimeService.js';
 
 export const IRuntimeStartupService =
 	createDecorator<IRuntimeStartupService>('runtimeStartupService');
@@ -43,6 +44,16 @@ export interface IRuntimeStartupService {
 	getAffiliatedRuntimeMetadata(languageId: string): ILanguageRuntimeMetadata | undefined;
 
 	/**
+	 * Gets all the affiliated runtimes for the workspace.
+	 */
+	getAffiliatedRuntimes(): Array<ILanguageRuntimeMetadata>;
+
+	/**
+	 * Clears a specific runtime from the list of affiliated runtimes.
+	 */
+	clearAffiliatedRuntime(languageId: string): void;
+
+	/**
 	 * Signal that discovery of language runtimes is completed for an extension host.
 	 *
 	 * @param id the id of the MainThreadLanguageRuntime instance for the extension host
@@ -50,24 +61,10 @@ export interface IRuntimeStartupService {
 	completeDiscovery(id: number): void;
 
 	/**
-	 * Used to register an instance of a MainThreadLanguageRuntime.
+	 * Register a runtime manager with the service; returns a disposable that
+	 * can be used to unregister the manager.
 	 *
-	 * This is required because there can be multiple extension hosts
-	 * and the startup service needs to know of all of them to track
-	 * the startup phase across all extension hosts.
-	 *
-	 * @param id The id of the MainThreadLanguageRuntime instance for the extension host.
+	 * @param manager The runtime manager
 	 */
-	registerMainThreadLanguageRuntime(id: number): void;
-
-	/**
-	 * Used to un-register an instance of a MainThreadLanguageRuntime.
-	 *
-	 * This is required because there can be multiple extension hosts
-	 * and the startup service needs to know of all of them to track
-	 * the startup phase across all extension hosts.
-	 *
-	 * @param id The id of the MainThreadLanguageRuntime instance for the extension host.
-	 */
-	unregisterMainThreadLanguageRuntime(id: number): void;
+	registerRuntimeManager(manager: IRuntimeManager): IDisposable;
 }

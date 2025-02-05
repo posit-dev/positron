@@ -31,6 +31,7 @@
         "typings/vscode-proposed/*.d.ts",
         "types/*.d.ts",
         "positron-dts/positron.d.ts",
-        "positron-dts/ui-comm.d.ts"
+        "positron-dts/ui-comm.d.ts",
+        "python-env-tools/*"
     ]
 }

@@ -30,7 +30,7 @@ interface runtimeSessionCardProps {
  */
 export const RuntimeSessionCard = (props: runtimeSessionCardProps) => {
 
-	const [sessionState, setSessionState] = useState(props.session.getRuntimeState());
+	const [sessionState, setSessionState] = useState(() => props.session.getRuntimeState());
 
 	const shutdownSession = () => {
 		props.session.shutdown(RuntimeExitReason.Shutdown);
@@ -59,7 +59,7 @@ export const RuntimeSessionCard = (props: runtimeSessionCardProps) => {
 			setSessionState(state);
 		}));
 		return () => disposableStore.dispose();
-	});
+	}, []);
 
 	return (
 		<tr>

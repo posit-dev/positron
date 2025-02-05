@@ -25,6 +25,8 @@ import { PositronConsoleState } from '../../../../services/positronConsole/brows
 import { RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, RuntimeStartMode } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ConsoleInstanceMenuButton } from './consoleInstanceMenuButton.js';
+import { multipleConsoleSessionsFeatureEnabled } from '../../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
+import { ConsoleInstanceInfoButton } from './consoleInstanceInfoButton.js';
 
 /**
  * Constants.
@@ -101,6 +103,7 @@ export const ActionBar = (props: ActionBarProps) => {
 
 	// Constants.
 	const showDeveloperUI = IsDevelopmentContext.getValue(positronConsoleContext.contextKeyService);
+	const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(positronConsoleContext.configurationService);
 
 	// State hooks.
 	const [activePositronConsoleInstance, setActivePositronConsoleInstance] =
@@ -382,6 +385,7 @@ export const ActionBar = (props: ActionBarProps) => {
 							ariaLabel={positronRestartConsole}
 							onPressed={restartConsoleHandler}
 						/>
+						{multiSessionsEnabled && <ConsoleInstanceInfoButton />}
 						<ActionBarSeparator />
 						{showDeveloperUI &&
 							<ActionBarButton

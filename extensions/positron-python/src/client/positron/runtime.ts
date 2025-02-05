@@ -67,7 +67,7 @@ export async function createPythonRuntimeMetadata(
     traceInfo(`createPythonRuntime: startup behavior: ${startupBehavior}`);
 
     // Get the Python version from sysVersion since only that includes alpha/beta info (e.g '3.12.0b1')
-    const pythonVersion = interpreter.sysVersion?.split(' ')[0] ?? '0.0.1';
+    const pythonVersion = interpreter.sysVersion?.split(' ')[0] || interpreter.version?.raw || '0.0.1';
     const envName = interpreter.envName ?? '';
     const runtimeSource = interpreter.envType;
 

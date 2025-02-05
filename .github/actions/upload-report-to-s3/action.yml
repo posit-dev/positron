@@ -7,6 +7,10 @@ inputs:
   report-dir:
     description: "The path to the directory containing the Playwright report"
     required: true
+  working-directory:
+    description: "The optional working directory to run the command in"
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -22,4 +26,8 @@ runs:
       if: ${{ !cancelled() }}
       shell: bash
       run: |
+        WORKDIR=${{ inputs.working-directory }}
+        if [[ -n "$WORKDIR" ]]; then
+          cd "$WORKDIR"
+        fi
         aws s3 cp playwright-report/. s3://positron-test-reports/${{ inputs.report-dir }} --recursive
