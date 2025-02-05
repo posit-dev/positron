@@ -43,7 +43,7 @@ export * from '../pages/scm';
 // fixtures
 export * from './fixtures/userSettings';
 export * from './fixtures/interpreter';
-export * from './fixtures/hotKeys';
+export * from './fixtures/keyboard';
 
 // test-runner
 export * from './test-runner';

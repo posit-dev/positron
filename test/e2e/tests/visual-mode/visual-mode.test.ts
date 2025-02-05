@@ -6,6 +6,7 @@
 import { expect, Page } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 import { Application } from '../../infra';
+import { Keyboard, Hotkeys } from '../../infra/fixtures/keyboard';
 
 test.use({
 	suiteId: __filename
@@ -36,12 +37,11 @@ test.beforeAll('Check project name', async function ({ }, testInfo) {
 	}
 });
 
-test.beforeAll('Trigger and accept visual mode dialog', async function ({ openFile, runCommand, page, hotKeys }) {
+test.beforeAll('Trigger and accept visual mode dialog', async function ({ openFile, runCommand, page, keyboard }) {
 	await openFile(testCases[0].filePath, false);
 	await runCommand('edit in visual mode');
 	await page.getByText('Use Visual Mode').click();
-	await hotKeys.press('Cmd+K');
-	await hotKeys.press('Cmd+W');
+	await keyboard.hotKeys(Hotkeys.CLOSE_ALL_EDITORS);
 });
 
 
@@ -51,24 +51,23 @@ for (const { title, filePath, tags } of testCases) {
 			await openFile(filePath, false);
 		});
 
-		test.afterEach('close all editors', async function ({ app, hotKeys }) {
-			await hotKeys.press('Cmd+K');
-			await hotKeys.press('Cmd+W');
+		test.afterEach('close all editors', async function ({ app, keyboard }) {
+			await keyboard.hotKeys(Hotkeys.CLOSE_ALL_EDITORS);
 		});
 
 		test('Verify Markdown Syntax Rendering', async function ({ page, app }) {
-			await changeEditMode(app, 'Visual');
+			await changeEditMode(page, 'Visual');
 			await verifyMarkdownSyntaxRendering(page, title);
 		});
 
-		test('Verify Mode Content Sync', async function ({ app, page }) {
+		test('Verify Mode Content Sync', async function ({ app, page, keyboard }) {
 			await verifyModeContentSync(app);
 			await test.step('Clean up file edits', async () => {
 				try {
 					await page.getByText('YOLO').dblclick();
-					await page.keyboard.press('Backspace');
-					await page.keyboard.press('Backspace');
-					await changeEditMode(app, 'Visual');
+					await keyboard.press('Backspace');
+					await keyboard.press('Backspace');
+					await changeEditMode(page, 'Visual');
 				} catch (error) {
 					// ignore
 				}
@@ -76,8 +75,8 @@ for (const { title, filePath, tags } of testCases) {
 		});
 
 		if (filePath.match(/\.(qmd|rmd)$/)) {
-			test('Verify Code Block Execution', async function ({ app }) {
-				await changeEditMode(app, 'Visual');
+			test('Verify Code Block Execution', async function ({ app, page }) {
+				await changeEditMode(page, 'Visual');
 				await verifyCodeExecution(app);
 			});
 		}
@@ -131,20 +130,20 @@ async function verifyMarkdownSyntaxRendering(page: Page, title: string) {
 	});
 }
 
-async function changeEditMode(app: Application, mode: 'Source' | 'Visual') {
+async function changeEditMode(page: Page, mode: 'Source' | 'Visual') {
 	await test.step(`Change edit mode to ${mode}`, async () => {
-		const page = app.code.driver.page;
+		const keyboard = new Keyboard(page);
 
 		try {
 			// if we are in mode 'source' we should see line numbers
 			await expect(page.locator('div.line-numbers').first()).toBeVisible({ timeout: 2500 });
 			if (mode === 'Visual') {
-				await app.workbench.hotKeys.press('Cmd+Shift+F4');
+				await keyboard.hotKeys(Hotkeys.VISUAL_MODE);
 			}
 		} catch (error) {
 			// only get here if we are currently in visual mode
 			if (mode === 'Source') {
-				await app.workbench.hotKeys.press('Cmd+Shift+F4');
+				await keyboard.hotKeys(Hotkeys.VISUAL_MODE);
 			}
 		}
 
@@ -163,18 +162,18 @@ async function verifyModeContentSync(app: Application): Promise<void> {
 	const viewerFrame = page.frameLocator('.webview').frameLocator('#active-frame');
 
 	await test.step('Edit content in source mode', async () => {
-		await changeEditMode(app, 'Source');
+		await changeEditMode(page, 'Source');
 		await page.getByText("synchronization").click();
 		await page.keyboard.type(testText);
 	});
 
 	await test.step('Verify content in visual mode', async () => {
-		await changeEditMode(app, 'Visual');
+		await changeEditMode(page, 'Visual');
 		await expect(viewerFrame.getByText(testText)).toBeVisible();
 	});
 
-	await test.step('Re-verify content in source mode', async () => {
-		await changeEditMode(app, 'Source');
+	await test.step('Verify content in source mode', async () => {
+		await changeEditMode(page, 'Source');
 		await expect(page.getByText(testText)).toBeVisible();
 	});
 }

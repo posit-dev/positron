@@ -21,8 +21,9 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags, HotKeys } from '../infra';
+import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags, } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
+import { Keyboard } from '../infra/fixtures/keyboard';
 
 // Constants
 const TEMP_DIR = `temp-${randomUUID()}`;
@@ -181,9 +182,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		});
 	},
 
-	hotKeys: async ({ app }, use) => {
-		const hotKeys = new HotKeys(app.code);
-		await use(hotKeys);
+	// ex: await keyboard.hotKeys(HotKeys.COPY);
+	// ex: await keyboard.press('Enter');
+	keyboard: async ({ page }, use) => {
+		const keyboard = new Keyboard(page);
+		await use(keyboard);
 	},
 
 	// ex: await userSettings.set([['editor.actionBar.enabled', 'true']], false);
@@ -393,7 +396,7 @@ interface TestFixtures {
 	openDataFile: (filePath: string) => Promise<void>;
 	runCommand: (command: string) => Promise<void>;
 	executeCode: (language: 'Python' | 'R', code: string) => Promise<void>;
-	hotKeys: HotKeys;
+	keyboard: Keyboard;
 }
 
 interface WorkerFixtures {
