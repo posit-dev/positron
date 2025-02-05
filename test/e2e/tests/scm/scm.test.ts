@@ -15,7 +15,7 @@ test.describe('Source Content Management', {
 	tag: [tags.SCM, tags.WEB, tags.WIN]
 }, () => {
 
-	test('Verify SCM Tracks File Modifications, Staging, and Commit Actions', async function ({ app, openFile }) {
+	test('Verify SCM Tracks File Modifications, Staging, and Commit Actions', async function ({ app, openFile, keyboard }) {
 
 		const file = 'chinook-sqlite.py';
 		await test.step('Open file and add a new line to it', async () => {
