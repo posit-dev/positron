@@ -133,7 +133,7 @@ jobs:
       - run: |
           echo "Will notify on: ${{ env.notify_on }}"
       - name: Notify Slack
-        uses: midleman/slack-workflow-status@v2.2.0
+        uses: midleman/slack-workflow-status@v2.2.1
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
