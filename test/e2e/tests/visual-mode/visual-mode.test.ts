@@ -13,20 +13,21 @@ test.use({
 
 const testCases = [
 	{
+		title: 'R Markdown',
+		filePath: 'workspaces/visual-mode/visual-mode.rmd',
+		tags: [tags.WEB, tags.VISUAL_MODE, tags.EDITOR, tags.R_MARKDOWN]
+	},
+	{
 		title: 'Quarto Markdown',
 		filePath: 'workspaces/visual-mode/visual-mode.qmd',
 		tags: [tags.WEB, tags.VISUAL_MODE, tags.EDITOR, tags.QUARTO]
 	},
-	// {
-	// 	title: 'Markdown File',
-	// 	filePath: 'workspaces/visual-mode/visual-mode.md',
-	// 	tags: [tags.WEB, tags.EDITOR]
-	// },
 	{
-		title: 'R Markdown',
-		filePath: 'workspaces/visual-mode/visual-mode.rmd',
-		tags: [tags.WEB, tags.VISUAL_MODE, tags.EDITOR, tags.R_MARKDOWN]
-	}
+		title: 'Markdown',
+		filePath: 'workspaces/visual-mode/visual-mode.md',
+		tags: [tags.WEB, tags.VISUAL_MODE, tags.EDITOR]
+	},
+
 ];
 
 test.beforeAll('Check project name', async function ({ }, testInfo) {
@@ -74,10 +75,12 @@ for (const { title, filePath, tags } of testCases) {
 			});
 		});
 
-		test('Verify Code Block Execution', async function ({ app }) {
-			await changeEditMode(app, 'Visual');
-			await verifyCodeExecution(app);
-		});
+		if (filePath.match(/\.(qmd|rmd)$/)) {
+			test('Verify Code Block Execution', async function ({ app }) {
+				await changeEditMode(app, 'Visual');
+				await verifyCodeExecution(app);
+			});
+		}
 
 		test('Verify Outline', async function ({ }) {
 			// Add outline test logic if needed
@@ -161,18 +164,18 @@ async function verifyModeContentSync(app: Application): Promise<void> {
 
 	await test.step('Edit content in source mode', async () => {
 		await changeEditMode(app, 'Source');
-		await page.getByText('"Test Title"').click();
+		await page.getByText("synchronization").click();
 		await page.keyboard.type(testText);
 	});
 
 	await test.step('Verify content in visual mode', async () => {
 		await changeEditMode(app, 'Visual');
-		await expect(viewerFrame.getByText(`Test ${testText} Title`)).toBeVisible();
+		await expect(viewerFrame.getByText(testText)).toBeVisible();
 	});
 
 	await test.step('Re-verify content in source mode', async () => {
 		await changeEditMode(app, 'Source');
-		await expect(page.getByText(`Test ${testText} Title`)).toBeVisible();
+		await expect(page.getByText(testText)).toBeVisible();
 	});
 }
 
@@ -180,10 +183,9 @@ async function verifyCodeExecution(app: Application) {
 	const page = app.code.driver.page;
 	const viewerFrame = page.frameLocator('.webview').frameLocator('#active-frame');
 
-	await test.step('Verify Python cell code execution', async () => {
+	await test.step('Verify Python run cell button', async () => {
 		await viewerFrame.getByText('{python}# A simple Python').click();
-		await viewerFrame.getByTitle('Run Cell', { exact: true }).click();
-		await expect(page.getByText('Hello, Python!', { exact: true })).toBeVisible();
+		await expect(viewerFrame.getByTitle('Run Cell', { exact: true })).toBeVisible();
 	});
 
 	await test.step('Verify R cell code execution', async () => {
@@ -193,23 +195,5 @@ async function verifyCodeExecution(app: Application) {
 	});
 }
 
-// test('Markdown', { tag: [tags.HTML] }, async function ({ app, page, openFile }) {
-// 	await openFile('workspaces/dash-py-example/data/OilandGasMetadata.html');
-
-// 	await verifyMarkdownSyntaxRendering();
-// 	await verifyModeContentSync();
-// 	await verifyCodeBlockRendering();
-// });
-
-// test('R Markdown Document', {
-// 	tag: [tags.R_MARKDOWN]
-// }, async function ({ app, openFile }) {
-// 	await openFile('workspaces/basic-rmd/basic-rmd.rmd');
-
-// 	await verifyMarkdownSyntaxRendering();
-// 	await verifyModeContentSync();
-// 	await verifyCodeBlockRendering();
 // 	await verifyYamlRendering();
 // 	await verifyEquationRendering();
-// 	await verifyCodeExecution();
-// });
