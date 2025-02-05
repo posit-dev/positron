@@ -1211,6 +1211,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		this._logService.debug(`Reconnecting to sessions: ` +
 			sessions.map(session => session.metadata.sessionName).join(', '));
 
+		// Keep track of whether we are expecting to see the first console
+		// session
+		let firstConsole = true;
+
 		await Promise.all(sessions.map(async (session, idx) => {
 			const marker =
 				`[Reconnect ${session.metadata.sessionId} (${idx + 1}/${sessions.length})]`;
@@ -1229,9 +1233,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 			this._logService.debug(`${marker}: Restoring session for ${session.metadata.sessionName}`);
 
-			// Reconnect to the session; activate it if it is the first session
+			// We want to activate the first console session we see, but no
+			// following sessions
+			const activate = firstConsole;
+			if (!session.metadata.notebookUri) {
+				firstConsole = false;
+			}
+
+			// Reconnect to the session; activate it if it is the first console
+			// session
 			await this._runtimeSessionService.restoreRuntimeSession(
-				session.runtimeMetadata, session.metadata, idx === 0);
+				session.runtimeMetadata, session.metadata, activate);
 		}));
 	}
 
