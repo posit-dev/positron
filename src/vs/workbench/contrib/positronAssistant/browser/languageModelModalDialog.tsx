@@ -125,7 +125,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	return <OKCancelModalDialog
 		renderer={props.renderer}
 		width={540}
-		height={460}
+		height={540}
 		title={(() => localize('positron.languageModelModalDialog.title', "Add a Language Model Provider"))()}
 		okButtonTitle={(() => localize('positron.languageModelModalDialog.save', "Save"))()}
 		cancelButtonTitle={(() => localize('positron.languageModelModalDialog.cancel', "Cancel"))()}
