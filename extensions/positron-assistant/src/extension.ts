@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import { getModelConfigurations, showConfigurationDialog } from './config';
 import { newLanguageModel } from './models';
 import participants from './participants';
-import { newCompletionProvider } from './completion';
+import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { editsProvider } from './edits';
 import { setContext } from './context';
 
@@ -105,6 +105,9 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		})
 	);
+
+	// Track opened files for completion context
+	registerHistoryTracking(context);
 
 	// Mapped Edits
 	context.subscriptions.push(

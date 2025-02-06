@@ -41,6 +41,77 @@ const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
 //#region Document context
 
+let recentFiles: string[] = [];
+const RECENT_FILES_KEY = 'positron-assistant.recentFiles';
+const MAX_HISTORY = 30;
+const WINDOW_SIZE = 50;
+
+export function registerHistoryTracking(context: vscode.ExtensionContext) {
+	recentFiles = context.workspaceState.get(RECENT_FILES_KEY, []);
+
+	context.subscriptions.push(
+		vscode.workspace.onDidOpenTextDocument(document => {
+			if (document.uri.scheme !== 'file') {
+				return;
+			}
+
+			const path = document.uri.fsPath;
+			recentFiles = recentFiles.filter(f => f !== path);
+			recentFiles.unshift(path);
+
+			if (recentFiles.length > MAX_HISTORY) {
+				recentFiles = recentFiles.slice(0, MAX_HISTORY);
+			}
+			context.workspaceState.update(RECENT_FILES_KEY, recentFiles);
+		})
+	);
+}
+
+async function getRelatedContext(document: vscode.TextDocument) {
+	// Ensure recent files are open and available as text documents, if possible
+	await Promise.all(recentFiles.map(async (path) => {
+		try {
+			return await vscode.workspace.openTextDocument(path);
+		} catch (error) {
+			return null;
+		}
+	}));
+
+	// Of the other documents now available, we only want type `file` with matching language ID
+	const documents = vscode.workspace.textDocuments
+		.filter((doc) => doc.uri.scheme === 'file')
+		.filter((doc) => doc.languageId === document.languageId)
+		.filter((doc) => doc.uri !== document.uri);
+
+	// Slide a window over the contents of the remaining documents and return best matching section
+	return Object.fromEntries(
+		documents.map((doc) => {
+			const best: { range?: vscode.Range; score: number } = { score: 0 };
+			for (let low = 0; low < doc.lineCount; low++) {
+				const high = Math.min(low + WINDOW_SIZE, doc.lineCount);
+				const range = new vscode.Range(low, 0, high, 0);
+				const score = textSimilarityScore(document.getText(), doc.getText(range));
+				if (score > best.score) {
+					best.score = score;
+					best.range = range;
+				}
+			}
+			return [doc.uri.fsPath, doc.getText(best.range)];
+		})
+	);
+}
+
+function textSimilarityScore(text: string, window: string): number {
+	// Compute the Jaccard similarity coefficient
+	// TODO: Consider calculating TF-IDF and scoring via cosine similarity.
+	const set1 = new Set(text.split(/\s+/).filter((word) => !!word));
+	const set2 = new Set(window.split(/\s+/).filter((word) => !!word));
+
+	const intersection = new Set([...set1].filter(x => set2.has(x)));
+	const union = new Set([...set1, ...set2]);
+	return union.size === 0 ? 1 : intersection.size / union.size;
+}
+
 abstract class CompletionModel implements vscode.InlineCompletionItemProvider {
 	public name;
 	public identifier;
@@ -57,11 +128,15 @@ abstract class CompletionModel implements vscode.InlineCompletionItemProvider {
 		token: vscode.CancellationToken
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList>;
 
-	getDocumentContext(document: vscode.TextDocument, position: vscode.Position) {
-		// TODO: Use similarity scores with recently opened documents to build wider context
-		// TODO: Limit context to some number of tokens (probably just characters for now)
-		const prefix = document.lineAt(position.line).text.substring(0, position.character);
-		const suffix = document.lineAt(position.line).text.substring(position.character);
+	async getDocumentContext(document: vscode.TextDocument, position: vscode.Position) {
+		// Windows of best-matching text from recent related documents
+		const related = await getRelatedContext(document);
+
+		// Characters before and after the cursor on this line
+		const curPrefix = document.lineAt(position.line).text.substring(0, position.character);
+		const curSuffix = document.lineAt(position.line).text.substring(position.character);
+
+		// Lines before and after the current line
 		const prevLines = Array.from({ length: position.line }, (_, i) => {
 			return document.lineAt(i).text;
 		}).join('\n');
@@ -69,7 +144,13 @@ abstract class CompletionModel implements vscode.InlineCompletionItemProvider {
 			return document.lineAt(position.line + i + 1).text;
 		}).join('\n');
 
-		return { prefix, suffix, prevLines, nextLines };
+		// Trim the prefix and suffix to avoid going over provider and model token limits.
+		// We trim the suffix smaller to make room for additional document context.
+		// TODO: There should be some way to configure these limits, based on model capability.
+		const prefix = `${prevLines}\n${curPrefix}`.slice(-3072);
+		const suffix = `${curSuffix}\n${nextLines}`.slice(0, 1024);
+
+		return { related, prefix, suffix };
 	}
 }
 
@@ -117,7 +198,8 @@ class OpenAILegacyCompletion extends CompletionModel {
 			return [];
 		}
 
-		const { prefix, suffix, prevLines, nextLines } = this.getDocumentContext(document, position);
+		const { related, prefix, suffix } = await this.getDocumentContext(document, position);
+		const relatedText = Object.values(related).join('\n');
 
 		const accessToken = await this.getAccessToken();
 		const response = await fetch(this.url, {
@@ -129,8 +211,8 @@ class OpenAILegacyCompletion extends CompletionModel {
 			body: JSON.stringify({
 				model: this._config.model,
 				temperature: 0.2,
-				prompt: `${prevLines}\n${prefix}`,
-				suffix: `${suffix}\n${nextLines}`,
+				prompt: `${relatedText}\n${prefix}`,
+				suffix: suffix,
 				max_tokens: 128,
 				stop: ['\n\n', '<|endoftext|>'],
 			})
@@ -293,15 +375,17 @@ class OllamaCompletion extends CompletionModel {
 			return [];
 		}
 
-		const { prefix, suffix, prevLines, nextLines } = this.getDocumentContext(document, position);
+		const { related, prefix, suffix } = await this.getDocumentContext(document, position);
+		const relatedText = Object.values(related).join('\n');
+
 		const controller = new AbortController();
 		const signal = controller.signal;
 		token.onCancellationRequested(() => controller.abort());
 
 		const { textStream } = await ai.streamText({
 			model: this.model,
-			prompt: `<|fim_prefix|>${prevLines}\n${prefix}<|fim_suffix|>${suffix}\n${nextLines}\n<|fim_middle|>`,
-			maxTokens: 64,
+			prompt: `<|fim_prefix|>${relatedText}\n${prefix}<|fim_suffix|>${suffix}\n<|fim_middle|>`,
+			maxTokens: 128,
 			abortSignal: signal,
 		});
 
@@ -337,9 +421,10 @@ abstract class FimPromptCompletion extends CompletionModel {
 			return [];
 		}
 
-		// TODO: Include additional files in <file></file> tags as context.
-		const filename = document.fileName;
-		const { prefix, suffix, prevLines, nextLines } = this.getDocumentContext(document, position);
+		const { related, prefix, suffix } = await this.getDocumentContext(document, position);
+		const relatedText = Object.entries(related).map((filename, text) => {
+			return `<file filename="${filename}">${text}</file>`;
+		}).join('\n');
 
 		const controller = new AbortController();
 		const signal = controller.signal;
@@ -349,7 +434,7 @@ abstract class FimPromptCompletion extends CompletionModel {
 		const { textStream } = await ai.streamText({
 			model: this.model,
 			system: system,
-			messages: [{ role: 'user', content: `<prefix>${prevLines}\n${prefix}</prefix><suffix>${suffix}\n${nextLines}</suffix>` }],
+			messages: [{ role: 'user', content: `${relatedText}<prefix>${prefix}</prefix><suffix>${suffix}</suffix>` }],
 			maxTokens: 128,
 			abortSignal: signal,
 		});
