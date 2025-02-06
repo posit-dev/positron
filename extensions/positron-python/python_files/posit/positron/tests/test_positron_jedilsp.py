@@ -3,6 +3,7 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+import json
 import os
 from functools import partial
 from pathlib import Path
@@ -16,6 +17,9 @@ import pytest
 from positron._vendor import cattrs
 from positron._vendor.jedi_language_server import jedi_utils
 from positron._vendor.lsprotocol.types import (
+    TEXT_DOCUMENT_HOVER,
+    CancelParams,
+    CancelRequestNotification,
     ClientCapabilities,
     CompletionClientCapabilities,
     CompletionClientCapabilitiesCompletionItemType,
@@ -26,6 +30,7 @@ from positron._vendor.lsprotocol.types import (
     DocumentSymbol,
     DocumentSymbolParams,
     Hover,
+    HoverParams,
     InitializeParams,
     Location,
     MarkupContent,
@@ -40,6 +45,7 @@ from positron._vendor.lsprotocol.types import (
     SymbolKind,
     TextDocumentClientCapabilities,
     TextDocumentEdit,
+    TextDocumentHoverRequest,
     TextDocumentIdentifier,
     TextDocumentItem,
     TextDocumentPositionParams,
@@ -1042,3 +1048,37 @@ def test_positron_rename(
     text_document_edit = workspace_edit.document_changes[0]
     assert isinstance(text_document_edit, TextDocumentEdit)
     assert text_document_edit.edits == expected_text_edits
+
+
+def test_cancel_request_immediately() -> None:
+    # Test our workaround to a pygls performance issue where the server still executes requests
+    # even if they're immediately cancelled.
+    # See: https://github.com/openlawlibrary/pygls/issues/517.
+    server = create_server()
+    protocol = server.lsp
+
+    # Register a textDocument/hover handler and track whether it executes.
+    did_hover_executed = False
+
+    @server.feature(TEXT_DOCUMENT_HOVER)
+    def _hover(_server: PositronJediLanguageServer, _params: TextDocumentPositionParams):
+        nonlocal did_hover_executed
+        did_hover_executed = True
+
+    # Helper to encode LSP messages, adapted from `pygls.json_rpc.JsonRPCProtocol._send_data`.
+    def encode(message):
+        body = json.dumps(message, default=protocol._serialize_message)  # noqa: SLF001
+        header = f"Content-Length: {len(body)}\r\n\r\n"
+        return (header + body).encode(protocol.CHARSET)
+
+    # Send a hover request and immediately cancel it in the same payload.
+    hover_request = TextDocumentHoverRequest(
+        0, HoverParams(TextDocumentIdentifier(""), Position(0, 0))
+    )
+    cancel_request = CancelRequestNotification(CancelParams(hover_request.id))
+    data = encode(hover_request) + encode(cancel_request)
+
+    # Call `_data_received` instead of `data_received` so that errors are raised.
+    protocol._data_received(data)  # noqa: SLF001
+
+    assert not did_hover_executed
