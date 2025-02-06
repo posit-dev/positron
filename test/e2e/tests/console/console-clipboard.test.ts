@@ -62,7 +62,7 @@ async function executeCopyAndPaste(console: Console, page: any, testLine: string
 		await console.waitForConsoleExecution();
 
 		// Ensure the test line is in the console's output
-		await console.waitForConsoleContents(testLine);
+		await console.waitForConsoleContents(testLine, { expectedCount: 2 });
 
 		// Clear the console
 		await console.barClearButton.click();
@@ -80,6 +80,6 @@ async function verifyClipboardPaste(console: any, testLine: string) {
 		await console.waitForConsoleExecution();
 
 		// Ensure the console contains the test line after execution
-		await console.waitForConsoleContents(testLine);
+		await console.waitForConsoleContents(testLine, { expectedCount: 2 });
 	});
 }
