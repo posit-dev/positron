@@ -160,7 +160,7 @@ export const ActivityInput = (props: ActivityInputProps) => {
 				// has formatting for some reason.
 				if (outputRuns.length === 0) {
 					codeOutputLines.push('');
-				} if (outputRuns.length === 1 && outputRuns[0].format === undefined) {
+				} else if (outputRuns.length === 1 && outputRuns[0].format === undefined) {
 					codeOutputLines.push(outputRuns[0].text);
 				} else {
 					setColorizedOutputLines([]);
