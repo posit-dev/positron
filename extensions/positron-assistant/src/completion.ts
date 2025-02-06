@@ -9,7 +9,6 @@ import * as ai from 'ai';
 import * as fs from 'fs';
 
 import { ModelConfig } from './config';
-import { createOllama } from 'ollama-ai-provider';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { EXTENSION_ROOT_DIR } from './constants';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -31,12 +30,8 @@ const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
  * completions API. OpenAI has a completions API, but it is considered legacy and does not work with
  * their latest models. Yet, some other providers still implement it for newer models.
  *
- * With local llama models, delimiter tokens are used to separate prefix and suffix content, but the
- * specific tokens are subtly different between open source models. Ollama has the concept of a
- * prompt template to help deal with this.
- *
- * Some providers do not provide completion models. For those providers we can emulate FIM with
- * prompt engineering.
+ * Other providers do not make available completion models or endpoints. For those providers we
+ * emulate a FIM API with prompt engineering.
  */
 
 //#region Document context
@@ -156,7 +151,7 @@ abstract class CompletionModel implements vscode.InlineCompletionItemProvider {
 
 //#endregion
 //#region OpenAI Legacy API
-// (OpenAI FIM, DeepSeek, Mistral)
+// (OpenAI FIM, DeepSeek, Mistral, Ollama)
 
 class OpenAILegacyCompletion extends CompletionModel {
 	url: string;
@@ -282,6 +277,31 @@ class DeepSeekCompletion extends OpenAILegacyCompletion {
 	}
 }
 
+class OllamaCompletion extends OpenAILegacyCompletion {
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Completion,
+		provider: {
+			id: 'ollama',
+			displayName: 'Ollama'
+		},
+		supportedOptions: ['baseUrl'],
+		defaults: {
+			name: 'Qwen 2.5 Base (3b)',
+			model: 'qwen2.5-coder:3b-base',
+			baseUrl: 'http://localhost:11434/api',
+		},
+	};
+
+	constructor(_config: ModelConfig) {
+		super(_config);
+		this.url = `${this._config.baseUrl?.replace(/\/api$/, '')}/v1/completions`;
+	}
+
+	async getAccessToken() {
+		return '';
+	}
+}
+
 class VertexLegacyCompletion extends MistralCompletion {
 	authInstance: GoogleAuth;
 
@@ -337,67 +357,6 @@ class VertexLegacyCompletion extends MistralCompletion {
 		}
 
 		return accessToken.token;
-	}
-}
-
-//#endregion
-//#region Ollama API
-
-class OllamaCompletion extends CompletionModel {
-	protected model: ai.LanguageModelV1;
-
-	static source: positron.ai.LanguageModelSource = {
-		type: positron.PositronLanguageModelType.Completion,
-		provider: {
-			id: 'ollama',
-			displayName: 'Ollama'
-		},
-		supportedOptions: ['baseUrl'],
-		defaults: {
-			name: 'Qwen 2.5 Base',
-			model: 'qwen2.5-coder:7b-base',
-			baseUrl: 'http://localhost:11434/api',
-		},
-	};
-
-	constructor(protected readonly _config: ModelConfig) {
-		super(_config);
-		this.model = createOllama({ baseURL: this._config.baseUrl })(this._config.model);
-	}
-
-	async provideInlineCompletionItems(
-		document: vscode.TextDocument,
-		position: vscode.Position,
-		context: vscode.InlineCompletionContext,
-		token: vscode.CancellationToken
-	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList> {
-		if (token.isCancellationRequested) {
-			return [];
-		}
-
-		const { related, prefix, suffix } = await this.getDocumentContext(document, position);
-		const relatedText = Object.values(related).join('\n');
-
-		const controller = new AbortController();
-		const signal = controller.signal;
-		token.onCancellationRequested(() => controller.abort());
-
-		const { textStream } = await ai.streamText({
-			model: this.model,
-			prompt: `<|fim_prefix|>${relatedText}\n${prefix}<|fim_suffix|>${suffix}\n<|fim_middle|>`,
-			maxTokens: 128,
-			abortSignal: signal,
-		});
-
-		let text = '';
-		for await (const delta of textStream) {
-			if (token.isCancellationRequested) {
-				break;
-			}
-			text += delta;
-		}
-
-		return [{ insertText: text }];
 	}
 }
 
