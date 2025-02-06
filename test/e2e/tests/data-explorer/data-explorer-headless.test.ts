@@ -42,18 +42,22 @@ test.describe('Headless Data Explorer - Large Data Frame', {
 		await testBody(app, logger, 'flights.tsv.gz');
 	});
 
-	test('Verifies headless data explorer can open csv file as plaintext', async function ({ app, logger }) {
-		const fileName = 'flights.csv';
+	test('Verifies headless data explorer can open csv file as plaintext', async function ({ app, openDataFile }) {
+		await openDataFile(join('data-files/flights/flights.csv'));
+		await app.workbench.quickaccess.runCommand('workbench.action.positronDataExplorer.openAsPlaintext');
+
 		const searchString = ',year,month,day,dep_time,sched_dep_time,dep_delay,arr_time,sched_arr_time,arr_delay,carrier,flight,tailnum,origin,dest,air_time,distance,hour,minute,time_hour';
 
-		await openAsPlaintext(app, fileName, searchString);
+		await verifyOpenAsPlaintext(app, searchString);
 	});
 
-	test('Verifies headless data explorer can open tsv file as plaintext', async function ({ app, logger }) {
-		const fileName = 'flights.tsv';
+	test('Verifies headless data explorer can open tsv file as plaintext', async function ({ app, openDataFile }) {
+		await openDataFile(join('data-files/flights/flights.tsv'));
+		await app.workbench.quickaccess.runCommand('workbench.action.positronDataExplorer.openAsPlaintext');
+
 		const searchString = /\s+year\s+month\s+day\s+dep_time\s+sched_dep_time\s+dep_delay\s+arr_time\s+sched_arr_time\s+arr_delay\s+carrier\s+flight\s+tailnum\s+origin\s+dest\s+air_time\s+distance\s+hour\s+minute\s+time_hour/;
 
-		await openAsPlaintext(app, fileName, searchString);
+		await verifyOpenAsPlaintext(app, searchString);
 	});
 });
 
@@ -85,20 +89,11 @@ async function testBody(app: Application, logger: Logger, fileName: string) {
 	}).toPass();
 }
 
-async function openAsPlaintext(app: Application, fileName: string, searchString: string | RegExp) {
-	await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'data-files', 'flights', fileName));
-	await app.workbench.quickaccess.runCommand('workbench.action.positronDataExplorer.openAsPlaintext');
-
+async function verifyOpenAsPlaintext(app: Application, searchString: string | RegExp) {
 	const openAnyway = app.code.driver.page.getByText("Open Anyway");
-	if (await openAnyway.isVisible({ timeout: 1000 })) {
+	if (await openAnyway.isVisible({ timeout: 3000 })) {
 		await openAnyway.click();
 	}
 
-	await app.workbench.editor.waitForEditorContents(fileName, (contents) => {
-		if (searchString instanceof RegExp) {
-			return contents.search(searchString) !== -1;
-		} else {
-			return contents.includes(searchString);
-		}
-	});
+	await expect(app.code.driver.page.getByText(searchString, { exact: true })).toBeVisible();
 }
