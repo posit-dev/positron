@@ -26,7 +26,7 @@ export const testDataExplorer = async (
 	// Open the data frame.
 	await expect(async () => {
 		await app.workbench.variables.doubleClickVariableRow(dataFrameName);
-		await app.code.driver.page.locator(`.label-name:has-text("Data: ${dataFrameName}")`).innerText();
+		await app.workbench.dataExplorer.verifyTab(dataFrameName, { isVisible: true });
 	}).toPass();
 
 	// Maximize the data explorer.

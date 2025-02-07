@@ -13,7 +13,7 @@ test.use({
 test.describe('Data Explorer - Python Pandas', {
 	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.DATA_EXPLORER]
 }, () => {
-	test('Python Pandas - Verifies basic data explorer functionality', async function ({ app, python, logger }) {
+	test('Python Pandas - Can send code to console, open data grid, and verify data', async function ({ app, python, logger }) {
 		// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 		const script = `import pandas as pd
 data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
@@ -33,7 +33,6 @@ df = pd.DataFrame(data)`;
 		await app.workbench.sideBar.closeSecondarySideBar();
 
 		await expect(async () => {
-
 			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
 
 			expect(tableData[0]).toStrictEqual({ 'Name': 'Jai', 'Age': '27', 'Address': 'Delhi' });
@@ -45,7 +44,6 @@ df = pd.DataFrame(data)`;
 
 		await app.workbench.dataExplorer.closeDataExplorer();
 		await app.workbench.variables.toggleVariablesView();
-
 	});
 
 	test('Python Pandas - Verifies data explorer functionality with empty fields', async function ({ app, python, logger }) {
@@ -123,7 +121,7 @@ df2 = pd.DataFrame(data)`;
 	});
 
 	// This test is not dependent on the previous test, so it refreshes the python environment
-	test('Python Pandas - Verifies data explorer test.afterAll modification', async function ({ app, python }) {
+	test('FIXME!!!! - Python Pandas - Verifies data explorer test.afterAll modification', async function ({ app, python }) {
 		// Restart python for clean environment & open the file
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
@@ -213,7 +211,7 @@ Data_Frame = pd.DataFrame({
 		await app.workbench.variables.focusVariablesView();
 	});
 
-	test('Python - Check blank spaces in data explorer', async function ({ app, python }) {
+	test('Python - Verify blank spaces in data explorer', async function ({ app, python }) {
 
 		const script = `import pandas as pd
 df = pd.DataFrame({'x': ["a ", "a", "   ", ""]})`;

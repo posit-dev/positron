@@ -25,7 +25,7 @@ test.describe('Data Explorer - Large Data Frame', {
 		await app.workbench.dataExplorer.closeDataExplorer();
 	});
 
-	test('Python - Verifies data explorer functionality with large data frame', async function ({ app, python, logger }) {
+	test('Python - Verify data explorer functionality with large data frame', async function ({ app, python, logger }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
 		await app.workbench.quickaccess.runCommand('python.execInConsole');
 
@@ -57,7 +57,7 @@ test.describe('Data Explorer - Large Data Frame', {
 
 	});
 
-	test('R - Verifies data explorer functionality with large data frame', {
+	test('R - Verify data explorer functionality with large data frame', {
 		tag: [tags.WEB, tags.CRITICAL]
 	}, async function ({ app, logger, r }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));

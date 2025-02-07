@@ -13,12 +13,12 @@ test.describe('Console Input', {
 	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.CONSOLE]
 }, () => {
 
-	test.beforeEach(async function ({ app, r }) {
+	test.beforeEach(async function ({ app }) {
 		await app.workbench.layouts.enterLayout('fullSizedPanel');
 	});
 
 
-	test('Python - Get Input String Console', async function ({ app, python }) {
+	test('Python - Can get input string via console', async function ({ app, python }) {
 		const inputCode = `val = input("Enter your name: "); print(f'Hello {val}!');`;
 
 		await app.workbench.console.pasteCodeToConsole(inputCode);
@@ -32,7 +32,7 @@ test.describe('Console Input', {
 	});
 
 
-	test('R - Get Input String Console', async function ({ app, r }) {
+	test('R - Can get input string via console', async function ({ app, r }) {
 		const inputCode = `val <- readline(prompt = "Enter your name: ")
 cat(sprintf('Hello %s!\n', val))`;
 		await app.workbench.console.pasteCodeToConsole(inputCode);

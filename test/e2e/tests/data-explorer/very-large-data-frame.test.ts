@@ -38,113 +38,107 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 		await app.workbench.variables.toggleVariablesView();
 	});
 
+	if (githubActions) {
 
-	test.describe('Python Data Explorer (Very Large Data Frame)', () => {
-		if (githubActions) {
-			test('Python - Verifies data explorer functionality with very large unique data dataframe', async function ({ app, logger, python }) {
-				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.py'));
-				await app.workbench.quickaccess.runCommand('python.execInConsole');
-				const startTime = performance.now();
+		test('Python - Verify data explorer functionality with very large unique data dataframe', async function ({ app, logger, python }) {
+			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.py'));
+			await app.workbench.quickaccess.runCommand('python.execInConsole');
+			const startTime = performance.now();
 
-				logger.log('Opening data grid');
-				await expect(async () => {
-					await app.workbench.variables.doubleClickVariableRow('df');
-					await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
-				}).toPass();
+			logger.log('Opening data grid');
+			await expect(async () => {
+				await app.workbench.variables.doubleClickVariableRow('df');
+				await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
+			}).toPass();
 
-				await app.workbench.sideBar.closeSecondarySideBar();
-				// awaits table load completion
-				await app.workbench.dataExplorer.getDataExplorerTableData();
-				const endTime = performance.now();
-				const timeTaken = endTime - startTime;
+			await app.workbench.sideBar.closeSecondarySideBar();
+			// awaits table load completion
+			await app.workbench.dataExplorer.getDataExplorerTableData();
+			const endTime = performance.now();
+			const timeTaken = endTime - startTime;
 
-				if (timeTaken > 40000) {
-					fail(`Opening large unique parquet took ${timeTaken} milliseconds (pandas)`);
-				} else {
-					logger.log(`Opening large unique parquet took ${timeTaken} milliseconds (pandas)`);
-				}
-			});
-		} else {
+			if (timeTaken > 40000) {
+				fail(`Opening large unique parquet took ${timeTaken} milliseconds (pandas)`);
+			} else {
+				logger.log(`Opening large unique parquet took ${timeTaken} milliseconds (pandas)`);
+			}
+		});
 
-			test('Python - Verifies data explorer functionality with very large duplicated data dataframe', async function ({ app, logger, python }) {
-				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.py'));
-				await app.workbench.quickaccess.runCommand('python.execInConsole');
-				const startTime = performance.now();
+		test('R - Verifies data explorer functionality with very large unique data dataframe', async function ({ app, logger, r }) {
+			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.r'));
+			await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
+			const startTime = performance.now();
 
-				logger.log('Opening data grid');
-				await expect(async () => {
-					await app.workbench.variables.doubleClickVariableRow('df_large');
-					await app.code.driver.page.locator('.label-name:has-text("Data: df_large")').innerText();
-				}).toPass();
+			logger.log('Opening data grid');
+			await expect(async () => {
+				await app.workbench.variables.doubleClickVariableRow('df2');
+				await app.code.driver.page.locator('.label-name:has-text("Data: df2")').innerText();
+			}).toPass();
 
-				await app.workbench.sideBar.closeSecondarySideBar();
+			await app.workbench.sideBar.closeSecondarySideBar();
 
-				// awaits table load completion
-				await app.workbench.dataExplorer.getDataExplorerTableData();
-				const endTime = performance.now();
-				const timeTaken = endTime - startTime;
+			// awaits table load completion
+			await app.workbench.dataExplorer.getDataExplorerTableData();
+			const endTime = performance.now();
+			const timeTaken = endTime - startTime;
 
-				if (timeTaken > 27000) {
-					fail(`Opening large duplicated parquet took ${timeTaken} milliseconds (pandas)`);
-				} else {
-					logger.log(`Opening large duplicated parquet took ${timeTaken} milliseconds (pandas)`);
-				}
-			});
-		}
-	});
+			if (timeTaken > 75000) {
+				fail(`Opening large unique parquet took ${timeTaken} milliseconds (R)`);
+			} else {
+				logger.log(`Opening large unique parquet took ${timeTaken} milliseconds (R)`);
+			}
+		});
 
-	test.describe('R Data Explorer (Very Large Data Frame)', () => {
-		if (githubActions) {
-			test('R - Verifies data explorer functionality with very large unique data dataframe', async function ({ app, logger, r }) {
-				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.r'));
-				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
-				const startTime = performance.now();
+	} else {
 
-				logger.log('Opening data grid');
-				await expect(async () => {
-					await app.workbench.variables.doubleClickVariableRow('df2');
-					await app.code.driver.page.locator('.label-name:has-text("Data: df2")').innerText();
-				}).toPass();
+		test('Python - Verify data explorer functionality with very large duplicated data dataframe', async function ({ app, logger, python }) {
+			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.py'));
+			await app.workbench.quickaccess.runCommand('python.execInConsole');
+			const startTime = performance.now();
 
-				await app.workbench.sideBar.closeSecondarySideBar();
+			logger.log('Opening data grid');
+			await expect(async () => {
+				await app.workbench.variables.doubleClickVariableRow('df_large');
+				await app.code.driver.page.locator('.label-name:has-text("Data: df_large")').innerText();
+			}).toPass();
 
-				// awaits table load completion
-				await app.workbench.dataExplorer.getDataExplorerTableData();
-				const endTime = performance.now();
-				const timeTaken = endTime - startTime;
+			await app.workbench.sideBar.closeSecondarySideBar();
 
-				if (timeTaken > 75000) {
-					fail(`Opening large unique parquet took ${timeTaken} milliseconds (R)`);
-				} else {
-					logger.log(`Opening large unique parquet took ${timeTaken} milliseconds (R)`);
-				}
-			});
-		} else {
+			// awaits table load completion
+			await app.workbench.dataExplorer.getDataExplorerTableData();
+			const endTime = performance.now();
+			const timeTaken = endTime - startTime;
 
-			test('R - Verifies data explorer functionality with very large duplicated data dataframe', async function ({ app, logger, r }) {
-				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.r'));
-				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
-				const startTime = performance.now();
+			if (timeTaken > 27000) {
+				fail(`Opening large duplicated parquet took ${timeTaken} milliseconds (pandas)`);
+			} else {
+				logger.log(`Opening large duplicated parquet took ${timeTaken} milliseconds (pandas)`);
+			}
+		});
 
-				logger.log('Opening data grid');
-				await expect(async () => {
-					await app.workbench.variables.doubleClickVariableRow('df3_large');
-					await app.code.driver.page.locator('.label-name:has-text("Data: df3_large")').innerText();
-				}).toPass();
+		test('R - Verifies data explorer functionality with very large duplicated data dataframe', async function ({ app, logger, r }) {
+			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.r'));
+			await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
+			const startTime = performance.now();
 
-				await app.workbench.sideBar.closeSecondarySideBar();
+			logger.log('Opening data grid');
+			await expect(async () => {
+				await app.workbench.variables.doubleClickVariableRow('df3_large');
+				await app.code.driver.page.locator('.label-name:has-text("Data: df3_large")').innerText();
+			}).toPass();
 
-				// awaits table load completion
-				await app.workbench.dataExplorer.getDataExplorerTableData();
-				const endTime = performance.now();
-				const timeTaken = endTime - startTime;
+			await app.workbench.sideBar.closeSecondarySideBar();
 
-				if (timeTaken > 60000) {
-					fail(`Opening large dupliacted parquet took ${timeTaken} milliseconds (R)`);
-				} else {
-					logger.log(`Opening large duplicated parquet took ${timeTaken} milliseconds (R)`);
-				}
-			});
-		}
-	});
+			// awaits table load completion
+			await app.workbench.dataExplorer.getDataExplorerTableData();
+			const endTime = performance.now();
+			const timeTaken = endTime - startTime;
+
+			if (timeTaken > 60000) {
+				fail(`Opening large dupliacted parquet took ${timeTaken} milliseconds (R)`);
+			} else {
+				logger.log(`Opening large duplicated parquet took ${timeTaken} milliseconds (R)`);
+			}
+		});
+	}
 });

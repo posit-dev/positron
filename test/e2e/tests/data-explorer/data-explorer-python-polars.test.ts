@@ -76,7 +76,7 @@ test.describe('Data Explorer - Python Polars', {
 
 	});
 
-	test('Python Polars - Add Simple Column filter', async function ({ app, python }) {
+	test('Python Polars - Verify Simple Column filter', async function ({ app, python }) {
 
 		const FILTER_PARAMS = ['foo', 'is not equal to', '1'];
 		await app.workbench.dataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
@@ -96,7 +96,7 @@ test.describe('Data Explorer - Python Polars', {
 		}).toPass({ timeout: 60000 });
 	});
 
-	test('Python Polars - Add Simple Column Sort', async function ({ app, python }) {
+	test('Python Polars - Verify Simple Column Sort', async function ({ app, python }) {
 		await app.workbench.dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 
 		let tableData;

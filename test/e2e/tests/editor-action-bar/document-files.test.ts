@@ -27,7 +27,7 @@ test.describe('Editor Action Bar: Document Files', {
 		await runCommand('workbench.action.closeAllEditors');
 	});
 
-	test('R Markdown Document', {
+	test('R Markdown Document - verify editor action bar button behavior', {
 		tag: [tags.R_MARKDOWN]
 	}, async function ({ app, openFile }) {
 		await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
@@ -36,7 +36,7 @@ test.describe('Editor Action Bar: Document Files', {
 		await verifyOpenInNewWindow(app, 'This post examines the features');
 	});
 
-	test('Quarto Document', {
+	test('Quarto Document - verify editor action bar button behavior', {
 		tag: [tags.QUARTO]
 	}, async function ({ app, page, openFile }) {
 		await openFile('workspaces/quarto_basic/quarto_basic.qmd');
@@ -46,14 +46,14 @@ test.describe('Editor Action Bar: Document Files', {
 		await verifyOpenInNewWindow(app, 'Diamond sizes');
 	});
 
-	test('HTML Document', { tag: [tags.HTML] }, async function ({ app, page, openFile }) {
+	test('HTML Document - verify editor action bar button behavior', { tag: [tags.HTML] }, async function ({ app, page, openFile }) {
 		await openFile('workspaces/dash-py-example/data/OilandGasMetadata.html');
 		await verifyOpenViewerRendersHtml(app, 'Oil, Gas, and Other Regulated');
 		await verifySplitEditor('OilandGasMetadata.html');
 		await verifyOpenInNewWindow(app, '<title> Oil &amp; Gas Wells - Metadata</title>');
 	});
 
-	test('Jupyter Notebook', {
+	test('Jupyter Notebook - verify editor action bar button behavior', {
 		tag: [tags.NOTEBOOKS],
 	}, async function ({ app, page, openDataFile }) {
 		await openDataFile('workspaces/large_r_notebook/spotify.ipynb');
