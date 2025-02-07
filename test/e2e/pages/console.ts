@@ -192,8 +192,7 @@ export class Console {
 	): Promise<string[]> {
 		const { timeout = 15000, expectedCount = 1 } = options;
 
-		const consoleLines = this.code.driver.page.locator(CONSOLE_LINES);
-		const matchingLines = consoleLines.filter({ hasText: consoleText });
+		const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText);
 
 		await expect(matchingLines).toHaveCount(expectedCount, { timeout });
 		return expectedCount ? matchingLines.allTextContents() : [];
