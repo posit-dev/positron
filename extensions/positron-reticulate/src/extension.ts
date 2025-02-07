@@ -186,7 +186,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 	// ReticulateRuntimeSession are only different from Python runtime sessions
 	// in the way the kernel spec is provided. In general, the kernel spec
 	// contains a runtime path and some arguments that are used start the
-	// kernel process. (The kernel is started by the Jupyter Adapter in a
+	// kernel process. (The kernel is started by the Positron Supervisor in a
 	// vscode terminal). In the reticulate case, the kernel isn't started that
 	// way. Instead, we need to call into the R console to start the python
 	// jupyter kernel (that's actually running in the same process as R), and

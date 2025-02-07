@@ -6,13 +6,13 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 
-import { JupyterAdapterApi } from './positron-supervisor';
+import { PositronSupervisorApi } from './positron-supervisor';
 import { KCApi } from './KallichoreAdapterApi';
 
 /** Singleton instance of the Kallichore API wrapper */
 export let API_INSTANCE: KCApi;
 
-export function activate(context: vscode.ExtensionContext): JupyterAdapterApi {
+export function activate(context: vscode.ExtensionContext): PositronSupervisorApi {
 	const log = positron.window.createRawLogOutputChannel('Kernel Supervisor');
 	log.appendLine('Positron Kernel Supervisor activated');
 

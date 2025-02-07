@@ -23,7 +23,7 @@ import {
     ProductInstallStatus,
 } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
-import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntimeSession } from '../positron-supervisor.d';
+import { PositronSupervisorApi, JupyterKernelSpec, JupyterLanguageRuntimeSession } from '../positron-supervisor.d';
 import { traceInfo } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { PythonLsp, LspState } from './lsp';
@@ -61,8 +61,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The emitter for language runtime exits */
     private _exitEmitter = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
 
-    /** The Jupyter Adapter extension API */
-    private adapterApi?: JupyterAdapterApi;
+    /** The Positron Supervisor extension API */
+    private adapterApi?: PositronSupervisorApi;
 
     /** The registration for console width changes */
     private _consoleWidthDisposable?: vscode.Disposable;
@@ -491,7 +491,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         if (!ext.isActive) {
             await ext.activate();
         }
-        this.adapterApi = ext?.exports as JupyterAdapterApi;
+        this.adapterApi = ext?.exports as PositronSupervisorApi;
         const kernel = this.kernelSpec
             ? // We have a kernel spec, so we're creating a new session
             await this.adapterApi.createSession(

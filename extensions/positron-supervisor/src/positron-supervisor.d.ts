@@ -36,7 +36,7 @@ export interface JupyterKernel {
 
 /**
  * This set of type definitions defines the interfaces used by the Positron
- * Jupyter Adapter extension.
+ * Supervisor extension.
  */
 
 /**
@@ -124,9 +124,9 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 }
 
 /**
- * The Jupyter Adapter API as exposed by the Jupyter Adapter extension.
+ * The Positron Supervisor API as exposed by the Positron Supervisor extension.
  */
-export interface JupyterAdapterApi extends vscode.Disposable {
+export interface PositronSupervisorApi extends vscode.Disposable {
 
 	/**
 	 * Create a session for a Jupyter-compatible kernel.

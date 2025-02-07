@@ -10,7 +10,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { DefaultApi, HttpBearerAuth, HttpError, ServerStatus, Status } from './kcclient/api';
 import { findAvailablePort } from './PortFinder';
-import { JupyterAdapterApi, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './positron-supervisor';
+import { PositronSupervisorApi, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './positron-supervisor';
 import { KallichoreSession } from './KallichoreSession';
 import { Barrier, PromiseHandles, withTimeout } from './async';
 import { LogStreamer } from './LogStreamer';
@@ -43,7 +43,7 @@ interface KallichoreServerState {
 	log_path: string;
 }
 
-export class KCApi implements JupyterAdapterApi {
+export class KCApi implements PositronSupervisorApi {
 
 	/** The instance of the API; the API is code-generated from the Kallichore
 	 * OpenAPI spec */
