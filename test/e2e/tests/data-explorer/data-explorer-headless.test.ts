@@ -11,7 +11,20 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Headless Data Explorer - Large Data Frame', {
+const testCases = [
+	{ name: 'parquet', file: 'flights.parquet' },
+	{ name: 'csv', file: 'flights.csv' },
+	{ name: 'gzipped csv', file: 'flights.csv.gz' },
+	{ name: 'tsv', file: 'flights.tsv' },
+	{ name: 'gzipped tsv', file: 'flights.tsv.gz' }
+];
+
+const plainTextTestCases = [
+	{ name: 'csv', file: 'flights.csv', searchString: ',year,month,day,dep_time,sched_dep_time,dep_delay,arr_time,sched_arr_time,arr_delay,carrier,flight,tailnum,origin,dest,air_time,distance,hour,minute,time_hour' },
+	{ name: 'tsv', file: 'flights.tsv', searchString: /\s+year\s+month\s+day\s+dep_time\s+sched_dep_time\s+dep_delay\s+arr_time\s+sched_arr_time\s+arr_delay\s+carrier\s+flight\s+tailnum\s+origin\s+dest\s+air_time\s+distance\s+hour\s+minute\s+time_hour/ }
+];
+
+test.describe('Headless Data Explorer', {
 	tag: [tags.WEB, tags.DATA_EXPLORER, tags.DUCK_DB, tags.WIN]
 }, () => {
 
@@ -19,16 +32,8 @@ test.describe('Headless Data Explorer - Large Data Frame', {
 		await app.workbench.dataExplorer.closeDataExplorer();
 	});
 
-	const testCases = [
-		{ name: 'parquet', file: 'flights.parquet' },
-		{ name: 'csv', file: 'flights.csv' },
-		{ name: 'gzipped csv', file: 'flights.csv.gz' },
-		{ name: 'tsv', file: 'flights.tsv' },
-		{ name: 'gzipped tsv', file: 'flights.tsv.gz' }
-	];
-
 	testCases.forEach(({ name, file }) => {
-		test(`Verifies headless data explorer functionality with large ${name} file`, async function ({ app, openDataFile }) {
+		test(`Verify can open and view data with large ${name} file`, async function ({ app, openDataFile }) {
 			await openDataFile(join(`data-files/flights/${file}`));
 			await app.workbench.dataExplorer.verifyTab(file, { isVisible: true, isSelected: true });
 			await verifyDataIsPresent(app);
@@ -36,13 +41,8 @@ test.describe('Headless Data Explorer - Large Data Frame', {
 		});
 	});
 
-	const plainTextTestCases = [
-		{ name: 'csv', file: 'flights.csv', searchString: ',year,month,day,dep_time,sched_dep_time,dep_delay,arr_time,sched_arr_time,arr_delay,carrier,flight,tailnum,origin,dest,air_time,distance,hour,minute,time_hour' },
-		{ name: 'tsv', file: 'flights.tsv', searchString: /\s+year\s+month\s+day\s+dep_time\s+sched_dep_time\s+dep_delay\s+arr_time\s+sched_arr_time\s+arr_delay\s+carrier\s+flight\s+tailnum\s+origin\s+dest\s+air_time\s+distance\s+hour\s+minute\s+time_hour/ }
-	];
-
 	plainTextTestCases.forEach(({ name, file, searchString }) => {
-		test(`Verifies headless data explorer can open ${name} file as plaintext`,
+		test(`Verify can open ${name} file as plaintext`,
 			{ tag: [TestTags.EDITOR_ACTION_BAR] }, async function ({ app, openDataFile }) {
 				await openDataFile(join(`data-files/flights/${file}`));
 				await verifyPlainTextButtonInActionBar(app, true);
