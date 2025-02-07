@@ -20,7 +20,7 @@ import { WebviewPlotThumbnail } from './webviewPlotThumbnail.js';
 import { usePositronPlotsContext } from '../positronPlotsContext.js';
 import { WebviewPlotClient } from '../webviewPlotClient.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { IPositronPlotClient } from '../../../../services/positronPlots/common/positronPlots.js';
+import { DarkFilter, IPositronPlotClient } from '../../../../services/positronPlots/common/positronPlots.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
 
 /**
@@ -33,6 +33,7 @@ interface PlotContainerProps {
 	y: number;
 	visible: boolean;
 	showHistory: boolean;
+	darkFilterMode: DarkFilter;
 	zoom: number;
 }
 
@@ -161,7 +162,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	// If there are no plot instances, show a placeholder; otherwise, show the
 	// most recently generated plot.
 	return (
-		<div className={'plots-container ' + historyEdge}>
+		<div className={'plots-container dark-filter-' + props.darkFilterMode + ' ' + historyEdge}>
 			<div className='selected-plot'>
 				{positronPlotsContext.positronPlotInstances.length === 0 &&
 					<div className='plot-placeholder'></div>}

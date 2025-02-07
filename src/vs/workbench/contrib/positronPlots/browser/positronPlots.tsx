@@ -75,6 +75,7 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 	const [visible, setVisible] = useState(props.reactComponentContainer.containerVisible);
 	const [showHistory, setShowHistory] = useState(computeHistoryVisibility(
 		props.positronPlotsService.historyPolicy));
+	const [darkFilterMode, setDarkFilterMode] = useState(props.positronPlotsService.darkFilterMode);
 	const [zoom, setZoom] = useState(ZoomLevel.Fit);
 
 	// Add IReactComponentContainer event handlers.
@@ -117,9 +118,14 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 			setShowHistory(computeHistoryVisibility(policy));
 		}));
 
+		// Add the event handler for dark filter mode changes.
+		disposableStore.add(props.positronPlotsService.onDidChangeDarkFilterMode(mode => {
+			setDarkFilterMode(mode);
+		}));
+
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [computeHistoryVisibility, props.positronPlotsService, props.reactComponentContainer]);
 
 	// Render.
 	return (
@@ -127,6 +133,7 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 			<ActionBars {...props} zoomHandler={zoomHandler} zoomLevel={zoom} />
 			<PlotsContainer
 				showHistory={showHistory}
+				darkFilterMode={darkFilterMode}
 				visible={visible}
 				width={width}
 				height={height - 34}

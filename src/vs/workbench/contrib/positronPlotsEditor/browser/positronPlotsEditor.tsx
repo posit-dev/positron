@@ -143,6 +143,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 				<EditorPlotsContainer
 					width={this._width}
 					height={this._height}
+					positronPlotsService={this._positronPlotsService}
 					plotClient={plotClient}
 				/>
 			</PositronPlotsContextProvider>
