@@ -62,7 +62,7 @@ export async function createPythonRuntimeMetadata(
             isLocal && recommendedForWorkspace
                 ? positron.LanguageRuntimeStartupBehavior.Immediate
                 : // If ipykernel is not installed and this is not a local Python env, require explicit startup
-                positron.LanguageRuntimeStartupBehavior.Explicit;
+                  positron.LanguageRuntimeStartupBehavior.Explicit;
     }
     traceInfo(`createPythonRuntime: startup behavior: ${startupBehavior}`);
 
