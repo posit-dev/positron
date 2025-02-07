@@ -6,9 +6,19 @@
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILanguageRuntimeMetadata, IRuntimeManager } from '../../languageRuntime/common/languageRuntimeService.js';
+import { Event } from '../../../../base/common/event.js';
 
 export const IRuntimeStartupService =
 	createDecorator<IRuntimeStartupService>('runtimeStartupService');
+
+
+/**
+ * An event that is emitted when a runtime is automatically started.
+ */
+export interface IRuntimeAutoStartEvent {
+	runtime: ILanguageRuntimeMetadata;
+	newSession: boolean;
+}
 
 /**
  * The IRuntimeStartupService is responsible for coordinating the process by
@@ -52,6 +62,19 @@ export interface IRuntimeStartupService {
 	 * Clears a specific runtime from the list of affiliated runtimes.
 	 */
 	clearAffiliatedRuntime(languageId: string): void;
+
+	/**
+	 * An event that is emitted when a runtime about to be automatically
+	 * started or resumed in a new Positron window.
+	 *
+	 * This event is intended to help communicate startup information to the
+	 * UI; it is not reliable as a signal that a runtime will actually start.
+	 * It may fire for runtimes that ultimately do not start (due to e.g. stale
+	 * metadata), and may fire multiple times for the same runtime.
+	 *
+	 * Use `onWillStartSession` for a reliable start signal.
+	 */
+	onWillAutoStartRuntime: Event<IRuntimeAutoStartEvent>;
 
 	/**
 	 * Signal that discovery of language runtimes is completed for an extension host.

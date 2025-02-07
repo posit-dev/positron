@@ -671,6 +671,9 @@
     "which": "^3.0.0",
     "xdg-portable": "^10.6.0"
   },
+  "extensionDependencies": [
+    "positron.positron-supervisor"
+  ],
   "peerDependencies": {
     "@vscode/windows-registry": "^1.0.0"
   },
