@@ -20,6 +20,8 @@ import { Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../
 import { registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { PlotsActiveEditorCopyAction, PlotsActiveEditorSaveAction, PlotsClearAction, PlotsCopyAction, PlotsEditorAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsRefreshAction, PlotsSaveAction, PlotsSizingPolicyAction } from './positronPlotsActions.js';
 import { POSITRON_SESSION_CONTAINER } from '../../positronSession/browser/positronSessionContainer.js';
+import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { localize } from '../../../../nls.js';
 
 // Register the Positron plots service.
 registerSingleton(IPositronPlotsService, PositronPlotsService, InstantiationType.Delayed);
@@ -75,6 +77,28 @@ class PositronPlotsContribution extends Disposable implements IWorkbenchContribu
 		registerAction2(PlotsSizingPolicyAction);
 	}
 }
+
+// Register the configuration setting
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
+	.registerConfiguration({
+		properties: {
+			'positron.plots.darkFilter': {
+				type: 'string',
+				default: 'auto',
+				enum: [
+					'on',
+					'off',
+					'auto'
+				],
+				enumDescriptions: [
+					localize('positron.plots.darkFilterOn', 'Always apply the dark filter'),
+					localize('positron.plots.darkFilterOff', 'Never apply the dark filter'),
+					localize('positron.plots.darkFilterAuto', 'Apply the dark filter when Positron is using a dark theme')
+				],
+				description: localize('positron.plots.darkFilterSetting', "Use a color filter to make light plots appear dark."),
+			}
+		}
+	});
 
 Registry.
 	as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).
