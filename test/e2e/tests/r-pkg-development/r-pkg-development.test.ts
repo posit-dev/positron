@@ -65,11 +65,11 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 			// await app.workbench.terminal.waitForTerminalText('✔ Installed testfun 0.0.0.9000');
 
 			await app.workbench.console.waitForConsoleContents('restarted', { timeout: 30000 });
-			await app.workbench.console.waitForConsoleContents('library(testfun)', { timeout: 30000 });
+			await app.workbench.console.waitForConsoleContents('library(testfun)', { expectedCount: 2, timeout: 30000 });
 
 			await app.workbench.console.pasteCodeToConsole('(.packages())');
 			await app.workbench.console.sendEnterKey();
-			await app.workbench.console.waitForConsoleContents('"testfun"');
+			await app.workbench.console.waitForConsoleContents('"testfun"', { expectedCount: 1 });
 		});
 	});
 });
