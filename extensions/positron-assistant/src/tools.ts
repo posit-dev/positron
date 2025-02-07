@@ -120,6 +120,7 @@ export const textEditToolAdapter: PositronToolAdapter = {
 					options.document.uri,
 					vscode.TextEdit.replace(options.selection, code)
 				));
+				return '';
 			},
 		});
 	}
