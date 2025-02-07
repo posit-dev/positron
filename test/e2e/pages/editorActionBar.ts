@@ -23,7 +23,7 @@ export class EditorActionBar {
 	 * @param button - Name of the button to click in the editor action bar.
 	 */
 	async clickButton(
-		button: 'Split Editor Right' | 'Split Editor Down' | 'Preview' | 'Open Changes' | 'Open in Viewer' | 'Move into new window'
+		button: 'Split Editor Right' | 'Split Editor Down' | 'Preview' | 'Open Changes' | 'Open in Viewer' | 'Move into new window' | 'Open as Plain Text File'
 	): Promise<void> {
 		const buttonLocator = this.page.getByLabel(button, { exact: true });
 
