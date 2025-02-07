@@ -51,6 +51,7 @@ import { IPositronModalDialogsService } from '../../../services/positronModalDia
 import { ILabelService } from '../../../../platform/label/common/label.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { DynamicPlotInstance } from './components/dynamicPlotInstance.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -73,8 +74,8 @@ const SizingPolicyStorageKey = 'positron.plots.sizingPolicy';
 /** The key used to store the custom plot size */
 const CustomPlotSizeStorageKey = 'positron.plots.customPlotSize';
 
-/** The key used to store the dark filter mode */
-const DarkFilterModeStorageKey = 'positron.plots.darkFilterMode';
+/** The config key used to store the dark mode setting */
+const DarkFilterModeConfigKey = 'positron.plots.darkFilter';
 
 interface DataUri {
 	mime: string;
@@ -172,6 +173,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IEditorService private readonly _editorService: IEditorService,
 		@ILabelService private readonly _labelService: ILabelService,
 		@IPathService private readonly _pathService: IPathService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {
 		super();
 
@@ -226,12 +228,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				StorageScope.WORKSPACE,
 				StorageTarget.MACHINE);
 
-			this._storageService.store(
-				DarkFilterModeStorageKey,
-				this._selectedDarkFilterMode,
-				StorageScope.WORKSPACE,
-				StorageTarget.MACHINE);
-
 			if (this._customSizingPolicy) {
 				// If we have a custom sizing policy, store it in the workspace storage
 				this._storageService.store(
@@ -246,6 +242,18 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					undefined,
 					StorageScope.WORKSPACE,
 					StorageTarget.MACHINE);
+			}
+		}));
+
+		// Listen for changes to the dark mode configuration
+		this._selectedDarkFilterMode = this._configurationService.getValue<DarkFilter>(DarkFilterModeConfigKey) ?? DarkFilter.Auto;
+		this._register(this._configurationService.onDidChangeConfiguration((evt) => {
+			if (evt.affectsConfiguration(DarkFilterModeConfigKey)) {
+				const newMode = this._configurationService.getValue<DarkFilter>(DarkFilterModeConfigKey);
+				if (newMode && newMode !== this.darkFilterMode) {
+					this._selectedDarkFilterMode = newMode;
+					this._onDidChangeDarkFilterMode.fire(newMode);
+				}
 			}
 		}));
 
