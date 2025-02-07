@@ -106,18 +106,6 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 							return;
 						}
 
-						// Wait for the the runtime to be ready, if hasn't
-						// already entered the Ready state.
-						//
-						// TODO(jupyter-adapter): This is a workaround for the
-						// fact that, when using the Jupyter Adapter, the
-						// restart command does not wait for the restart to be
-						// complete before returning. When the Jupyter Adapter
-						// is removed, we can rely on the runtime being ready
-						// as soon as the session restart call returns.
-						if (!promise.settled) {
-							await Promise.race([promise.promise, timeout(1e4, 'waiting for R to be ready')]);
-						}
 						session.execute(`library(${packageName})`,
 							randomUUID(),
 							positron.RuntimeCodeExecutionMode.Interactive,

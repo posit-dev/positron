@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import PQueue from 'p-queue';
 
-import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterKernelExtra } from './jupyter-adapter';
+import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterKernelExtra } from './positron-supervisor';
 import { ArkLsp, LspState } from './lsp';
 import { delay, whenTimeout, timeout } from './util';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
@@ -575,28 +575,15 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
-		const config = vscode.workspace.getConfiguration('kernelSupervisor');
-		if (config.get<boolean>('enable', true)) {
-			// Use the Positron kernel supervisor if enabled
-			const ext = vscode.extensions.getExtension('positron.positron-supervisor');
-			if (!ext) {
-				throw new Error('Positron Supervisor extension not found');
-			}
-			if (!ext.isActive) {
-				await ext.activate();
-			}
-			this.adapterApi = ext?.exports as JupyterAdapterApi;
-		} else {
-			// Otherwise, connect to the Jupyter kernel directly
-			const ext = vscode.extensions.getExtension('positron.jupyter-adapter');
-			if (!ext) {
-				throw new Error('Jupyter Adapter extension not found');
-			}
-			if (!ext.isActive) {
-				await ext.activate();
-			}
-			this.adapterApi = ext?.exports as JupyterAdapterApi;
+		// Get the Positron Supervisor extension and activate it if necessary
+		const ext = vscode.extensions.getExtension('positron.positron-supervisor');
+		if (!ext) {
+			throw new Error('Positron Supervisor extension not found');
 		}
+		if (!ext.isActive) {
+			await ext.activate();
+		}
+		this.adapterApi = ext?.exports as JupyterAdapterApi;
 
 		// Create the Jupyter session
 		const kernel = this.kernelSpec ?

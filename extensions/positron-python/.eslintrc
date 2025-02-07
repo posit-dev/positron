@@ -6,10 +6,7 @@
         "mocha": true
     },
     "parser": "@typescript-eslint/parser",
-    "plugins": [
-        "@typescript-eslint",
-        "no-only-tests"
-    ],
+    "plugins": ["@typescript-eslint", "no-only-tests"],
     "extends": [
         "airbnb",
         "plugin:@typescript-eslint/recommended",
@@ -55,7 +52,7 @@
         "@typescript-eslint/no-var-requires": "off",
 
         // Other rules
-        "class-methods-use-this": ["error", {"exceptMethods": ["dispose"]}],
+        "class-methods-use-this": ["error", { "exceptMethods": ["dispose"] }],
         "func-names": "off",
         "import/extensions": "off",
         "import/namespace": "off",
@@ -107,8 +104,8 @@
     // --- Start Positron ---
     "overrides": [
         {
-            // Disable no-explicit-any for jupyter-adapter.d.ts since we don't control that file.
-            "files": ["jupyter-adapter.d.ts"],
+            // Disable no-explicit-any for positron-supervisor.d.ts since we don't control that file.
+            "files": ["positron-supervisor.d.ts"],
             "rules": {
                 "@typescript-eslint/no-explicit-any": "off"
             }

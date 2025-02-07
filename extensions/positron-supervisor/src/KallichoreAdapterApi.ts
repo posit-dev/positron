@@ -10,8 +10,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { DefaultApi, HttpBearerAuth, HttpError, ServerStatus, Status } from './kcclient/api';
 import { findAvailablePort } from './PortFinder';
-import { KallichoreAdapterApi } from './positron-supervisor';
-import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
+import { JupyterAdapterApi, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './positron-supervisor';
 import { KallichoreSession } from './KallichoreSession';
 import { Barrier, PromiseHandles, withTimeout } from './async';
 import { LogStreamer } from './LogStreamer';
@@ -44,7 +43,7 @@ interface KallichoreServerState {
 	log_path: string;
 }
 
-export class KCApi implements KallichoreAdapterApi {
+export class KCApi implements JupyterAdapterApi {
 
 	/** The instance of the API; the API is code-generated from the Kallichore
 	 * OpenAPI spec */
@@ -99,13 +98,11 @@ export class KCApi implements KallichoreAdapterApi {
 
 		this._api = new DefaultApi();
 
-		// If the Kallichore server is enabled in the configuration, start it
-		// eagerly so it's warm when we start trying to create or restore sessions.
-		if (vscode.workspace.getConfiguration('kernelSupervisor').get<boolean>('enable', true)) {
-			this.ensureStarted().catch((err) => {
-				this._log.appendLine(`Failed to start Kallichore server: ${err}`);
-			});
-		}
+		// Start Kallichore eagerly so it's warm when we start trying to create
+		// or restore sessions.
+		this.ensureStarted().catch((err) => {
+			this._log.appendLine(`Failed to start Kallichore server: ${err}`);
+		});
 
 		_context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.reconnectSession', () => {
 			this.reconnectActiveSession();

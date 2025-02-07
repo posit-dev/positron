@@ -21,7 +21,7 @@ import {
 import { IEnvironmentVariablesProvider } from '../../client/common/variables/types';
 import { IInterpreterService } from '../../client/interpreter/contracts';
 import { IServiceContainer } from '../../client/ioc/types';
-import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntimeSession } from '../../client/jupyter-adapter.d';
+import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntimeSession } from '../../client/positron-supervisor.d';
 import { PythonRuntimeSession } from '../../client/positron/session';
 import { PythonEnvironment } from '../../client/pythonEnvironments/info';
 
@@ -72,7 +72,7 @@ suite('Python Runtime Session', () => {
         } as IConfigurationService;
 
         const envVarsProvider = ({
-            onDidEnvironmentVariablesChange: () => ({ dispose() {} }),
+            onDidEnvironmentVariablesChange: () => ({ dispose() { } }),
         } as Partial<IEnvironmentVariablesProvider>) as IEnvironmentVariablesProvider;
 
         serviceContainer = {
@@ -101,9 +101,9 @@ suite('Python Runtime Session', () => {
         kernelSpec = {} as JupyterKernelSpec;
 
         const kernel = ({
-            onDidChangeRuntimeState: () => ({ dispose() {} }),
-            onDidReceiveRuntimeMessage: () => ({ dispose() {} }),
-            onDidEndSession: () => ({ dispose() {} }),
+            onDidChangeRuntimeState: () => ({ dispose() { } }),
+            onDidReceiveRuntimeMessage: () => ({ dispose() { } }),
+            onDidEndSession: () => ({ dispose() { } }),
             start() {
                 return Promise.resolve({} as positron.LanguageRuntimeInfo);
             },
@@ -114,7 +114,7 @@ suite('Python Runtime Session', () => {
         } as Partial<JupyterAdapterApi>) as JupyterAdapterApi;
 
         sinon.stub(vscode.extensions, 'getExtension').callsFake((extensionId) => {
-            if (extensionId === 'positron.positron-supervisor' || extensionId === 'positron.jupyter-adapter') {
+            if (extensionId === 'positron.positron-supervisor') {
                 return {
                     id: '',
                     extensionPath: '',

@@ -62,7 +62,7 @@ export async function createPythonRuntimeMetadata(
             isLocal && recommendedForWorkspace
                 ? positron.LanguageRuntimeStartupBehavior.Immediate
                 : // If ipykernel is not installed and this is not a local Python env, require explicit startup
-                  positron.LanguageRuntimeStartupBehavior.Explicit;
+                positron.LanguageRuntimeStartupBehavior.Explicit;
     }
     traceInfo(`createPythonRuntime: startup behavior: ${startupBehavior}`);
 
@@ -105,12 +105,12 @@ export async function createPythonRuntimeMetadata(
         pythonEnvironmentId: interpreter.id || '',
     };
 
-    // Check the kernel supervisor's configuration; if it's enabled and
-    // configured to persist sessions, mark the session location as 'machine'
-    // so that Positron will reattach to the session after Positron is reopened.
+    // Check the kernel supervisor's configuration; if it's  configured to
+    // persist sessions, mark the session location as 'machine' so that
+    // Positron will reattach to the session after Positron is reopened.
     const config = vscode.workspace.getConfiguration('kernelSupervisor');
     const sessionLocation =
-        config.get<boolean>('enable', true) && config.get<string>('shutdownTimeout', 'immediately') !== 'immediately'
+        config.get<string>('shutdownTimeout', 'immediately') !== 'immediately'
             ? positron.LanguageRuntimeSessionLocation.Machine
             : positron.LanguageRuntimeSessionLocation.Workspace;
 
