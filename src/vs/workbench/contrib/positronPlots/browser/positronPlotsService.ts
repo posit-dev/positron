@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,7 +10,7 @@ import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutpu
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlFileSystemProvider.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
+import { DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { IStorageService, StorageTarget, StorageScope } from '../../../../platform/storage/common/storage.js';
@@ -73,6 +73,9 @@ const SizingPolicyStorageKey = 'positron.plots.sizingPolicy';
 /** The key used to store the custom plot size */
 const CustomPlotSizeStorageKey = 'positron.plots.customPlotSize';
 
+/** The key used to store the dark filter mode */
+const DarkFilterModeStorageKey = 'positron.plots.darkFilterMode';
+
 interface DataUri {
 	mime: string;
 	data: string;
@@ -94,6 +97,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	/** The emitter for the onDidChangeHistoryPolicy event */
 	private readonly _onDidChangeHistoryPolicy = new Emitter<HistoryPolicy>();
+
+	/** The emitter for the onDidChangeDarkFilterMode event */
+	private readonly _onDidChangeDarkFilterMode = new Emitter<DarkFilter>();
 
 	/** The emitter for the onDidReplacePlots event */
 	private readonly _onDidReplacePlots = new Emitter<IPositronPlotClient[]>();
@@ -121,6 +127,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	/** The currently selected history policy. */
 	private _selectedHistoryPolicy: HistoryPolicy = HistoryPolicy.Automatic;
+
+	/** The currently selected dark filter mode. */
+	private _selectedDarkFilterMode: DarkFilter = DarkFilter.Auto;
 
 	/** Map of the time that a plot was last selected, keyed by the plot client's ID. */
 	private _lastSelectedTimeByPlotId = new Map<string, number>();
@@ -214,6 +223,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this._storageService.store(
 				SizingPolicyStorageKey,
 				this._selectedSizingPolicy.id,
+				StorageScope.WORKSPACE,
+				StorageTarget.MACHINE);
+
+			this._storageService.store(
+				DarkFilterModeStorageKey,
+				this._selectedDarkFilterMode,
 				StorageScope.WORKSPACE,
 				StorageTarget.MACHINE);
 
@@ -375,6 +390,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	/**
+	 * Gets the current dark filter mode
+	 */
+	get darkFilterMode() {
+		return this._selectedDarkFilterMode;
+	}
+
+	/**
 	 * Selects a new sizing policy and fires an event indicating that the policy
 	 * has changed.
 	 *
@@ -466,6 +488,19 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		this._selectedHistoryPolicy = policy;
 		this._onDidChangeHistoryPolicy.fire(policy);
+	}
+
+	/**
+	 * Selects a new dark filter mode.
+	 */
+	setDarkFilterMode(mode: DarkFilter): void {
+		// Is this the currently selected policy?
+		if (this.darkFilterMode === mode) {
+			return;
+		}
+
+		this._selectedDarkFilterMode = mode;
+		this._onDidChangeDarkFilterMode.fire(mode);
 	}
 
 	/**
@@ -771,6 +806,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	onDidRemovePlot: Event<string> = this._onDidRemovePlot.event;
 	onDidReplacePlots: Event<IPositronPlotClient[]> = this._onDidReplacePlots.event;
 	onDidChangeHistoryPolicy: Event<HistoryPolicy> = this._onDidChangeHistoryPolicy.event;
+	onDidChangeDarkFilterMode: Event<DarkFilter> = this._onDidChangeDarkFilterMode.event;
 
 	// Gets the individual plot instances.
 	get positronPlotInstances(): IPositronPlotClient[] {

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -34,6 +34,7 @@ import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { HtmlPlotClient } from '../htmlPlotClient.js';
 import { IAccessibilityService } from '../../../../../platform/accessibility/common/accessibility.js';
 import { OpenInEditorMenuButton } from './openInEditorMenuButton.js';
+import { DarkFilterMenuButton } from './darkFilterMenuButton.js';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -179,6 +180,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
+						<DarkFilterMenuButton plotsService={positronPlotsContext.positronPlotsService} />
 						<HistoryPolicyMenuButton plotsService={positronPlotsContext.positronPlotsService} />
 						<ActionBarSeparator />
 						<ActionBarButton iconId='clear-all' align='right' disabled={noPlots} tooltip={localize('positronClearAllPlots', "Clear all plots")}

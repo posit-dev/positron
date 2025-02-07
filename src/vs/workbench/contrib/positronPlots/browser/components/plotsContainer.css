@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.vs-dark .selected-plot img {
+.vs-dark .selected-plot img,
+.vs-dark .plot-thumbnail img {
 	filter: invert(1) hue-rotate(180deg);
 }
