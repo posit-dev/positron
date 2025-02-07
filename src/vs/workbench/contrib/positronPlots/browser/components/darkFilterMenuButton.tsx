@@ -4,13 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { IAction } from '../../../../../base/common/actions.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { DarkFilter, IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
 import * as nls from '../../../../../nls.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 
 interface DarkFilterMenuButtonProps {
 	readonly plotsService: IPositronPlotsService;
@@ -29,6 +30,21 @@ const darkFilterTooltip = nls.localize('positronDarkFilterTooltip', "Set whether
  * @returns The rendered component.
  */
 export const DarkFilterMenuButton = (props: DarkFilterMenuButtonProps) => {
+
+	const [darkFilterMode, setDarkFilterMode] = useState(props.plotsService.darkFilterMode);
+
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Add the event handler for dark filter mode changes.
+		disposableStore.add(props.plotsService.onDidChangeDarkFilterMode(mode => {
+			setDarkFilterMode(mode);
+		}));
+
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
+	}, [props.plotsService]);
 
 	const labelForDarkFilter = (policy: DarkFilter): string => {
 		switch (policy) {
@@ -54,7 +70,7 @@ export const DarkFilterMenuButton = (props: DarkFilterMenuButtonProps) => {
 				tooltip: '',
 				class: undefined,
 				enabled: true,
-				checked: props.plotsService.darkFilterMode === mode,
+				checked: darkFilterMode === mode,
 				run: () => {
 					props.plotsService.setDarkFilterMode(mode);
 				}
