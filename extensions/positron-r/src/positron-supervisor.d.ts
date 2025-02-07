@@ -35,7 +35,7 @@ export interface JupyterKernel {
 
 /**
  * This set of type definitions defines the interfaces used by the Positron
- * Positron Supervisor extension.
+ * Supervisor extension.
  */
 
 /**
