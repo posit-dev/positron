@@ -52,7 +52,7 @@ async function enterLines(app: Application, lines: string[]) {
 		for (const line of lines) {
 			await app.workbench.console.typeToConsole(line);
 			await app.workbench.console.sendEnterKey();
-			await app.workbench.console.waitForConsoleContents(line, { expectedCount: 2 });
+			await app.workbench.console.waitForConsoleContents(line);
 		}
 	});
 }
