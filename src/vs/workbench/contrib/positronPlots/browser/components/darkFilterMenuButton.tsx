@@ -12,9 +12,12 @@ import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/b
 import { DarkFilter, IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
 import * as nls from '../../../../../nls.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
+import { localize } from '../../../../../nls.js';
 
 interface DarkFilterMenuButtonProps {
 	readonly plotsService: IPositronPlotsService;
+	readonly preferencesService: IPreferencesService;
 }
 
 // Labels for the menu.
@@ -88,6 +91,20 @@ export const DarkFilterMenuButton = (props: DarkFilterMenuButtonProps) => {
 			});
 		});
 
+		// Add an action to open the settings.
+		actions.push({
+			id: 'open-settings',
+			label: localize('positron.openDarkFilterSettings', "Change Default..."),
+			tooltip: '',
+			class: undefined,
+			enabled: true,
+			run: async () => {
+				await props.preferencesService.openUserSettings({
+					jsonEditor: false,
+					query: 'positron.plots.darkFilter'
+				});
+			}
+		});
 		return actions;
 	};
 

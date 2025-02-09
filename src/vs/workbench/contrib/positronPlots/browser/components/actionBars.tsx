@@ -35,6 +35,7 @@ import { HtmlPlotClient } from '../htmlPlotClient.js';
 import { IAccessibilityService } from '../../../../../platform/accessibility/common/accessibility.js';
 import { OpenInEditorMenuButton } from './openInEditorMenuButton.js';
 import { DarkFilterMenuButton } from './darkFilterMenuButton.js';
+import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -54,6 +55,7 @@ export interface ActionBarsProps {
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
 	readonly notificationService: INotificationService;
+	readonly preferencesService: IPreferencesService;
 	readonly zoomHandler: (zoomLevel: number) => void;
 	readonly zoomLevel: number;
 }
@@ -182,7 +184,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						{enableDarkFilter &&
-							<DarkFilterMenuButton plotsService={positronPlotsContext.positronPlotsService} />
+							<DarkFilterMenuButton
+								plotsService={positronPlotsContext.positronPlotsService}
+								preferencesService={positronPlotsContext.preferencesService} />
 						}
 						<HistoryPolicyMenuButton plotsService={positronPlotsContext.positronPlotsService} />
 						<ActionBarSeparator />

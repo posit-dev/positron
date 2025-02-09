@@ -100,7 +100,7 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [services.positronPlotsService]);
 
 	return { ...services, positronPlotInstances, selectedInstanceId, selectedInstanceIndex };
 };

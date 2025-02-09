@@ -20,6 +20,7 @@ import { ActionBars } from './components/actionBars.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { PositronPlotsViewPane } from './positronPlotsView.js';
 import { ZoomLevel } from './components/zoomPlotMenuButton.js';
+import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
 
 /**
  * PositronPlotsProps interface.
@@ -30,6 +31,7 @@ export interface PositronPlotsProps extends PositronPlotsServices {
 	readonly reactComponentContainer: PositronPlotsViewPane;
 	readonly positronPlotsService: IPositronPlotsService;
 	readonly notificationService: INotificationService;
+	readonly preferencesService: IPreferencesService;
 }
 
 /**
