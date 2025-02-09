@@ -57,6 +57,17 @@ export const DarkFilterMenuButton = (props: DarkFilterMenuButtonProps) => {
 		}
 	};
 
+	const iconForDarkFilter = (policy: DarkFilter): string => {
+		switch (policy) {
+			case DarkFilter.On:
+				return 'circle-large-filled';
+			case DarkFilter.Off:
+				return 'circle-large';
+			case DarkFilter.Auto:
+				return 'color-mode';
+		}
+	}
+
 	// Builds the actions.
 	const actions = () => {
 		const modes = [DarkFilter.On,
@@ -82,7 +93,7 @@ export const DarkFilterMenuButton = (props: DarkFilterMenuButtonProps) => {
 
 	return (
 		<ActionBarMenuButton
-			iconId='light-bulb'
+			iconId={iconForDarkFilter(darkFilterMode)}
 			tooltip={darkFilterTooltip}
 			ariaLabel={darkFilterTooltip}
 			align='right'

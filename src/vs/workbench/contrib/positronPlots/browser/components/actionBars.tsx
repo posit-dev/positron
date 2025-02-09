@@ -89,6 +89,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const enableCopyPlot = hasPlots &&
 		(selectedPlot instanceof StaticPlotClient
 			|| selectedPlot instanceof PlotClientInstance);
+	const enableDarkFilter = enableCopyPlot;
 
 	const enablePopoutPlot = hasPlots &&
 		selectedPlot instanceof HtmlPlotClient;
@@ -180,7 +181,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
-						<DarkFilterMenuButton plotsService={positronPlotsContext.positronPlotsService} />
+						{enableDarkFilter &&
+							<DarkFilterMenuButton plotsService={positronPlotsContext.positronPlotsService} />
+						}
 						<HistoryPolicyMenuButton plotsService={positronPlotsContext.positronPlotsService} />
 						<ActionBarSeparator />
 						<ActionBarButton iconId='clear-all' align='right' disabled={noPlots} tooltip={localize('positronClearAllPlots', "Clear all plots")}
