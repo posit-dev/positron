@@ -94,7 +94,7 @@ export const DarkFilterMenuButton = (props: DarkFilterMenuButtonProps) => {
 		// Add an action to open the settings.
 		actions.push({
 			id: 'open-settings',
-			label: localize('positron.openDarkFilterSettings', "Change Default..."),
+			label: localize('positron.openDarkFilterSettings', "Change Default in Settings..."),
 			tooltip: '',
 			class: undefined,
 			enabled: true,
