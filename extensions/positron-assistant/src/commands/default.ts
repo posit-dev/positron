@@ -9,7 +9,7 @@ import * as fs from 'fs';
 
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { arrayBufferToBase64, BinaryMessageReferences, toLanguageModelChatMessage } from '../utils';
-import { executeToolAdapter, getPlotToolAdapter, positronToolAdapters, textEditToolAdapter } from '../tools';
+import { getPlotToolAdapter, textEditToolAdapter } from '../tools';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
@@ -26,7 +26,7 @@ export async function defaultHandler(
 	const toolOptions: Record<string, any> = {};
 	const tools: vscode.LanguageModelChatTool[] = [
 		...vscode.lm.tools.filter(tool => tool.tags.includes('positron-assistant')),
-		getPlotToolAdapter.lmTool
+		getPlotToolAdapter.toolData,
 	];
 
 	// Binary references for use by the Language Model
@@ -107,10 +107,6 @@ export async function defaultHandler(
 		]);
 	}
 
-	// Allow for executing R code in the console.
-	system += await fs.promises.readFile(`${mdDir}/prompts/chat/execute.md`, 'utf8');
-	tools.push(executeToolAdapter.lmTool);
-
 	// When invoked from the editor, add selection context and editor tool
 	if (request.location2 instanceof vscode.ChatRequestEditorData) {
 		system += await fs.promises.readFile(`${mdDir}/prompts/chat/editor.md`, 'utf8');
@@ -123,8 +119,8 @@ export async function defaultHandler(
 		]);
 
 		// Add tool to output text edits
-		tools.push(textEditToolAdapter.lmTool);
-		toolOptions[textEditToolAdapter.name] = { document, selection };
+		tools.push(textEditToolAdapter.toolData);
+		toolOptions[textEditToolAdapter.toolData.name] = { document, selection };
 	}
 
 	// When invoked from the terminal, add additional instructions.
@@ -170,10 +166,7 @@ export async function defaultHandler(
 				textResponses.push(chunk);
 				response.markdown(chunk.value);
 			} else if (chunk instanceof vscode.LanguageModelToolCallPart) {
-				// Only follow up on tool requests that are not automatically invoked
-				if (!(chunk.name in positronToolAdapters)) {
-					toolRequests.push(chunk);
-				}
+				toolRequests.push(chunk);
 			}
 		}
 

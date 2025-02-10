@@ -10,7 +10,6 @@ import { newLanguageModel } from './models';
 import participants from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { editsProvider } from './edits';
-import { setContext } from './context';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -84,10 +83,18 @@ function registerParticipants(context: vscode.ExtensionContext) {
 	});
 }
 
-export function registerAddModelConfigurationCommand(context: vscode.ExtensionContext) {
-	return vscode.commands.registerCommand('positron-assistant.addModelConfiguration', () => {
-		showConfigurationDialog(context);
-	});
+function registerAddModelConfigurationCommand(context: vscode.ExtensionContext) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron-assistant.addModelConfiguration', () => {
+			showConfigurationDialog(context);
+		})
+	);
+}
+
+function registerMappedEditsProvider(context: vscode.ExtensionContext) {
+	context.subscriptions.push(
+		vscode.chat.registerMappedEditsProvider({ pattern: '**/*' }, editsProvider)
+	);
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -96,6 +103,15 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register configured language models
 	registerModels(context);
+
+	// Track opened files for completion context
+	registerHistoryTracking(context);
+
+	// Configuration modal command
+	registerAddModelConfigurationCommand(context);
+
+	// Register mapped edits provider
+	registerMappedEditsProvider(context);
 
 	// Listen for configuration changes
 	context.subscriptions.push(
@@ -106,22 +122,7 @@ export function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
-	// Track opened files for completion context
-	registerHistoryTracking(context);
-
-	// Mapped Edits
-	context.subscriptions.push(
-		vscode.chat.registerMappedEditsProvider({ pattern: '**/*' }, editsProvider)
-	);
-
-	// Configuration modal command
-	context.subscriptions.push(
-		registerAddModelConfigurationCommand(context)
-	);
-
-	// Register context singleton
-	setContext(context);
-
+	// Dispose cleanup
 	context.subscriptions.push({
 		dispose: () => {
 			disposeModels();

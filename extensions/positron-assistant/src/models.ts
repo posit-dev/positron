@@ -123,7 +123,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				 * model directly.
 				 */
 				if (modelOptions.toolInvocationToken && tool.name in positronToolAdapters) {
-					acc[tool.name] = positronToolAdapters[tool.name].aiTool(
+					acc[tool.name] = positronToolAdapters[tool.name].provideAiTool(
 						modelOptions.toolInvocationToken,
 						{
 							model: this.model,
@@ -171,10 +171,13 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 
 			if (part.type === 'tool-call') {
-				progress.report({
-					index: 0,
-					part: new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args)
-				});
+				// Only report back tool call requests that are not automatically invoked by vercel
+				if (!(part.toolName in positronToolAdapters)) {
+					progress.report({
+						index: 0,
+						part: new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args)
+					});
+				}
 			}
 
 			if (part.type === 'error') {
