@@ -49,6 +49,14 @@ configurationRegistry.registerConfiguration({
 			description: localize('updateMode', "Configure whether you receive automatic updates. Requires a restart after change to take effect."),
 			deprecationMessage: localize('deprecated', "This setting is deprecated, please use '{0}' instead.", 'update.mode')
 		},
+		'update.languageReporting': {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.APPLICATION,
+			description: localize('update.languageReporting', "Send the language sessions that are used to help improve Positron."),
+			tags: ['usesOnlineServices'],
+			included: !isWeb
+		},
 		'update.enableWindowsBackgroundUpdates': {
 			type: 'boolean',
 			default: true,

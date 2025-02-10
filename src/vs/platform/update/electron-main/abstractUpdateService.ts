@@ -176,7 +176,8 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	private async scheduleCheckForUpdates(delay = 6 * 60 * 60 * 1000): Promise<void> {
 		return timeout(delay)
 			.then(() => {
-				const includeLanguages = this._activeLanguages.length > 0;
+				const includeLanguages = this.configurationService.getValue<boolean>('update.languageReporting');
+				this.logService.debug('update#scheduleCheckForUpdates, includeLanguages =', includeLanguages);
 				this.checkForUpdates(false, includeLanguages);
 			})
 			.then(() => {
