@@ -81,7 +81,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 			setSessionState(state);
 		}));
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.session]);
 
 	const showKernelOutputChannelClickHandler = () => {
 		props.session.showOutput();
@@ -90,13 +90,13 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 	// Render.
 	return (
 		<PositronModalPopup
-			anchorElement={props.anchorElement}
-			height='min-content'
-			keyboardNavigationStyle='menu'
 			renderer={props.renderer}
+			anchorElement={props.anchorElement}
 			popupAlignment='auto'
 			popupPosition='auto'
 			width={400}
+			height='min-content'
+			keyboardNavigationStyle='menu'
 		>
 			<div className='console-instance-info'>
 				<div className='content'>

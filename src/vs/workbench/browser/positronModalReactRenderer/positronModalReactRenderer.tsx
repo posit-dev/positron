@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -283,16 +283,18 @@ export class PositronModalReactRenderer extends Disposable {
 		 * @param e A KeyboardEvent that describes a user interaction with the keyboard.
 		 */
 		const keydownHandler = (e: KeyboardEvent) => {
+			// Convert the KeyboardEvent into a StandardKeyboardEvent.
 			const event = new StandardKeyboardEvent(e);
 
-			// Soft dispatch the key event so we can determine whether it is bound to a command.
+			// Soft dispatch the keyboard event so we can determine whether it is bound to a
+			// command.
 			const resolutionResult = renderer._options.keybindingService.softDispatch(
 				event,
 				renderer._options.layoutService.activeContainer
 			);
 
-			// If a keybinding to a command was found, stop it from being processed if it is not one of
-			// the allowable commands.
+			// If a keybinding to a command was found, stop it from being processed if it is not one
+			// of the allowable commands.
 			if (resolutionResult.kind === ResultKind.KbFound && resolutionResult.commandId) {
 				if (ALLOWABLE_COMMANDS.indexOf(resolutionResult.commandId) === -1) {
 					DOM.EventHelper.stop(event, true);

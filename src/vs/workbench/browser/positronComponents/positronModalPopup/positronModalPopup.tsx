@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -132,7 +132,12 @@ export interface PositronModalPopupProps {
  * @returns The rendered component.
  */
 export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupProps>) => {
-	// Setup the anchor layout.
+	// Reference hooks.
+	const popupContainerRef = useRef<HTMLDivElement>(undefined!);
+	const popupRef = useRef<HTMLDivElement>(undefined!);
+	const popupChildrenRef = useRef<HTMLDivElement>(undefined!);
+
+	// State hooks.
 	const [anchorLayout] = useState(() => {
 		if (props.anchorPoint) {
 			return new AnchorLayout(props.anchorPoint.clientX, props.anchorPoint.clientY, 0, 0);
@@ -146,13 +151,6 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 			);
 		}
 	});
-
-	// Reference hooks.
-	const popupContainerRef = useRef<HTMLDivElement>(undefined!);
-	const popupRef = useRef<HTMLDivElement>(undefined!);
-	const popupChildrenRef = useRef<HTMLDivElement>(undefined!);
-
-	// State hooks.
 	const [popupLayout, setPopupLayout] = useState<PopupLayout>(() => {
 		// Initially, position the popup off screen.
 		const newPopupLayout = new PopupLayout();
@@ -224,7 +222,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		 * Positions the popup at the top of the anchor element.
 		 */
 		const positionTop = () => {
-			popupLayout.bottom = -(anchorLayout.anchorY - 1);
+			popupLayout.bottom = documentHeight - (anchorLayout.anchorY - 1);
 			popupLayout.maxHeight = anchorLayout.anchorY - LAYOUT_MARGIN;
 		};
 
@@ -247,9 +245,9 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 				LAYOUT_MARGIN;
 
 			// Try to position the popup fully at the bottom or fully at the top. If this this
-			// isn't possible, try to position the popup with scrolling at the bottom or at the
-			// top. If this isn't posssible, fallback to positioning the popup at the top of its
-			// container.
+			// isn't possible, try to position the popup with scrolling at the bottom or with
+			// scrolling at the top. If this isn't posssible, fallback to positioning the popup at
+			// the top of its container.
 			if (idealBottom < documentHeight - 1) {
 				positionBottom();
 			} else if (childrenHeight < anchorLayout.anchorY - 1) {
