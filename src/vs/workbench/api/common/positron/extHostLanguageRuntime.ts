@@ -9,7 +9,7 @@ import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Disposable, LanguageRuntimeMessageType } from '../extHostTypes.js';
-import { RuntimeClientType } from './extHostTypes.positron.js';
+import { RuntimeClientState, RuntimeClientType } from './extHostTypes.positron.js';
 import { ExtHostRuntimeClientInstance } from './extHostClientInstance.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -887,6 +887,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// Dispose the client instance when the runtime exits
 		this._runtimeSessions[handle].onDidChangeRuntimeState(state => {
 			if (state === RuntimeState.Exited) {
+				// Mark the client instance as already closed so disposal
+				// doesn't try to close it
+				clientInstance.setClientState(RuntimeClientState.Closed);
 				clientInstance.dispose();
 			}
 		});
