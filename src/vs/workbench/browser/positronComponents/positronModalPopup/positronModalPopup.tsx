@@ -447,12 +447,6 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		return () => disposableStore.dispose();
 	}, [anchorLayout.anchorY, popupLayout, props]);
 
-	// Create the class names.
-	const classNames = positronClassNames(
-		'positron-modal-popup',
-		props.popupPosition === 'top' ? 'shadow-top' : 'shadow-bottom'
-	);
-
 	// Render.
 	return (
 		<div
@@ -463,7 +457,10 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		>
 			<div
 				ref={popupRef}
-				className={classNames}
+				className={positronClassNames(
+					'positron-modal-popup',
+					popupLayout.top === 'auto' ? 'shadow-top' : 'shadow-bottom'
+				)}
 				style={{
 					...popupLayout,
 					width: props.width,
@@ -471,9 +468,9 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 					height: props.height,
 					minHeight: props.minHeight ?? 'auto'
 				}}
-				onWheel={(e) => {
-					// window.ts#registerListeners() discards the wheel event to prevent back/forward gestures
-					// send it to the div so it is not lost
+				onWheel={e => {
+					// window.ts#registerListeners() discards wheel events to prevent back / forward
+					// gestures. Send wheel events to the div so they are not lost.
 					e.currentTarget.scrollBy(e.deltaX, e.deltaY);
 					e.preventDefault();
 				}}
