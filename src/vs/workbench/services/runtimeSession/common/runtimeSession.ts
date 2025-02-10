@@ -1671,13 +1671,17 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		return id;
 	}
 
-	private async scheduleUpdateActiveLanguages(delay = 60 * 60 * 1000): Promise<void> {
+	private async scheduleUpdateActiveLanguages(delay = 10 * 1000): Promise<void> {
 		return timeout(delay)
 			.then(() => {
 				const languages: string[] = [];
 				this._activeSessionsBySessionId.forEach(activeSession => {
-					// if lastUsed in the past 24 hours, include it
-					if (activeSession.session.lastUsed > Date.now() - 24 * 60 * 60 * 1000) {
+					// get the beginning of the day in UTC
+					const startUTC = new Date(Date.now()).setUTCHours(0, 0, 0, 0);
+					const lastUsed = activeSession.session.lastUsed;
+
+					// only update the active languages if the session was used today
+					if (lastUsed > startUTC) {
 						languages.push(activeSession.session.runtimeMetadata.languageId);
 					}
 				});

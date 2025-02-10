@@ -172,16 +172,22 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	}
 	// --- End Positron ---
 
-	private scheduleCheckForUpdates(delay = 60 * 60 * 1000): Promise<void> {
+	// --- Start Positron ---
+	private async scheduleCheckForUpdates(delay = 6 * 60 * 60 * 1000): Promise<void> {
 		return timeout(delay)
-			.then(() => this.checkForUpdates(false))
 			.then(() => {
-				// Check again after 1 hour
-				return this.scheduleCheckForUpdates(60 * 60 * 1000);
+				const includeLanguages = this._activeLanguages.length > 0;
+				this.checkForUpdates(false, includeLanguages);
+			})
+			.then(() => {
+				// Check again after 6 hours
+				return this.scheduleCheckForUpdates(6 * 60 * 60 * 1000);
 			});
+		// --- End Positron ---
 	}
 
-	async checkForUpdates(explicit: boolean): Promise<void> {
+	// --- Start Positron ---
+	async checkForUpdates(explicit: boolean, includeLanguages = false): Promise<void> {
 		this.logService.trace('update#checkForUpdates, state = ', this.state.type);
 
 		this.logService.debug('update#checkForUpdates, languages =', this._activeLanguages.join(', '));
@@ -189,10 +195,15 @@ export abstract class AbstractUpdateService implements IUpdateService {
 			return;
 		}
 
-		// --- Start Positron ---
 		this.setState(State.CheckingForUpdates(explicit));
+		let releaseMetadataUrl = this.url;
+		if (includeLanguages && this._activeLanguages.length > 0) {
+			releaseMetadataUrl = `${releaseMetadataUrl}?${this._activeLanguages.map(lang => `${lang}=1`).join('&')}`;
+		}
 
-		this.requestService.request({ url: this.url }, CancellationToken.None)
+		this.logService.debug('update#checkForUpdates, url =', releaseMetadataUrl);
+
+		this.requestService.request({ url: releaseMetadataUrl }, CancellationToken.None)
 			.then<IUpdate | null>(asJson)
 			.then(update => {
 				if (!update || !update.url || !update.version) {
@@ -216,8 +227,8 @@ export abstract class AbstractUpdateService implements IUpdateService {
 				const message: string | undefined = !!explicit ? (err.message || err) : undefined;
 				this.setState(State.Idle(this.getUpdateType(), message));
 			});
-		// --- End Positron ---
 	}
+	// --- End Positron ---
 
 	async downloadUpdate(): Promise<void> {
 		this.logService.trace('update#downloadUpdate, state = ', this.state.type);
