@@ -7,8 +7,7 @@
 import './actionBarActionButton.css';
 
 // React.
-import * as React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { IAction } from '../../../../base/common/actions.js';
