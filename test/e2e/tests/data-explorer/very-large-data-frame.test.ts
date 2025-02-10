@@ -5,7 +5,7 @@
 
 import { fail } from 'assert';
 import { join } from 'path';
-import { test, expect, tags } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 import { downloadFileFromS3, S3FileDownloadOptions } from '../../infra';
 
 test.use({
@@ -40,18 +40,15 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 
 	if (githubActions) {
 
-		test('Python - Verify data explorer functionality with very large unique data dataframe', async function ({ app, logger, python }) {
+		test('Python - Verify data loads with very large unique data dataframe', async function ({ app, logger, python }) {
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.py'));
 			await app.workbench.quickaccess.runCommand('python.execInConsole');
 			const startTime = performance.now();
 
-			logger.log('Opening data grid');
-			await expect(async () => {
-				await app.workbench.variables.doubleClickVariableRow('df');
-				await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
-			}).toPass();
-
+			await app.workbench.variables.doubleClickVariableRow('df');
+			await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true, isSelected: true });
 			await app.workbench.sideBar.closeSecondarySideBar();
+
 			// awaits table load completion
 			await app.workbench.dataExplorer.getDataExplorerTableData();
 			const endTime = performance.now();
@@ -64,17 +61,13 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			}
 		});
 
-		test('R - Verifies data explorer functionality with very large unique data dataframe', async function ({ app, logger, r }) {
+		test('R - Verifies data loads with very large unique data dataframe', async function ({ app, logger, r }) {
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.r'));
 			await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 			const startTime = performance.now();
 
-			logger.log('Opening data grid');
-			await expect(async () => {
-				await app.workbench.variables.doubleClickVariableRow('df2');
-				await app.code.driver.page.locator('.label-name:has-text("Data: df2")').innerText();
-			}).toPass();
-
+			await app.workbench.variables.doubleClickVariableRow('df2');
+			await app.workbench.dataExplorer.verifyTab('Data: df2', { isVisible: true, isSelected: true });
 			await app.workbench.sideBar.closeSecondarySideBar();
 
 			// awaits table load completion
@@ -91,17 +84,13 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 
 	} else {
 
-		test('Python - Verify data explorer functionality with very large duplicated data dataframe', async function ({ app, logger, python }) {
+		test('Python - Verify data loads with very large duplicated data dataframe', async function ({ app, logger, python }) {
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.py'));
 			await app.workbench.quickaccess.runCommand('python.execInConsole');
 			const startTime = performance.now();
 
-			logger.log('Opening data grid');
-			await expect(async () => {
-				await app.workbench.variables.doubleClickVariableRow('df_large');
-				await app.code.driver.page.locator('.label-name:has-text("Data: df_large")').innerText();
-			}).toPass();
-
+			await app.workbench.variables.doubleClickVariableRow('df_large');
+			await app.workbench.dataExplorer.verifyTab('Data: df_large', { isVisible: true, isSelected: true });
 			await app.workbench.sideBar.closeSecondarySideBar();
 
 			// awaits table load completion
@@ -116,17 +105,13 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			}
 		});
 
-		test('R - Verifies data explorer functionality with very large duplicated data dataframe', async function ({ app, logger, r }) {
+		test('R - Verifies data loads with very large duplicated data dataframe', async function ({ app, logger, r }) {
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.r'));
 			await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 			const startTime = performance.now();
 
-			logger.log('Opening data grid');
-			await expect(async () => {
-				await app.workbench.variables.doubleClickVariableRow('df3_large');
-				await app.code.driver.page.locator('.label-name:has-text("Data: df3_large")').innerText();
-			}).toPass();
-
+			await app.workbench.variables.doubleClickVariableRow('df3_large');
+			await app.workbench.dataExplorer.verifyTab('Data: df3_large', { isVisible: true, isSelected: true });
 			await app.workbench.sideBar.closeSecondarySideBar();
 
 			// awaits table load completion

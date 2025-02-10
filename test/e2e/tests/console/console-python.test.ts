@@ -58,7 +58,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 	});
 
 	// not enabled for WIN yet; need to add additional versions
-	test('Python - Verify multiple versions of Python', async function ({ app, python }) {
+	test('Python - Verify can use multiple interpreter versions', async function ({ app, python }) {
 
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 

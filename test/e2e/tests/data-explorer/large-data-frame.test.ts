@@ -25,17 +25,12 @@ test.describe('Data Explorer - Large Data Frame', {
 		await app.workbench.dataExplorer.closeDataExplorer();
 	});
 
-	test('Python - Verify data explorer functionality with large data frame', async function ({ app, python, logger }) {
+	test('Python - Verify data loads and basic filtering with large data frame', async function ({ app, python }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
 		await app.workbench.quickaccess.runCommand('python.execInConsole');
 
-		logger.log('Opening data grid');
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('df');
-			expect(await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText() === 'Data: df');
-		}).toPass();
-
-		await app.workbench.sideBar.closeSecondarySideBar();
+		await app.workbench.variables.doubleClickVariableRow('df');
+		await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true, isSelected: true });
 
 		await expect(async () => {
 			// Validate full grid by checking bottom right corner data
@@ -57,19 +52,14 @@ test.describe('Data Explorer - Large Data Frame', {
 
 	});
 
-	test('R - Verify data explorer functionality with large data frame', {
+	test('R - Verify data loads and basic filtering with large data frame', {
 		tag: [tags.WEB, tags.CRITICAL]
-	}, async function ({ app, logger, r }) {
+	}, async function ({ app, r }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
 		await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 
-		logger.log('Opening data grid');
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('df2');
-			expect(await app.code.driver.page.locator('.label-name:has-text("Data: df2")').innerText() === 'Data: df2');
-		}).toPass();
-
-		await app.workbench.sideBar.closeSecondarySideBar();
+		await app.workbench.variables.doubleClickVariableRow('df2');
+		await app.workbench.dataExplorer.verifyTab('Data: df2', { isVisible: true, isSelected: true });
 
 		await expect(async () => {
 			// Validate full grid by checking bottom right corner data

@@ -12,7 +12,7 @@ test.use({
 });
 
 test.describe('Data Explorer 100x100', () => {
-	test('R - verify data values in 100x100', {
+	test('Python Pandas - verify data values in 100x100', {
 		tag: [tags.WIN, tags.DATA_EXPLORER]
 	}, async function ({ app, python }) {
 		test.slow();

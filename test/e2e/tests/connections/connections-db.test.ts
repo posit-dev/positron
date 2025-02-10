@@ -23,7 +23,7 @@ test.describe('SQLite DB Connection', {
 		await app.workbench.connections.deleteConnection();
 	});
 
-	test('Python - Can establish connection, disconnect & reconnect', {
+	test('Python - Can establish a connection, disconnect & reconnect', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5692' }]
 	}, async function ({ app, python }) {
 		await test.step('Open a Python file and run it', async () => {
