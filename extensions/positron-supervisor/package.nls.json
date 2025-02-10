@@ -16,7 +16,6 @@
 	"configuration.shutdownTimeout.24.description": "After idle for 1 day",
 	"configuration.shutdownTimeout.168.description": "After idle for 7 days",
 	"configuration.shutdownTimeout.indefinitely.description": "Leave kernels running indefinitely",
-	"configuration.enable.description": "Run Jupyter kernels under the Positron kernel supervisor.",
 	"configuration.showTerminal.description": "Show the host terminal for the Positron kernel supervisor",
 	"configuration.connectionTimeout.description": "Timeout in seconds for connecting to the kernel's sockets",
 	"configuration.attachOnStartup.description": "Run <f5> before starting up Jupyter kernel (when supported)",

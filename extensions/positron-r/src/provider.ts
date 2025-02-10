@@ -225,13 +225,13 @@ export async function makeMetadata(
 		reasonDiscovered: rInst.reasonDiscovered,
 	};
 
-	// Check the kernel supervisor's configuration; if it's enabled and
-	// configured to persist sessions, mark the session location as 'machine'
-	// so that Positron will reattach to the session after Positron is reopened.
+	// Check the kernel supervisor's configuration; if it's configured to
+	// persist sessions, mark the session location as 'machine' so that
+	// Positron will reattach to the session after Positron is reopened.
 	const config = vscode.workspace.getConfiguration('kernelSupervisor');
-	const sessionLocation = config.get<boolean>('enable', true) &&
+	const sessionLocation =
 		config.get<string>('shutdownTimeout', 'immediately') !== 'immediately' ?
-		positron.LanguageRuntimeSessionLocation.Machine : positron.LanguageRuntimeSessionLocation.Workspace;
+			positron.LanguageRuntimeSessionLocation.Machine : positron.LanguageRuntimeSessionLocation.Workspace;
 
 	const metadata: positron.LanguageRuntimeMetadata = {
 		runtimeId,

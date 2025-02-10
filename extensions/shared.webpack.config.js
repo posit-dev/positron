@@ -69,7 +69,6 @@ function withNodeDefaults(/**@type WebpackConfig & { context: string }*/extConfi
 			'vscode': 'commonjs vscode', // ignored because it doesn't exist,
 			// --- Start Positron ---
 			'positron': 'commonjs positron', // ignored because we inject positron via module loader
-			'deasync': 'commonjs deasync', // not shipped; dependency of jupyter-adapter
 			// --- End Positron ---
 			'applicationinsights-native-metrics': 'commonjs applicationinsights-native-metrics', // ignored because we don't ship native module
 			'@azure/functions-core': 'commonjs azure/functions-core', // optioinal dependency of appinsights that we don't use
