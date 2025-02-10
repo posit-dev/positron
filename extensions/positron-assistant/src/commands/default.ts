@@ -13,6 +13,10 @@ import { getPlotToolAdapter, textEditToolAdapter } from '../tools';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
+/**
+ * Handler for the default chat participant when no command has been issued. This handler is the
+ * default path for LLM chat and must be able to handle a wide variety of user input.
+ */
 export async function defaultHandler(
 	request: vscode.ChatRequest,
 	context: vscode.ChatContext,

@@ -111,6 +111,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		let tools: Record<string, ai.Tool> | undefined;
 
+		// Replace embedded binary references with message part types compatible with vercel AI
 		const _messages = replaceBinaryMessageParts(
 			toAIMessage(messages),
 			options.modelOptions?.binaryReferences ?? {}
@@ -132,7 +133,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 						}
 					);
 				} else {
-					// For any other tool, create an ai.Tool object from scratch.
+					// For any other Language Model tool, create an ai.Tool object from scratch.
 					acc[tool.name] = ai.tool({
 						description: tool.description,
 						parameters: ai.jsonSchema(tool.inputSchema ?? { type: 'object', properties: {} }),
@@ -181,6 +182,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 
 			if (part.type === 'error') {
+				// TODO: Deal with various LLM providers' different error response formats
 				if (typeof part.error === 'string') {
 					throw new Error(part.error);
 				}

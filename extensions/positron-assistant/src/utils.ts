@@ -6,6 +6,9 @@
 import * as vscode from 'vscode';
 import * as ai from 'ai';
 
+/**
+ * Convert messages from VSCode Language Model format to Vercel AI format.
+ */
 export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): ai.CoreMessage[] {
 	// Gather all tool call references
 	const toolCalls = messages.reduce<Record<string, vscode.LanguageModelToolCallPart>>((acc, message) => {
@@ -66,11 +69,16 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): ai.Cor
 			});
 		}
 	}
+
+	// Remove empty messages to keep certain LLM providers happy
 	return aiMessages.filter((message) => message.content.length > 0);
 }
 
 export type BinaryMessageReferences = Record<string, { mimeType: string; data: string }>;
 
+/**
+ * Replace embedded binary file references with specific vercel AI message part types.
+ */
 export function replaceBinaryMessageParts(messages: ai.CoreMessage[], references: BinaryMessageReferences): ai.CoreMessage[] {
 	const binaryMatch = /<<referenceBinary:(\w+)>>/;
 
@@ -103,6 +111,9 @@ export function replaceBinaryMessageParts(messages: ai.CoreMessage[], references
 	});
 }
 
+/**
+ * Convert chat participant history into an array of VSCode language model messages.
+ */
 export function toLanguageModelChatMessage(turns: vscode.ChatContext['history']): vscode.LanguageModelChatMessage[] {
 	return turns.map((turn) => {
 		if (turn instanceof vscode.ChatRequestTurn) {

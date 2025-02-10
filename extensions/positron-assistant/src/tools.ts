@@ -29,6 +29,8 @@ export const getPlotToolAdapter: PositronToolAdapter = {
 			parameters: z.object({}),
 			execute: async () => {
 				push(new vscode.ChatResponseProgressPart('Getting the current plot...'));
+
+				// Get the current plot image data
 				const uri = await positron.ai.getCurrentPlotUri();
 				const matches = uri?.match(/^data:([^;]+);base64,(.+)$/);
 				if (!matches || !uri) {
