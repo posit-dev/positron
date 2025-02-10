@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -77,7 +77,8 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 
 	return (
 		<Scrollable width={props.width} height={props.height} scrollableWidth={scrollableWidth} scrollableHeight={scrollableHeight} mousePan={true}>
-			<img src={props.imageUri}
+			<img className='plot'
+				src={props.imageUri}
 				alt={props.description}
 				draggable={false}
 				ref={imageRef}

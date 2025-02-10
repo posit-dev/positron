@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -47,7 +47,7 @@ export const DynamicPlotThumbnail = (props: DynamicPlotThumbnailProps) => {
 	// Consider: we probably want a more explicit loading state; as written we
 	// will show the old URI until the new one is ready.
 	if (uri) {
-		return <img src={uri} alt={'Plot ' + props.plotClient.id} />;
+		return <img className='plot' src={uri} alt={'Plot ' + props.plotClient.id} />;
 	} else {
 		return <PlaceholderThumbnail />;
 	}
