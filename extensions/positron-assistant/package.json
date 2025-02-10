@@ -36,7 +36,8 @@
       {
         "command": "positron-assistant.addModelConfiguration",
         "title": "%commands.addModelConfiguration.title%",
-        "category": "%commands.addModelConfiguration.category%"
+        "category": "%commands.addModelConfiguration.category%",
+        "enablement": "isDevelopment"
       }
     ],
     "languageModels": [

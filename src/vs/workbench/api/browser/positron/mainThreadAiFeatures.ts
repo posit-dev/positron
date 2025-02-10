@@ -5,6 +5,8 @@
 
 import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js';
 import { revive } from '../../../../base/common/marshalling.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
 import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/chatAgents.js';
 import { ChatModel } from '../../../contrib/chat/common/chatModel.js';
 import { IChatProgress, IChatService } from '../../../contrib/chat/common/chatService.js';
@@ -23,6 +25,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		@IPositronAssistantService private readonly _positronAssistantService: IPositronAssistantService,
 		@IChatService private readonly _chatService: IChatService,
 		@IChatAgentService private readonly _chatAgentService: IChatAgentService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 	) {
 		super();
 	}
@@ -31,8 +34,12 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 * Register chat agent data from the extension host.
 	 */
 	async $registerChatAgent(agentData: IChatAgentData): Promise<void> {
-		const agent = this._register(this._chatAgentService.registerAgent(agentData.id, agentData));
-		this._registrations.set(agentData.id, agent);
+		// Only register chat agents in development mode, hiding the Chat panel in release builds
+		const isDevelopment = IsDevelopmentContext.getValue(this._contextKeyService);
+		if (isDevelopment) {
+			const agent = this._register(this._chatAgentService.registerAgent(agentData.id, agentData));
+			this._registrations.set(agentData.id, agent);
+		}
 	}
 
 	/*
