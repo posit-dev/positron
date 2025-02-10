@@ -8,7 +8,7 @@ import { CustomTestOptions } from './test/e2e/tests/_test.setup';
 import type { GitHubActionOptions } from '@midleman/github-actions-reporter';
 import { currentsReporter } from '@currents/playwright';
 
-process.env.PW_TEST = 'true';
+process.env.PW_TEST = '1';
 
 /**
  * See https://playwright.dev/docs/test-configuration.
