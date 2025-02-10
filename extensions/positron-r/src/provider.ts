@@ -538,19 +538,16 @@ function discoverAdHocBinaries(paths: string[]): RBinary[] {
  * @returns R binaries that are relevant to Posit Workbench.
  */
 function discoverPWBBinaries(): RBinary[] {
-	const rBinaries = discoverAdHocBinaries([
+	const pwbBinaries = discoverHQBinaries([
 		'/usr/lib/R',
 		'/usr/lib64/R',
 		'/usr/local/lib/R',
 		'/usr/local/lib64/R',
 		'/opt/local/lib/R',
 		'/opt/local/lib64/R',
-	]);
-	const hqBinaries = discoverHQBinaries([
 		// '/opt/R', // Already checked for in rHeadquarters
 		'/opt/local/R'
 	]);
-	const pwbBinaries = [...rBinaries, ...hqBinaries];
 	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.pwb
 	return pwbBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.pwb] }));
 }
