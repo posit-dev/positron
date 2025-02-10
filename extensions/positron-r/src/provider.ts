@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -88,6 +88,12 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 
 	const userMoreBinaries = discoverAdHocBinaries(userRBinaries());
 	updateBinaries(userMoreBinaries);
+
+	// Directories relevant to Posit Workbench. Not relevant on Windows.
+	if (os.platform() !== 'win32') {
+		const pwbBinaries = discoverPWBBinaries();
+		updateBinaries(pwbBinaries);
+	}
 
 	// (Try to) promote each RBinary to a proper RInstallation
 	let rInstallations: Array<RInstallation> = [];
@@ -524,6 +530,29 @@ function discoverAdHocBinaries(paths: string[]): RBinary[] {
 		.filter(b => fs.existsSync(b))
 		.map(b => fs.realpathSync(b))
 		.map(b => ({ path: b, reasons: [ReasonDiscovered.adHoc] }));
+}
+
+/**
+ * Discovers R binaries that are relevant to Posit Workbench.
+ * Paths are from: https://docs.posit.co/ide/server-pro/r/using_multiple_versions_of_r.html
+ * @returns R binaries that are relevant to Posit Workbench.
+ */
+function discoverPWBBinaries(): RBinary[] {
+	const rBinaries = discoverAdHocBinaries([
+		'/usr/lib/R',
+		'/usr/lib64/R',
+		'/usr/local/lib/R',
+		'/usr/local/lib64/R',
+		'/opt/local/lib/R',
+		'/opt/local/lib64/R',
+	]);
+	const hqBinaries = discoverHQBinaries([
+		// '/opt/R', // Already checked for in rHeadquarters
+		'/opt/local/R'
+	]);
+	const pwbBinaries = [...rBinaries, ...hqBinaries];
+	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.pwb
+	return pwbBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.pwb] }));
 }
 
 // R discovery helpers

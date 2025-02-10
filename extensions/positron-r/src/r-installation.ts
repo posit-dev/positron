@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -43,7 +43,11 @@ export enum ReasonDiscovered {
 	HQ = "HQ",
 	/* eslint-enable @typescript-eslint/naming-convention */
 	adHoc = "adHoc",
-	user = "user"
+	user = "user",
+	/**
+	 * The binary was found in a directory supported by Posit Workbench.
+	 */
+	pwb = "Posit Workbench"
 }
 
 /**
@@ -70,6 +74,8 @@ export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null)
 				return 'Found in a conventional location for symlinked R binaries';
 			case ReasonDiscovered.user:
 				return 'User-specified location';
+			case ReasonDiscovered.pwb:
+				return 'Found in a directory supported by Posit Workbench';
 		}
 	} else if (Object.values(ReasonRejected).includes(reason as ReasonRejected)) {
 		switch (reason) {
