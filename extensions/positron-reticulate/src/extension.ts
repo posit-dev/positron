@@ -261,8 +261,24 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 				// Make sure the R session has the necessary packages installed.
 				progress.report({ increment: 10, message: 'Checking prerequisites' });
-				const config = await ReticulateRuntimeSession.checkRSession(rSession);
-				const metadata = await ReticulateRuntimeSession.fixInterpreterPath(runtimeMetadata, config.python);
+
+				// This may take a while if reticulate >= 1.41 installed and it triggered a large
+				// installation of python packages using `uv`. In this case we'll update the message
+				// to inform the user that this might take a while.
+				const has_uv_support = await rSession.callMethod?.('is_installed', 'reticulate', '1.40.0.9000');
+				const config = ReticulateRuntimeSession.checkRSession(rSession);
+
+				if (has_uv_support) {
+					const timeout = setTimeout(
+						() => {
+							progress.report({ increment: 2, message: 'Installing dependencies. This may take a while.' })
+						},
+						5000
+					);
+					config.finally(() => clearTimeout(timeout));
+				}
+
+				const metadata = await ReticulateRuntimeSession.fixInterpreterPath(runtimeMetadata, (await config).python);
 
 				// Create the session itself.
 				session = new ReticulateRuntimeSession(
@@ -313,7 +329,36 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			}
 		}
 
-		const config: ReticulateConfig = await rSession.callMethod?.('reticulate_check_prerequisites');
+		let config: ReticulateConfig = {};
+		try {
+			config = await rSession.callMethod?.('reticulate_check_prerequisites');
+		} catch (err: any) {
+			// If this times out and reticulate >= 1.41 is installed, it's likely that `uv` wasn't
+			// able to install the necessary python packages. We'll throw an initialization error
+			// that nicely informs the user to initialize `uv` once.
+			if (await rSession.callMethod?.('is_installed', 'reticulate', '1.41')) {
+				throw new InitializationError(
+					vscode.l10n.t('Timed out setting a Python environment.'),
+					[
+						{
+							title: 'reticulate::py_config()',
+							execute: () => {
+								positron.runtime.executeCode(
+									'r',
+									'reticulate::py_config() # This will trigger environment setup',
+									true,
+									false
+								);
+							}
+						},
+					]
+				);
+			} else {
+				throw new InitializationError(
+					vscode.l10n.t('Timed out checking that a Python environment is available.'),
+				)
+			}
+		}
 
 		// An error happened, raise it
 		if (config.error) {
