@@ -13,13 +13,13 @@ test.use({
 test.describe('R Markdown', { tag: [tags.WEB, tags.R_MARKDOWN] }, () => {
 	test.describe.configure({ mode: 'serial' }); // 2nd test depends on 1st test
 
-	test('Render R Markdown', async function ({ app, r }) {
+	test('Verify can render R Markdown', async function ({ app, r }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'basic-rmd-file', 'basicRmd.rmd'));
 		await app.workbench.quickaccess.runCommand('r.rmarkdownRender');
 		await app.workbench.explorer.verifyProjectFilesExist(['basicRmd.html']);
 	});
 
-	test('Preview R Markdown', async function ({ app, r }) {
+	test('Verify can preview R Markdown', async function ({ app, r }) {
 		await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+K' : 'Control+Shift+K');
 
 		// inner most frame has no useful identifying features

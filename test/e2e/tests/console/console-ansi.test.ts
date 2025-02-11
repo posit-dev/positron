@@ -16,7 +16,7 @@ test.describe('Console ANSI styling', { tag: [tags.CRITICAL, tags.CONSOLE, tags.
 	});
 
 	test("R - Can produce clickable file links", async function ({ app, r }) {
-		// Can be any file on the workkspace. We use .gitignore as it's probably
+		// Can be any file on the workspace. We use .gitignore as it's probably
 		// always there.
 		const fileName = '.gitignore';
 		const filePath = join(app.workspacePathOrFolder, fileName);

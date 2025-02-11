@@ -19,7 +19,7 @@ test.describe('Console Pane: R', {
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
-	test('Verify restart button inside the console', {
+	test('R - Verify restart button inside the console', {
 		tag: [tags.WIN]
 	}, async function ({ app, r }) {
 		await expect(async () => {
@@ -31,7 +31,7 @@ test.describe('Console Pane: R', {
 		}).toPass();
 	});
 
-	test('Verify restart button on console bar', {
+	test('R - Verify restart button on console bar', {
 		tag: [tags.WIN]
 	}, async function ({ app, r }) {
 		await expect(async () => {
@@ -41,20 +41,18 @@ test.describe('Console Pane: R', {
 		}).toPass();
 	});
 
-	test('Verify cancel button on console bar', {
+	test('R - Verify cancel button on console bar', {
 		tag: [tags.WIN]
 	}, async function ({ app, r }) {
 
 		await app.workbench.console.pasteCodeToConsole('Sys.sleep(10)');
 		await app.workbench.console.sendEnterKey();
-
 		await app.workbench.console.interruptExecution();
-
 		// nothing appears in console after interrupting execution
 	});
 
 	// not enabled for WIN yet; need to add additional versions
-	test('Verify multiple versions', async function ({ app, r }) {
+	test('R - Verify can use multiple interpreter versions', async function ({ app, r }) {
 
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 

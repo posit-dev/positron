@@ -19,15 +19,13 @@ test.describe('Data Explorer - XLSX', {
 		await app.workbench.variables.toggleVariablesView();
 	});
 
-	test('Python - Verifies data explorer functionality with XLSX input', async function ({ app, python, logger }) {
+	test('Python - Verify data explorer functionality with XLSX input', async function ({ app, python, logger }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'read-xlsx-py', 'supermarket-sales.py'));
 		await app.workbench.quickaccess.runCommand('python.execInConsole');
 
 		logger.log('Opening data grid');
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('df');
-			await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
-		}).toPass();
+		await app.workbench.variables.doubleClickVariableRow('df');
+		await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true });
 
 		await app.workbench.sideBar.closeSecondarySideBar();
 		await app.workbench.dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
@@ -36,15 +34,13 @@ test.describe('Data Explorer - XLSX', {
 		expect(firstRow!['Invoice ID']).toBe('898-04-2717');
 	});
 
-	test('R - Verifies data explorer functionality with XLSX input', async function ({ app, r, logger }) {
+	test('R - Verify data explorer functionality with XLSX input', async function ({ app, r, logger }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'read-xlsx-r', 'supermarket-sales.r'));
 		await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 
 		logger.log('Opening data grid');
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('df2');
-			await app.code.driver.page.locator('.label-name:has-text("Data: df2")').innerText();
-		}).toPass();
+		await app.workbench.variables.doubleClickVariableRow('df2');
+		await app.workbench.dataExplorer.verifyTab('Data: df2', { isVisible: true });
 
 		await app.workbench.sideBar.closeSecondarySideBar();
 		await app.workbench.dataExplorer.selectColumnMenuItem(1, 'Sort Descending');

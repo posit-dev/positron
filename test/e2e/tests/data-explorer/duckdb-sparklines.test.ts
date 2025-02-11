@@ -16,7 +16,7 @@ test.afterEach(async function ({ runCommand }) {
 test.describe('Data Explorer - DuckDB Column Summary', {
 	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.DATA_EXPLORER, tags.DUCK_DB]
 }, () => {
-	test('Verifies basic duckdb column summary functionality', async function ({ app, openDataFile }) {
+	test('Verify basic duckdb column summary functionality', async function ({ app, openDataFile }) {
 
 		await openDataFile('data-files/100x100/100x100.parquet');
 
