@@ -160,7 +160,7 @@ export default tseslint.config(
 			// to find bugs.
 			'react-hooks/exhaustive-deps': 'error',
 			'react/jsx-sort-props': [
-				2,
+				'error',
 				{
 					'callbacksLast': true,
 					'reservedFirst': true,
