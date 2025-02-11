@@ -24,10 +24,8 @@ test.describe('Data Explorer - XLSX', {
 		await app.workbench.quickaccess.runCommand('python.execInConsole');
 
 		logger.log('Opening data grid');
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('df');
-			await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
-		}).toPass();
+		await app.workbench.variables.doubleClickVariableRow('df');
+		await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true });
 
 		await app.workbench.sideBar.closeSecondarySideBar();
 		await app.workbench.dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
@@ -41,10 +39,8 @@ test.describe('Data Explorer - XLSX', {
 		await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 
 		logger.log('Opening data grid');
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('df2');
-			await app.code.driver.page.locator('.label-name:has-text("Data: df2")').innerText();
-		}).toPass();
+		await app.workbench.variables.doubleClickVariableRow('df2');
+		await app.workbench.dataExplorer.verifyTab('Data: df2', { isVisible: true });
 
 		await app.workbench.sideBar.closeSecondarySideBar();
 		await app.workbench.dataExplorer.selectColumnMenuItem(1, 'Sort Descending');

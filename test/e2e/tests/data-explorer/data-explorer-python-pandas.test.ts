@@ -13,7 +13,7 @@ test.use({
 test.describe('Data Explorer - Python Pandas', {
 	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.DATA_EXPLORER]
 }, () => {
-	test('Python Pandas - Can send code to console, open data grid, and verify data', async function ({ app, python, logger }) {
+	test('Python Pandas - Verify can send code to console, open data grid, and data present', async function ({ app, python, logger }) {
 		// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 		const script = `import pandas as pd
 data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
@@ -25,10 +25,8 @@ df = pd.DataFrame(data)`;
 		await app.workbench.console.executeCode('Python', script);
 
 		logger.log('Opening data grid');
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('df');
-			await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
-		}).toPass();
+		await app.workbench.variables.doubleClickVariableRow('df');
+		await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true });
 
 		await app.workbench.sideBar.closeSecondarySideBar();
 
@@ -63,10 +61,8 @@ df2 = pd.DataFrame(data)`;
 		await app.workbench.console.executeCode('Python', script);
 
 		logger.log('Opening data grid');
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('df2');
-			await app.code.driver.page.locator('.label-name:has-text("Data: df2")').innerText();
-		}).toPass();
+		await app.workbench.variables.doubleClickVariableRow('df2');
+		await app.workbench.dataExplorer.verifyTab('Data: df2', { isVisible: true });
 
 		// Need to make sure the data explorer is visible test.beforeAll we can interact with it
 		await app.workbench.dataExplorer.maximizeDataExplorer(true);
@@ -121,7 +117,7 @@ df2 = pd.DataFrame(data)`;
 	});
 
 	// This test is not dependent on the previous test, so it refreshes the python environment
-	test('FIXME!!!! - Python Pandas - Verify data explorer test.afterAll modification', async function ({ app, python }) {
+	test('Python Pandas - Verify can execute cell, open data grid, and data present', async function ({ app, python }) {
 		// Restart python for clean environment & open the file
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
@@ -135,11 +131,8 @@ df2 = pd.DataFrame(data)`;
 		await app.workbench.notebooks.selectInterpreter('Python', process.env.POSITRON_PY_VER_SEL!);
 		await app.workbench.notebooks.focusFirstCell();
 		await app.workbench.notebooks.executeActiveCell();
-
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('df');
-			await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
-		}).toPass({ timeout: 50000 });
+		await app.workbench.variables.doubleClickVariableRow('df');
+		await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true });
 
 		await app.workbench.layouts.enterLayout('notebook');
 
@@ -174,7 +167,7 @@ df2 = pd.DataFrame(data)`;
 		await app.workbench.dataExplorer.closeDataExplorer();
 	});
 
-	test('Python - Open Data Explorer for the second time brings focus back', async function ({ app, python }) {
+	test('Python Pandas - Verify opening Data Explorer for the second time brings focus back', async function ({ app, python }) {
 
 		const script = `import pandas as pd
 Data_Frame = pd.DataFrame({
@@ -192,35 +185,26 @@ Data_Frame = pd.DataFrame({
 })`;
 		await app.workbench.console.executeCode('Python', script);
 		await app.workbench.variables.focusVariablesView();
-
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('Data_Frame');
-			await app.code.driver.page.locator('.label-name:has-text("Data: Data_Frame")').innerText();
-		}).toPass();
+		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
+		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame', { isVisible: true });
 
 		// Now move focus out of the the data explorer pane
 		await app.workbench.editors.newUntitledFile();
 		await app.workbench.variables.focusVariablesView();
 		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
-
-		await expect(async () => {
-			await app.code.driver.page.locator('.label-name:has-text("Data: Data_Frame")').innerText();
-		}).toPass();
+		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame', { isVisible: true });
 
 		await app.workbench.dataExplorer.closeDataExplorer();
 		await app.workbench.variables.focusVariablesView();
 	});
 
-	test('Python - Verify blank spaces in data explorer', async function ({ app, python }) {
+	test('Python Pandas - Verify blank spaces in data explorer', async function ({ app, python }) {
 
 		const script = `import pandas as pd
 df = pd.DataFrame({'x': ["a ", "a", "   ", ""]})`;
 		await app.workbench.console.executeCode('Python', script);
-
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('df');
-			await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
-		}).toPass();
+		await app.workbench.variables.doubleClickVariableRow('df');
+		await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true });
 
 		await expect(async () => {
 			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();

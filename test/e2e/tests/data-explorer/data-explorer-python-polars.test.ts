@@ -18,10 +18,8 @@ test.describe('Data Explorer - Python Polars', {
 		await app.workbench.quickaccess.runCommand('python.execInConsole');
 
 		logger.log('Opening data grid');
-		await expect(async () => {
-			await app.workbench.variables.doubleClickVariableRow('df');
-			await app.code.driver.page.locator('.label-name:has-text("Data: df")').innerText();
-		}).toPass();
+		await app.workbench.variables.doubleClickVariableRow('df');
+		await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true });
 
 		await app.workbench.dataExplorer.maximizeDataExplorer(true);
 
