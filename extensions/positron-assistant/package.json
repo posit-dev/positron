@@ -15,7 +15,8 @@
   ],
   "main": "./out/extension.js",
   "enabledApiProposals": [
-    "defaultChatParticipant"
+    "defaultChatParticipant",
+    "inlineCompletionsAdditions"
   ],
   "contributes": {
     "menus": {

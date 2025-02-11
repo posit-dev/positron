@@ -224,13 +224,17 @@ class OpenAILegacyCompletion extends CompletionModel {
 			choices: { text: string }[];
 		};
 
-		return data.choices.map((choice) => {
-			if ('text' in choice) {
-				return { insertText: choice.text };
-			} else {
-				return { insertText: choice.message.content };
-			}
-		});
+		const completions = new vscode.InlineCompletionList(
+			data.choices.map((choice) => {
+				const item = new vscode.InlineCompletionItem(
+					'text' in choice ? choice.text : choice.message.content
+				);
+				item.completeBracketPairs = true;
+				return item;
+			})
+		);
+		completions.enableForwardStability = true;
+		return completions;
 	}
 }
 
@@ -407,7 +411,12 @@ abstract class FimPromptCompletion extends CompletionModel {
 			text += delta;
 		}
 
-		return [{ insertText: text }];
+		const completion = new vscode.InlineCompletionItem(text);
+		completion.completeBracketPairs = true;
+
+		const completions = new vscode.InlineCompletionList([completion]);
+		completions.enableForwardStability = true;
+		return completions;
 	}
 }
 
