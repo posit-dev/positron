@@ -159,6 +159,14 @@ export default tseslint.config(
 			// Make react-hooks/exhaustive-deps an error. Bad dependencies leads invariably to hard
 			// to find bugs.
 			'react-hooks/exhaustive-deps': 'error',
+			'react/jsx-sort-props': [
+				2,
+				{
+					'callbacksLast': true,
+					'reservedFirst': true,
+					'shorthandFirst': true
+				}
+			]
 		},
 	},
 	// --- End Positron ---
