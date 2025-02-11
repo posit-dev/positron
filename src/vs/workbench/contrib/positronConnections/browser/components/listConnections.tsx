@@ -81,8 +81,8 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 				)}
 				onMouseDown={() => setSelectedInstanceId(itemProps.id)}
 			>
-				<div className='col-icon' style={{ width: `${26}px` }}>
-					{icon ? <img src={icon} style={{ width: '26px', height: '26px' }}></img> : <></>}
+				<div className='col-icon'>
+					{icon ? <img src={icon}></img> : <></>}
 				</div>
 				<div className='col-name'>{name}</div>
 				<div className='col-language'>
@@ -136,7 +136,7 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 			</ActionBar>
 			<div className='connections-list-container'>
 				<div className='connections-list-header' style={{ height: `${TABLE_HEADER_HEIGHT}px` }}>
-					<div className='col-icon' style={{ width: `${26}px` }}></div>
+					<div className='col-icon'></div>
 					<VerticalSplitter />
 					<div className='col-name'>
 						{localize('positron.listConnections.connection', 'Connection')}
