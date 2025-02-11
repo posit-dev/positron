@@ -104,6 +104,7 @@
 	flex-grow: 0;
 	flex-shrink: 0;
 	width: 26px;
+	height: 26px;
 	display: flex;
 	align-items: center;
 	justify-content: center;

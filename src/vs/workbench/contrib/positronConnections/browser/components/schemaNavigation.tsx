@@ -126,11 +126,13 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 				<div className={'connections-instance-details'} style={{ height: DETAILS_BAR_HEIGHT }}>
 					<div className='connection-name'>{name}</div>
 					<div className='connection-language'>{languageIdToName(language_id)}</div>
-					<div className={'connection-icon'}>
-						{
-							icon || <div className='codicon codicon-positron-database-connection'></div>
-						}
-					</div>
+					{
+						icon ?
+							<img className='connection-icon' src={icon}></img> :
+							<div className='connection-icon'>
+								<div className='codicon codicon-positron-database-connection'></div>
+							</div>
+					}
 				</div>
 				<List
 					itemCount={entries.length}
