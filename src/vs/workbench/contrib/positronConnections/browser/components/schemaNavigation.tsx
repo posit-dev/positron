@@ -181,7 +181,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 
 	const iconClass = (kind?: string) => {
 		if (kind) {
-			switch (kind) {
+			switch (kind.toLowerCase()) {
 				case 'table':
 					return 'positron-table-connection';
 				case 'view':
@@ -193,11 +193,13 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 				case 'catalog':
 					return 'positron-catalog-connection';
 				case 'field':
-					switch (props.item.dtype) {
+					switch (props.item.dtype?.toLowerCase()) {
 						case 'character':
+						case 'string':
 							return 'positron-data-type-string';
 						case 'integer':
 						case 'numeric':
+						case 'float':
 							return 'positron-data-type-number';
 						case 'boolean':
 						case 'bool':
