@@ -179,16 +179,9 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		props.onToggleExpand(props.item.id);
 	};
 
-	const icon = (() => {
-
-		if (props.item.icon) {
-			return props.item.icon;
-		}
-
-		if (props.item.kind) {
-			// TODO: we'll probably want backends to implement the casting to a set of known
-			// types or provide their own icon.
-			switch (props.item.kind) {
+	const iconClass = (kind?: string) => {
+		if (kind) {
+			switch (kind) {
 				case 'table':
 					return 'positron-table-connection';
 				case 'view':
@@ -214,8 +207,26 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 					}
 			}
 		}
-		// If kind is not known, then no icon is dplsayed by default.
+
 		return '';
+	}
+
+	const icon = (() => {
+		// icon is a base64 encoded png
+		if (props.item.icon) {
+			return <img
+				src={props.item.icon}
+			>
+			</img>;
+		}
+
+		return <div
+			className={positronClassNames(
+				'codicon',
+				`codicon-${iconClass(props.item.kind)}`,
+			)}
+		>
+		</div>
 	})();
 
 	const rowMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
@@ -270,17 +281,13 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 				{props.item.error && <span className='connections-error codicon codicon-error' title={props.item.error}></span>}
 			</div>
 			<div
-				className='connections-icon'
+				className={positronClassNames(
+					'connections-icon',
+					{ 'disabled': props.item.preview === undefined }
+				)}
 				onClick={() => props.item.preview?.()}
 			>
-				<div
-					className={positronClassNames(
-						'codicon',
-						`codicon-${icon}`,
-						{ 'disabled': props.item.preview === undefined }
-					)}
-				>
-				</div>
+				{icon}
 			</div>
 		</div>
 	);
