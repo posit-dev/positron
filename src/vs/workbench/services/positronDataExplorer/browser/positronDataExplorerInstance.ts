@@ -51,6 +51,11 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	private _layout = PositronDataExplorerLayout.SummaryOnLeft;
 
 	/**
+	 * Gets or sets a value which indicates whether the summary is collapsed.
+	 */
+	private _isSummaryCollapsed = false;
+
+	/**
 	 * Gets or sets the columns width percent.
 	 */
 	private _columnsWidthPercent = 0.25;
@@ -228,6 +233,13 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
+	 * Gets a value which indicates whether the summary is collapsed.
+	 */
+	get isSummaryCollapsed() {
+		return this._isSummaryCollapsed;
+	}
+
+	/**
 	 * Gets the columns width percent.
 	 */
 	get columnsWidthPercent() {
@@ -274,6 +286,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * Collapses the summary.
 	 */
 	collapseSummary(): void {
+		this._isSummaryCollapsed = true;
 		this._onDidCollapseSummaryEmitter.fire();
 	}
 
@@ -281,6 +294,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * Expands the summary.
 	 */
 	expandSummary(): void {
+		this._isSummaryCollapsed = false;
 		this._onDidExpandSummaryEmitter.fire();
 	}
 
