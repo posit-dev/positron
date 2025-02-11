@@ -49,6 +49,7 @@
 .connections-list-container .col-icon {
 	flex-shrink: 0;
 	height: 100%;
+	width: 26px;
 }
 
 .connections-list-container .col-name {
@@ -65,6 +66,15 @@
 
 .connections-list-item .col-status.disabled {
 	color: var(--vscode-positronSideActionBar-disabledForeground);
+}
+
+.connections-list-item .col-icon {
+	width: 26px;
+}
+
+.connections-list-item .col-icon > img {
+	width: 26px;
+	height: 26px;
 }
 
 .connections-list-container .col-language {
