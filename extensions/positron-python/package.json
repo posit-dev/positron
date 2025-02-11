@@ -860,6 +860,12 @@
                     "markdownDescription": "%python.installModulesInTerminal.description%",
                     "scope": "resource",
                     "type": "boolean"
+                },
+                "python.useBundledIpykernel": {
+                    "default": true,
+                    "markdownDescription": "%python.useBundledIpykernel.description%",
+                    "scope": "resource",
+                    "type": "boolean"
                 }
             },
             "title": "Python",

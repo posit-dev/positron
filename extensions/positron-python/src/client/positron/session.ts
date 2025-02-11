@@ -9,6 +9,7 @@
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import PQueue from 'p-queue';
 import { ProductNames } from '../common/installer/productNames';
@@ -24,12 +25,12 @@ import {
 } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 import { PositronSupervisorApi, JupyterKernelSpec, JupyterLanguageRuntimeSession } from '../positron-supervisor.d';
-import { traceInfo } from '../logging';
+import { traceInfo, traceWarn } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { PythonLsp, LspState } from './lsp';
 import { whenTimeout } from './util';
 import { IPYKERNEL_VERSION } from '../common/constants';
-import { IEnvironmentVariablesProvider } from '../common/variables/types';
+import { IEnvironmentVariablesProvider, IEnvironmentVariablesService } from '../common/variables/types';
 import { PythonRuntimeExtraData } from './runtime';
 import { JediLanguageServerAnalysisOptions } from '../activation/jedi/analysisOptions';
 import { ILanguageServerOutputChannel } from '../activation/types';
@@ -37,6 +38,8 @@ import { IWorkspaceService } from '../common/application/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
+import { EXTENSION_ROOT_DIR } from '../constants';
+import { IPythonExecutionFactory } from '../common/process/types';
 
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
@@ -70,11 +73,23 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The current state of the runtime */
     private _state: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 
+    /** The service for installing Python packages */
+    private _installer: IInstaller;
+
     /** The service for managing Python environments */
     private _interpreterService: IInterpreterService;
 
     /** The service for managing the active Python interpreter path */
     private _interpreterPathService: IInterpreterPathService;
+
+    /** The service for managing environment variables */
+    private _envVarsService: IEnvironmentVariablesService;
+
+    /** The service for executing Python code */
+    private _pythonExecutionFactory: IPythonExecutionFactory;
+
+    /** The service for managing the workspace */
+    private _workspaceService: IWorkspaceService;
 
     /**
      * Map of parent message IDs currently handled by IPyWidgets output widget comms,
@@ -120,8 +135,12 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this.onStateChange(state);
         });
 
+        this._installer = this.serviceContainer.get<IInstaller>(IInstaller);
         this._interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
         this._interpreterPathService = serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
+        this._envVarsService = serviceContainer.get<IEnvironmentVariablesService>(IEnvironmentVariablesService);
+        this._pythonExecutionFactory = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
+        this._workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
     }
 
     onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
@@ -230,16 +249,79 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
-    private async _installIpykernel(interpreter: PythonEnvironment): Promise<void> {
-        // Get the installer service
-        const installer = this.serviceContainer.get<IInstaller>(IInstaller);
+    private async _setupIpykernel(interpreter: PythonEnvironment, kernelSpec: JupyterKernelSpec): Promise<void> {
+        // Use the bundled ipykernel.
+        // If disabled, or if ipykernel is not bundled for the interpreter, fall back to installing ipykernel.
+        const useBundledIpykernel = this._workspaceService
+            .getConfiguration('python')
+            .get<boolean>('useBundledIpykernel', true);
+        if (useBundledIpykernel) {
+            const success = await this._addIpykernelToPythonPath(interpreter, kernelSpec);
+            if (success) {
+                return;
+            }
+        }
 
+        // Install ipykernel for the interpreter.
+        await this._installIpykernel(interpreter);
+    }
+
+    private async _addIpykernelToPythonPath(
+        interpreter: PythonEnvironment,
+        kernelSpec: JupyterKernelSpec,
+    ): Promise<boolean> {
+        // TODO: Some of the `return false` should actually show a notification to the user.
+        const pythonExecutionService = await this._pythonExecutionFactory.create({ pythonPath: interpreter.path });
+        const info = await pythonExecutionService.getInterpreterInformation();
+        if (
+            !info ||
+            info.implementation !== 'cpython' ||
+            !info.version ||
+            info.version.major !== 3 ||
+            ![8, 9, 10, 11, 12, 13].includes(info.version.minor)
+        ) {
+            traceInfo(`Cannot use bundled ipykernel for unsupported interpreter: ${JSON.stringify(info)}`);
+            return false;
+        }
+
+        if (!kernelSpec?.env) {
+            kernelSpec.env = {};
+        }
+
+        const cpxSpecifier = `cp${info.version.major}${info.version.minor}`;
+        const cpxPath = path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', cpxSpecifier);
+        const py3Path = path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'py3');
+        const cp3Path = path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'cp3');
+
+        if (!fs.existsSync(cpxPath)) {
+            traceWarn(`Packaged dependencies for Positron Python kernel not found at ${cpxPath}`);
+            return false;
+        }
+        if (!fs.existsSync(py3Path)) {
+            traceWarn(`Packaged dependencies for Positron Python kernel not found at ${py3Path}`);
+            return false;
+        }
+        if (!fs.existsSync(cp3Path)) {
+            traceWarn(`Packaged dependencies for Positron Python kernel not found at ${cp3Path}`);
+            return false;
+        }
+
+        traceInfo(`Using bundled ipykernel for interpreter: ${interpreter.path}`);
+
+        this._envVarsService.appendPythonPath(kernelSpec.env, cpxPath);
+        this._envVarsService.appendPythonPath(kernelSpec.env, cp3Path);
+        this._envVarsService.appendPythonPath(kernelSpec.env, py3Path);
+
+        return true;
+    }
+
+    private async _installIpykernel(interpreter: PythonEnvironment): Promise<void> {
         // Offer to install the ipykernel module for the preferred interpreter, if it is missing.
         // Thow an error if it could not be installed.
 
         // We require ipykernel >= 6.19.1 for the Python runtime in order to ensure the comm package
         // can be imported on its own (https://github.com/ipython/ipykernel/releases/tag/v6.18.0)
-        const hasCompatibleKernel = await installer.isProductVersionCompatible(
+        const hasCompatibleKernel = await this._installer.isProductVersionCompatible(
             Product.ipykernel,
             IPYKERNEL_VERSION,
             interpreter,
@@ -248,7 +330,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         if (hasCompatibleKernel !== ProductInstallStatus.Installed) {
             // Check if sqlite3 if installed before attempting to install ipykernel
             // https://github.com/posit-dev/positron/issues/4698
-            const hasSqlite3 = await installer.isInstalled(Product.sqlite3, interpreter);
+            const hasSqlite3 = await this._installer.isInstalled(Product.sqlite3, interpreter);
             if (!hasSqlite3) {
                 throw new Error(
                     `The Python sqlite3 extension is required but not installed for interpreter: ${interpreter?.displayName}. Missing the system library for SQLite?`,
@@ -256,7 +338,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             }
 
             // Check if we have Pip installed, already
-            const hasPip = await installer.isInstalled(Product.pip, interpreter);
+            const hasPip = await this._installer.isInstalled(Product.pip, interpreter);
 
             // Pass a cancellation token to enable VSCode's progress indicator and let the user
             // cancel the install.
@@ -290,7 +372,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                 );
             }
 
-            const response = await installer.promptToInstall(
+            const response = await this._installer.promptToInstall(
                 product,
                 interpreter,
                 installerToken,
@@ -320,6 +402,11 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             throw new Error(`Could not start runtime: failed to resolve interpreter ${this._pythonPath}`);
         }
 
+        // If we're starting a new session (we have a kernel spec), ensure that ipykernel is available.
+        if (this.kernelSpec) {
+            await this._setupIpykernel(interpreter, this.kernelSpec);
+        }
+
         // Ensure the LSP client instance is created
         if (!this._lsp) {
             await this.createLsp(interpreter);
@@ -329,9 +416,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         if (!this._kernel) {
             this._kernel = await this.createKernel();
         }
-
-        // Ensure that the ipykernel module is installed for the interpreter.
-        await this._installIpykernel(interpreter);
 
         if (this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
             // Update the active environment in the Python extension.

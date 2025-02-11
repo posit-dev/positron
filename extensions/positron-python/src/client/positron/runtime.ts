@@ -38,18 +38,26 @@ export async function createPythonRuntimeMetadata(
     // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
     traceInfo('createPythonRuntime: getting extension runtime settings');
 
+    // Determine if a compatible version of ipykernel is installed.
+    // TODO: This should also check if we bundle for the interpreter implementation and version.
+    let hasCompatibleKernel = workspaceService.getConfiguration('python').get<boolean>('useBundledIpykernel', true);
+    if (hasCompatibleKernel) {
+        traceInfo('createPythonRuntime: using bundled ipykernel');
+    } else {
+        traceInfo('createPythonRuntime: checking if ipykernel is installed');
+        const productInstallStatus = await installer.isProductVersionCompatible(
+            Product.ipykernel,
+            IPYKERNEL_VERSION,
+            interpreter,
+        );
+        hasCompatibleKernel = productInstallStatus === ProductInstallStatus.Installed;
+    }
+
     // Define the startup behavior; request immediate startup if this is the
     // recommended runtime for the workspace. Do not request immediate or implicit startup
     // if ipykernel (min version 6.19.1) is not installed -- the user should start runtime explicitly.
     let startupBehavior;
-    traceInfo('createPythonRuntime: checking if ipykernel is installed');
-    const hasCompatibleKernel = await installer.isProductVersionCompatible(
-        Product.ipykernel,
-        IPYKERNEL_VERSION,
-        interpreter,
-    );
-
-    if (hasCompatibleKernel === ProductInstallStatus.Installed) {
+    if (hasCompatibleKernel) {
         startupBehavior = recommendedForWorkspace
             ? positron.LanguageRuntimeStartupBehavior.Immediate
             : positron.LanguageRuntimeStartupBehavior.Implicit;
