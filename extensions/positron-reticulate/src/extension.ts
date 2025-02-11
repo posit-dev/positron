@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import path = require('path');
 import fs = require('fs');
-import { JupyterKernelSpec, JupyterSession, JupyterKernel } from './jupyter-adapter.d';
+import { JupyterKernelSpec, JupyterSession, JupyterKernel } from './positron-supervisor';
 import { Barrier, PromiseHandles } from './async';
 
 export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager {
@@ -186,7 +186,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 	// ReticulateRuntimeSession are only different from Python runtime sessions
 	// in the way the kernel spec is provided. In general, the kernel spec
 	// contains a runtime path and some arguments that are used start the
-	// kernel process. (The kernel is started by the Jupyter Adapter in a
+	// kernel process. (The kernel is started by the Positron Supervisor in a
 	// vscode terminal). In the reticulate case, the kernel isn't started that
 	// way. Instead, we need to call into the R console to start the python
 	// jupyter kernel (that's actually running in the same process as R), and
@@ -697,13 +697,14 @@ class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 				path.join(CONTEXT.extensionPath, 'resources', 'branding', 'reticulate.svg'),
 				{ encoding: 'base64' }
 			);
-		// Check the kernel supervisor's configuration; if it's enabled and
-		// configured to persist sessions, mark the session location as 'machine'
-		// so that Positron will reattach to the session after Positron is reopened.
+		// Check the kernel supervisor's configuration; if it's configured to
+		// persist sessions, mark the session location as 'machine' so that
+		// Positron will reattach to the session after Positron is
+		// reopened.
 		const config = vscode.workspace.getConfiguration('kernelSupervisor');
-		this.sessionLocation = config.get<boolean>('enable', true) &&
+		this.sessionLocation =
 			config.get<string>('shutdownTimeout', 'immediately') !== 'immediately' ?
-			positron.LanguageRuntimeSessionLocation.Machine : positron.LanguageRuntimeSessionLocation.Workspace;
+				positron.LanguageRuntimeSessionLocation.Machine : positron.LanguageRuntimeSessionLocation.Workspace;
 
 	}
 	runtimePath: string = 'Managed by the reticulate package';

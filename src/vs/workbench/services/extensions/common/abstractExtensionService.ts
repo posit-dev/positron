@@ -1015,18 +1015,6 @@ export abstract class AbstractExtensionService extends Disposable implements IEx
 		return this._installedExtensionsReady.wait();
 	}
 
-	// --- Start Positron ---
-	/**
-	 * Wait for all extension hosts to start, and for all eagerly activated
-	 * extensions to activate.
-	 *
-	 * @returns A promise that resolves when all extension hosts have started.
-	 */
-	public whenAllExtensionHostsStarted(): Promise<boolean> {
-		return this._allExtensionHostsStarted.wait();
-	}
-	// --- End Positron ---
-
 	get extensions(): IExtensionDescription[] {
 		return this._registry.getAllExtensionDescriptions();
 	}

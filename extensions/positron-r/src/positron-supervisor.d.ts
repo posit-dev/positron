@@ -1,11 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 
-// eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 
 export interface JupyterSessionState {
@@ -36,7 +35,7 @@ export interface JupyterKernel {
 
 /**
  * This set of type definitions defines the interfaces used by the Positron
- * Jupyter Adapter extension.
+ * Supervisor extension.
  */
 
 /**
@@ -124,9 +123,9 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 }
 
 /**
- * The Jupyter Adapter API as exposed by the Jupyter Adapter extension.
+ * The Positron Supervisor API as exposed by the Positron Supervisor extension.
  */
-export interface JupyterAdapterApi extends vscode.Disposable {
+export interface PositronSupervisorApi extends vscode.Disposable {
 
 	/**
 	 * Create a session for a Jupyter-compatible kernel.

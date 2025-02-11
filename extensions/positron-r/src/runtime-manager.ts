@@ -114,21 +114,14 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	 * @returns True if the session is valid, false otherwise
 	 */
 	async validateSession(sessionId: string): Promise<boolean> {
-		const config = vscode.workspace.getConfiguration('kernelSupervisor');
-		if (config.get<boolean>('enable', true)) {
-			const ext = vscode.extensions.getExtension('positron.positron-supervisor');
-			if (!ext) {
-				throw new Error('Positron Supervisor extension not found');
-			}
-			if (!ext.isActive) {
-				await ext.activate();
-			}
-			return ext.exports.validateSession(sessionId);
+		const ext = vscode.extensions.getExtension('positron.positron-supervisor');
+		if (!ext) {
+			throw new Error('Positron Supervisor extension not found');
 		}
-
-		// When not using the kernel supervisor, sessions are not
-		// persisted.
-		return false;
+		if (!ext.isActive) {
+			await ext.activate();
+		}
+		return ext.exports.validateSession(sessionId);
 	}
 
 	restoreSession(

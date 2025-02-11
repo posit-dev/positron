@@ -151,7 +151,7 @@ export class Console {
 		const page = this.code.driver.page;
 
 		// ensure interpreter(s) containing starting/discovering do not exist in DOM
-		await expect(page.locator('text=/^Starting up|^Starting|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 50000 });
+		await expect(page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 50000 });
 
 		// ensure we are on Console tab
 		await page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
@@ -192,8 +192,7 @@ export class Console {
 	): Promise<string[]> {
 		const { timeout = 15000, expectedCount = 1 } = options;
 
-		const consoleLines = this.code.driver.page.locator(CONSOLE_LINES);
-		const matchingLines = consoleLines.filter({ hasText: consoleText });
+		const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText);
 
 		await expect(matchingLines).toHaveCount(expectedCount, { timeout });
 		return expectedCount ? matchingLines.allTextContents() : [];

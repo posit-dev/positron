@@ -30,6 +30,11 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	layout: PositronDataExplorerLayout;
 
 	/**
+	 * Gets or sets a value which indicates whether the summary is collapsed.
+	 */
+	isSummaryCollapsed: boolean;
+
+	/**
 	 * Gets or sets the columns width percent.
 	 */
 	columnsWidthPercent: number;

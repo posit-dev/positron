@@ -382,7 +382,9 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         const options: ConfigurationOptions = {
             workspaceDirectories: getWorkspaceFolderPaths(),
             // We do not want to mix this with `search_paths`
-            environmentDirectories: getCustomVirtualEnvDirs(),
+            // --- Start Positron ---
+            environmentDirectories: getEnvironmentDirs(),
+            // --- End Positron ---
             condaExecutable: getPythonSettingAndUntildify<string>(CONDAPATH_SETTING_KEY),
             poetryExecutable: getPythonSettingAndUntildify<string>('poetryPath'),
             cacheDirectory: this.cacheDirectory?.fsPath,
@@ -436,6 +438,35 @@ function getCustomVirtualEnvDirs(): string[] {
     }
     return Array.from(new Set(venvDirs));
 }
+
+// --- Start Positron ---
+/**
+ * Gets the list of directories to search for Python environments.
+ * @returns List of directories to search for Python environments.
+ */
+function getEnvironmentDirs(): string[] {
+    const venvDirs = getCustomVirtualEnvDirs();
+    const additionalDirs = getAdditionalEnvDirs();
+    const uniqueEnvDirs = new Set([...venvDirs, ...additionalDirs]);
+    return Array.from(uniqueEnvDirs);
+}
+
+/**
+ * Gets the list of additional directories to add to environment directories.
+ * @returns List of directories to add to environment directories.
+ */
+function getAdditionalEnvDirs(): string[] {
+    const additionalDirs: string[] = [];
+    if (!isWindows()) {
+        // /opt/python is a recommended Python installation location on Posit Workbench.
+        // see: https://docs.posit.co/ide/server-pro/python/installing_python.html
+        additionalDirs.push('/opt/python');
+    }
+    // TODO: add user-specified additional directories to include in discovery
+    // see: https://github.com/posit-dev/positron/issues/3574
+    return additionalDirs;
+}
+// --- End Positron ---
 
 function getPythonSettingAndUntildify<T>(name: string, scope?: Uri): T | undefined {
     const value = getConfiguration('python', scope).get<T>(name);
