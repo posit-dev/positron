@@ -256,7 +256,6 @@ async function main() {
 
     // (1) Get the GITHUB_PAT from the environment.
     let githubPat = process.env.GITHUB_PAT;
-    let gitCredential = false;
     if (githubPat) {
         console.log('Using Github PAT from environment variable GITHUB_PAT.');
     } else {
