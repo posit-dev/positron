@@ -4,8 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-console .console-core {
-	width: 100%;
 	cursor: text;
+	display: flex;
+	flex-direction: row;
+	width: 100%;
 }
 
 .positron-console .console-core .console-instances-container {

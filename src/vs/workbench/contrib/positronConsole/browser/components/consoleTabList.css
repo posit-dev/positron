@@ -1,0 +1,37 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.tabs-container {
+	border-left: 1px solid var(--vscode-terminal-border);
+	background-color: var(--vscode-tab-inactiveBackground);
+}
+
+.tabs-container .tab-button {
+	background-color: inherit;
+	border: none;
+	border-left: 1px solid transparent;
+	cursor: pointer;
+	height: 22px;
+	padding: 0 10px;
+	text-align: left;
+	width: 100%;
+
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.tabs-container .tab-button:hover {
+	background-color: var(--vscode-list-hoverBackground);
+}
+
+.tabs-container .tab-button--active {
+	background-color: var(--vscode-list-inactiveSelectionBackground);
+	border-left: 1px solid var(--vscode-panelTitle-activeBorder);
+}
+
+.tabs-container .tab-button--active:hover {
+	background-color: var(--vscode-list-inactiveSelectionBackground);
+}
