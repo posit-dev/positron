@@ -86,7 +86,9 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	const userBinaries = discoverUserSpecifiedBinaries();
 	updateBinaries(userBinaries);
 
-	// Directories relevant to Posit Workbench. Not relevant on Windows.
+	// Directories to check for R binaries on Linux and macOS. These locations are also searched by
+	// RStudio on POSIX platforms.
+	// See https://github.com/rstudio/rstudio/blob/bb8cbf17bb415467f87d6e415f9e3777fa46e583/src/cpp/core/r_util/RVersionsPosix.cpp#L121-L147
 	if (os.platform() !== 'win32') {
 		const pwbBinaries = discoverPWBBinaries();
 		updateBinaries(pwbBinaries);
