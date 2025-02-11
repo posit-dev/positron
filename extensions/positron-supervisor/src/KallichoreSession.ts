@@ -395,6 +395,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
+
+	/**
+	 * Get a list of output channels
+	 * @returns A list of output channels available on this runtime
+	 */
 	listOutputChannels(): string[] {
 		const channels = [KERNEL_CHANNEL_NAME, RUNTIME_CHANNEL_NAME];
 		if (this._profileChannel) {
