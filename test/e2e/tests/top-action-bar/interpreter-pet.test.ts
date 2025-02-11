@@ -23,7 +23,7 @@ test.describe('Top Action Bar - Interpreter Dropdown', {
 		await userSettings.set([['python.locator', 'native']]);
 	});
 
-	test('Python - starts and shows running [C707212]', async function ({ app }) {
+	test('Python - interpreter starts and shows running', async function ({ app }) {
 		await app.workbench.interpreter.selectInterpreter('Python', desiredPython);
 		await app.workbench.interpreter.verifyInterpreterIsSelected(desiredPython);
 		await app.workbench.interpreter.verifyInterpreterIsRunning(desiredPython);

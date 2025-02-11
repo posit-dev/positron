@@ -24,10 +24,8 @@ export const testDataExplorer = async (
 	}
 
 	// Open the data frame.
-	await expect(async () => {
-		await app.workbench.variables.doubleClickVariableRow(dataFrameName);
-		await app.workbench.dataExplorer.verifyTab(dataFrameName, { isVisible: true });
-	}).toPass();
+	await app.workbench.variables.doubleClickVariableRow(dataFrameName);
+	await app.workbench.dataExplorer.verifyTab(dataFrameName, { isVisible: true });
 
 	// Maximize the data explorer.
 	await app.workbench.dataExplorer.maximizeDataExplorer();

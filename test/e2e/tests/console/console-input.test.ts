@@ -62,7 +62,7 @@ cat(sprintf('Hello %s!\n', val))`;
 		await app.workbench.console.waitForConsoleContents('[1] 1');
 	});
 
-	test("R - Esc only dismisses autocomplete not full text typed into console", async function ({ app, page, r }) {
+	test("R - Verify ESC dismisses autocomplete without deleting typed text", async function ({ app, page, r }) {
 		// This is a regression test for https://github.com/posit-dev/positron/issues/1161
 
 		const inputCode = `base::mea`;

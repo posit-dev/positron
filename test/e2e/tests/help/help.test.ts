@@ -17,7 +17,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 		await userSettings.set([['workbench.reduceMotion', '"on"']]);
 	});
 
-	test('Python - Verifies basic help functionality', { tag: [tags.WIN] }, async function ({ app, python }) {
+	test('Python - Verify basic help functionality', { tag: [tags.WIN] }, async function ({ app, python }) {
 		await app.workbench.console.executeCode('Python', `?load`);
 
 		await expect(async () => {
@@ -27,7 +27,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 
 	});
 
-	test('R - Verifies basic help functionality', { tag: [tags.WIN] }, async function ({ app, r }) {
+	test('R - Verify basic help functionality', { tag: [tags.WIN] }, async function ({ app, r }) {
 		await app.workbench.console.executeCode('R', `?load()`);
 
 		await expect(async () => {
@@ -37,7 +37,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 
 	});
 
-	test('Verifies help panel can be opened when empty and also can be resized smaller and remember resize height', { tag: [tags.WIN] }, async function ({ app, logger }) {
+	test('Verify help panel opens when empty, can be resized smaller, and remembers size height', { tag: [tags.WIN] }, async function ({ app, logger }) {
 		// Not running on windows as the size calculation is off for the resolution in CI
 		const help = app.workbench.help;
 		const helpContainerLocator = help.getHelpContainer();

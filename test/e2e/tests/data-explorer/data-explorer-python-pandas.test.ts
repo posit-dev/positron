@@ -46,7 +46,7 @@ df = pd.DataFrame(data)`;
 		await app.workbench.variables.toggleVariablesView();
 	});
 
-	test('Python Pandas - Verifies data explorer functionality with empty fields', async function ({ app, python, logger }) {
+	test('Python Pandas - Verify data explorer functionality with empty fields', async function ({ app, python, logger }) {
 		const script = `import numpy as np
 import pandas as pd
 
@@ -88,7 +88,7 @@ df2 = pd.DataFrame(data)`;
 	});
 
 	// Cannot be run by itself, relies on the previous test
-	test('Python Pandas - Verifies data explorer column info functionality', async function ({ app, python }) {
+	test('Python Pandas - Verify data explorer column info functionality', async function ({ app, python }) {
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(1)).toBe('20%');
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(2)).toBe('40%');
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(3)).toBe('40%');
@@ -121,7 +121,7 @@ df2 = pd.DataFrame(data)`;
 	});
 
 	// This test is not dependent on the previous test, so it refreshes the python environment
-	test('FIXME!!!! - Python Pandas - Verifies data explorer test.afterAll modification', async function ({ app, python }) {
+	test('FIXME!!!! - Python Pandas - Verify data explorer test.afterAll modification', async function ({ app, python }) {
 		// Restart python for clean environment & open the file
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');

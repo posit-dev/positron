@@ -15,7 +15,7 @@ test.describe('Variables - Expanded View', { tag: [tags.WEB, tags.VARIABLES] }, 
 		await app.workbench.layouts.enterLayout('stacked');
 	});
 
-	test('Python - should display children values and types when variable is expanded', async function ({ app, python }) {
+	test('Python - verify children values and types display when variable is expanded', async function ({ app, python }) {
 		const variables = app.workbench.variables;
 
 		await app.workbench.console.executeCode('Python', script);
@@ -28,7 +28,7 @@ test.describe('Variables - Expanded View', { tag: [tags.WEB, tags.VARIABLES] }, 
 		}
 	});
 
-	test('R - getting large dataframe children should not cause problems', async function ({ app, r }) {
+	test('R - verify getting large dataframe children should not cause problems', async function ({ app, r }) {
 		const variables = app.workbench.variables;
 
 		// workaround for https://github.com/posit-dev/positron/issues/5718

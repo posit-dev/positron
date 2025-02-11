@@ -22,34 +22,34 @@ test.describe('Headless Data Explorer - Large Data Frame', {
 		await app.workbench.dataExplorer.closeDataExplorer();
 	});
 
-	test('Verifies headless data explorer functionality with large parquet file', async function ({ app, logger }) {
+	test('Verify headless data explorer functionality with large parquet file', async function ({ app, logger }) {
 		await testBody(app, logger, 'flights.parquet');
 	});
 
-	test('Verifies headless data explorer functionality with large csv file', async function ({ app, logger }) {
+	test('Verify headless data explorer functionality with large csv file', async function ({ app, logger }) {
 		await testBody(app, logger, 'flights.csv');
 	});
 
-	test('Verifies headless data explorer functionality with large gzipped csv file', async function ({ app, logger }) {
+	test('Verify headless data explorer functionality with large gzipped csv file', async function ({ app, logger }) {
 		await testBody(app, logger, 'flights.csv.gz');
 	});
 
-	test('Verifies headless data explorer functionality with large tsv file', async function ({ app, logger }) {
+	test('Verify headless data explorer functionality with large tsv file', async function ({ app, logger }) {
 		await testBody(app, logger, 'flights.tsv');
 	});
 
-	test('Verifies headless data explorer functionality with large gzipped tsv file', async function ({ app, logger }) {
+	test('Verify headless data explorer functionality with large gzipped tsv file', async function ({ app, logger }) {
 		await testBody(app, logger, 'flights.tsv.gz');
 	});
 
-	test('Verifies headless data explorer can open csv file as plaintext', async function ({ app, logger }) {
+	test('Verify headless data explorer can open csv file as plaintext', async function ({ app, logger }) {
 		const fileName = 'flights.csv';
 		const searchString = ',year,month,day,dep_time,sched_dep_time,dep_delay,arr_time,sched_arr_time,arr_delay,carrier,flight,tailnum,origin,dest,air_time,distance,hour,minute,time_hour';
 
 		await openAsPlaintext(app, fileName, searchString);
 	});
 
-	test('Verifies headless data explorer can open tsv file as plaintext', async function ({ app, logger }) {
+	test('Verify headless data explorer can open tsv file as plaintext', async function ({ app, logger }) {
 		const fileName = 'flights.tsv';
 		const searchString = /\s+year\s+month\s+day\s+dep_time\s+sched_dep_time\s+dep_delay\s+arr_time\s+sched_arr_time\s+arr_delay\s+carrier\s+flight\s+tailnum\s+origin\s+dest\s+air_time\s+distance\s+hour\s+minute\s+time_hour/;
 

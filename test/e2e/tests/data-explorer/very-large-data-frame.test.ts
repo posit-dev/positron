@@ -61,7 +61,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			}
 		});
 
-		test('R - Verifies data loads with very large unique data dataframe', async function ({ app, logger, r }) {
+		test('R - Verify data loads with very large unique data dataframe', async function ({ app, logger, r }) {
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.r'));
 			await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 			const startTime = performance.now();
@@ -105,7 +105,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			}
 		});
 
-		test('R - Verifies data loads with very large duplicated data dataframe', async function ({ app, logger, r }) {
+		test('R - Verify data loads with very large duplicated data dataframe', async function ({ app, logger, r }) {
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.r'));
 			await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 			const startTime = performance.now();
