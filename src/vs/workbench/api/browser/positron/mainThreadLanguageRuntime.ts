@@ -817,10 +817,12 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		if (mimeTypes.includes('text/html')) {
 			// Check to see if there are any tags that look like they belong in
 			// a standalone HTML document.
-			if (/<(script|html|body|iframe)/.test(message.data['text/html'])) {
+			const htmlContent = message.data['text/html'];
+			if (/<(script|html|body|iframe|!DOCTYPE)/.test(htmlContent)) {
 				// This looks like standalone HTML.
-				if (message.data['text/html'].includes('<table')) {
-					// Tabular data? Probably best in the Viewer pane.
+				if (htmlContent.includes('<table') ||
+					htmlContent.includes('<!DOCTYPE')) {
+					// Tabular data or document? Probably best in the Viewer pane.
 					return RuntimeOutputKind.ViewerWidget;
 				} else {
 					// Guess that anything else is a plot.

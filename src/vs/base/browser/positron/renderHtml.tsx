@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -24,6 +24,11 @@ interface HTMLRendererOptions {
 /**
  * Renders HTML to React elements.
  *
+ * Since throwing an exception here will cause the entire React render to fail,
+ * this component renders any errors instead of throwing them. This means that
+ * rendering invalid HTML may produce a rendered error instead of the expected
+ * content.
+ *
  * @param html A string of untrusted HTML.
  * @param opts Options for rendering the HTML.
  * @returns A React element containing the rendered HTML.
@@ -35,10 +40,22 @@ export const renderHtml = (html: string, opts: HTMLRendererOptions = {}): React.
 	//
 	// Because this code must run in a very strict security context, we cannot
 	// use parsers that rely on `innerHTML` or `DOMParser`.
-	const parsedContent = parseHtml(html);
+	let parsedContent = [];
+	try {
+		parsedContent = parseHtml(html);
+	} catch (e) {
+		// If the HTML is invalid, render an error message.
+		const errorMessage = e instanceof Error ? e.message : e.toString();
+		return <div className='error'>{errorMessage}</div>;
+	}
 
 	// If there are component over-rides, use those to render the applicable elements.
 	function createElement(name: string, attrs: React.DOMAttributes<HTMLElement>, children?: (React.ReactNode | string)[] | React.ReactNode | string) {
+		// Don't try to create elements for tags that start with ! (such as
+		// <!DOCTYPE html>).
+		if (name && name[0] === '!') {
+			return undefined;
+		}
 		const Component = opts.componentOverrides?.[name] || name;
 		return React.createElement(Component, attrs, children);
 	}
@@ -78,7 +95,6 @@ export const renderHtml = (html: string, opts: HTMLRendererOptions = {}): React.
 				}
 			}
 		} else if (node.type === 'tag') {
-			// Create a React element for the tag.
 			return createElement(node.name!, node.attrs!);
 		} else {
 			// We don't render other types of nodes.
@@ -87,7 +103,14 @@ export const renderHtml = (html: string, opts: HTMLRendererOptions = {}): React.
 	};
 
 	// Render all the nodes.
-	const renderedNodes = parsedContent.map(renderNode);
+	let renderedNodes = [];
+	try {
+		renderedNodes = parsedContent.map(renderNode);
+	} catch (e) {
+		// Show any errors that occur during rendering.
+		const errorMessage = e instanceof Error ? e.message : e.toString();
+		return <div className='error'>{errorMessage}</div>;
+	}
 
 	return <div>{renderedNodes}</div>;
 };
