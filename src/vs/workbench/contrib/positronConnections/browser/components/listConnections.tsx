@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -74,11 +74,11 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 
 		return (
 			<div
-				style={props.style}
 				className={positronClassNames(
 					'connections-list-item',
 					{ 'selected': itemProps.id === selectedInstanceId }
 				)}
+				style={props.style}
 				onMouseDown={() => setSelectedInstanceId(itemProps.id)}
 			>
 				<div className='col-icon'>
@@ -153,12 +153,12 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 					<div className='col-action' style={{ width: `${26}px` }}></div>
 				</div>
 				<List
-					itemCount={instances.length}
-					itemSize={26}
 					height={height - ACTION_BAR_HEIGHT - TABLE_HEADER_HEIGHT}
-					width={'calc(100% - 2px)'}
-					itemKey={index => instances[index].id}
 					innerRef={innerRef}
+					itemCount={instances.length}
+					itemKey={index => instances[index].id}
+					itemSize={26}
+					width={'calc(100% - 2px)'}
 				>
 					{ItemEntry}
 				</List>
@@ -191,11 +191,11 @@ const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 		<div style={{ height: ACTION_BAR_HEIGHT }}>
 			<PositronActionBarContextProvider {...props}>
 				<PositronActionBar
-					size='small'
-					borderTop={true}
 					borderBottom={true}
+					borderTop={true}
 					paddingLeft={ACTION_BAR_PADDING_LEFT}
 					paddingRight={ACTION_BAR_PADDING_RIGHT}
+					size='small'
 				>
 					<ActionBarRegion location='left'>
 						<ActionBarButton
@@ -210,9 +210,9 @@ const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 					<ActionBarRegion location='right'>
 						<ActionBarButton
 							align='right'
+							disabled={props.onDeleteConnection === undefined}
 							iconId='close'
 							text={localize('positron.listConnections.deleteConnection', 'Delete Connection')}
-							disabled={props.onDeleteConnection === undefined}
 							onPressed={props.onDeleteConnection}
 						/>
 					</ActionBarRegion>

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -62,6 +62,8 @@ export const showNewProjectModalDialog = async (
 	// Show the new project modal dialog.
 	renderer.render(
 		<NewProjectWizardContextProvider
+			initialStep={NewProjectWizardStep.ProjectTypeSelection}
+			parentFolder={await fileDialogService.defaultFolderPath()}
 			services={{
 				commandService,
 				configurationService,
@@ -77,11 +79,8 @@ export const showNewProjectModalDialog = async (
 				runtimeSessionService,
 				runtimeStartupService,
 			}}
-			parentFolder={await fileDialogService.defaultFolderPath()}
-			initialStep={NewProjectWizardStep.ProjectTypeSelection}
 		>
 			<NewProjectModalDialog
-				renderer={renderer}
 				createProject={async result => {
 					// Create the new project folder if it doesn't already exist.
 					const folder = URI.joinPath(result.parentFolder, result.projectName);
@@ -162,6 +161,7 @@ export const showNewProjectModalDialog = async (
 						result.openInNewWindow
 					);
 				}}
+				renderer={renderer}
 			/>
 		</NewProjectWizardContextProvider>
 	);
@@ -197,12 +197,12 @@ const NewProjectModalDialog = (props: NewProjectModalDialogProps) => {
 	// Render.
 	return (
 		<PositronModalDialog
-			renderer={props.renderer}
-			width={700} height={520}
-			title={(() => localize('positronNewProjectWizard.title', "Create New Project"))()}
+			height={520}
+			renderer={props.renderer} title={(() => localize('positronNewProjectWizard.title', "Create New Project"))()}
+			width={700}
 			onCancel={cancelHandler}
 		>
-			<NewProjectWizardStepContainer cancel={cancelHandler} accept={acceptHandler} />
+			<NewProjectWizardStepContainer accept={acceptHandler} cancel={cancelHandler} />
 		</PositronModalDialog>
 	);
 };

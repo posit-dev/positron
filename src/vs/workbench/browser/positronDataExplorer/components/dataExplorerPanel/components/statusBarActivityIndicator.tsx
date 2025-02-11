@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -99,7 +99,7 @@ export const StatusBarActivityIndicator = () => {
 	// Render.
 	return (
 		<div className='status-bar-indicator'>
-			<div className={`icon ${statusClassName}`} title={statusText} aria-label={statusText} />
+			<div aria-label={statusText} className={`icon ${statusClassName}`} title={statusText} />
 		</div>
 	);
 };

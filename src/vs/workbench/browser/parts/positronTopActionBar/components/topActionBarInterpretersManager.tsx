@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -58,8 +58,8 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 			<InterpretersManagerModalPopup
 				{...context}
 				{...props}
-				renderer={renderer}
 				anchorElement={ref.current}
+				renderer={renderer}
 			/>
 		);
 	}, [context, props]);
@@ -118,14 +118,14 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 	return (
 		<div
 			ref={ref}
+			aria-haspopup='menu'
+			aria-label={label}
 			className='top-action-bar-interpreters-manager'
 			role='button'
 			tabIndex={0}
-			onKeyDown={keyDownHandler}
-			onClick={clickHandler}
-			aria-haspopup='menu' aria-label={label}
+			onClick={clickHandler} onKeyDown={keyDownHandler}
 		>
-			<div className='left' aria-hidden='true'>
+			<div aria-hidden='true' className='left'>
 				{!activeSession ?
 					<div className='label'>{label}</div> :
 					<div className='label'>
@@ -134,7 +134,7 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 					</div>
 				}
 			</div>
-			<div className='right' aria-hidden='true'>
+			<div aria-hidden='true' className='right'>
 				<div className='chevron codicon codicon-chevron-down' />
 			</div>
 		</div>

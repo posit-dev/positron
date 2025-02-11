@@ -93,7 +93,7 @@ export const StartupStatus = () => {
 	// Render.
 	return (
 		<div className='startup-status'>
-			<div className='progress' ref={progressRef}></div>
+			<div ref={progressRef} className='progress'></div>
 			{runtimeStartupEvent &&
 				<RuntimeStartupProgress evt={runtimeStartupEvent} />
 			}

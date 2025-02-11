@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -320,11 +320,11 @@ export const DataExplorer = () => {
 			<div ref={leftColumnRef} className='left-column'>
 				<PositronDataGrid
 					configurationService={context.configurationService}
-					layoutService={context.layoutService}
 					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
 						context.instance.tableSchemaDataGridInstance :
 						context.instance.tableDataDataGridInstance
 					}
+					layoutService={context.layoutService}
 				/>
 			</div>
 			{layout === PositronDataExplorerLayout.SummaryOnLeft && columnsCollapsed &&
@@ -332,16 +332,16 @@ export const DataExplorer = () => {
 			}
 			<div ref={splitterRef} className='splitter'>
 				<VerticalSplitter
+					collapsible={true}
 					configurationService={context.configurationService}
 					invert={layout === PositronDataExplorerLayout.SummaryOnRight}
-					collapsible={true}
 					showSash={true}
 					onBeginResize={beginResizeHandler}
-					onResize={resizeHandler}
 					onCollapsedChanged={collapsed => {
 						setAnimateColumnsWidth(!context.accessibilityService.isMotionReduced());
 						setColumnsCollapsed(collapsed);
 					}}
+					onResize={resizeHandler}
 				/>
 			</div>
 			{layout === PositronDataExplorerLayout.SummaryOnRight && columnsCollapsed &&
@@ -350,11 +350,11 @@ export const DataExplorer = () => {
 			<div ref={rightColumnRef} className='right-column'>
 				<PositronDataGrid
 					configurationService={context.configurationService}
-					layoutService={context.layoutService}
 					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
 						context.instance.tableDataDataGridInstance :
 						context.instance.tableSchemaDataGridInstance
 					}
+					layoutService={context.layoutService}
 				/>
 			</div>
 		</div >

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -87,7 +87,7 @@ function CellOutput(output: NotebookCellOutputs) {
 				{localize('cellExecutionKeyboardInterupt', 'Cell execution stopped due to keyboard interupt.')}
 			</div>;
 		case 'image':
-			return <img src={parsed.dataUrl} alt='output image' />;
+			return <img alt='output image' src={parsed.dataUrl} />;
 		case 'unknown':
 			return <div className='unknown-mime-type'>
 				{localize('cellExecutionUnknownMimeType', 'Can\'t handle mime types "{0}" yet', outputs.map(o => o.mime).join(','))}

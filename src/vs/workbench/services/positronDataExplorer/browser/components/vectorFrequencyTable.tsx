@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -80,10 +80,10 @@ export const VectorFrequencyTable = (props: VectorFrequencyTableProps) => {
 		return (
 			<rect
 				className='count other'
+				height={countHeight}
+				width={props.graphWidth - x}
 				x={x}
 				y={props.graphHeight - props.xAxisHeight - countHeight}
-				width={props.graphWidth - x}
-				height={countHeight}
 			/>
 		);
 	};
@@ -93,27 +93,27 @@ export const VectorFrequencyTable = (props: VectorFrequencyTableProps) => {
 	return (
 		<svg
 			className='vector-frequency-table'
-			viewBox={`0 0 ${props.graphWidth} ${props.graphHeight + props.xAxisHeight}`}
 			shapeRendering='crispEdges'
+			viewBox={`0 0 ${props.graphWidth} ${props.graphHeight + props.xAxisHeight}`}
 		>
 			<g>
 				<rect className='x-axis'
+					height={props.xAxisHeight}
+					width={props.graphWidth}
 					x={0}
 					y={props.graphHeight - props.xAxisHeight}
-					width={props.graphWidth}
-					height={props.xAxisHeight}
 				/>
 				{props.columnFrequencyTable.counts.map((count, countIndex) => {
 					const countHeight = Math.max(1, (count / maxCount) * props.graphHeight);
 					try {
 						return (
 							<rect
-								className='count'
 								key={`count-${countIndex}`}
+								className='count'
+								height={countHeight}
+								width={countWidth}
 								x={x}
 								y={props.graphHeight - props.xAxisHeight - countHeight}
-								width={countWidth}
-								height={countHeight}
 							/>
 						);
 					} finally {

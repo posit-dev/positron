@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -80,10 +80,10 @@ export const RowFilterBar = () => {
 			// Inform the user that another filter cannot be added.
 			renderer.render(
 				<OKModalDialog
+					height={150}
 					renderer={renderer}
 					title={(() => localize('positron.dataExplorer.filtering.addFilter', "Add Filter"))()}
 					width={350}
-					height={150}
 					onAccept={() => renderer.dispose()}
 					onCancel={() => renderer.dispose()}
 				>
@@ -128,13 +128,13 @@ export const RowFilterBar = () => {
 			// Show the add /edit row filter modal popup.
 			renderer.render(
 				<AddEditRowFilterModalPopup
+					anchorElement={anchorElement}
 					configurationService={context.configurationService}
 					dataExplorerClientInstance={context.instance.dataExplorerClientInstance}
-					renderer={renderer}
-					anchorElement={anchorElement}
-					isFirstFilter={isFirstFilter}
-					schema={schema}
 					editRowFilter={editRowFilterDescriptor}
+					isFirstFilter={isFirstFilter}
+					renderer={renderer}
+					schema={schema}
 					onApplyRowFilter={applyRowFilterHandler}
 				/>
 			);
@@ -258,8 +258,8 @@ export const RowFilterBar = () => {
 		<div ref={ref} className='row-filter-bar'>
 			<Button
 				ref={rowFilterButtonRef}
-				className='row-filter-button'
 				ariaLabel={(() => localize('positron.dataExplorer.filtering', "Filtering"))()}
+				className='row-filter-button'
 				onPressed={filterButtonPressedHandler}
 			>
 				<div className='codicon codicon-positron-row-filter' />
@@ -268,14 +268,15 @@ export const RowFilterBar = () => {
 			<div className='filter-entries'>
 				{!rowFiltersHidden && rowFilterDescriptors.map((rowFilter, index) =>
 					<RowFilterWidget
+						key={index}
 						ref={ref => {
 							if (ref) {
 								rowFilterWidgetRefs.current[index] = ref;
 							}
 						}}
-						key={index}
-						rowFilter={rowFilter}
 						booleanOperator={index === 0 ? undefined : rowFilter.props.condition}
+						rowFilter={rowFilter}
+						onClear={async () => await clearRowFilter(rowFilter.identifier)}
 						onEdit={() => {
 							if (rowFilterWidgetRefs.current[index]) {
 								addRowFilterHandler(
@@ -285,13 +286,12 @@ export const RowFilterBar = () => {
 									rowFilter
 								);
 							}
-						}}
-						onClear={async () => await clearRowFilter(rowFilter.identifier)} />
+						}} />
 				)}
 				<Button
 					ref={addFilterButtonRef}
-					className='add-row-filter-button'
 					ariaLabel={(() => localize('positron.dataExplorer.addFilter', "Add Filter"))()}
+					className='add-row-filter-button'
 					disabled={!canFilter}
 					onPressed={() => addRowFilterHandler(
 						addFilterButtonRef.current,

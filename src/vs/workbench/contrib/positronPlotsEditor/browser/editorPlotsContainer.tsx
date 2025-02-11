@@ -35,8 +35,8 @@ export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 			return <DynamicPlotInstance
 				key={props.plotClient.id}
 				height={props.height}
-				width={props.width}
 				plotClient={props.plotClient}
+				width={props.width}
 				zoom={ZoomLevel.Fit} />;
 		}
 		if (props.plotClient instanceof StaticPlotClient) {

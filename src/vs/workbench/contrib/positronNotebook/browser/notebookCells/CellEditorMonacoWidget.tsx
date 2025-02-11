@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -31,8 +31,8 @@ import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNo
 export function CellEditorMonacoWidget({ cell }: { cell: PositronNotebookCellGeneral }) {
 	const { editorPartRef } = useCellEditorWidget(cell);
 	return <div
-		className='positron-cell-editor-monaco-widget'
 		ref={editorPartRef}
+		className='positron-cell-editor-monaco-widget'
 	/>;
 }
 

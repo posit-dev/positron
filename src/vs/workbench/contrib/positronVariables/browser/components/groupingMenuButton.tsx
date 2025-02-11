@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -111,10 +111,10 @@ export const GroupingMenuButton = () => {
 	// Render.
 	return (
 		<ActionBarMenuButton
+			actions={actions}
+			ariaLabel={positronChangeHowVariablesAreGrouped}
 			iconId='positron-variables-grouping'
 			tooltip={positronChangeHowVariablesAreGrouped}
-			ariaLabel={positronChangeHowVariablesAreGrouped}
-			actions={actions}
 		/>
 	);
 };

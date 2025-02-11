@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -60,17 +60,17 @@ export const ActionBar = () => {
 		<PositronActionBarContextProvider {...context}>
 			<div ref={ref} className='action-bar'>
 				<PositronActionBar
-					size='small'
 					borderBottom={true}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
+					size='small'
 				>
 					<ActionBarRegion location='left'>
 						<ActionBarButton
+							ariaLabel={clearSortButtonDescription}
 							iconId='positron-clear-sorting'
 							text={clearSortButtonTitle}
 							tooltip={clearSortButtonDescription}
-							ariaLabel={clearSortButtonDescription}
 							onPressed={async () =>
 								await context.instance.tableDataDataGridInstance.
 									clearColumnSortKeys()
@@ -80,10 +80,10 @@ export const ActionBar = () => {
 					<ActionBarRegion location='right'>
 						<LayoutMenuButton />
 						<ActionBarButton
+							ariaLabel={moveIntoNewWindowButtonDescription}
 							disabled={moveIntoNewWindowDisabled}
 							iconId='positron-open-in-new-window'
 							tooltip={moveIntoNewWindowButtonDescription}
-							ariaLabel={moveIntoNewWindowButtonDescription}
 							onPressed={() =>
 								context.commandService.executeCommand(
 									'workbench.action.moveEditorToNewWindow'

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -21,8 +21,8 @@ import { ActionButton } from './ActionButton.js';
  */
 export function IconedButton({ codicon, label, fullLabel = label, onClick, bordered = false }: { codicon: string; label: string; fullLabel?: string; onClick: () => void; bordered?: boolean }) {
 	return <ActionButton
-		className={`positron-iconed-button ${bordered ? 'bordered' : ''}`}
 		ariaLabel={fullLabel}
+		className={`positron-iconed-button ${bordered ? 'bordered' : ''}`}
 		onPressed={onClick}
 	>
 		<div className={`button-icon codicon codicon-${codicon}`} />

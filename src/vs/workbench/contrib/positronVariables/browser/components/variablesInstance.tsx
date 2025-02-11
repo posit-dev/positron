@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -474,50 +474,50 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 			return (
 				<VariableGroup
 					key={entry.id}
-					variableGroup={entry}
-					style={style}
 					focused={focused}
-					selected={selectedId === entry.id}
-					onSelected={() => selectedHandler(index)}
-					onDeselected={deselectedHandler}
-					onToggleExpandCollapse={() => toggleExpandCollapseHandler(index)}
 					positronVariablesInstance={props.positronVariablesInstance}
+					selected={selectedId === entry.id}
+					style={style}
+					variableGroup={entry}
+					onDeselected={deselectedHandler}
+					onSelected={() => selectedHandler(index)}
+					onToggleExpandCollapse={() => toggleExpandCollapseHandler(index)}
 				/>
 			);
 		} else if (isVariableItem(entry)) {
 			return (
 				<VariableItem
 					key={entry.id}
-					disabled={clientState === RuntimeClientState.Closed}
-					nameColumnWidth={nameColumnWidth}
 					detailsColumnWidth={detailsColumnWidth}
-					rightColumnVisible={rightColumnVisible}
-					variableItem={entry}
-					style={style}
+					disabled={clientState === RuntimeClientState.Closed}
 					focused={focused}
-					selected={selectedId === entry.id}
-					onSelected={() => selectedHandler(index)}
-					onDeselected={deselectedHandler}
-					onToggleExpandCollapse={() => toggleExpandCollapseHandler(index)}
-					onBeginResizeNameColumn={beginResizeNameColumnHandler}
-					onResizeNameColumn={resizeNameColumnHandler}
+					nameColumnWidth={nameColumnWidth}
 					positronVariablesInstance={props.positronVariablesInstance}
+					rightColumnVisible={rightColumnVisible}
+					selected={selectedId === entry.id}
+					style={style}
+					variableItem={entry}
+					onBeginResizeNameColumn={beginResizeNameColumnHandler}
+					onDeselected={deselectedHandler}
+					onResizeNameColumn={resizeNameColumnHandler}
+					onSelected={() => selectedHandler(index)}
+					onToggleExpandCollapse={() => toggleExpandCollapseHandler(index)}
 				/>
 			);
 		} else if (isVariableOverflow(entry)) {
 			return (
 				<VariableOverflow
 					key={entry.id}
-					nameColumnWidth={nameColumnWidth}
 					detailsColumnWidth={detailsColumnWidth}
-					variableOverflow={entry}
-					style={style}
 					focused={focused}
+					nameColumnWidth={nameColumnWidth}
 					selected={selectedId === entry.id}
-					onSelected={() => selectedHandler(index)}
-					onDeselected={deselectedHandler}
+					style={style}
+					variableOverflow={entry}
 					onBeginResizeNameColumn={beginResizeNameColumnHandler}
+					onDeselected={deselectedHandler}
 					onResizeNameColumn={resizeNameColumnHandler}
+					onSelected={() => selectedHandler(index)}
 				/>
 			);
 		} else {
@@ -533,24 +533,24 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 			className={'variables-instance state-' + clientState}
 			style={{ width: props.width, height: props.height, zIndex: props.active ? 1 : -1 }}
 			tabIndex={0}
-			onKeyDown={keyDownHandler}
-			onFocus={focusHandler}
 			onBlur={blurHandler}
+			onFocus={focusHandler}
+			onKeyDown={keyDownHandler}
 			onWheel={wheelHandler}
 		>
 			{!variableEntries.length ?
 				<VariablesEmpty initializing={initializing} /> :
 				<List
-					className='list'
 					ref={listRef}
+					className='list'
+					height={props.height}
 					innerRef={innerRef}
 					itemCount={variableEntries.length}
-					// Use a custom item key instead of index.
 					itemKey={index => variableEntries[index].id}
-					width={props.width}
-					height={props.height}
 					itemSize={LINE_HEIGHT}
 					overscanCount={10}
+					width={props.width}
+					// Use a custom item key instead of index.
 					onScroll={({ scrollOffset }) => {
 						// Save the scroll offset when we're active and scrolled.
 						if (props.active) {

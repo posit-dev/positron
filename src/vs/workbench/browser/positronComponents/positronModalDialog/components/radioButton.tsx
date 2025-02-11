@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -47,13 +47,13 @@ export const RadioButton = (props: RadioButtonProps) => {
 	return (
 		<div className='radio-button'>
 			<input
+				checked={props.selected}
 				className='radio-button-input'
-				type='radio'
-				tabIndex={props.selected ? 0 : -1}
 				id={props.identifier}
 				name={props.groupName}
+				tabIndex={props.selected ? 0 : -1}
+				type='radio'
 				value={props.identifier}
-				checked={props.selected}
 				onClick={props.onSelected}
 			/>
 			<label htmlFor={props.identifier}>{props.title}</label>

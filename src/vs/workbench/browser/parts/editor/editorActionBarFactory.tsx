@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -178,7 +178,7 @@ export class EditorActionBarFactory extends Disposable {
 
 		// Build the right action bar elements from the editor actions right menu and the editor
 		// title menu.
-		let rightActionBarElements = [
+		const rightActionBarElements = [
 			// Build the right action bar elements from the editor actions right menu.
 			...this.buildActionBarElements(
 				processedActions,
@@ -198,22 +198,22 @@ export class EditorActionBarFactory extends Disposable {
 			rightActionBarElements.length - 1,
 			0,
 			<ActionBarCommandButton
+				ariaLabel={positronMoveIntoNewWindowAriaLabel}
+				commandId='workbench.action.moveEditorToNewWindow'
 				disabled={auxiliaryWindow}
 				iconId='positron-open-in-new-window'
 				tooltip={positronMoveIntoNewWindowTooltip}
-				ariaLabel={positronMoveIntoNewWindowAriaLabel}
-				commandId='workbench.action.moveEditorToNewWindow'
 			/>
 		);
 
 		// Return the action bar.
 		return (
 			<PositronActionBar
-				size='small'
-				borderTop={false}
 				borderBottom={true}
+				borderTop={false}
 				paddingLeft={PADDING_LEFT}
 				paddingRight={PADDING_RIGHT}
+				size='small'
 			>
 				{leftActionBarElements.length > 0 &&
 					<ActionBarRegion location='left'>
@@ -360,17 +360,17 @@ export class EditorActionBarFactory extends Disposable {
 					// Push the action bar menu button.
 					elements.push(
 						<ActionBarMenuButton
-							iconId={iconId}
-							ariaLabel={action.label ?? action.tooltip}
+							actions={() => action.actions}
 							align='left'
+							ariaLabel={action.label ?? action.tooltip}
+							dropdownIndicator='disabled'
+							iconId={iconId}
 							tooltip={actionTooltip(
 								this._contextKeyService,
 								this._keybindingService,
 								action,
 								false
 							)}
-							dropdownIndicator='disabled'
-							actions={() => action.actions}
 						/>
 					);
 				} else {
@@ -386,25 +386,25 @@ export class EditorActionBarFactory extends Disposable {
 						// Push the action bar menu button.
 						elements.push(
 							<ActionBarMenuButton
-								iconId={iconId}
-								text={iconId ? undefined : firstAction.label}
+								actions={() => action.actions}
+								align='left'
 								ariaLabel={firstAction.label ?? firstAction.tooltip}
 								dropdownAriaLabel={action.label ?? action.tooltip}
-								align='left'
-								tooltip={actionTooltip(
-									this._contextKeyService,
-									this._keybindingService,
-									firstAction,
-									false
-								)}
+								dropdownIndicator='enabled-split'
 								dropdownTooltip={actionTooltip(
 									this._contextKeyService,
 									this._keybindingService,
 									action,
 									false
 								)}
-								dropdownIndicator='enabled-split'
-								actions={() => action.actions}
+								iconId={iconId}
+								text={iconId ? undefined : firstAction.label}
+								tooltip={actionTooltip(
+									this._contextKeyService,
+									this._keybindingService,
+									firstAction,
+									false
+								)}
 							/>
 						);
 					}
@@ -417,12 +417,12 @@ export class EditorActionBarFactory extends Disposable {
 		if (secondaryActions.length) {
 			elements.push(
 				<ActionBarMenuButton
-					iconId='toolbar-more'
-					ariaLabel={positronMoreActionsAriaLabel}
-					align='left'
-					tooltip={positronMoreActionsTooltip}
-					dropdownIndicator='disabled'
 					actions={() => secondaryActions}
+					align='left'
+					ariaLabel={positronMoreActionsAriaLabel}
+					dropdownIndicator='disabled'
+					iconId='toolbar-more'
+					tooltip={positronMoreActionsTooltip}
 				/>
 			);
 		}

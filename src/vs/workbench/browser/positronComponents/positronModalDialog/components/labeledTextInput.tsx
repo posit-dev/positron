@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -52,16 +52,16 @@ export const LabeledTextInput = forwardRef<HTMLInputElement, LabeledTextInputPro
 			<label className='label'>
 				<span className='label-text'>{props.label}</span>
 				<input
-					className={positronClassNames('text-input', { 'error': props.error })}
 					ref={ref}
+					autoFocus={props.autoFocus}
+					className={positronClassNames('text-input', { 'error': props.error })}
+					disabled={props.disabled}
+					max={props.max}
+					maxLength={props.maxLength}
+					min={props.min}
 					type={props.type}
 					value={props.value}
-					autoFocus={props.autoFocus}
 					onChange={props.onChange}
-					max={props.max}
-					min={props.min}
-					maxLength={props.maxLength}
-					disabled={props.disabled}
 				/>
 				{errorMsg ? <span className='error error-msg'>{errorMsg}</span> : null}
 			</label>

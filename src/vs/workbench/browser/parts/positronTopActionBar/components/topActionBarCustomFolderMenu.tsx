@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -55,9 +55,9 @@ export const TopActionBarCustonFolderMenu = () => {
 		renderer.render(
 			<CustomFolderModalPopup
 				{...context}
-				renderer={renderer}
-				recentlyOpened={recentlyOpened}
 				anchorElement={ref.current}
+				recentlyOpened={recentlyOpened}
+				renderer={renderer}
 			/>
 		);
 	};
@@ -85,14 +85,14 @@ export const TopActionBarCustonFolderMenu = () => {
 	return (
 		<div
 			ref={ref}
+			aria-haspopup='menu'
+			aria-label={positronFolderMenu}
 			className='top-action-bar-custom-folder-menu'
 			role='button'
 			tabIndex={0}
-			onKeyDown={keyDownHandler}
 			onClick={clickHandler}
-			aria-label={positronFolderMenu}
-			aria-haspopup='menu'>
-			<div className='left' aria-hidden='true'>
+			onKeyDown={keyDownHandler}>
+			<div aria-hidden='true' className='left'>
 				<div className='label'>
 					<div className={'action-bar-button-icon codicon codicon-folder'} />
 					{context.workspaceFolder &&
@@ -102,7 +102,7 @@ export const TopActionBarCustonFolderMenu = () => {
 					}
 				</div>
 			</div>
-			<div className='right' aria-hidden='true'>
+			<div aria-hidden='true' className='right'>
 				<div className='chevron codicon codicon-chevron-down' />
 			</div>
 		</div>

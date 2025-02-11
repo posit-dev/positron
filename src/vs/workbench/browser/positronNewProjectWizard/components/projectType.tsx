@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -65,16 +65,16 @@ export const ProjectType = (props: ProjectTypeProps) => {
 			</div>
 			<input
 				ref={inputRef}
+				autoFocus={projectType && props.activeTabIndex}
+				checked={props.selected}
 				className='project-type-input'
-				type='radio'
-				tabIndex={props.activeTabIndex ? 0 : -1}
 				id={props.identifier}
 				name={props.groupName}
-				value={props.identifier}
-				checked={props.selected}
+				tabIndex={props.activeTabIndex ? 0 : -1}
+				type='radio'
 				// Set the autofocus to the selected project type when the user navigates back to
 				// the project type step.
-				autoFocus={projectType && props.activeTabIndex}
+				value={props.identifier}
 			/>
 			<label htmlFor={props.identifier}>{props.identifier}</label>
 		</div>

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -77,7 +77,7 @@ export const ActionBarButton = forwardRef<
 	 */
 	const ActionBarButtonFace = () => {
 		return (
-			<div className='action-bar-button-face' aria-hidden='true'>
+			<div aria-hidden='true' className='action-bar-button-face'>
 				{props.iconId && (
 					<div
 						className={positronClassNames(
@@ -114,16 +114,16 @@ export const ActionBarButton = forwardRef<
 		return (
 			<Button
 				ref={buttonRef}
-				hoverManager={context.hoverManager}
+				ariaLabel={ariaLabel}
 				className={positronClassNames(
 					'action-bar-button',
 					{ 'fade-in': optionalBoolean(props.fadeIn) },
 					{ 'checked': optionalBoolean(props.checked) }
 				)}
-				ariaLabel={ariaLabel}
-				tooltip={props.tooltip}
 				disabled={props.disabled}
+				hoverManager={context.hoverManager}
 				mouseTrigger={props.mouseTrigger}
+				tooltip={props.tooltip}
 				onMouseEnter={props.onMouseEnter}
 				onMouseLeave={props.onMouseLeave}
 				onPressed={props.onPressed}
@@ -141,12 +141,12 @@ export const ActionBarButton = forwardRef<
 			)}>
 				<Button
 					ref={buttonRef}
-					hoverManager={context.hoverManager}
-					className='action-bar-button-action-button'
 					ariaLabel={ariaLabel}
-					tooltip={props.tooltip}
+					className='action-bar-button-action-button'
 					disabled={props.disabled}
+					hoverManager={context.hoverManager}
 					mouseTrigger={props.mouseTrigger}
+					tooltip={props.tooltip}
 					onMouseEnter={props.onMouseEnter}
 					onMouseLeave={props.onMouseLeave}
 					onPressed={props.onPressed}
@@ -155,11 +155,11 @@ export const ActionBarButton = forwardRef<
 				</Button>
 				<Button
 					ref={dropdownButtonRef}
-					hoverManager={context.hoverManager}
-					className='action-bar-button-drop-down-button'
 					ariaLabel={props.dropdownAriaLabel}
-					tooltip={props.dropdownTooltip}
+					className='action-bar-button-drop-down-button'
+					hoverManager={context.hoverManager}
 					mouseTrigger={MouseTrigger.MouseDown}
+					tooltip={props.dropdownTooltip}
 					onPressed={props.onDropdownPressed}
 				>
 					<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />

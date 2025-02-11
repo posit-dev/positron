@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -154,8 +154,8 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 				positronTopActionBarContainer={this}
 				positronTopActionBarService={this}
 				quickInputService={this.quickInputService}
-				runtimeStartupService={this.runtimeStartupService}
 				runtimeSessionService={this.runtimeSessionService}
+				runtimeStartupService={this.runtimeStartupService}
 				workspaceContextService={this.workspaceContextService}
 				workspacesService={this.workspacesService}
 			/>

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -29,6 +29,9 @@ interface DataGridRowProps {
  */
 export const DataGridRow = (props: DataGridRowProps) => {
 	// Context hooks.
+	// FALSE POSITIVE: The ESLint rule of hooks is incorrectly flagging this line as a violation of
+	// the rules of hooks. https://github.com/facebook/react/issues/31687
+	// eslint-disable-next-line react-hooks/rules-of-hooks
 	const context = usePositronDataGridContext();
 
 	// Create the data grid column headers.
@@ -41,8 +44,8 @@ export const DataGridRow = (props: DataGridRowProps) => {
 			<DataGridRowCell
 				key={`row-cell-${props.rowIndex}-${columnDescriptor.columnIndex}`}
 				columnIndex={columnDescriptor.columnIndex}
-				rowIndex={props.rowIndex}
 				left={columnDescriptor.left - context.instance.horizontalScrollOffset}
+				rowIndex={props.rowIndex}
 			/>
 		);
 	}

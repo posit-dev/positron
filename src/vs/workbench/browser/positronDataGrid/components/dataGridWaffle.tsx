@@ -1,7 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
+// FALSE POSITIVE: The ESLint rule of hooks is incorrectly flagging numerous lines in this file as a
+// violation of the rules of hooks. https://github.com/facebook/react/issues/31687
+/* eslint-disable react-hooks/rules-of-hooks */
 
 // CSS.
 import './dataGridWaffle.css';
@@ -496,9 +500,9 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		dataGridRows.push(
 			<DataGridRow
 				key={`row-${rowLayoutEntry.rowIndex}`}
-				width={width}
-				top={rowLayoutEntry.top - context.instance.verticalScrollOffset}
 				rowIndex={rowLayoutEntry.rowIndex}
+				top={rowLayoutEntry.top - context.instance.verticalScrollOffset}
+				width={width}
 			/>
 		);
 	}
@@ -507,12 +511,12 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 	return (
 		<div
 			ref={dataGridWaffleRef}
-			tabIndex={0}
 			className='data-grid-waffle'
-			onKeyDown={keyDownHandler}
-			onWheel={wheelHandler}
+			tabIndex={0}
 			onBlur={() => context.instance.setFocused(false)}
 			onFocus={() => context.instance.setFocused(true)}
+			onKeyDown={keyDownHandler}
+			onWheel={wheelHandler}
 		>
 			{context.instance.columnHeaders && context.instance.rowHeaders &&
 				<DataGridCornerTopLeft
@@ -523,8 +527,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			}
 			{context.instance.columnHeaders &&
 				<DataGridColumnHeaders
-					width={width - context.instance.rowHeadersWidth}
 					height={context.instance.columnHeadersHeight}
+					width={width - context.instance.rowHeadersWidth}
 				/>
 			}
 			{context.instance.rowHeaders &&
@@ -534,18 +538,18 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			}
 			{context.instance.horizontalScrollbar &&
 				<DataGridScrollbar
-					containerWidth={width}
-					containerHeight={height}
-					orientation='horizontal'
 					bothScrollbarsVisible={
 						context.instance.horizontalScrollbar && context.instance.verticalScrollbar
 					}
-					scrollbarThickness={context.instance.scrollbarThickness}
-					scrollSize={context.instance.scrollWidth}
+					containerHeight={height}
+					containerWidth={width}
 					layoutSize={context.instance.layoutWidth}
+					maximumScrollOffset={() => context.instance.maximumHorizontalScrollOffset}
+					orientation='horizontal'
 					pageSize={context.instance.pageWidth}
 					scrollOffset={context.instance.horizontalScrollOffset}
-					maximumScrollOffset={() => context.instance.maximumHorizontalScrollOffset}
+					scrollSize={context.instance.scrollWidth}
+					scrollbarThickness={context.instance.scrollbarThickness}
 					onDidChangeScrollOffset={async scrollOffset => {
 						await context.instance.setHorizontalScrollOffset(scrollOffset);
 					}}
@@ -553,18 +557,18 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			}
 			{context.instance.verticalScrollbar &&
 				<DataGridScrollbar
-					containerWidth={width}
-					containerHeight={height}
-					orientation='vertical'
 					bothScrollbarsVisible={
 						context.instance.horizontalScrollbar && context.instance.verticalScrollbar
 					}
-					scrollbarThickness={context.instance.scrollbarThickness}
-					scrollSize={context.instance.scrollHeight}
+					containerHeight={height}
+					containerWidth={width}
 					layoutSize={context.instance.layoutHeight}
+					maximumScrollOffset={() => context.instance.maximumVerticalScrollOffset}
+					orientation='vertical'
 					pageSize={context.instance.pageHeight}
 					scrollOffset={context.instance.verticalScrollOffset}
-					maximumScrollOffset={() => context.instance.maximumVerticalScrollOffset}
+					scrollSize={context.instance.scrollHeight}
+					scrollbarThickness={context.instance.scrollbarThickness}
 					onDidChangeScrollOffset={async scrollOffset => {
 						await context.instance.setVerticalScrollOffset(scrollOffset);
 					}}

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -50,10 +50,10 @@ export const VariablesCore = (props: VariablesCoreProps) => {
 					<VariablesInstance
 						key={positronVariablesInstance.session.sessionId}
 						active={positronVariablesInstance === positronVariablesContext.activePositronVariablesInstance}
-						width={props.width}
 						height={adjustedHeight}
 						positronVariablesInstance={positronVariablesInstance}
-						reactComponentContainer={props.reactComponentContainer} />
+						reactComponentContainer={props.reactComponentContainer}
+						width={props.width} />
 				)}
 			</div>
 		</div>

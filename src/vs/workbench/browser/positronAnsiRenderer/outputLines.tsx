@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -34,9 +34,9 @@ export const OutputLines = (props: OutputLinesProps) => {
 			{props.outputLines.map(outputLine =>
 				<OutputLine
 					key={outputLine.id}
-					outputLine={outputLine}
-					openerService={props.openerService}
 					notificationService={props.notificationService}
+					openerService={props.openerService}
+					outputLine={outputLine}
 				/>
 			)}
 		</>

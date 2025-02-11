@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -46,14 +46,14 @@ export const CustomFolderModalPopup = (props: CustomFolderModalPopupProps) => {
 	// Render.
 	return (
 		<PositronModalPopup
-			renderer={props.renderer}
 			anchorElement={props.anchorElement}
-			popupPosition='bottom'
-			popupAlignment='right'
-			width={'max-content'}
-			minWidth={275}
 			height={'min-content'}
 			keyboardNavigationStyle='menu'
+			minWidth={275}
+			popupAlignment='right'
+			popupPosition='bottom'
+			renderer={props.renderer}
+			width={'max-content'}
 		>
 			<CustomFolderMenuItems
 				commandService={props.commandService}

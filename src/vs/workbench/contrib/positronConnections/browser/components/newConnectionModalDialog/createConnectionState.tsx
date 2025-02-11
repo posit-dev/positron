@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -106,13 +106,13 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 		<div className='create-connection-code-editor'>
 			<SimpleCodeEditor
 				ref={editorRef}
-				services={props.services}
-				language={languageId}
+				code={code}
 				editorOptions={{
 					readOnly: true,
 					cursorBlinking: 'solid'
 				}}
-				code={code}
+				language={languageId}
+				services={props.services}
 			>
 			</SimpleCodeEditor>
 		</div>
@@ -183,8 +183,8 @@ const FormElement = (props: PropsWithChildren<FormElementProps>) => {
 			return <div className='labeled-input'>
 				<LabeledTextInput
 					label={label}
-					value={defaultValue}
 					type='text'
+					value={defaultValue}
 					onChange={(e) => props.onChange(e.target.value)}
 				></LabeledTextInput>
 			</div>;
@@ -194,10 +194,10 @@ const FormElement = (props: PropsWithChildren<FormElementProps>) => {
 				{
 					options && options.length > 0 ?
 						<RadioGroup
-							name={label}
-							labelledBy={label}
 							entries={options.map(option => ({ options: option }))}
 							initialSelectionId={options[0].identifier}
+							labelledBy={label}
+							name={label}
 							onSelectionChanged={(option) => props.onChange(option)}
 						/>
 						: <p>
@@ -210,8 +210,8 @@ const FormElement = (props: PropsWithChildren<FormElementProps>) => {
 			return <div className='labeled-input'>
 				<LabeledTextInput
 					label={label}
-					value={defaultValue}
 					type='text'
+					value={defaultValue}
 					onChange={(e) => props.onChange(e.target.value)}
 				></LabeledTextInput>
 			</div>;
