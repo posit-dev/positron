@@ -451,8 +451,12 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
-    showOutput(): void {
-        this._kernel?.showOutput();
+    showOutput(channel?: string): void {
+        this._kernel?.showOutput(channel);
+    }
+
+    listOutputChannels(): string[] {
+        return this._kernel?.listOutputChannels?.() ?? [];
     }
 
     async forceQuit(): Promise<void> {

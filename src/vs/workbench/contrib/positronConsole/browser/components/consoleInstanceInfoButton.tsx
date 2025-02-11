@@ -73,6 +73,7 @@ interface ConsoleInstanceInfoModalPopupProps {
 
 const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps) => {
 	const [sessionState, setSessionState] = useState(() => props.session.getRuntimeState());
+	const [availableChannels, setAvailableChannels] = useState<string[]>([]);
 
 	// Main useEffect hook.
 	useEffect(() => {
@@ -80,11 +81,17 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 		disposableStore.add(props.session.onDidChangeRuntimeState(state => {
 			setSessionState(state);
 		}));
+
+		// Fetch available channels.
+		props.session.listOutputChannels().then(channels => {
+			setAvailableChannels(channels);
+		});
+
 		return () => disposableStore.dispose();
 	}, [props.session]);
 
-	const showKernelOutputChannelClickHandler = () => {
-		props.session.showOutput();
+	const showKernelOutputChannelClickHandler = (channel: string) => {
+		props.session.showOutput(channel);
 	}
 
 	// Render.
@@ -125,9 +132,11 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 					</div>
 				</div>
 				<div className='top-separator actions'>
-					<PositronButton className='link' onPressed={showKernelOutputChannelClickHandler}>
-						{showKernelOutputChannel}
-					</PositronButton>
+					{availableChannels.map(channel => (
+						<PositronButton className='link' onPressed={() => showKernelOutputChannelClickHandler(channel)}>
+							{showKernelOutputChannel} ({channel})
+						</PositronButton>
+					))}
 				</div>
 			</div>
 		</PositronModalPopup>

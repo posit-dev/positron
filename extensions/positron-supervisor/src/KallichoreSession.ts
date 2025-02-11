@@ -40,6 +40,9 @@ import { UICommRequest } from './UICommRequest';
 import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 import { AdoptedSession } from './AdoptedSession';
 
+const KERNEL_CHANNEL_NAME = 'kernel';
+const PROFILE_CHANNEL_NAME = 'profile';
+const RUNTIME_CHANNEL_NAME = 'runtime';
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
 	 * The runtime messages emitter; consumes Jupyter messages and translates
@@ -375,8 +378,29 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
 	 * Reveals the output channel for this kernel.
 	 */
-	showOutput(): void {
-		this._kernelChannel?.show();
+	showOutput(channel?: string): void {
+		switch (channel) {
+			case KERNEL_CHANNEL_NAME:
+				this._kernelChannel?.show();
+				break;
+			case PROFILE_CHANNEL_NAME:
+				this._profileChannel?.show();
+				break;
+			case RUNTIME_CHANNEL_NAME:
+				this._consoleChannel.show();
+				break;
+			case undefined:
+				this._kernelChannel.show();
+				break;
+		}
+	}
+
+	listOutputChannels(): string[] {
+		const channels = [KERNEL_CHANNEL_NAME, RUNTIME_CHANNEL_NAME];
+		if (this._profileChannel) {
+			channels.push(PROFILE_CHANNEL_NAME);
+		}
+		return channels;
 	}
 
 	/**

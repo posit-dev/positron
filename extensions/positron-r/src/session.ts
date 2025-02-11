@@ -366,8 +366,12 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/**
 	 * Show runtime log in output panel.
 	 */
-	showOutput() {
-		this._kernel?.showOutput();
+	showOutput(channel?: string) {
+		this._kernel?.showOutput(channel);
+	}
+
+	listOutputChannels(): string[] {
+		return this._kernel?.listOutputChannels?.() ?? [];
 	}
 
 	/**

@@ -251,6 +251,10 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		throw new Error('Not implemented.');
 	}
 
+	async listOutputChannels(): Promise<string[]> {
+		throw new Error('Not implemented.');
+	}
+
 	async showProfile(): Promise<void> {
 		throw new Error('Not implemented.');
 	}

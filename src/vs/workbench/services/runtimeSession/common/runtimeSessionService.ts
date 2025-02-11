@@ -208,7 +208,10 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	forceQuit(): Thenable<void>;
 
 	/** Show output log of the runtime */
-	showOutput(): void;
+	showOutput(channel?: string): void;
+
+	/** Retrieve list of output channels provided by this Language Runtime */
+	listOutputChannels(): Thenable<string[]>;
 
 	/** Show profiler log of the runtime, if supported */
 	showProfile(): Thenable<void>;

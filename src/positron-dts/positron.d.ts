@@ -913,8 +913,17 @@ declare module 'positron' {
 
 		/**
 		 * Show runtime log in output panel.
+		 *
+		 * @param channel The channel to show the output in
 		 */
-		showOutput?(): void;
+		showOutput?(channel?: string): void;
+
+		/**
+		 * Return a list of output channels
+		 *
+		 * @returns A list of output channels available on this runtime
+		 */
+		listOutputChannels?(): string[];
 
 		/**
 		 * Show profiler log if supported.
