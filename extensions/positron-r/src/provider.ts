@@ -83,11 +83,8 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	updateBinaries(moreBinaries);
 
 	// Optional, user-specified root directories or binaries
-	const userHqBinaries = discoverHQBinaries(userRHeadquarters());
-	updateBinaries(userHqBinaries);
-
-	const userMoreBinaries = discoverAdHocBinaries(userRBinaries());
-	updateBinaries(userMoreBinaries);
+	const userBinaries = discoverUserSpecifiedBinaries();
+	updateBinaries(userBinaries);
 
 	// Directories relevant to Posit Workbench. Not relevant on Windows.
 	if (os.platform() !== 'win32') {
@@ -530,6 +527,18 @@ function discoverAdHocBinaries(paths: string[]): RBinary[] {
 		.filter(b => fs.existsSync(b))
 		.map(b => fs.realpathSync(b))
 		.map(b => ({ path: b, reasons: [ReasonDiscovered.adHoc] }));
+}
+
+/**
+ * Discovers optional, user-specified root directories or binaries.
+ * @returns R binaries that the user has specified.
+ */
+function discoverUserSpecifiedBinaries(): RBinary[] {
+	const userHqBinaries = discoverHQBinaries(userRHeadquarters());
+	const userMoreBinaries = discoverAdHocBinaries(userRBinaries());
+	const userBinaries = userHqBinaries.concat(userMoreBinaries);
+	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.user
+	return userBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.user] }));
 }
 
 /**
