@@ -38,7 +38,7 @@ const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
 let recentFiles: string[] = [];
 const RECENT_FILES_KEY = 'positron-assistant.recentFiles';
-const MAX_HISTORY = 30;
+const MAX_HISTORY = 10;
 const WINDOW_SIZE = 50;
 
 export function registerHistoryTracking(context: vscode.ExtensionContext) {
@@ -80,9 +80,10 @@ async function getRelatedContext(document: vscode.TextDocument) {
 
 	// Slide a window over the contents of the remaining documents and return best matching section
 	return Object.fromEntries(
-		documents.map((doc) => {
+		// Use async map to yield and avoid blocking
+		await Promise.all(documents.map(async (doc) => {
 			const best: { range?: vscode.Range; score: number } = { score: 0 };
-			for (let low = 0; low < doc.lineCount; low++) {
+			for (let low = 0; low < doc.lineCount; low += Math.floor(WINDOW_SIZE / 2)) {
 				const high = Math.min(low + WINDOW_SIZE, doc.lineCount);
 				const range = new vscode.Range(low, 0, high, 0);
 				const score = textSimilarityScore(document.getText(), doc.getText(range));
@@ -92,7 +93,7 @@ async function getRelatedContext(document: vscode.TextDocument) {
 				}
 			}
 			return [doc.uri.fsPath, doc.getText(best.range)];
-		})
+		}))
 	);
 }
 
