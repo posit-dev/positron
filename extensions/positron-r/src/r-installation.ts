@@ -44,9 +44,6 @@ export enum ReasonDiscovered {
 	/* eslint-enable @typescript-eslint/naming-convention */
 	adHoc = "adHoc",
 	user = "user",
-	/**
-	 * The binary was found in a directory supported by Posit Workbench.
-	 */
 	pwb = "Posit Workbench"
 }
 
