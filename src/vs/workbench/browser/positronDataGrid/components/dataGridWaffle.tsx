@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // FALSE POSITIVE: The ESLint rule of hooks is incorrectly flagging numerous lines in this file as a
-// violation of the rules of hooks. https://github.com/facebook/react/issues/31687
+// violation of the rules of hooks. See: https://github.com/facebook/react/issues/31687
 /* eslint-disable react-hooks/rules-of-hooks */
 
 // CSS.

@@ -30,7 +30,7 @@ interface DataGridRowProps {
 export const DataGridRow = (props: DataGridRowProps) => {
 	// Context hooks.
 	// FALSE POSITIVE: The ESLint rule of hooks is incorrectly flagging this line as a violation of
-	// the rules of hooks. https://github.com/facebook/react/issues/31687
+	// the rules of hooks. See: https://github.com/facebook/react/issues/31687
 	// eslint-disable-next-line react-hooks/rules-of-hooks
 	const context = usePositronDataGridContext();
 
