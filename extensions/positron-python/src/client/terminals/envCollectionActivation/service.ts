@@ -46,6 +46,7 @@ import {
     ITerminalEnvVarCollectionService,
 } from '../types';
 import { ProgressService } from '../../common/application/progressService';
+import { useEnvExtension } from '../../envExt/api.internal';
 
 @injectable()
 export class TerminalEnvVarCollectionService implements IExtensionActivationService, ITerminalEnvVarCollectionService {
@@ -177,10 +178,18 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
     private async _applyCollectionImpl(resource: Resource, shell = this.applicationEnvironment.shell): Promise<void> {
         const workspaceFolder = this.getWorkspaceFolder(resource);
         const settings = this.configurationService.getSettings(resource);
+
         // --- Start Positron ---
         // remove workspace folder scope to avoid overwriting other extensions' env vars
         const envVarCollection = this.getEnvironmentVariableCollection();
         // --- End Positron ---
+
+        if (useEnvExtension()) {
+            envVarCollection.clear();
+            traceVerbose('Do not activate terminal env vars as env extension is being used');
+            return;
+        }
+
         if (!settings.terminal.activateEnvironment) {
             envVarCollection.clear();
             traceVerbose('Activating environments in terminal is disabled for', resource?.fsPath);
@@ -382,6 +391,11 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
             // --- Start Positron ---
             // remove workspace folder scope to avoid overwriting other extensions' env vars
             // const workspaceFolder = this.getWorkspaceFolder(resource);
+            if (useEnvExtension()) {
+                this.getEnvironmentVariableCollection( ).clear();
+                traceVerbose('Do not activate microvenv as env extension is being used');
+                return;
+            }
             if (!settings.terminal.activateEnvironment) {
                 this.getEnvironmentVariableCollection().clear();
                 // --- End Positron ---
