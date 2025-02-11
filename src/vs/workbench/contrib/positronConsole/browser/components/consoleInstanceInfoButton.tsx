@@ -90,13 +90,13 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 	// Render.
 	return (
 		<PositronModalPopup
-			renderer={props.renderer}
 			anchorElement={props.anchorElement}
-			popupPosition='auto'
-			popupAlignment='auto'
-			width={400}
 			height='min-content'
 			keyboardNavigationStyle='menu'
+			popupAlignment='auto'
+			popupPosition='auto'
+			renderer={props.renderer}
+			width={400}
 		>
 			<div className='console-instance-info'>
 				<div className='content'>
