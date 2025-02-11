@@ -70,7 +70,7 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 
 	const ItemEntry = (props: { index: number; style: CSSProperties }) => {
 		const itemProps = instances[props.index];
-		const { language_id, name } = itemProps.metadata;
+		const { language_id, name, icon } = itemProps.metadata;
 
 		return (
 			<div
@@ -81,7 +81,9 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 				)}
 				onMouseDown={() => setSelectedInstanceId(itemProps.id)}
 			>
-				<div className='col-icon' style={{ width: `${26}px` }}></div>
+				<div className='col-icon' style={{ width: `${26}px` }}>
+					{icon ? <img src={icon} style={{ width: '26px', height: '26px' }}></img> : <></>}
+				</div>
 				<div className='col-name'>{name}</div>
 				<div className='col-language'>
 					{language_id ? languageIdToName(language_id) : ''}
