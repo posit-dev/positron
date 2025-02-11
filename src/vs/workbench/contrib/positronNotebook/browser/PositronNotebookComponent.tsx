@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -39,7 +39,7 @@ export function PositronNotebookComponent() {
 	return (
 		<div className='positron-notebook' style={{ ...fontStyles }}>
 			<PositronNotebookHeader notebookInstance={notebookInstance} />
-			<div className='positron-notebook-cells-container' ref={containerRef}>
+			<div ref={containerRef} className='positron-notebook-cells-container'>
 				{notebookCells?.length ? notebookCells?.map((cell, index) => <>
 					<NotebookCell key={cell.handleId} cell={cell as PositronNotebookCellGeneral} />
 					<AddCellButtons index={index + 1} />

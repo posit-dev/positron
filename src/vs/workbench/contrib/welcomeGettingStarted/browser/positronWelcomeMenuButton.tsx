@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -48,13 +48,13 @@ export function WelcomeMenuButton(props: WelcomeMenuButtonProps) {
 
 		renderer.render(
 			<PositronModalPopup
-				renderer={renderer}
 				anchorElement={ref.current}
-				popupPosition='bottom'
-				popupAlignment='left'
-				width={300}
 				height={'min-content'}
 				keyboardNavigationStyle='menu'
+				popupAlignment='left'
+				popupPosition='bottom'
+				renderer={renderer}
+				width={300}
 			>
 				<div className='welcome-page-start menu-button-container'>
 					{props.actions.map((action, index) => (
@@ -78,11 +78,11 @@ export function WelcomeMenuButton(props: WelcomeMenuButtonProps) {
 	// Render.
 	return (
 		<WelcomeButton
-			label={props.label}
-			codicon={props.codicon}
-			ariaLabel={props.ariaLabel}
-			onPressed={showPopup}
 			ref={ref}
+			ariaLabel={props.ariaLabel}
+			codicon={props.codicon}
+			label={props.label}
+			onPressed={showPopup}
 		/>
 	);
 }

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -52,7 +52,7 @@ export const ConsoleInstanceMenuButton = (props: ConsoleInstanceMenuButtonProps)
 			setActiveRuntimeLabel(labelForSession(e?.session));
 		}));
 		return () => disposables.dispose();
-	}, [positronConsoleContext.activePositronConsoleInstance]);
+	}, [positronConsoleContext.activePositronConsoleInstance, positronConsoleContext.positronConsoleService]);
 
 	// Builds the actions.
 	const actions = () => {
@@ -82,8 +82,8 @@ export const ConsoleInstanceMenuButton = (props: ConsoleInstanceMenuButtonProps)
 	// Render.
 	return (
 		<ActionBarMenuButton
-			text={activeRuntimeLabel}
 			actions={actions}
+			text={activeRuntimeLabel}
 		/>
 	);
 };

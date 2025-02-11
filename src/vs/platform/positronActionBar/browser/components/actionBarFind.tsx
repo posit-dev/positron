@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -56,21 +56,21 @@ export const ActionBarFind = (props: ActionBarFindProps) => {
 			<div className={positronClassNames('action-bar-find-input', { 'focused': focused })}>
 				<input
 					ref={inputRef}
-					type='text'
 					className='text-input'
 					placeholder={(() => localize('positronFindPlacehold', "find"))()}
+					type='text'
 					value={findText}
-					onFocus={() => setFocused(true)}
 					onBlur={() => setFocused(false)}
-					onChange={changeHandler} />
+					onChange={changeHandler}
+					onFocus={() => setFocused(true)} />
 				{findText !== '' && (
 					<button className='clear-button'>
 						<div className={'codicon codicon-positron-search-cancel'} onClick={buttonClearClickHandler} />
 					</button>
 				)}
 			</div>
-			<ActionBarButton iconId='chevron-up' align='right' tooltip={(() => localize('positronFindPrevious', "Find previous"))()} disabled={!props.findResults} onPressed={() => props.onFindPrevious!()} />
-			<ActionBarButton iconId='chevron-down' align='right' tooltip={(() => localize('positronFindNext', "Find next"))()} disabled={!props.findResults} onPressed={() => props.onFindNext!()} />
+			<ActionBarButton align='right' disabled={!props.findResults} iconId='chevron-up' tooltip={(() => localize('positronFindPrevious', "Find previous"))()} onPressed={() => props.onFindPrevious!()} />
+			<ActionBarButton align='right' disabled={!props.findResults} iconId='chevron-down' tooltip={(() => localize('positronFindNext', "Find next"))()} onPressed={() => props.onFindNext!()} />
 		</div>
 	);
 };

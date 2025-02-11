@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -255,8 +255,8 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 				keybindingService={this.keybindingService}
 				languageRuntimeService={this.languageRuntimeService}
 				layoutService={this.layoutService}
-				positronPlotsService={this.positronPlotsService}
 				notificationService={this.notificationService}
+				positronPlotsService={this.positronPlotsService}
 				preferencesService={this.preferencesService}
 				reactComponentContainer={this} />
 		);

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -119,10 +119,10 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 				<HtmlActionBars key={activePreview.previewId} preview={activePreview} {...props} />
 			}
 			<PreviewContainer
+				height={height - (showToolbar ? 32 : 0)}
 				preview={activePreview}
 				visible={visible}
 				width={width}
-				height={height - (showToolbar ? 32 : 0)}
 				x={x}
 				y={y} />
 		</PositronPreviewContextProvider>

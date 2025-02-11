@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -43,19 +43,18 @@ export const InterpretersManagerModalPopup = (props: InterpretersManagerModalPop
 	// Render.
 	return (
 		<PositronModalPopup
-			renderer={props.renderer}
 			anchorElement={props.anchorElement}
-			popupPosition='bottom'
-			popupAlignment='right'
-			width={375}
 			height={'min-content'}
 			keyboardNavigationStyle='menu'
+			popupAlignment='right'
+			popupPosition='bottom'
+			renderer={props.renderer}
+			width={375}
 		>
 			<InterpreterGroups
 				languageRuntimeService={props.languageRuntimeService}
 				runtimeAffiliationService={props.runtimeStartupService}
 				runtimeSessionService={props.runtimeSessionService}
-				onStartRuntime={props.onStartRuntime}
 				onActivateRuntime={async (runtime) => {
 					// Activate the runtime.
 					await props.onActivateRuntime(runtime);
@@ -63,6 +62,7 @@ export const InterpretersManagerModalPopup = (props: InterpretersManagerModalPop
 					// Dismiss the popup.
 					props.renderer.dispose();
 				}}
+				onStartRuntime={props.onStartRuntime}
 			/>
 		</PositronModalPopup>
 	);

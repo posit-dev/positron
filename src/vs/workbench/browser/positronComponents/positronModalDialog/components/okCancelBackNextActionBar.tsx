@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -40,15 +40,15 @@ interface ActionBarButtonConfig {
  */
 export const OKCancelBackNextActionBar = ({ okButtonConfig, cancelButtonConfig, backButtonConfig, nextButtonConfig }: OKCancelBackNextActionBarProps) => {
 	const cancelButton = (cancelButtonConfig ?
-		<Button className='action-bar-button' onPressed={cancelButtonConfig.onClick} disabled={cancelButtonConfig.disable ?? false}>
+		<Button className='action-bar-button' disabled={cancelButtonConfig.disable ?? false} onPressed={cancelButtonConfig.onClick}>
 			{cancelButtonConfig.title ?? localize('positronCancel', "Cancel")}
 		</Button> : null);
 	const okButton = (okButtonConfig ?
-		<Button className='action-bar-button default' onPressed={okButtonConfig.onClick} disabled={okButtonConfig.disable ?? false}>
+		<Button className='action-bar-button default' disabled={okButtonConfig.disable ?? false} onPressed={okButtonConfig.onClick}>
 			{okButtonConfig.title ?? localize('positronOK', "OK")}
 		</Button> : null);
 	const nextButton = (nextButtonConfig ?
-		<Button className='action-bar-button default' onPressed={nextButtonConfig.onClick} disabled={nextButtonConfig.disable ?? false}>
+		<Button className='action-bar-button default' disabled={nextButtonConfig.disable ?? false} onPressed={nextButtonConfig.onClick}>
 			{nextButtonConfig.title ?? localize('positronNext', "Next")}
 		</Button> : null);
 
@@ -57,7 +57,7 @@ export const OKCancelBackNextActionBar = ({ okButtonConfig, cancelButtonConfig, 
 		<div className='ok-cancel-back-action-bar top-separator'>
 			<div className='left-actions'>
 				{backButtonConfig ?
-					<Button className='action-bar-button' onPressed={backButtonConfig.onClick} disabled={backButtonConfig.disable ?? false}>
+					<Button className='action-bar-button' disabled={backButtonConfig.disable ?? false} onPressed={backButtonConfig.onClick}>
 						{backButtonConfig.title ?? localize('positronBack', "Back")}
 					</Button> : null
 				}

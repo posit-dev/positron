@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -47,19 +47,19 @@ export const ProjectTypeGroup = (props: PropsWithChildren<ProjectTypeProps>) => 
 	// Render.
 	return (
 		<div
+			aria-describedby={props.describedBy}
+			aria-labelledby={props.labelledBy}
 			className='project-type-group'
 			role='radiogroup'
-			aria-labelledby={props.labelledBy}
-			aria-describedby={props.describedBy}
 		>
 			{projectTypes.map((projectType, index) => {
 				return (
 					<ProjectType
 						key={index}
-						identifier={projectType}
-						groupName={props.name}
-						selected={projectType === currentSelection}
 						activeTabIndex={projectType === activeIndexId}
+						groupName={props.name}
+						identifier={projectType}
+						selected={projectType === currentSelection}
 						onSelected={() => onSelectionChanged(projectType)}
 					/>
 				);

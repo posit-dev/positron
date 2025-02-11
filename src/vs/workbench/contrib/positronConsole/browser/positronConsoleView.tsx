@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -290,8 +290,6 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 				instantiationService={this.instantiationService}
 				keybindingService={this.keybindingService}
 				languageRuntimeService={this.languageRuntimeService}
-				runtimeSessionService={this.runtimeSessionService}
-				runtimeStartupService={this.runtimeStartupService}
 				languageService={this.languageService}
 				logService={this.logService}
 				modelService={this.modelService}
@@ -299,9 +297,11 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 				openerService={this.openerService}
 				positronConsoleService={this.positronConsoleService}
 				positronPlotsService={this.positronPlotsService}
+				reactComponentContainer={this}
+				runtimeSessionService={this.runtimeSessionService}
+				runtimeStartupService={this.runtimeStartupService}
 				viewsService={this.viewsService}
 				workbenchLayoutService={this.workbenchLayoutService}
-				reactComponentContainer={this}
 			/>
 		);
 

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -61,12 +61,12 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 		// Show the confirmation modal dialog.
 		renderer.render(
 			<OKCancelModalDialog
-				renderer={renderer}
-				width={400}
-				height={195}
-				title={options.title}
-				okButtonTitle={options.okButtonTitle}
 				cancelButtonTitle={options.cancelButtonTitle}
+				height={195}
+				okButtonTitle={options.okButtonTitle}
+				renderer={renderer}
+				title={options.title}
+				width={400}
 				onAccept={async () => {
 					renderer.dispose();
 					await options.action();
@@ -117,7 +117,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 		};
 
 		renderer.render(
-			<PositronModalDialog renderer={renderer} title={title} width={400} height={200} onCancel={cancelHandler}>
+			<PositronModalDialog height={200} renderer={renderer} title={title} width={400} onCancel={cancelHandler}>
 				<ContentArea>
 					{renderHtml(
 						message,
@@ -129,8 +129,8 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 					)}
 				</ContentArea>
 				<OKCancelActionBar
-					okButtonTitle={okButtonTitle}
 					cancelButtonTitle={cancelButtonTitle}
+					okButtonTitle={okButtonTitle}
 					onAccept={acceptHandler}
 					onCancel={cancelHandler} />
 			</PositronModalDialog>
@@ -184,10 +184,10 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 
 		renderer.render(
 			<PositronModalDialog
+				height={200}
 				renderer={renderer}
 				title={title}
 				width={400}
-				height={200}
 				onCancel={cancelHandler}
 			>
 				<ContentArea>

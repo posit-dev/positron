@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -126,8 +126,8 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 					return (
 						<CustomFolderRecentlyUsedMenuItem
 							key={index}
-							label={label}
 							enabled={true}
+							label={label}
 							onOpen={e => {
 								props.onMenuItemSelected();
 								props.hostService.openWindow([openable], {

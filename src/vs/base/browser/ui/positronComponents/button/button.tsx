@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -165,24 +165,24 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 	return (
 		<button
 			ref={buttonRef}
+			aria-disabled={props.disabled ? 'true' : undefined}
+			aria-label={props.ariaLabel}
 			className={positronClassNames(
 				'positron-button',
 				props.className,
 				{ 'disabled': props.disabled }
 			)}
-			style={props.style}
-			tabIndex={props.tabIndex ?? 0}
 			disabled={props.disabled}
 			role='button'
-			aria-label={props.ariaLabel}
-			aria-disabled={props.disabled ? 'true' : undefined}
-			onFocus={props.onFocus}
+			style={props.style}
+			tabIndex={props.tabIndex ?? 0}
 			onBlur={props.onBlur}
-			onKeyDown={keyDownHandler}
 			onClick={clickHandler}
+			onFocus={props.onFocus}
+			onKeyDown={keyDownHandler}
+			onMouseDown={mouseDownHandler}
 			onMouseEnter={mouseEnterHandler}
 			onMouseLeave={mouseLeaveHandler}
-			onMouseDown={mouseDownHandler}
 		>
 			{props.children}
 		</button>

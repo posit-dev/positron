@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -43,19 +43,19 @@ export const RadioGroup = (props: PropsWithChildren<RadioGroupProps>) => {
 	// Render.
 	return (
 		<div
+			aria-describedby={props.describedBy}
+			aria-labelledby={props.labelledBy}
 			className='radio-group'
 			role='radiogroup'
-			aria-labelledby={props.labelledBy}
-			aria-describedby={props.describedBy}
 		>
 			{props.entries.map((entry, index) => {
 				return (
 					<RadioButton
 						key={index}
-						identifier={entry.options.identifier}
-						title={entry.options.title}
 						groupName={props.name}
+						identifier={entry.options.identifier}
 						selected={entry.options.identifier === currentSelection}
+						title={entry.options.title}
 						onSelected={() => onSelectionChanged(entry.options.identifier)}
 					/>
 				);

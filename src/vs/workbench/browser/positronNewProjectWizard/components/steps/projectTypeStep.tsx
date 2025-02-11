@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -94,9 +94,9 @@ export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepPro
 					))()}
 			</div>
 			<ProjectTypeGroup
-				name='projectType'
-				labelledBy='project-type-selection-step-title'
 				describedBy='project-type-selection-step-description'
+				labelledBy='project-type-selection-step-title'
+				name='projectType'
 				selectedProjectId={selectedProjectType}
 				onSelectionChanged={(projectType) =>
 					setSelectedProjectType(projectType)

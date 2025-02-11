@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@
 import './interpreterGroup.css';
 
 // React.
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
@@ -38,7 +38,7 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 	 * Determines whether an alternate runtime is alive.
 	 * @returns A value which indicates whether an alternate runtime is alive.
 	 */
-	const isAlternateRuntimeAlive = () => {
+	const isAlternateRuntimeAlive = useCallback(() => {
 		// Get the active sessions.
 		const activeSessions = props.runtimeSessionService.activeSessions;
 
@@ -66,7 +66,7 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 
 		// An alternate runtime is not alive.
 		return false;
-	};
+	}, [props.interpreterGroup.alternateRuntimes, props.runtimeSessionService.activeSessions]);
 
 	// State hooks.
 	const [alternateRuntimeAlive, setAlternateRuntimeAlive] = useState(isAlternateRuntimeAlive());
@@ -91,19 +91,19 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [isAlternateRuntimeAlive, props.runtimeSessionService]);
 
 	// Render.
 	return (
 		<div className='interpreter-group'>
 			<PrimaryInterpreter
-				languageRuntimeService={props.languageRuntimeService}
-				runtimeSessionService={props.runtimeSessionService}
-				runtime={props.interpreterGroup.primaryRuntime}
 				enableShowAllVersions={props.interpreterGroup.alternateRuntimes.length > 0}
+				languageRuntimeService={props.languageRuntimeService}
+				runtime={props.interpreterGroup.primaryRuntime}
+				runtimeSessionService={props.runtimeSessionService}
+				onActivate={async () => await props.onActivateRuntime(props.interpreterGroup.primaryRuntime)}
 				onShowAllVersions={() => setShowAllVersions(!showAllVersions)}
 				onStart={async () => await props.onStartRuntime(props.interpreterGroup.primaryRuntime)}
-				onActivate={async () => await props.onActivateRuntime(props.interpreterGroup.primaryRuntime)}
 			/>
 			{(alternateRuntimeAlive || showAllVersions) &&
 				<div className='secondary-interpreters' onWheel={(e) => {
@@ -116,10 +116,10 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 						<SecondaryInterpreter
 							key={runtime.runtimeId}
 							languageRuntimeService={props.languageRuntimeService}
-							runtimeSessionService={props.runtimeSessionService}
 							runtime={runtime}
-							onStart={async () => await props.onStartRuntime(runtime)}
+							runtimeSessionService={props.runtimeSessionService}
 							onActivate={async () => await props.onActivateRuntime(runtime)}
+							onStart={async () => await props.onStartRuntime(runtime)}
 						/>
 					)}
 				</div>

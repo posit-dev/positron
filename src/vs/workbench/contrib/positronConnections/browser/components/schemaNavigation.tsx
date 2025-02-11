@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -83,9 +83,9 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 			<div className='positron-connections-schema-navigation'>
 				<ActionBar
 					{...context}
+					onBack={() => props.setActiveInstanceId(undefined)}
 					onDisconnect={() => { }}
 					onRefresh={() => { }}
-					onBack={() => props.setActiveInstanceId(undefined)}
 				>
 				</ActionBar>
 			</div>
@@ -103,9 +103,9 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 			<PositronConnectionsItem
 				item={itemProps}
 				selected={itemProps.id === selectedId}
+				style={props.style}
 				onSelected={() => setSelectedId(itemProps.id)}
-				onToggleExpand={toggleExpandHandler}
-				style={props.style}>
+				onToggleExpand={toggleExpandHandler}>
 			</PositronConnectionsItem>
 		);
 	};
@@ -117,9 +117,9 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 		<div className='positron-connections-schema-navigation'>
 			<ActionBar
 				{...context}
+				onBack={() => props.setActiveInstanceId(undefined)}
 				onDisconnect={() => activeInstance.disconnect?.()}
 				onRefresh={() => activeInstance.refresh?.()}
-				onBack={() => props.setActiveInstanceId(undefined)}
 			>
 			</ActionBar>
 			<div className='connections-items-container'>
@@ -135,14 +135,13 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 					}
 				</div>
 				<List
-					itemCount={entries.length}
-					itemSize={26}
-					/* size if the actionbar and the secondary side bar combined) */
 					height={height - ACTION_BAR_HEIGHT - DETAILS_BAR_HEIGHT}
-					className='connections-items-list'
-					width={'100%'}
-					itemKey={index => entries[index].id}
 					innerRef={innerRef}
+					itemCount={entries.length}
+					itemKey={index => entries[index].id}
+					itemSize={26}
+					width={'calc(100% - 2px)'}
+				/* size if the actionbar and the secondary side bar combined) */
 				>
 					{ItemEntry}
 				</List>

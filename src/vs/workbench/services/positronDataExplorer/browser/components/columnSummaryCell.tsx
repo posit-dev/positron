@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -104,10 +104,10 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 						}}
 					>
 						<VectorHistogram
-							graphWidth={SPARKLINE_WIDTH}
-							graphHeight={SPARKLINE_HEIGHT}
-							xAxisHeight={SPARKLINE_X_AXIS_HEIGHT}
 							columnHistogram={columnHistogram}
+							graphHeight={SPARKLINE_HEIGHT}
+							graphWidth={SPARKLINE_WIDTH}
+							xAxisHeight={SPARKLINE_X_AXIS_HEIGHT}
 						/>
 					</div >
 				);
@@ -132,10 +132,10 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 						}}
 					>
 						<VectorFrequencyTable
-							graphWidth={SPARKLINE_WIDTH}
-							graphHeight={SPARKLINE_HEIGHT}
-							xAxisHeight={SPARKLINE_X_AXIS_HEIGHT}
 							columnFrequencyTable={columnFrequencyTable}
+							graphHeight={SPARKLINE_HEIGHT}
+							graphWidth={SPARKLINE_WIDTH}
+							xAxisHeight={SPARKLINE_X_AXIS_HEIGHT}
 						/>
 					</div >
 				);
@@ -189,42 +189,42 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 					</div>
 				}
 				<div className='graph-percent'>
-					<svg viewBox='0 0 52 14' shapeRendering='geometricPrecision'>
+					<svg shapeRendering='geometricPrecision' viewBox='0 0 52 14'>
 						<defs>
 							<clipPath id='clip-indicator'>
-								<rect x='1' y='1' width='50' height='12' rx='6' ry='6' />
+								<rect height='12' rx='6' ry='6' width='50' x='1' y='1' />
 							</clipPath>
 						</defs>
 						{graphNullPercent === undefined ?
 							<g>
 								<rect className='empty'
-									x='1'
-									y='1'
-									width='50'
 									height='12'
 									rx='6'
 									ry='6'
 									strokeWidth='1'
+									width='50'
+									x='1'
+									y='1'
 								/>
 							</g> :
 							<g>
 								<rect className='background'
-									x='1'
-									y='1'
-									width='50'
 									height='12'
 									rx='6'
 									ry='6'
 									strokeWidth='1'
-								/>
-								<rect className='indicator'
+									width='50'
 									x='1'
 									y='1'
-									width={50 * ((100 - graphNullPercent) / 100)}
+								/>
+								<rect className='indicator'
+									clipPath='url(#clip-indicator)'
 									height='12'
 									rx='6'
 									ry='6'
-									clipPath='url(#clip-indicator)'
+									width={50 * ((100 - graphNullPercent) / 100)}
+									x='1'
+									y='1'
 								/>
 							</g>
 						}
@@ -243,23 +243,23 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		switch (props.columnSchema.type_display) {
 			// Number.
 			case ColumnDisplayType.Number:
-				return <ColumnProfileNumber instance={props.instance} columnIndex={props.columnIndex} />;
+				return <ColumnProfileNumber columnIndex={props.columnIndex} instance={props.instance} />;
 
 			// Boolean.
 			case ColumnDisplayType.Boolean:
-				return <ColumnProfileBoolean instance={props.instance} columnIndex={props.columnIndex} />;
+				return <ColumnProfileBoolean columnIndex={props.columnIndex} instance={props.instance} />;
 
 			// String.
 			case ColumnDisplayType.String:
-				return <ColumnProfileString instance={props.instance} columnIndex={props.columnIndex} />;
+				return <ColumnProfileString columnIndex={props.columnIndex} instance={props.instance} />;
 
 			// Date.
 			case ColumnDisplayType.Date:
-				return <ColumnProfileDate instance={props.instance} columnIndex={props.columnIndex} />;
+				return <ColumnProfileDate columnIndex={props.columnIndex} instance={props.instance} />;
 
 			// Datetime.
 			case ColumnDisplayType.Datetime:
-				return <ColumnProfileDatetime instance={props.instance} columnIndex={props.columnIndex} />;
+				return <ColumnProfileDatetime columnIndex={props.columnIndex} instance={props.instance} />;
 
 			// Column display types that do not render a profile.
 			case ColumnDisplayType.Time:
@@ -397,6 +397,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				<div
 					ref={dataTypeRef}
 					className={`data-type-icon codicon ${dataTypeIcon}`}
+					onMouseLeave={() => props.hoverService.hideHover()}
 					onMouseOver={() =>
 						props.hoverService.showHover({
 							content: `${props.columnSchema.type_name}`,
@@ -413,7 +414,6 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 							}
 						}, false)
 					}
-					onMouseLeave={() => props.hoverService.hideHover()}
 				/>
 				<div className='column-name'>
 					{renderedColumn}

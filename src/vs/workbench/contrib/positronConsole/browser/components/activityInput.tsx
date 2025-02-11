@@ -222,8 +222,8 @@ export const ActivityInput = (props: ActivityInputProps) => {
 					<div key={`outputLine-${index}`}>
 						<Prompt index={index} />
 						<span
-							key={`colorizedOutputLine-${index}`}
 							dangerouslySetInnerHTML={{ __html: outputLine }}
+							key={`colorizedOutputLine-${index}`}
 						/>
 					</div>
 				)}
@@ -240,9 +240,9 @@ export const ActivityInput = (props: ActivityInputProps) => {
 						{outputLine.outputRuns.map(outputRun =>
 							<OutputRun
 								key={outputRun.id}
-								outputRun={outputRun}
 								notificationService={positronConsoleContext.notificationService}
 								openerService={positronConsoleContext.openerService}
+								outputRun={outputRun}
 							/>
 						)}
 					</div>
