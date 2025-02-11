@@ -139,10 +139,10 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 					itemSize={26}
 					/* size if the actionbar and the secondary side bar combined) */
 					height={height - ACTION_BAR_HEIGHT - DETAILS_BAR_HEIGHT}
+					className='connections-items-list'
 					width={'100%'}
 					itemKey={index => entries[index].id}
 					innerRef={innerRef}
-					style={{ scrollbarGutter: 'stable' }}
 				>
 					{ItemEntry}
 				</List>

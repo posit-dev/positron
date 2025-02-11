@@ -111,3 +111,7 @@
 	align-items: center;
 	justify-content: center;
 }
+
+.connections-items-list {
+	scrollbar-gutter: stable;
+}
