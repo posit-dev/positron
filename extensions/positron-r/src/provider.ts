@@ -31,6 +31,15 @@ export interface RBinary {
 }
 
 /**
+ * The source for the R runtime, in the order that we display these sources in the quick pick.
+ */
+export enum RRuntimeSource {
+	system = 'System',
+	user = 'User',
+	homebrew = 'Homebrew',
+}
+
+/**
  * Discovers R language runtimes for Positron; implements positron.LanguageRuntimeDiscoverer.
  *
  * @param context The extension context.
@@ -185,9 +194,9 @@ export async function makeMetadata(
 	// it's a Homebrew installation if it does)
 	const isHomebrewInstallation = rInst.binpath.includes('/homebrew/');
 
-	const runtimeSource = isHomebrewInstallation ? 'Homebrew' :
+	const runtimeSource = isHomebrewInstallation ? RRuntimeSource.homebrew :
 		isUserInstallation ?
-			'User' : 'System';
+			RRuntimeSource.user : RRuntimeSource.system;
 
 	// Short name shown to users (when disambiguating within a language)
 	const runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
@@ -216,13 +225,13 @@ export async function makeMetadata(
 		reasonDiscovered: rInst.reasonDiscovered,
 	};
 
-	// Check the kernel supervisor's configuration; if it's enabled and
-	// configured to persist sessions, mark the session location as 'machine'
-	// so that Positron will reattach to the session after Positron is reopened.
+	// Check the kernel supervisor's configuration; if it's configured to
+	// persist sessions, mark the session location as 'machine' so that
+	// Positron will reattach to the session after Positron is reopened.
 	const config = vscode.workspace.getConfiguration('kernelSupervisor');
-	const sessionLocation = config.get<boolean>('enable', true) &&
+	const sessionLocation =
 		config.get<string>('shutdownTimeout', 'immediately') !== 'immediately' ?
-		positron.LanguageRuntimeSessionLocation.Machine : positron.LanguageRuntimeSessionLocation.Workspace;
+			positron.LanguageRuntimeSessionLocation.Machine : positron.LanguageRuntimeSessionLocation.Workspace;
 
 	const metadata: positron.LanguageRuntimeMetadata = {
 		runtimeId,

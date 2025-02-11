@@ -12,10 +12,29 @@ import { createJupyterKernelSpec } from './kernel-spec';
 
 export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
-	constructor(private readonly _context: vscode.ExtensionContext) { }
+	private readonly onDidDiscoverRuntimeEmitter = new vscode.EventEmitter<positron.LanguageRuntimeMetadata>();
 
-	discoverRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+	constructor(private readonly _context: vscode.ExtensionContext) {
+		this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
+	}
+
+	/**
+	 * An event that fires when a new R language runtime is discovered.
+	 */
+	onDidDiscoverRuntime: vscode.Event<positron.LanguageRuntimeMetadata>;
+
+	discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
 		return rRuntimeDiscoverer();
+	}
+
+	registerLanguageRuntime(runtime: positron.LanguageRuntimeMetadata): void {
+		this.onDidDiscoverRuntimeEmitter.fire(runtime);
+	}
+
+	async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+		// TODO: If the workspace contains an R project, we could recommend an
+		// R runtime from e.g. the `DESCRIPTION` file or an renv lockfile.
+		return undefined;
 	}
 
 	createSession(
@@ -95,21 +114,14 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	 * @returns True if the session is valid, false otherwise
 	 */
 	async validateSession(sessionId: string): Promise<boolean> {
-		const config = vscode.workspace.getConfiguration('kernelSupervisor');
-		if (config.get<boolean>('enable', true)) {
-			const ext = vscode.extensions.getExtension('positron.positron-supervisor');
-			if (!ext) {
-				throw new Error('Positron Supervisor extension not found');
-			}
-			if (!ext.isActive) {
-				await ext.activate();
-			}
-			return ext.exports.validateSession(sessionId);
+		const ext = vscode.extensions.getExtension('positron.positron-supervisor');
+		if (!ext) {
+			throw new Error('Positron Supervisor extension not found');
 		}
-
-		// When not using the kernel supervisor, sessions are not
-		// persisted.
-		return false;
+		if (!ext.isActive) {
+			await ext.activate();
+		}
+		return ext.exports.validateSession(sessionId);
 	}
 
 	restoreSession(

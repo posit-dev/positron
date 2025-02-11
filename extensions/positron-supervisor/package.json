@@ -29,11 +29,6 @@
       "type": "object",
       "title": "Kernel Supervisor",
       "properties": {
-        "kernelSupervisor.enable": {
-          "type": "boolean",
-          "default": true,
-          "description": "%configuration.enable.description%"
-        },
         "kernelSupervisor.showTerminal": {
           "type": "boolean",
           "default": false,

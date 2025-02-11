@@ -11,9 +11,11 @@ import { getRPackageName } from './contexts';
 import { getRPackageTasks } from './tasks';
 import { randomUUID } from 'crypto';
 import { RSessionManager } from './session-manager';
+import { quickPickRuntime } from './runtime-quickpick';
 import { MINIMUM_RENV_VERSION, MINIMUM_R_VERSION } from './constants';
+import { RRuntimeManager } from './runtime-manager';
 
-export async function registerCommands(context: vscode.ExtensionContext) {
+export async function registerCommands(context: vscode.ExtensionContext, runtimeManager: RRuntimeManager) {
 
 	context.subscriptions.push(
 
@@ -104,18 +106,6 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 							return;
 						}
 
-						// Wait for the the runtime to be ready, if hasn't
-						// already entered the Ready state.
-						//
-						// TODO(jupyter-adapter): This is a workaround for the
-						// fact that, when using the Jupyter Adapter, the
-						// restart command does not wait for the restart to be
-						// complete before returning. When the Jupyter Adapter
-						// is removed, we can rely on the runtime being ready
-						// as soon as the session restart call returns.
-						if (!promise.settled) {
-							await Promise.race([promise.promise, timeout(1e4, 'waiting for R to be ready')]);
-						}
 						session.execute(`library(${packageName})`,
 							randomUUID(),
 							positron.RuntimeCodeExecutionMode.Interactive,
@@ -157,7 +147,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 		}),
 
 		vscode.commands.registerCommand('r.selectInterpreter', async () => {
-			await vscode.commands.executeCommand('workbench.action.languageRuntime.select', 'r');
+			await quickPickRuntime(runtimeManager);
 		}),
 
 		// Commands used to source the current file

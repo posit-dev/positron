@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -21,7 +21,11 @@ import {
 import { IEnvironmentVariablesProvider } from '../../client/common/variables/types';
 import { IInterpreterService } from '../../client/interpreter/contracts';
 import { IServiceContainer } from '../../client/ioc/types';
-import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntimeSession } from '../../client/jupyter-adapter.d';
+import {
+    PositronSupervisorApi,
+    JupyterKernelSpec,
+    JupyterLanguageRuntimeSession,
+} from '../../client/positron-supervisor.d';
 import { PythonRuntimeSession } from '../../client/positron/session';
 import { PythonEnvironment } from '../../client/pythonEnvironments/info';
 
@@ -111,10 +115,10 @@ suite('Python Runtime Session', () => {
 
         const adapterApi = ({
             createSession: sinon.stub().resolves(kernel),
-        } as Partial<JupyterAdapterApi>) as JupyterAdapterApi;
+        } as Partial<PositronSupervisorApi>) as PositronSupervisorApi;
 
         sinon.stub(vscode.extensions, 'getExtension').callsFake((extensionId) => {
-            if (extensionId === 'positron.positron-supervisor' || extensionId === 'positron.jupyter-adapter') {
+            if (extensionId === 'positron.positron-supervisor') {
                 return {
                     id: '',
                     extensionPath: '',

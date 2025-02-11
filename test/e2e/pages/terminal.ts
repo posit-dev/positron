@@ -24,12 +24,19 @@ export class Terminal {
 		await this.terminalTab.click();
 	}
 
-	async waitForTerminalText(terminalText: string) {
+	async waitForTerminalText(
+		terminalText: string,
+		options: {
+			timeout?: number;
+			expectedCount?: number;
+		} = {}
+	): Promise<string[]> {
+		const { timeout = 15000, expectedCount = 1 } = options;
 
-		const terminalLines = this.code.driver.page.locator(TERMINAL_WRAPPER);
-		const matchingLines = terminalLines.filter({ hasText: terminalText });
+		const matchingLines = this.code.driver.page.locator(TERMINAL_WRAPPER).getByText(terminalText);
+		await expect(matchingLines).toHaveCount(expectedCount, { timeout });
 
-		await expect(matchingLines).toBeVisible();
+		return expectedCount ? matchingLines.allTextContents() : [];
 	}
 
 	async waitForTerminalLines() {

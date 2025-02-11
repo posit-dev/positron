@@ -10,6 +10,7 @@ import { PositronActionBarServices } from '../../../../platform/positronActionBa
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronPlotClient, IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
+import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
 
 /**
  * PositronPlotsServices interface. Defines the set of services that are required by the Positron plots.
@@ -18,6 +19,7 @@ export interface PositronPlotsServices extends PositronActionBarServices {
 	readonly languageRuntimeService: ILanguageRuntimeService;
 	readonly positronPlotsService: IPositronPlotsService;
 	readonly notificationService: INotificationService;
+	readonly preferencesService: IPreferencesService;
 }
 
 /**
@@ -100,7 +102,7 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [services.positronPlotsService]);
 
 	return { ...services, positronPlotInstances, selectedInstanceId, selectedInstanceIndex };
 };

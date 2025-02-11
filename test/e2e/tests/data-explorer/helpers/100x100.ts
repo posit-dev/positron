@@ -24,10 +24,8 @@ export const testDataExplorer = async (
 	}
 
 	// Open the data frame.
-	await expect(async () => {
-		await app.workbench.variables.doubleClickVariableRow(dataFrameName);
-		await app.code.driver.page.locator(`.label-name:has-text("Data: ${dataFrameName}")`).innerText();
-	}).toPass();
+	await app.workbench.variables.doubleClickVariableRow(dataFrameName);
+	await app.workbench.dataExplorer.verifyTab(dataFrameName, { isVisible: true });
 
 	// Maximize the data explorer.
 	await app.workbench.dataExplorer.maximizeDataExplorer();
@@ -98,6 +96,9 @@ export const testDataExplorer = async (
 
 	// Return to Stacked layout
 	await app.workbench.layouts.enterLayout('stacked');
+
+	// Check that "open as plaintext" button is not available
+	await expect(app.code.driver.page.getByLabel('Open as Plain Text File')).not.toBeVisible();
 };
 
 export const parquetFilePath = (app: Application) => {

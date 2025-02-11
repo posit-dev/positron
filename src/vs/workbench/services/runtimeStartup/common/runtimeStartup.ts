@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as nls from '../../../../nls.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -12,8 +12,8 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeStartupService } from './runtimeStartupService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeAutoStartEvent, IRuntimeStartupService } from './runtimeStartupService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
@@ -24,6 +24,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { IPositronNewProjectService } from '../../positronNewProject/common/positronNewProject.js';
 import { isWeb } from '../../../../base/common/platform.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
@@ -111,6 +112,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// Whether we are shutting down
 	private _shuttingDown = false;
 
+	/// The active set of runtime managers. Each represents an extension host
+	/// running one or extensions that provide runtimes.
+	private _runtimeManagers: IRuntimeManager[] = [];
+
+	/// The event emitter for the onWillAutoStartRuntime event.
+	private readonly _onWillAutoStartRuntime: Emitter<IRuntimeAutoStartEvent>;
+
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
@@ -127,6 +135,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		@IEphemeralStateService private readonly _ephemeralStateService: IEphemeralStateService) {
 
 		super();
+
+		this._onWillAutoStartRuntime = new Emitter<IRuntimeAutoStartEvent>();
+		this._register(this._onWillAutoStartRuntime);
+		this.onWillAutoStartRuntime = this._onWillAutoStartRuntime.event;
 
 		this._register(
 			this._runtimeSessionService.onDidChangeForegroundSession(
@@ -186,8 +198,21 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// auto-start a runtime.
 		this._register(this._languageRuntimeService.onDidChangeRuntimeStartupPhase(phase => {
 			if (phase === RuntimeStartupPhase.Complete) {
-				// if no runtimes were found, notify the user about the problem
-				if (this._languageRuntimeService.registeredRuntimes.length === 0) {
+
+				// Check to see if every single language runtime has been disabled.
+				const languageIds = this._languagePacks.keys();
+				let allDisabled = true;
+				for (const languageId of languageIds) {
+					if (this.getStartupBehavior(languageId) !== LanguageStartupBehavior.Disabled) {
+						allDisabled = false;
+						break;
+					}
+				}
+
+				// If there are no runtimes registered, but it isn't because
+				// everything was disabled, show an error.
+				if (this._languageRuntimeService.registeredRuntimes.length === 0 &&
+					!allDisabled) {
 					this._notificationService.error(nls.localize('positron.runtimeStartupService.noRuntimesMessage',
 						"No interpreters found. Please see the [Get Started](https://positron.posit.co/start) \
 						documentation to learn how to prepare your Python and/or R environments to work with Positron."));
@@ -199,11 +224,54 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				else if (!this.hasAffiliatedRuntime() &&
 					!this._runtimeSessionService.hasStartingOrRunningConsole()) {
 					const languageRuntimes = this._languageRuntimeService.registeredRuntimes
-						.filter(metadata =>
-							metadata.startupBehavior === LanguageRuntimeStartupBehavior.Immediate);
+						.filter(metadata => {
+							// Filter out runtimes that don't have immediate
+							// startup behavior
+							return metadata.startupBehavior === LanguageRuntimeStartupBehavior.Immediate;
+						})
+						.filter(metadata => {
+							// Filter out runtimes that don't auto-start
+							const startupBehavior = this.getStartupBehavior(metadata.languageId);
+							return startupBehavior !== LanguageStartupBehavior.Disabled &&
+								startupBehavior !== LanguageStartupBehavior.Manual;
+						});
+
+					// Start the first runtime that has Immediate startup behavior
 					if (languageRuntimes.length) {
-						this._runtimeSessionService.autoStartRuntime(languageRuntimes[0],
-							`An extension requested the runtime to be started immediately.`,
+						const extension = languageRuntimes[0].extensionId;
+						this.autoStartRuntime(languageRuntimes[0],
+							`The ${extension.value} extension requested the runtime to be started immediately.`,
+							true);
+						return;
+					}
+
+					// Okay, no immediate startup runtimes found. Let's try to start
+					// runtimes for any languages that are marked to start Always.
+					let languageId = '';
+					const alwaysStarted = this._languageRuntimeService.registeredRuntimes
+						.filter(metadata => {
+							// Only one language ID can be auto-started. If
+							// there are multiple, only the first is started.
+							if (languageId !== '') {
+								return false;
+							}
+
+							// Consider: This has fallback behavior that can be
+							// counterintuitive. The configuration service
+							// looks up a global value if it can't find a
+							// language-specific value. So if you set 'Always'
+							// as the global default, it will make every
+							// language start. This is probably not what is
+							// desired.
+							const always = this.getStartupBehavior(metadata.languageId) === LanguageStartupBehavior.Always;
+							if (always) {
+								languageId = metadata.languageId;
+							}
+							return always;
+						});
+					if (alwaysStarted.length) {
+						this.autoStartRuntime(alwaysStarted[0],
+							`The configuration specifies that a runtime should always start for the '${languageId}' language.`,
 							true);
 					}
 				}
@@ -227,7 +295,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				this._startupPhase === RuntimeStartupPhase.Complete &&
 				!this._runtimeSessionService.hasStartingOrRunningConsole()) {
 
-				this._runtimeSessionService.autoStartRuntime(runtime,
+				this.autoStartRuntime(runtime,
 					`An extension requested that the runtime start immediately after being registered.`, true);
 			}
 
@@ -245,35 +313,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				runtime.startupBehavior === LanguageRuntimeStartupBehavior.Implicit &&
 				!this.getAffiliatedRuntimeMetadata(runtime.languageId)) {
 
-				this._runtimeSessionService.autoStartRuntime(runtime,
+				this.autoStartRuntime(runtime,
 					`A file with the language ID ${runtime.languageId} was open ` +
 					`when the runtime was registered.`, true);
 			}
 		}));
-
-		// Wait for all extension hosts to start before beginning the main
-		// startup sequence.
-		this._extensionService.whenAllExtensionHostsStarted().then(async () => {
-			if (this._workspaceTrustManagementService.isWorkspaceTrusted()) {
-				// In a trusted workspace, we can start the startup sequence
-				// immediately.
-				await this.startupSequence();
-			} else {
-				// If we are not in a trusted workspace, wait for the workspace to become
-				// trusted before starting the startup sequence.
-				this.setStartupPhase(RuntimeStartupPhase.AwaitingTrust);
-				this._register(this._workspaceTrustManagementService.onDidChangeTrust((trusted) => {
-					if (!trusted) {
-						return;
-					}
-					// If the workspace becomse trusted while we are awaiting trust,
-					// move on to the startup sequence.
-					if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust) {
-						this.startupSequence();
-					}
-				}));
-			}
-		});
 
 		this._register(languageRuntimeExtPoint.setHandler((extensions) => {
 			// This new set of extensions replaces the old set, so clear the
@@ -302,6 +346,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					this._logService.debug(`[Runtime startup] No language packs were found.`);
 					this.setStartupPhase(RuntimeStartupPhase.Complete);
 				}
+			} else if (this._startupPhase === RuntimeStartupPhase.Initializing && this._languagePacks.size > 0) {
+				// If we just got language packs, and we were in the Initializing
+				// phase, move on to the startup phase.
+				this.startupAfterTrust();
 			}
 		}));
 
@@ -331,6 +379,36 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				}
 			}
 		}));
+	}
+
+	onWillAutoStartRuntime: Event<IRuntimeAutoStartEvent>;
+
+	/**
+	 * Gets all the affiliated runtimes for the workspace.
+	 *
+	 * @returns An array of affiliated runtime metadata. May be empty if no
+	 * runtimes are affiliated.
+	 */
+	getAffiliatedRuntimes(): Array<ILanguageRuntimeMetadata> {
+		const languageIds = this.getAffiliatedRuntimeLanguageIds();
+		const runtimes: ILanguageRuntimeMetadata[] = [];
+		for (const languageId of languageIds) {
+			const metadata = this.getAffiliatedRuntimeMetadata(languageId);
+			if (metadata) {
+				runtimes.push(metadata);
+			}
+		}
+		return runtimes;
+	}
+
+	/**
+	 * Clears a specific runtime from the list of affiliated runtimes.
+	 *
+	 * @param languageId The language ID of the runtime to clear.
+	 */
+	clearAffiliatedRuntime(languageId: string): void {
+		this._storageService.remove(`${this.storageKey}.${languageId}`, this.affiliationStorageScope());
+		this._logService.debug(`[Runtime startup] Cleared affiliated runtime for language ID '${languageId}'`);
 	}
 
 	/**
@@ -363,11 +441,32 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this.saveAffiliatedRuntime(newAffiliation);
 		}
 
+		const disabledLanguages = new Array<string>();
+		const enabledLanguages = Array.from(this._languagePacks.keys()).filter(languageId => {
+			if (this.getStartupBehavior(languageId) === LanguageStartupBehavior.Disabled) {
+				this._logService.debug(`[Runtime startup] Skipping language runtime startup for language ID '${languageId}' because its startup behavior is disabled.`);
+				disabledLanguages.push(languageId);
+				return false;
+			}
+			return true;
+		});
+
+		this.setStartupPhase(RuntimeStartupPhase.Starting);
+
 		// If no sessions were restored, and we have affiliated runtimes,
 		// try to start them.
-		if (!this._runtimeSessionService.hasStartingOrRunningConsole() &&
-			this.hasAffiliatedRuntime()) {
-			await this.startAffiliatedLanguageRuntimes();
+		try {
+			if (!this._runtimeSessionService.hasStartingOrRunningConsole() &&
+				this.hasAffiliatedRuntime()) {
+				await this.startAffiliatedLanguageRuntimes(disabledLanguages, enabledLanguages);
+			}
+
+			// Start any runtimes recommended by the extensions.
+			if (!this._runtimeSessionService.hasStartingOrRunningConsole()) {
+				await this.startRecommendedLanguageRuntimes(disabledLanguages, enabledLanguages);
+			}
+		} catch (err) {
+			this._logService.error(`[Runtime startup] Error starting affiliated runtimes: ${err}`);
 		}
 
 		// Then, discover all language runtimes.
@@ -380,6 +479,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * @param affiliated The runtime affiliation to save.
 	 */
 	private saveAffiliatedRuntime(affiliated: IAffiliatedRuntimeMetadata): void {
+
+		if (!affiliated || !affiliated.metadata || !affiliated.metadata.languageId) {
+			// Don't save invalid affiliations
+			this._logService.debug(`[Runtime startup] Not saving invalid affiliation ${JSON.stringify(affiliated)}.`);
+			return;
+		}
+
 		this._storageService.store(this.storageKeyForRuntime(affiliated.metadata),
 			JSON.stringify(affiliated),
 			this.affiliationStorageScope(),
@@ -427,25 +533,20 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 *
 	 * @param id The id of the MainThreadLanguageRuntime instance being registered.
 	 */
-	public registerMainThreadLanguageRuntime(id: number): void {
+	public registerRuntimeManager(manager: IRuntimeManager): IDisposable {
 		// Add the mainThreadLanguageRuntime instance id to the set of mainThreadLanguageRuntimes.
-		this._discoveryCompleteByExtHostId.set(id, false);
-		this._logService.debug(`[Runtime startup] Registered extension host with id: ${id}.`);
-	}
+		this._discoveryCompleteByExtHostId.set(manager.id, false);
+		this._runtimeManagers.push(manager);
+		this._logService.debug(`[Runtime startup] Registered runtime manager (ext host) with id: ${manager.id}.`);
 
-	/**
-	 * Used to un-registers an instance of a MainThreadLanguageRuntime.
-	 *
-	 * This is required because there can be multiple extension hosts
-	 * and the startup service needs to know of all of them to track
-	 * the startup phase across all extension hosts.
-	 *
-	 * @param id The id of the MainThreadLanguageRuntime instance being un-registered.
-	 */
-	public unregisterMainThreadLanguageRuntime(id: number): void {
-		// Remove the mainThreadLanguageRuntime instance id to the set of mainThreadLanguageRuntimes.
-		this._discoveryCompleteByExtHostId.delete(id);
-		this._logService.debug(`[Runtime startup] Unregistered extension host with id: ${id}.`);
+		return {
+			dispose: () => {
+				const index = this._runtimeManagers.indexOf(manager);
+				if (index !== -1) {
+					this._runtimeManagers.splice(index, 1);
+				}
+			}
+		};
 	}
 
 	/**
@@ -530,16 +631,30 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
-		// Ensure all extension hosts are started before we start activating extensions
-		await this._extensionService.whenAllExtensionHostsStarted();
+		// Filter out any language packs that are disabled.
+		const disabledLanguages = new Array<string>();
+		const enabledLanguages = Array.from(this._languagePacks.keys()).filter(languageId => {
+			if (this.getStartupBehavior(languageId) === LanguageStartupBehavior.Disabled) {
+				this._logService.debug(`[Runtime startup] Skipping language runtime discovery for language ID '${languageId}' because its startup behavior is disabled.`);
+				disabledLanguages.push(languageId);
+				return false;
+			}
+			return true;
+		});
 
 		// Activate all extensions that contribute language runtimes.
-		await this.activateExtensionsForLanguages(Array.from(this._languagePacks.keys()));
-		this._logService.debug(`[Runtime startup] All extensions contributing language runtimes have been activated.`);
+		await this.activateExtensionsForLanguages(enabledLanguages);
+
+		this._logService.debug(`[Runtime startup] All extensions contributing language runtimes have been activated: [${enabledLanguages.join(', ')}]`);
 
 		// Enter the discovery phase; this triggers us to ask each extension for its
 		// language runtime providers.
 		this.setStartupPhase(RuntimeStartupPhase.Discovering);
+
+		// Ask each extension to provide its language runtime metadata.
+		for (const manager of this._runtimeManagers) {
+			manager.discoverAllRuntimes(disabledLanguages);
+		}
 	}
 
 	/**
@@ -575,13 +690,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			try {
 
 				// Check the setting to see if we should be auto-starting.
-				const autoStart = this._configurationService.getValue<boolean>(
-					'interpreters.automaticStartup');
-				if (!autoStart) {
+				const startupBehavior = this.getStartupBehavior(metadata.languageId);
+				if (startupBehavior === LanguageStartupBehavior.Disabled ||
+					startupBehavior === LanguageStartupBehavior.Manual) {
 					this._logService.info(`Language runtime ` +
 						`${formatLanguageRuntimeMetadata(affiliated.metadata)} ` +
-						`is affiliated with this workspace, but won't be started because automatic ` +
-						`startup is disabled in configuration.`);
+						`is affiliated with this workspace, but won't be started because ` +
+						`the ${metadata.languageName} startup behavior is ${startupBehavior}.`);
 					return;
 				}
 
@@ -625,6 +740,24 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		return affiliated.metadata;
 	}
 
+	/**
+	 * Get all the recommended runtimes for this workspace.
+	 *
+	 * @param disabledLanguageIds The language IDs that are disabled.
+	 * @returns An array of recommended runtimes.
+	 */
+	private async getRecommendedRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
+
+		// Ask each extension to recommend runtimes for this workspace.
+		const metadata = await Promise.all(
+			this._runtimeManagers.map(
+				manager => manager.recommendWorkspaceRuntimes(disabledLanguageIds))
+		);
+
+		// Each extension host returns an array; flatten the array of arrays.
+		return metadata.flat();
+	}
+
 	private getAffiliatedRuntime(languageId: string): IAffiliatedRuntimeMetadata | undefined {
 		const stored = this._storageService.get(`${this.storageKey}.${languageId}`,
 			this.affiliationStorageScope());
@@ -645,7 +778,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 *
 	 * @returns An array of language IDs for which there is a runtime affiliated
 	 */
-	public getAffiliatedRuntimeLanguageIds(): string[] | undefined {
+	public getAffiliatedRuntimeLanguageIds(): string[] {
 		// Get the keys from the storage service and find the language Ids.
 		const languageIds = new Array<string>();
 		const keys = this._storageService.keys(this.affiliationStorageScope(),
@@ -720,20 +853,75 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
+	 * Starts all recommended runtimes for the workspace.
+	 */
+	private async startRecommendedLanguageRuntimes(disabledLanguageIds: string[], enabledLanguageIds: string[]): Promise<void> {
+		// Activate all the extensions that might recommend language runtimes
+		// for the enabled languages.
+		await this.activateExtensionsForLanguages(enabledLanguageIds);
+
+		// Have the extensions recommend runtimes for this workspace.
+		const runtimes = await this.getRecommendedRuntimes(disabledLanguageIds);
+		if (runtimes.length === 0) {
+			return;
+		}
+
+		// Start the recommended runtimes.
+		const promises = runtimes.map((runtime, idx) => {
+
+			// Register the runtime with the language runtime service.
+			// Pre-registering prevents the runtime from being unnecessarily
+			// validated later.
+			this._languageRuntimeService.registerRuntime(runtime);
+
+			if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
+				// Start the runtime immediately if it has Immediate startup
+				// behavior.
+				this.autoStartRuntime(runtime,
+					`The ${runtime.extensionId.value} extension recommended the runtime to be started in this workspace.`,
+					idx === 0);
+			} else {
+				// For other startup behaviors, we just save the runtime as the
+				// default (unless the workspace already has an affiliated
+				// runtime for this language).
+				const oldAffiliation = this.getAffiliatedRuntime(runtime.languageId);
+				if (!oldAffiliation) {
+					const affiliated: IAffiliatedRuntimeMetadata = {
+						metadata: runtime,
+						// Marking lastUsed = lastStarted = 0 will prevent
+						// auto-startup.
+						lastUsed: 0,
+						lastStarted: 0
+					};
+					this.saveAffiliatedRuntime(affiliated);
+				}
+			}
+		});
+
+		await Promise.all(promises);
+	}
+
+	/**
 	 * Starts all affiliated runtimes for the workspace.
 	 */
-	private async startAffiliatedLanguageRuntimes(): Promise<void> {
-		this.setStartupPhase(RuntimeStartupPhase.Starting);
-		const languageIds = this.getAffiliatedRuntimeLanguageIds();
+	private async startAffiliatedLanguageRuntimes(disabledLanguageIds: string[], _enabledLanguageIds: string[]): Promise<void> {
+		let languageIds = this.getAffiliatedRuntimeLanguageIds();
+
+		// Remove any fully disabled languages
+		languageIds = languageIds.filter(languageId => {
+			return !disabledLanguageIds.includes(languageId);
+		});
+
+		// Ensure the startup behavior is set to 'Always' or 'Auto' for each language.
+		languageIds = languageIds.filter(languageId => {
+			const startupBehavior = this.getStartupBehavior(languageId);
+			return startupBehavior === LanguageStartupBehavior.Always || startupBehavior === LanguageStartupBehavior.Auto;
+		});
 
 		// No affiliated runtimes; move on to the next phase.
 		if (!languageIds) {
 			return;
 		}
-
-		// Activate all the extensions that provide language runtimes for the
-		// affiliated languages.
-		await this.activateExtensionsForLanguages(languageIds);
 
 		// Start the affiliated runtimes.
 		languageIds.map(languageId => {
@@ -752,6 +940,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				return true;
 			}
 
+			// Runtimes that have never been started or used are not
+			// auto-started; they are just used to set defaults.
+			if (affiliation.lastStarted === 0 &&
+				affiliation.lastUsed === 0) {
+				this._logService.debug(`[Runtime startup] Affiliated runtime ` +
+					`${formatLanguageRuntimeMetadata(affiliation.metadata)} ` +
+					`not marked for autostart`);
+
+				return false;
+			}
+
 			// Compare the last used time to the last started time; log if
 			// we're going to forget a runtime.
 			if (affiliation.lastStarted > affiliation.lastUsed) {
@@ -767,7 +966,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Sort the affiliations by last used time, so that the most recently
 			// used runtime is started first
 			return b.lastUsed - a.lastUsed;
-		}).map((affiliation, idx) => {
+		}).map(async (affiliation, idx) => {
+			if (idx === 0) {
+				// Let the UI know we're about to try starting this session
+				this._onWillAutoStartRuntime.fire({
+					runtime: affiliation.metadata,
+					newSession: true
+				});
+			}
+
+			// Activate the associated extension
+			await this.activateExtensionsForLanguages([affiliation.metadata.languageId]);
+
 			// Start each runtime. Activate the first one as soon as it's
 			// ready; let the others start in the background.
 			this.startAffiliatedRuntime(affiliation, idx === 0);
@@ -844,34 +1054,21 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		const affiliatedRuntimeMetadata = affiliatedRuntime.metadata;
 
-		// Check the setting to see if we should be auto-starting.
-		const autoStart = this._configurationService.getValue<boolean>(
-			'interpreters.automaticStartup');
-
-		if (autoStart) {
-
-			if (affiliatedRuntimeMetadata.startupBehavior === LanguageRuntimeStartupBehavior.Manual) {
-				this._logService.info(`Language runtime ` +
-					`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
-					`is affiliated with this workspace, but won't be started because its startup ` +
-					`behavior is manual.`);
-				return;
-			}
-
-			// Save the start time of the affliated runtime.
-			affiliatedRuntime.lastStarted = Date.now();
-			this.saveAffiliatedRuntime(affiliatedRuntime);
-
-			this._runtimeSessionService.autoStartRuntime(affiliatedRuntimeMetadata,
-				`Affiliated ${affiliatedRuntimeMetadata.languageName} runtime for workspace`,
-				activate);
-		} else {
+		if (affiliatedRuntimeMetadata.startupBehavior === LanguageRuntimeStartupBehavior.Manual) {
 			this._logService.info(`Language runtime ` +
 				`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
-				`is affiliated with this workspace, but won't be started because automatic ` +
-				`startup is disabled in configuration.`);
+				`is affiliated with this workspace, but won't be started because its startup ` +
+				`behavior is manual.`);
 			return;
 		}
+
+		// Save the start time of the affiliated runtime.
+		affiliatedRuntime.lastStarted = Date.now();
+		this.saveAffiliatedRuntime(affiliatedRuntime);
+
+		this.autoStartRuntime(affiliatedRuntimeMetadata,
+			`Affiliated ${affiliatedRuntimeMetadata.languageName} runtime for workspace`,
+			activate);
 	}
 
 	/**
@@ -940,6 +1137,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		this.setStartupPhase(RuntimeStartupPhase.Reconnecting);
 
+		// Sort the sessions by last used time, so that we reconnect to the
+		// most recently used sessions first. Default 0 so we can restore
+		// sessions that didn't persist this information.
+		sessions.sort((a, b) => (b.lastUsed ?? 0) - (a.lastUsed ?? 0));
+
+		// Let the UI know we're about to try reconnecting to this session
+		this._onWillAutoStartRuntime.fire({
+			runtime: sessions[0].runtimeMetadata,
+			newSession: false
+		});
+
 		// Activate any extensions needed for the sessions that are persistent on the machine.
 		const activatedExtensions: Array<ExtensionIdentifier> = [];
 		await Promise.all(sessions.filter(async session =>
@@ -999,14 +1207,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Remove all the sessions that are no longer valid.
 		sessions = sessions.filter((_, i) => validSessions[i]);
 
-		// Sort the sessions by last used time, so that we reconnect to the
-		// most recently used sessions first. Default 0 so we can restore
-		// sessions that didn't persist this information.
-		sessions.sort((a, b) => (b.lastUsed ?? 0) - (a.lastUsed ?? 0));
-
 		// Reconnect to the remaining sessions.
 		this._logService.debug(`Reconnecting to sessions: ` +
 			sessions.map(session => session.metadata.sessionName).join(', '));
+
+		// Keep track of whether we are expecting to see the first console
+		// session
+		let firstConsole = true;
 
 		await Promise.all(sessions.map(async (session, idx) => {
 			const marker =
@@ -1026,9 +1233,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 			this._logService.debug(`${marker}: Restoring session for ${session.metadata.sessionName}`);
 
-			// Reconnect to the session; activate it if it is the first session
+			// We want to activate the first console session we see, but no
+			// following sessions
+			const activate = firstConsole;
+			if (!session.metadata.notebookUri) {
+				firstConsole = false;
+			}
+
+			// Reconnect to the session; activate it if it is the first console
+			// session
 			await this._runtimeSessionService.restoreRuntimeSession(
-				session.runtimeMetadata, session.metadata, idx === 0);
+				session.runtimeMetadata, session.metadata, activate);
 		}));
 	}
 
@@ -1164,6 +1379,59 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// We include the workspace ID in the key since ephemeral storage can
 		// be shared among workspaces in e.g. Positron Server.
 		return `${PERSISTENT_WORKSPACE_SESSIONS}.${this._workspaceContextService.getWorkspace().id}`;
+	}
+
+	/**
+	 * Gets the startup behavior for a language.
+	 *
+	 * @param languageId The language ID for which to get the startup behavior.
+	 * @returns The startup behavior for the language.
+	 */
+	private getStartupBehavior(languageId: string): LanguageStartupBehavior {
+		return this._configurationService.getValue(
+			'interpreters.startupBehavior', { overrideIdentifier: languageId });
+	}
+
+
+	/**
+	 * Fires the main startup sequence, possibly after waiting for the
+	 * workspace to be trusted.
+	 */
+	private async startupAfterTrust(): Promise<void> {
+		if (this._workspaceTrustManagementService.isWorkspaceTrusted()) {
+			// In a trusted workspace, we can start the startup sequence
+			// immediately.
+			await this.startupSequence();
+		} else {
+			// If we are not in a trusted workspace, wait for the workspace to become
+			// trusted before starting the startup sequence.
+			this.setStartupPhase(RuntimeStartupPhase.AwaitingTrust);
+			this._register(this._workspaceTrustManagementService.onDidChangeTrust((trusted) => {
+				if (!trusted) {
+					return;
+				}
+				// If the workspace becomse trusted while we are awaiting trust,
+				// move on to the startup sequence.
+				if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust) {
+					this.startupSequence();
+				}
+			}));
+		}
+	}
+
+	/**
+	 * Starts a new runtime session from implicit state.
+	 */
+	private async autoStartRuntime(
+		metadata: ILanguageRuntimeMetadata,
+		source: string,
+		activate: boolean
+	) {
+		this._onWillAutoStartRuntime.fire({
+			runtime: metadata,
+			newSession: true
+		});
+		this._runtimeSessionService.autoStartRuntime(metadata, source, activate);
 	}
 }
 

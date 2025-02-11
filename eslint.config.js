@@ -15,6 +15,12 @@ import pluginJsdoc from 'eslint-plugin-jsdoc';
 import pluginHeader from 'eslint-plugin-header';
 pluginHeader.rules.header.meta.schema = false;
 
+// --- Start Positron ---
+import globals from 'globals';
+import pluginReact from 'eslint-plugin-react';
+import pluginReactHooks from 'eslint-plugin-react-hooks';
+// --- End Positron ---
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ignores = fs.readFileSync(path.join(__dirname, '.eslint-ignore'), 'utf8')
 	.toString()
@@ -121,6 +127,49 @@ export default tseslint.config(
 			],
 		},
 	},
+	// --- Start Positron ---
+	// TSX (React)
+	{
+		files: [
+			'**/*.tsx',
+		],
+		plugins: {
+			'react': pluginReact,
+			// @ts-ignore
+			// This shows up with a red squiggly in the editor, but it works.
+			'react-hooks': pluginReactHooks,
+		},
+		settings: {
+			react: {
+				version: 'detect',
+			},
+		},
+		languageOptions: {
+			parserOptions: {
+				ecmaFeatures: {
+					jsx: true,
+				},
+			},
+			globals: {
+				...globals.browser,
+			},
+		},
+		rules: {
+			'react-hooks/rules-of-hooks': 'error',
+			// Make react-hooks/exhaustive-deps an error. Bad dependencies leads invariably to hard
+			// to find bugs.
+			'react-hooks/exhaustive-deps': 'error',
+			'react/jsx-sort-props': [
+				'error',
+				{
+					'callbacksLast': true,
+					'reservedFirst': true,
+					'shorthandFirst': true
+				}
+			]
+		},
+	},
+	// --- End Positron ---
 	// TS
 	{
 		files: [
@@ -246,7 +295,10 @@ export default tseslint.config(
 	{
 		files: [
 			'**/vscode.d.ts',
-			'**/vscode.proposed.*.d.ts'
+			'**/vscode.proposed.*.d.ts',
+			// --- Start Positron ---
+			'**/positron.d.ts'
+			// --- End Positron ---
 		],
 		languageOptions: {
 			parser: tseslint.parser,
@@ -422,7 +474,10 @@ export default tseslint.config(
 	// browser/electron-sandbox layer
 	{
 		files: [
-			'src/**/{browser,electron-sandbox}/**/*.ts'
+			// --- Start Positron ---
+			'src/**/{browser,electron-sandbox}/**/*.ts',
+			'src/**/*.tsx'	// Added for Positron.
+			// --- End  Positron ---
 		],
 		languageOptions: {
 			parser: tseslint.parser,

@@ -50,7 +50,7 @@ export const DataExplorer = () => {
 	const [layout, setLayout] = useState(context.instance.layout);
 	const [columnsWidth, setColumnsWidth] = useState(0);
 	const [animateColumnsWidth, setAnimateColumnsWidth] = useState(false);
-	const [columnsCollapsed, setColumnsCollapsed] = useState(false);
+	const [columnsCollapsed, setColumnsCollapsed] = useState(context.instance.isSummaryCollapsed);
 
 	// Dynamic column width layout.
 	useLayoutEffect(() => {

@@ -63,7 +63,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await expect(app.workbench.welcome.recentSection.locator('.empty-recent')).toHaveText('You have no recent folders,open a folderto start.');
 		});
 
-		test('Click on new project from the Welcome page', { tag: [tags.MODAL] }, async function ({ app }) {
+		test('Verify clicking on `new project` from the Welcome page opens wizard', { tag: [tags.MODAL] }, async function ({ app }) {
 			await app.workbench.welcome.newProjectButton.click();
 			await app.workbench.popups.popupCurrentlyOpen();
 
@@ -77,8 +77,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 	});
 
 	test.describe('Python', () => {
-		test('Create a new Python file from the Welcome page', async function ({ app, python }) {
-
+		test('Python - Verify clicking on `new file` from the Welcome page opens editor', async function ({ app, python }) {
 			await app.workbench.welcome.newFileButton.click();
 
 			await app.workbench.quickInput.selectQuickInputElementContaining('Python File');
@@ -88,20 +87,15 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await app.workbench.quickaccess.runCommand('View: Close Editor');
 		});
 
-		test('Create a new Python notebook from the Welcome page', async function ({ app, python }) {
-
+		test('Python - Verify clicking on `new notebook` from the Welcome page opens notebook and sets interpreter', async function ({ app, python }) {
 			await app.workbench.welcome.newNotebookButton.click();
-
 			await app.workbench.popups.clickOnModalDialogPopupOption('Python Notebook');
-
 			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
-
 			const expectedInterpreterVersion = new RegExp(`Python ${process.env.POSITRON_PY_VER_SEL}`, 'i');
 			await expect(app.workbench.notebooks.kernelDropdown).toHaveText(expectedInterpreterVersion);
 		});
 
-		test('Click on Python console from the Welcome page', async function ({ app, python }) {
-
+		test('Python - Verify clicking on `new console` from the Welcome page maximizes console and starts interpreter', async function ({ app, python }) {
 			await app.workbench.welcome.newConsoleButton.click();
 			await app.workbench.popups.popupCurrentlyOpen();
 
@@ -117,7 +111,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 	});
 
 	test.describe('R', () => {
-		test('Create a new R file from the Welcome page', async function ({ app, r }) {
+		test('R - Verify clicking on `new file` from the Welcome page opens editor', async function ({ app, r }) {
 			await app.workbench.welcome.newFileButton.click();
 
 			await app.workbench.quickInput.selectQuickInputElementContaining('R File');
@@ -125,7 +119,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/r-lang-file-icon/);
 		});
 
-		test('Click on R console from the Welcome page', async function ({ app, r }) {
+		test('R - Verify clicking on `new console` from the Welcome page maximizes console and starts interpreter', async function ({ app, r }) {
 			await app.workbench.welcome.newConsoleButton.click();
 			await app.workbench.popups.popupCurrentlyOpen();
 
@@ -139,7 +133,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await expect(app.workbench.layouts.panelViewsTab.and(app.code.driver.page.locator('.checked'))).toHaveText('Console');
 		});
 
-		test('Create a new R notebook from the Welcome page', async function ({ app, r }) {
+		test('R - Verify clicking on `new notebook` from the Welcome page opens notebook and sets interpreter', async function ({ app, r }) {
 			await app.workbench.welcome.newNotebookButton.click();
 
 			await app.workbench.popups.clickOnModalDialogPopupOption('R Notebook');

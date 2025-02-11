@@ -16,12 +16,7 @@ test.use({
 });
 
 test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
-	// Some tests are not tagged @:win because they would require a new master image.
 	test.describe('Python Plots', () => {
-
-		test.beforeAll(async function ({ userSettings }) {
-			await userSettings.set([['application.experimental.positronPlotsInEditorTab', 'true']]);
-		});
 
 		test.beforeEach(async function ({ app, interpreter }) {
 			// Set the viewport to a size that ensures all the plots view actions are visible
@@ -39,7 +34,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.waitForNoPlots();
 		});
 
-		test('Python - Verifies basic plot functionality - Dynamic Plot', {
+		test('Python - Verify basic plot functionality - Dynamic Plot', {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
 		}, async function ({ app, logger, headless, logsPath }, testInfo) {
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -81,7 +76,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.waitForNoPlots();
 		});
 
-		test('Python - Verifies basic plot functionality - Static Plot', {
+		test('Python - Verify basic plot functionality - Static Plot', {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
 		}, async function ({ app, logger, logsPath }, testInfo) {
 			logger.log('Sending code to console');
@@ -107,7 +102,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		});
 
-		test('Python - Verifies the plots pane action bar - Plot actions', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+		test('Python - Verify the plots pane action bar - Plot actions', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			const plots = app.workbench.plots;
 
 			// default plot pane state for action bar
@@ -154,7 +149,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await expect(plots.plotSizeButton).not.toBeDisabled();
 		});
 
-		test('Python - Verifies saving a Python plot', { tag: [tags.WIN] }, async function ({ app, logger }) {
+		test('Python - Verify saving a Python plot', { tag: [tags.WIN] }, async function ({ app, logger }) {
 			await test.step('Sending code to console to create plot', async () => {
 				await app.workbench.console.executeCode('Python', pythonDynamicPlot);
 				await app.workbench.plots.waitForCurrentPlot();
@@ -180,26 +175,26 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		});
 
-		test('Python - Verifies bqplot Python widget', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+		test('Python - Verify bqplot Python widget', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, bgplot, '.svg-figure');
 		});
 
-		test('Python - Verifies ipydatagrid Python widget', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+		test('Python - Verify ipydatagrid Python widget', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, ipydatagrid, 'canvas:nth-child(1)');
 		});
 
-		test('Python - Verifies ipyleaflet Python widget ', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+		test('Python - Verify ipyleaflet Python widget ', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, ipyleaflet, '.leaflet-container');
 		});
 
-		test.skip('Python - Verifies hvplot can load with plotly extension [C766660]', {
+		test.skip('Python - Verify hvplot can load with plotly extension [C766660]', {
 			tag: [tags.WEB, tags.WIN],
 			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5991' }],
 		}, async function ({ app }) {
 			await runScriptAndValidatePlot(app, plotly, '.plotly');
 		});
 
-		test('Python - Verifies ipytree Python widget', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+		test('Python - Verify ipytree Python widget', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, ipytree, '.jstree-container-ul');
 
 			// fullauxbar layout needed for some smaller windows
@@ -214,7 +209,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await expect(treeNodes).toHaveCount(3);
 		});
 
-		test('Python - Verifies ipywidget.Output Python widget', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+		test('Python - Verify ipywidget.Output Python widget', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await app.workbench.console.pasteCodeToConsole(ipywidgetOutput);
 			await app.workbench.console.sendEnterKey();
 			await app.workbench.plots.waitForWebviewPlot('.widget-output', 'attached');
@@ -231,7 +226,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		});
 
-		test.skip('Python - Verifies bokeh Python widget', {
+		test.skip('Python - Verify bokeh Python widget', {
 			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6045' }],
 			tag: [tags.WEB, tags.WIN]
 		}, async function ({ app }) {
@@ -292,7 +287,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.waitForNoPlots();
 		});
 
-		test('R - Verifies basic plot functionality', {
+		test('R - Verify basic plot functionality', {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN],
 			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5954 (see comment)' }]
 		}, async function ({ app, logger, headless, logsPath }, testInfo) {
@@ -339,7 +334,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.waitForNoPlots();
 		});
 
-		test('R - Verifies saving an R plot', { tag: [tags.WIN] }, async function ({ app, logger }) {
+		test('R - Verify saving an R plot', { tag: [tags.WIN] }, async function ({ app, logger }) {
 			await test.step('Sending code to console to create plot', async () => {
 				await app.workbench.console.executeCode('R', rSavePlot);
 				await app.workbench.plots.waitForCurrentPlot();
@@ -367,21 +362,21 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			});
 		});
 
-		test('R - Verifies rplot plot', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+		test('R - Verify rplot plot', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await app.workbench.console.pasteCodeToConsole(rplot);
 			await app.workbench.console.sendEnterKey();
 			await app.workbench.plots.waitForCurrentPlot();
 		});
 
-		test('R - Verifies highcharter plot', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+		test('R - Verify highcharter plot', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, highcharter, 'svg', app.web);
 		});
 
-		test('R - Verifies leaflet plot', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+		test('R - Verify leaflet plot', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, leaflet, '.leaflet', app.web);
 		});
 
-		test('R - Verifies plotly plot', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+		test('R - Verify plotly plot', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, rPlotly, '.plot-container', app.web);
 		});
 	});

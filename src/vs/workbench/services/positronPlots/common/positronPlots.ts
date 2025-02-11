@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -28,6 +28,20 @@ export enum HistoryPolicy {
 	AlwaysVisible = 'always',
 	Automatic = 'auto',
 	NeverVisible = 'never'
+}
+
+/**
+ * The possible dark filter modes.
+ */
+export enum DarkFilter {
+	/** The dark filter is always on. */
+	On = 'on',
+
+	/** The dark filter is always off (i.e. plots are always shown in their given colors */
+	Off = 'off',
+
+	/** The dark filter follows the current theme (i.e. it's on in dark themes and off in light themes) */
+	Auto = 'auto'
 }
 
 /**
@@ -65,6 +79,16 @@ export interface IPositronPlotsService {
 	 * Notifies subscribers when the history policy has changed.
 	 */
 	readonly onDidChangeHistoryPolicy: Event<HistoryPolicy>;
+
+	/**
+	 * Gets the current dark filter mode.
+	 */
+	readonly darkFilterMode: DarkFilter;
+
+	/**
+	 * Notifies subscribers when the dark filter mode has changed.
+	 */
+	readonly onDidChangeDarkFilterMode: Event<DarkFilter>;
 
 	/**
 	 * Notifies subscribers when a new Positron plot instance is created.
@@ -157,6 +181,11 @@ export interface IPositronPlotsService {
 	 * Selects a history policy.
 	 */
 	selectHistoryPolicy(policy: HistoryPolicy): void;
+
+	/**
+	 * Sets a new dark filter mode.
+	 */
+	setDarkFilterMode(mode: DarkFilter): void;
 
 	/**
 	 * Copies the current plot from the Plots View to the clipboard.

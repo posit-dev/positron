@@ -23,13 +23,13 @@ test.describe('Notebooks', {
 			await app.workbench.notebooks.closeNotebookWithoutSaving();
 		});
 
-		test('Python - Basic notebook creation and execution (code)', async function ({ app }) {
+		test('Python - Verify code cell execution in notebook', async function ({ app }) {
 			await app.workbench.notebooks.addCodeToFirstCell('eval("8**2")');
 			await app.workbench.notebooks.executeCodeInCell();
 			await app.workbench.notebooks.assertCellOutput('64');
 		});
 
-		test('Python - Basic notebook creation and execution (markdown)', async function ({ app }) {
+		test('Python - Verify markdown formatting in notebook', async function ({ app }) {
 			const randomText = Math.random().toString(36).substring(7);
 
 			await app.workbench.notebooks.insertNotebookCell('markdown');
@@ -50,13 +50,13 @@ test.describe('Notebooks', {
 			await app.workbench.notebooks.closeNotebookWithoutSaving();
 		});
 
-		test('R - Basic notebook creation and execution (code)', async function ({ app }) {
+		test('R - Verify code cell execution in notebook', async function ({ app }) {
 			await app.workbench.notebooks.addCodeToFirstCell('eval(parse(text="8**2"))');
 			await app.workbench.notebooks.executeCodeInCell();
 			await app.workbench.notebooks.assertCellOutput('[1] 64');
 		});
 
-		test('R - Basic notebook creation and execution (markdown)', async function ({ app }) {
+		test('R - Verify markdown formatting in notebook', async function ({ app }) {
 			const randomText = Math.random().toString(36).substring(7);
 
 			await app.workbench.notebooks.insertNotebookCell('markdown');

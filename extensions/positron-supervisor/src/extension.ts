@@ -1,18 +1,18 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 
-import { KallichoreAdapterApi } from './positron-supervisor';
+import { PositronSupervisorApi } from './positron-supervisor';
 import { KCApi } from './KallichoreAdapterApi';
 
 /** Singleton instance of the Kallichore API wrapper */
 export let API_INSTANCE: KCApi;
 
-export function activate(context: vscode.ExtensionContext): KallichoreAdapterApi {
+export function activate(context: vscode.ExtensionContext): PositronSupervisorApi {
 	const log = positron.window.createRawLogOutputChannel('Kernel Supervisor');
 	log.appendLine('Positron Kernel Supervisor activated');
 

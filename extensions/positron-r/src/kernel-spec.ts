@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 
-import { JupyterKernelSpec } from './jupyter-adapter';
+import { JupyterKernelSpec } from './positron-supervisor';
 import { getArkKernelPath } from './kernel';
 import { getPandocPath } from './pandoc';
 import { EXTENSION_ROOT_DIR } from './constants';

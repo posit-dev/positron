@@ -34,7 +34,7 @@ interface RuntimeSessionProps {
  */
 export const RuntimeSession = (props: RuntimeSessionProps) => {
 
-	const [sessionState, setSessionState] = useState(props.session.getRuntimeState());
+	const [sessionState, setSessionState] = useState(() => props.session.getRuntimeState());
 	const [expanded, setExpanded] = useState(false);
 
 	// Main useEffect hook.
@@ -44,7 +44,7 @@ export const RuntimeSession = (props: RuntimeSessionProps) => {
 			setSessionState(state);
 		}));
 		return () => disposableStore.dispose();
-	});
+	}, []);
 
 	// Render.
 	return (

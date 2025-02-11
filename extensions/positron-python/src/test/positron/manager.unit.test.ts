@@ -65,7 +65,7 @@ suite('Python runtime manager', () => {
     });
 
     test('constructor', () => {
-        verify(mockedPositronNamespaces.runtime!.registerLanguageRuntimeManager(pythonRuntimeManager)).once();
+        verify(mockedPositronNamespaces.runtime!.registerLanguageRuntimeManager('python', pythonRuntimeManager)).once();
     });
 
     /** Helper function to assert that a language runtime is registered. */

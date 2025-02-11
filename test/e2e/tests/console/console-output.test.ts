@@ -10,14 +10,14 @@ test.use({
 });
 
 test.describe('Console Output', { tag: [tags.WIN, tags.CONSOLE, tags.WEB] }, () => {
-	test('R - Console output in a loop with short pauses', async function ({ app, r }) {
+	test('R - Ensure output to console in a loop with short pauses', async function ({ app, r }) {
 		await app.workbench.console.pasteCodeToConsole(rCode);
 		await app.workbench.console.sendEnterKey();
 		await app.workbench.console.waitForConsoleContents('Why do programmers prefer dark mode');
 		await app.workbench.console.waitForConsoleContents('Because light attracts bugs!');
 	});
 
-	test('Long console output wraps appropriately', async function ({ app, page, python }) {
+	test('Python - Ensure long console output wraps appropriately', async function ({ app, python }) {
 		await app.workbench.console.waitForReady('>>>');
 		await app.workbench.console.pasteCodeToConsole(pyCode);
 		await app.workbench.console.sendEnterKey();

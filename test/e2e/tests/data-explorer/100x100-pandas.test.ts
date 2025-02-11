@@ -11,20 +11,22 @@ test.use({
 	suiteId: __filename
 });
 
-test('Data Explorer 100x100 - Python - Pandas', {
-	tag: [tags.WIN, tags.DATA_EXPLORER]
-}, async function ({ app, python }) {
-	test.slow();
+test.describe('Data Explorer 100x100', () => {
+	test('Python Pandas - verify data values in 100x100', {
+		tag: [tags.WIN, tags.DATA_EXPLORER]
+	}, async function ({ app, python }) {
+		test.slow();
 
-	const dataFrameName = 'pandas100x100';
-	await testDataExplorer(
-		app,
-		'Python',
-		[
-			'import pandas as pd',
-			`${dataFrameName} = pd.read_parquet("${parquetFilePath(app)}")`,
-		],
-		dataFrameName,
-		join(app.workspacePathOrFolder, 'data-files', '100x100', 'pandas-100x100.tsv')
-	);
+		const dataFrameName = 'pandas100x100';
+		await testDataExplorer(
+			app,
+			'Python',
+			[
+				'import pandas as pd',
+				`${dataFrameName} = pd.read_parquet("${parquetFilePath(app)}")`,
+			],
+			dataFrameName,
+			join(app.workspacePathOrFolder, 'data-files', '100x100', 'pandas-100x100.tsv')
+		);
+	});
 });

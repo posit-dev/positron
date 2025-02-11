@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -11,7 +11,7 @@ import {
 	RuntimeInitialState
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, RuntimeStartupPhase } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
@@ -817,10 +817,12 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		if (mimeTypes.includes('text/html')) {
 			// Check to see if there are any tags that look like they belong in
 			// a standalone HTML document.
-			if (/<(script|html|body|iframe)/.test(message.data['text/html'])) {
+			const htmlContent = message.data['text/html'];
+			if (/<(script|html|body|iframe|!DOCTYPE)/.test(htmlContent)) {
 				// This looks like standalone HTML.
-				if (message.data['text/html'].includes('<table')) {
-					// Tabular data? Probably best in the Viewer pane.
+				if (htmlContent.includes('<table') ||
+					htmlContent.includes('<!DOCTYPE')) {
+					// Tabular data or document? Probably best in the Viewer pane.
 					return RuntimeOutputKind.ViewerWidget;
 				} else {
 					// Guess that anything else is a plot.
@@ -1135,7 +1137,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 @extHostNamedCustomer(MainPositronContext.MainThreadLanguageRuntime)
 export class MainThreadLanguageRuntime
-	implements MainThreadLanguageRuntimeShape, ILanguageRuntimeSessionManager {
+	implements MainThreadLanguageRuntimeShape, ILanguageRuntimeSessionManager, IRuntimeManager {
 
 	private readonly _disposables = new DisposableStore();
 
@@ -1191,17 +1193,45 @@ export class MainThreadLanguageRuntime
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 		this._id = MainThreadLanguageRuntime.MAX_ID++;
 
-		this._runtimeStartupService.registerMainThreadLanguageRuntime(this._id);
-
 		this._disposables.add(
-			this._languageRuntimeService.onDidChangeRuntimeStartupPhase((phase) => {
-				if (phase === RuntimeStartupPhase.Discovering) {
-					this._proxy.$discoverLanguageRuntimes();
-				}
-			})
+			this._runtimeStartupService.registerRuntimeManager(this)
 		);
 
 		this._disposables.add(this._runtimeSessionService.registerSessionManager(this));
+	}
+
+	/**
+	 * Unique ID for this instance.
+	 *
+	 * (part of implementation of IRuntimeManager)
+	 */
+	get id() {
+		return this._id;
+	}
+
+	/**
+	 * Discover all of the runtimes that are available to the extension host.
+	 *
+	 * (part of implementation of IRuntimeManager)
+	 *
+	 * @param disabledLanguageIds The list of language IDs for which runtimes
+	 * should not be discovered
+	 */
+	async discoverAllRuntimes(disabledLanguageIds: string[]): Promise<void> {
+		this._proxy.$discoverLanguageRuntimes(disabledLanguageIds);
+	}
+
+	/**
+	 * Return a list of runtimes that are recommended for the current workspace.
+	 *
+	 * (part of implementation of IRuntimeManager)
+	 *
+	 * @param disabledLanguageIds The list of language IDs for which runtimes
+	 * should not be recommended
+	 * @returns A list of runtimes
+	 */
+	async recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
+		return this._proxy.$recommendWorkspaceRuntimes(disabledLanguageIds);
 	}
 
 	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void {
@@ -1308,7 +1338,6 @@ export class MainThreadLanguageRuntime
 			}
 		});
 
-		this._runtimeStartupService.unregisterMainThreadLanguageRuntime(this._id);
 		this._disposables.dispose();
 	}
 

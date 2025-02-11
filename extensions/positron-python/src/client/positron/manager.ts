@@ -22,7 +22,7 @@ import { IConfigurationService, IDisposable } from '../common/types';
 import { PythonRuntimeSession } from './session';
 import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
 import { EXTENSION_ROOT_DIR } from '../common/constants';
-import { JupyterKernelSpec } from '../jupyter-adapter.d';
+import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { checkAndInstallPython } from './extension';
 
@@ -54,7 +54,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
     ) {
         this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
 
-        positron.runtime.registerLanguageRuntimeManager(this);
+        positron.runtime.registerLanguageRuntimeManager('python', this);
 
         this.disposables.push(
             // When an interpreter is added, register a corresponding language runtime.
@@ -90,8 +90,17 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
      *
      * @returns An async generator that yields Python language runtime metadata.
      */
-    discoverRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+    discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
         return this.discoverPythonRuntimes();
+    }
+
+    /**
+     * Recommend a Python language runtime based on the workspace.
+     */
+    async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+        // TODO: This is where we could recommend a runtime based on the
+        // workspace, e.g. if it contains a virtualenv
+        return undefined;
     }
 
     /**
@@ -262,21 +271,14 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
      * @returns True if the session is valid, false otherwise
      */
     async validateSession(sessionId: string): Promise<boolean> {
-        const config = vscode.workspace.getConfiguration('kernelSupervisor');
-        if (config.get<boolean>('enable', true)) {
-            const ext = vscode.extensions.getExtension('positron.positron-supervisor');
-            if (!ext) {
-                throw new Error('Positron Supervisor extension not found');
-            }
-            if (!ext.isActive) {
-                await ext.activate();
-            }
-            return ext.exports.validateSession(sessionId);
+        const ext = vscode.extensions.getExtension('positron.positron-supervisor');
+        if (!ext) {
+            throw new Error('Positron Supervisor extension not found');
         }
-
-        // When not using the kernel supervisor, sessions are not
-        // persisted.
-        return false;
+        if (!ext.isActive) {
+            await ext.activate();
+        }
+        return ext.exports.validateSession(sessionId);
     }
 
     /**

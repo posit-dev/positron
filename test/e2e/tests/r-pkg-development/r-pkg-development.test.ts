@@ -24,7 +24,7 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 		}
 	});
 
-	test('R Package Development Tasks', async function ({ app, logger }) {
+	test('R - Verify can open, test, check, install, and restart package', async function ({ app, logger }) {
 		test.slow();
 
 		await test.step('Open R Package', async () => {
@@ -65,7 +65,7 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 			// await app.workbench.terminal.waitForTerminalText('✔ Installed testfun 0.0.0.9000');
 
 			await app.workbench.console.waitForConsoleContents('restarted', { timeout: 30000 });
-			await app.workbench.console.waitForConsoleContents('library(testfun)');
+			await app.workbench.console.waitForConsoleContents('library(testfun)', { timeout: 30000 });
 
 			await app.workbench.console.pasteCodeToConsole('(.packages())');
 			await app.workbench.console.sendEnterKey();

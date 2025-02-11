@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -23,5 +23,5 @@ interface StaticPlotThumbnailProps {
  * @returns The rendered component.
  */
 export const StaticPlotThumbnail = (props: StaticPlotThumbnailProps) => {
-	return <img src={props.plotClient.uri} alt={'Plot ' + props.plotClient.id} />;
+	return <img className='plot' src={props.plotClient.uri} alt={'Plot ' + props.plotClient.id} />;
 };

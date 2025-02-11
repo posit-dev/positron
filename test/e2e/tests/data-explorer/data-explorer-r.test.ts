@@ -22,7 +22,7 @@ test.afterEach(async function ({ runCommand }) {
 test.describe('Data Explorer - R ', {
 	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER]
 }, () => {
-	test('R - Verifies basic data explorer functionality', { tag: [tags.CRITICAL] }, async function ({ app, r, openFile, runCommand }) {
+	test('R - Verify basic data explorer functionality', { tag: [tags.CRITICAL] }, async function ({ app, r, openFile, runCommand }) {
 		// Execute code to generate data frames
 		await openFile('workspaces/generate-data-frames-r/simple-data-frames.r');
 		await app.workbench.editor.playButton.click();
@@ -40,7 +40,7 @@ test.describe('Data Explorer - R ', {
 		await verifyColumnData(app);
 	});
 
-	test('R - Open Data Explorer for the second time brings focus back', {
+	test('R - Verify opening Data Explorer for the second time brings focus back', {
 		annotation: [{
 			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5714'
 		}, {
@@ -63,7 +63,7 @@ test.describe('Data Explorer - R ', {
 		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: true });
 	});
 
-	test('R - Check blank spaces in data explorer', async function ({ app, r, executeCode }) {
+	test('R - Verify blank spaces in data explorer', async function ({ app, r, executeCode }) {
 		// Execute code to generate data frames
 		await executeCode('R', `df = data.frame(x = c("a ", "a", "   ", ""))`);
 

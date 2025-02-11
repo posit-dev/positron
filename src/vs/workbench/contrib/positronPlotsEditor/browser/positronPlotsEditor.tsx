@@ -31,6 +31,7 @@ import { PositronPlotsEditorInput } from './positronPlotsEditorInput.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronPlotClient, IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
+import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
 
 export interface IPositronPlotsEditorOptions extends IEditorOptions {
 }
@@ -100,6 +101,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 		@IPositronPlotsService private readonly _positronPlotsService: IPositronPlotsService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IPreferencesService private readonly _preferencesService: IPreferencesService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IHoverService private readonly _hoverService: IHoverService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
@@ -139,10 +141,12 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 				languageRuntimeService={this._languageRuntimeService}
 				positronPlotsService={this._positronPlotsService}
 				notificationService={this._notificationService}
+				preferencesService={this._preferencesService}
 			>
 				<EditorPlotsContainer
 					width={this._width}
 					height={this._height}
+					positronPlotsService={this._positronPlotsService}
 					plotClient={plotClient}
 				/>
 			</PositronPlotsContextProvider>

@@ -32,6 +32,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
+import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
 
 /**
  * PositronPlotsViewPane class.
@@ -155,6 +156,7 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 	 * @param notificationService The notification service.
 	 * @param openerService The opener service.
 	 * @param positronPlotsService The oositron plots service.
+	 * @param preferencesService The preferences service.
 	 * @param telemetryService The telemetry service.
 	 * @param themeService The theme service.
 	 * @param viewDescriptorService The view descriptor service.
@@ -175,6 +177,7 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 		@INotificationService private readonly notificationService: INotificationService,
 		@IOpenerService openerService: IOpenerService,
 		@IPositronPlotsService private readonly positronPlotsService: IPositronPlotsService,
+		@IPreferencesService private readonly preferencesService: IPreferencesService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
@@ -254,6 +257,7 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 				layoutService={this.layoutService}
 				positronPlotsService={this.positronPlotsService}
 				notificationService={this.notificationService}
+				preferencesService={this.preferencesService}
 				reactComponentContainer={this} />
 		);
 	}

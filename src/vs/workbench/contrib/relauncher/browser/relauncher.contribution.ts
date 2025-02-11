@@ -24,7 +24,9 @@ import { IUserDataSyncEnablementService, IUserDataSyncService, SyncStatus } from
 import { IUserDataSyncWorkbenchService } from '../../../services/userDataSync/common/userDataSync.js';
 
 interface IConfiguration extends IWindowsConfiguration {
-	update?: { mode?: string };
+	// --- Start Positron ---
+	update?: { mode?: string; autoUpdate?: boolean };
+	// --- End Positron ---
 	debug?: { console?: { wordWrap?: boolean } };
 	editor?: { accessibilitySupport?: 'on' | 'off' | 'auto' };
 	security?: { workspace?: { trust?: { enabled?: boolean } }; restrictUNCAccess?: boolean };
@@ -48,7 +50,10 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 		'workbench.enableExperiments',
 		'_extensionsGallery.enablePPE',
 		'security.restrictUNCAccess',
-		'accessibility.verbosity.debug'
+		// --- Start Positron ---
+		'accessibility.verbosity.debug',
+		'update.autoUpdate',
+		// --- End Positron ---
 	];
 
 	private readonly titleBarStyle = new ChangeObserver<TitlebarStyle>('string');
@@ -63,6 +68,9 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 	private readonly enablePPEExtensionsGallery = new ChangeObserver('boolean');
 	private readonly restrictUNCAccess = new ChangeObserver('boolean');
 	private readonly accessibilityVerbosityDebug = new ChangeObserver('boolean');
+	// --- Start Positron ---
+	private readonly autoUpdate = new ChangeObserver('boolean');
+	// --- End Positron ---
 
 	constructor(
 		@IHostService private readonly hostService: IHostService,
@@ -124,6 +132,10 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 
 			// Update mode
 			processChanged(this.updateMode.handleChange(config.update?.mode));
+
+			// --- Start Positron ---
+			processChanged(this.autoUpdate.handleChange(config.update?.autoUpdate));
+			// --- End Positron ---
 
 			// On linux turning on accessibility support will also pass this flag to the chrome renderer, thus a restart is required
 			if (isLinux && typeof config.editor?.accessibilitySupport === 'string' && config.editor.accessibilitySupport !== this.accessibilitySupport) {

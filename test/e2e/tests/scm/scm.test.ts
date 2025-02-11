@@ -10,11 +10,11 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('SCM', {
+test.describe('Source Content Management', {
 	tag: [tags.SCM, tags.WEB, tags.WIN]
 }, () => {
 
-	test('Verify SCM Functionality', async function ({ app, openFile }) {
+	test('Verify SCM Tracks File Modifications, Staging, and Commit Actions', async function ({ app, openFile }) {
 
 		const file = 'chinook-sqlite.py';
 		await test.step('Open file and add a new line to it', async () => {
@@ -59,7 +59,5 @@ test.describe('SCM', {
 			// git user for a real commit to take place:
 			// await app.workbench.scm.verifyCurrentHistoryItem(message);
 		});
-
-
 	});
 });

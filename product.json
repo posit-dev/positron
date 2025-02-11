@@ -1,7 +1,7 @@
 {
 	"nameShort": "Positron",
 	"nameLong": "Positron",
-	"positronVersion": "2025.02.0",
+	"positronVersion": "2025.03.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
@@ -37,7 +37,7 @@
 	"urlProtocol": "positron",
 	"webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/",
 	"updateUrl": "https://cdn.posit.co/positron",
-	"downloadUrl": "https://github.com/posit-dev/positron/releases",
+	"downloadUrl": "https://positron.posit.co/download.html",
 	"builtInExtensions": [
 		{
 			"name": "ms-vscode.js-debug-companion",
@@ -245,7 +245,8 @@
 	},
 	"linkProtectionTrustedDomains": [
 		"https://open-vsx.org",
-		"https://github.com/posit-dev/positron"
+		"https://github.com/posit-dev/positron",
+		"https://positron.posit.co"
 	],
 	"extensionsEnabledWithApiProposalVersion": [
 		"GitHub.copilot-chat"
