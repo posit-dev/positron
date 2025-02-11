@@ -25,7 +25,7 @@ import {
 } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 import { PositronSupervisorApi, JupyterKernelSpec, JupyterLanguageRuntimeSession } from '../positron-supervisor.d';
-import { traceInfo, traceWarn } from '../logging';
+import { traceInfo } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { PythonLsp, LspState } from './lsp';
 import { whenTimeout } from './util';
@@ -34,12 +34,13 @@ import { IEnvironmentVariablesProvider, IEnvironmentVariablesService } from '../
 import { PythonRuntimeExtraData } from './runtime';
 import { JediLanguageServerAnalysisOptions } from '../activation/jedi/analysisOptions';
 import { ILanguageServerOutputChannel } from '../activation/types';
-import { IWorkspaceService } from '../common/application/types';
+import { IApplicationShell, IWorkspaceService } from '../common/application/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { IPythonExecutionFactory } from '../common/process/types';
+import { shouldUseBundledIpykernel } from './ipykernel';
 
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
@@ -73,6 +74,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The current state of the runtime */
     private _state: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 
+    /** The service for managing application UI interactions */
+    private _applicationShell: IApplicationShell;
+
     /** The service for installing Python packages */
     private _installer: IInstaller;
 
@@ -88,9 +92,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The service for executing Python code */
     private _pythonExecutionFactory: IPythonExecutionFactory;
 
-    /** The service for managing the workspace */
-    private _workspaceService: IWorkspaceService;
-
     /**
      * Map of parent message IDs currently handled by IPyWidgets output widget comms,
      * keyed by comm ID.
@@ -103,6 +104,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     /** The Python interpreter executable path */
     private _pythonPath: string;
+
+    /** Whether to use the bundled ipykernel */
+    private _useBundledIpykernel: boolean | undefined;
 
     dynState: positron.LanguageRuntimeDynState;
 
@@ -123,6 +127,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             throw new Error(`Runtime metadata missing Python path: ${JSON.stringify(runtimeMetadata)}`);
         }
         this._pythonPath = extraData.pythonPath;
+        this._useBundledIpykernel = extraData.useBundledIpykernel;
 
         this._queue = new PQueue({ concurrency: 1 });
 
@@ -135,12 +140,12 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this.onStateChange(state);
         });
 
+        this._applicationShell = serviceContainer.get<IApplicationShell>(IApplicationShell);
         this._installer = this.serviceContainer.get<IInstaller>(IInstaller);
         this._interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
         this._interpreterPathService = serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
         this._envVarsService = serviceContainer.get<IEnvironmentVariablesService>(IEnvironmentVariablesService);
         this._pythonExecutionFactory = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
-        this._workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
     }
 
     onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
@@ -250,15 +255,23 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     private async _setupIpykernel(interpreter: PythonEnvironment, kernelSpec: JupyterKernelSpec): Promise<void> {
-        // Use the bundled ipykernel.
-        // If disabled, or if ipykernel is not bundled for the interpreter, fall back to installing ipykernel.
-        const useBundledIpykernel = this._workspaceService
-            .getConfiguration('python')
-            .get<boolean>('useBundledIpykernel', true);
-        if (useBundledIpykernel) {
-            const success = await this._addIpykernelToPythonPath(interpreter, kernelSpec);
-            if (success) {
+        // _useBundledIpykernel may be undefined for a reticulate session, set it if needed.
+        if (this._useBundledIpykernel === undefined) {
+            this._useBundledIpykernel = await shouldUseBundledIpykernel(interpreter, this.serviceContainer);
+        }
+
+        // Use the bundled ipykernel if requested.
+        if (this._useBundledIpykernel) {
+            try {
+                await this._addIpykernelToPythonPath(interpreter, kernelSpec);
                 return;
+            } catch (err) {
+                this._applicationShell.showErrorMessage(
+                    vscode.l10n.t(
+                        'Failed to use the bundled ipykernel, falling back to a manual installation. Reason: {0}',
+                        JSON.stringify(err),
+                    ),
+                );
             }
         }
 
@@ -269,50 +282,29 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     private async _addIpykernelToPythonPath(
         interpreter: PythonEnvironment,
         kernelSpec: JupyterKernelSpec,
-    ): Promise<boolean> {
-        // TODO: Some of the `return false` should actually show a notification to the user.
+    ): Promise<void> {
         const pythonExecutionService = await this._pythonExecutionFactory.create({ pythonPath: interpreter.path });
         const info = await pythonExecutionService.getInterpreterInformation();
-        if (
-            !info ||
-            info.implementation !== 'cpython' ||
-            !info.version ||
-            info.version.major !== 3 ||
-            ![8, 9, 10, 11, 12, 13].includes(info.version.minor)
-        ) {
-            traceInfo(`Cannot use bundled ipykernel for unsupported interpreter: ${JSON.stringify(info)}`);
-            return false;
+        if (!info || !info.implementation || !info.version) {
+            // This shouldn't happen.
+            throw new Error(`Unable to get interpreter information`);
         }
 
+        // Append the bundle paths (defined in gulpfile.js) to the PYTHONPATH environment variable.
         if (!kernelSpec?.env) {
             kernelSpec.env = {};
         }
-
         const cpxSpecifier = `cp${info.version.major}${info.version.minor}`;
-        const cpxPath = path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', cpxSpecifier);
-        const py3Path = path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'py3');
-        const cp3Path = path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'cp3');
-
-        if (!fs.existsSync(cpxPath)) {
-            traceWarn(`Packaged dependencies for Positron Python kernel not found at ${cpxPath}`);
-            return false;
-        }
-        if (!fs.existsSync(py3Path)) {
-            traceWarn(`Packaged dependencies for Positron Python kernel not found at ${py3Path}`);
-            return false;
-        }
-        if (!fs.existsSync(cp3Path)) {
-            traceWarn(`Packaged dependencies for Positron Python kernel not found at ${cp3Path}`);
-            return false;
+        for (const specifier of [cpxSpecifier, 'py3', 'cp3']) {
+            const bundlePath = path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', specifier);
+            if (!fs.existsSync(bundlePath)) {
+                // This shouldn't happen. Did something go wrong during `npm install`?
+                throw new Error(`Bundled ipykernel dependencies not found at: ${bundlePath}`);
+            }
+            this._envVarsService.appendPythonPath(kernelSpec.env, bundlePath);
         }
 
         traceInfo(`Using bundled ipykernel for interpreter: ${interpreter.path}`);
-
-        this._envVarsService.appendPythonPath(kernelSpec.env, cpxPath);
-        this._envVarsService.appendPythonPath(kernelSpec.env, cp3Path);
-        this._envVarsService.appendPythonPath(kernelSpec.env, py3Path);
-
-        return true;
     }
 
     private async _installIpykernel(interpreter: PythonEnvironment): Promise<void> {
