@@ -104,11 +104,10 @@ async function executeCommand(command: string, stdin?: string): Promise<{ stdout
  * Downloads the specified version of Python Environment Tool and replaces the local directory.
  *
  * @param version The version of Python Environment Tool to download.
- * @param githubPat A Github Personal Access Token with the appropriate rights
+ * @param githubPat An optional Github Personal Access Token with the appropriate rights
  *  to download the release.
- * @param gitCredential Whether the PAT originated from the `git credential` command.
  */
-async function downloadAndReplacePet(version: string, githubPat: string, gitCredential: boolean): Promise<void> {
+async function downloadAndReplacePet(version: string, githubPat: string | undefined): Promise<void> {
     try {
         const headers: Record<string, string> = {
             Accept: 'application/vnd.github.v3.raw', // eslint-disable-line
@@ -127,59 +126,6 @@ async function downloadAndReplacePet(version: string, githubPat: string, gitCred
         };
 
         const response = (await httpsGetAsync(requestOptions as any)) as any;
-
-        // Special handling for PATs originating from `git credential`.
-        if (gitCredential && response.statusCode === 200) {
-            // If the PAT hasn't been approved yet, do so now. This stores the credential in
-            // the system credential store (or whatever `git credential` uses on the system).
-            // Without this step, the user will be prompted for a username and password the
-            // next time they try to download PET.
-            const { stdout, stderr } = await executeCommand(
-                'git credential approve',
-                `protocol=https\n` +
-                    `host=github.com\n` +
-                    `path=/repos/posit-dev/positron-pet-builds/releases\n` +
-                    `username=\n` +
-                    `password=${githubPat}\n`,
-            );
-            console.log(stdout);
-            if (stderr) {
-                console.warn(
-                    `Unable to approve PAT. You may be prompted for a username and ` +
-                        `password the next time you download Python Environment Tools.`,
-                );
-                console.error(stderr);
-            }
-        } else if (gitCredential && response.statusCode > 400 && response.statusCode < 500) {
-            // This handles the case wherein we got an invalid PAT from `git credential`. In this
-            // case we need to clean up the PAT from the credential store, so that we don't
-            // continue to use it.
-            const { stdout, stderr } = await executeCommand(
-                'git credential reject',
-                `protocol=https\n` +
-                    `host=github.com\n` +
-                    `path=/repos/posit-dev/positron-pet-builds/releases\n` +
-                    `username=\n` +
-                    `password=${githubPat}\n`,
-            );
-            console.log(stdout);
-            if (stderr) {
-                console.error(stderr);
-                throw new Error(
-                    `The stored PAT returned by 'git credential' is invalid, but\n` +
-                        `could not be removed. Please manually remove the PAT from 'git credential'\n` +
-                        `for the host 'github.com'`,
-                );
-            }
-            throw new Error(
-                `The PAT returned by 'git credential' is invalid. Python Environment Tool cannot be\n` +
-                    `downloaded.\n\n` +
-                    `Check to be sure that your Personal Access Token:\n` +
-                    '- Has the `repo` scope\n' +
-                    '- Is not expired\n' +
-                    '- Has been authorized for the "posit-dev" organization on Github (Configure SSO)\n',
-            );
-        }
 
         let responseBody = '';
 
@@ -300,13 +246,13 @@ async function main() {
         return;
     }
 
-    // We need a Github Personal Access Token (PAT) to download PET. Because this is sensitive
-    // information, there are a lot of ways to set it. We try the following in order:
+    // We can optionally use a Github Personal Access Token (PAT) to download
+    // PET. Because this is sensitive information, there are a lot of ways to
+    // set it. We try the following in order:
 
     // (1) The GITHUB_PAT environment variable.
     // (2) The POSITRON_GITHUB_PAT environment variable.
     // (3) The git config setting 'credential.https://api.github.com.token'.
-    // (4) The git credential store.
 
     // (1) Get the GITHUB_PAT from the environment.
     let githubPat = process.env.GITHUB_PAT;
@@ -331,50 +277,11 @@ async function main() {
                 console.log(`Using Github PAT from git config setting 'credential.https://api.github.com.token'.`);
             }
         } catch (error) {
-            // We don't care if this fails; we'll try `git credential` next.
+            // We don't care if this fails; we'll try without a PAT.
         }
     }
 
-    // (4) If no GITHUB_PAT is set, try to get it from git credential.
-    if (!githubPat) {
-        // Explain to the user what's about to happen.
-        console.log(
-            `Attempting to retrieve a Github Personal Access Token from git in order\n` +
-                `to download Python Environment Tool ${packageJsonVersion}. If you are prompted for a username and\n` +
-                `password, enter your Github username and a Personal Access Token with the\n` +
-                `'repo' scope. You can read about how to create a Personal Access Token here: \n` +
-                `\n` +
-                `https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens\n` +
-                `\n` +
-                `If you don't want to set up a Personal Access Token now, just press Enter twice to set \n` +
-                `a blank value for the password. Python Environment Tool will not be downloaded, but you will still be\n` +
-                `able to run Positron with Python support.\n` +
-                `\n` +
-                `You can set a PAT later by running yarn again and supplying the PAT at this prompt,\n` +
-                `or by running 'git config credential.https://api.github.com.token YOUR_GITHUB_PAT'\n`,
-        );
-        const { stdout } = await executeCommand(
-            'git credential fill',
-            `protocol=https\n host=github.com\n path=/repos/posit-dev/pet/releases\n`,
-        );
-
-        gitCredential = true;
-        // Extract the `password = ` line from the output.
-        const passwordLine = stdout.split('\n').find((line: string) => line.startsWith('password='));
-        if (passwordLine) {
-            [, githubPat] = passwordLine.split('=');
-            console.log(`Using Github PAT returned from 'git credential'.`);
-        }
-    }
-
-    if (!githubPat) {
-        throw new Error(
-            `No Github PAT was found. Unable to download PET ${packageJsonVersion}.\n` +
-                `You can still run Positron with Python Support.`,
-        );
-    }
-
-    await downloadAndReplacePet(packageJsonVersion, githubPat, gitCredential);
+    await downloadAndReplacePet(packageJsonVersion, githubPat);
 }
 
 main().catch((error) => {
