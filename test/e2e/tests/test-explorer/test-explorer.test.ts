@@ -31,7 +31,7 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 	test('R - Verify Basic Test Explorer Functionality', async function ({ app, openFolder }) {
 		// Open R package embedded in qa-example-content
 		await openFolder(path.join('qa-example-content/workspaces/r_testing'));
-		await app.workbench.console.waitForReadyAndStarted('>', 10000);
+		await app.workbench.console.waitForReadyAndStarted('>');
 
 		await app.workbench.testExplorer.clickTestExplorerIcon();
 		await app.workbench.testExplorer.verifyTestFilesExist(['test-mathstuff.R']);
