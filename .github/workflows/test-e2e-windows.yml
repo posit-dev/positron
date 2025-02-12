@@ -147,14 +147,17 @@ jobs:
       - name: Verify Installed Versions
         shell: bash
         run: |
-          echo "Python 3.10.10: $(python --version)"
+          echo "Python 3.10.10: $(py -3.10 --version)"
           echo "Python 3.13.0: $(py -3.13 --version)"
 
+          echo "Finding Installed R Versions..."
+          where Rscript || which Rscript  # This shows all installed Rscript locations
+
           echo "R 4.4.0:"
-          "C:/Program Files/R/R-4.4.0/bin/Rscript.exe" -e 'cat(R.version.string)'
+          "$(where Rscript | findstr 4.4.0)" -e 'cat(R.version.string)'
 
           echo "R 4.4.2:"
-          "C:/Program Files/R/R-4.4.2/bin/Rscript.exe" -e 'cat(R.version.string)'
+          "$(where Rscript | findstr 4.4.2)" -e 'cat(R.version.string)'
 
       - name: Setup Graphviz
         uses: ts-graphviz/setup-graphviz@v2.0.2
