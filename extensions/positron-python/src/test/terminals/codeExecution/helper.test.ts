@@ -146,6 +146,13 @@ suite('Terminal - Code Execution Helper', async () => {
         editor.setup((e) => e.document).returns(() => document.object);
     });
 
+    // --- Start Positron ---
+    // sinon will double-wrap json
+    afterEach(() => {
+        sinon.restore();
+    });
+    // --- End Positron ---
+
     test('normalizeLines should handle attach_bracket_paste correctly', async () => {
         configurationService
             .setup((c) => c.getSettings(TypeMoq.It.isAny()))
