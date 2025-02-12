@@ -144,6 +144,14 @@ jobs:
         with:
           r-version: "4.4.2"
 
+      - name: Verify Installed Versions
+        run: |
+          echo "Python 3.10.10: $(python --version)"
+          echo "Python 3.13.0: $(py -3.13 --version)"
+
+          echo "R 4.4.0: $("C:/Program Files/R/R-4.4.0/bin/Rscript.exe" -e 'cat(R.version.string)')"
+          echo "R 4.4.2: $("C:/Program Files/R/R-4.4.2/bin/Rscript.exe" -e 'cat(R.version.string)')"
+
       - name: Setup Graphviz
         uses: ts-graphviz/setup-graphviz@v2.0.2
 
