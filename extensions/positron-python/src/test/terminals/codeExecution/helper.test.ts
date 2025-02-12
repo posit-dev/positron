@@ -40,7 +40,7 @@ import { IServiceContainer } from '../../../client/ioc/types';
 import { EnvironmentType, PythonEnvironment } from '../../../client/pythonEnvironments/info';
 import { CodeExecutionHelper } from '../../../client/terminals/codeExecution/helper';
 import { ICodeExecutionHelper } from '../../../client/terminals/types';
-import { PYTHON_PATH, getPythonSemVer } from '../../common';
+import { PYTHON_PATH } from '../../common';
 import { ReplType } from '../../../client/repl/types';
 
 // --- Start Positron ---
