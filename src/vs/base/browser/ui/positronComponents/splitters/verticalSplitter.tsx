@@ -59,7 +59,7 @@ type VerticalSplitterProps = VerticalSplitterBaseProps & VerticalSplitterCollaps
 export interface VerticalSplitterResizeParams {
 	readonly minimumWidth: number;
 	readonly maximumWidth: number;
-	readonly columnsWidth: number;
+	readonly startingWidth: number;
 }
 
 /**
@@ -275,7 +275,7 @@ export const VerticalSplitter = ({
 
 		// Setup the resize state.
 		const resizeParams = onBeginResize();
-		const startingWidth = collapsed ? sashWidth : resizeParams.columnsWidth;
+		const startingWidth = collapsed ? sashWidth : resizeParams.startingWidth;
 		const target = DOM.getWindow(e.currentTarget).document.body;
 		const clientX = e.clientX;
 		const styleSheet = createStyleSheet(target);

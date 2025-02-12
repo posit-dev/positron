@@ -370,7 +370,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 	const beginResizeNameColumnHandler = (): VerticalSplitterResizeParams => ({
 		minimumWidth: MINIMUM_NAME_COLUMN_WIDTH,
 		maximumWidth: Math.trunc(2 * props.width / 3),
-		columnsWidth: nameColumnWidth
+		startingWidth: nameColumnWidth
 	});
 
 	/**

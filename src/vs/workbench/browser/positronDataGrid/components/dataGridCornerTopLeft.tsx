@@ -38,7 +38,7 @@ export const DataGridCornerTopLeft = (props: DataGridCornerTopLeftProps) => {
 				onBeginResize={() => ({
 					minimumWidth: 20,
 					maximumWidth: context.instance.maximumColumnWidth,
-					columnsWidth: context.instance.rowHeadersWidth
+					startingWidth: context.instance.rowHeadersWidth
 				})}
 				onResize={async width =>
 					await context.instance.setRowHeadersWidth(width)

@@ -291,7 +291,7 @@ export const DataExplorer = () => {
 	const beginResizeHandler = (): VerticalSplitterResizeParams => ({
 		minimumWidth: MIN_COLUMN_WIDTH,
 		maximumWidth: Math.trunc(2 * width / 3),
-		columnsWidth
+		startingWidth: columnsWidth
 	});
 
 	/**
