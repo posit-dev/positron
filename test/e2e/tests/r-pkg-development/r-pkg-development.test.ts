@@ -27,11 +27,9 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 	test('R - Verify can open, test, check, install, and restart package', async function ({ app, openFolder, logger }) {
 		test.slow();
 
-		await test.step('Open R Package', async () => {
-			// Open an R package embedded in qa-example-content
-			await openFolder(path.join('qa-example-content/workspaces/r_testing'));
-			await app.workbench.console.waitForReadyAndStarted('>', 45000);
-		});
+		// Open an R package embedded in qa-example-content
+		await openFolder(path.join('qa-example-content/workspaces/r_testing'));
+		await app.workbench.console.waitForReadyAndStarted('>', 45000);
 
 		await test.step('Test R Package', async () => {
 			logger.log('Test R Package');
