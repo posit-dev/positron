@@ -82,23 +82,23 @@ export class QuickInput {
 		await this.code.driver.page.locator(QuickInput.QUICKINPUT_OK_BUTTON).click();
 	}
 
-	async arrowDownToSelectElementWithText(text: string): Promise<void> {
-		await test.step(`Arrow down to select "${text}"`, async () => {
+	async arrowDownToSelectOption(option: string): Promise<void> {
+		await test.step(`Arrow down to select "${option}"`, async () => {
 			const page = this.code.driver.page;
 			for (let i = 0; i < 50; i++) {
-				const element = page.getByRole('option', { name: text }).locator('a');
+				const quickInputOption = page.getByRole('option', { name: option }).locator('a');
 
-				if (await element.isVisible()) {
-					await element.click();
-					// await expect(page.getByLabel('input')).toHaveValue(new RegExp('/' + text + '/'));
-					await expect(element).not.toBeVisible();
+				if (await quickInputOption.isVisible()) {
+					await quickInputOption.click();
+					// this is important as it guarantees the dropdown has refreshed
+					await expect(quickInputOption).not.toBeVisible();
 					return;
 				}
 
 				await page.keyboard.press('ArrowDown');
 			}
 
-			throw new Error(`Element with text "${text}" not found`);
+			throw new Error(`Element with text "${option}" not found`);
 		});
 	}
 }

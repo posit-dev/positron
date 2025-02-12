@@ -176,7 +176,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 				const folderNames = folderPath.split('/');
 				for (const folderName of folderNames) {
-					await app.workbench.quickInput.arrowDownToSelectElementWithText(folderName);
+					await app.workbench.quickInput.arrowDownToSelectOption(folderName);
 				}
 
 				await app.workbench.quickInput.clickOkButton();
