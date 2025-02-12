@@ -143,6 +143,11 @@ export class Console {
 		await this.waitForConsoleContents('restarted', { timeout });
 	}
 
+	async waitForInterpretersToFinishLoading() {
+		// ensure interpreter(s) containing starting/discovering do not exist in DOM
+		await expect(this.code.driver.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 50000 });
+	}
+
 	/**
 	 * Check if the console is ready with Python or R, or if no interpreter is running.
 	 * @throws An error if the console is not ready after the retry count.
@@ -150,8 +155,7 @@ export class Console {
 	async waitForReadyOrNoInterpreter() {
 		const page = this.code.driver.page;
 
-		// ensure interpreter(s) containing starting/discovering do not exist in DOM
-		await expect(page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 50000 });
+		await this.waitForInterpretersToFinishLoading();
 
 		// ensure we are on Console tab
 		await page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();

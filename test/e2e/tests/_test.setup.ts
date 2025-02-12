@@ -158,11 +158,28 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		});
 	},
 
-	// ex: await openDataFile(app, 'workspaces/large_r_notebook/spotify.ipynb');
+	// ex: await openDataFile('workspaces/large_r_notebook/spotify.ipynb');
 	openDataFile: async ({ app }, use) => {
 		await use(async (filePath: string) => {
 			await test.step(`Open data file: ${path.basename(filePath)}`, async () => {
 				await app.workbench.quickaccess.openDataFile(path.join(app.workspacePathOrFolder, filePath));
+			});
+		});
+	},
+
+	// ex: await openFolder(path.join('qa-example-content/workspaces/r_testing'));
+	openFolder: async ({ app }, use) => {
+		await use(async (folderPath: string) => {
+			await test.step(`Open folder: ${folderPath}`, async () => {
+				await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
+				await playwright.expect(app.workbench.quickInput.quickInputList.getByLabel('..', { exact: true }).locator('a')).toBeVisible();
+
+				const folderNames = folderPath.split('/');
+				for (const folderName of folderNames) {
+					await app.workbench.quickInput.arrowDownToSelectOption(folderName);
+				}
+
+				await app.workbench.quickInput.clickOkButton();
 			});
 		});
 	},
@@ -386,6 +403,7 @@ interface TestFixtures {
 	devTools: void;
 	openFile: (filePath: string) => Promise<void>;
 	openDataFile: (filePath: string) => Promise<void>;
+	openFolder: (folderPath: string) => Promise<void>;
 	runCommand: (command: string) => Promise<void>;
 	executeCode: (language: 'Python' | 'R', code: string) => Promise<void>;
 }

@@ -3,8 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
+
+const QUICK_INPUT_LIST = '.quick-input-widget .quick-input-list';
 
 export class QuickInput {
 
@@ -14,8 +16,11 @@ export class QuickInput {
 	// Note: this only grabs the label and not the description or detail
 	private static QUICK_INPUT_ENTRY_LABEL = `${this.QUICK_INPUT_RESULT} .quick-input-list-row > .monaco-icon-label .label-name`;
 	private static QUICKINPUT_OK_BUTTON = '.quick-input-widget .quick-input-action a:has-text("OK")';
+	quickInputList: Locator;
 
-	constructor(private code: Code) { }
+	constructor(private code: Code) {
+		this.quickInputList = this.code.driver.page.locator(QUICK_INPUT_LIST);
+	}
 
 	async waitForQuickInputOpened({ timeout = 10000 }: { timeout?: number } = {}): Promise<void> {
 		await expect(this.code.driver.page.locator(QuickInput.QUICK_INPUT_INPUT)).toBeVisible({ timeout });
@@ -68,10 +73,32 @@ export class QuickInput {
 	}
 
 	async selectQuickInputElementContaining(text: string): Promise<void> {
-		await this.code.driver.page.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`).first().click({ timeout: 10000 });
+		const element = `${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`;
+
+		await this.code.driver.page.locator(element).first().click({ force: true, timeout: 10000 });
 	}
 
-	async clickOkOnQuickInput(): Promise<void> {
+	async clickOkButton(): Promise<void> {
 		await this.code.driver.page.locator(QuickInput.QUICKINPUT_OK_BUTTON).click();
+	}
+
+	async arrowDownToSelectOption(option: string): Promise<void> {
+		await test.step(`Arrow down to select "${option}"`, async () => {
+			const page = this.code.driver.page;
+			for (let i = 0; i < 50; i++) {
+				const quickInputOption = page.getByRole('option', { name: option }).locator('a');
+
+				if (await quickInputOption.isVisible()) {
+					await quickInputOption.click();
+					// this is important as it guarantees the dropdown has refreshed
+					await expect(quickInputOption).not.toBeVisible();
+					return;
+				}
+
+				await page.keyboard.press('ArrowDown');
+			}
+
+			throw new Error(`Element with text "${option}" not found`);
+		});
 	}
 }

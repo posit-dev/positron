@@ -24,20 +24,12 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 		}
 	});
 
-	test('R - Verify can open, test, check, install, and restart package', async function ({ app, logger }) {
+	test('R - Verify can open, test, check, install, and restart package', async function ({ app, openFolder, logger }) {
 		test.slow();
 
-		await test.step('Open R Package', async () => {
-			// Navigate to https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
-			// This is an R package embedded in qa-example-content
-			await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
-			await app.workbench.quickInput.waitForQuickInputOpened();
-			await app.workbench.quickInput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
-			await app.workbench.quickInput.clickOkOnQuickInput();
-
-			// Wait for the console to be ready
-			await app.workbench.console.waitForReadyAndStarted('>', 45000);
-		});
+		// Open an R package embedded in qa-example-content
+		await openFolder(path.join('qa-example-content/workspaces/r_testing'));
+		await app.workbench.console.waitForReadyAndStarted('>', 45000);
 
 		await test.step('Test R Package', async () => {
 			logger.log('Test R Package');
