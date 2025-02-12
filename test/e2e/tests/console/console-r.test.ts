@@ -51,8 +51,9 @@ test.describe('Console Pane: R', {
 		// nothing appears in console after interrupting execution
 	});
 
-	// not enabled for WIN yet; need to add additional versions
-	test('R - Verify can use multiple interpreter versions', async function ({ app, r }) {
+	test('R - Verify can use multiple interpreter versions', {
+		tag: [tags.WIN]
+	}, async function ({ app, r }) {
 
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 
