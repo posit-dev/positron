@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -190,6 +190,11 @@ export async function makeMetadata(
 		path.join('~', rInst.binpath.substring(homedir.length)) :
 		rInst.binpath;
 
+	// Create the RScript path.
+	// The RScript path is the same as the R binary path, but with the 'R' or 'R.exe' executable
+	// replaced with 'RScript' or 'RScript.exe, respectively.
+	const rScriptPath = rInst.binpath.replace(/R(\.exe)?$/, 'RScript$1');
+
 	// Does the runtime path have 'homebrew' as a component? (we assume that
 	// it's a Homebrew installation if it does)
 	const isHomebrewInstallation = rInst.binpath.includes('/homebrew/');
@@ -216,11 +221,12 @@ export async function makeMetadata(
 	digest.update(rVersion);
 	const runtimeId = digest.digest('hex').substring(0, 32);
 
-	// Save the R home path and binary path as extra data.
+	// Save the R home path, binary path and RScript path as extra data.
 	// Also, whether this R installation is the "current" R version.
 	const extraRuntimeData: RMetadataExtra = {
 		homepath: rInst.homepath,
 		binpath: rInst.binpath,
+		rScriptPath: rScriptPath,
 		current: rInst.current,
 		reasonDiscovered: rInst.reasonDiscovered,
 	};

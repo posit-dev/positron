@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -151,14 +151,14 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		}),
 
 		vscode.commands.registerCommand('r.rScriptPath', async () => {
-			const binPath = RSessionManager.instance.getLastBinpath();
-			if (!binPath) {
-				console.error('[r.rScriptPath] Could not determine RScript path as no R session is available.');
-				return;
+			const session = RSessionManager.instance.getConsoleSession();
+			if (!session) {
+				throw new Error(`Cannot get RScript path; no R session available`);
 			}
-			// The RScript path is the same as the R binary path, but with the 'R' or 'R.exe'
-			// executable replaced with 'RScript' or 'RScript.exe'.
-			const rScriptPath = binPath.replace(/R(\.exe)?$/, 'RScript$1');
+			const rScriptPath = session.runtimeMetadata.extraRuntimeData.rScriptPath;
+			if (!rScriptPath) {
+				throw new Error(`Cannot get RScript path; no RScript path available`);
+			}
 			return rScriptPath;
 		}),
 
