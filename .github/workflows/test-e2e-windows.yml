@@ -150,14 +150,30 @@ jobs:
           echo "Python 3.10.10: $(py -3.10 --version)"
           echo "Python 3.13.0: $(py -3.13 --version)"
 
+          echo "Listing R Installations in C:/Program Files/R:"
+          dir "C:/Program Files/R"
+
           echo "Finding Installed R Versions..."
-          where Rscript || which Rscript  # This shows all installed Rscript locations
+          where Rscript || which Rscript  # Print all detected Rscript locations
+
+          # Manually define the paths if known
+          R44_0="C:/Program Files/R/R-4.4.0/bin/Rscript.exe"
+          R44_2="C:/Program Files/R/R-4.4.2/bin/Rscript.exe"
 
           echo "R 4.4.0:"
-          "$(where Rscript | findstr 4.4.0)" -e 'cat(R.version.string)'
+          if [[ -f "$R44_0" ]]; then
+            "$R44_0" -e 'cat(R.version.string)'
+          else
+            echo "R 4.4.0 not found!"
+          fi
 
           echo "R 4.4.2:"
-          "$(where Rscript | findstr 4.4.2)" -e 'cat(R.version.string)'
+          if [[ -f "$R44_2" ]]; then
+            "$R44_2" -e 'cat(R.version.string)'
+          else
+            echo "R 4.4.2 not found!"
+          fi
+
 
       - name: Setup Graphviz
         uses: ts-graphviz/setup-graphviz@v2.0.2
