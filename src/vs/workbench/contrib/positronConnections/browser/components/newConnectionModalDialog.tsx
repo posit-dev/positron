@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -61,10 +61,10 @@ const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDia
 	};
 
 	return <PositronModalDialog
+		height={NEW_CONNECTION_MODAL_DIALOG_HEIGHT}
 		renderer={props.renderer}
 		title={(() => localize('positron.newConnectionModalDialog.title', "Create New Connection"))()}
 		width={NEW_CONNECTION_MODAL_DIALOG_WIDTH}
-		height={NEW_CONNECTION_MODAL_DIALOG_HEIGHT}
 		onCancel={cancelHandler}
 	>
 		<div className='connections-new-connection-modal'>
@@ -72,17 +72,17 @@ const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDia
 				{
 					selectedDriver ?
 						<CreateConnection
-							services={props.services}
 							renderer={props.renderer}
-							onCancel={cancelHandler}
-							onBack={backHandler}
-							selectedDriver={selectedDriver} /> :
-						<ListDrivers
+							selectedDriver={selectedDriver}
 							services={props.services}
+							onBack={backHandler}
+							onCancel={cancelHandler} /> :
+						<ListDrivers
+							languageId={languageId}
+							services={props.services}
+							setLanguageId={setLanguageId}
 							onCancel={cancelHandler}
 							onSelection={(driver) => setSelectedDriver(driver)}
-							languageId={languageId}
-							setLanguageId={setLanguageId}
 						/>}
 			</ContentArea>
 		</div>

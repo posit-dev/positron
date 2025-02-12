@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -127,12 +127,12 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 	return (
 		<div
 			className={classNames}
-			onKeyDown={props.nestedActionBar ? undefined : keyDownHandler}
 			style={{
 				gap: optionalValue(props.gap, 0),
 				paddingLeft: optionalValue(props.paddingLeft, 0),
 				paddingRight: optionalValue(props.paddingRight, 0)
-			}}>
+			}}
+			onKeyDown={props.nestedActionBar ? undefined : keyDownHandler}>
 			{props.children}
 		</div>
 	);

@@ -39,7 +39,7 @@ export const DynamicPlotThumbnail = (props: DynamicPlotThumbnailProps) => {
 		props.plotClient.onDidCompleteRender((result) => {
 			setUri(result.uri);
 		});
-	});
+	}, [props.plotClient]);
 
 	// If the plot is not yet rendered yet (no URI), show a placeholder;
 	// otherwise, show the rendered plot.
@@ -47,7 +47,7 @@ export const DynamicPlotThumbnail = (props: DynamicPlotThumbnailProps) => {
 	// Consider: we probably want a more explicit loading state; as written we
 	// will show the old URI until the new one is ready.
 	if (uri) {
-		return <img className='plot' src={uri} alt={'Plot ' + props.plotClient.id} />;
+		return <img alt={'Plot ' + props.plotClient.id} className='plot' src={uri} />;
 	} else {
 		return <PlaceholderThumbnail />;
 	}

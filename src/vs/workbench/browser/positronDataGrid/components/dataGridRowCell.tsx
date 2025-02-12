@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -162,8 +162,8 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 				</>
 			}
 			<div
-				id={`data-grid-row-cell-content-${props.columnIndex}-${props.rowIndex}`}
 				className='content'
+				id={`data-grid-row-cell-content-${props.columnIndex}-${props.rowIndex}`}
 				style={{
 					paddingLeft: context.instance.horizontalCellPadding,
 					paddingRight: context.instance.horizontalCellPadding
@@ -177,7 +177,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 					onBeginResize={() => ({
 						minimumWidth: context.instance.minimumColumnWidth,
 						maximumWidth: context.instance.maximumColumnWidth,
-						columnsWidth: context.instance.getColumnWidth(props.columnIndex)
+						startingWidth: context.instance.getColumnWidth(props.columnIndex)
 					})}
 					onResize={async columnWidth =>
 						await context.instance.setColumnWidth(props.columnIndex, columnWidth)

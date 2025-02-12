@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -140,21 +140,21 @@ export class PositronConnectionsView
 		this.positronReactRenderer.render(
 			<PositronConnections
 				accessibilityService={this.accessibilityService}
-				configurationService={this.configurationService}
+				clipboardService={this.clipboardService}
 				commandService={this.commandService}
+				configurationService={this.configurationService}
+				connectionsService={this.connectionsService}
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
-				hoverService={this.hoverService}
-				keybindingService={this.keybindingService}
-				connectionsService={this.connectionsService}
-				layoutService={this.layoutService}
-				reactComponentContainer={this}
-				clipboardService={this.clipboardService}
-				notificationService={this.notificationService}
 				editorService={this.editorService}
+				hoverService={this.hoverService}
 				instantiationService={this.instantiationService}
-				modelService={this.modelService}
+				keybindingService={this.keybindingService}
 				languageRuntimeService={this.languageRuntimeService}
+				layoutService={this.layoutService}
+				modelService={this.modelService}
+				notificationService={this.notificationService}
+				reactComponentContainer={this}
 				runtimeAffiliationService={this.runtimeStartupService}
 				runtimeSessionService={this.runtimeSessionService}
 			/>

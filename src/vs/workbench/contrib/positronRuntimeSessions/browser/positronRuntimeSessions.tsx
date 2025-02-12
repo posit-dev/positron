@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -51,13 +51,13 @@ export const PositronSessions = (props: PropsWithChildren<PositronSessionsProps>
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.reactComponentContainer]);
 
 	// Render.
 	return (
 		<PositronSessionsContextProvider {...props}>
 			<div className='positron-sessions'>
-				<SessionsCore {...props} width={_width} height={_height} />
+				<SessionsCore {...props} height={_height} width={_width} />
 			</div>
 		</PositronSessionsContextProvider>
 	);

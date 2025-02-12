@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -163,8 +163,8 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				<Button
 					ref={sortingButtonRef}
 					className='sort-button'
-					tabIndex={-1}
 					mouseTrigger={MouseTrigger.MouseDown}
+					tabIndex={-1}
 					onPressed={dropdownPressed}
 				>
 					<div className='codicon codicon-positron-vertical-ellipsis' style={{ fontSize: 18 }} />
@@ -177,7 +177,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 					onBeginResize={() => ({
 						minimumWidth: context.instance.minimumColumnWidth,
 						maximumWidth: context.instance.maximumColumnWidth,
-						columnsWidth: context.instance.getColumnWidth(props.columnIndex)
+						startingWidth: context.instance.getColumnWidth(props.columnIndex)
 					})}
 					onResize={async columnWidth =>
 						await context.instance.setColumnWidth(props.columnIndex, columnWidth)

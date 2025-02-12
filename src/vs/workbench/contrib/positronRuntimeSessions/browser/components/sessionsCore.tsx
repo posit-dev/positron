@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -66,10 +66,10 @@ export const SessionsCore = (props: SessionsCoreProps) => {
 					{allSessions.map(session =>
 						<RuntimeSession
 							key={session.sessionId}
-							width={props.width}
 							height={adjustedHeight}
+							reactComponentContainer={props.reactComponentContainer}
 							session={session}
-							reactComponentContainer={props.reactComponentContainer} />
+							width={props.width} />
 					)}
 				</table>
 			</div>

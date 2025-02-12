@@ -23,5 +23,5 @@ interface StaticPlotThumbnailProps {
  * @returns The rendered component.
  */
 export const StaticPlotThumbnail = (props: StaticPlotThumbnailProps) => {
-	return <img className='plot' src={props.plotClient.uri} alt={'Plot ' + props.plotClient.id} />;
+	return <img alt={'Plot ' + props.plotClient.id} className='plot' src={props.plotClient.uri} />;
 };

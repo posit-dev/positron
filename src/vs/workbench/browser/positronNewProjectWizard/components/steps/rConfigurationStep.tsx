@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -109,10 +109,6 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 	// Render.
 	return (
 		<PositronWizardStep
-			title={(() => localize(
-				'rConfigurationStep.title',
-				"Set up project configuration"
-			))()}
 			backButtonConfig={{ onClick: props.back }}
 			cancelButtonConfig={{ onClick: props.cancel }}
 			okButtonConfig={{
@@ -123,13 +119,12 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 				))(),
 				disable: !selectedInterpreter
 			}}
+			title={(() => localize(
+				'rConfigurationStep.title',
+				"Set up project configuration"
+			))()}
 		>
 			<PositronWizardSubStep
-				title={(() =>
-					localize(
-						'rConfigurationStep.versionSubStep.title',
-						'R Version'
-					))()}
 				description={(() =>
 					localize(
 						'rConfigurationStep.versionSubStep.description',
@@ -149,12 +144,19 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 						</WizardFormattedText>
 					) : undefined
 				}
+				title={(() =>
+					localize(
+						'rConfigurationStep.versionSubStep.title',
+						'R Version'
+					))()}
 			>
 				<DropDownListBox
-					keybindingService={keybindingService}
-					layoutService={layoutService}
+					createItem={(item) => (
+						<InterpreterEntry
+							interpreterInfo={item.options.value}
+						/>
+					)}
 					disabled={!interpretersAvailable()}
-					title={interpreterDropdownTitle()}
 					entries={
 						interpretersAvailable()
 							? interpretersToDropdownItems(
@@ -163,12 +165,10 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 							)
 							: []
 					}
+					keybindingService={keybindingService}
+					layoutService={layoutService}
 					selectedIdentifier={selectedInterpreter?.runtimeId}
-					createItem={(item) => (
-						<InterpreterEntry
-							interpreterInfo={item.options.value}
-						/>
-					)}
+					title={interpreterDropdownTitle()}
 					onSelectionChanged={(item) =>
 						onInterpreterSelected(item.options.identifier)
 					}
@@ -183,18 +183,18 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 			>
 				<div className='renv-configuration'>
 					<Checkbox
+						initialChecked={context.useRenv}
 						label={(() =>
 							localize(
 								'rConfigurationStep.additionalConfigSubStep.useRenv.label',
 								"Use `renv` to create a reproducible environment"
 							))()}
 						onChanged={(checked) => (context.useRenv = checked)}
-						initialChecked={context.useRenv}
 					/>
 					<ExternalLink
 						className='renv-docs-external-link'
-						openerService={openerService}
 						href='https://rstudio.github.io/renv/articles/renv.html'
+						openerService={openerService}
 						title='https://rstudio.github.io/renv/articles/renv.html'
 					>
 						<div className='codicon codicon-link-external' />

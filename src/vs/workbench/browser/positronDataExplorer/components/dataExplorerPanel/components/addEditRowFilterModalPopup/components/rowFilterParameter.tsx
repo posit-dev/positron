@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -51,16 +51,16 @@ export const RowFilterParameter = forwardRef<HTMLInputElement, RowFilterParamete
 			>
 				<input
 					ref={inputRef}
-					type='text'
 					className='text-input'
 					placeholder={props.placeholder}
+					type='text'
 					value={text}
-					onFocus={() => setFocused(true)}
 					onBlur={() => setFocused(false)}
 					onChange={e => {
 						setText(e.target.value);
 						props.onTextChanged(e.target.value);
 					}}
+					onFocus={() => setFocused(true)}
 				/>
 			</div>
 		</div>

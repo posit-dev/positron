@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -168,13 +168,13 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	// Render method for the plot image.
 	const renderedImage = () => {
 		return <PanZoomImage
-			imageUri={uri}
 			description={props.plotClient.metadata.code ?
 				props.plotClient.metadata.code :
 				'Plot ' + props.plotClient.id}
-			zoom={props.zoom}
-			width={props.width}
 			height={props.height}
+			imageUri={uri}
+			width={props.width}
+			zoom={props.zoom}
 		/>;
 	};
 

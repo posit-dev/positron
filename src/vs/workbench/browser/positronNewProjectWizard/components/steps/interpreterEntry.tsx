@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -27,9 +27,9 @@ export const InterpreterEntry = ({ interpreterInfo }: InterpreterEntryProps) => 
 	return (
 		<DropdownEntry
 			codicon={interpreterInfo.preferred ? 'codicon-star-full' : undefined}
-			title={`${interpreterInfo.languageName} ${interpreterInfo.languageVersion}`}
-			subtitle={`${interpreterInfo.runtimePath}`}
 			group={interpreterInfo.runtimeSource}
+			subtitle={`${interpreterInfo.runtimePath}`}
+			title={`${interpreterInfo.languageName} ${interpreterInfo.languageVersion}`}
 		/>
 	);
 };

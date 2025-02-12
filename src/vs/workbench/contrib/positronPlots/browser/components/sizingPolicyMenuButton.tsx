@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -175,10 +175,10 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 
 	return (
 		<ActionBarMenuButton
+			actions={actions}
 			iconId='symbol-ruler'
 			text={activePolicyLabel}
 			tooltip={sizingPolicyTooltip}
-			actions={actions}
 		/>
 	);
 };

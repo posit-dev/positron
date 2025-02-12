@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -118,7 +118,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.positronHelpService, props.reactComponentContainer]);
 
 	// useEffect for currentHelpEntry.
 	useEffect(() => {
@@ -145,33 +145,33 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		<div className='action-bars'>
 			<PositronActionBarContextProvider {...props}>
 				<PositronActionBar
-					size='small'
 					borderBottom={true}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
+					size='small'
 				>
 					<ActionBarButton
+						ariaLabel={tooltipPreviousTopic}
 						disabled={!canNavigateBackward}
 						iconId='positron-left-arrow'
 						tooltip={tooltipPreviousTopic}
-						ariaLabel={tooltipPreviousTopic}
 						onPressed={() => props.positronHelpService.navigateBackward()}
 					/>
 					<ActionBarButton
+						ariaLabel={tooltipNextTopic}
 						disabled={!canNavigateForward}
 						iconId='positron-right-arrow'
 						tooltip={tooltipNextTopic}
-						ariaLabel={tooltipNextTopic}
 						onPressed={() => props.positronHelpService.navigateForward()}
 					/>
 
 					<ActionBarSeparator />
 
 					<ActionBarButton
-						iconId='positron-home'
-						tooltip={tooltipShowPositronHelp}
 						ariaLabel={tooltipShowPositronHelp}
 						disabled={true}
+						iconId='positron-home'
+						tooltip={tooltipShowPositronHelp}
 						onPressed={() => props.onHome()}
 					/>
 
@@ -183,28 +183,28 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 				</PositronActionBar>
 				<PositronActionBar
-					size='small'
-					gap={kSecondaryActionBarGap}
 					borderBottom={true}
+					gap={kSecondaryActionBarGap}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
+					size='small'
 				>
 					<ActionBarRegion location='left'>
 						{currentHelpTitle &&
 							<ActionBarMenuButton
+								actions={helpHistoryActions}
 								text={currentHelpTitle}
 								tooltip={tooltipHelpHistory}
-								actions={helpHistoryActions}
 							/>
 						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<ActionBarButton
+							align='right'
+							ariaLabel={tooltipShowPositronHelp}
+							disabled={currentHelpEntry === undefined}
 							iconId='positron-search'
 							tooltip={tooltipShowPositronHelp}
-							ariaLabel={tooltipShowPositronHelp}
-							align='right'
-							disabled={currentHelpEntry === undefined}
 							onPressed={() => currentHelpEntry?.showFind()}
 						/>
 					</ActionBarRegion>

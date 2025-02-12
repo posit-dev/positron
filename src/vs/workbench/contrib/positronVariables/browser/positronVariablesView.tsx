@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -279,14 +279,14 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				dataExplorerService={this._dataExplorerService}
-				notificationService={this._notificationService}
 				hoverService={this.hoverService}
 				keybindingService={this.keybindingService}
-				runtimeSessionService={this._runtimeSessionService}
 				languageRuntimeService={this._languageRuntimeService}
 				layoutService={this._layoutService}
+				notificationService={this._notificationService}
 				positronVariablesService={this._positronVariablesService}
 				reactComponentContainer={this}
+				runtimeSessionService={this._runtimeSessionService}
 			/>
 		);
 	}

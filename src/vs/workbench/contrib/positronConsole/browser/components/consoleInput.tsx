@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -990,11 +990,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			{historyBrowserActive &&
 				<HistoryBrowserPopup
 					bottomPx={historyBrowserBottomPx}
-					leftPx={historyBrowserLeftPx}
 					items={historyItems}
+					leftPx={historyBrowserLeftPx}
 					selectedIndex={historyBrowserSelectedIndex}
-					onSelected={acceptHistoryMatch}
-					onDismissed={disengageHistoryBrowser} />
+					onDismissed={disengageHistoryBrowser}
+					onSelected={acceptHistoryMatch} />
 			}
 		</div>
 	);

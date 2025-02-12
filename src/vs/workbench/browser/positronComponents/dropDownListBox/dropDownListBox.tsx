@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -113,8 +113,8 @@ export const DropDownListBox = <T extends NonNullable<any>, V,>(props: DropDownL
 	return (
 		<Button
 			ref={ref}
-			disabled={props.disabled}
 			className={positronClassNames('drop-down-list-box', props.className)}
+			disabled={props.disabled}
 			onPressed={() => {
 				// Create the renderer.
 				const renderer = new PositronModalReactRenderer({
@@ -130,10 +130,10 @@ export const DropDownListBox = <T extends NonNullable<any>, V,>(props: DropDownL
 				// Show the drop down list box modal popup.
 				renderer.render(
 					<DropDownListBoxModalPopup<T, V>
-						renderer={renderer}
 						anchorElement={ref.current}
-						entries={props.entries}
 						createItem={props.createItem}
+						entries={props.entries}
+						renderer={renderer}
 						onItemHighlighted={dropDownListBoxItem =>
 							setHighlightedDropDownListBoxItem(dropDownListBoxItem)
 						}
@@ -148,7 +148,7 @@ export const DropDownListBox = <T extends NonNullable<any>, V,>(props: DropDownL
 			<div className='title'>
 				<Title />
 			</div>
-			<div className='chevron' aria-hidden='true'>
+			<div aria-hidden='true' className='chevron'>
 				<div className='codicon codicon-chevron-down' />
 			</div>
 		</Button>
@@ -176,14 +176,14 @@ const DropDownListBoxModalPopup = <T, V,>(props: DropDownListBoxModalPopupProps<
 	// Render.
 	return (
 		<PositronModalPopup
-			renderer={props.renderer}
 			anchorElement={props.anchorElement}
-			popupPosition='auto'
-			popupAlignment='left'
-			width={props.anchorElement.offsetWidth}
-			minWidth={props.anchorElement.offsetWidth}
 			height={'min-content'}
 			keyboardNavigationStyle='menu'
+			minWidth={props.anchorElement.offsetWidth}
+			popupAlignment='left'
+			popupPosition='auto'
+			renderer={props.renderer}
+			width={props.anchorElement.offsetWidth}
 		>
 			<div className='drop-down-list-box-items'>
 				{props.entries.map((entry, index) => {

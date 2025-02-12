@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -139,15 +139,15 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 				hoverService={this._hoverService}
 				keybindingService={this._keybindingService}
 				languageRuntimeService={this._languageRuntimeService}
-				positronPlotsService={this._positronPlotsService}
 				notificationService={this._notificationService}
+				positronPlotsService={this._positronPlotsService}
 				preferencesService={this._preferencesService}
 			>
 				<EditorPlotsContainer
-					width={this._width}
 					height={this._height}
-					positronPlotsService={this._positronPlotsService}
 					plotClient={plotClient}
+					positronPlotsService={this._positronPlotsService}
+					width={this._width}
 				/>
 			</PositronPlotsContextProvider>
 		);

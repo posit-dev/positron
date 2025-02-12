@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -88,8 +88,8 @@ export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 		<ActionBarButton
 			ref={buttonRef}
 			{...props}
-			tooltip={tooltip}
 			disabled={props.disabled || commandDisabled}
+			tooltip={tooltip}
 			onPressed={() =>
 				positronActionBarContext.commandService.executeCommand(props.commandId)
 			}
