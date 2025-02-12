@@ -64,9 +64,13 @@ suite('Python Runtime Session', () => {
 
         const outputChannel = {} as ILanguageServerOutputChannel;
 
+        const workspaceConfiguration = {
+            get: () => undefined,
+        } as Partial<vscode.WorkspaceConfiguration>;
         const workspaceService = ({
             workspaceFolders: undefined,
             getWorkspaceFolder: () => undefined,
+            getConfiguration: () => workspaceConfiguration,
         } as Partial<IWorkspaceService>) as IWorkspaceService;
 
         const pythonSettings = ({ autoComplete: { extraPaths: [] } } as Partial<IPythonSettings>) as IPythonSettings;
