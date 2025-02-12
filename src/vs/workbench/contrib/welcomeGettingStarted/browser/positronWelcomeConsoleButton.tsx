@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -58,18 +58,18 @@ export function WelcomeConsoleButton(props: WelcomeConsoleButtonProps) {
 		});
 		renderer.render(
 			<PositronModalPopup
-				renderer={renderer}
 				anchorElement={ref.current}
-				popupPosition='bottom'
-				popupAlignment='left'
-				width={375}
 				height={'min-content'}
 				keyboardNavigationStyle='menu'
+				popupAlignment='left'
+				popupPosition='bottom'
+				renderer={renderer}
+				width={375}
 			>
 				<InterpreterGroups
 					languageRuntimeService={props.languageRuntimeService}
-					runtimeSessionService={props.runtimeSessionService}
 					runtimeAffiliationService={props.runtimeStartupService}
+					runtimeSessionService={props.runtimeSessionService}
 					onActivateRuntime={activateRuntime}
 					onStartRuntime={async (runtime: ILanguageRuntimeMetadata) => {
 						startRuntime(runtime);
@@ -82,11 +82,11 @@ export function WelcomeConsoleButton(props: WelcomeConsoleButtonProps) {
 	// Render.
 	return (
 		<ActionButton
-			className='positron-welcome-button'
 			ariaLabel={(() => localize('positron.welcome.newConsoleDescription', "Create a new console"))()}
+			className='positron-welcome-button'
 			onPressed={showPopup}
 		>
-			<div className='button-container' ref={ref}>
+			<div ref={ref} className='button-container'>
 				<div className={`button-icon codicon codicon-positron-new-console`} />
 				<div className='action-label'>
 					{(() => localize('positron.welcome.newConsole', "New Console"))()}

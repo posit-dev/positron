@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -28,11 +28,11 @@ export function WelcomeButtonInner(props: WelcomeButtonProps, ref?: React.Forwar
 	// Render.
 	return (
 		<ActionButton
-			className='positron-welcome-button'
 			ariaLabel={props.ariaLabel}
+			className='positron-welcome-button'
 			onPressed={props.onPressed}
 		>
-			<div className='button-container' ref={ref}>
+			<div ref={ref} className='button-container'>
 				<div className={`button-icon codicon codicon-${props.codicon}`} />
 				<div className='action-label'>
 					{props.label}

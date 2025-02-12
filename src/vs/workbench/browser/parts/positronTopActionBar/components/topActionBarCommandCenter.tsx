@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -63,16 +63,16 @@ export const TopActionBarCommandCenter = () => {
 	return (
 		<div className='top-action-bar-command-center' onClick={(e) => clickHandler(e)}>
 			<div className='left'>
-				<div className='codicon codicon-positron-search' aria-hidden='true' />
+				<div aria-hidden='true' className='codicon codicon-positron-search' />
 			</div>
 			<div className='center'>
-				<button className='search' ref={searchRef} onClick={(e) => clickHandler(e)}>
+				<button ref={searchRef} className='search' onClick={(e) => clickHandler(e)}>
 					<div className='action-bar-button-text'>Search</div>
 				</button>
 			</div>
 			<div className='right'>
-				<button className='drop-down' ref={dropdownRef} onClick={(e) => dropDownClickHandler(e)} aria-label={positronShowQuickAccess} >
-					<div className='icon codicon codicon-chevron-down' aria-hidden='true' />
+				<button ref={dropdownRef} aria-label={positronShowQuickAccess} className='drop-down' onClick={(e) => dropDownClickHandler(e)} >
+					<div aria-hidden='true' className='icon codicon codicon-chevron-down' />
 				</button>
 			</div>
 		</div>

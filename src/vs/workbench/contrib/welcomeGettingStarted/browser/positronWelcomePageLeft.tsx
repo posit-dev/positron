@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -36,12 +36,12 @@ export const PositronWelcomePageLeft = (props: PropsWithChildren<PositronWelcome
 	return (
 		<>
 			<PositronWelcomePageStart
-				keybindingService={props.keybindingService}
-				layoutService={props.layoutService}
 				commandService={props.commandService}
+				keybindingService={props.keybindingService}
+				languageRuntimeService={props.languageRuntimeService}
+				layoutService={props.layoutService}
 				runtimeSessionService={props.runtimesSessionService}
 				runtimeStartupService={props.runtimeStartupService}
-				languageRuntimeService={props.languageRuntimeService}
 			/>
 			<PositronWelcomePageHelp openerService={props.openerService} />
 		</>
@@ -61,13 +61,13 @@ export const createWelcomePageLeft = (
 	const renderer = new PositronReactRenderer(container);
 	renderer.render(
 		<PositronWelcomePageLeft
-			openerService={openerService}
-			keybindingService={keybindingService}
-			layoutService={layoutService}
 			commandService={commandService}
-			runtimesSessionService={runtimeSessionService}
-			runtimeStartupService={runtimeStartupService}
+			keybindingService={keybindingService}
 			languageRuntimeService={languageRuntimeService}
+			layoutService={layoutService}
+			openerService={openerService}
+			runtimeStartupService={runtimeStartupService}
+			runtimesSessionService={runtimeSessionService}
 		/>
 	);
 	return renderer;

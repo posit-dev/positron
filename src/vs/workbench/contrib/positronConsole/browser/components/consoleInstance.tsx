@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -615,19 +615,19 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			onClick={clickHandler}
 			onKeyDown={keyDownHandler}
 			onMouseDown={mouseDownHandler}
-			onWheel={wheelHandler}
-			onScroll={scrollHandler}>
+			onScroll={scrollHandler}
+			onWheel={wheelHandler}>
 			<div
 				ref={consoleInstanceContainerRef}
 				className='console-instance-container'
 				onWheel={scrollOverrideHandler}
 			>
 				<ConsoleInstanceItems
-					positronConsoleInstance={props.positronConsoleInstance}
-					editorFontInfo={editorFontInfo}
-					trace={trace}
-					runtimeAttached={runtimeAttached}
 					consoleInputWidth={consoleInputWidth}
+					editorFontInfo={editorFontInfo}
+					positronConsoleInstance={props.positronConsoleInstance}
+					runtimeAttached={runtimeAttached}
+					trace={trace}
 					onSelectAll={() => selectAllRuntimeItems()}
 				/>
 			</div>

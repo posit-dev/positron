@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -56,11 +56,6 @@ export const showNewFolderModalDialog = async (
 	// Show the new folder modal dialog.
 	renderer.render(
 		<NewFolderModalDialog
-			fileDialogService={fileDialogService}
-			labelService={labelService}
-			pathService={pathService}
-			renderer={renderer}
-			parentFolder={await fileDialogService.defaultFolderPath()}
 			createFolder={async result => {
 				// Create the folder path.
 				const folderURI = URI.joinPath(result.parentFolder, result.folder);
@@ -80,6 +75,11 @@ export const showNewFolderModalDialog = async (
 					}
 				);
 			}}
+			fileDialogService={fileDialogService}
+			labelService={labelService}
+			parentFolder={await fileDialogService.defaultFolderPath()}
+			pathService={pathService}
+			renderer={renderer}
 		/>
 	);
 };
@@ -163,11 +163,11 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 	// Render.
 	return (
 		<OKCancelModalDialog
-			renderer={props.renderer}
-			width={400}
-			height={300}
-			title={(() => localize('positronNewFolderModalDialogTitle', "New Folder"))()}
 			catchErrors
+			height={300}
+			renderer={props.renderer}
+			title={(() => localize('positronNewFolderModalDialogTitle', "New Folder"))()}
+			width={400}
 			onAccept={async () => {
 				if (isInputEmpty(result.folder)) {
 					throw new Error(localize('positron.folderNameNotProvided', "A folder name was not provided."));
@@ -179,11 +179,11 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 			<VerticalStack>
 				<LabeledTextInput
 					ref={folderNameRef}
-					label={(() => localize('positron.folderName', "Folder name"))()}
 					autoFocus
+					label={(() => localize('positron.folderName', "Folder name"))()}
+					validator={(x: string | number) => checkIfPathValid(x, { parentPath: result.parentFolder.path })}
 					value={result.folder}
 					onChange={e => setResult({ ...result, folder: e.target.value })}
-					validator={(x: string | number) => checkIfPathValid(x, { parentPath: result.parentFolder.path })}
 				/>
 				<LabeledFolderInput
 					label={(() => localize(

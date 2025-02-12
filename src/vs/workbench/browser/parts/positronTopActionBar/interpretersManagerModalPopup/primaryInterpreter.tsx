@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -69,7 +69,7 @@ export const PrimaryInterpreter = (props: PrimaryInterpreterProps) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.runtime.runtimeId, props.runtimeSessionService, session]);
 
 	// Render.
 	return (
@@ -87,10 +87,10 @@ export const PrimaryInterpreter = (props: PrimaryInterpreterProps) => {
 				</div>
 			</div>
 			<InterpreterActions
-				runtime={props.runtime}
-				onStart={props.onStart}
 				languageRuntimeService={props.languageRuntimeService}
-				runtimeSessionService={props.runtimeSessionService}>
+				runtime={props.runtime}
+				runtimeSessionService={props.runtimeSessionService}
+				onStart={props.onStart}>
 				{props.enableShowAllVersions &&
 					<PositronButton className='action-button' onPressed={props.onShowAllVersions}>
 						<span

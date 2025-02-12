@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -62,7 +62,7 @@ export const ConfirmDeleteModalDialog = (props: PropsWithChildren<ConfirmDeleteM
 				<div className='left-actions'>
 				</div>
 				<div className='right-actions'>
-					<PlatformNativeDialogActionBar secondaryButton={cancelButton} primaryButton={deleteButton} />
+					<PlatformNativeDialogActionBar primaryButton={deleteButton} secondaryButton={cancelButton} />
 				</div>
 			</div>
 		</PositronModalDialog>

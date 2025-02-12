@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -80,10 +80,10 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 			// Inform the user that the column selector data grid instance could not be created.
 			renderer.render(
 				<OKModalDialog
-					renderer={renderer}
-					width={400}
 					height={195}
+					renderer={renderer}
 					title={title}
+					width={400}
 					onAccept={async () => {
 						renderer.dispose();
 					}}
@@ -109,11 +109,11 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 			// Show the drop down list box modal popup.
 			renderer.render(
 				<ColumnSelectorModalPopup
-					configurationService={props.configurationService}
-					renderer={renderer}
-					columnSelectorDataGridInstance={columnSelectorDataGridInstance}
 					anchorElement={ref.current}
+					columnSelectorDataGridInstance={columnSelectorDataGridInstance}
+					configurationService={props.configurationService}
 					focusInput={focusInput}
+					renderer={renderer}
 					onItemSelected={columnSchema => {
 						renderer.dispose();
 						setSelectedColumnSchema(columnSchema);
@@ -157,7 +157,7 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 					</div>
 				)
 			}
-			<div className='chevron' aria-hidden='true'>
+			<div aria-hidden='true' className='chevron'>
 				<div className='codicon codicon-chevron-down' />
 			</div>
 		</Button>

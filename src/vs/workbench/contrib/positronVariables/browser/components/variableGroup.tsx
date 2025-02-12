@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -142,7 +142,7 @@ export const VariableGroup = (props: VariableGroupProps) => {
 
 	// Render.
 	return (
-		<div className={classNames} onMouseDown={rowMouseDownHandler} style={props.style}>
+		<div className={classNames} style={props.style} onMouseDown={rowMouseDownHandler}>
 			<div className='expand-collapse-area' onMouseDown={chevronMouseDownHandler} onMouseUp={chevronMouseUpHandler}>
 				{props.variableGroup.expanded ?
 					<div className={`expand-collapse-icon codicon codicon-chevron-down`} /> :

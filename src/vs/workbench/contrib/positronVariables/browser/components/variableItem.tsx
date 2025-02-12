@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -420,7 +420,7 @@ export const VariableItem = (props: VariableItemProps) => {
 
 	// Render.
 	return (
-		<div className={classNames} onDoubleClick={doubleClickHandler} onMouseDown={mouseDownHandler} style={props.style}>
+		<div className={classNames} style={props.style} onDoubleClick={doubleClickHandler} onMouseDown={mouseDownHandler}>
 			<div className='name-column' style={{ width: props.nameColumnWidth, minWidth: props.nameColumnWidth }}>
 				<div className='name-column-indenter' style={{ marginLeft: props.variableItem.indentLevel * 20 }}>
 					<div className='gutter'>

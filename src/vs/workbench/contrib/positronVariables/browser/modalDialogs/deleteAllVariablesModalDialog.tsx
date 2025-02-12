@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -55,13 +55,13 @@ export const DeleteAllVariablesModalDialog = (props: DeleteAllVariablesModalDial
 
 	return (
 		<ConfirmDeleteModalDialog
-			renderer={props.renderer}
-			width={375}
 			height={175}
+			renderer={props.renderer}
 			title={(() => localize(
 				'positron.deleteAllVariablesModalDialogTitle',
 				"Delete All Variables"
 			))()}
+			width={375}
 			onCancel={cancelHandler}
 			onDeleteAction={acceptHandler}
 		>

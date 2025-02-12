@@ -23,7 +23,7 @@ test.describe('SQLite DB Connection', {
 		await app.workbench.connections.deleteConnection();
 	});
 
-	test('Python - SQLite DB Connection', {
+	test('Python - Can establish a connection, disconnect & reconnect', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5692' }]
 	}, async function ({ app, python }) {
 		await test.step('Open a Python file and run it', async () => {
@@ -55,7 +55,7 @@ test.describe('SQLite DB Connection', {
 		});
 	});
 
-	test('R - SQLite DB Connection', {
+	test('R - Can establish a connection, disconnect & reconnect', {
 		tag: [tags.WIN]
 	}, async function ({ app, r }) {
 		await test.step('Open an R file and run it', async () => {
@@ -84,7 +84,7 @@ test.describe('SQLite DB Connection', {
 
 	});
 
-	test('R - Connections are update after adding a database', {
+	test('R - Ensure connections are updated after adding a database', {
 		tag: [tags.WIN]
 	}, async function ({ app, page, r }) {
 		await test.step('Open an empty connection', async () => {

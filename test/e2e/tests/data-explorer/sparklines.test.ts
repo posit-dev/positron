@@ -22,14 +22,14 @@ test.describe('Data Explorer - Sparklines', {
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 	});
 
-	test('Python Pandas - Verifies downward trending graph', async ({ app, python }) => {
+	test('Python Pandas - Verify downward trending graph', async ({ app, python }) => {
 		await app.workbench.console.executeCode('Python', pythonScript);
 		await openDataExplorerColumnProfile(app, 'pythonData');
 		await verifyGraphBarHeights(app);
 	});
 
 
-	test('R - Verifies downward trending graph', async ({ app, r }) => {
+	test('R - Verify downward trending graph', async ({ app, r }) => {
 		await app.workbench.console.executeCode('R', rScript);
 		await openDataExplorerColumnProfile(app, 'rData');
 		await verifyGraphBarHeights(app);
@@ -38,10 +38,8 @@ test.describe('Data Explorer - Sparklines', {
 
 async function openDataExplorerColumnProfile(app: Application, variableName: string) {
 
-	await expect(async () => {
-		await app.workbench.variables.doubleClickVariableRow(variableName);
-		await app.code.driver.page.locator(`.label-name:has-text("Data: ${variableName}")`).innerText();
-	}).toPass();
+	await app.workbench.variables.doubleClickVariableRow(variableName);
+	await app.workbench.dataExplorer.verifyTab(`Data: ${variableName}`, { isVisible: true });
 
 	await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 	await app.workbench.sideBar.closeSecondarySideBar();

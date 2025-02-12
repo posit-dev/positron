@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -89,12 +89,12 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		// Show the delete all variables modal dialog.
 		renderer.render(
 			<DeleteAllVariablesModalDialog
-				renderer={renderer}
 				deleteAllVariablesAction={async deleteAllVariablesResult =>
 					positronVariablesContext.activePositronVariablesInstance?.requestClear(
 						deleteAllVariablesResult.includeHiddenObjects
 					)
 				}
+				renderer={renderer}
 			/>
 		);
 	};
@@ -117,11 +117,11 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		<PositronActionBarContextProvider {...props}>
 			<div className='action-bars'>
 				<PositronActionBar
-					size='small'
-					borderTop={true}
 					borderBottom={true}
+					borderTop={true}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
+					size='small'
 				>
 					<ActionBarRegion location='left'>
 						<GroupingMenuButton />
@@ -131,35 +131,35 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarRegion location='right'>
 						<ActionBarButton
 							align='right'
+							ariaLabel={positronRefreshObjects}
 							iconId='positron-refresh'
 							tooltip={positronRefreshObjects}
-							ariaLabel={positronRefreshObjects}
 							onPressed={refreshObjectsHandler}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='right'
+							ariaLabel={positronDeleteAllObjects}
 							iconId='clear-all'
 							tooltip={positronDeleteAllObjects}
-							ariaLabel={positronDeleteAllObjects}
 							onPressed={deleteAllObjectsHandler}
 						/>
 					</ActionBarRegion>
 				</PositronActionBar>
 				<PositronActionBar
-					size='small'
 					borderBottom={true}
 					gap={kSecondaryActionBarGap}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
+					size='small'
 				>
 					<ActionBarRegion location='left'>
 						<VariablesInstanceMenuButton />
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<ActionBarFilter
-							width={150}
 							initialFilterText={filterText}
+							width={150}
 							onFilterTextChanged={filterText => setFilterText(filterText)} />
 					</ActionBarRegion>
 				</PositronActionBar>

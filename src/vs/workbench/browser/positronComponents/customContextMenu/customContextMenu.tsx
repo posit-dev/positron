@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -89,16 +89,16 @@ export const showCustomContextMenu = async ({
 	// Show the context menu popup.
 	renderer.render(
 		<CustomContextMenuModalPopup
-			commandService={commandService}
-			keybindingService={keybindingService}
-			renderer={renderer}
 			anchorElement={anchorElement}
 			anchorPoint={anchorPoint}
-			popupPosition={popupPosition}
-			popupAlignment={popupAlignment}
-			width={width}
-			minWidth={minWidth}
+			commandService={commandService}
 			entries={entries}
+			keybindingService={keybindingService}
+			minWidth={minWidth}
+			popupAlignment={popupAlignment}
+			popupPosition={popupPosition}
+			renderer={renderer}
+			width={width}
 		/>
 	);
 };
@@ -215,15 +215,15 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 	// Render.
 	return (
 		<PositronModalPopup
-			renderer={props.renderer}
 			anchorElement={props.anchorElement}
 			anchorPoint={props.anchorPoint}
-			popupPosition={props.popupPosition}
-			popupAlignment={props.popupAlignment}
-			width={props.width}
-			minWidth={props.minWidth}
 			height={'min-content'}
 			keyboardNavigationStyle='menu'
+			minWidth={props.minWidth}
+			popupAlignment={props.popupAlignment}
+			popupPosition={props.popupPosition}
+			renderer={props.renderer}
+			width={props.width}
 		>
 			<div className='custom-context-menu-items'>
 				{props.entries.map((entry, index) => {

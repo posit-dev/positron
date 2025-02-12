@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -165,11 +165,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 	// Render.
 	return (
 		<PositronWizardStep
-			title={(() =>
-				localize(
-					'projectNameLocationStep.title',
-					"Set project name and location"
-				))()}
+			backButtonConfig={{ onClick: props.back }}
 			cancelButtonConfig={{ onClick: props.cancel }}
 			nextButtonConfig={{
 				onClick: nextStep,
@@ -181,14 +177,13 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					(projectNameFeedback &&
 						projectNameFeedback.type === WizardFormattedTextType.Error),
 			}}
-			backButtonConfig={{ onClick: props.back }}
+			title={(() =>
+				localize(
+					'projectNameLocationStep.title',
+					"Set project name and location"
+				))()}
 		>
 			<PositronWizardSubStep
-				title={(() =>
-					localize(
-						'projectNameLocationSubStep.projectName.label',
-						"Project Name"
-					))()}
 				feedback={
 					projectNameFeedback ? (
 						<WizardFormattedText type={projectNameFeedback.type}>
@@ -200,33 +195,33 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 						</WizardFormattedText>
 						: undefined
 				}
+				title={(() =>
+					localize(
+						'projectNameLocationSubStep.projectName.label',
+						"Project Name"
+					))()}
 			>
 				<LabeledTextInput
+					autoFocus
+					error={
+						(projectNameFeedback &&
+							projectNameFeedback.type === WizardFormattedTextType.Error) ||
+						Boolean(nameValidationErrorMsg)
+					}
 					label={(() =>
 						localize(
 							'projectNameLocationSubStep.projectName.description',
 							"Enter a name for your new {0}",
 							context.projectType
 						))()}
-					autoFocus
-					value={projectName}
-					onChange={(e) => onChangeProjectName(e.target.value)}
-					type='text'
 					// Don't let the user create a project with a location that is too long.
 					maxLength={maxProjectPathLength}
-					error={
-						(projectNameFeedback &&
-							projectNameFeedback.type === WizardFormattedTextType.Error) ||
-						Boolean(nameValidationErrorMsg)
-					}
+					type='text'
+					value={projectName}
+					onChange={(e) => onChangeProjectName(e.target.value)}
 				/>
 			</PositronWizardSubStep>
 			<PositronWizardSubStep
-				title={(() =>
-					localize(
-						'projectNameLocationSubStep.parentDirectory.label',
-						"Parent Directory"
-					))()}
 				feedback={
 					parentPathErrorMsg ?
 						<WizardFormattedText type={WizardFormattedTextType.Error}>
@@ -247,8 +242,15 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 							/>
 						</WizardFormattedText>
 				}
+				title={(() =>
+					localize(
+						'projectNameLocationSubStep.parentDirectory.label',
+						"Parent Directory"
+					))()}
 			>
 				<LabeledFolderInput
+					skipValidation
+					error={Boolean(parentPathErrorMsg)}
 					label={(() =>
 						localize(
 							'projectNameLocationSubStep.parentDirectory.description',
@@ -256,8 +258,6 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 						))()}
 					value={parentFolder}
 					onBrowse={browseHandler}
-					error={Boolean(parentPathErrorMsg)}
-					skipValidation
 					onChange={(e) => onChangeParentFolder(e.target.value)}
 				/>
 			</PositronWizardSubStep>
@@ -266,13 +266,13 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 			>
 				{/* TODO: display a warning/message if the user doesn't have git set up */}
 				<Checkbox
+					initialChecked={context.initGitRepo}
 					label={(() =>
 						localize(
 							'projectNameLocationSubStep.initGitRepo.label',
 							"Initialize project as Git repository"
 						))()}
 					onChanged={(checked) => context.initGitRepo = checked}
-					initialChecked={context.initGitRepo}
 				/>
 			</PositronWizardSubStep>
 		</PositronWizardStep>

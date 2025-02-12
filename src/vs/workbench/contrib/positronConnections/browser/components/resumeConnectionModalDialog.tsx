@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -36,9 +36,9 @@ export const showResumeConnectionModalDialog = (
 
 	renderer.render(
 		<ResumeConnectionModalDialog
+			activeInstaceId={activeInstanceId}
 			renderer={renderer}
 			services={services}
-			activeInstaceId={activeInstanceId}
 			setActiveInstanceId={setActiveInstanceId}
 		/>
 	);
@@ -128,11 +128,11 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 	return (
 		<div className='connections-resume-connection-modal'>
 			<PositronModalDialog
-				width={RESUME_CONNECTION_MODAL_DIALOG_WIDTH}
 				height={RESUME_CONNECTION_MODAL_DIALOG_HEIGHT}
-				title={(() => localize('positron.resumeConnectionModalDialog.title', "Resume Connection"))()}
-				onCancel={cancelHandler}
 				renderer={props.renderer}
+				title={(() => localize('positron.resumeConnectionModalDialog.title', "Resume Connection"))()}
+				width={RESUME_CONNECTION_MODAL_DIALOG_WIDTH}
+				onCancel={cancelHandler}
 			>
 				<ContentArea>
 					<div className='content'>
@@ -140,22 +140,22 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 						<div className='code'>
 							<SimpleCodeEditor
 								ref={editorRef}
-								services={services}
 								code={code}
-								language={language_id}
 								editorOptions={{
 									readOnly: true,
 									domReadOnly: true,
 									cursorBlinking: 'solid',
 								}}
+								language={language_id}
+								services={services}
 							></SimpleCodeEditor>
 						</div>
 						<div className='buttons'>
 							<div className='top'>
 								<PositronButton
 									className='button action-bar-button'
-									onPressed={editHandler}
 									disabled={!code}
+									onPressed={editHandler}
 								>
 									{(() => localize('positron.resumeConnectionModalDialog.edit', "Edit"))()}
 								</PositronButton>
@@ -163,8 +163,8 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 							<div className='bottom'>
 								<PositronButton
 									className='button action-bar-button'
-									onPressed={copyHandler}
 									disabled={!code}
+									onPressed={copyHandler}
 								>
 									{(() => localize('positron.resumeConnectionModalDialog.copy', "Copy"))()}
 								</PositronButton>
@@ -179,8 +179,8 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 						<div className='footer'>
 							<PositronButton
 								className='button action-bar-button default'
-								onPressed={resumeHandler}
 								disabled={!activeInstance.connect}
+								onPressed={resumeHandler}
 							>
 								{(() => localize('positron.resumeConnectionModalDialog.resume', "Resume Connection"))()}
 							</PositronButton>

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -124,10 +124,10 @@ export class PositronPreviewEditor
 				positronPreviewService={this._positronPreviewService}
 			>
 				<EditorPreviewContainer
-					preview={this._preview}
-					width={this._width}
 					height={this._height}
+					preview={this._preview}
 					visible={this._visible}
+					width={this._width}
 				/>
 			</PositronPreviewContextProvider>
 		);

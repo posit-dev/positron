@@ -76,12 +76,12 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 	}, [naturalWidth, naturalHeight, props.width, props.height, props.zoom, props.imageUri]);
 
 	return (
-		<Scrollable width={props.width} height={props.height} scrollableWidth={scrollableWidth} scrollableHeight={scrollableHeight} mousePan={true}>
-			<img className='plot'
-				src={props.imageUri}
+		<Scrollable height={props.height} mousePan={true} scrollableHeight={scrollableHeight} scrollableWidth={scrollableWidth} width={props.width}>
+			<img ref={imageRef}
 				alt={props.description}
+				className='plot'
 				draggable={false}
-				ref={imageRef}
+				src={props.imageUri}
 				onLoad={(el) => {
 					// ensures the zoom level is applied correctly when switching images
 					setNaturalWidth(el.currentTarget.naturalWidth);

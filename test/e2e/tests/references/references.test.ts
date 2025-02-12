@@ -23,7 +23,7 @@ test.describe('References', {
 
 	});
 
-	test('Python - Verify References Functionality', {
+	test('Python - Verify References Pane Lists All Function References Across Files', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6211' }]
 	}, async function ({ app, python, openFile }) {
 		const helper = 'helper.py';
@@ -39,7 +39,7 @@ test.describe('References', {
 	});
 
 
-	test('R - Verify References Functionality', async function ({ app, r, openFile }) {
+	test('R - Verify References Pane Lists All Function References Across Files', async function ({ app, r, openFile }) {
 		const helper = 'helper.R';
 
 		await openFile(join('workspaces', 'references_tests', 'r', helper));

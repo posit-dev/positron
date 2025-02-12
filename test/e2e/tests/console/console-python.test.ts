@@ -13,7 +13,7 @@ test.use({
 
 test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 
-	test('Verify restart button inside the console', {
+	test('Python - Verify restart button inside the console', {
 		tag: [tags.WIN]
 	}, async function ({ app, python }) {
 		await expect(async () => {
@@ -31,7 +31,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 		}).toPass();
 	});
 
-	test('Verify restart button on console bar', {
+	test('Python - Verify restart button on console bar', {
 		tag: [tags.WIN]
 	}, async function ({ app, python }) {
 		// Need to make console bigger to see all bar buttons
@@ -46,7 +46,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 	});
 
-	test('Verify cancel button on console bar', {
+	test('Python - Verify cancel button on console bar', {
 		tag: [tags.WIN]
 	}, async function ({ app, python }) {
 
@@ -58,7 +58,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 	});
 
 	// not enabled for WIN yet; need to add additional versions
-	test('Verify multiple versions', async function ({ app, python }) {
+	test('Python - Verify can use multiple interpreter versions', async function ({ app, python }) {
 
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 

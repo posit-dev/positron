@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -94,18 +94,18 @@ export function CellTextOutput({ content, type }: ParsedTextOutput) {
 	return <>
 		<div ref={containerRef} className={`notebook-${type} positron-notebook-text-output long-output-${truncation.mode}`}>
 			<OutputLines
-				outputLines={ANSIOutput.processOutput(truncation.content)}
-				openerService={openerService}
 				notificationService={notificationService}
+				openerService={openerService}
+				outputLines={ANSIOutput.processOutput(truncation.content)}
 			/>
 			{
 				truncation.mode === 'truncate'
 					? <>
-						<TruncationMessage truncationResult={truncation} commandService={commandService} />
+						<TruncationMessage commandService={commandService} truncationResult={truncation} />
 						<OutputLines
-							outputLines={ANSIOutput.processOutput(truncation.contentAfter)}
-							openerService={openerService}
 							notificationService={notificationService}
+							openerService={openerService}
+							outputLines={ANSIOutput.processOutput(truncation.contentAfter)}
 						/>
 					</>
 					: null
@@ -113,7 +113,7 @@ export function CellTextOutput({ content, type }: ParsedTextOutput) {
 		</div>
 		{
 			truncation.mode === 'scroll'
-				? <TruncationMessage truncationResult={truncation} commandService={commandService} />
+				? <TruncationMessage commandService={commandService} truncationResult={truncation} />
 				: null
 		}
 	</>;
@@ -134,8 +134,8 @@ const TruncationMessage = ({ truncationResult, commandService }: { truncationRes
 	return <i className='notebook-output-truncation-message'>
 		{msg + ' '}
 		<a
-			href=''
 			aria-label='notebook output settings'
+			href=''
 			onClick={openSettings}
 		>Change behavior.</a>
 	</i>;

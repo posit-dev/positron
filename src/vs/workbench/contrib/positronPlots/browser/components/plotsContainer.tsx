@@ -96,10 +96,10 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		if (plotInstance instanceof PlotClientInstance) {
 			return <DynamicPlotInstance
 				key={plotInstance.id}
-				width={plotWidth}
 				height={plotHeight}
-				zoom={props.zoom}
-				plotClient={plotInstance} />;
+				plotClient={plotInstance}
+				width={plotWidth}
+				zoom={props.zoom} />;
 		} else if (plotInstance instanceof StaticPlotClient) {
 			return <StaticPlotInstance
 				key={plotInstance.id}
@@ -108,10 +108,10 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		} else if (plotInstance instanceof WebviewPlotClient) {
 			return <WebviewPlotInstance
 				key={plotInstance.id}
-				width={plotWidth}
 				height={plotHeight}
+				plotClient={plotInstance}
 				visible={props.visible}
-				plotClient={plotInstance} />;
+				width={plotWidth} />;
 		}
 		return null;
 	};
@@ -140,16 +140,16 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 
 		return <PlotGalleryThumbnail
 			key={plotInstance.id}
-			selected={selected}
+			plotClient={plotInstance}
 			plotService={positronPlotsContext}
-			plotClient={plotInstance}>
+			selected={selected}>
 			{renderThumbnailImage()}
 		</PlotGalleryThumbnail>;
 	};
 
 	// Render the plot history gallery.
 	const renderHistory = () => {
-		return <div className='plot-history-scroller' ref={plotHistoryRef}>
+		return <div ref={plotHistoryRef} className='plot-history-scroller'>
 			<div className='plot-history'>
 				{positronPlotsContext.positronPlotInstances.map((plotInstance) => (
 					renderThumbnail(plotInstance,

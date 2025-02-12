@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -90,22 +90,22 @@ export const showSavePlotModalDialog = (
 
 	renderer.render(
 		<SavePlotModalDialog
-			layoutService={layoutService}
 			dialogService={modalDialogService}
-			fileService={fileService}
+			enableIntrinsicSize={selectedSizingPolicy instanceof PlotSizingPolicyIntrinsic}
 			fileDialogService={fileDialogService}
+			fileService={fileService}
 			keybindingService={keybindingService}
+			labelService={labelService}
+			layoutService={layoutService}
 			logService={logService}
 			notificationService={notificationService}
-			labelService={labelService}
 			pathService={pathService}
-			renderer={renderer}
-			enableIntrinsicSize={selectedSizingPolicy instanceof PlotSizingPolicyIntrinsic}
-			plotSize={plotClient.lastRender?.size}
-			plotIntrinsicSize={plotClient.intrinsicSize}
-			suggestedPath={suggestedPath}
-			savePlotCallback={savePlotCallback}
 			plotClient={plotClient}
+			plotIntrinsicSize={plotClient.intrinsicSize}
+			plotSize={plotClient.lastRender?.size}
+			renderer={renderer}
+			savePlotCallback={savePlotCallback}
+			suggestedPath={suggestedPath}
 		/>
 	);
 };
@@ -307,119 +307,119 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 
 	return (
 		<PositronModalDialog
-			width={SAVE_PLOT_MODAL_DIALOG_WIDTH}
 			height={SAVE_PLOT_MODAL_DIALOG_HEIGHT}
+			renderer={props.renderer}
 			title={(() => localize('positron.savePlotModalDialog.title', "Save Plot"))()}
-			onCancel={cancelHandler}
-			renderer={props.renderer}>
+			width={SAVE_PLOT_MODAL_DIALOG_WIDTH}
+			onCancel={cancelHandler}>
 			<ContentArea>
 				<div className='plot-preview-container'>
 					<div className='plot-preview-input'>
 						<div className='browse'>
 							<LabeledFolderInput
+								error={!directory.valid}
+								inputRef={inputRef}
 								label={(() => localize(
 									'positron.savePlotModalDialog.directory',
 									"Directory"
 								))()}
+								readOnlyInput={false}
 								value={pathUriToLabel(directory.value, props.labelService)}
+								onBrowse={browseHandler}
 								onChange={async e => updatePath(
 									await combineLabelWithPathUri(
 										e.target.value,
 										directory.value,
 										props.pathService
 									)
-								)}
-								onBrowse={browseHandler}
-								readOnlyInput={false}
-								error={!directory.valid}
-								inputRef={inputRef} />
+								)} />
 						</div>
 						<div className='file'>
 							<LabeledTextInput
+								error={!name.valid}
 								label={(() => localize(
 									'positron.savePlotModalDialog.name',
 									"Name"
 								))()}
 								value={name.value}
 								onChange={e => setName({ value: e.target.value, valid: !!e.target.value })}
-								error={!name.valid}
 							/>
 							<div>
 								<label>{(() => localize('positron.savePlotModalDialog.format', "Format"))()}
 									<DropDownListBox
-										title={(() => localize(
-											'positron.savePlotModalDialog.format',
-											"Format"
-										))()}
-										selectedIdentifier={format}
-										onSelectionChanged={(ext) => { setFormat(ext.options.identifier); }}
-										keybindingService={props.keybindingService}
-										layoutService={props.layoutService}
 										entries={[
 											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Png, title: RenderFormat.Png.toUpperCase(), value: RenderFormat.Png }),
 											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Jpeg, title: RenderFormat.Jpeg.toUpperCase(), value: RenderFormat.Jpeg }),
 											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Svg, title: RenderFormat.Svg.toUpperCase(), value: RenderFormat.Svg }),
 											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Pdf, title: RenderFormat.Pdf.toUpperCase(), value: RenderFormat.Pdf }),
 											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Tiff, title: RenderFormat.Tiff.toUpperCase(), value: RenderFormat.Tiff }),
-										]} />
+										]}
+										keybindingService={props.keybindingService}
+										layoutService={props.layoutService}
+										selectedIdentifier={format}
+										title={(() => localize(
+											'positron.savePlotModalDialog.format',
+											"Format"
+										))()}
+										onSelectionChanged={(ext) => { setFormat(ext.options.identifier); }} />
 								</label>
 							</div>
 						</div>
 						<div className='plot-input'>
 							{enableIntrinsicSize ? <>
 								<LabeledTextInput
+									disabled={true}
 									label={(() => localize(
 										'positron.savePlotModalDialog.width',
 										"Width"
 									))()}
 									type={'text'}
 									value={intrinsicWidth}
-									disabled={true}
 								/>
 								<LabeledTextInput
+									disabled={true}
 									label={(() => localize(
 										'positron.savePlotModalDialog.height',
 										"Height"
 									))()}
 									type={'text'}
 									value={intrinsicHeight}
-									disabled={true}
 								/>
 							</> : <>
 								<LabeledTextInput
+									error={!width.valid}
 									label={(() => localize(
 										'positron.savePlotModalDialog.width',
 										"Width"
 									))()}
-									value={width.value}
-									type={'number'}
-									onChange={e => updateWidth(e.target.value)}
 									min={1}
-									error={!width.valid}
+									type={'number'}
+									value={width.value}
+									onChange={e => updateWidth(e.target.value)}
 								/>
 								<LabeledTextInput
+									error={!height.valid}
 									label={(() => localize(
 										'positron.savePlotModalDialog.height',
 										"Height"
 									))()}
-									value={height.value}
-									type={'number'}
-									onChange={e => updateHeight(e.target.value)}
 									min={1}
-									error={!height.valid}
+									type={'number'}
+									value={height.value}
+									onChange={e => updateHeight(e.target.value)}
 								/>
 							</>}
 							{enableDPI && <LabeledTextInput
+								error={!dpi.valid}
 								label={(() => localize(
 									'positron.savePlotModalDialog.dpi',
 									"DPI"
 								))()}
-								value={dpi.value}
-								type={'number'}
-								onChange={e => updateDpi(e.target.value)}
-								min={1}
 								max={300}
-								error={!dpi.valid}
+								min={1}
+								type={'number'}
+								value={dpi.value}
+								onChange={e => updateDpi(e.target.value)}
 							/>}
 							<div className='error'>
 								<div>
@@ -450,11 +450,11 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 						</div>
 						<div className='use-intrinsic-size'>
 							{props.plotIntrinsicSize ? <Checkbox
+								initialChecked={enableIntrinsicSize}
 								label={(() => localize(
 									'positron.savePlotModalDialog.useIntrinsicSize',
 									"Use intrinsic size"
 								))()}
-								initialChecked={enableIntrinsicSize}
 								onChanged={checked => setEnableIntrinsicSize(checked)} /> : null}
 						</div>
 						<div className='preview-progress'>
@@ -462,7 +462,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 						</div>
 						<div className='plot-preview-image-container preview'>
 							{(uri &&
-								<img className='plot-preview' src={uri} alt={props.plotClient.metadata.code} />)
+								<img alt={props.plotClient.metadata.code} className='plot-preview' src={uri} />)
 							}
 						</div>
 					</div>
@@ -476,7 +476,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 					</PositronButton>
 				</div>
 				<div className='right'>
-					<PlatformNativeDialogActionBar secondaryButton={cancelButton} primaryButton={okButton} />
+					<PlatformNativeDialogActionBar primaryButton={okButton} secondaryButton={cancelButton} />
 				</div>
 			</div>
 

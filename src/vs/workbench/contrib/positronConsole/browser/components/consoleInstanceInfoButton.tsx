@@ -55,12 +55,12 @@ export const ConsoleInstanceInfoButton = () => {
 	// Render.
 	return (
 		<ActionBarButton
-			iconId='info'
-			align='right'
-			tooltip={positronConsoleInfo}
-			ariaLabel={positronConsoleInfo}
-			onPressed={handlePressed}
 			ref={ref}
+			align='right'
+			ariaLabel={positronConsoleInfo}
+			iconId='info'
+			tooltip={positronConsoleInfo}
+			onPressed={handlePressed}
 		/>
 	)
 };

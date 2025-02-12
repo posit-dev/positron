@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -46,10 +46,10 @@ export const ColumnProfileSparklineHistogram = ({
 			}}
 		>
 			<VectorHistogram
-				graphWidth={GRAPH_WIDTH}
-				graphHeight={GRAPH_HEIGHT}
-				xAxisHeight={X_AXIS_HEIGHT}
 				columnHistogram={columnHistogram}
+				graphHeight={GRAPH_HEIGHT}
+				graphWidth={GRAPH_WIDTH}
+				xAxisHeight={X_AXIS_HEIGHT}
 			/>
 		</div >
 	);
@@ -80,10 +80,10 @@ export const ColumnProfileSparklineFrequencyTable = ({
 			}}
 		>
 			<VectorFrequencyTable
-				graphWidth={GRAPH_WIDTH}
-				graphHeight={GRAPH_HEIGHT}
-				xAxisHeight={X_AXIS_HEIGHT}
 				columnFrequencyTable={columnFrequencyTable}
+				graphHeight={GRAPH_HEIGHT}
+				graphWidth={GRAPH_WIDTH}
+				xAxisHeight={X_AXIS_HEIGHT}
 			/>
 		</div >
 	);

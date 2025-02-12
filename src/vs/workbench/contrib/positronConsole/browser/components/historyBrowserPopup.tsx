@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -73,11 +73,11 @@ export const HistoryBrowserPopup = (props: HistoryBrowserPopupProps) => {
 		return () => {
 			DOM.getActiveWindow().removeEventListener('click', clickHandler);
 		};
-	}, [props.selectedIndex]);
+	}, [props, props.selectedIndex]);
 
 	const noMatch = nls.localize('positronConsoleHistoryMatchesEmpty', "No matching history items");
 
-	return <div className='suggest-widget history-browser-popup' ref={popupRef}
+	return <div ref={popupRef} className='suggest-widget history-browser-popup'
 		style={{ bottom: props.bottomPx, left: props.leftPx }}>
 		{props.items.length === 0 && <div className='no-results'>{noMatch}</div>}
 		{props.items.length > 0 &&

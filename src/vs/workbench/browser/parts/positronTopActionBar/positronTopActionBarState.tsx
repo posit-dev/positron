@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -45,7 +45,7 @@ export const usePositronTopActionBarState = (services: PositronTopActionBarServi
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [services.workspaceContextService]);
 
 	// Return the Positron top action bar state.
 	return {

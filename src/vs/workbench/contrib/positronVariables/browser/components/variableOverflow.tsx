@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -91,7 +91,7 @@ export const VariableOverflow = (props: VariableOverflowProps) => {
 
 	// Render.
 	return (
-		<div className={classNames} onMouseDown={mouseDownHandler} style={props.style}>
+		<div className={classNames} style={props.style} onMouseDown={mouseDownHandler}>
 			<div className='name-column' style={{ width: props.nameColumnWidth, minWidth: props.nameColumnWidth }}>
 				<div className='name-column-indenter' style={{ marginLeft: props.variableOverflow.indentLevel * 20 }}>
 					<div className='name-value'>
