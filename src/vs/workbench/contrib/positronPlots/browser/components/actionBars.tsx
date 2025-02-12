@@ -41,6 +41,15 @@ import { IPreferencesService } from '../../../../services/preferences/common/pre
 const kPaddingLeft = 14;
 const kPaddingRight = 8;
 
+// Localized strings.
+const showPreviousPlot = localize('positronShowPreviousPlot', "Show previous plot");
+const showNextPlot = localize('positronShowNextPlot', "Show next plot");
+const savePlot = localize('positronSavePlot', "Save plot");
+const copyPlotToClipboard = localize('positronCopyPlotToClipboard', "Copy plot to clipboard");
+const openPlotInNewWindow = localize('positronOpenPlotInNewWindow', "Open plot in new window");
+const openInEditorTab = localize('positronOpenPlotInEditorTab', "Open in editor tab");
+const clearAllPlots = localize('positronClearAllPlots', "Clear all plots");
+
 /**
  * ActionBarsProps interface.
  */
@@ -140,20 +149,56 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	return (
 		<PositronActionBarContextProvider {...props}>
 			<div className='action-bars'>
-				<PositronActionBar borderBottom={true} borderTop={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight} size='small'>
+				<PositronActionBar
+					borderBottom={true}
+					borderTop={true}
+					paddingLeft={kPaddingLeft}
+					paddingRight={kPaddingRight}
+					size='small'
+				>
 					<ActionBarRegion location='left'>
-						<ActionBarButton ariaLabel={localize('positronShowPreviousPlot', "Show previous plot")} disabled={disableLeft} iconId='positron-left-arrow'
-							tooltip={localize('positronShowPreviousPlot', "Show previous plot")} onPressed={showPreviousPlotHandler} />
-						<ActionBarButton ariaLabel={localize('positronShowNextPlot', "Show next plot")} disabled={disableRight} iconId='positron-right-arrow'
-							tooltip={localize('positronShowNextPlot', "Show next plot")} onPressed={showNextPlotHandler} />
+						<ActionBarButton
+							ariaLabel={showPreviousPlot}
+							disabled={disableLeft}
+							iconId='positron-left-arrow'
+							tooltip={showPreviousPlot}
+							onPressed={showPreviousPlotHandler}
+						/>
+						<ActionBarButton
+							ariaLabel={showNextPlot}
+							disabled={disableRight}
+							iconId='positron-right-arrow'
+							tooltip={showNextPlot}
+							onPressed={showNextPlotHandler}
+						/>
 
-						{(enableSizingPolicy || enableSavingPlots || enableZoomPlot || enablePopoutPlot) ? <ActionBarSeparator /> : null}
-						{enableSavingPlots ? <ActionBarButton ariaLabel={localize('positronSavePlot', "Save plot")} iconId='positron-save'
-							tooltip={localize('positronSavePlot', "Save plot")} onPressed={savePlotHandler} /> : null}
-						{enableCopyPlot ? <ActionBarButton ariaLabel={localize('positron-copy-plot', "Copy plot to clipboard")} disabled={!hasPlots} iconId='copy' tooltip={localize('positron-copy-plot', "Copy plot to clipboard")}
-							onPressed={copyPlotHandler} /> : null}
-						{enableZoomPlot ? <ZoomPlotMenuButton actionHandler={zoomPlotHandler} zoomLevel={props.zoomLevel} /> : null}
-						{enableSizingPolicy ?
+						{(enableSizingPolicy || enableSavingPlots || enableZoomPlot || enablePopoutPlot) &&
+							<ActionBarSeparator />
+						}
+
+						{enableSavingPlots &&
+							<ActionBarButton
+								ariaLabel={savePlot}
+								iconId='positron-save'
+								tooltip={savePlot}
+								onPressed={savePlotHandler}
+							/>
+						}
+						{enableCopyPlot &&
+							<ActionBarButton
+								ariaLabel={copyPlotToClipboard}
+								disabled={!hasPlots}
+								iconId='copy'
+								tooltip={copyPlotToClipboard}
+								onPressed={copyPlotHandler}
+							/>
+						}
+						{enableZoomPlot &&
+							<ZoomPlotMenuButton
+								actionHandler={zoomPlotHandler}
+								zoomLevel={props.zoomLevel}
+							/>}
+						{enableSizingPolicy &&
 							<SizingPolicyMenuButton
 								keybindingService={props.keybindingService}
 								layoutService={props.layoutService}
@@ -161,37 +206,44 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 								plotClient={selectedPlot}
 								plotsService={positronPlotsContext.positronPlotsService}
 							/>
-							: null
 						}
-						{enablePopoutPlot ?
+						{enablePopoutPlot &&
 							<ActionBarButton
 								align='right'
-								ariaLabel={localize('positron-popout-plot', "Open plot in new window")}
+								ariaLabel={openPlotInNewWindow}
 								iconId='positron-open-in-new-window'
-								tooltip={localize('positron-popout-plot', "Open plot in new window")}
-								onPressed={popoutPlotHandler} />
-							: null
+								tooltip={openPlotInNewWindow}
+								onPressed={popoutPlotHandler}
+							/>
 						}
-						{enableEditorPlot ?
+						{enableEditorPlot &&
 							<OpenInEditorMenuButton
-								ariaLabel={localize('positron-editor-plot-popout', "Open in editor tab")}
+								ariaLabel={openInEditorTab}
 								commandService={positronPlotsContext.commandService}
 								defaultGroup={positronPlotsContext.positronPlotsService.getPreferredEditorGroup()}
-								tooltip={localize('positron-editor-plot-popout', "Open in editor tab")}
+								tooltip={openInEditorTab}
 							/>
-							: null
 						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						{enableDarkFilter &&
 							<DarkFilterMenuButton
 								plotsService={positronPlotsContext.positronPlotsService}
-								preferencesService={positronPlotsContext.preferencesService} />
+								preferencesService={positronPlotsContext.preferencesService}
+							/>
 						}
-						<HistoryPolicyMenuButton plotsService={positronPlotsContext.positronPlotsService} />
+						<HistoryPolicyMenuButton
+							plotsService={positronPlotsContext.positronPlotsService}
+						/>
 						<ActionBarSeparator />
-						<ActionBarButton align='right' ariaLabel={localize('positronClearAllPlots', "Clear all plots")} disabled={noPlots} iconId='clear-all'
-							tooltip={localize('positronClearAllPlots', "Clear all plots")} onPressed={clearAllPlotsHandler} />
+						<ActionBarButton
+							align='right'
+							ariaLabel={clearAllPlots}
+							disabled={noPlots}
+							iconId='clear-all'
+							tooltip={clearAllPlots}
+							onPressed={clearAllPlotsHandler}
+						/>
 					</ActionBarRegion>
 				</PositronActionBar>
 			</div>
