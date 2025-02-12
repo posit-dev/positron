@@ -335,6 +335,7 @@ export const DataExplorer = () => {
 					collapsible={true}
 					configurationService={context.configurationService}
 					invert={layout === PositronDataExplorerLayout.SummaryOnRight}
+					isCollapsed={columnsCollapsed}
 					showSash={true}
 					onBeginResize={beginResizeHandler}
 					onCollapsedChanged={collapsed => {
