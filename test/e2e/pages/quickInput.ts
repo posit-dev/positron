@@ -85,7 +85,7 @@ export class QuickInput {
 	async arrowDownToSelectOption(option: string): Promise<void> {
 		await test.step(`Arrow down to select "${option}"`, async () => {
 			const page = this.code.driver.page;
-			for (let i = 0; i < 50; i++) {
+			for (let i = 0; i < 100; i++) {
 				const quickInputOption = page.getByRole('option', { name: option }).locator('a');
 
 				if (await quickInputOption.isVisible()) {
