@@ -1640,6 +1640,7 @@ declare module 'positron' {
 			resourceName?: string;
 			project?: string;
 			location?: string;
+			numCtx?: number;
 		}
 
 		/**

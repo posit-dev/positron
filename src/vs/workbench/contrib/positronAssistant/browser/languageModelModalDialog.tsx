@@ -72,6 +72,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const [project, setProject] = React.useState<string | undefined>(defaultSource.defaults.project);
 	const [location, setLocation] = React.useState<string | undefined>(defaultSource.defaults.location);
 	const [toolCalls, setToolCalls] = React.useState<boolean | undefined>(defaultSource.defaults.toolCalls);
+	const [numCtx, setNumCtx] = React.useState<number | undefined>(defaultSource.defaults.numCtx);
 	const [model, setModel] = React.useState<string>(defaultSource.defaults.model);
 	const [name, setName] = React.useState<string>(defaultSource.defaults.name);
 
@@ -88,6 +89,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		setProject(source.defaults.project);
 		setLocation(source.defaults.location);
 		setToolCalls(source.defaults.toolCalls);
+		setNumCtx(source.defaults.numCtx);
 	}, [source]);
 
 	const providers = props.sources
@@ -114,6 +116,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			project: project,
 			location: location,
 			toolCalls: toolCalls,
+			numCtx: numCtx,
 		})
 		props.renderer.dispose();
 	}
@@ -207,6 +210,14 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 					type='password'
 					label={(() => localize('positron.newConnectionModalDialog.apiKey', "API Key"))()}
 					onChange={e => { setApiKey(e.currentTarget.value) }}
+				/>
+			}
+			{source?.supportedOptions.includes('numCtx') &&
+				<LabeledTextInput
+					value={numCtx ?? 2048}
+					type='number'
+					label={(() => localize('positron.newConnectionModalDialog.numCtx', "Context Window size"))()}
+					onChange={e => { setNumCtx(parseInt(e.currentTarget.value)) }}
 				/>
 			}
 			{source?.supportedOptions.includes('toolCalls') &&

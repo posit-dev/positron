@@ -314,18 +314,21 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 			id: 'ollama',
 			displayName: 'Ollama'
 		},
-		supportedOptions: ['baseUrl', 'toolCalls'],
+		supportedOptions: ['baseUrl', 'toolCalls', 'numCtx'],
 		defaults: {
 			name: 'Qwen 2.5',
 			model: 'qwen2.5-coder:7b',
 			baseUrl: 'http://localhost:11434/api',
 			toolCalls: false,
+			numCtx: 2048,
 		},
 	};
 
 	constructor(_config: ModelConfig) {
 		super(_config);
-		this.model = createOllama({ baseURL: this._config.baseUrl })(this._config.model);
+		this.model = createOllama({ baseURL: this._config.baseUrl })(this._config.model, {
+			numCtx: this._config.numCtx,
+		});
 	}
 }
 

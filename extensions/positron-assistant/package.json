@@ -70,6 +70,10 @@
                 "type": "string",
                 "description": "URL prefix for API calls."
               },
+              "numCtx": {
+                "type": "number",
+                "description": "Context window size."
+              },
               "toolCalls": {
                 "type": "boolean",
                 "description": "Should the LLM make tool calls?"

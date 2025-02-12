@@ -58,6 +58,7 @@ export interface IPositronLanguageModelConfig {
 	resourceName?: string;
 	project?: string;
 	location?: string;
+	numCtx?: number;
 }
 
 //#endregion
