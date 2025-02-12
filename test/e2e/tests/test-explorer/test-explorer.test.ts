@@ -28,14 +28,10 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 		}
 	});
 
-	test('R - Verify Basic Test Explorer Functionality', async function ({ app }) {
+	test('R - Verify Basic Test Explorer Functionality', async function ({ app, openFolder }) {
 		await expect(async () => {
-			// Navigate to https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
-			// This is an R package embedded in qa-example-content
-			await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
-			await app.workbench.quickInput.waitForQuickInputOpened();
-			await app.workbench.quickInput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
-			await app.workbench.quickInput.clickOkOnQuickInput();
+			// Open R package embedded in qa-example-content
+			await openFolder(path.join('qa-example-content/workspaces/r_testing'));
 			await app.workbench.console.waitForReadyAndStarted('>', 10000);
 		}).toPass({ timeout: 50000 });
 
