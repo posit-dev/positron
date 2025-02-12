@@ -392,7 +392,7 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
             // remove workspace folder scope to avoid overwriting other extensions' env vars
             // const workspaceFolder = this.getWorkspaceFolder(resource);
             if (useEnvExtension()) {
-                this.getEnvironmentVariableCollection( ).clear();
+                this.getEnvironmentVariableCollection().clear();
                 traceVerbose('Do not activate microvenv as env extension is being used');
                 return;
             }

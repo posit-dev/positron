@@ -319,6 +319,7 @@ if __name__ == "__main__":
                     "endLine": result["end_line"],
                     "startCharacter": result["start_character"],
                     "endCharacter": result["end_character"],
+                    "attach_bracket_paste": attach_bracket_paste,
                 }
                 # --- End Positron ---
             )
