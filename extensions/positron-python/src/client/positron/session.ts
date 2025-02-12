@@ -8,10 +8,10 @@
 
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
-import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import PQueue from 'p-queue';
+import * as fs from '../common/platform/fs-paths';
 import { ProductNames } from '../common/installer/productNames';
 import { InstallOptions, ModuleInstallFlags } from '../common/installer/types';
 
@@ -269,7 +269,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                 this._applicationShell.showErrorMessage(
                     vscode.l10n.t(
                         'Failed to use the bundled ipykernel, falling back to a manual installation. Reason: {0}',
-                        JSON.stringify(err),
+                        (err as Error).message,
                     ),
                 );
             }
@@ -295,9 +295,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             kernelSpec.env = {};
         }
         const cpxSpecifier = `cp${info.version.major}${info.version.minor}`;
-        for (const specifier of [cpxSpecifier, 'py3', 'cp3']) {
+        for (const specifier of [cpxSpecifier, 'cp3', 'py3']) {
             const bundlePath = path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', specifier);
-            if (!fs.existsSync(bundlePath)) {
+            if (!(await fs.pathExists(bundlePath))) {
                 // This shouldn't happen. Did something go wrong during `npm install`?
                 throw new Error(`Bundled ipykernel dependencies not found at: ${bundlePath}`);
             }
