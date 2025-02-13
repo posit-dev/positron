@@ -539,6 +539,89 @@ export function registerLanguageRuntimeActions() {
 		}
 	});
 
+	registerLanguageRuntimeAction('workbench.action.language.runtime.openActivePicker', 'Open Active Runtime Picker', async accessor => {
+		// Constants
+		const startNewId = 'runtimes-start-new';
+
+		// Access services.
+		const quickInputService = accessor.get(IQuickInputService);
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+		const commandService = accessor.get(ICommandService);
+
+		// Create quick pick items for active runtimes.
+		const activeRuntimeItems: IQuickPickItem[] = runtimeSessionService.activeSessions.map(
+			({ runtimeMetadata }) => ({
+				id: runtimeMetadata.runtimeId,
+				label: runtimeMetadata.runtimeName,
+				detail: runtimeMetadata.runtimePath,
+				iconPath: {
+					dark: URI.parse(`data:image/svg+xml;base64, ${runtimeMetadata.base64EncodedIconSvg}`),
+				},
+				picked: (runtimeMetadata.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+			})
+		);
+
+		// Show quick pick to select an active runtime or show all runtimes.
+		const result = await quickInputService.pick([
+			{
+				label: 'Active Runtimes',
+				type: 'separator',
+			},
+			...activeRuntimeItems,
+			{
+				type: 'separator'
+			},
+			{
+				label: 'All Runtimes...',
+				id: startNewId,
+				alwaysShow: true
+			},
+		], {
+			title: 'Select an Active Runtime',
+			canPickMany: false,
+			activeItem: activeRuntimeItems.filter(item => item.picked)[0]
+		});
+
+		// Handle the user's selection.
+		if (result?.id === startNewId) {
+			// If the user selected "All Runtimes...", execute the command to show all runtimes.
+			await commandService.executeCommand('workbench.action.language.runtime.openStartPicker');
+		} else if (result?.id) {
+			// If the user selected a specific runtime, set it as the active runtime.
+			runtimeSessionService.selectRuntime(result.id, 'User selected runtime');
+		}
+	});
+
+	registerLanguageRuntimeAction('workbench.action.language.runtime.openStartPicker', 'Open Start Runtime Picker', async accessor => {
+		// Access services.
+		const quickInputService = accessor.get(IQuickInputService);
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+
+		// Show all runtimes
+		const runtimes = languageRuntimeService.registeredRuntimes.map(
+			runtimeMetadata => ({
+				id: runtimeMetadata.runtimeId,
+				label: runtimeMetadata.runtimeName,
+				detail: runtimeMetadata.runtimePath,
+				iconPath: {
+					dark: URI.parse(`data:image/svg+xml;base64, ${runtimeMetadata.base64EncodedIconSvg}`),
+				},
+			})
+		);
+
+		// Prompt the user to select a runtime to start
+		const selectedRuntime = await quickInputService.pick(
+			runtimes,
+			{ title: 'Start Another Runtime', canPickMany: false }
+		);
+
+		// If the user selected a runtime, set it as the active runtime
+		if (selectedRuntime) {
+			runtimeSessionService.selectRuntime(selectedRuntime?.id, 'User selected runtime');
+		}
+	});
+
 	/**
 	 * Arguments passed to the Execute Code actions.
 	 */
