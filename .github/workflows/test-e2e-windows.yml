@@ -139,10 +139,20 @@ jobs:
           Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
       # Alternate R version
-      - name: Install R 4.4.2
-        uses: r-lib/actions/setup-r@v2
-        with:
-          r-version: "4.4.2"
+      - name: Install rig
+        run: |
+          choco install rig
+
+      - name: Install R versions
+        run: |
+          rig add 4.4.2
+          rig default 4.4.2
+          rig ls
+
+      # Install ipykernel inside R 4.4.2
+      - name: Install ipykernel in R 4.4.2
+        run: |
+          rig exec 4.4.2 -- Rscript -e "install.packages('ipykernel')"
 
       - name: Verify Installed Versions
         shell: bash
@@ -150,29 +160,12 @@ jobs:
           echo "Python 3.10.10: $(py -3.10 --version)"
           echo "Python 3.13.0: $(py -3.13 --version)"
 
-          echo "Listing R Installations in C:/Program Files/R:"
-          dir "C:/Program Files/R"
 
-          echo "Finding Installed R Versions..."
-          where Rscript || which Rscript  # Print all detected Rscript locations
+          echo "Running R 4.4.0:"
+          Rscript -e 'cat(R.version.string)'
 
-          # Manually define the paths if known
-          R44_0="C:/Program Files/R/R-4.4.0/bin/Rscript.exe"
-          R44_2="C:/Program Files/R/R-4.4.2/bin/Rscript.exe"
-
-          echo "R 4.4.0:"
-          if [[ -f "$R44_0" ]]; then
-            "$R44_0" -e 'cat(R.version.string)'
-          else
-            echo "R 4.4.0 not found!"
-          fi
-
-          echo "R 4.4.2:"
-          if [[ -f "$R44_2" ]]; then
-            "$R44_2" -e 'cat(R.version.string)'
-          else
-            echo "R 4.4.2 not found!"
-          fi
+          echo "Running R 4.4.2:"
+          rig exec 4.4.2 -- Rscript -e 'cat(R.version.string)'
 
 
       - name: Setup Graphviz
