@@ -21,8 +21,9 @@ pandas==2.0.3; python_version < '3.9'
 pandas==2.2.3; python_version >= '3.9'
 plotly==6.0.0
 polars==1.7.1; python_version < '3.9'
+polars[timezone]==1.7.1; python_version < '3.9'
 polars==1.22.0; python_version >= '3.9'
-polars[timezone]==1.7.1; python_version < '3.9' or sys_platform == 'win32'
+polars[timezone]==1.22.0; python_version >= '3.9' and sys_platform == 'win32'
 pyarrow==17.0.0; python_version < '3.13'
 pyarrow==19.0.0; python_version >= '3.13'
 pytest==8.3.4
