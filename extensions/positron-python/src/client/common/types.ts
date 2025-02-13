@@ -191,13 +191,8 @@ export interface IPythonSettings {
     readonly quietMode: boolean;
     // --- End Positron ---
     readonly defaultInterpreterPath: string;
-    readonly tensorBoard: ITensorBoardSettings | undefined;
     readonly REPL: IREPLSettings;
     register(): void;
-}
-
-export interface ITensorBoardSettings {
-    logDirectory: string | undefined;
 }
 
 export interface IInterpreterSettings {

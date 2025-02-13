@@ -18,6 +18,7 @@ import {
     TextDocument,
     FileCoverageDetail,
     TestRun,
+    MarkdownString,
 } from 'vscode';
 import { IExtensionSingleActivationService } from '../../activation/types';
 import { ICommandManager, IWorkspaceService } from '../../common/application/types';
@@ -32,8 +33,8 @@ import { IEventNamePropertyMapping, sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { PYTEST_PROVIDER, UNITTEST_PROVIDER } from '../common/constants';
 import { TestProvider } from '../types';
-import { DebugTestTag, getNodeByUri, RunTestTag } from './common/testItemUtilities';
-import { pythonTestAdapterRewriteEnabled } from './common/utils';
+import { createErrorTestItem, DebugTestTag, getNodeByUri, RunTestTag } from './common/testItemUtilities';
+import { buildErrorNodeOptions } from './common/utils';
 import {
     ITestController,
     ITestDiscoveryAdapter,
@@ -47,7 +48,6 @@ import { PytestTestDiscoveryAdapter } from './pytest/pytestDiscoveryAdapter';
 import { PytestTestExecutionAdapter } from './pytest/pytestExecutionAdapter';
 import { WorkspaceTestAdapter } from './workspaceTestAdapter';
 import { ITestDebugLauncher } from '../common/types';
-import { IServiceContainer } from '../../ioc/types';
 import { PythonResultResolver } from './common/resultResolver';
 import { onDidSaveTextDocument } from '../../common/vscodeApis/workspaceApis';
 import { IEnvironmentVariablesProvider } from '../../common/variables/types';
@@ -98,7 +98,6 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
         @inject(IPythonExecutionFactory) private readonly pythonExecFactory: IPythonExecutionFactory,
         @inject(ITestDebugLauncher) private readonly debugLauncher: ITestDebugLauncher,
         @inject(ITestOutputChannel) private readonly testOutputChannel: ITestOutputChannel,
-        @inject(IServiceContainer) private readonly serviceContainer: IServiceContainer,
         @inject(IEnvironmentVariablesProvider) private readonly envVarsService: IEnvironmentVariablesProvider,
     ) {
         this.refreshCancellation = new CancellationTokenSource();
@@ -134,19 +133,15 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                 true,
                 DebugTestTag,
             ),
-        );
-        if (pythonTestAdapterRewriteEnabled(this.serviceContainer)) {
-            // only add the coverage profile if the new test adapter is enabled
-            const coverageProfile = this.testController.createRunProfile(
+            this.testController.createRunProfile(
                 'Coverage Tests',
                 TestRunProfileKind.Coverage,
                 this.runTests.bind(this),
                 true,
                 RunTestTag,
-            );
+            ),
+        );
 
-            this.disposables.push(coverageProfile);
-        }
         this.testController.resolveHandler = this.resolveChildren.bind(this);
         this.testController.refreshHandler = (token: CancellationToken) => {
             this.disposables.push(
@@ -270,48 +265,56 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             this.sendTestDisabledTelemetry = true;
             // ** experiment to roll out NEW test discovery mechanism
             if (settings.testing.pytestEnabled) {
-                if (pythonTestAdapterRewriteEnabled(this.serviceContainer)) {
-                    traceInfo(`Running discovery for pytest using the new test adapter.`);
-                    if (workspace && workspace.uri) {
-                        const testAdapter = this.testAdapters.get(workspace.uri);
-                        if (testAdapter) {
-                            await testAdapter.discoverTests(
-                                this.testController,
-                                this.refreshCancellation.token,
-                                this.pythonExecFactory,
-                                await this.interpreterService.getActiveInterpreter(workspace.uri),
+                if (workspace && workspace.uri) {
+                    const testAdapter = this.testAdapters.get(workspace.uri);
+                    if (testAdapter) {
+                        const testProviderInAdapter = testAdapter.getTestProvider();
+                        if (testProviderInAdapter !== 'pytest') {
+                            traceError('Test provider in adapter is not pytest. Please reload window.');
+                            this.surfaceErrorNode(
+                                workspace.uri,
+                                'Test provider types are not aligned, please reload your VS Code window.',
+                                'pytest',
                             );
-                        } else {
-                            traceError('Unable to find test adapter for workspace.');
+                            return Promise.resolve();
                         }
+                        await testAdapter.discoverTests(
+                            this.testController,
+                            this.refreshCancellation.token,
+                            this.pythonExecFactory,
+                            await this.interpreterService.getActiveInterpreter(workspace.uri),
+                        );
                     } else {
-                        traceError('Unable to find workspace for given file');
+                        traceError('Unable to find test adapter for workspace.');
                     }
                 } else {
-                    // else use OLD test discovery mechanism
-                    await this.pytest.refreshTestData(this.testController, uri, this.refreshCancellation.token);
+                    traceError('Unable to find workspace for given file');
                 }
             } else if (settings.testing.unittestEnabled) {
-                if (pythonTestAdapterRewriteEnabled(this.serviceContainer)) {
-                    traceInfo(`Running discovery for unittest using the new test adapter.`);
-                    if (workspace && workspace.uri) {
-                        const testAdapter = this.testAdapters.get(workspace.uri);
-                        if (testAdapter) {
-                            await testAdapter.discoverTests(
-                                this.testController,
-                                this.refreshCancellation.token,
-                                this.pythonExecFactory,
-                                await this.interpreterService.getActiveInterpreter(workspace.uri),
+                if (workspace && workspace.uri) {
+                    const testAdapter = this.testAdapters.get(workspace.uri);
+                    if (testAdapter) {
+                        const testProviderInAdapter = testAdapter.getTestProvider();
+                        if (testProviderInAdapter !== 'unittest') {
+                            traceError('Test provider in adapter is not unittest. Please reload window.');
+                            this.surfaceErrorNode(
+                                workspace.uri,
+                                'Test provider types are not aligned, please reload your VS Code window.',
+                                'unittest',
                             );
-                        } else {
-                            traceError('Unable to find test adapter for workspace.');
+                            return Promise.resolve();
                         }
+                        await testAdapter.discoverTests(
+                            this.testController,
+                            this.refreshCancellation.token,
+                            this.pythonExecFactory,
+                            await this.interpreterService.getActiveInterpreter(workspace.uri),
+                        );
                     } else {
-                        traceError('Unable to find workspace for given file');
+                        traceError('Unable to find test adapter for workspace.');
                     }
                 } else {
-                    // else use OLD test discovery mechanism
-                    await this.unittest.refreshTestData(this.testController, uri, this.refreshCancellation.token);
+                    traceError('Unable to find workspace for given file');
                 }
             } else {
                 if (this.sendTestDisabledTelemetry) {
@@ -450,28 +453,15 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                                 tool: 'pytest',
                                 debugging: request.profile?.kind === TestRunProfileKind.Debug,
                             });
-                            // ** experiment to roll out NEW test discovery mechanism
-                            if (pythonTestAdapterRewriteEnabled(this.serviceContainer)) {
-                                return testAdapter.executeTests(
-                                    this.testController,
-                                    runInstance,
-                                    testItems,
-                                    token,
-                                    request.profile?.kind,
-                                    this.pythonExecFactory,
-                                    this.debugLauncher,
-                                    await this.interpreterService.getActiveInterpreter(workspace.uri),
-                                );
-                            }
-                            return this.pytest.runTests(
-                                {
-                                    includes: testItems,
-                                    excludes: request.exclude ?? [],
-                                    runKind: request.profile?.kind ?? TestRunProfileKind.Run,
-                                    runInstance,
-                                },
-                                workspace,
+                            return testAdapter.executeTests(
+                                this.testController,
+                                runInstance,
+                                testItems,
                                 token,
+                                request.profile?.kind,
+                                this.pythonExecFactory,
+                                this.debugLauncher,
+                                await this.interpreterService.getActiveInterpreter(workspace.uri),
                             );
                         }
                         if (settings.testing.unittestEnabled) {
@@ -480,29 +470,15 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
                                 debugging: request.profile?.kind === TestRunProfileKind.Debug,
                             });
                             // ** experiment to roll out NEW test discovery mechanism
-                            if (pythonTestAdapterRewriteEnabled(this.serviceContainer)) {
-                                return testAdapter.executeTests(
-                                    this.testController,
-                                    runInstance,
-                                    testItems,
-                                    token,
-                                    request.profile?.kind,
-                                    this.pythonExecFactory,
-                                    this.debugLauncher,
-                                    await this.interpreterService.getActiveInterpreter(workspace.uri),
-                                );
-                            }
-                            // below is old way of running unittest execution
-                            return this.unittest.runTests(
-                                {
-                                    includes: testItems,
-                                    excludes: request.exclude ?? [],
-                                    runKind: request.profile?.kind ?? TestRunProfileKind.Run,
-                                    runInstance,
-                                },
-                                workspace,
-                                token,
+                            return testAdapter.executeTests(
                                 this.testController,
+                                runInstance,
+                                testItems,
+                                token,
+                                request.profile?.kind,
+                                this.pythonExecFactory,
+                                this.debugLauncher,
+                                await this.interpreterService.getActiveInterpreter(workspace.uri),
                             );
                         }
                     }
@@ -597,5 +573,17 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             });
             this.triggerTypes.push(trigger);
         }
+    }
+
+    private surfaceErrorNode(workspaceUri: Uri, message: string, testProvider: TestProvider): void {
+        let errorNode = this.testController.items.get(`DiscoveryError:${workspaceUri.fsPath}`);
+        if (errorNode === undefined) {
+            const options = buildErrorNodeOptions(workspaceUri, message, testProvider);
+            errorNode = createErrorTestItem(this.testController, options);
+            this.testController.items.add(errorNode);
+        }
+        const errorNodeLabel: MarkdownString = new MarkdownString(message);
+        errorNodeLabel.isTrusted = true;
+        errorNode.error = errorNodeLabel;
     }
 }

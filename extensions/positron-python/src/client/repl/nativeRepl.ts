@@ -6,6 +6,7 @@ import {
     NotebookDocument,
     QuickPickItem,
     TextEditor,
+    Uri,
     workspace,
     WorkspaceFolder,
 } from 'vscode';
@@ -21,8 +22,11 @@ import { EventName } from '../telemetry/constants';
 import { sendTelemetryEvent } from '../telemetry';
 import { VariablesProvider } from './variables/variablesProvider';
 import { VariableRequester } from './variables/variableRequester';
+import { getTabNameForUri } from './replUtils';
+import { getWorkspaceStateValue, updateWorkspaceStateValue } from '../common/persistentState';
 
-let nativeRepl: NativeRepl | undefined; // In multi REPL scenario, hashmap of URI to Repl.
+export const NATIVE_REPL_URI_MEMENTO = 'nativeReplUri';
+let nativeRepl: NativeRepl | undefined;
 export class NativeRepl implements Disposable {
     // Adding ! since it will get initialized in create method, not the constructor.
     private pythonServer!: PythonServer;
@@ -65,10 +69,11 @@ export class NativeRepl implements Disposable {
      */
     private watchNotebookClosed(): void {
         this.disposables.push(
-            workspace.onDidCloseNotebookDocument((nb) => {
+            workspace.onDidCloseNotebookDocument(async (nb) => {
                 if (this.notebookDocument && nb.uri.toString() === this.notebookDocument.uri.toString()) {
                     this.notebookDocument = undefined;
                     this.newReplSession = true;
+                    await updateWorkspaceStateValue<string | undefined>(NATIVE_REPL_URI_MEMENTO, undefined);
                 }
             }),
         );
@@ -145,15 +150,37 @@ export class NativeRepl implements Disposable {
     /**
      * Function that opens interactive repl, selects kernel, and send/execute code to the native repl.
      */
-    public async sendToNativeRepl(code?: string): Promise<void> {
-        const notebookEditor = await openInteractiveREPL(this.replController, this.notebookDocument);
-        this.notebookDocument = notebookEditor.notebook;
+    public async sendToNativeRepl(code?: string | undefined, preserveFocus: boolean = true): Promise<void> {
+        let wsMementoUri: Uri | undefined;
 
-        if (this.notebookDocument) {
-            this.replController.updateNotebookAffinity(this.notebookDocument, NotebookControllerAffinity.Default);
-            await selectNotebookKernel(notebookEditor, this.replController.id, PVSC_EXTENSION_ID);
-            if (code) {
-                await executeNotebookCell(notebookEditor, code);
+        if (!this.notebookDocument) {
+            const wsMemento = getWorkspaceStateValue<string>(NATIVE_REPL_URI_MEMENTO);
+            wsMementoUri = wsMemento ? Uri.parse(wsMemento) : undefined;
+
+            if (!wsMementoUri || getTabNameForUri(wsMementoUri) !== 'Python REPL') {
+                await updateWorkspaceStateValue<string | undefined>(NATIVE_REPL_URI_MEMENTO, undefined);
+                wsMementoUri = undefined;
+            }
+        }
+
+        const notebookEditor = await openInteractiveREPL(
+            this.replController,
+            this.notebookDocument ?? wsMementoUri,
+            preserveFocus,
+        );
+        if (notebookEditor) {
+            this.notebookDocument = notebookEditor.notebook;
+            await updateWorkspaceStateValue<string | undefined>(
+                NATIVE_REPL_URI_MEMENTO,
+                this.notebookDocument.uri.toString(),
+            );
+
+            if (this.notebookDocument) {
+                this.replController.updateNotebookAffinity(this.notebookDocument, NotebookControllerAffinity.Default);
+                await selectNotebookKernel(notebookEditor, this.replController.id, PVSC_EXTENSION_ID);
+                if (code) {
+                    await executeNotebookCell(notebookEditor, code);
+                }
             }
         }
     }

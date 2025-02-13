@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 import * as path from 'path';
-import { TestRun, TestRunProfileKind, Uri } from 'vscode';
+import { CancellationTokenSource, DebugSessionOptions, TestRun, TestRunProfileKind, Uri } from 'vscode';
 import { ChildProcess } from 'child_process';
 import { IConfigurationService, ITestOutputChannel } from '../../../common/types';
 import { Deferred, createDeferred } from '../../../common/utils/async';
@@ -26,6 +26,7 @@ import {
 import { ITestDebugLauncher, LaunchOptions } from '../../common/types';
 import { UNITTEST_PROVIDER } from '../../common/constants';
 import * as utils from '../common/utils';
+import { getEnvironment, runInBackground, useEnvExtension } from '../../../envExt/api.internal';
 
 /**
  * Wrapper Class for unittest test execution. This is where we call `runTestCommand`?
@@ -46,7 +47,7 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
         runInstance?: TestRun,
         executionFactory?: IPythonExecutionFactory,
         debugLauncher?: ITestDebugLauncher,
-    ): Promise<ExecutionTestPayload> {
+    ): Promise<void> {
         // deferredTillServerClose awaits named pipe server close
         const deferredTillServerClose: Deferred<void> = utils.createTestingDeferred();
 
@@ -58,23 +59,24 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
                 traceError(`No run instance found, cannot resolve execution, for workspace ${uri.fsPath}.`);
             }
         };
-        const { name: resultNamedPipeName, dispose: serverDispose } = await utils.startRunResultNamedPipe(
+        const cSource = new CancellationTokenSource();
+        runInstance?.token.onCancellationRequested(() => cSource.cancel());
+        const name = await utils.startRunResultNamedPipe(
             dataReceivedCallback, // callback to handle data received
             deferredTillServerClose, // deferred to resolve when server closes
-            runInstance?.token, // token to cancel
+            cSource.token, // token to cancel
         );
         runInstance?.token.onCancellationRequested(() => {
             console.log(`Test run cancelled, resolving 'till TillAllServerClose' deferred for ${uri.fsPath}.`);
             // if canceled, stop listening for results
             deferredTillServerClose.resolve();
-            serverDispose();
         });
         try {
             await this.runTestsNew(
                 uri,
                 testIds,
-                resultNamedPipeName,
-                serverDispose,
+                name,
+                cSource,
                 runInstance,
                 profileKind,
                 executionFactory,
@@ -85,19 +87,13 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
         } finally {
             await deferredTillServerClose.promise;
         }
-        const executionPayload: ExecutionTestPayload = {
-            cwd: uri.fsPath,
-            status: 'success',
-            error: '',
-        };
-        return executionPayload;
     }
 
     private async runTestsNew(
         uri: Uri,
         testIds: string[],
         resultNamedPipeName: string,
-        serverDispose: () => void,
+        serverCancel: CancellationTokenSource,
         runInstance?: TestRun,
         profileKind?: TestRunProfileKind,
         executionFactory?: IPythonExecutionFactory,
@@ -165,15 +161,63 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
                     runTestIdsPort: testIdsFileName,
                     pytestPort: resultNamedPipeName, // change this from pytest
                 };
+                const sessionOptions: DebugSessionOptions = {
+                    testRun: runInstance,
+                };
                 traceInfo(`Running DEBUG unittest for workspace ${options.cwd} with arguments: ${args}\r\n`);
 
                 if (debugLauncher === undefined) {
                     traceError('Debug launcher is not defined');
                     throw new Error('Debug launcher is not defined');
                 }
-                await debugLauncher.launchDebugger(launchOptions, () => {
-                    serverDispose(); // this will resolve the deferredTillAllServerClose
-                });
+                await debugLauncher.launchDebugger(
+                    launchOptions,
+                    () => {
+                        serverCancel.cancel();
+                    },
+                    sessionOptions,
+                );
+            } else if (useEnvExtension()) {
+                const pythonEnv = await getEnvironment(uri);
+                if (pythonEnv) {
+                    traceInfo(`Running unittest with arguments: ${args.join(' ')} for workspace ${uri.fsPath} \r\n`);
+                    const deferredTillExecClose = createDeferred();
+
+                    const proc = await runInBackground(pythonEnv, {
+                        cwd,
+                        args,
+                        env: (mutableEnv as unknown) as { [key: string]: string },
+                    });
+                    runInstance?.token.onCancellationRequested(() => {
+                        traceInfo(`Test run cancelled, killing unittest subprocess for workspace ${uri.fsPath}`);
+                        proc.kill();
+                        deferredTillExecClose.resolve();
+                        serverCancel.cancel();
+                    });
+                    proc.stdout.on('data', (data) => {
+                        const out = utils.fixLogLinesNoTrailing(data.toString());
+                        runInstance?.appendOutput(out);
+                        this.outputChannel?.append(out);
+                    });
+                    proc.stderr.on('data', (data) => {
+                        const out = utils.fixLogLinesNoTrailing(data.toString());
+                        runInstance?.appendOutput(out);
+                        this.outputChannel?.append(out);
+                    });
+                    proc.onExit((code, signal) => {
+                        this.outputChannel?.append(utils.MESSAGE_ON_TESTING_OUTPUT_MOVE);
+                        if (code !== 0) {
+                            traceError(
+                                `Subprocess exited unsuccessfully with exit code ${code} and signal ${signal} on workspace ${uri.fsPath}`,
+                            );
+                        }
+                        deferredTillExecClose.resolve();
+                        serverCancel.cancel();
+                    });
+                    await deferredTillExecClose.promise;
+                } else {
+                    traceError(`Python Environment not found for: ${uri.fsPath}`);
+                }
             } else {
                 // This means it is running the test
                 traceInfo(`Running unittests for workspace ${cwd} with arguments: ${args}\r\n`);
@@ -189,6 +233,7 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
                         resultProc?.kill();
                     } else {
                         deferredTillExecClose?.resolve();
+                        serverCancel.cancel();
                     }
                 });
 
@@ -225,9 +270,9 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
                                 runInstance,
                             );
                         }
-                        serverDispose();
                     }
                     deferredTillExecClose.resolve();
+                    serverCancel.cancel();
                 });
                 await deferredTillExecClose.promise;
             }

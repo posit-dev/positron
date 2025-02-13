@@ -57,6 +57,8 @@ import { showErrorMessage } from '../../../../common/vscodeApis/windowApis';
 import { traceError } from '../../../../logging';
 // --- End Positron ---
 import { untildify } from '../../../../common/helpers';
+import { useEnvExtension } from '../../../../envExt/api.internal';
+import { setInterpreterLegacy } from '../../../../envExt/api.legacy';
 
 export type InterpreterStateArgs = { path?: string; workspace: Resource };
 export type QuickPickType = IInterpreterQuickPickItem | ISpecialQuickPickItem | QuickPickItem;
@@ -614,6 +616,9 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
                 .catch((error) => traceError(`Failed to select language runtime from path: ${error}`));
             this.commandManager.executeCommand(Commands.Focus_Positron_Console);
             // --- End Positron ---
+            if (useEnvExtension()) {
+                await setInterpreterLegacy(interpreterState.path, wkspace);
+            }
         }
     }
 

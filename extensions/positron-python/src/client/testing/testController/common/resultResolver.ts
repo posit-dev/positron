@@ -189,8 +189,10 @@ export class PythonResultResolver implements ITestResultResolver {
                     // search through freshly built array of testItem to find the failed test and update UI.
                     testCases.forEach((indiItem) => {
                         if (indiItem.id === grabVSid) {
-                            if (indiItem.uri && indiItem.range) {
-                                message.location = new Location(indiItem.uri, indiItem.range);
+                            if (indiItem.uri) {
+                                if (indiItem.range) {
+                                    message.location = new Location(indiItem.uri, indiItem.range);
+                                }
                                 runInstance.errored(indiItem, message);
                             }
                         }
@@ -210,8 +212,10 @@ export class PythonResultResolver implements ITestResultResolver {
                     // search through freshly built array of testItem to find the failed test and update UI.
                     testCases.forEach((indiItem) => {
                         if (indiItem.id === grabVSid) {
-                            if (indiItem.uri && indiItem.range) {
-                                message.location = new Location(indiItem.uri, indiItem.range);
+                            if (indiItem.uri) {
+                                if (indiItem.range) {
+                                    message.location = new Location(indiItem.uri, indiItem.range);
+                                }
                                 runInstance.failed(indiItem, message);
                             }
                         }
@@ -222,7 +226,7 @@ export class PythonResultResolver implements ITestResultResolver {
                     if (grabTestItem !== undefined) {
                         testCases.forEach((indiItem) => {
                             if (indiItem.id === grabVSid) {
-                                if (indiItem.uri && indiItem.range) {
+                                if (indiItem.uri) {
                                     runInstance.passed(grabTestItem);
                                 }
                             }
@@ -234,7 +238,7 @@ export class PythonResultResolver implements ITestResultResolver {
                     if (grabTestItem !== undefined) {
                         testCases.forEach((indiItem) => {
                             if (indiItem.id === grabVSid) {
-                                if (indiItem.uri && indiItem.range) {
+                                if (indiItem.uri) {
                                     runInstance.skipped(grabTestItem);
                                 }
                             }
@@ -258,7 +262,11 @@ export class PythonResultResolver implements ITestResultResolver {
                             // clear since subtest items don't persist between runs
                             clearAllChildren(parentTestItem);
                         }
-                        const subTestItem = this.testController?.createTestItem(subtestId, subtestId);
+                        const subTestItem = this.testController?.createTestItem(
+                            subtestId,
+                            subtestId,
+                            parentTestItem.uri,
+                        );
                         // create a new test item for the subtest
                         if (subTestItem) {
                             const traceback = data.traceback ?? '';
@@ -293,7 +301,11 @@ export class PythonResultResolver implements ITestResultResolver {
                             // clear since subtest items don't persist between runs
                             clearAllChildren(parentTestItem);
                         }
-                        const subTestItem = this.testController?.createTestItem(subtestId, subtestId);
+                        const subTestItem = this.testController?.createTestItem(
+                            subtestId,
+                            subtestId,
+                            parentTestItem.uri,
+                        );
                         // create a new test item for the subtest
                         if (subTestItem) {
                             parentTestItem.children.add(subTestItem);
