@@ -48,6 +48,7 @@ export enum TestTags {
 	TEST_EXPLORER = '@:test-explorer',
 	TOP_ACTION_BAR = '@:top-action-bar',
 	VARIABLES = '@:variables',
+	WEB_ONLY = '@:web-only',
 	WELCOME = '@:welcome',
 
 	// platform  tags
