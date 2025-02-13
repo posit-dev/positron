@@ -17,6 +17,15 @@ import { PositronModalReactRenderer } from '../../../positronModalReactRenderer/
 import { usePositronTopActionBarContext } from '../positronTopActionBarContext.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { InterpretersManagerModalPopup } from '../interpretersManagerModalPopup/interpretersManagerModalPopup.js';
+import { multipleConsoleSessionsFeatureEnabled } from '../../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { ActionBarCommandButton } from '../../../../../platform/positronActionBar/browser/components/actionBarCommandButton.js';
+import { CommandCenter } from '../../../../../platform/commandCenter/common/commandCenter.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+// import { URI } from '../../../../../base/common/uri.js';
+// import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+
+const runtimePickerAction = 'workbench.action.language.runtime.openActivePicker';
 
 /**
  * TopActionBarInterpretersManagerProps interface.
@@ -24,13 +33,17 @@ import { InterpretersManagerModalPopup } from '../interpretersManagerModalPopup/
 interface TopActionBarInterpretersManagerProps {
 	onStartRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
 	onActivateRuntime: (runtime: ILanguageRuntimeMetadata) => Promise<void>;
+	services: {
+		configurationService: IConfigurationService;
+		runtimeSessionService: IRuntimeSessionService
+	}
 }
 
 /**
  * TopActionBarInterpretersManager component.
  * @returns The rendered component.
  */
-export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersManagerProps) => {
+export const TopActionBarInterpretersManager_Legacy = (props: TopActionBarInterpretersManagerProps) => {
 	// Context hooks.
 	const context = usePositronTopActionBarContext();
 
@@ -140,3 +153,83 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 		</div>
 	);
 };
+
+export const TopActionBarInterpretersManager_New = (props: TopActionBarInterpretersManagerProps) => {
+	const [activeSession, setActiveSession] = useState<ILanguageRuntimeSession>();
+
+	// Main useEffect.
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Add the onDidChangeForegroundSession event handler.
+		disposableStore.add(
+			props.services.runtimeSessionService.onDidChangeForegroundSession(session => {
+				if (session?.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+					setActiveSession(
+						props.services.runtimeSessionService.foregroundSession);
+				}
+			})
+		);
+
+		// Return the cleanup function that will dispose of the disposables.
+		return () => disposableStore.dispose();
+	}, [props.services.runtimeSessionService]);
+
+	return (
+		// <div aria-hidden='true' className='action-bar-button-face'>
+		// 	<img
+		// 		className={positronClassNames(
+		// 			'action-bar-button-icon',
+		// 			'icon'
+		// 		)}
+		// 		src={`data:image/svg+xml;base64,${activeSession?.runtimeMetadata.base64EncodedIconSvg}`}
+		// 		style={{
+		// 			height: 16,
+		// 			width: 16
+		// 		}}
+		// 	/>
+		// 	<div
+		// 		className='action-bar-button-text'
+		// 		style={{
+		// 			// marginLeft: 4,
+		// 			// maxWidth: optionalValue(props.maxTextWidth, 'none')
+		// 		}}
+		// 	>
+		// 		{activeSession?.runtimeMetadata?.runtimeName ?? 'Choose Runtime'}
+		// 	</div>
+		// </div >
+		<ActionBarCommandButton
+			ariaLabel={CommandCenter.title(runtimePickerAction)}
+			commandId={runtimePickerAction}
+			// iconId='arrow-swap'
+			iconSrc={`data:image/svg+xml;base64,${activeSession?.runtimeMetadata.base64EncodedIconSvg}`}
+			text={activeSession?.runtimeMetadata?.runtimeName ?? 'Choose Runtime'}
+		/>
+	);
+}
+
+export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersManagerProps) => {
+	const [newInterpretersManager, setNewInterpretersManager] = useState(
+		multipleConsoleSessionsFeatureEnabled(props.services.configurationService)
+	);
+
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+		disposableStore.add(
+			props.services.configurationService.onDidChangeConfiguration((e) => {
+				setNewInterpretersManager(
+					multipleConsoleSessionsFeatureEnabled(props.services.configurationService)
+				);
+			})
+		);
+
+		return () => disposableStore.dispose();
+	}, [props.services.configurationService]);
+
+	return (
+		newInterpretersManager
+			? <TopActionBarInterpretersManager_New {...props} />
+			: <TopActionBarInterpretersManager_Legacy {...props} />
+	);
+}

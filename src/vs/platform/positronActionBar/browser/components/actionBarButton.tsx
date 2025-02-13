@@ -20,6 +20,7 @@ import { optionalBoolean, optionalValue, positronClassNames } from '../../../../
 export interface ActionBarButtonProps {
 	readonly fadeIn?: boolean;
 	readonly iconId?: string;
+	readonly iconSrc?: string;
 	readonly iconFontSize?: number;
 	readonly text?: string;
 	readonly maxTextWidth?: number;
@@ -89,23 +90,44 @@ export const ActionBarButton = forwardRef<
 						style={iconStyle}
 					/>
 				)}
-				{props.text && (
+				{props.iconSrc && (
 					<div
-						className='action-bar-button-text'
-						style={{
-							marginLeft: props.iconId ? 0 : 4,
-							maxWidth: optionalValue(props.maxTextWidth, 'none')
-						}}
-					>
-						{props.text}
+						className={positronClassNames(
+							'action-bar-button-icon',
+							props.dropdownIndicator,
+						)}
+						style={iconStyle}>
+						<img
+							src={props.iconSrc}
+							style={{
+								height: 16,
+								width: 16
+							}}
+						/>
 					</div>
-				)}
-				{props.dropdownIndicator === 'enabled' && (
-					<div className='action-bar-button-drop-down-container'>
-						<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
-					</div>
-				)}
-			</div>
+				)
+				}
+				{
+					props.text && (
+						<div
+							className='action-bar-button-text'
+							style={{
+								marginLeft: props.iconId ? 0 : 4,
+								maxWidth: optionalValue(props.maxTextWidth, 'none')
+							}}
+						>
+							{props.text}
+						</div>
+					)
+				}
+				{
+					props.dropdownIndicator === 'enabled' && (
+						<div className='action-bar-button-drop-down-container'>
+							<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
+						</div>
+					)
+				}
+			</div >
 		);
 	};
 
