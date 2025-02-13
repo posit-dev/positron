@@ -175,8 +175,11 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 				await playwright.expect(app.workbench.quickInput.quickInputList.getByLabel('..', { exact: true }).locator('a')).toBeVisible();
 
 				const folderNames = folderPath.split('/');
+
 				for (const folderName of folderNames) {
-					await app.workbench.quickInput.arrowDownToSelectOption(folderName);
+					await app.workbench.quickInput.quickInput.pressSequentially(folderName + '/');
+					const quickInputOption = app.code.driver.page.getByRole('option', { name: folderName }).locator('a');
+					await playwright.expect(quickInputOption).not.toBeVisible();
 				}
 
 				await app.workbench.quickInput.clickOkButton();
