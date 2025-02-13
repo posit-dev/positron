@@ -179,8 +179,14 @@ export const TopActionBarInterpretersManager_New = (props: TopActionBarInterpret
 			ariaLabel={CommandCenter.title(runtimePickerAction)}
 			border={true}
 			commandId={runtimePickerAction}
-			iconImageSrc={`data:image/svg+xml;base64,${activeSession?.runtimeMetadata.base64EncodedIconSvg}`}
 			text={labelText}
+			{
+			...(
+				activeSession
+					? { iconImageSrc: `data:image/svg+xml;base64,${activeSession?.runtimeMetadata.base64EncodedIconSvg}` }
+					: { iconId: 'arrow-swap' }
+			)
+			}
 		/>
 	);
 }
