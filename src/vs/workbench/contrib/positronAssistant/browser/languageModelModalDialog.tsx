@@ -25,7 +25,7 @@ export const showLanguageModelModalDialog = (
 	keybindingService: IKeybindingService,
 	layoutService: ILayoutService,
 	sources: IPositronLanguageModelSource[],
-	onSave: (config: IPositronLanguageModelConfig) => void,
+	onSave: (config: IPositronLanguageModelConfig) => Promise<void>,
 	onCancel: () => void,
 ) => {
 	const renderer = new PositronModalReactRenderer({
@@ -53,7 +53,7 @@ interface LanguageModelConfigurationProps {
 	layoutService: ILayoutService;
 	sources: IPositronLanguageModelSource[];
 	renderer: PositronModalReactRenderer;
-	onSave: (config: IPositronLanguageModelConfig) => void;
+	onSave: (config: IPositronLanguageModelConfig) => Promise<void>;
 	onCancel: () => void;
 }
 
@@ -105,7 +105,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		if (!source) {
 			return;
 		}
-		props.onSave({
+		await props.onSave({
 			type: type,
 			provider: source.provider.id,
 			model: model,
@@ -132,6 +132,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		title={(() => localize('positron.languageModelModalDialog.title', "Add a Language Model Provider"))()}
 		okButtonTitle={(() => localize('positron.languageModelModalDialog.save', "Save"))()}
 		cancelButtonTitle={(() => localize('positron.languageModelModalDialog.cancel', "Cancel"))()}
+		catchErrors={true}
 		onAccept={onAccept}
 		onCancel={onCancel}
 	>
@@ -173,11 +174,13 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			<LabeledTextInput
 				value={name}
 				label={(() => localize('positron.newConnectionModalDialog.name', "Name"))()}
+				validator={(value) => value ? undefined : localize('positron.newConnectionModalDialog.missingName', 'A model name is required')}
 				onChange={e => { setName(e.currentTarget.value) }}
 			/>
 			<LabeledTextInput
 				value={model}
 				label={(() => localize('positron.newConnectionModalDialog.model', "Model"))()}
+				validator={(value) => value ? undefined : localize('positron.newConnectionModalDialog.missingModel', 'A model is required')}
 				onChange={e => { setModel(e.currentTarget.value) }}
 			/>
 			{source?.supportedOptions.includes('baseUrl') &&
@@ -208,6 +211,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				<LabeledTextInput
 					value={apiKey ?? ''}
 					type='password'
+					validator={(value) => value ? undefined : localize('positron.newConnectionModalDialog.missingApiKey', 'An API key is required')}
 					label={(() => localize('positron.newConnectionModalDialog.apiKey', "API Key"))()}
 					onChange={e => { setApiKey(e.currentTarget.value) }}
 				/>

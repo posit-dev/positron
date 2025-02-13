@@ -39,54 +39,62 @@ export async function getModelConfigurations(context: vscode.ExtensionContext): 
 }
 
 export async function showConfigurationDialog(context: vscode.ExtensionContext) {
+	// Gather model sources
+	const sources = [...languageModels, ...completionModels].map((provider) => provider.source);
+
 	// Show a modal asking user for configuration details
-	const userConfig = await positron.ai.showLanguageModelConfig([
-		...languageModels,
-		...completionModels,
-	].map((provider) => provider.source));
+	return positron.ai.showLanguageModelConfig(sources, async (userConfig) => {
+		let { name, model, baseUrl, apiKey, ...otherConfig } = userConfig;
+		name = name.trim();
+		model = model.trim();
+		baseUrl = baseUrl?.trim();
+		apiKey = apiKey?.trim();
 
-	// Early return if user cancels the dialog
-	if (!userConfig) {
-		return;
-	}
+		// Create unique ID for the configuration
+		const id = randomUUID();
 
-	let { name, model, baseUrl, apiKey, ...otherConfig } = userConfig;
-	name = name.trim();
-	model = model.trim();
-	baseUrl = baseUrl?.trim();
-	apiKey = apiKey?.trim();
+		// Check for required fields
+		sources
+			.filter((source) => source.type === userConfig.type)
+			.find((source) => source.provider.id === userConfig.provider)?.supportedOptions
+			.forEach((option) => {
+				if (!(option in userConfig)) {
+					throw new Error(vscode.l10n.t(
+						`Can't save configuration with missing required option: ${option}`
+					));
+				}
+			});
 
-	// Create unique ID for the configuration
-	const id = randomUUID();
+		// Store API key in secret storage
+		if (apiKey) {
+			await context.secrets.store(`apiKey-${id}`, apiKey);
+		}
 
-	// Store API key in secret storage
-	if (apiKey) {
-		await context.secrets.store(`apiKey-${id}`, apiKey);
-	}
+		// Get existing configurations
+		const config = vscode.workspace.getConfiguration('positron.assistant');
+		const existingConfigs = config.get<StoredModelConfig[]>('models') || [];
 
-	// Get existing configurations
-	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const existingConfigs = config.get<StoredModelConfig[]>('models') || [];
+		// Add new configuration
+		const newConfig: StoredModelConfig = {
+			id,
+			name,
+			model,
+			baseUrl,
+			...otherConfig,
+		};
 
-	// Add new configuration
-	const newConfig: StoredModelConfig = {
-		id,
-		name,
-		model,
-		baseUrl,
-		...otherConfig,
-	};
+		// Update settings.json
+		await config.update(
+			'models',
+			[...existingConfigs, newConfig],
+			vscode.ConfigurationTarget.Global
+		);
 
-	// Update settings.json
-	await config.update(
-		'models',
-		[...existingConfigs, newConfig],
-		vscode.ConfigurationTarget.Global
-	);
+		vscode.window.showInformationMessage(
+			vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
+		);
+	});
 
-	vscode.window.showInformationMessage(
-		vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
-	);
 }
 
 export async function deleteConfiguration(context: vscode.ExtensionContext, id: string) {

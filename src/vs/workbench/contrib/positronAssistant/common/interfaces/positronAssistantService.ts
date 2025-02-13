@@ -86,8 +86,11 @@ export interface IPositronAssistantService {
 	/**
 	 * Show the language model configuration modal.
 	 */
-	showLanguageModelModalDialog(sources: IPositronLanguageModelSource[]): Promise<IPositronLanguageModelConfig | undefined>;
-
+	showLanguageModelModalDialog(
+		sources: IPositronLanguageModelSource[],
+		onSave: (config: IPositronLanguageModelConfig) => Promise<void>,
+		onCancel: () => void,
+	): void;
 	/**
 	 * Placeholder that gets called to "initialize" the PositronAssistantService.
 	 */

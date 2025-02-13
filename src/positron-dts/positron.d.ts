@@ -1671,7 +1671,10 @@ declare module 'positron' {
 		/**
 		 * Show a modal dialog for language model configuration.
 		 */
-		export function showLanguageModelConfig(sources: LanguageModelSource[]): Thenable<LanguageModelConfig | undefined>;
+		export function showLanguageModelConfig(
+			sources: LanguageModelSource[],
+			onSave: (config: LanguageModelConfig) => Thenable<void>
+		): Thenable<void>;
 
 		/**
 		 * The context in which a chat request is made.

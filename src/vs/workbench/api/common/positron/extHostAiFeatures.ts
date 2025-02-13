@@ -15,12 +15,13 @@ import { isToolInvocationContext, IToolInvocationContext } from '../../../contri
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { ChatAgentLocation } from '../../../contrib/chat/common/chatAgents.js';
-
+import { generateUuid } from '../../../../base/common/uuid.js';
 
 export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape {
 
 	private readonly _proxy: extHostProtocol.MainThreadAiFeaturesShape;
 	private readonly _disposables: DisposableStore = new DisposableStore();
+	private readonly _languageModelRequestRegistry = new Map<string, (config: IPositronLanguageModelConfig) => Thenable<void>>();
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
@@ -44,8 +45,15 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		});
 	}
 
-	showLanguageModelConfig(sources: positron.ai.LanguageModelSource[]): Promise<IPositronLanguageModelConfig | undefined> {
-		return this._proxy.$languageModelConfig(sources);
+	async showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onSave: (config: positron.ai.LanguageModelConfig) => Thenable<void>): Promise<void> {
+		const id = generateUuid();
+		this._languageModelRequestRegistry.set(id, onSave);
+
+		try {
+			await this._proxy.$languageModelConfig(id, sources);
+		} finally {
+			this._languageModelRequestRegistry.delete(id);
+		}
 	}
 
 	async getCurrentPlotUri(): Promise<string | undefined> {
@@ -66,5 +74,13 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 		const dto = typeConvert.ChatResponsePart.from(part, this._commands.converter, this._disposables);
 		this._proxy.$responseProgress(context.sessionId, dto);
+	}
+
+	async $responseLanguageModelConfig(id: string, config: IPositronLanguageModelConfig): Promise<void> {
+		const onSave = this._languageModelRequestRegistry.get(id);
+		if (!onSave) {
+			throw new Error('No matching language model configuration request found');
+		}
+		return onSave(config);
 	}
 }

@@ -131,10 +131,11 @@ export interface MainThreadAiFeaturesShape {
 	$getCurrentPlotUri(): Promise<string | undefined>;
 	$getPositronChatContext(request: IChatRequestData): Thenable<IPositronChatContext>;
 	$responseProgress(sessionId: string, dto: IChatProgressDto): void;
-	$languageModelConfig(sources: IPositronLanguageModelSource[]): Promise<IPositronLanguageModelConfig | undefined>;
+	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[]): Thenable<void>;
 }
 
 export interface ExtHostAiFeaturesShape {
+	$responseLanguageModelConfig(id: string, config: IPositronLanguageModelConfig): Thenable<void>;
 }
 
 /**
