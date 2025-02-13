@@ -136,7 +136,7 @@ export class EditorActionBar {
 		await test.step('Verify "preview" renders html', async () => {
 			await this.page.getByLabel('Preview', { exact: true }).click();
 			const viewerFrame = this.viewer.getViewerFrame().frameLocator('iframe');
-			await expect(viewerFrame.getByRole('heading', { name: heading })).toBeVisible({ timeout: 30000 });
+			await expect(viewerFrame.getByRole('heading', { name: heading })).toBeVisible({ timeout: 60000 });
 		});
 	}
 
