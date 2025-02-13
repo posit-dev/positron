@@ -15,9 +15,8 @@
 	cursor: pointer;
 	height: 22px;
 	padding: 0 10px;
-	text-align: left;
 	width: 100%;
-
+	text-align: left;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -34,4 +33,10 @@
 
 .tabs-container .tab-button--active:hover {
 	background-color: var(--vscode-list-inactiveSelectionBackground);
+}
+
+.tabs-container .tab-button .tab-button-contents .icon {
+	height: 15px;
+	width: 15px;
+	margin: 0 6px
 }

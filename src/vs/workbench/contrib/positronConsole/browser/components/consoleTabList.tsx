@@ -59,15 +59,22 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 		>
 			{sessions.map((session) => (
 				<button
+					key={`tab-${session.sessionId}`}
 					aria-label={session.metadata.sessionName}
 					aria-labelledby={`console-panel-${session.sessionId}`}
 					aria-selected={positronConsoleContext.activePositronConsoleInstance?.session.sessionId === session.sessionId}
 					className={`tab-button ${positronConsoleContext.activePositronConsoleInstance?.session.sessionId === session.sessionId && 'tab-button--active'}`}
-					key={`tab-${session.sessionId}`}
-					onClick={() => handleTabClick(session.sessionId)}
 					role='tab'
+					onClick={() => handleTabClick(session.sessionId)}
 				>
-					<span>{session.getRuntimeState()}</span> - {session.metadata.sessionName}
+					<span className='tab-button-contents'>
+						<img
+							className='icon'
+							src={`data:image/svg+xml;base64,${session.runtimeMetadata.base64EncodedIconSvg}`}
+						/>
+						{session.metadata.sessionName}
+					</span>
+
 				</button>
 			))}
 		</div>
