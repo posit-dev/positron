@@ -78,9 +78,6 @@ jobs:
         with:
           python-version: "3.10.10"
 
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
-
       - name: Install node dependencies
         env:
           npm_config_arch: x64
@@ -114,16 +111,42 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install ipykernel trcli
 
-      - name: Set up R
-        uses: r-lib/actions/setup-r@v2
+      # Alternate python version
+      - name: Install Python 3.13.0
+        uses: actions/setup-python@v5
         with:
-          r-version: "4.4.0"
+          python-version: "3.13.0"
 
-      - name: Install R packages
+      # Ensure Python 3.13.0 is used and only install ipykernel
+      - name: Install ipykernel for Python 3.13.0
+        run: |
+          python --version  # Verify it's 3.13.0
+          python -m pip install --upgrade pip
+          python -m pip install ipykernel
+
+      # Install rig (R Installation Manager)
+      - name: Install rig
+        run: |
+          choco install rig
+
+      # Install R 4.4.0 using rig
+      - name: Install R 4.4.0
+        run: |
+          rig add 4.4.0
+          rig default 4.4.0
+          rig ls
+
+      - name: Install R packages for 4.4.0
         run: |
           curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
           Rscript -e "install.packages('pak')"
           Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+
+      # Install R 4.4.2 using rig
+      - name: Install R 4.4.2
+        run: |
+          rig add 4.4.2
+          rig ls
 
       - name: Setup Graphviz
         uses: ts-graphviz/setup-graphviz@v2.0.2
@@ -150,6 +173,8 @@ jobs:
         env:
           POSITRON_PY_VER_SEL: 3.10.10
           POSITRON_R_VER_SEL: 4.4.0
+          POSITRON_PY_ALT_VER_SEL: 3.13.0
+          POSITRON_R_ALT_VER_SEL: 4.4.2
           CURRENTS_PROJECT_ID: ZOs5z2
           CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
