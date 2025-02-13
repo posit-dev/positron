@@ -203,10 +203,6 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 
 					<ActionBarRegion location='right'>
 						<TopActionBarInterpretersManager
-							services={{
-								configurationService: props.configurationService,
-								runtimeSessionService: props.runtimeSessionService
-							}}
 							onActivateRuntime={activateRuntimeHandler}
 							onStartRuntime={startRuntimeHandler}
 						/>
