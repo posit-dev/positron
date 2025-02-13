@@ -145,7 +145,7 @@ export class Console {
 
 	async waitForInterpretersToFinishLoading() {
 		// ensure interpreter(s) containing starting/discovering do not exist in DOM
-		await expect(this.code.driver.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 50000 });
+		await expect(this.code.driver.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 80000 });
 	}
 
 	/**

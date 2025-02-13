@@ -99,7 +99,7 @@ async function verifyOpenChanges(page: Page) {
 		}
 
 		// make change & save
-		await page.getByText('date', { exact: true }).click();
+		await page.locator('[id="workbench\\.parts\\.editor"]').getByText('date').click();
 		await page.keyboard.press('X');
 		await bindPlatformHotkey(page, 'S');
 
