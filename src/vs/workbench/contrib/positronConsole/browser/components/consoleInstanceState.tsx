@@ -7,11 +7,11 @@
 import './consoleInstanceState.css';
 
 // React
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
-import { usePositronConsoleContext } from '../positronConsoleContext.js';
-import { PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 
 const enum StatusIconClassName {
 	ACTIVE = 'codicon-positron-status-active',
@@ -37,23 +37,30 @@ const consoleStateToStatusIcon = {
 };
 
 interface ConsoleInstanceStateProps {
-	sessionId: string;
+	readonly positronConsoleInstance: IPositronConsoleInstance;
 }
 
-export const ConsoleInstanceState = ({ sessionId }: ConsoleInstanceStateProps) => {
-	// Context hooks.
-	const positronConsoleContext = usePositronConsoleContext();
+export const ConsoleInstanceState = ({ positronConsoleInstance }: ConsoleInstanceStateProps) => {
+	// State hooks
+	const [consoleState, setConsoleState] = useState(positronConsoleInstance.state);
 
-	const consoleInstance = positronConsoleContext.positronConsoleInstances.find(
-		instance => instance.session.sessionId === sessionId);
+	// Main useEffect hook.
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
 
-	const state = consoleInstance?.state || PositronConsoleState.Uninitialized;
-	const icon = consoleStateToStatusIcon[state];
+		disposableStore.add(positronConsoleInstance.onDidChangeState(state => {
+			setConsoleState(state)
+		}));
+
+		return () => disposableStore.dispose();
+	}, [positronConsoleInstance]);
+
+	const icon = consoleStateToStatusIcon[consoleState];
 	const color = statusIconClassNameToColor[icon];
 
 	return (
 		<span
-			className={`codicon ${icon}}`}
+			className={`codicon ${icon}`}
 			style={{ color }}
 		/>
 	);

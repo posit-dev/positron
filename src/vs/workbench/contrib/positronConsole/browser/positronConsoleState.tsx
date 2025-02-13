@@ -19,10 +19,10 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { PositronActionBarServices } from '../../../../platform/positronActionBar/browser/positronActionBarState.js';
-import { ILanguageRuntimeService, LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IExecutionHistoryService } from '../../executionHistory/common/executionHistoryService.js';
 import { IPositronConsoleInstance, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
@@ -57,7 +57,6 @@ export interface PositronConsoleServices extends PositronActionBarServices {
 export interface PositronConsoleState extends PositronConsoleServices {
 	readonly positronConsoleInstances: IPositronConsoleInstance[];
 	readonly activePositronConsoleInstance?: IPositronConsoleInstance;
-	readonly positronSessions: ILanguageRuntimeSession[];
 }
 
 /**
@@ -72,11 +71,6 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 	const [activePositronConsoleInstance, setActivePositronConsoleInstance] = useState<IPositronConsoleInstance | undefined>(
 		services.positronConsoleService.activePositronConsoleInstance
 	);
-
-	// List of active console sessions the user can interact with via the console
-	const [positronSessions, setPositronSessions] = useState<ILanguageRuntimeSession[]>(
-		services.runtimeSessionService.activeSessions.filter(session => session.metadata.sessionMode === LanguageRuntimeSessionMode.Console)
-	)
 
 	// Add event handlers.
 	useEffect(() => {
@@ -93,13 +87,6 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 			setActivePositronConsoleInstance(positronConsoleInstance);
 		}));
 
-		// Add the onDidStartPositronSessionsInstance event handler.
-		disposableStore.add(services.runtimeSessionService.onDidStartRuntime(positronSession => {
-			// Only update state with console sessions - exclude notebook and background sessions
-			positronSession.metadata.sessionMode === LanguageRuntimeSessionMode.Console
-				&& setPositronSessions(positronSessions => [...positronSessions, positronSession]);
-		}));
-
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
 	}, [services.positronConsoleService, services.runtimeSessionService]);
@@ -109,6 +96,5 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 		...services,
 		positronConsoleInstances,
 		activePositronConsoleInstance: activePositronConsoleInstance,
-		positronSessions
 	};
 };

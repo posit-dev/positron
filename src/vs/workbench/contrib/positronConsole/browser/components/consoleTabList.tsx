@@ -24,31 +24,28 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 	const positronConsoleContext = usePositronConsoleContext();
 
 	/**
-	 * activateRuntime event handler.
-	 * @param runtime An ILanguageRuntime representing the runtime to activate.
+	 * Function to change the active console instance that is tied to a specific session
+	 *
+	 * @param {string}   sessionId The Id of the session that should be active
 	 */
 	const onChangeForegroundSession = async (sessionId: string): Promise<void> => {
-		// Get the desired session
+		// Find the session
 		const session =
 			positronConsoleContext.runtimeSessionService.getSession(sessionId);
 
 		if (session) {
 			// Set the session as the foreground session
 			positronConsoleContext.runtimeSessionService.foregroundSession = session;
-			// Update active console instance?
-		} else {
-			// TODO: Error handling - session doesn't exist
 		}
 	};
 
-	// Change active session
 	const handleTabClick = (sessionId: string) => {
 		onChangeForegroundSession(sessionId);
 	};
 
 	// Sort console sessions by created time, so the most recent sessions are at the bottom
-	const sessions = Array.from(positronConsoleContext.positronSessions.values()).sort((a, b) => {
-		return a.metadata.createdTimestamp - b.metadata.createdTimestamp;
+	const consoleInstances = Array.from(positronConsoleContext.positronConsoleInstances.values()).sort((a, b) => {
+		return a.session.metadata.createdTimestamp - b.session.metadata.createdTimestamp;
 	});
 
 	// Render.
@@ -58,23 +55,23 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 			role='tablist'
 			style={{ height: props.height, width: props.width }}
 		>
-			{sessions.map((session) => (
+			{consoleInstances.map((positronConsoleInstance) => (
 				<button
-					key={`tab-${session.sessionId}`}
-					aria-label={session.metadata.sessionName}
-					aria-labelledby={`console-panel-${session.sessionId}`}
-					aria-selected={positronConsoleContext.activePositronConsoleInstance?.session.sessionId === session.sessionId}
-					className={`tab-button ${positronConsoleContext.activePositronConsoleInstance?.session.sessionId === session.sessionId && 'tab-button--active'}`}
+					key={`tab-${positronConsoleInstance.session.sessionId}`}
+					aria-label={positronConsoleInstance.session.metadata.sessionName}
+					aria-labelledby={`console-panel-${positronConsoleInstance.session.sessionId}`}
+					aria-selected={positronConsoleContext.activePositronConsoleInstance?.session.sessionId === positronConsoleInstance.session.sessionId}
+					className={`tab-button ${positronConsoleContext.activePositronConsoleInstance?.session.sessionId === positronConsoleInstance.session.sessionId && 'tab-button--active'}`}
 					role='tab'
-					onClick={() => handleTabClick(session.sessionId)}
+					onClick={() => handleTabClick(positronConsoleInstance.session.sessionId)}
 				>
 					<span className='tab-button-contents'>
-						<ConsoleInstanceState sessionId={session.sessionId} />
+						<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
 						<img
 							className='icon'
-							src={`data:image/svg+xml;base64,${session.runtimeMetadata.base64EncodedIconSvg}`}
+							src={`data:image/svg+xml;base64,${positronConsoleInstance.session.runtimeMetadata.base64EncodedIconSvg}`}
 						/>
-						{session.metadata.sessionName}
+						{positronConsoleInstance.session.metadata.sessionName}
 					</span>
 
 				</button>
