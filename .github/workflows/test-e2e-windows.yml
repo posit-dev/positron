@@ -127,45 +127,32 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install ipykernel
 
-      - name: Set up R
-        uses: r-lib/actions/setup-r@v2
-        with:
-          r-version: "4.4.0"
+      # Install rig (R Installation Manager)
+      - name: Install rig
+        run: |
+          choco install rig
 
-      - name: Install R packages
+      # Install R 4.4.0 using rig
+      - name: Install R 4.4.0
+        run: |
+          rig add 4.4.0
+          rig default 4.4.0
+          rig ls
+
+
+      - name: Install R packages for 4.4.0
         run: |
           curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
           Rscript -e "install.packages('pak')"
           Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
-      # Alternate R version
-      - name: Install rig
-        run: |
-          choco install rig
 
-      - name: Install R versions
+      # Install R 4.4.2 using rig
+      - name: Install R 4.4.2
         run: |
           rig add 4.4.2
-          rig default 4.4.2
           rig ls
 
-      # Install ipykernel inside R 4.4.2
-      - name: Install ipykernel in R 4.4.2
-        run: |
-          rig exec 4.4.2 -- Rscript -e "install.packages('ipykernel')"
-
-      - name: Verify Installed Versions
-        shell: bash
-        run: |
-          echo "Python 3.10.10: $(py -3.10 --version)"
-          echo "Python 3.13.0: $(py -3.13 --version)"
-
-
-          echo "Running R 4.4.0:"
-          Rscript -e 'cat(R.version.string)'
-
-          echo "Running R 4.4.2:"
-          rig exec 4.4.2 -- Rscript -e 'cat(R.version.string)'
 
 
       - name: Setup Graphviz
