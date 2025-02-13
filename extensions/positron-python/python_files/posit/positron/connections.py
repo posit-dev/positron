@@ -507,7 +507,7 @@ class SQLite3Connection(Connection):
         self.host = self._find_path(conn)
         self.type = "SQLite"
         self.code = (
-            f'import sqlite3\nconn = sqlite3.connect("{self.host}")\n%connection_show conn\n'
+            f'import sqlite3\nconn = sqlite3.connect({repr(self.host)})\n%connection_show conn\n'
         )
 
     def _find_path(self, conn: sqlite3.Connection):
@@ -619,14 +619,14 @@ class SQLite3Connection(Connection):
 class SQLAlchemyConnection(Connection):
     """Support for SQLAlchemy connections to databases."""
 
-    def __init__(self, conn):
-        self.conn: sqlalchemy.Engine = conn
+    def __init__(self, conn: sqlalchemy.Engine):
+        self.conn = conn
         self.display_name = f"SQLAlchemy ({conn.name})"
         self.host = conn.url.render_as_string()
         self.type = "SQLAlchemy"
         self.code = (
             "import sqlalchemy\n"
-            f"engine = sqlalchemy.create_engine('{self.host}')\n"
+            f"engine = sqlalchemy.create_engine({repr(self.host)})\n"
             "%connection_show engine\n"
         )
 
