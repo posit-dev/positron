@@ -11,6 +11,7 @@ import React from 'react';
 
 // Other dependencies.
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
+import { ConsoleInstanceState } from './consoleInstanceState.js';
 
 // ConsoleCoreProps interface.
 interface ConsoleTabListProps {
@@ -68,6 +69,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 					onClick={() => handleTabClick(session.sessionId)}
 				>
 					<span className='tab-button-contents'>
+						<ConsoleInstanceState sessionId={session.sessionId} />
 						<img
 							className='icon'
 							src={`data:image/svg+xml;base64,${session.runtimeMetadata.base64EncodedIconSvg}`}
