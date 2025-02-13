@@ -5,9 +5,12 @@
 
 .positron-console .console-core {
 	cursor: text;
+	width: 100%;
+}
+
+.positron-console .console-tab-list {
 	display: flex;
 	flex-direction: row;
-	width: 100%;
 }
 
 .positron-console .console-core .console-instances-container {
