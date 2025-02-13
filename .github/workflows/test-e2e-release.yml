@@ -104,7 +104,7 @@ jobs:
         env:
           POSITRON_PY_VER_SEL: 3.12.3
           POSITRON_R_VER_SEL: 4.4.0
-          POSITRON_PY_ALT_VER_SEL: 3.13.0
+          POSITRON_PY_ALT_VER_SEL: "3.13.0 (Pyenv)"
           POSITRON_R_ALT_VER_SEL: 4.4.2
           CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
