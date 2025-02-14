@@ -291,7 +291,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			await use(app);
 		} else {
 			// start tracing
-			await app.startTracing();
+			await app.startTracing(testInfo.titlePath.join(' › '));
 
 			await use(app);
 
