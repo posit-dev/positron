@@ -29,6 +29,8 @@ import {
 	SupportStatus,
 	TableData,
 	TableSchema,
+	TableSelection,
+	TableSelectionKind,
 	TextSearchType
 } from '../interfaces';
 import { randomUUID } from 'crypto';
@@ -458,6 +460,184 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				}
 			);
 		}
+	});
+
+	test('export_data_selection works correctly', async () => {
+		const tableName = makeTempTableName();
+
+		// Create a test table with mixed data types for comprehensive testing
+		await createTempTable(tableName, [
+			{
+				name: 'int_col',
+				type: 'INTEGER',
+				values: ['1', '2', '3', '4', '5']
+			},
+			{
+				name: 'str_col',
+				type: 'VARCHAR',
+				values: ['\'a\'', '\'b\'', '\'c\'', '\'d\'', '\'e\'']
+			},
+			{
+				name: 'float_col',
+				type: 'DOUBLE',
+				values: ['1.1', '2.2', '3.3', '4.4', '5.5']
+			}
+		]);
+
+		const uri = `duckdb://${tableName}`;
+
+		const testSelection = async (selection: TableSelection, expected: string) => {
+			const result = await dxExec({
+				method: DataExplorerBackendRequest.ExportDataSelection,
+				uri,
+				params: {
+					selection,
+					format: ExportFormat.Csv
+				}
+			});
+			assert.strictEqual(result.data, expected);
+		};
+
+		const testSingleCell = async (row: number, col: number, expected: string) => {
+			await testSelection(
+				{
+					kind: TableSelectionKind.SingleCell,
+					selection: {
+						row_index: row,
+						column_index: col
+					}
+				},
+				expected
+			);
+		};
+
+		await testSingleCell(0, 0, '1');
+		await testSingleCell(1, 0, '2');
+		await testSingleCell(2, 1, 'c');
+		await testSingleCell(3, 2, '4.4');
+
+		const testCellRange = async (firstRow: number, lastRow: number, firstCol: number,
+			lastCol: number, expected: string) => {
+			await testSelection(
+				{
+					kind: TableSelectionKind.CellRange,
+					selection: {
+						first_row_index: firstRow,
+						last_row_index: lastRow,
+						first_column_index: firstCol,
+						last_column_index: lastCol
+					}
+				},
+				expected
+			);
+		};
+
+		await testCellRange(0, 1, 0, 1, 'int_col,str_col\n1,a\n2,b');
+		await testCellRange(0, 2, 0, 2, 'int_col,str_col,float_col\n1,a,1.1\n2,b,2.2\n3,c,3.3');
+
+		// Test RowRange selection
+		let result = await dxExec({
+			method: DataExplorerBackendRequest.ExportDataSelection,
+			uri,
+			params: {
+				selection: {
+					kind: TableSelectionKind.RowRange,
+					selection: {
+						first_index: 1,
+						last_index: 2
+					}
+				},
+				format: ExportFormat.Csv
+			}
+		});
+		assert.strictEqual(result.data, 'int_col,str_col,float_col\n2,b,2.2\n3,c,3.3');
+
+		// Test ColumnRange selection
+		result = await dxExec({
+			method: DataExplorerBackendRequest.ExportDataSelection,
+			uri,
+			params: {
+				selection: {
+					kind: TableSelectionKind.ColumnRange,
+					selection: {
+						first_index: 0,
+						last_index: 1
+					}
+				},
+				format: ExportFormat.Csv
+			}
+		});
+		assert.strictEqual(result.data, 'int_col,str_col\n1,a\n2,b\n3,c\n4,d\n5,e');
+
+		// Test RowIndices selection
+		result = await dxExec({
+			method: DataExplorerBackendRequest.ExportDataSelection,
+			uri,
+			params: {
+				selection: {
+					kind: TableSelectionKind.RowIndices,
+					selection: {
+						indices: [1, 3]
+					}
+				},
+				format: ExportFormat.Csv
+			}
+		});
+		assert.strictEqual(result.data, 'int_col,str_col,float_col\n2,b,2.2\n4,d,4.4');
+
+		// Test ColumnIndices selection
+		result = await dxExec({
+			method: DataExplorerBackendRequest.ExportDataSelection,
+			uri,
+			params: {
+				selection: {
+					kind: TableSelectionKind.ColumnIndices,
+					selection: {
+						indices: [0, 2]
+					}
+				},
+				format: ExportFormat.Csv
+			}
+		});
+		assert.strictEqual(result.data, 'int_col,float_col\n1,1.1\n2,2.2\n3,3.3\n4,4.4\n5,5.5');
+
+		// Test TSV format
+		result = await dxExec({
+			method: DataExplorerBackendRequest.ExportDataSelection,
+			uri,
+			params: {
+				selection: {
+					kind: TableSelectionKind.CellRange,
+					selection: {
+						first_row_index: 0,
+						last_row_index: 1,
+						first_column_index: 0,
+						last_column_index: 1
+					}
+				},
+				format: ExportFormat.Tsv
+			}
+		});
+		assert.strictEqual(result.data, 'int_col\tstr_col\n1\ta\n2\tb');
+
+		// Test HTML format
+		result = await dxExec({
+			method: DataExplorerBackendRequest.ExportDataSelection,
+			uri,
+			params: {
+				selection: {
+					kind: TableSelectionKind.CellRange,
+					selection: {
+						first_row_index: 0,
+						last_row_index: 1,
+						first_column_index: 0,
+						last_column_index: 1
+					}
+				},
+				format: ExportFormat.Html
+			}
+		});
+		assert.strictEqual(result.data, '<tr><td>int_col</td><td>str_col</td></tr>\n<tr><td>1</td><td>a</td></tr>\n<tr><td>2</td><td>b</td></tr>');
 	});
 
 	test('set_row_filters works correctly', async () => {
