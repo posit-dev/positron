@@ -23,6 +23,7 @@ import { multipleConsoleSessionsFeatureEnabled } from '../../../../services/runt
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 const MINIMUM_CONSOLE_TAB_LIST_WIDTH = 45;
+const MINIMUM_CONSOLE_PANE_WIDTH = 300;
 
 // ConsoleCoreProps interface.
 interface ConsoleCoreProps {
@@ -37,13 +38,16 @@ interface ConsoleCoreProps {
  * @returns The rendered component.
  */
 export const ConsoleCore = (props: ConsoleCoreProps) => {
+	// Calculate the adjusted height (the height minus the action bar height).
+	const adjustedHeight = props.height - 32;
+
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 	const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(positronConsoleContext.configurationService);
 
 	// State hooks.
-	const [consolePaneWidth, setConsolePaneWidth] = useState(Math.trunc(2 * props.width / 3));
-	const [consoleTabListWidth, setConsoleTabListWidth] = useState(Math.trunc(props.width / 3));
+	const [consolePaneWidth, setConsolePaneWidth] = useState(0);
+	const [consoleTabListWidth, setConsoleTabListWidth] = useState(0);
 	const [startupPhase, setStartupPhase] = useState(
 		positronConsoleContext.languageRuntimeService.startupPhase);
 
@@ -57,12 +61,23 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 		return () => disposables.dispose();
 	});
 
+	// Console Width Effect
+	useEffect(() => {
+		// The maximum tab list width is 2/5 of the total available width
+		const MAXIMUM_CONSOLE_TAB_LIST_WIDTH = Math.trunc(2 * props.width / 5);
+
+		// Determine the maximum width we want to allot for the tab list
+		setConsoleTabListWidth(MAXIMUM_CONSOLE_TAB_LIST_WIDTH);
+		// Allocate the remaining width to the console pane
+		setConsolePaneWidth(props.width - MAXIMUM_CONSOLE_TAB_LIST_WIDTH);
+	}, [props.width])
+
 	/**
 	 * onBeginResize handler.
 	 * @returns A VerticalSplitterResizeParams containing the resize parameters.
 	 */
 	const handleBeginResize = (): VerticalSplitterResizeParams => ({
-		minimumWidth: Math.trunc(3 * props.width / 5),
+		minimumWidth: MINIMUM_CONSOLE_PANE_WIDTH,
 		maximumWidth: props.width - MINIMUM_CONSOLE_TAB_LIST_WIDTH,
 		startingWidth: consolePaneWidth,
 	});
@@ -85,9 +100,6 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 			return <StartupStatus />;
 		}
 	}
-
-	// Calculate the adjusted height (the height minus the action bar height).
-	const adjustedHeight = props.height - 32;
 
 	// Render.
 	return (
