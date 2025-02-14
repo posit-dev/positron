@@ -22,16 +22,13 @@ import type { IExtensionContext } from '../../../../common/types';
 import { StopWatch } from '../../../../common/utils/stopWatch';
 import { untildify } from '../../../../common/helpers';
 import { traceError } from '../../../../logging';
+import { getUserIncludedInterpreters } from '../../../../positron/interpreterSettings';
 
 const PYTHON_ENV_TOOLS_PATH = isWindows()
     ? // --- Start Positron ---
       // update path to reflect the location of the PET binary
       path.join(EXTENSION_ROOT_DIR, 'python-env-tools', 'pet.exe')
     : path.join(EXTENSION_ROOT_DIR, 'python-env-tools', 'pet');
-// --- End Positron ---
-
-// --- Start Positron ---
-export const INTERPRETERS_INCLUDE_SETTING_KEY = 'interpreters.include';
 // --- End Positron ---
 
 export interface NativeEnvInfo {
@@ -458,25 +455,22 @@ function getEnvironmentDirs(): string[] {
  * Gets the list of additional directories to add to environment directories.
  * @returns List of directories to add to environment directories.
  */
+// TODO: probably want to move this to extensions/positron-python/src/client/positron/interpreterSettings.ts
 function getAdditionalEnvDirs(): string[] {
     const additionalDirs: string[] = [];
+
+    // Add additional dirs to search for Python environments on non-Windows platforms.
     if (!isWindows()) {
         // /opt/python is a recommended Python installation location on Posit Workbench.
         // see: https://docs.posit.co/ide/server-pro/python/installing_python.html
         additionalDirs.push('/opt/python');
     }
 
-    // Include user-specified Python search directories.
-    const interpretersInclude = getPythonSettingAndUntildify<string[]>(INTERPRETERS_INCLUDE_SETTING_KEY) ?? [];
-    if (interpretersInclude.length > 0) {
-        const homeDir = getUserHomeDir();
-        if (homeDir) {
-            // Convert relative and aliased paths to absolute paths.
-            interpretersInclude
-                .map((item) => item.startsWith(homeDir) ? item : path.join(homeDir, item))
-                .forEach((item) => additionalDirs.push(untildify(item)));
-        }
-    }
+    // Add user-specified Python search directories.
+    const userIncludedDirs = getUserIncludedInterpreters();
+    additionalDirs.push(...userIncludedDirs);
+
+    // Return the list of additional directories.
     return Array.from(new Set(additionalDirs));
 }
 // --- End Positron ---

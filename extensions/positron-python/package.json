@@ -540,6 +540,16 @@
                     },
                     "uniqueItems": true
                 },
+                "python.interpreters.exclude": {
+                    "default": [],
+                    "markdownDescription": "%python.interpreters.exclude.markdownDescription%",
+                    "scope": "window",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true
+                },
                 "python.envFile": {
                     "default": "${workspaceFolder}/.env",
                     "description": "%python.envFile.description%",
