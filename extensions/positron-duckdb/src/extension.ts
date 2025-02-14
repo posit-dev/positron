@@ -61,7 +61,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as zlib from 'zlib';
 import Worker from 'web-worker';
-import { Table, Vector } from 'apache-arrow';
+import { Schema, StructRow, Table, Vector } from 'apache-arrow';
 import { pathToFileURL } from 'url';
 
 // Set to true when doing development for better console logging
@@ -677,6 +677,25 @@ function isNumeric(duckdbName: string) {
 	return isInteger(duckdbName) || duckdbName === 'FLOAT' || duckdbName === 'DOUBLE';
 }
 
+function formatDate(date: Date): string {
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 1).padStart(2, '0');
+	const day = String(date.getDate()).padStart(2, '0');
+	const hours = String(date.getHours()).padStart(2, '0');
+	const minutes = String(date.getMinutes()).padStart(2, '0');
+	const seconds = String(date.getSeconds()).padStart(2, '0');
+	const millis = date.getMilliseconds();
+
+	// TODO: handle timezones
+
+	if (millis > 0) {
+		const formattedMillis = String().padStart(3, '0');
+		return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${formattedMillis}`;
+	} else {
+		return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+	}
+}
+
 // Function for converting Arrow JS values to strings (in exportDataSelection)
 function valueToString(value: any): string {
 	if (value === null || value === undefined) {
@@ -684,7 +703,7 @@ function valueToString(value: any): string {
 	}
 
 	if (value instanceof Date) {
-		return value.toISOString();
+		return formatDate(value);
 	}
 
 	if (typeof value === 'object') {
@@ -1202,21 +1221,51 @@ END`;
 	async exportDataSelection(params: ExportDataSelectionParams): RpcResponse<ExportedData> {
 		const kind = params.selection.kind;
 		const selection = params.selection.selection;
-		const fmt = params.format;
 
-		let formatter: (table: any[]) => string;
-		switch (fmt) {
-			case ExportFormat.Csv:
-				formatter = (table: any[]) => table.map(row => row.join(',')).join('\n');
-				break;
-			case ExportFormat.Tsv:
-				formatter = (table: any[]) => table.map(row => row.join('\t')).join('\n');
-				break;
-			case ExportFormat.Html:
-				formatter = (table: any[]) => table.map(row => `<tr><td>${row.join('</td><td>')}</td></tr>`).join('\n');
-				break;
-			default:
-				throw new Error(`Unknown export format: ${fmt}`);
+		const boxValue = (value: any, column_type: string): any => {
+			switch (column_type) {
+				case 'TIMESTAMP':
+					return new Date(value);
+				default:
+					return value;
+			}
+		};
+
+		const exportQueryOutput = async (query: string,
+			columns: Array<SchemaEntry>): Promise<ExportedData> => {
+			const result = await this.db.runQuery(query);
+			const unboxed = [
+				columns.map(s => s.column_name),
+				...result.toArray().map(
+					row => columns.map(s => boxValue(
+						row[s.column_name], s.column_type
+					)).map(valueToString)
+				)
+			];
+
+			let data;
+			switch (params.format) {
+				case ExportFormat.Csv:
+					data = unboxed.map(row => row.join(',')).join('\n');
+					break;
+				case ExportFormat.Tsv:
+					data = unboxed.map(row => row.join('\t')).join('\n');
+					break;
+				case ExportFormat.Html:
+					data = unboxed.map(row => `<tr><td>${row.join('</td><td>')}</td></tr>`).join('\n');
+					break;
+				default:
+					throw new Error(`Unknown export format: ${params.format}`);
+			}
+
+			return {
+				data,
+				format: params.format,
+			};
+		};
+
+		const formatColumnNames = (columns: Array<SchemaEntry>) => {
+			return columns.map(s => quoteIdentifier(s.column_name)).join(', ');
 		}
 
 		let data: string;
@@ -1225,12 +1274,15 @@ END`;
 				const selection = params.selection.selection as DataSelectionSingleCell;
 				const rowIndex = selection.row_index;
 				const columnIndex = selection.column_index;
-				const columnSchema = this.fullSchema[columnIndex];
-				const quotedName = quoteIdentifier(columnSchema.column_name);
+				const schema = this.fullSchema[columnIndex];
+				const quotedName = quoteIdentifier(schema.column_name);
 				const query = `SELECT ${quotedName} FROM ${this.tableName} LIMIT 1 OFFSET ${rowIndex};`;
 				const result = await this.db.runQuery(query);
-				data = valueToString(result.toArray()[0][columnSchema.column_name]);
-				break;
+				data = boxValue(result.toArray()[0][schema.column_name], schema.column_type);
+				return {
+					data,
+					format: params.format
+				}
 			}
 			case TableSelectionKind.CellRange: {
 				const selection = params.selection.selection as DataSelectionCellRange;
@@ -1238,86 +1290,47 @@ END`;
 				const rowEnd = selection.last_row_index;
 				const columnStart = selection.first_column_index;
 				const columnEnd = selection.last_column_index;
-				const columnNames = this.fullSchema.slice(
-					columnStart, columnEnd + 1
-				).map(s => s.column_name);
-				const query = `SELECT ${columnNames.map(quoteIdentifier).join(', ')}
+				const columns = this.fullSchema.slice(columnStart, columnEnd + 1);
+				const query = `SELECT ${formatColumnNames(columns)}
 				FROM ${this.tableName}
 				LIMIT ${rowEnd - rowStart + 1} OFFSET ${rowStart};`;
-				const result = await this.db.runQuery(query);
-				data = formatter(
-					result.toArray().map(
-						row => columnNames.map(name => row[name]).map(valueToString)
-					)
-				);
-				break;
+				return await exportQueryOutput(query, columns);
 			}
 			case TableSelectionKind.RowRange: {
 				const selection = params.selection.selection as DataSelectionRange;
 				const rowStart = selection.first_index;
 				const rowEnd = selection.last_index;
-				const columnNames = this.fullSchema.map(s => s.column_name);
 				const query = `SELECT *
 				FROM ${this.tableName}
 				LIMIT ${rowEnd - rowStart + 1} OFFSET ${rowStart};`;
-				const result = await this.db.runQuery(query);
-				data = formatter(
-					result.toArray().map(
-						row => columnNames.map(name => row[name]).map(valueToString)
-					)
-				);
-				break;
+				return await exportQueryOutput(query, this.fullSchema);
 			}
 			case TableSelectionKind.ColumnRange: {
 				const selection = params.selection.selection as DataSelectionRange;
 				const columnStart = selection.first_index;
 				const columnEnd = selection.last_index;
-				const columnNames = this.fullSchema.slice(
-					columnStart, columnEnd + 1
-				).map(s => s.column_name);
-				const query = `SELECT ${columnNames.map(quoteIdentifier).join(', ')}
+				const columns = this.fullSchema.slice(columnStart, columnEnd + 1);
+				const query = `SELECT ${formatColumnNames(columns)}
 				FROM ${this.tableName}`;
-				const result = await this.db.runQuery(query);
-				data = formatter(
-					result.toArray().map(
-						row => columnNames.map(name => row[name]).map(valueToString)
-					)
-				);
-				break;
+				return await exportQueryOutput(query, columns);
 			}
 			case TableSelectionKind.RowIndices: {
 				const selection = params.selection.selection as DataSelectionIndices;
 				const indices = selection.indices;
-				const columnNames = this.fullSchema.map(s => s.column_name);
-				const query = `SELECT ${columnNames.map(quoteIdentifier).join(', ')}
+				const columns = this.fullSchema;
+				const query = `SELECT ${formatColumnNames(columns)}
 				FROM ${this.tableName}
 				WHERE rowid IN (${indices.join(', ')})`;
-				const result = await this.db.runQuery(query);
-				data = formatter(
-					result.toArray().map(
-						row => columnNames.map(name => row[name]).map(valueToString)
-					)
-				);
-				break;
+				return await exportQueryOutput(query, columns);
 			}
 			case TableSelectionKind.ColumnIndices: {
 				const selection = params.selection.selection as DataSelectionIndices;
 				const indices = selection.indices;
-				const columnNames = indices.map(i => this.fullSchema[i].column_name);
-				const query = `SELECT ${columnNames.map(quoteIdentifier).join(', ')}
+				const columns = indices.map(i => this.fullSchema[i]);
+				const query = `SELECT ${formatColumnNames(columns)}
 				FROM ${this.tableName}`;
-				const result = await this.db.runQuery(query);
-				data = formatter(
-					result.toArray().map(
-						row => columnNames.map(name => row[name]).map(valueToString)
-					)
-				);
-				break;
+				return await exportQueryOutput(query, columns);
 			}
-		}
-		return {
-			data,
-			format: fmt
 		}
 	}
 	private async _getShape(whereClause: string = ''): Promise<[number, number]> {
