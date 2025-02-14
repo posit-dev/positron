@@ -43,9 +43,7 @@ suite('Python runtime manager', () => {
         serviceContainer = createTypeMoq<IServiceContainer>();
 
         runtimeMetadata.setup((r) => r.runtimeId).returns(() => 'runtimeId');
-        runtimeMetadata
-            .setup((r) => r.extraRuntimeData)
-            .returns(() => ({ pythonPath, pythonEnvironmentId: 'pythonEnvironmentId' }));
+        runtimeMetadata.setup((r) => r.extraRuntimeData).returns(() => ({ pythonPath }));
 
         interpreterService
             .setup((i) => i.getInterpreterDetails(TypeMoq.It.isAny()))
