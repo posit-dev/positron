@@ -23,7 +23,7 @@ import { multipleConsoleSessionsFeatureEnabled } from '../../../../services/runt
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 const MINIMUM_CONSOLE_TAB_LIST_WIDTH = 45;
-const MINIMUM_CONSOLE_PANE_WIDTH = 300;
+const MINIMUM_CONSOLE_PANE_WIDTH = 120;
 
 // ConsoleCoreProps interface.
 interface ConsoleCoreProps {
@@ -103,9 +103,8 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 
 	// Render.
 	return (
-		<div className={positronClassNames(
-			'console-core',
-			{ 'console-tab-list': multiSessionsEnabled })}
+		<div
+			className={positronClassNames('console-core', { 'console-tab-list': multiSessionsEnabled })}
 		>
 			{
 				multiSessionsEnabled

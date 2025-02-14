@@ -6,7 +6,7 @@
 // CSS.
 import './consoleTabList.css';
 
-// React
+// React.
 import React from 'react';
 
 // Other dependencies.
