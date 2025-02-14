@@ -530,6 +530,16 @@
                     "scope": "machine-overridable",
                     "type": "string"
                 },
+                "python.interpreters.include": {
+                    "default": [],
+                    "markdownDescription": "%python.interpreters.include.markdownDescription%",
+                    "scope": "window",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true
+                },
                 "python.envFile": {
                     "default": "${workspaceFolder}/.env",
                     "description": "%python.envFile.description%",

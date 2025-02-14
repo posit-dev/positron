@@ -30,6 +30,10 @@ const PYTHON_ENV_TOOLS_PATH = isWindows()
     : path.join(EXTENSION_ROOT_DIR, 'python-env-tools', 'pet');
 // --- End Positron ---
 
+// --- Start Positron ---
+export const INTERPRETERS_INCLUDE_SETTING_KEY = 'interpreters.include';
+// --- End Positron ---
+
 export interface NativeEnvInfo {
     displayName?: string;
     name?: string;
@@ -461,9 +465,19 @@ function getAdditionalEnvDirs(): string[] {
         // see: https://docs.posit.co/ide/server-pro/python/installing_python.html
         additionalDirs.push('/opt/python');
     }
-    // TODO: add user-specified additional directories to include in discovery
-    // see: https://github.com/posit-dev/positron/issues/3574
-    return additionalDirs;
+
+    // Include user-specified Python search directories.
+    const interpretersInclude = getPythonSettingAndUntildify<string[]>(INTERPRETERS_INCLUDE_SETTING_KEY) ?? [];
+    if (interpretersInclude.length > 0) {
+        const homeDir = getUserHomeDir();
+        if (homeDir) {
+            // Convert relative and aliased paths to absolute paths.
+            interpretersInclude
+                .map((item) => item.startsWith(homeDir) ? item : path.join(homeDir, item))
+                .forEach((item) => additionalDirs.push(untildify(item)));
+        }
+    }
+    return Array.from(new Set(additionalDirs));
 }
 // --- End Positron ---
 
