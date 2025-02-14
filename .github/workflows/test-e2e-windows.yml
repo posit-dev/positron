@@ -93,8 +93,7 @@ jobs:
         #
         # see https://github.com/posit-dev/positron/issues/3481
         run: |
-          corepack enable
-          .\scripts\run-with-retry.ps1 -maxAttempts 3 -command "npm install --fetch-timeout 120000"
+          .\scripts\run-with-retry.ps1 -maxAttempts 5 -command "npm clean-install --fetch-timeout 120000"
           npm --prefix test/e2e ci
 
       - name: Compile and Download
