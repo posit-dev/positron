@@ -16,6 +16,7 @@ import {
 	DataExplorerBackendRequest,
 	DataExplorerResponse,
 	DataExplorerRpc,
+	ExportFormat,
 	FilterComparisonOp,
 	FormatOptions,
 	GetDataValuesParams,
@@ -209,8 +210,12 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				},
 				set_sort_columns: { support_status: SupportStatus.Supported, },
 				export_data_selection: {
-					support_status: SupportStatus.Unsupported,
-					supported_formats: []
+					support_status: SupportStatus.Supported,
+					supported_formats: [
+						ExportFormat.Csv,
+						ExportFormat.Tsv,
+						ExportFormat.Html
+					]
 				}
 			}
 		} satisfies BackendState);
