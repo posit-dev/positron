@@ -150,16 +150,16 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			await quickPickRuntime(runtimeManager);
 		}),
 
-		vscode.commands.registerCommand('r.rScriptPath', async () => {
+		vscode.commands.registerCommand('r.scriptPath', async () => {
 			const session = RSessionManager.instance.getConsoleSession();
 			if (!session) {
-				throw new Error(`Cannot get RScript path; no R session available`);
+				throw new Error(`Cannot get Rscript path; no R session available`);
 			}
-			const rScriptPath = session.runtimeMetadata.extraRuntimeData.rScriptPath;
-			if (!rScriptPath) {
-				throw new Error(`Cannot get RScript path; no RScript path available`);
+			const scriptPath = session.runtimeMetadata.extraRuntimeData.scriptPath;
+			if (!scriptPath) {
+				throw new Error(`Cannot get Rscript path; no Rscript path available`);
 			}
-			return rScriptPath;
+			return scriptPath;
 		}),
 
 		// Commands used to source the current file

@@ -20,8 +20,8 @@ export interface RMetadataExtra {
 	/** R's binary path */
 	readonly binpath: string;
 
-	/** R's RScript path */
-	readonly rScriptPath: string;
+	/** R's Rscript path */
+	readonly scriptPath: string;
 
 	/**
 	 * Is this known to be the current version of R?

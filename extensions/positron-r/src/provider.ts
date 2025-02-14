@@ -190,10 +190,10 @@ export async function makeMetadata(
 		path.join('~', rInst.binpath.substring(homedir.length)) :
 		rInst.binpath;
 
-	// Create the RScript path.
-	// The RScript path is the same as the R binary path, but with the 'R' or 'R.exe' executable
-	// replaced with 'RScript' or 'RScript.exe, respectively.
-	const rScriptPath = rInst.binpath.replace(/R(\.exe)?$/, 'RScript$1');
+	// Create the Rscript path.
+	// The Rscript path is the same as the R binary path, but with the 'R' or 'R.exe' executable
+	// replaced with 'Rscript' or 'Rscript.exe, respectively.
+	const scriptPath = rInst.binpath.replace(/R(\.exe)?$/, 'Rscript$1');
 
 	// Does the runtime path have 'homebrew' as a component? (we assume that
 	// it's a Homebrew installation if it does)
@@ -221,12 +221,12 @@ export async function makeMetadata(
 	digest.update(rVersion);
 	const runtimeId = digest.digest('hex').substring(0, 32);
 
-	// Save the R home path, binary path and RScript path as extra data.
+	// Save the R home path, binary path and Rscript path as extra data.
 	// Also, whether this R installation is the "current" R version.
 	const extraRuntimeData: RMetadataExtra = {
 		homepath: rInst.homepath,
 		binpath: rInst.binpath,
-		rScriptPath: rScriptPath,
+		scriptPath: scriptPath,
 		current: rInst.current,
 		reasonDiscovered: rInst.reasonDiscovered,
 	};
