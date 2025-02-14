@@ -106,14 +106,14 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
      *
      * @param channel The channel to show the output of.
      */
-    showOutput(channel?: string): void;
+    showOutput(channel?: positron.LanguageRuntimeSessionChannel): void;
 
     /**
      * Return a list of output channels
      *
      * @returns A list of output channels available on this runtime
      */
-    listOutputChannels(): string[];
+    listOutputChannels(): positron.LanguageRuntimeSessionChannel[];
 
     /**
      * A Jupyter kernel is guaranteed to have a `callMethod()` method; it uses

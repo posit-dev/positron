@@ -451,12 +451,17 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
-    showOutput(channel?: string): void {
-        this._kernel?.showOutput(channel);
+    showOutput(channel?: positron.LanguageRuntimeSessionChannel): void {
+        if (channel === positron.LanguageRuntimeSessionChannel.LSP) {
+            this._lsp?.showOutput();
+        } else {
+            this._kernel?.showOutput(channel);
+        }
     }
 
-    listOutputChannels(): string[] {
-        return this._kernel?.listOutputChannels?.() ?? [];
+    listOutputChannels(): positron.LanguageRuntimeSessionChannel[] {
+        const channels = (this._kernel?.listOutputChannels?.() ?? []);
+        return [...channels, positron.LanguageRuntimeSessionChannel.LSP];
     }
 
     async forceQuit(): Promise<void> {
@@ -498,15 +503,15 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this.adapterApi = ext?.exports as PositronSupervisorApi;
         const kernel = this.kernelSpec
             ? // We have a kernel spec, so we're creating a new session
-              await this.adapterApi.createSession(
-                  this.runtimeMetadata,
-                  this.metadata,
-                  this.kernelSpec,
-                  this.dynState,
-                  createJupyterKernelExtra(),
-              )
+            await this.adapterApi.createSession(
+                this.runtimeMetadata,
+                this.metadata,
+                this.kernelSpec,
+                this.dynState,
+                createJupyterKernelExtra(),
+            )
             : // We don't have a kernel spec, so we're restoring a session
-              await this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata);
+            await this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata);
 
         kernel.onDidChangeRuntimeState((state) => {
             this._stateEmitter.fire(state);
@@ -629,10 +634,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             const regex = /^(\w*Error|Exception)\b/m;
             const errortext = regex.test(logFileContent)
                 ? vscode.l10n.t(
-                      '{0} exited unexpectedly with error: {1}',
-                      kernel.runtimeMetadata.runtimeName,
-                      logFileContent,
-                  )
+                    '{0} exited unexpectedly with error: {1}',
+                    kernel.runtimeMetadata.runtimeName,
+                    logFileContent,
+                )
                 : Console.consoleExitGeneric;
 
             const res = await showErrorMessage(errortext, vscode.l10n.t('Open Logs'));

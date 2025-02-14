@@ -378,20 +378,19 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
 	 * Reveals the output channel for this kernel.
 	 */
-	showOutput(channel?: string): void {
+	showOutput(channel?: positron.LanguageRuntimeSessionChannel): void {
 		switch (channel) {
-			case KERNEL_CHANNEL_NAME:
+			case positron.LanguageRuntimeSessionChannel.Kernel:
 				this._kernelChannel?.show();
 				break;
-			case PROFILE_CHANNEL_NAME:
-				this._profileChannel?.show();
-				break;
-			case RUNTIME_CHANNEL_NAME:
+			case positron.LanguageRuntimeSessionChannel.Console:
 				this._consoleChannel.show();
 				break;
 			case undefined:
 				this._kernelChannel.show();
 				break;
+			default:
+				throw new Error(`Unknown output channel ${channel}`);
 		}
 	}
 
@@ -400,11 +399,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * Get a list of output channels
 	 * @returns A list of output channels available on this runtime
 	 */
-	listOutputChannels(): string[] {
-		const channels = [KERNEL_CHANNEL_NAME, RUNTIME_CHANNEL_NAME];
-		if (this._profileChannel) {
-			channels.push(PROFILE_CHANNEL_NAME);
-		}
+	listOutputChannels(): positron.LanguageRuntimeSessionChannel[] {
+		const channels = [positron.LanguageRuntimeSessionChannel.Console, positron.LanguageRuntimeSessionChannel.Kernel];
 		return channels;
 	}
 

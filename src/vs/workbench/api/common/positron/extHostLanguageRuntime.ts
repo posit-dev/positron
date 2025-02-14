@@ -398,7 +398,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._runtimeSessions[handle].start();
 	}
 
-	$showOutputLanguageRuntime(handle: number, channel?: string): void {
+	$showOutputLanguageRuntime(handle: number, channel?: positron.LanguageRuntimeSessionChannel): void {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot show output for runtime: language runtime session handle '${handle}' not found or no longer valid.`);
 		}
@@ -408,7 +408,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._runtimeSessions[handle].showOutput(channel);
 	}
 
-	async $listOutputChannelsLanguageRuntime(handle: number): Promise<string[]> {
+	async $listOutputChannelsLanguageRuntime(handle: number): Promise<positron.LanguageRuntimeSessionChannel[]> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot list output channels for runtime: language runtime session handle '${handle}' not found or no longer valid.`);
 		}

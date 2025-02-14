@@ -48,7 +48,7 @@ export class PythonLsp implements vscode.Disposable {
         private readonly _version: string,
         private readonly _clientOptions: LanguageClientOptions,
         private readonly _metadata: positron.RuntimeSessionMetadata,
-    ) {}
+    ) { }
 
     /**
      * Activate the language server; returns a promise that resolves when the LSP is
@@ -95,10 +95,10 @@ export class PythonLsp implements vscode.Disposable {
         this._clientOptions.documentSelector = notebookUri
             ? [{ language: 'python', pattern: notebookUri.fsPath }]
             : [
-                  { language: 'python', scheme: 'untitled' },
-                  { language: 'python', scheme: 'inmemory' }, // Console
-                  { language: 'python', pattern: '**/*.py' },
-              ];
+                { language: 'python', scheme: 'untitled' },
+                { language: 'python', scheme: 'inmemory' }, // Console
+                { language: 'python', pattern: '**/*.py' },
+            ];
 
         // Override default error handler with one that doesn't automatically restart the client,
         // and that logs to the appropriate place.
@@ -196,20 +196,20 @@ export class PythonLsp implements vscode.Disposable {
 
         const promise = awaitStop
             ? // If the kernel hasn't exited, we can just await the promise directly
-              this._client!.stop()
+            this._client!.stop()
             : // The promise returned by `stop()` never resolves if the server
-              // side is disconnected, so rather than awaiting it when the runtime
-              // has exited, we wait for the client to change state to `stopped`,
-              // which does happen reliably.
-              new Promise<void>((resolve) => {
-                  const disposable = this._client!.onDidChangeState((event) => {
-                      if (event.newState === State.Stopped) {
-                          resolve();
-                          disposable.dispose();
-                      }
-                  });
-                  this._client!.stop();
-              });
+            // side is disconnected, so rather than awaiting it when the runtime
+            // has exited, we wait for the client to change state to `stopped`,
+            // which does happen reliably.
+            new Promise<void>((resolve) => {
+                const disposable = this._client!.onDidChangeState((event) => {
+                    if (event.newState === State.Stopped) {
+                        resolve();
+                        disposable.dispose();
+                    }
+                });
+                this._client!.stop();
+            });
 
         // Don't wait more than a couple of seconds for the client to stop.
         const timeout = new Promise<void>((_, reject) => {
@@ -259,5 +259,19 @@ export class PythonLsp implements vscode.Disposable {
     async dispose(): Promise<void> {
         this.activationDisposables.forEach((d) => d.dispose());
         await this.deactivate(false);
+    }
+
+    /**
+     * Displays the output channel associated with the current Python LSP session.
+     *
+     * This method retrieves the output channel using the session name and session mode
+     * from the metadata, and then shows the output channel to the user.
+     */
+    public showOutput(): void {
+        const outputChannel = PythonLspOutputChannelManager.instance.getOutputChannel(
+            this._metadata.sessionName,
+            this._metadata.sessionMode
+        );
+        outputChannel.show();
     }
 }

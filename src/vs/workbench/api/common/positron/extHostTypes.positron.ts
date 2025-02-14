@@ -323,3 +323,9 @@ export enum LanguageRuntimeSessionLocation {
 	 */
 	Browser = 'browser',
 }
+
+export enum LanguageRuntimeSessionChannel {
+	Console = 'console',
+	Kernel = 'kernel',
+	LSP = 'lsp',
+}
