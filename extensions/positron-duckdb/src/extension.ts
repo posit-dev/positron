@@ -697,7 +697,11 @@ function formatDate(date: Date): string {
 }
 
 // Function for converting Arrow JS values to strings (in exportDataSelection)
-function valueToString(value: any): string {
+function valueToString(value: any, column_type: string): string {
+	if (column_type === 'TIMESTAMP') {
+		value = new Date(value);
+	}
+
 	if (value === null || value === undefined) {
 		return '';
 	}
@@ -1222,24 +1226,15 @@ END`;
 		const kind = params.selection.kind;
 		const selection = params.selection.selection;
 
-		const boxValue = (value: any, column_type: string): any => {
-			switch (column_type) {
-				case 'TIMESTAMP':
-					return new Date(value);
-				default:
-					return value;
-			}
-		};
-
 		const exportQueryOutput = async (query: string,
 			columns: Array<SchemaEntry>): Promise<ExportedData> => {
 			const result = await this.db.runQuery(query);
 			const unboxed = [
 				columns.map(s => s.column_name),
 				...result.toArray().map(
-					row => columns.map(s => boxValue(
+					row => columns.map(s => valueToString(
 						row[s.column_name], s.column_type
-					)).map(valueToString)
+					))
 				)
 			];
 
@@ -1278,7 +1273,7 @@ END`;
 				const quotedName = quoteIdentifier(schema.column_name);
 				const query = `SELECT ${quotedName} FROM ${this.tableName} LIMIT 1 OFFSET ${rowIndex};`;
 				const result = await this.db.runQuery(query);
-				data = boxValue(result.toArray()[0][schema.column_name], schema.column_type);
+				data = valueToString(result.toArray()[0][schema.column_name], schema.column_type);
 				return {
 					data,
 					format: params.format
