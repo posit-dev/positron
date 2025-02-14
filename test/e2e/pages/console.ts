@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import test, { expect, Locator } from '@playwright/test';
+import test, { expect, Locator, Page } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
@@ -31,6 +31,7 @@ export class Console {
 	consoleRestartButton: Locator;
 	activeConsole: Locator;
 	suggestionList: Locator;
+	session: Session;
 
 	get emptyConsole() {
 		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
@@ -43,6 +44,7 @@ export class Console {
 		this.consoleRestartButton = this.code.driver.page.locator(CONSOLE_RESTART_BUTTON);
 		this.activeConsole = this.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE);
 		this.suggestionList = this.code.driver.page.locator(SUGGESTION_LIST);
+		this.session = new Session(code.driver.page);
 	}
 
 	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string, waitForReady: boolean = true): Promise<undefined> {
@@ -267,3 +269,77 @@ export class Console {
 		await this.code.driver.page.getByLabel('Interrupt execution').click();
 	}
 }
+
+/**
+ * Helper class to manage sessions in the console
+ */
+class Session {
+
+	constructor(private page: Page) { }
+
+	/**
+	 * Helper: Get the locator for the session tab
+	 * @param interpreterName  'Python' or 'R'
+	 * @param version version of the interpreter (e.g. '3.10.15')
+	 * @returns locator for the session tab
+	 */
+	getSessionLocator(interpreterName: 'Python' | 'R', version: string): Locator {
+		return this.page.getByRole('tab', { name: new RegExp(`${interpreterName} ${version}`) });
+	}
+
+	/**
+	 * Verify: Check the status of the session tab
+	 * @param interpreterName 'Python' or 'R'
+	 * @param version version of the interpreter (e.g. '3.10.15')
+	 * @param expectedStatus status to check for ('active', 'idle', 'disconnected')
+	 */
+	async checkStatus(interpreterName: 'Python' | 'R', version: string, expectedStatus: 'active' | 'idle' | 'disconnected') {
+		await test.step(`Verify ${interpreterName} ${version} session status: ${expectedStatus}`, async () => {
+			const session = this.getSessionLocator(interpreterName, version);
+			const statusClass = `.codicon-positron-status-${expectedStatus}`;
+
+			await expect(session).toBeVisible();
+			await expect(session.locator(statusClass)).toBeVisible();
+		});
+	}
+
+	/**
+	 * Action: Restart the session
+	 * @param interpreterName 'Python' or 'R'
+	 * @param version version of the interpreter (e.g. '3.10.15')
+	 * @returns Promise<void>
+	 */
+	async restart(interpreterName: 'Python' | 'R', version: string): Promise<void> {
+		await test.step(`Restart session: ${interpreterName} ${version}`, async () => {
+			const session = this.getSessionLocator(interpreterName, version);
+			await session.click();
+			await this.page.getByLabel('Restart console').click();
+		});
+	}
+
+	/**
+	 * Action: Shutdown the session
+	 * @param interpreterName 'Python' or 'R'
+	 * @param version version of the interpreter (e.g. '3.10.15')
+	 */
+	async shutdown(interpreterName: 'Python' | 'R', version: string): Promise<void> {
+		await test.step(`Shutdown session: ${interpreterName} ${version}`, async () => {
+			const session = this.getSessionLocator(interpreterName, version);
+			await session.click();
+			await this.page.getByLabel('Shutdown console').click();
+		});
+	}
+
+	/**
+	 * Action: Select the session
+	 * @param interpreterName 'Python' or 'R'
+	 * @param version version of the interpreter (e.g. '3.10.15')
+	 */
+	async select(interpreterName: 'Python' | 'R', version: string): Promise<void> {
+		await test.step(`Select session: ${interpreterName} ${version}`, async () => {
+			const session = this.getSessionLocator(interpreterName, version);
+			await session.click();
+		});
+	}
+}
+
