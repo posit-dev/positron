@@ -622,15 +622,19 @@ export function registerLanguageRuntimeActions() {
 				}
 			}
 		).map(
-			({ runtimeMetadata }) => ({
-				id: runtimeMetadata.runtimeId,
-				label: runtimeMetadata.runtimeName,
-				detail: runtimeMetadata.runtimePath,
-				iconPath: {
-					dark: URI.parse(`data:image/svg+xml;base64, ${runtimeMetadata.base64EncodedIconSvg}`),
-				},
-				picked: (runtimeMetadata.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
-			})
+			({ runtimeMetadata }) => {
+				const isForegroundSession = (runtimeMetadata.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId);
+				return {
+					id: runtimeMetadata.runtimeId,
+					label: runtimeMetadata.runtimeName,
+					detail: runtimeMetadata.runtimePath,
+					description: isForegroundSession ? 'Currently Selected' : undefined,
+					iconPath: {
+						dark: URI.parse(`data:image/svg+xml;base64, ${runtimeMetadata.base64EncodedIconSvg}`),
+					},
+					picked: isForegroundSession,
+				};
+			}
 		);
 
 		// Show quick pick to select an active runtime or show all runtimes.
