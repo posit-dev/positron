@@ -60,6 +60,8 @@ jobs:
         with:
           version: "4.4.0"
 
+      - run: sudo npx playwright install-deps
+
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
         run: DISPLAY=:10 ./scripts/test.sh
