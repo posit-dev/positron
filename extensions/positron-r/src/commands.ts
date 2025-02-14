@@ -14,6 +14,7 @@ import { RSessionManager } from './session-manager';
 import { quickPickRuntime } from './runtime-quickpick';
 import { MINIMUM_RENV_VERSION, MINIMUM_R_VERSION } from './constants';
 import { RRuntimeManager } from './runtime-manager';
+import { RMetadataExtra } from './r-installation';
 
 export async function registerCommands(context: vscode.ExtensionContext, runtimeManager: RRuntimeManager) {
 
@@ -155,7 +156,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			if (!session) {
 				throw new Error(`Cannot get Rscript path; no R session available`);
 			}
-			const scriptPath = session.runtimeMetadata.extraRuntimeData.scriptPath;
+			const scriptPath = (session.runtimeMetadata.extraRuntimeData as RMetadataExtra).scriptpath;
 			if (!scriptPath) {
 				throw new Error(`Cannot get Rscript path; no Rscript path available`);
 			}

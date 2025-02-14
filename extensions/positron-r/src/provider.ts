@@ -226,7 +226,7 @@ export async function makeMetadata(
 	const extraRuntimeData: RMetadataExtra = {
 		homepath: rInst.homepath,
 		binpath: rInst.binpath,
-		scriptPath: scriptPath,
+		scriptpath: scriptPath,
 		current: rInst.current,
 		reasonDiscovered: rInst.reasonDiscovered,
 	};
