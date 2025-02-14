@@ -25,8 +25,13 @@ import {
 	DataExplorerResponse,
 	DataExplorerRpc,
 	DataExplorerUiEvent,
+	DataSelectionCellRange,
+	DataSelectionIndices,
+	DataSelectionRange,
+	DataSelectionSingleCell,
 	ExportDataSelectionParams,
 	ExportedData,
+	ExportFormat,
 	FilterBetween,
 	FilterComparison,
 	FilterComparisonOp,
@@ -48,6 +53,7 @@ import {
 	TableData,
 	TableRowLabels,
 	TableSchema,
+	TableSelectionKind,
 	TextSearchType
 } from './interfaces';
 import * as duckdb from '@duckdb/duckdb-wasm';
@@ -671,6 +677,23 @@ function isNumeric(duckdbName: string) {
 	return isInteger(duckdbName) || duckdbName === 'FLOAT' || duckdbName === 'DOUBLE';
 }
 
+// Function for converting Arrow JS values to strings (in exportDataSelection)
+function valueToString(value: any): string {
+	if (value === null || value === undefined) {
+		return '';
+	}
+
+	if (value instanceof Date) {
+		return value.toISOString();
+	}
+
+	if (typeof value === 'object') {
+		return JSON.stringify(value);
+	}
+
+	return String(value);
+}
+
 /**
  * Interface for serving data explorer requests for a particular table in DuckDB
  */
@@ -1090,8 +1113,12 @@ END`;
 				},
 				set_sort_columns: { support_status: SupportStatus.Supported, },
 				export_data_selection: {
-					support_status: SupportStatus.Unsupported,
-					supported_formats: []
+					support_status: SupportStatus.Supported,
+					supported_formats: [
+						ExportFormat.Csv,
+						ExportFormat.Tsv,
+						ExportFormat.Html
+					]
 				}
 			}
 		};
@@ -1173,9 +1200,126 @@ END`;
 	}
 
 	async exportDataSelection(params: ExportDataSelectionParams): RpcResponse<ExportedData> {
-		return 'not implemented';
-	}
+		const kind = params.selection.kind;
+		const selection = params.selection.selection;
+		const fmt = params.format;
 
+		let formatter: (table: any[]) => string;
+		switch (fmt) {
+			case ExportFormat.Csv:
+				formatter = (table: any[]) => table.map(row => row.join(',')).join('\n');
+				break;
+			case ExportFormat.Tsv:
+				formatter = (table: any[]) => table.map(row => row.join('\t')).join('\n');
+				break;
+			case ExportFormat.Html:
+				formatter = (table: any[]) => table.map(row => `<tr><td>${row.join('</td><td>')}</td></tr>`).join('\n');
+				break;
+			default:
+				throw new Error(`Unknown export format: ${fmt}`);
+		}
+
+		let data: string;
+		switch (kind) {
+			case TableSelectionKind.SingleCell: {
+				const selection = params.selection.selection as DataSelectionSingleCell;
+				const rowIndex = selection.row_index;
+				const columnIndex = selection.column_index;
+				const columnSchema = this.fullSchema[columnIndex];
+				const quotedName = quoteIdentifier(columnSchema.column_name);
+				const query = `SELECT ${quotedName} FROM ${this.tableName} LIMIT 1 OFFSET ${rowIndex};`;
+				const result = await this.db.runQuery(query);
+				data = valueToString(result.toArray()[0][columnSchema.column_name]);
+				break;
+			}
+			case TableSelectionKind.CellRange: {
+				const selection = params.selection.selection as DataSelectionCellRange;
+				const rowStart = selection.first_row_index;
+				const rowEnd = selection.last_row_index;
+				const columnStart = selection.first_column_index;
+				const columnEnd = selection.last_column_index;
+				const columnNames = this.fullSchema.slice(
+					columnStart, columnEnd + 1
+				).map(s => s.column_name);
+				const query = `SELECT ${columnNames.map(quoteIdentifier).join(', ')}
+				FROM ${this.tableName}
+				LIMIT ${rowEnd - rowStart + 1} OFFSET ${rowStart};`;
+				const result = await this.db.runQuery(query);
+				data = formatter(
+					result.toArray().map(
+						row => columnNames.map(name => row[name]).map(valueToString)
+					)
+				);
+				break;
+			}
+			case TableSelectionKind.RowRange: {
+				const selection = params.selection.selection as DataSelectionRange;
+				const rowStart = selection.first_index;
+				const rowEnd = selection.last_index;
+				const columnNames = this.fullSchema.map(s => s.column_name);
+				const query = `SELECT *
+				FROM ${this.tableName}
+				LIMIT ${rowEnd - rowStart + 1} OFFSET ${rowStart};`;
+				const result = await this.db.runQuery(query);
+				data = formatter(
+					result.toArray().map(
+						row => columnNames.map(name => row[name]).map(valueToString)
+					)
+				);
+				break;
+			}
+			case TableSelectionKind.ColumnRange: {
+				const selection = params.selection.selection as DataSelectionRange;
+				const columnStart = selection.first_index;
+				const columnEnd = selection.last_index;
+				const columnNames = this.fullSchema.slice(
+					columnStart, columnEnd + 1
+				).map(s => s.column_name);
+				const query = `SELECT ${columnNames.map(quoteIdentifier).join(', ')}
+				FROM ${this.tableName}`;
+				const result = await this.db.runQuery(query);
+				data = formatter(
+					result.toArray().map(
+						row => columnNames.map(name => row[name]).map(valueToString)
+					)
+				);
+				break;
+			}
+			case TableSelectionKind.RowIndices: {
+				const selection = params.selection.selection as DataSelectionIndices;
+				const indices = selection.indices;
+				const columnNames = this.fullSchema.map(s => s.column_name);
+				const query = `SELECT ${columnNames.map(quoteIdentifier).join(', ')}
+				FROM ${this.tableName}
+				WHERE rowid IN (${indices.join(', ')})`;
+				const result = await this.db.runQuery(query);
+				data = formatter(
+					result.toArray().map(
+						row => columnNames.map(name => row[name]).map(valueToString)
+					)
+				);
+				break;
+			}
+			case TableSelectionKind.ColumnIndices: {
+				const selection = params.selection.selection as DataSelectionIndices;
+				const indices = selection.indices;
+				const columnNames = indices.map(i => this.fullSchema[i].column_name);
+				const query = `SELECT ${columnNames.map(quoteIdentifier).join(', ')}
+				FROM ${this.tableName}`;
+				const result = await this.db.runQuery(query);
+				data = formatter(
+					result.toArray().map(
+						row => columnNames.map(name => row[name]).map(valueToString)
+					)
+				);
+				break;
+			}
+		}
+		return {
+			data,
+			format: fmt
+		}
+	}
 	private async _getShape(whereClause: string = ''): Promise<[number, number]> {
 		const numColumns = this.fullSchema.length;
 		const countStar = `SELECT count(*) AS num_rows
