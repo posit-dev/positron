@@ -331,21 +331,23 @@ export const ActionBar = (props: ActionBarProps) => {
 					paddingRight={kPaddingRight}
 					size='small'
 				>
-					<ActionBarRegion location='left'>
-						<ConsoleInstanceMenuButton {...props} />
-						<div className='action-bar-separator' />
-						{directoryLabel &&
-							<div aria-label={(() => localize(
-								'directoryLabel',
-								"Current Working Directory"
-							))()}
-								className='directory-label'
-							>
-								<span className='codicon codicon-folder' role='presentation'></span>
-								<span className='label' title={directoryLabel}>{directoryLabel}</span>
-							</div>
-						}
-					</ActionBarRegion>
+					{!multiSessionsEnabled &&
+						<ActionBarRegion location='left'>
+							<ConsoleInstanceMenuButton {...props} />
+							<div className='action-bar-separator' />
+							{directoryLabel &&
+								<div aria-label={(() => localize(
+									'directoryLabel',
+									"Current Working Directory"
+								))()}
+									className='directory-label'
+								>
+									<span className='codicon codicon-folder' role='presentation'></span>
+									<span className='label' title={directoryLabel}>{directoryLabel}</span>
+								</div>
+							}
+						</ActionBarRegion>
+					}
 					<ActionBarRegion location='right'>
 						<div className='state-label'>{stateLabel}</div>
 						{interruptible &&
