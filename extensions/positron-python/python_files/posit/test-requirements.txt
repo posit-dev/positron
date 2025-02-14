@@ -2,8 +2,7 @@ bokeh
 fastcore
 geopandas
 holoviews
-ibis-framework[duckdb]; python_version >= '3.10' and python_version < '3.13'
-ipykernel
+ibis-framework[duckdb]; python_version >= '3.10'
 ipywidgets
 lightning
 matplotlib
