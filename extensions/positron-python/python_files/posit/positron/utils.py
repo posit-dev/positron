@@ -73,7 +73,7 @@ def get_qualname(value: Any) -> str:
 
     # In the rare situation an object incorrectly handles __qualname__ by not returning
     # a str, we fall back to the name of the type
-    if type(qualname) is not str:
+    if not isinstance(qualname, str):
         qualname = getattr(type(value), "__name__", "object")
 
     # Tell the type checker that it's a string
