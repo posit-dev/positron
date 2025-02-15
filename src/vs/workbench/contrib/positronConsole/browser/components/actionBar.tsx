@@ -348,6 +348,21 @@ export const ActionBar = (props: ActionBarProps) => {
 							}
 						</ActionBarRegion>
 					}
+					{multiSessionsEnabled &&
+						<div>
+							{directoryLabel &&
+								<div aria-label={(() => localize(
+									'directoryLabel',
+									"Current Working Directory"
+								))()}
+									className='directory-label'
+								>
+									<span className='codicon codicon-folder' role='presentation'></span>
+									<span className='label' title={directoryLabel}>{directoryLabel}</span>
+								</div>
+							}
+						</div>
+					}
 					<ActionBarRegion location='right'>
 						<div className='state-label'>{stateLabel}</div>
 						{interruptible &&
