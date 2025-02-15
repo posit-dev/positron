@@ -173,4 +173,15 @@ export class Variables {
 	async clickSessionLink() {
 		await this.code.driver.page.getByLabel('Active View Switcher').getByText('Session').click();
 	}
+
+	async checkRuntime(language: 'Python' | 'R', version: string) {
+		await this.code.driver.page.locator('[id="workbench\\.panel\\.positronSession"]').getByLabel(new RegExp(`${language}.*${version}`)).isVisible();
+	}
+
+	async checkVariableValue(variableName: string, value: string) {
+		const row = this.code.driver.page.locator('.variables-instance[style*="z-index: 1"] .variable-item').filter({ hasText: variableName });
+
+		await expect(row).toBeVisible();
+		await expect(row.locator('.details-column .value')).toHaveText(value);
+	}
 }

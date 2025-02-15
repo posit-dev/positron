@@ -148,7 +148,7 @@ async function verifyGitStatus(app: Application) {
 
 async function verifyIpykernelInstalled(app: Application) {
 	await test.step('Verify ipykernel is installed', async () => {
-		await app.workbench.console.typeToConsole('pip show ipykernel', 10, true);
+		await app.workbench.console.typeToConsole('pip show ipykernel', true, 10);
 		await app.workbench.console.waitForConsoleContents('Name: ipykernel');
 	});
 }

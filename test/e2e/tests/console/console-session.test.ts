@@ -12,15 +12,15 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Console: Session List', {
-	tag: [tags.WEB, tags.WIN, tags.CONSOLE]
+test.describe('Console: Session Behavior', {
+	tag: [tags.WIN, tags.CONSOLE] // ISSUE tags.WEB does not work for now
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
 		await userSettings.set([['positron.multipleConsoleSessions', 'true']], true);
 	});
 
-	test('Validate session state (active, idle, disconnect) for R and Python', async function ({ app, page, interpreter }) {
+	test('Validate state (active, idle, disconnect) between sessions', async function ({ app, page, interpreter }) {
 		const console = app.workbench.console;
 
 		// Start Python session
@@ -58,5 +58,43 @@ test.describe('Console: Session List', {
 		await console.session.shutdown('R', R_VERSION);
 		await console.session.checkStatus('R', R_VERSION, 'disconnected');
 		await console.session.checkStatus('Python', PYTHON_VERSION, 'disconnected');
+	});
+
+	test('Validate variables between sessions', async function ({ app, page, interpreter }) {
+		const console = app.workbench.console;
+		const variables = app.workbench.variables;
+
+		// Start Python and R sessions
+		await interpreter.set('Python', true);
+		await interpreter.set('R', true);
+
+		// Set and verify variables in Python
+		await console.session.select('Python', PYTHON_VERSION);
+		await console.typeToConsole('x = 1', true);
+		await console.typeToConsole('y = 2', true);
+		await variables.checkRuntime('Python', PYTHON_VERSION);
+		await variables.checkVariableValue('x', '1');
+		await variables.checkVariableValue('y', '2');
+
+		// Set and verify variables in R
+		await console.session.select('R', R_VERSION);
+		await console.typeToConsole('x <- 3', true);
+		await console.typeToConsole('z <- 4', true);
+		await variables.checkRuntime('R', R_VERSION);
+		await variables.checkVariableValue('x', '3');
+		await variables.checkVariableValue('z', '4');
+
+		// Switch back to Python, update variables, and verify
+		await console.session.select('Python', PYTHON_VERSION);
+		await console.typeToConsole('x = 0', true);
+		await variables.checkRuntime('Python', PYTHON_VERSION);
+		await variables.checkVariableValue('x', '0');
+		await variables.checkVariableValue('y', '2');
+
+		// Switch back to R, verify variables remain unchanged
+		await console.session.select('R', R_VERSION);
+		await variables.checkRuntime('R', R_VERSION);
+		await variables.checkVariableValue('x', '3');
+		await variables.checkVariableValue('z', '4');
 	});
 });
