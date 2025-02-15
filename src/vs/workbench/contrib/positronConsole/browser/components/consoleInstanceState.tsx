@@ -19,11 +19,10 @@ const enum StatusIconClassName {
 	IDLE = 'codicon-positron-status-idle'
 }
 
-// TODO: use or create theme var colors
 const statusIconClassNameToColor = {
-	[StatusIconClassName.ACTIVE]: 'blue',
-	[StatusIconClassName.DISCONNECTED]: 'red',
-	[StatusIconClassName.IDLE]: 'green',
+	[StatusIconClassName.ACTIVE]: 'var(--vscode-positronConsole-stateIconActive)',
+	[StatusIconClassName.DISCONNECTED]: 'var(--vscode-positronConsole-stateIconDisconnected)',
+	[StatusIconClassName.IDLE]: 'var(--vscode-positronConsole-stateIconIdle)'
 }
 
 const consoleStateToStatusIcon = {
@@ -33,7 +32,7 @@ const consoleStateToStatusIcon = {
 	[PositronConsoleState.Ready]: StatusIconClassName.IDLE,
 	[PositronConsoleState.Offline]: StatusIconClassName.DISCONNECTED,
 	[PositronConsoleState.Exiting]: StatusIconClassName.ACTIVE,
-	[PositronConsoleState.Exited]: StatusIconClassName.DISCONNECTED,
+	[PositronConsoleState.Exited]: StatusIconClassName.DISCONNECTED
 };
 
 interface ConsoleInstanceStateProps {

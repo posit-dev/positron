@@ -95,6 +95,6 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 	return {
 		...services,
 		positronConsoleInstances,
-		activePositronConsoleInstance: activePositronConsoleInstance,
+		activePositronConsoleInstance: activePositronConsoleInstance
 	};
 };
