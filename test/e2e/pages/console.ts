@@ -279,23 +279,23 @@ class Session {
 
 	/**
 	 * Helper: Get the locator for the session tab
-	 * @param interpreterName  'Python' or 'R'
-	 * @param version version of the interpreter (e.g. '3.10.15')
+	 * @param interpreterLanguage  'Python' or 'R'
+	 * @param version interpreter version (e.g. '3.10.15')
 	 * @returns locator for the session tab
 	 */
-	getSessionLocator(interpreterName: 'Python' | 'R', version: string): Locator {
-		return this.page.getByRole('tab', { name: new RegExp(`${interpreterName} ${version}`) });
+	getSessionLocator(interpreterLanguage: 'Python' | 'R', version: string): Locator {
+		return this.page.getByRole('tab', { name: new RegExp(`${interpreterLanguage} ${version}`) });
 	}
 
 	/**
 	 * Verify: Check the status of the session tab
-	 * @param interpreterName 'Python' or 'R'
-	 * @param version version of the interpreter (e.g. '3.10.15')
+	 * @param interpreterLanguage 'Python' or 'R'
+	 * @param version interpreter version (e.g. '3.10.15')
 	 * @param expectedStatus status to check for ('active', 'idle', 'disconnected')
 	 */
-	async checkStatus(interpreterName: 'Python' | 'R', version: string, expectedStatus: 'active' | 'idle' | 'disconnected') {
-		await test.step(`Verify ${interpreterName} ${version} session status: ${expectedStatus}`, async () => {
-			const session = this.getSessionLocator(interpreterName, version);
+	async checkStatus(interpreterLanguage: 'Python' | 'R', version: string, expectedStatus: 'active' | 'idle' | 'disconnected') {
+		await test.step(`Verify ${interpreterLanguage} ${version} session status: ${expectedStatus}`, async () => {
+			const session = this.getSessionLocator(interpreterLanguage, version);
 			const statusClass = `.codicon-positron-status-${expectedStatus}`;
 
 			await expect(session).toBeVisible();
@@ -305,13 +305,14 @@ class Session {
 
 	/**
 	 * Action: Restart the session
-	 * @param interpreterName 'Python' or 'R'
-	 * @param version version of the interpreter (e.g. '3.10.15')
+	 * @param interpreterLanguage 'Python' or 'R'
+	 * @param version interpreter version (e.g. '3.10.15')
 	 * @returns Promise<void>
 	 */
-	async restart(interpreterName: 'Python' | 'R', version: string): Promise<void> {
-		await test.step(`Restart session: ${interpreterName} ${version}`, async () => {
-			const session = this.getSessionLocator(interpreterName, version);
+	async restart(interpreterLanguage: 'Python' | 'R', version: string): Promise<void> {
+		await test.step(`Restart session: ${interpreterLanguage} ${version}`, async () => {
+			const session = this.getSessionLocator(interpreterLanguage, version);
+			await session.hover();
 			await session.click();
 			await this.page.getByLabel('Restart console').click();
 		});
@@ -319,12 +320,13 @@ class Session {
 
 	/**
 	 * Action: Shutdown the session
-	 * @param interpreterName 'Python' or 'R'
-	 * @param version version of the interpreter (e.g. '3.10.15')
+	 * @param interpreterLanguage 'Python' or 'R'
+	 * @param version interpreter version (e.g. '3.10.15')
 	 */
-	async shutdown(interpreterName: 'Python' | 'R', version: string): Promise<void> {
-		await test.step(`Shutdown session: ${interpreterName} ${version}`, async () => {
-			const session = this.getSessionLocator(interpreterName, version);
+	async shutdown(interpreterLanguage: 'Python' | 'R', version: string): Promise<void> {
+		await test.step(`Shutdown session: ${interpreterLanguage} ${version}`, async () => {
+			const session = this.getSessionLocator(interpreterLanguage, version);
+			await session.hover();
 			await session.click();
 			await this.page.getByLabel('Shutdown console').click();
 		});
@@ -332,12 +334,13 @@ class Session {
 
 	/**
 	 * Action: Select the session
-	 * @param interpreterName 'Python' or 'R'
-	 * @param version version of the interpreter (e.g. '3.10.15')
+	 * @param interpreterLanguage 'Python' or 'R'
+	 * @param version interpreter version (e.g. '3.10.15')
 	 */
-	async select(interpreterName: 'Python' | 'R', version: string): Promise<void> {
-		await test.step(`Select session: ${interpreterName} ${version}`, async () => {
-			const session = this.getSessionLocator(interpreterName, version);
+	async select(interpreterLanguage: 'Python' | 'R', version: string): Promise<void> {
+		await test.step(`Select session: ${interpreterLanguage} ${version}`, async () => {
+			const session = this.getSessionLocator(interpreterLanguage, version);
+			await session.hover();
 			await session.click();
 		});
 	}

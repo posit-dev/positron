@@ -15,11 +15,12 @@ test.use({
 test.describe('Console: Session List', {
 	tag: [tags.WEB, tags.WIN, tags.CONSOLE]
 }, () => {
+
 	test.beforeAll(async function ({ userSettings }) {
 		await userSettings.set([['positron.multipleConsoleSessions', 'true']], true);
 	});
 
-	test('Validate session state (active, idle, disconnect) transitions for R and Python', async function ({ app, page, interpreter }) {
+	test('Validate session state (active, idle, disconnect) for R and Python', async function ({ app, page, interpreter }) {
 		const console = app.workbench.console;
 
 		// Start Python session
