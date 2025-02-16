@@ -55,7 +55,7 @@ const stashPatterns = [
 	// Exclusions from ipykernel .so files
 	'**/lib/ipykernel/**/*.so',
 	// Exclusions from ipykernel .dylib files
-	'**/lib/ipykernel/**/*.dylib',
+	'**/lib/ipykernel/**/.dylibs/**',
 	// Exclusions from Quarto
 	'**/quarto/bin/tools/**',
 	// Exclusions from Node Addon API
