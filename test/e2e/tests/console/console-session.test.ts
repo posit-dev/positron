@@ -31,7 +31,7 @@ test.describe('Console: Session Behavior', {
 		await console.session.checkStatus('Python', PYTHON_VERSION, 'idle');
 
 		// Restart Python session and confirm state returns to active --> idle
-		await console.session.restart('Python', PYTHON_VERSION);
+		await console.session.restart('Python', PYTHON_VERSION, false);
 		await console.session.checkStatus('Python', PYTHON_VERSION, 'active');
 		await console.session.checkStatus('Python', PYTHON_VERSION, 'idle');
 
@@ -44,18 +44,18 @@ test.describe('Console: Session Behavior', {
 		await console.session.checkStatus('Python', PYTHON_VERSION, 'idle');
 
 		// Shutdown Python session, verify R remains idle while Python transitions to disconnected
-		await console.session.shutdown('Python', PYTHON_VERSION);
+		await console.session.shutdown('Python', PYTHON_VERSION, false);
 		await console.session.checkStatus('R', R_VERSION, 'idle');
 		await console.session.checkStatus('Python', PYTHON_VERSION, 'disconnected');
 
 		// Restart R session, verify R to returns to active --> idle and Python remains disconnected
-		await console.session.restart('R', R_VERSION);
+		await console.session.restart('R', R_VERSION, false);
 		await console.session.checkStatus('R', R_VERSION, 'active');
 		await console.session.checkStatus('R', R_VERSION, 'idle');
 		await console.session.checkStatus('Python', PYTHON_VERSION, 'disconnected');
 
 		// Shutdown R, verify both Python and R in disconnected state
-		await console.session.shutdown('R', R_VERSION);
+		await console.session.shutdown('R', R_VERSION, false);
 		await console.session.checkStatus('R', R_VERSION, 'disconnected');
 		await console.session.checkStatus('Python', PYTHON_VERSION, 'disconnected');
 	});

@@ -331,12 +331,15 @@ class Session {
 	 * @param version interpreter version (e.g. '3.10.15')
 	 * @returns Promise<void>
 	 */
-	async start(interpreterLanguage: 'Python' | 'R', version: string): Promise<void> {
+	async start(interpreterLanguage: 'Python' | 'R', version: string, waitForIdle = true): Promise<void> {
 		await test.step(`Start session: ${interpreterLanguage} ${version}`, async () => {
 			const session = this.getSessionLocator(interpreterLanguage, version);
 			await session.click();
 			await this.page.getByLabel('Start console', { exact: true }).click();
-			await this.checkStatus(interpreterLanguage, version, 'idle');
+
+			if (waitForIdle) {
+				await this.checkStatus(interpreterLanguage, version, 'idle');
+			}
 		});
 	}
 
@@ -346,12 +349,15 @@ class Session {
 	 * @param version interpreter version (e.g. '3.10.15')
 	 * @returns Promise<void>
 	 */
-	async restart(interpreterLanguage: 'Python' | 'R', version: string): Promise<void> {
+	async restart(interpreterLanguage: 'Python' | 'R', version: string, waitForIdle = true): Promise<void> {
 		await test.step(`Restart session: ${interpreterLanguage} ${version}`, async () => {
 			const session = this.getSessionLocator(interpreterLanguage, version);
 			await session.click();
 			await this.page.getByLabel('Restart console', { exact: true }).click();
-			await this.checkStatus(interpreterLanguage, version, 'idle');
+
+			if (waitForIdle) {
+				await this.checkStatus(interpreterLanguage, version, 'idle');
+			}
 		});
 	}
 
@@ -360,12 +366,15 @@ class Session {
 	 * @param interpreterLanguage 'Python' or 'R'
 	 * @param version interpreter version (e.g. '3.10.15')
 	 */
-	async shutdown(interpreterLanguage: 'Python' | 'R', version: string): Promise<void> {
+	async shutdown(interpreterLanguage: 'Python' | 'R', version: string, waitForDisconnected = true): Promise<void> {
 		await test.step(`Shutdown session: ${interpreterLanguage} ${version}`, async () => {
 			const session = this.getSessionLocator(interpreterLanguage, version);
 			await session.click();
 			await this.page.getByLabel('Shutdown console', { exact: true }).click();
-			await this.checkStatus(interpreterLanguage, version, 'disconnected');
+
+			if (waitForDisconnected) {
+				await this.checkStatus(interpreterLanguage, version, 'disconnected');
+			}
 		});
 	}
 
