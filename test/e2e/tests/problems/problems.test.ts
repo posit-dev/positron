@@ -15,7 +15,7 @@ test.describe('Problems', {
 	tag: [tags.PROBLEMS, tags.WEB, tags.WIN]
 }, () => {
 
-	test('Python - Verify Problems Functionality', async function ({ app, python, openFile }) {
+	test('Python - Verify problems are highlighted in editor and count is accurate in Problems pane', async function ({ app, python, openFile }) {
 		const problems = app.workbench.problems;
 
 		await test.step('Open file and replace "rows" on line 9 with exclamation point', async () => {
@@ -55,7 +55,7 @@ test.describe('Problems', {
 
 	});
 
-	test('R - Verify Problems Functionality', async function ({ app, r, openFile }) {
+	test('R - Verify problems are highlighted in editor and count is accurate in Problems pane', async function ({ app, r, openFile }) {
 		const problems = app.workbench.problems;
 
 		await test.step('Open file and replace "albums" on line 5 with exclamation point', async () => {
