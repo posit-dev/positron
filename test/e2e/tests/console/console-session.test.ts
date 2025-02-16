@@ -3,7 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { join } from 'path';
 import { test, tags } from '../_test.setup';
+import { expect } from '@playwright/test';
 
 const PYTHON_VERSION = process.env.POSITRON_PY_VER_SEL || '';
 const R_VERSION = process.env.POSITRON_R_VER_SEL || '';
@@ -13,7 +15,7 @@ test.use({
 });
 
 test.describe('Console: Session Behavior', {
-	tag: [tags.WIN, tags.CONSOLE] // ISSUE tags.WEB does not work for now
+	tag: [tags.WIN, tags.CONSOLE, tags.SESSION] // ISSUE tags.WEB does not work for now
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
@@ -96,5 +98,27 @@ test.describe('Console: Session Behavior', {
 		await variables.checkRuntime('R', R_VERSION);
 		await variables.checkVariableValue('x', '3');
 		await variables.checkVariableValue('z', '4');
+	});
+
+	test('R - Validate editor problems with session restart', async function ({ app, page, openFile }) {
+		const console = app.workbench.console;
+		const problems = app.workbench.problems;
+		await openFile(join('workspaces', 'fast-statement-execution', 'fast-execution.r'));
+
+		// Edit file to introduce a warning squiggly
+		// Note: The warning squiggly is not visible until an R session is started
+		await test.step('Edit file to introduce warning squiggly', async () => {
+			await page.getByText('x <- 1').dblclick();
+			await app.code.driver.page.keyboard.type('<- 1a');
+		});
+		await expect(problems.warningSquiggly).not.toBeVisible();
+
+		// Start R session and verify warning squiggly appears
+		await console.session.ensureStartedAndIdle('R', R_VERSION);
+		await expect(problems.warningSquiggly).toBeVisible();
+
+		// Restart R session and verify warning squiggly re-appears
+		await console.session.restart('R', R_VERSION);
+		await expect(problems.warningSquiggly).toBeVisible();
 	});
 });

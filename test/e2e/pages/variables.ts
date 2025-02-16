@@ -190,7 +190,7 @@ export class Variables {
 	 * @param version the version of the runtime: e.g. 3.10.15
 	 */
 	async checkRuntime(language: 'Python' | 'R', version: string) {
-		await this.code.driver.page.locator('[id="workbench.panel.positronSession"]').getByLabel(new RegExp(`${language}.*${version}`)).isVisible();
+		await expect(this.code.driver.page.locator('[id="workbench.panel.positronSession"]').getByLabel(new RegExp(`${language}.*${version}`))).toBeVisible();
 	}
 
 	/**

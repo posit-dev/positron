@@ -116,13 +116,15 @@ export class Console {
 	}
 
 	async typeToConsole(text: string, pressEnter = false, delay = 10) {
-		await this.code.driver.page.waitForTimeout(500);
-		await this.activeConsole.click();
-		await this.code.driver.page.keyboard.type(text, { delay });
+		await test.step(`Type to console: ${text}`, async () => {
+			await this.code.driver.page.waitForTimeout(500);
+			await this.activeConsole.click();
+			await this.code.driver.page.keyboard.type(text, { delay });
 
-		if (pressEnter) {
-			await this.code.driver.page.keyboard.press('Enter');
-		}
+			if (pressEnter) {
+				await this.code.driver.page.keyboard.press('Enter');
+			}
+		});
 	}
 
 	async sendEnterKey() {
@@ -397,13 +399,15 @@ class Session {
 	 * @returns Promise<void>
 	 */
 	async ensureStartedAndIdle(interpreterLanguage: 'Python' | 'R', version: string): Promise<void> {
-		// Start Session if it does not exist
-		const sessionExists = await this.getSessionLocator(interpreterLanguage, version).isVisible();
-		if (!sessionExists) { await this.console.selectInterpreter(interpreterLanguage === 'Python' ? InterpreterType.Python : InterpreterType.R, version); }
+		await test.step(`Ensure ${interpreterLanguage} ${version} session is started and idle`, async () => {
+			// Start Session if it does not exist
+			const sessionExists = await this.getSessionLocator(interpreterLanguage, version).isVisible();
+			if (!sessionExists) { await this.console.selectInterpreter(interpreterLanguage === 'Python' ? InterpreterType.Python : InterpreterType.R, version); }
 
-		// Ensure session is idle
-		const status = await this.console.session.getStatus(interpreterLanguage, version);
-		if (status !== 'idle') { await this.console.session.start(interpreterLanguage, version); }
+			// Ensure session is idle
+			const status = await this.console.session.getStatus(interpreterLanguage, version);
+			if (status !== 'idle') { await this.console.session.start(interpreterLanguage, version); }
+		});
 	}
 }
 
