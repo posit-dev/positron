@@ -49,8 +49,10 @@ const stashPatterns = [
     '**/kcserver', // Compiled Jupyter supervisor
     // Exclusions for Python Environment Tools
     '**/python-env-tools/pet',
-    // Exclusions from ipykernel
+    // Exclusions from ipykernel .so files
     '**/lib/ipykernel/**/*.so',
+    // Exclusions from ipykernel .dylib files
+    '**/lib/ipykernel/**/*.dylib',
     // Exclusions from Quarto
     '**/quarto/bin/tools/**',
     // Exclusions from Node Addon API
