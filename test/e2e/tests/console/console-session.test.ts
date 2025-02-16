@@ -60,13 +60,13 @@ test.describe('Console: Session Behavior', {
 		await console.session.checkStatus('Python', PYTHON_VERSION, 'disconnected');
 	});
 
-	test('Validate variables between sessions', async function ({ app, page, interpreter }) {
+	test('Validate variables between sessions', async function ({ app }) {
 		const console = app.workbench.console;
 		const variables = app.workbench.variables;
 
-		// Start Python and R sessions
-		await interpreter.set('Python', true);
-		await interpreter.set('R', true);
+		// Ensure sessions exist and are idle
+		await console.session.ensureStartedAndIdle('Python', PYTHON_VERSION);
+		await console.session.ensureStartedAndIdle('R', R_VERSION);
 
 		// Set and verify variables in Python
 		await console.session.select('Python', PYTHON_VERSION);

@@ -44,7 +44,7 @@ export class Console {
 		this.consoleRestartButton = this.code.driver.page.locator(CONSOLE_RESTART_BUTTON);
 		this.activeConsole = this.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE);
 		this.suggestionList = this.code.driver.page.locator(SUGGESTION_LIST);
-		this.session = new Session(code.driver.page);
+		this.session = new Session(this.code.driver.page, this);
 	}
 
 	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string, waitForReady: boolean = true): Promise<undefined> {
@@ -274,8 +274,15 @@ export class Console {
  * Helper class to manage sessions in the console
  */
 class Session {
+	activeStatus: (session: Locator) => Locator;
+	idleStatus: (session: Locator) => Locator;
+	disconnectedStatus: (session: Locator) => Locator;
 
-	constructor(private page: Page) { }
+	constructor(private page: Page, private console: Console) {
+		this.activeStatus = (session: Locator) => session.locator('.codicon-positron-status-active');
+		this.idleStatus = (session: Locator) => session.locator('.codicon-positron-status-idle');
+		this.disconnectedStatus = (session: Locator) => session.locator('.codicon-positron-status-disconnected');
+	}
 
 	/**
 	 * Helper: Get the locator for the session tab
@@ -285,6 +292,21 @@ class Session {
 	 */
 	getSessionLocator(interpreterLanguage: 'Python' | 'R', version: string): Locator {
 		return this.page.getByRole('tab', { name: new RegExp(`${interpreterLanguage} ${version}`) });
+	}
+
+	/**
+	 * Helper: Get the status of the session tab
+	 * @param interpreterLanguage 'Python' or 'R'
+	 * @param version interpreter version (e.g. '3.10.15')
+	 * @returns 'active', 'idle', 'disconnected', or 'unknown'
+	 */
+	async getStatus(interpreterLanguage: 'Python' | 'R', version: string): Promise<'active' | 'idle' | 'disconnected' | 'unknown'> {
+		const session = this.getSessionLocator(interpreterLanguage, version);
+
+		if (await this.activeStatus(session).isVisible()) { return 'active'; }
+		if (await this.idleStatus(session).isVisible()) { return 'idle'; }
+		if (await this.disconnectedStatus(session).isVisible()) { return 'disconnected'; }
+		return 'unknown';
 	}
 
 	/**
@@ -304,6 +326,21 @@ class Session {
 	}
 
 	/**
+	 * Action: Select session in tab list and start the session
+	 * @param interpreterLanguage 'Python' or 'R'
+	 * @param version interpreter version (e.g. '3.10.15')
+	 * @returns Promise<void>
+	 */
+	async start(interpreterLanguage: 'Python' | 'R', version: string): Promise<void> {
+		await test.step(`Start session: ${interpreterLanguage} ${version}`, async () => {
+			const session = this.getSessionLocator(interpreterLanguage, version);
+			await session.click();
+			await this.page.getByLabel('Start console', { exact: true }).click();
+			await this.checkStatus(interpreterLanguage, version, 'idle');
+		});
+	}
+
+	/**
 	 * Action: Restart the session
 	 * @param interpreterLanguage 'Python' or 'R'
 	 * @param version interpreter version (e.g. '3.10.15')
@@ -312,9 +349,9 @@ class Session {
 	async restart(interpreterLanguage: 'Python' | 'R', version: string): Promise<void> {
 		await test.step(`Restart session: ${interpreterLanguage} ${version}`, async () => {
 			const session = this.getSessionLocator(interpreterLanguage, version);
-			await session.hover();
 			await session.click();
-			await this.page.getByLabel('Restart console').click();
+			await this.page.getByLabel('Restart console', { exact: true }).click();
+			await this.checkStatus(interpreterLanguage, version, 'idle');
 		});
 	}
 
@@ -326,9 +363,9 @@ class Session {
 	async shutdown(interpreterLanguage: 'Python' | 'R', version: string): Promise<void> {
 		await test.step(`Shutdown session: ${interpreterLanguage} ${version}`, async () => {
 			const session = this.getSessionLocator(interpreterLanguage, version);
-			await session.hover();
 			await session.click();
-			await this.page.getByLabel('Shutdown console').click();
+			await this.page.getByLabel('Shutdown console', { exact: true }).click();
+			await this.checkStatus(interpreterLanguage, version, 'disconnected');
 		});
 	}
 
@@ -340,9 +377,24 @@ class Session {
 	async select(interpreterLanguage: 'Python' | 'R', version: string): Promise<void> {
 		await test.step(`Select session: ${interpreterLanguage} ${version}`, async () => {
 			const session = this.getSessionLocator(interpreterLanguage, version);
-			await session.hover();
 			await session.click();
 		});
+	}
+
+	/**
+	 * Helper: Ensure the session is started and idle
+	 * @param interpreterLanguage 'Python' or 'R'
+	 * @param version interpreter version (e.g. '3.10.15')
+	 * @returns Promise<void>
+	 */
+	async ensureStartedAndIdle(interpreterLanguage: 'Python' | 'R', version: string): Promise<void> {
+		// Start Session if it does not exist
+		const sessionExists = await this.getSessionLocator(interpreterLanguage, version).isVisible();
+		if (!sessionExists) { await this.console.selectInterpreter(interpreterLanguage === 'Python' ? InterpreterType.Python : InterpreterType.R, version); }
+
+		// Ensure session is idle
+		const status = await this.console.session.getStatus(interpreterLanguage, version);
+		if (status !== 'idle') { await this.console.session.start(interpreterLanguage, version); }
 	}
 }
 

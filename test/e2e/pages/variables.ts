@@ -174,10 +174,30 @@ export class Variables {
 		await this.code.driver.page.getByLabel('Active View Switcher').getByText('Session').click();
 	}
 
+	/**
+	 * Action: Select the runtime in the variables pane.
+	 * @param language the language of the runtime: Python or R
+	 * @param version the version of the runtime: e.g. 3.10.15
+	 */
+	// async selectRuntime(language: 'Python' | 'R', version: string) {
+	// 	await this.code.driver.page.locator('[id="workbench.panel.positronSession"]').getByLabel(/^(?!Refresh objects$)(Python|R)/).click();
+	// 	await this.code.driver.page.locator('[id="workbench.panel.positronSession"]').getByLabel(new RegExp(`${language}.*${version}`)).click();
+	// }
+
+	/**
+	 * Verify: Confirm the runtime is visible in the variables pane.
+	 * @param language the language of the runtime: Python or R
+	 * @param version the version of the runtime: e.g. 3.10.15
+	 */
 	async checkRuntime(language: 'Python' | 'R', version: string) {
-		await this.code.driver.page.locator('[id="workbench\\.panel\\.positronSession"]').getByLabel(new RegExp(`${language}.*${version}`)).isVisible();
+		await this.code.driver.page.locator('[id="workbench.panel.positronSession"]').getByLabel(new RegExp(`${language}.*${version}`)).isVisible();
 	}
 
+	/**
+	 * Verify: Confirm the variable is visible and has the expected value.
+	 * @param variableName the name of the variable to check
+	 * @param value the expected value of the variable
+	 */
 	async checkVariableValue(variableName: string, value: string) {
 		const row = this.code.driver.page.locator('.variables-instance[style*="z-index: 1"] .variable-item').filter({ hasText: variableName });
 
