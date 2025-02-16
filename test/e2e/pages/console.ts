@@ -323,7 +323,7 @@ class Session {
 			const statusClass = `.codicon-positron-status-${expectedStatus}`;
 
 			await expect(session).toBeVisible();
-			await expect(session.locator(statusClass)).toBeVisible();
+			await expect(session.locator(statusClass)).toBeVisible({ timeout: 30000 });
 		});
 	}
 

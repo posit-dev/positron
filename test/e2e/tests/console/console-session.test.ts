@@ -101,9 +101,9 @@ test.describe('Console: Session Behavior', {
 	});
 
 	test('R - Validate editor problems with session restart', async function ({ app, page, openFile }) {
+		await openFile(join('workspaces', 'fast-statement-execution', 'fast-execution.r'));
 		const console = app.workbench.console;
 		const problems = app.workbench.problems;
-		await openFile(join('workspaces', 'fast-statement-execution', 'fast-execution.r'));
 
 		// Edit file to introduce a warning squiggly
 		// Note: The warning squiggly is not visible until an R session is started
