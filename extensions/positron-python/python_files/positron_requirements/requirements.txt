@@ -27,9 +27,9 @@ jedi==0.19.2 \
     --hash=sha256:4770dc3de41bde3966b02eb84fbcf557fb33cce26ad23da12c742fb50ecb11f0 \
     --hash=sha256:a8ef22bde8490f57fe5c7681a3c83cb58874daf72b4784de3cce5b6ef6edb5b9
     # via jedi-language-server
-jedi-language-server==0.42.0 \
-    --hash=sha256:ac5a3f711694432f4677ccba5eacdde1bebc2b3b2fa361c553e28efbe526dc98 \
-    --hash=sha256:db818d956c16f79a32bbde4c6f7189282725977246199b09ac8155429432632c
+jedi-language-server==0.44.0 \
+    --hash=sha256:17619fac5faf7111036c0b01d460c4eb848ce8df1af8208d85c255db34ec2eff \
+    --hash=sha256:276536bd00e64e65753d54cd35237d62730daffd65292dc8510d3063ebaefe4d
     # via -r python_files/positron_requirements/requirements.in
 lsprotocol==2023.0.1 \
     --hash=sha256:c75223c9e4af2f24272b14c6375787438279369236cd568f596d4951052a60f2 \
