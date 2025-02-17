@@ -7,9 +7,11 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 
 export function registerConnectionDrivers(context: vscode.ExtensionContext) {
-	context.subscriptions.push(
-		positron.connections.registerConnectionDriver(new RPostgreSQLDriver())
-	);
+	for (const driver of [new RSQLiteDriver(), new RPostgreSQLDriver()]) {
+		context.subscriptions.push(
+			positron.connections.registerConnectionDriver(driver)
+		);
+	}
 }
 
 class RPostgreSQLDriver implements positron.ConnectionsDriver {
@@ -81,6 +83,63 @@ con <- dbConnect(
 	password = '${password ?? ''}',
 	bigint = '${bigint ?? ''}'
 )
+`;
+	}
+
+	async connect(code: string) {
+		const exec = await positron.runtime.executeCode(
+			'r',
+			code,
+			true,
+			false,
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Continue
+		);
+		if (!exec) {
+			throw new Error('Failed to execute code');
+		}
+		return;
+	}
+}
+
+class RSQLiteDriver implements positron.ConnectionsDriver {
+	driverId: string = 'sqlite';
+	metadata: positron.ConnectionsDriverMetadata = {
+		languageId: 'r',
+		name: 'SQLite',
+		inputs: [
+			{
+				'id': 'dbname',
+				'label': 'Database Name',
+				'type': 'string',
+				'value': 'database.db'
+			},
+			{
+				'id': 'bigint',
+				'label': 'Integer representation',
+				'type': 'option',
+				'options': [
+					{ 'identifier': 'integer64', 'title': 'integer64' },
+					{ 'identifier': 'integer', 'title': 'integer' },
+					{ 'identifier': 'numeric', 'title': 'numeric' },
+					{ 'identifier': 'character', 'title': 'character' }
+				],
+				'value': 'integer64'
+			},
+		]
+	};
+
+	generateCode(inputs: positron.ConnectionsInput[]) {
+		const dbname = inputs.find(input => input.id === 'dbname')?.value;
+		const bigint = inputs.find(input => input.id === 'bigint')?.value;
+
+		return `library(DBI)
+con <- dbConnect(
+	RSQLite::SQLite(),
+	${dbname ? `dbname = '${dbname}'` : ''},
+	bigint = '${bigint ?? ''}'
+)
+connections::connection_view(con)
 `;
 	}
 
