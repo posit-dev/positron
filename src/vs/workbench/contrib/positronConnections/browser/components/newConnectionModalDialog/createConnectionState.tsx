@@ -70,6 +70,13 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 				);
 			}
 
+			if (props.selectedDriver.checkDependencies && props.selectedDriver.installDependencies) {
+				const dependenciesInstalled = await props.selectedDriver.checkDependencies();
+				if (!dependenciesInstalled) {
+					await props.selectedDriver.installDependencies();
+				}
+			}
+
 			await props.selectedDriver.connect(code);
 		} catch (err) {
 			services.notificationService.error(err);

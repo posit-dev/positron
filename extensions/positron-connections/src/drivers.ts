@@ -14,7 +14,91 @@ export function registerConnectionDrivers(context: vscode.ExtensionContext) {
 	}
 }
 
-class RPostgreSQLDriver implements positron.ConnectionsDriver {
+///  A generic driver implementation
+class RDriver implements positron.ConnectionsDriver {
+
+	driverId: string = 'unknown';
+	metadata: positron.ConnectionsDriverMetadata = {
+		languageId: 'r',
+		name: 'Unknown',
+		inputs: []
+	};
+
+	constructor(readonly packages: string[]) { }
+
+	async connect(code: string) {
+		const exec = await positron.runtime.executeCode(
+			'r',
+			code,
+			true,
+			false,
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Continue
+		);
+		if (!exec) {
+			throw new Error('Failed to execute code');
+		}
+		return;
+	}
+
+	async checkDependencies() {
+		// Currently we skip dependency checks if there's no active R session
+		// in the foreground.
+		if (this.packages.length === 0) {
+			return true;
+		}
+
+		let session = await positron.runtime.getForegroundSession()
+		if (session) {
+
+			if (session.runtimeMetadata.languageId !== 'r') {
+				return true;
+			}
+
+			for (const pkg of this.packages) {
+				const installed = await session.callMethod?.('is_installed', pkg)
+				if (!installed) {
+					return false;
+				}
+			}
+		}
+
+		return true;
+	}
+
+	async installDependencies() {
+		// Similar to checkDependencies, we skip dependency installation if there's
+		// no active R session in the foreground.
+		if (this.packages.length === 0) {
+			return true;
+		}
+		let session = await positron.runtime.getForegroundSession()
+		if (session) {
+
+			if (session.runtimeMetadata.languageId !== 'r') {
+				return true;
+			}
+
+			for (const pkg of this.packages) {
+				const installed = await session.callMethod?.('is_installed', pkg)
+				if (!installed) {
+					const installed = await session.callMethod?.('install_packages', pkg);
+					if (!installed) {
+						throw new Error('Failed to install dependencies');
+					}
+				}
+			}
+		}
+		return true;
+	}
+}
+
+class RPostgreSQLDriver extends RDriver implements positron.ConnectionsDriver {
+
+	constructor() {
+		super(['RPostgres', 'DBI']);
+	}
+
 	driverId: string = 'postgres';
 	metadata: positron.ConnectionsDriverMetadata = {
 		languageId: 'r',
@@ -85,24 +169,14 @@ con <- dbConnect(
 )
 `;
 	}
-
-	async connect(code: string) {
-		const exec = await positron.runtime.executeCode(
-			'r',
-			code,
-			true,
-			false,
-			positron.RuntimeCodeExecutionMode.Interactive,
-			positron.RuntimeErrorBehavior.Continue
-		);
-		if (!exec) {
-			throw new Error('Failed to execute code');
-		}
-		return;
-	}
 }
 
-class RSQLiteDriver implements positron.ConnectionsDriver {
+class RSQLiteDriver extends RDriver implements positron.ConnectionsDriver {
+
+	constructor() {
+		super(['RSQLite', 'DBI', 'connections']);
+	}
+
 	driverId: string = 'sqlite';
 	metadata: positron.ConnectionsDriverMetadata = {
 		languageId: 'r',
@@ -141,21 +215,6 @@ con <- dbConnect(
 )
 connections::connection_view(con)
 `;
-	}
-
-	async connect(code: string) {
-		const exec = await positron.runtime.executeCode(
-			'r',
-			code,
-			true,
-			false,
-			positron.RuntimeCodeExecutionMode.Interactive,
-			positron.RuntimeErrorBehavior.Continue
-		);
-		if (!exec) {
-			throw new Error('Failed to execute code');
-		}
-		return;
 	}
 }
 
