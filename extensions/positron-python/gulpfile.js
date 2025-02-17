@@ -32,6 +32,7 @@ const isCI = process.env.TRAVIS === 'true' || process.env.TF_BUILD !== undefined
 
 // --- Start Positron ---
 const pythonCommand = locatePython();
+const pipPlatform = getPipPlatform();
 // --- End Positron ---
 
 gulp.task('compileCore', (done) => {
@@ -279,52 +280,94 @@ async function vendorPythonKernelRequirements() {
     await spawnAsync(pythonCommand, ['scripts/vendor.py']);
 }
 
+function getPipPlatform() {
+    const platform = process.env.POSITRON_BUILD_TARGET_PLATFORM;
+    const arch = process.env.POSITRON_BUILD_TARGET_ARCH;
+    if ((platform && !arch) || (!platform && arch)) {
+        throw new Error('Both POSITRON_BUILD_TARGET_PLATFORM and POSITRON_BUILD_TARGET_ARCH must be set or neither.');
+    }
+    if (!platform && !arch) {
+        // Don't manually specify a platform. Pip will use the current interpreter's.
+        return undefined;
+    }
+
+    // Unfortunately, pip doesn't simply accept a platform and architecture. Not sure the best way
+    // to determine the exact versions used below. These were determined via trial and error
+    // running the following locally:
+    //
+    //   python -m pip download --only-binary :all: --implementation cp --abi cp38 \
+    //     --python-version 3.8 --platform <platform> \
+    //     ipykernel==6.29.5
+    switch ([platform, arch]) {
+        case ['win32', 'x64']:
+            return 'win32';
+        case ['win32', 'arm64']:
+            return 'win_arm64';
+        case ['darwin', 'x64']:
+            return 'macosx_11_0_x86_64';
+        case ['darwin', 'arm64']:
+            return 'macosx_11_0_arm64';
+        case ['linux', 'x64']:
+            return 'manylinux2014_x86_64';
+        case ['linux', 'arm64']:
+            return 'manylinux2014_aarch64';
+        default:
+            return undefined;
+    }
+}
+
 async function installIPyKernelPurePythonRequirements() {
-    await pipInstall([
-        '--target',
-        './python_files/lib/ipykernel/py3',
-        '--implementation',
-        'py',
-        '--python-version',
-        '3.8',
-        '--abi',
-        'none',
-        '-r',
-        './python_files/ipykernel_requirements/py3-requirements.txt',
-    ]);
+    await pipInstall(
+        [
+            '--target',
+            './python_files/lib/ipykernel/py3',
+            '--implementation',
+            'py',
+            '--python-version',
+            '3.8',
+            '--abi',
+            'none',
+            '-r',
+            './python_files/ipykernel_requirements/py3-requirements.txt',
+        ].concat(pipPlatform ? ['--platform', pipPlatform] : []),
+    );
 }
 
 async function installIPyKernelCPythonVersionAgnosticRequirements() {
-    await pipInstall([
-        '--target',
-        './python_files/lib/ipykernel/cp3',
-        '--implementation',
-        'cp',
-        '--python-version',
-        '3.8',
-        '--abi',
-        'abi3',
-        '-r',
-        './python_files/ipykernel_requirements/cp3-requirements.txt',
-    ]);
+    await pipInstall(
+        [
+            '--target',
+            './python_files/lib/ipykernel/cp3',
+            '--implementation',
+            'cp',
+            '--python-version',
+            '3.8',
+            '--abi',
+            'abi3',
+            '-r',
+            './python_files/ipykernel_requirements/cp3-requirements.txt',
+        ].concat(pipPlatform ? ['--platform', pipPlatform] : []),
+    );
 }
 
 async function installIPyKernelCPythonVersionSpecificRequirements() {
     for (const pythonVersion of ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']) {
         const shortVersion = pythonVersion.replace('.', '');
         const abi = `cp${shortVersion}`;
-        await pipInstall([
-            '--target',
-            `./python_files/lib/ipykernel/${abi}`,
-            '--implementation',
-            'cp',
-            '--python-version',
-            pythonVersion,
-            '--abi',
-            abi,
-            '-r',
-            './python_files/ipykernel_requirements/cpx-requirements.txt',
-        ]);
+        await pipInstall(
+            [
+                '--target',
+                `./python_files/lib/ipykernel/${abi}`,
+                '--implementation',
+                'cp',
+                '--python-version',
+                pythonVersion,
+                '--abi',
+                abi,
+                '-r',
+                './python_files/ipykernel_requirements/cpx-requirements.txt',
+            ].concat(pipPlatform ? ['--platform', pipPlatform] : []),
+        );
     }
 }
 
