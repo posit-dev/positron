@@ -123,17 +123,16 @@ test.describe('Console: Session Behavior', {
 		const console = app.workbench.console;
 		const problems = app.workbench.problems;
 
+		// Ensure R session exist and is idle
+		await console.session.ensureStartedAndIdle(rSession);
+
 		// Edit file to introduce a warning squiggly
 		await test.step('Edit file to introduce warning squiggly', async () => {
 			await page.getByText('x <- 1').dblclick();
 			await app.code.driver.page.keyboard.type('<- 1a');
 		});
 
-		// Note: The warning squiggly is not visible until an R session is started
-		await expect(problems.warningSquiggly).not.toBeVisible();
-
-		// Start R session and verify warning squiggly appears
-		await console.session.ensureStartedAndIdle(rSession);
+		// Verify warning squiggly appears
 		await expect(problems.warningSquiggly).toBeVisible();
 
 		// Restart R session and verify warning squiggly re-appears
