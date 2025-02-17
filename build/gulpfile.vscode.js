@@ -569,12 +569,6 @@ BUILD_TARGETS.forEach(buildTarget => {
 	const platform = buildTarget.platform;
 	const arch = buildTarget.arch;
 	const opts = buildTarget.opts;
-	// --- Start Positron ---
-	// Store the target platform and arch. This is used by positron-python to bundle the correct
-	// ipykernel dependencies regardless of the Python interpreter used during the build.
-	process.env.POSITRON_BUILD_TARGET_PLATFORM = platform;
-	process.env.POSITRON_BUILD_TARGET_ARCH = arch;
-	// --- End Positron ---
 
 	const [vscode, vscodeMin] = ['', 'min'].map(minified => {
 		const sourceFolderName = `out-vscode${dashed(minified)}`;
