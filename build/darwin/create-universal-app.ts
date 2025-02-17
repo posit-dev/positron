@@ -46,16 +46,13 @@ const stashPatterns = [
 	'**/html.icns',
 	// Exclusions from Python language pack (positron-python)
 	'**/pydevd/**',             // Cython pre-built binaries for Python debugging
+	'**/lib/ipykernel/**',      // Pre-built ipykernel dependencies
 	// Exclusions from R language pack (positron-r)
 	'**/ark',                   // Compiled R kernel and LSP
 	// Exclusions from Kallichore Jupyter supervisor
 	'**/kcserver',              // Compiled Jupyter supervisor
 	// Exclusions for Python Environment Tools
 	'**/python-env-tools/pet',
-	// Exclusions from ipykernel .so files
-	'**/lib/ipykernel/**/*.so',
-	// Exclusions from ipykernel .dylib files
-	'**/lib/ipykernel/**/.dylibs/**',
 	// Exclusions from Quarto
 	'**/quarto/bin/tools/**',
 	// Exclusions from Node Addon API
