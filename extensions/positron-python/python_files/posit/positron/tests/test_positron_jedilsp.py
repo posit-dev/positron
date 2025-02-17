@@ -66,7 +66,7 @@ from positron.positron_jedilsp import (
     positron_completion_item_resolve,
     positron_declaration,
     positron_definition,
-    positron_did_close_diagnostics,
+    positron_did_close_text_document_diagnostics,
     positron_document_symbol,
     positron_help_topic_request,
     positron_highlight,
@@ -650,7 +650,7 @@ def test_positron_did_close_diagnostics(source: str, uri: str) -> None:
 
     with patch.object(server, "publish_diagnostics") as mock:
         params = DidCloseTextDocumentParams(TextDocumentIdentifier(text_document.uri))
-        positron_did_close_diagnostics(server, params)
+        positron_did_close_text_document_diagnostics(server, params)
 
         mock.assert_called_once_with(params.text_document.uri, [])
 

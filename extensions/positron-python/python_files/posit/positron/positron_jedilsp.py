@@ -17,21 +17,30 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Uni
 from comm.base_comm import BaseComm
 
 from ._vendor import attrs, cattrs
-from ._vendor.jedi.api import Interpreter, Project, Script
+from ._vendor.jedi.api import Interpreter, Project
 from ._vendor.jedi.api.classes import Completion
-from ._vendor.jedi_language_server import jedi_utils, pygls_utils
+from ._vendor.jedi_language_server import jedi_utils, notebook_utils, pygls_utils, server
 from ._vendor.jedi_language_server.server import (
     JediLanguageServer,
     JediLanguageServerProtocol,
     _choose_markup,
+    code_action,
     completion_item_resolve,
     declaration,
     definition,
     did_change_configuration,
-    did_close_diagnostics,
+    did_change_notebook_document_diagnostics,
+    did_change_text_document_diagnostics,
+    did_close_notebook_document_diagnostics,
+    did_close_text_document_diagnostics,
+    did_open_notebook_document_diagnostics,
+    did_open_text_document_diagnostics,
+    did_save_notebook_document_diagnostics,
+    did_save_text_document_diagnostics,
     document_symbol,
     highlight,
     hover,
+    references,
     rename,
     signature_help,
     type_definition,
@@ -41,6 +50,10 @@ from ._vendor.lsprotocol.types import (
     CANCEL_REQUEST,
     COMPLETION_ITEM_RESOLVE,
     INITIALIZE,
+    NOTEBOOK_DOCUMENT_DID_CHANGE,
+    NOTEBOOK_DOCUMENT_DID_CLOSE,
+    NOTEBOOK_DOCUMENT_DID_OPEN,
+    NOTEBOOK_DOCUMENT_DID_SAVE,
     TEXT_DOCUMENT_CODE_ACTION,
     TEXT_DOCUMENT_COMPLETION,
     TEXT_DOCUMENT_DECLARATION,
@@ -68,9 +81,13 @@ from ._vendor.lsprotocol.types import (
     CompletionOptions,
     CompletionParams,
     DidChangeConfigurationParams,
+    DidChangeNotebookDocumentParams,
     DidChangeTextDocumentParams,
+    DidCloseNotebookDocumentParams,
     DidCloseTextDocumentParams,
+    DidOpenNotebookDocumentParams,
     DidOpenTextDocumentParams,
+    DidSaveNotebookDocumentParams,
     DidSaveTextDocumentParams,
     DocumentHighlight,
     DocumentSymbol,
@@ -82,6 +99,9 @@ from ._vendor.lsprotocol.types import (
     InsertTextFormat,
     Location,
     MessageType,
+    NotebookDocumentSyncOptions,
+    NotebookDocumentSyncOptionsNotebookSelectorType2,
+    NotebookDocumentSyncOptionsNotebookSelectorType2CellsType,
     Position,
     Range,
     RenameParams,
@@ -113,31 +133,98 @@ _CELL_MAGIC_PREFIX = r"%%"
 _SHELL_PREFIX = "!"
 _HELP_PREFIX_OR_SUFFIX = "?"
 _HELP_TOPIC = "positron/textDocument/helpTopic"
-_VSCODE_NOTEBOOK_CELL_SCHEME = "vscode-notebook-cell"
 
 # Apply Positron patches to Jedi itself.
 apply_jedi_patches()
 
 
-def _jedi_utils_script(project: Optional[Project], document: TextDocument) -> Script:
+def _jedi_utils_script(project: Optional[Project], document: TextDocument) -> Interpreter:
+    server = _get_server_from_call_stack()
+    if server is None:
+        raise AssertionError("Could not find server object in the caller's scope")
+    return _interpreter(project, document.source, document.path, server.shell)
+
+
+def _jedi_Script(**kwargs) -> Interpreter:  # noqa: N802
     """
-    Search the caller stack for the server object and return a Jedi Interpreter object.
+    Search the call stack for the server object and return a Jedi Interpreter object.
 
     This lets us use an `Interpreter` (with reference to the shell's user namespace) for all LSP
     methods without having to vendor all of that code from `jedi-language-server`.
     """
-    # Get the server object from the caller's scope.
+    server = _get_server_from_call_stack()
+    if server is None:
+        raise AssertionError("Could not find server object in the caller's scope")
+    return _interpreter(**kwargs, shell=server.shell)
+
+
+def _get_server_from_call_stack() -> Optional["PositronJediLanguageServer"]:
+    """Search the call stack for the server object."""
     frame = inspect.currentframe()
-    if frame is not None and frame.f_back is not None:
-        # Get the server object from the caller's scope.
-        server = frame.f_back.f_locals.get("server")
+    while frame is not None:
+        server = frame.f_locals.get("server")
         if isinstance(server, PositronJediLanguageServer):
-            # Return a Jedi Interpreter.
-            return _interpreter(project, document, server.shell)
-    raise AssertionError("Could not find server object in the caller's scope")
+            return server
+        frame = frame.f_back
+
+    return None
 
 
-jedi_utils.script = _jedi_utils_script
+@debounce(1, keyed_by="uri")
+def _publish_diagnostics_debounced(server: "PositronJediLanguageServer", uri: str) -> None:
+    # Catch and log any exceptions. Exceptions should be handled by pygls, but the debounce
+    # decorator causes the function to run in a separate thread thus a separate stack from pygls'
+    # exception handler.
+    try:
+        _publish_diagnostics(server, uri)
+    except Exception:
+        logger.exception(f"Failed to publish diagnostics for uri {uri}", exc_info=True)
+
+
+# Adapted from jedi_language_server/server.py::_publish_diagnostics.
+def _publish_diagnostics(server: "PositronJediLanguageServer", uri: str) -> None:
+    """Helper function to publish diagnostics for a file."""
+    # The debounce decorator delays the execution by 1 second
+    # canceling notifications that happen in that interval.
+    # Since this function is executed after a delay, we need to check
+    # whether the document still exists
+    if uri not in server.workspace.text_documents:
+        return
+
+    doc = server.workspace.get_text_document(uri)
+    notebook_mapper = notebook_utils.notebook_coordinate_mapper(server.workspace, cell_uri=uri)
+    if notebook_mapper and (cell_index := notebook_mapper.cell_index(uri)) is not None:
+        display_uri = f"cell {cell_index + 1}"
+    else:
+        display_uri = doc.uri
+
+    # Comment out magic/shell/help command lines so that they don't appear as syntax errors.
+    source = "\n".join(
+        (
+            f"#{line}"
+            if line.lstrip().startswith((_LINE_MAGIC_PREFIX, _SHELL_PREFIX, _HELP_PREFIX_OR_SUFFIX))
+            or line.rstrip().endswith(_HELP_PREFIX_OR_SUFFIX)
+            else line
+        )
+        for line in doc.lines
+    )
+
+    # Ignore all warnings during the compile, else they display in the console.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        diagnostic = jedi_utils.lsp_python_diagnostic(display_uri, source)
+
+    diagnostics = [diagnostic] if diagnostic else []
+    server.publish_diagnostics(uri, diagnostics)
+
+
+def _apply_jedi_language_server_patches() -> None:
+    jedi_utils.script = _jedi_utils_script
+    server.Script = _jedi_Script
+    server._publish_diagnostics = _publish_diagnostics_debounced  # noqa: SLF001
+
+
+_apply_jedi_language_server_patches()
 
 
 @enum.unique
@@ -421,6 +508,14 @@ POSITRON = PositronJediLanguageServer(
     # loop for its thread. The LSP's event loop will be created in its own thread in the `start_tcp`
     # method. This may break in future versions of pygls.
     loop=object(),
+    # Advertise support for Python notebook cells.
+    notebook_document_sync=NotebookDocumentSyncOptions(
+        notebook_selector=[
+            NotebookDocumentSyncOptionsNotebookSelectorType2(
+                cells=[NotebookDocumentSyncOptionsNotebookSelectorType2CellsType(language="python")]
+            )
+        ]
+    ),
 )
 
 _MAGIC_COMPLETIONS: Dict[str, Any] = {}
@@ -447,6 +542,16 @@ def positron_completion(
     resolve_eagerly = server.initialization_options.completion.resolve_eagerly
     ignore_patterns = server.initialization_options.completion.ignore_patterns
     document = server.workspace.get_text_document(params.text_document.uri)
+    notebook_mapper = notebook_utils.notebook_coordinate_mapper(
+        server.workspace, cell_uri=document.uri
+    )
+    source = notebook_mapper.source if notebook_mapper is not None else document.source
+    position = (
+        notebook_mapper.notebook_position(document.uri, params.position)
+        if notebook_mapper is not None
+        else params.position
+    )
+    jedi_lines = jedi_utils.line_column(position)
 
     # --- Start Positron ---
     # Don't complete comments or shell commands
@@ -456,12 +561,12 @@ def positron_completion(
         return None
 
     # Use Interpreter instead of Script to include the shell's namespaces in completions
-    jedi_script = _interpreter(server.project, document, server.shell)
+    jedi_script = _interpreter(server.project, source, document.path, server.shell)
 
     # --- End Positron ---
 
     try:
-        jedi_lines = jedi_utils.line_column(params.position)
+        jedi_lines = jedi_utils.line_column(position)
         completions_jedi_raw = jedi_script.complete(*jedi_lines)
         if not ignore_patterns:
             # A performance optimization. ignore_patterns should usually be empty;
@@ -651,12 +756,10 @@ def _magic_completion_item(
 def positron_completion_item_resolve(
     server: PositronJediLanguageServer, params: CompletionItem
 ) -> CompletionItem:
-    # --- Start Positron ---
     magic_completion = _MAGIC_COMPLETIONS.get(params.label)
     if magic_completion is not None:
         params.detail, params.documentation = magic_completion
         return params
-    # --- End Positron ---
     return completion_item_resolve(server, params)
 
 
@@ -716,18 +819,7 @@ def positron_hover(
 def positron_references(
     server: PositronJediLanguageServer, params: TextDocumentPositionParams
 ) -> Optional[List[Location]]:
-    document = server.workspace.get_text_document(params.text_document.uri)
-    # TODO: Don't use an Interpreter until we debug the corresponding test on Python <= 3.9.
-    #       Not missing out on much since references don't use namespace information anyway.
-    jedi_script = Script(code=document.source, path=document.path, project=server.project)
-    jedi_lines = jedi_utils.line_column(params.position)
-    names = jedi_script.get_references(*jedi_lines)
-    locations = [
-        location
-        for location in (jedi_utils.lsp_location(name) for name in names)
-        if location is not None
-    ]
-    return locations if locations else None
+    return references(server, params)
 
 
 @POSITRON.feature(TEXT_DOCUMENT_DOCUMENT_SYMBOL)
@@ -757,8 +849,17 @@ def positron_help_topic_request(
 ) -> Optional[ShowHelpTopicParams]:
     """Return topic to display in Help pane."""
     document = server.workspace.get_text_document(params.text_document.uri)
-    jedi_script = _interpreter(server.project, document, server.shell)
-    jedi_lines = jedi_utils.line_column(params.position)
+    notebook_mapper = notebook_utils.notebook_coordinate_mapper(
+        server.workspace, cell_uri=document.uri
+    )
+    source = notebook_mapper.source if notebook_mapper is not None else document.source
+    position = (
+        notebook_mapper.notebook_position(document.uri, params.position)
+        if notebook_mapper is not None
+        else params.position
+    )
+    jedi_script = _interpreter(server.project, source, document.path, server.shell)
+    jedi_lines = jedi_utils.line_column(position)
     names = jedi_script.infer(*jedi_lines)
 
     try:
@@ -783,20 +884,14 @@ def positron_help_topic_request(
     ),
 )
 def positron_code_action(
-    server: PositronJediLanguageServer,  # noqa: ARG001
-    params: CodeActionParams,  # noqa: ARG001
+    server: PositronJediLanguageServer,
+    params: CodeActionParams,
 ) -> Optional[List[CodeAction]]:
-    # Code Actions are currently causing the kernel process to hang in certain cases, for example,
-    # when the document contains `from fastai.vision.all import *`. Temporarily disable these
-    # until we figure out the underlying issue.
-
-    # try:
-    #     return code_action(server, params)
-    # except ValueError:
-    #     # Ignore LSP errors for actions with invalid line/column ranges.
-    #     logger.info("LSP codeAction error", exc_info=True)
-
-    return None
+    try:
+        return code_action(server, params)
+    except ValueError:
+        # Ignore LSP errors for actions with invalid line/column ranges.
+        logger.info("LSP codeAction error", exc_info=True)
 
 
 @POSITRON.feature(WORKSPACE_DID_CHANGE_CONFIGURATION)
@@ -808,98 +903,67 @@ def positron_did_change_configuration(
 
 
 @POSITRON.feature(TEXT_DOCUMENT_DID_SAVE)
-def positron_did_save_diagnostics(
+def positron_did_save_text_document_diagnostics(
     server: PositronJediLanguageServer, params: DidSaveTextDocumentParams
 ) -> None:
-    return did_save_diagnostics(server, params)
+    return did_save_text_document_diagnostics(server, params)
 
 
 @POSITRON.feature(TEXT_DOCUMENT_DID_CHANGE)
-def positron_did_change_diagnostics(
+def positron_did_change_text_document_diagnostics(
     server: PositronJediLanguageServer, params: DidChangeTextDocumentParams
 ) -> None:
-    return did_change_diagnostics(server, params)
+    return did_change_text_document_diagnostics(server, params)
 
 
 @POSITRON.feature(TEXT_DOCUMENT_DID_OPEN)
-def positron_did_open_diagnostics(
+def positron_did_open_text_document_diagnostics(
     server: PositronJediLanguageServer, params: DidOpenTextDocumentParams
 ) -> None:
-    return did_open_diagnostics(server, params)
+    return did_open_text_document_diagnostics(server, params)
 
 
 @POSITRON.feature(TEXT_DOCUMENT_DID_CLOSE)
-def positron_did_close_diagnostics(
+def positron_did_close_text_document_diagnostics(
     server: PositronJediLanguageServer, params: DidCloseTextDocumentParams
 ) -> None:
-    return did_close_diagnostics(server, params)
+    return did_close_text_document_diagnostics(server, params)
 
 
-@debounce(1, keyed_by="uri")
-def _publish_diagnostics_debounced(server: PositronJediLanguageServer, uri: str) -> None:
-    # Catch and log any exceptions. Exceptions should be handled by pygls, but the debounce
-    # decorator causes the function to run in a separate thread thus a separate stack from pygls'
-    # exception handler.
-    try:
-        _publish_diagnostics(server, uri)
-    except Exception:
-        logger.exception(f"Failed to publish diagnostics for uri {uri}", exc_info=True)
+@POSITRON.feature(NOTEBOOK_DOCUMENT_DID_SAVE)
+def positron_did_save_notebook_document_diagnostics(
+    server: PositronJediLanguageServer, params: DidSaveNotebookDocumentParams
+) -> None:
+    return did_save_notebook_document_diagnostics(server, params)
 
 
-# Adapted from jedi_language_server/server.py::_publish_diagnostics.
-def _publish_diagnostics(server: PositronJediLanguageServer, uri: str) -> None:
-    """Helper function to publish diagnostics for a file."""
-    # The debounce decorator delays the execution by 1 second
-    # canceling notifications that happen in that interval.
-    # Since this function is executed after a delay, we need to check
-    # whether the document still exists
-    if uri not in server.workspace.text_documents:
-        return
-
-    doc = server.workspace.get_text_document(uri)
-
-    # Comment out magic/shell/help command lines so that they don't appear as syntax errors.
-    source = "\n".join(
-        (
-            f"#{line}"
-            if line.lstrip().startswith((_LINE_MAGIC_PREFIX, _SHELL_PREFIX, _HELP_PREFIX_OR_SUFFIX))
-            or line.rstrip().endswith(_HELP_PREFIX_OR_SUFFIX)
-            else line
-        )
-        for line in doc.lines
-    )
-
-    # Ignore all warnings during the compile, else they display in the console.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        diagnostic = jedi_utils.lsp_python_diagnostic(uri, source)
-
-    diagnostics = [diagnostic] if diagnostic else []
-
-    server.publish_diagnostics(uri, diagnostics)
+@POSITRON.feature(NOTEBOOK_DOCUMENT_DID_CHANGE)
+def positron_did_change_notebook_document_diagnostics(
+    server: PositronJediLanguageServer, params: DidChangeNotebookDocumentParams
+) -> None:
+    return did_change_notebook_document_diagnostics(server, params)
 
 
-def did_save_diagnostics(server: JediLanguageServer, params: DidSaveTextDocumentParams) -> None:
-    """Actions run on textDocument/didSave: diagnostics."""
-    _publish_diagnostics_debounced(server, params.text_document.uri)  # type: ignore - pyright bug
+@POSITRON.feature(NOTEBOOK_DOCUMENT_DID_OPEN)
+def positron_did_open_notebook_document_diagnostics(
+    server: JediLanguageServer, params: DidOpenNotebookDocumentParams
+) -> None:
+    return did_open_notebook_document_diagnostics(server, params)
 
 
-def did_change_diagnostics(server: JediLanguageServer, params: DidChangeTextDocumentParams) -> None:
-    """Actions run on textDocument/didChange: diagnostics."""
-    _publish_diagnostics_debounced(server, params.text_document.uri)  # type: ignore - pyright bug
-
-
-def did_open_diagnostics(server: JediLanguageServer, params: DidOpenTextDocumentParams) -> None:
-    """Actions run on textDocument/didOpen: diagnostics."""
-    _publish_diagnostics_debounced(server, params.text_document.uri)  # type: ignore - pyright bug
+@POSITRON.feature(NOTEBOOK_DOCUMENT_DID_CLOSE)
+def positron_did_close_notebook_document_diagnostics(
+    server: JediLanguageServer, params: DidCloseNotebookDocumentParams
+) -> None:
+    return did_close_notebook_document_diagnostics(server, params)
 
 
 def _interpreter(
-    project: Optional[Project], document: TextDocument, shell: Optional["PositronShell"]
+    project: Optional[Project], code: str, path: str, shell: Optional["PositronShell"]
 ) -> Interpreter:
     """Return a `jedi.Interpreter` with a reference to the shell's user namespace."""
     namespaces: List[Dict[str, Any]] = []
     if shell is not None:
         namespaces.append(shell.user_ns)
 
-    return Interpreter(document.source, namespaces, path=document.path, project=project)
+    return Interpreter(code, namespaces, path=path, project=project)
