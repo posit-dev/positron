@@ -42,21 +42,21 @@ export class DefaultExtensionsInitializer extends Disposable {
 				stat = await this.fileService.resolve(location);
 				if (!stat.children) {
 					this.logService.debug('There are no default extensions to initialize', location.toString());
-					return;
+					continue;
 				}
 			} catch (error) {
 				if (toFileOperationResult(error) === FileOperationResult.FILE_NOT_FOUND) {
 					this.logService.debug('There are no default extensions to initialize', location.toString());
-					return;
+					continue;
 				}
 				this.logService.error('Error initializing extensions', error);
-				return;
+				continue;
 			}
 
 			const vsixs = stat.children.filter(child => child.name.endsWith('.vsix'));
 			if (vsixs.length === 0) {
 				this.logService.debug('There are no default extensions to initialize', location.toString());
-				return;
+				continue;
 			}
 
 			this.logService.info('Initializing default extensions', location.toString());
