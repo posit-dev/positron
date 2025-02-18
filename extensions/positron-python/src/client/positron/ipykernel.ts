@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as fs from '../common/platform/fs-paths';
@@ -13,12 +14,14 @@ import { IPythonExecutionFactory } from '../common/process/types';
 import { traceVerbose, traceWarn } from '../logging';
 import { EXTENSION_ROOT_DIR } from '../constants';
 
+/** IPyKernel bundle information. */
 export interface IPykernelBundle {
+    /** Paths to be added to the Python search path, or undefined if bundling is disabled or unsupported. */
     paths: string[] | undefined;
 }
 
 /**
- * Check if an interpreter should use the bundled ipykernel.
+ * Get the IPyKernel bundle for a given interpreter.
  *
  * @param interpreter The interpreter to check.
  * @param serviceContainer The service container to use for dependency injection.
@@ -38,15 +41,15 @@ export async function getIpykernelBundle(
         .getConfiguration('python', resource)
         .get<boolean>('useBundledIpykernel', true);
     if (!useBundledIpykernel) {
-        traceVerbose('createPythonRuntime: ipykernel bundling is disabled');
+        traceVerbose('getIpykernelBundle: ipykernel bundling is disabled');
         return { paths: undefined };
     }
-    traceVerbose('createPythonRuntime: ipykernel bundling is enabled, checking if interpreter is supported');
+    traceVerbose('getIpykernelBundle: ipykernel bundling is enabled, checking if interpreter is supported');
 
     // Check if ipykernel is bundled for the interpreter version.
     // (defined in scripts/pip-compile-ipykernel.py).
     if (interpreter.version?.major !== 3 || ![8, 9, 10, 11, 12, 13].includes(interpreter.version?.minor)) {
-        traceVerbose(`createPythonRuntime: ipykernel not bundled for interpreter version: ${interpreter.version?.raw}`);
+        traceVerbose(`getIpykernelBundle: ipykernel not bundled for interpreter version: ${interpreter.version?.raw}`);
         return { paths: undefined };
     }
 
@@ -61,26 +64,26 @@ export async function getIpykernelBundle(
     // (defined in scripts/pip-compile-ipykernel.py).
     if (implementation !== 'cpython') {
         traceVerbose(
-            `createPythonRuntime: ipykernel not bundled for interpreter implementation: ${interpreter.implementation}`,
+            `getIpykernelBundle: ipykernel not bundled for interpreter implementation: ${interpreter.implementation}`,
         );
         return { paths: undefined };
     }
 
     // Append the bundle paths (defined in gulpfile.js) to the PYTHONPATH environment variable.
-    traceVerbose(`createPythonRuntime: ipykernel bundling is supported by interpreter: ${interpreter.path}`);
+    traceVerbose(`getIpykernelBundle: ipykernel bundling is supported by interpreter: ${interpreter.path}`);
+
+    const arch = os.arch();
     const cpxSpecifier = `cp${interpreter.version.major}${interpreter.version.minor}`;
     const paths = [
         path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'py3'),
-        path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'cp3'),
-        path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', cpxSpecifier),
+        path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', arch, 'cp3'),
+        path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', arch, cpxSpecifier),
     ];
 
     for (const path of paths) {
         if (!(await fs.pathExists(path))) {
             // This shouldn't happen. Did something go wrong during `npm install`?
-            traceWarn(
-                `createPythonRuntime: ipykernel not bundled for interpreter implementation: ${interpreter.implementation}`,
-            );
+            traceWarn(`getIpykernelBundle: ipykernel bundle path does not exist: ${path}`);
             return { paths: undefined };
         }
     }

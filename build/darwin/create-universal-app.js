@@ -43,7 +43,6 @@ const stashPatterns = [
     '**/html.icns',
     // Exclusions from Python language pack (positron-python)
     '**/pydevd/**', // Cython pre-built binaries for Python debugging
-	'**/lib/ipykernel/**',      // Pre-built ipykernel dependencies
     // Exclusions from R language pack (positron-r)
     '**/ark', // Compiled R kernel and LSP
     // Exclusions from Kallichore Jupyter supervisor
