@@ -44,7 +44,7 @@ export enum ReasonDiscovered {
 	/* eslint-enable @typescript-eslint/naming-convention */
 	adHoc = "adHoc",
 	user = "user",
-	pwb = "Posit Workbench"
+	server = "server"
 }
 
 /**
@@ -71,8 +71,8 @@ export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null)
 				return 'Found in a conventional location for symlinked R binaries';
 			case ReasonDiscovered.user:
 				return 'User-specified location';
-			case ReasonDiscovered.pwb:
-				return 'Found in a directory supported by Posit Workbench';
+			case ReasonDiscovered.server:
+				return 'Found in a conventional location for R binaries installed on a server';
 		}
 	} else if (Object.values(ReasonRejected).includes(reason as ReasonRejected)) {
 		switch (reason) {

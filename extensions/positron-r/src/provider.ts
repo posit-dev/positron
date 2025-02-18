@@ -86,12 +86,12 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	const userBinaries = discoverUserSpecifiedBinaries();
 	updateBinaries(userBinaries);
 
-	// Directories to check for R binaries on Linux and macOS. These locations are also searched by
-	// RStudio on POSIX platforms.
+	// Search locations for R binaries that are conventional on servers. These locations are also
+	// searched by RStudio/Posit Workbench on POSIX platforms, such as Linux and macOS.
 	// See https://github.com/rstudio/rstudio/blob/bb8cbf17bb415467f87d6e415f9e3777fa46e583/src/cpp/core/r_util/RVersionsPosix.cpp#L121-L147
 	if (os.platform() !== 'win32') {
-		const pwbBinaries = discoverPWBBinaries();
-		updateBinaries(pwbBinaries);
+		const serverBinaries = discoverServerBinaries();
+		updateBinaries(serverBinaries);
 	}
 
 	// (Try to) promote each RBinary to a proper RInstallation
@@ -544,12 +544,13 @@ function discoverUserSpecifiedBinaries(): RBinary[] {
 }
 
 /**
- * Discovers R binaries that are relevant to Posit Workbench.
+ * Discovers R binaries that are installed in conventional locations on servers, such as Posit
+ * Workbench.
  * Paths are from: https://docs.posit.co/ide/server-pro/r/using_multiple_versions_of_r.html
- * @returns R binaries that are relevant to Posit Workbench.
+ * @returns R binaries that are installed in conventional locations on servers.
  */
-function discoverPWBBinaries(): RBinary[] {
-	const pwbBinaries = discoverHQBinaries([
+function discoverServerBinaries(): RBinary[] {
+	const serverBinaries = discoverHQBinaries([
 		'/usr/lib/R',
 		'/usr/lib64/R',
 		'/usr/local/lib/R',
@@ -559,8 +560,8 @@ function discoverPWBBinaries(): RBinary[] {
 		// '/opt/R', // Already checked for in rHeadquarters
 		'/opt/local/R'
 	]);
-	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.pwb
-	return pwbBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.pwb] }));
+	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.server
+	return serverBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.server] }));
 }
 
 // R discovery helpers
