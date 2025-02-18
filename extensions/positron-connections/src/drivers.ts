@@ -213,14 +213,14 @@ class RSQLiteDriver extends RDriver implements positron.ConnectionsDriver {
 	};
 
 	generateCode(inputs: positron.ConnectionsInput[]) {
-		const dbname = inputs.find(input => input.id === 'dbname')?.value;
-		const bigint = inputs.find(input => input.id === 'bigint')?.value;
+		const dbname = inputs.find(input => input.id === 'dbname')?.value ?? '';
+		const bigint = inputs.find(input => input.id === 'bigint')?.value ?? '';
 
 		return `library(DBI)
 con <- dbConnect(
 	RSQLite::SQLite(),
-	${dbname ? `dbname = '${dbname}'` : ''},
-	bigint = '${bigint ?? ''}'
+	dbname = ${JSON.stringify(dbname)},
+	bigint = ${JSON.stringify(bigint)}
 )
 connections:: connection_view(con)
 `;
@@ -252,7 +252,7 @@ class PythonDriver implements positron.ConnectionsDriver {
 }
 
 class PythonSQLiteDriver extends PythonDriver implements positron.ConnectionsDriver {
-	driverId: string = 'sqlite';
+	driverId: string = 'py-sqlite';
 	metadata: positron.ConnectionsDriverMetadata = {
 		languageId: 'python',
 		name: 'SQLite',
