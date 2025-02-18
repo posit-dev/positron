@@ -32,7 +32,7 @@ const isCI = process.env.TRAVIS === 'true' || process.env.TF_BUILD !== undefined
 
 // --- Start Positron ---
 const pythonCommand = locatePython();
-const arch = os.arch();
+const arch = process.env.POSITRON_PYTHON_ARCH || os.arch();
 if (arch !== 'x64' && arch !== 'arm64') {
     throw new Error(`Unsupported architecture: ${arch}`);
 }
