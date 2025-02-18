@@ -482,6 +482,28 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				name: 'float_col',
 				type: 'DOUBLE',
 				values: ['1.1', '2.2', '3.3', '4.4', '5.5']
+			},
+			{
+				name: 'date0',
+				type: 'DATE',
+				values: ['\'2023-10-20\'', '\'2024-01-01\'', 'NULL', '\'2024-01-02\'', 'NULL']
+			},
+			{
+				name: 'timestamp0',
+				type: 'TIMESTAMP',
+				values: ['\'2023-10-20 15:30:00\'', '\'2024-01-01 08:00:00\'', 'NULL',
+					'\'2024-01-02 12:00:00\'', 'NULL']
+			},
+			{
+				name: 'timestamptz0',
+				type: 'TIMESTAMP WITH TIME ZONE',
+				values: ['\'2023-10-20 15:30:00+00\'', '\'2024-01-01 08:00:00-05\'', 'NULL',
+					'\'2024-01-02 12:00:00+01\'', 'NULL']
+			},
+			{
+				name: 'time0',
+				type: 'TIME',
+				values: ['\'13:30:00\'', '\'07:12:34.567\'', 'NULL', '\'12:00:00\'', 'NULL']
 			}
 		]);
 
@@ -513,10 +535,39 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			);
 		};
 
-		await testSingleCell(0, 0, '1');
-		await testSingleCell(1, 0, '2');
-		await testSingleCell(2, 1, 'c');
-		await testSingleCell(3, 2, '4.4');
+
+		const cellTestCases = [
+			// Number and string types
+			{ row: 0, col: 0, expected: '1' },
+			{ row: 1, col: 0, expected: '2' },
+			{ row: 2, col: 1, expected: 'c' },
+			{ row: 3, col: 2, expected: '4.4' },
+
+			// Date type
+			{ row: 0, col: 3, expected: '2023-10-20' },
+			{ row: 1, col: 3, expected: '2024-01-01' },
+			{ row: 2, col: 3, expected: '' },
+
+			// Timestamp type
+			{ row: 0, col: 4, expected: '2023-10-20 15:30:00' },
+			{ row: 1, col: 4, expected: '2024-01-01 08:00:00' },
+			{ row: 2, col: 4, expected: '' },
+
+			// Timestamp with timezone type
+			{ row: 0, col: 5, expected: '2023-10-20 15:30:00+00' },
+			{ row: 1, col: 5, expected: '2024-01-01 08:00:00-05' },
+			{ row: 2, col: 5, expected: '' },
+
+			// Time type
+			{ row: 0, col: 6, expected: '13:30:00' },
+			{ row: 1, col: 6, expected: '07:12:34.567' },
+			{ row: 2, col: 6, expected: '' }
+		];
+
+		// Run all test cases
+		for (const { row, col, expected } of cellTestCases) {
+			await testSingleCell(row, col, expected);
+		}
 
 		const testCellRange = async (firstRow: number, lastRow: number, firstCol: number,
 			lastCol: number, expected: string) => {
