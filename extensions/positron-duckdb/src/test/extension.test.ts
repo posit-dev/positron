@@ -481,7 +481,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			{
 				name: 'float_col',
 				type: 'DOUBLE',
-				values: ['1.1', '2.2', '3.3', 'NULL', '5.5']
+				values: ['1.1', '2.2', '3.3', 'NULL', '5.5E20']
 			},
 			{
 				name: 'date0',
@@ -548,6 +548,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 			// DOUBLE
 			{ row: 3, col: 2, expected: 'NULL' },
+			{ row: 4, col: 2, expected: '5.5e+20' },
 
 			// Date type
 			{ row: 0, col: 3, expected: '2023-10-20' },
@@ -631,7 +632,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		const testColumnIndices = async (indices: number[], expected: string) => {
 			await testSelection(TableSelectionKind.ColumnIndices, { indices }, expected);
 		};
-		await testColumnIndices([0, 2], 'int_col,float_col\n1,1.1\n2,2.2\n3,3.3\n4,NULL\nNULL,5.5');
+		await testColumnIndices([0, 2], 'int_col,float_col\n1,1.1\n2,2.2\n3,3.3\n4,NULL\nNULL,5.5e+20');
 
 		// Test TSV format
 		await testSelection(TableSelectionKind.CellRange,
