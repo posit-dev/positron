@@ -18,11 +18,11 @@ import { IInstaller, Product, ProductInstallStatus } from '../common/types';
 import { IApplicationEnvironment, IWorkspaceService } from '../common/application/types';
 import { EXTENSION_ROOT_DIR, IPYKERNEL_VERSION, PYTHON_LANGUAGE } from '../common/constants';
 import { EnvLocationHeuristic, getEnvLocationHeuristic } from '../interpreter/configuration/environmentTypeComparer';
-import { shouldUseBundledIpykernel } from './ipykernel';
+import { getIpykernelBundle, IPykernelBundle } from './ipykernel';
 
 export interface PythonRuntimeExtraData {
     pythonPath: string;
-    useBundledIpykernel?: boolean;
+    ipykernelBundle?: IPykernelBundle;
 }
 
 export async function createPythonRuntimeMetadata(
@@ -43,11 +43,11 @@ export async function createPythonRuntimeMetadata(
     traceInfo('createPythonRuntime: getting extension runtime settings');
 
     // Check if we should use the bundled ipykernel.
-    const useBundledIpykernel = await shouldUseBundledIpykernel(interpreter, serviceContainer, workspaceUri);
+    const ipykernelBundle = await getIpykernelBundle(interpreter, serviceContainer, workspaceUri);
 
     // Determine if a compatible version of ipykernel is available (either bundled or already installed).
     let hasCompatibleKernel: boolean;
-    if (useBundledIpykernel) {
+    if (ipykernelBundle.paths) {
         hasCompatibleKernel = true;
     } else {
         traceInfo('createPythonRuntime: checking if ipykernel is installed');
@@ -116,7 +116,7 @@ export async function createPythonRuntimeMetadata(
     // runtime session.
     const extraRuntimeData: PythonRuntimeExtraData = {
         pythonPath: interpreter.path,
-        useBundledIpykernel,
+        ipykernelBundle,
     };
 
     // Check the kernel supervisor's configuration; if it's  configured to
