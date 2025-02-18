@@ -70,6 +70,7 @@ export class Console {
 		// may include additional items above the desired interpreter string.
 		await this.quickinput.selectQuickInputElementContaining(desiredInterpreterString);
 		await this.quickinput.waitForQuickInputClosed();
+		await this.code.driver.page.mouse.move(0, 0);
 
 		if (waitForReady) {
 			desiredInterpreterType === InterpreterType.Python
@@ -163,6 +164,7 @@ export class Console {
 
 		// ensure we are on Console tab
 		await page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
+		await this.code.driver.page.mouse.move(0, 0);
 
 		// wait for the dropdown to contain R, Python, or No Interpreter.
 		const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
@@ -265,6 +267,7 @@ export class Console {
 
 	async clickConsoleTab() {
 		await this.code.driver.page.locator('.basepanel').getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
+		await this.code.driver.page.mouse.move(0, 0);
 	}
 
 	async interruptExecution() {

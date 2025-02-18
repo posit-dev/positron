@@ -140,14 +140,6 @@ test.describe('Console: Sessions', {
 		await variables.checkRuntime(rSession);
 		await variables.checkVariableValue('x', '3');
 		await variables.checkVariableValue('z', '4');
-
-		// Ensure changing runtime in variables pane updates session in console
-		// await console.session.checkCurrentTab(rSession);
-		// await console.waitForReady('>');
-		// await variables.selectRuntime(pythonSession);
-		// await variables.checkRuntime(pythonSession);
-		// await console.session.checkCurrentTab(pythonSession);
-		// await console.waitForReady('>>>');
 	});
 
 	test('R - Validate editor problems reload with session restart', {
