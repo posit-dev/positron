@@ -19,7 +19,17 @@ let _queryStrings: string[] | null = null;
 // lazily initialize the parser
 export async function initializeParser(): Promise<Parser> {
 	LOGGER.info(`Initializing parser`);
-	await Parser.init();
+	await Parser.init({
+		locateFile(scriptName: string, scriptDirectory: string) {
+			let resolvedPath = scriptName;
+			if (scriptName === 'tree-sitter-r.wasm') {
+				resolvedPath = wasmPath;
+			} else if (scriptName === 'tree-sitter.wasm') {
+				resolvedPath = path.join(vscode.env.appRoot, 'node_modules', '@vscode', 'tree-sitter-wasm', 'wasm', scriptName);
+			}
+			LOGGER.debug(`WASM parser: resolving ${scriptName} in ${scriptDirectory} => ${resolvedPath}`);
+		},
+	});
 	const parser = new Parser();
 	LOGGER.info(`tree-sitter-r.wasm path: ${wasmPath}`);
 	R = await Parser.Language.load(wasmPath);
