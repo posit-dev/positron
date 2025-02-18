@@ -23,6 +23,14 @@
 	text-overflow: ellipsis;
 }
 
+.tabs-container .tab-button:focus {
+	outline: none;
+}
+
+.tabs-container .tab-button:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
 .tabs-container .tab-button:hover {
 	background-color: var(--vscode-list-hoverBackground);
 }
