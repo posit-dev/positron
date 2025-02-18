@@ -279,11 +279,13 @@ class Session {
 	activeStatus: (session: Locator) => Locator;
 	idleStatus: (session: Locator) => Locator;
 	disconnectedStatus: (session: Locator) => Locator;
+	metadataButton: Locator;
 
 	constructor(private page: Page, private console: Console) {
 		this.activeStatus = (session: Locator) => session.locator('.codicon-positron-status-active');
 		this.idleStatus = (session: Locator) => session.locator('.codicon-positron-status-idle');
 		this.disconnectedStatus = (session: Locator) => session.locator('.codicon-positron-status-disconnected');
+		this.metadataButton = this.page.getByRole('button', { name: 'Console information' });
 	}
 
 	/**
@@ -321,6 +323,35 @@ class Session {
 
 			await expect(sessionLocator).toBeVisible();
 			await expect(sessionLocator.locator(statusClass)).toBeVisible({ timeout: 30000 });
+		});
+	}
+
+	async checkMetadata(data: MetaData) {
+		await test.step(`Verify ${data.language} ${data.version} metadata`, async () => {
+
+			// Click metadata button for desired session
+			const sessionLocator = this.getSessionLocator({ language: data.language, version: data.version });
+			await sessionLocator.click();
+			await this.metadataButton.click();
+
+			// Verify metadata
+			await expect(this.page.getByRole('paragraph').filter({ hasText: `${data.language} ${data.version}` })).toBeVisible();
+			await expect(this.page.getByText(new RegExp(`Session ID: ${data.language.toLowerCase()}-[a-zA-Z0-9]+`))).toBeVisible();
+			await expect(this.page.getByText(`State: ${data.state}`)).toBeVisible();
+			await expect(this.page.getByText(`Path: ${data.path}`)).toBeVisible();
+			await expect(this.page.getByText(`Source: ${data.source}`)).toBeVisible();
+
+			// Verify Output Channel
+			await this.page.getByRole('button', { name: 'Show Kernel Output Channel' }).click();
+			await this.page.keyboard.press('Escape'); // Todo: remove when menu closes on click as expected
+			await this.page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowUp' : 'Control+Home');
+			await expect(this.page.getByText(`Begin kernel log for session ${data.language} ${data.version}`)).toBeVisible();
+
+			// Todo: Verify Language Pack
+			// Todo: Verify Language Console
+
+			// Go back to console when done
+			await this.console.clickConsoleTab();
 		});
 	}
 
@@ -410,4 +441,12 @@ class Session {
 export type SessionDetails = {
 	language: 'Python' | 'R';
 	version: string; // e.g. '3.10.15'
+};
+
+export type MetaData = {
+	language: 'Python' | 'R';
+	version: string;
+	state: 'active' | 'idle' | 'disconnected' | 'exited';
+	path: string;
+	source: string;
 };

@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { SessionDetails } from '../../infra';
+import { MetaData, SessionDetails } from '../../infra';
 import { test, tags } from '../_test.setup';
 import { expect } from '@playwright/test';
 
@@ -16,11 +16,25 @@ const rSession: SessionDetails = {
 	version: process.env.POSITRON_R_VER_SEL || ''
 };
 
+const pythonMetaData: MetaData = {
+	...pythonSession,
+	state: 'idle',
+	path: '~/.pyenv/versions/3.10.15/bin/python',
+	source: 'Pyenv',
+};
+
+const rMetaData: MetaData = {
+	...rSession,
+	state: 'idle',
+	path: '/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/bin/R',
+	source: 'System',
+};
+
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Console: Session Behavior', {
+test.describe('Console: Sessions', {
 	tag: [tags.WIN, tags.CONSOLE, tags.SESSIONS, tags.WEB]
 }, () => {
 
@@ -28,7 +42,7 @@ test.describe('Console: Session Behavior', {
 		await userSettings.set([['positron.multipleConsoleSessions', 'true']], true);
 	});
 
-	test('Validate state (active, idle, disconnect) between sessions', async function ({ app, interpreter }) {
+	test('Validate state between sessions (active, idle, disconnect) ', async function ({ app, interpreter }) {
 		const console = app.workbench.console;
 
 		// Start Python session
@@ -66,6 +80,26 @@ test.describe('Console: Session Behavior', {
 		await console.session.shutdown(rSession, false);
 		await console.session.checkStatus(rSession, 'disconnected');
 		await console.session.checkStatus(pythonSession, 'disconnected');
+	});
+
+	test('Validate metadata between sessions', async function ({ app }) {
+		const console = app.workbench.console;
+
+		// Ensure sessions exist and are idle
+		await console.session.ensureStartedAndIdle(pythonSession);
+		await console.session.ensureStartedAndIdle(rSession);
+
+		// Verify Python session metadata
+		await console.session.checkMetadata(pythonMetaData);
+		await console.session.checkMetadata(rMetaData);
+
+		// Shutdown Python session and verify metadata
+		await console.session.shutdown(pythonSession);
+		await console.session.checkMetadata({ ...pythonMetaData, state: 'exited' });
+
+		// Shutdown R session and verify metadata
+		await console.session.shutdown(rSession);
+		await console.session.checkMetadata({ ...rMetaData, state: 'exited' });
 	});
 
 	test('Validate variables between sessions', {
