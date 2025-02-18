@@ -677,55 +677,6 @@ function isNumeric(duckdbName: string) {
 	return isInteger(duckdbName) || duckdbName === 'FLOAT' || duckdbName === 'DOUBLE';
 }
 
-function formatDate(date: Date): string {
-	const year = date.getUTCFullYear();
-	const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-	const day = String(date.getUTCDate()).padStart(2, '0');
-	return `${year}-${month}-${day}`;
-}
-
-function formatTimestamp(date: Date): string {
-	const year = date.getFullYear();
-	const month = String(date.getMonth() + 1).padStart(2, '0');
-	const day = String(date.getDate()).padStart(2, '0');
-	const hours = String(date.getHours()).padStart(2, '0');
-	const minutes = String(date.getMinutes()).padStart(2, '0');
-	const seconds = String(date.getSeconds()).padStart(2, '0');
-	const millis = date.getMilliseconds();
-
-	// TODO: handle timezones
-
-	if (millis > 0) {
-		const formattedMillis = String().padStart(3, '0');
-		return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${formattedMillis}`;
-	} else {
-		return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-	}
-}
-
-// Function for converting Arrow JS values to strings (in exportDataSelection)
-function valueToString(value: any, column_type: string): string {
-	if (column_type === 'TIMESTAMP') {
-		return formatTimestamp(new Date(value));
-	} else if (column_type === 'DATE') {
-		value = formatDate(new Date(value));
-	}
-
-	if (value === null || value === undefined) {
-		return '';
-	}
-
-	if (value instanceof Date) {
-		return formatDate(value);
-	}
-
-	if (typeof value === 'object') {
-		return JSON.stringify(value);
-	}
-
-	return String(value);
-}
-
 /**
  * Interface for serving data explorer requests for a particular table in DuckDB
  */
@@ -1233,18 +1184,14 @@ END`;
 
 	async exportDataSelection(params: ExportDataSelectionParams): RpcResponse<ExportedData> {
 		const kind = params.selection.kind;
-		const selection = params.selection.selection;
 
 		const exportQueryOutput = async (query: string,
 			columns: Array<SchemaEntry>): Promise<ExportedData> => {
 			const result = await this.db.runQuery(query);
 			const unboxed = [
 				columns.map(s => s.column_name),
-				...result.toArray().map(
-					row => columns.map(s => valueToString(
-						row[s.column_name], s.column_type
-					))
-				)
+				// TODO: maybe this can be made more efficient
+				...result.toArray().map(row => result.schema.names.map(name => row[name]))
 			];
 
 			let data;
@@ -1272,6 +1219,47 @@ END`;
 			return columns.map(s => quoteIdentifier(s.column_name)).join(', ');
 		}
 
+		const getColumnSelectors = (columns: Array<SchemaEntry>) => {
+			const columnSelectors = [];
+			for (const column of columns) {
+				const quotedName = quoteIdentifier(column.column_name);
+
+				// Build column selector. Just casting to string for now
+				let columnSelector;
+				switch (column.column_type) {
+					case 'FLOAT':
+					case 'DOUBLE': {
+						columnSelector = `CASE WHEN isinf(${quotedName}) AND ${quotedName} > 0 THEN 'Inf'
+	WHEN isinf(${quotedName}) AND ${quotedName} < 0 THEN '-Inf'
+	WHEN isnan(${quotedName}) THEN 'NaN'
+	ELSE CAST(${quotedName} AS VARCHAR)
+	END`;
+						break;
+					}
+					case 'TIMESTAMP':
+						columnSelector = `strftime(${quotedName} AT TIME ZONE 'UTC', '%Y-%m-%d %H:%M:%S')`;
+						break;
+					case 'TIMESTAMP WITH TIME ZONE':
+						columnSelector = `strftime(${quotedName}, '%Y-%m-%d %H:%M:%S%z')`;
+						break;
+					case 'VARCHAR':
+					case 'TINYINT':
+					case 'SMALLINT':
+					case 'INTEGER':
+					case 'BIGINT':
+					case 'DATE':
+					case 'TIME':
+					default:
+						columnSelector = `CAST(${quotedName} AS VARCHAR)`;
+						break;
+				}
+				columnSelectors.push(
+					`CASE WHEN ${quotedName} IS NULL THEN 'NULL' ELSE ${columnSelector} END
+					AS formatted_${columnSelectors.length} `);
+			}
+			return columnSelectors;
+		};
+
 		let data: string;
 		switch (kind) {
 			case TableSelectionKind.SingleCell: {
@@ -1279,12 +1267,11 @@ END`;
 				const rowIndex = selection.row_index;
 				const columnIndex = selection.column_index;
 				const schema = this.fullSchema[columnIndex];
-				const quotedName = quoteIdentifier(schema.column_name);
-				const query = `SELECT ${quotedName} FROM ${this.tableName} LIMIT 1 OFFSET ${rowIndex};`;
+				const selector = getColumnSelectors([schema])[0];
+				const query = `SELECT ${selector} FROM ${this.tableName} LIMIT 1 OFFSET ${rowIndex};`;
 				const result = await this.db.runQuery(query);
-				data = valueToString(result.toArray()[0][schema.column_name], schema.column_type);
 				return {
-					data,
+					data: result.toArray()[0][result.schema.names[0]],
 					format: params.format
 				}
 			}
@@ -1295,7 +1282,7 @@ END`;
 				const columnStart = selection.first_column_index;
 				const columnEnd = selection.last_column_index;
 				const columns = this.fullSchema.slice(columnStart, columnEnd + 1);
-				const query = `SELECT ${formatColumnNames(columns)}
+				const query = `SELECT ${getColumnSelectors(columns).join(',')}
 				FROM ${this.tableName}
 				LIMIT ${rowEnd - rowStart + 1} OFFSET ${rowStart};`;
 				return await exportQueryOutput(query, columns);
@@ -1304,7 +1291,7 @@ END`;
 				const selection = params.selection.selection as DataSelectionRange;
 				const rowStart = selection.first_index;
 				const rowEnd = selection.last_index;
-				const query = `SELECT *
+				const query = `SELECT ${getColumnSelectors(this.fullSchema).join(',')}
 				FROM ${this.tableName}
 				LIMIT ${rowEnd - rowStart + 1} OFFSET ${rowStart};`;
 				return await exportQueryOutput(query, this.fullSchema);
@@ -1314,24 +1301,23 @@ END`;
 				const columnStart = selection.first_index;
 				const columnEnd = selection.last_index;
 				const columns = this.fullSchema.slice(columnStart, columnEnd + 1);
-				const query = `SELECT ${formatColumnNames(columns)}
+				const query = `SELECT ${getColumnSelectors(columns).join(',')}
 				FROM ${this.tableName}`;
 				return await exportQueryOutput(query, columns);
 			}
 			case TableSelectionKind.RowIndices: {
 				const selection = params.selection.selection as DataSelectionIndices;
 				const indices = selection.indices;
-				const columns = this.fullSchema;
-				const query = `SELECT ${formatColumnNames(columns)}
+				const query = `SELECT ${getColumnSelectors(this.fullSchema).join(',')}
 				FROM ${this.tableName}
 				WHERE rowid IN (${indices.join(', ')})`;
-				return await exportQueryOutput(query, columns);
+				return await exportQueryOutput(query, this.fullSchema);
 			}
 			case TableSelectionKind.ColumnIndices: {
 				const selection = params.selection.selection as DataSelectionIndices;
 				const indices = selection.indices;
 				const columns = indices.map(i => this.fullSchema[i]);
-				const query = `SELECT ${formatColumnNames(columns)}
+				const query = `SELECT ${getColumnSelectors(columns).join(',')}
 				FROM ${this.tableName}`;
 				return await exportQueryOutput(query, columns);
 			}

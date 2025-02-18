@@ -471,17 +471,17 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			{
 				name: 'int_col',
 				type: 'INTEGER',
-				values: ['1', '2', '3', '4', '5']
+				values: ['1', '2', '3', '4', 'NULL']
 			},
 			{
 				name: 'str_col',
 				type: 'VARCHAR',
-				values: ['\'a\'', '\'b\'', '\'c\'', '\'d\'', '\'e\'']
+				values: ['\'a\'', '\'b\'', '\'c\'', 'NULL', '\'e\'']
 			},
 			{
 				name: 'float_col',
 				type: 'DOUBLE',
-				values: ['1.1', '2.2', '3.3', '4.4', '5.5']
+				values: ['1.1', '2.2', '3.3', 'NULL', '5.5']
 			},
 			{
 				name: 'date0',
@@ -537,31 +537,37 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 
 		const cellTestCases = [
-			// Number and string types
+			// INTEGER
 			{ row: 0, col: 0, expected: '1' },
 			{ row: 1, col: 0, expected: '2' },
+			{ row: 4, col: 0, expected: 'NULL' },
+
+			// VARCHAR
 			{ row: 2, col: 1, expected: 'c' },
-			{ row: 3, col: 2, expected: '4.4' },
+			{ row: 3, col: 1, expected: 'NULL' },
+
+			// DOUBLE
+			{ row: 3, col: 2, expected: 'NULL' },
 
 			// Date type
 			{ row: 0, col: 3, expected: '2023-10-20' },
 			{ row: 1, col: 3, expected: '2024-01-01' },
-			{ row: 2, col: 3, expected: '' },
+			{ row: 2, col: 3, expected: 'NULL' },
 
 			// Timestamp type
 			{ row: 0, col: 4, expected: '2023-10-20 15:30:00' },
 			{ row: 1, col: 4, expected: '2024-01-01 08:00:00' },
-			{ row: 2, col: 4, expected: '' },
+			{ row: 2, col: 4, expected: 'NULL' },
 
 			// Timestamp with timezone type
 			{ row: 0, col: 5, expected: '2023-10-20 15:30:00+00' },
-			{ row: 1, col: 5, expected: '2024-01-01 08:00:00-05' },
-			{ row: 2, col: 5, expected: '' },
+			{ row: 1, col: 5, expected: '2024-01-01 13:00:00+00' },
+			{ row: 2, col: 5, expected: 'NULL' },
 
 			// Time type
 			{ row: 0, col: 6, expected: '13:30:00' },
 			{ row: 1, col: 6, expected: '07:12:34.567' },
-			{ row: 2, col: 6, expected: '' }
+			{ row: 2, col: 6, expected: 'NULL' }
 		];
 
 		// Run all test cases
@@ -596,7 +602,9 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			);
 		};
 
-		await testRowRange(1, 2, 'int_col,str_col,float_col\n2,b,2.2\n3,c,3.3')
+		await testRowRange(1, 2, `int_col,str_col,float_col,date0,timestamp0,timestamptz0,time0
+2,b,2.2,2024-01-01,2024-01-01 08:00:00,2024-01-01 13:00:00+00,07:12:34.567
+3,c,3.3,NULL,NULL,NULL,NULL`);
 
 		// Test ColumnRange selection
 		const testColRange = async (firstCol: number, lastCol: number, expected: string) => {
@@ -609,19 +617,21 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			);
 		};
 
-		await testColRange(0, 1, 'int_col,str_col\n1,a\n2,b\n3,c\n4,d\n5,e');
+		await testColRange(0, 1, 'int_col,str_col\n1,a\n2,b\n3,c\n4,NULL\nNULL,e');
 
 		// Test RowIndices selection
 		const testRowIndices = async (indices: number[], expected: string) => {
 			await testSelection(TableSelectionKind.RowIndices, { indices }, expected);
 		};
-		await testRowIndices([1, 3], 'int_col,str_col,float_col\n2,b,2.2\n4,d,4.4');
+		await testRowIndices([1, 3], `int_col,str_col,float_col,date0,timestamp0,timestamptz0,time0
+2,b,2.2,2024-01-01,2024-01-01 08:00:00,2024-01-01 13:00:00+00,07:12:34.567
+4,NULL,NULL,2024-01-02,2024-01-02 12:00:00,2024-01-02 11:00:00+00,12:00:00`);
 
 		// Test ColumnIndices selection
 		const testColumnIndices = async (indices: number[], expected: string) => {
 			await testSelection(TableSelectionKind.ColumnIndices, { indices }, expected);
 		};
-		await testColumnIndices([0, 2], 'int_col,float_col\n1,1.1\n2,2.2\n3,3.3\n4,4.4\n5,5.5');
+		await testColumnIndices([0, 2], 'int_col,float_col\n1,1.1\n2,2.2\n3,3.3\n4,NULL\nNULL,5.5');
 
 		// Test TSV format
 		await testSelection(TableSelectionKind.CellRange,
