@@ -36,6 +36,11 @@
 	background-color: var(--vscode-list-inactiveSelectionBackground);
 }
 
+.tabs-container .tab-button .tab-button-contents {
+	display: flex;
+	align-items: center;
+}
+
 .tabs-container .tab-button .tab-button-contents .icon {
 	height: 15px;
 	width: 15px;
