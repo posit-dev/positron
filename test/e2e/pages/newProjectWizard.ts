@@ -162,6 +162,7 @@ export class NewProjectWizard {
 					.click({ timeout: 5000 });
 			} catch (error) {
 				await this.code.driver.page.keyboard.press('Escape');
+				throw error;
 			}
 
 		}).toPass({ intervals: [1_000, 5_000, 10_000], timeout: 15000 });
