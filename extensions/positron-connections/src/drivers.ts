@@ -168,7 +168,7 @@ class RPostgreSQLDriver extends RDriver implements positron.ConnectionsDriver {
 
 		return `library(DBI)
 con <- dbConnect(
-	RPostgres:: Postgres(),
+	RPostgres::Postgres(),
 	dbname = '${dbname ?? ''}',
 	host = '${host ?? ''}',
 	port = ${port ?? ''},
@@ -218,7 +218,7 @@ class RSQLiteDriver extends RDriver implements positron.ConnectionsDriver {
 
 		return `library(DBI)
 con <- dbConnect(
-	RSQLite:: SQLite(),
+	RSQLite::SQLite(),
 	${dbname ? `dbname = '${dbname}'` : ''},
 	bigint = '${bigint ?? ''}'
 )
