@@ -21,7 +21,7 @@ test.use({
 });
 
 test.describe('Console: Session Behavior', {
-	tag: [tags.WIN, tags.CONSOLE, tags.SESSIONS] // ISSUE tags.WEB does not work for now
+	tag: [tags.WIN, tags.CONSOLE, tags.SESSIONS, tags.WEB]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
