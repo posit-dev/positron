@@ -7,6 +7,7 @@
 
 import * as assert from 'assert';
 import { interfaces } from 'inversify';
+import * as os from 'os';
 import * as path from 'path';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
@@ -231,13 +232,14 @@ suite('Python Runtime Session', () => {
 
         // Ipykernel bundles should be added to the PYTHONPATH.
         sinon.assert.callCount(envVarsServiceSpy.appendPythonPath, 3);
+        const arch = os.arch();
         assert.deepStrictEqual(envVarsServiceSpy.appendPythonPath.args[0], [
             kernelSpec.env,
-            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'cp38'),
+            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', arch, 'cp38'),
         ]);
         assert.deepStrictEqual(envVarsServiceSpy.appendPythonPath.args[1], [
             kernelSpec.env,
-            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'cp3'),
+            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', arch, 'cp3'),
         ]);
         assert.deepStrictEqual(envVarsServiceSpy.appendPythonPath.args[2], [
             kernelSpec.env,
@@ -289,7 +291,7 @@ suite('Python Runtime Session', () => {
         sinon.assert.called(installerSpy.isProductVersionCompatible);
     });
 
-    test('Start: dont bundle ipykernel on error', async () => {
+    test('Start: dont bundle if bundle path does not exist', async () => {
         // Simulate the bundle paths not existing.
         sinon.stub(fs, 'pathExists').resolves(false);
 

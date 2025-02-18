@@ -271,6 +271,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
 
         if (!this._ipykernelBundle.paths) {
+            traceInfo(`Not using bundled ipykernel. Reason: ${this._ipykernelBundle.disabledReason}`);
             return false;
         }
 
