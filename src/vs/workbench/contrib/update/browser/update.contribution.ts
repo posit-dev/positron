@@ -23,7 +23,10 @@ import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+
+// --- Start Positron ---
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+// --- End Positron ---
 
 const workbench = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
 
