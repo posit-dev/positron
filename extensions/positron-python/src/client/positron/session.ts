@@ -71,9 +71,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The current state of the runtime */
     private _state: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 
-    /** The service for managing application UI interactions */
-    // private _applicationShell: IApplicationShell;
-
     /** The service for installing Python packages */
     private _installer: IInstaller;
 
@@ -85,9 +82,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     /** The service for managing environment variables */
     private _envVarsService: IEnvironmentVariablesService;
-
-    /** The service for executing Python code */
-    // private _pythonExecutionFactory: IPythonExecutionFactory;
 
     /**
      * Map of parent message IDs currently handled by IPyWidgets output widget comms,
@@ -137,12 +131,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this.onStateChange(state);
         });
 
-        // this._applicationShell = serviceContainer.get<IApplicationShell>(IApplicationShell);
         this._installer = this.serviceContainer.get<IInstaller>(IInstaller);
         this._interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
         this._interpreterPathService = serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
         this._envVarsService = serviceContainer.get<IEnvironmentVariablesService>(IEnvironmentVariablesService);
-        // this._pythonExecutionFactory = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
     }
 
     onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
