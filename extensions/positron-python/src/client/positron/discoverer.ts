@@ -10,14 +10,13 @@ import * as positron from 'positron';
 import { IInterpreterSelector } from '../interpreter/configuration/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
-import { traceError, traceInfo, traceVerbose } from '../logging';
+import { traceError, traceInfo } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { PythonVersion } from '../pythonEnvironments/info/pythonVersion';
 import { createPythonRuntimeMetadata } from './runtime';
 import { comparePythonVersionDescending } from '../interpreter/configuration/environmentTypeComparer';
 import { MINIMUM_PYTHON_VERSION } from '../common/constants';
-import { arePathsSame, isParentPath } from '../pythonEnvironments/common/externalDependencies';
-import { getUserExcludedInterpreters, getUserIncludedInterpreters } from './interpreterSettings';
+import { shouldIncludeInterpreter } from './interpreterSettings';
 
 /**
  * Provides Python language runtime metadata to Positron; called during the
@@ -58,9 +57,6 @@ export async function* pythonRuntimeDiscoverer(
         traceInfo('pythonRuntimeDiscoverer: filtering interpreters');
         interpreters = filterInterpreters(interpreters);
 
-        // TODO: the filtering is working, but the UI is populated with the excluded interpreters before// --- Start Positron ---
-        // separately from this list. Need to find the right place to filter them out.
-        // --- End Positron ---
         traceInfo(`pythonRuntimeDiscoverer: ${interpreters.length} Python interpreters remain after filtering`);
 
         // Sort the available interpreters, favoring the recommended interpreter (if one is available)
@@ -171,39 +167,4 @@ async function hasFiles(includes: string[]): Promise<boolean> {
  */
 function isVersionSupported(version: PythonVersion | undefined, minimumSupportedVersion: PythonVersion): boolean {
     return !version || comparePythonVersionDescending(minimumSupportedVersion, version) >= 0;
-}
-
-/**
- * Check whether an interpreter should be included in the list of discovered interpreters.
- * If an interpreter is both explicitly included and excluded, it will be included.
- * @param interpreterPath The interpreter path to check
- * @returns Whether the interpreter should be included in the list of discovered interpreters.
- */
-function shouldIncludeInterpreter(interpreterPath: string): boolean {
-    // If a user has explicitly included the interpreter, include it. In other words, including an
-    // interpreter takes precedence over excluding it.
-    const interpretersInclude = getUserIncludedInterpreters();
-    if (interpretersInclude.length > 0) {
-        const userIncluded = interpretersInclude.some(
-            (includePath) => isParentPath(interpreterPath, includePath) || arePathsSame(interpreterPath, includePath),
-        );
-        if (userIncluded) {
-            traceVerbose(`[shouldIncludeInterpreter] Interpreter ${interpreterPath} was included via settings`);
-            return true;
-        }
-    }
-
-    // If the user has not explicitly included the interpreter, check if it is explicitly excluded.
-    const interpretersExclude = getUserExcludedInterpreters();
-    const userExcluded = interpretersExclude.some(
-        (excludePath) => isParentPath(interpreterPath, excludePath) || arePathsSame(interpreterPath, excludePath),
-    );
-    if (userExcluded) {
-        traceVerbose(`[shouldIncludeInterpreter] Interpreter ${interpreterPath} was excluded via settings`);
-        return false;
-    }
-
-    // If the interpreter is not explicitly included or excluded, include it.
-    traceVerbose(`[shouldIncludeInterpreter] Interpreter ${interpreterPath} not explicitly included or excluded`);
-    return true;
 }
