@@ -455,7 +455,6 @@ function getEnvironmentDirs(): string[] {
  * Gets the list of additional directories to add to environment directories.
  * @returns List of directories to add to environment directories.
  */
-// TODO: probably want to move this to extensions/positron-python/src/client/positron/interpreterSettings.ts
 function getAdditionalEnvDirs(): string[] {
     const additionalDirs: string[] = [];
 
