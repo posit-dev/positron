@@ -10,8 +10,9 @@ test.use({
 	suiteId: __filename
 });
 
+// WEB and WIN padd in CI but not locally
 test.describe('Tasks', {
-	tag: [tags.TASKS, tags.WEB, tags.WIN]
+	tag: [tags.TASKS]
 }, () => {
 
 	test('Python: Verify Basic Tasks Functionality', async function ({ app, python, openFile }) {
