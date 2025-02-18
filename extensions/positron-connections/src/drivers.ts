@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 
 export function registerConnectionDrivers(context: vscode.ExtensionContext) {
-	for (const driver of [new RSQLiteDriver(), new RPostgreSQLDriver()]) {
+	for (const driver of [new RSQLiteDriver(), new RPostgreSQLDriver(), new PythonSQLiteDriver()]) {
 		context.subscriptions.push(
 			positron.connections.registerConnectionDriver(driver)
 		);
@@ -227,3 +227,57 @@ connections:: connection_view(con)
 	}
 }
 
+class PythonDriver implements positron.ConnectionsDriver {
+	driverId: string = 'python';
+	metadata: positron.ConnectionsDriverMetadata = {
+		languageId: 'python',
+		name: 'Unknown',
+		inputs: []
+	};
+
+	async connect(code: string) {
+		const exec = await positron.runtime.executeCode(
+			'python',
+			code,
+			true,
+			false,
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Continue
+		);
+		if (!exec) {
+			throw new Error('Failed to execute code');
+		}
+		return;
+	}
+}
+
+class PythonSQLiteDriver extends PythonDriver implements positron.ConnectionsDriver {
+	driverId: string = 'sqlite';
+	metadata: positron.ConnectionsDriverMetadata = {
+		languageId: 'python',
+		name: 'SQLite',
+		inputs: [
+			{
+				'id': 'dbname',
+				'label': 'Database Name',
+				'type': 'string',
+				'value': 'database.db'
+			},
+			{
+				'id': 'timeout',
+				'label': 'Timeout',
+				'type': 'number',
+				'value': '5.0'
+			},
+		]
+	};
+
+	generateCode(inputs: positron.ConnectionsInput[]) {
+		const dbname = inputs.find(input => input.id === 'dbname')?.value;
+
+		return `import sqlite3
+conn = sqlite3.connect(${JSON.stringify(dbname) ?? JSON.stringify('')})
+%connection_show conn
+`;
+	}
+}
