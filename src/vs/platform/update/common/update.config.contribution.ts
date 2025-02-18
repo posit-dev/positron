@@ -49,11 +49,11 @@ configurationRegistry.registerConfiguration({
 			description: localize('updateMode', "Configure whether you receive automatic updates. Requires a restart after change to take effect."),
 			deprecationMessage: localize('deprecated', "This setting is deprecated, please use '{0}' instead.", 'update.mode')
 		},
-		'update.languageReporting': {
+		'update.primaryLanguageReporting': {
 			type: 'boolean',
 			default: true,
 			scope: ConfigurationScope.APPLICATION,
-			description: localize('update.languageReporting', "Send the language sessions that are used to help improve Positron."),
+			description: localize('update.primaryLanguageReporting', "Share the primary data science languages in use, such as Python and R, to help us improve Positron."),
 			tags: ['usesOnlineServices'],
 			included: !isWeb
 		},

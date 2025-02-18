@@ -176,9 +176,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	private async scheduleCheckForUpdates(delay = 6 * 60 * 60 * 1000): Promise<void> {
 		return timeout(delay)
 			.then(() => {
-				const includeLanguages = this.configurationService.getValue<boolean>('update.languageReporting');
-				this.logService.debug('update#scheduleCheckForUpdates, includeLanguages =', includeLanguages);
-				this.checkForUpdates(false, includeLanguages);
+				this.checkForUpdates(false);
 			})
 			.then(() => {
 				// Check again after 6 hours
@@ -188,7 +186,9 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	}
 
 	// --- Start Positron ---
-	async checkForUpdates(explicit: boolean, includeLanguages = false): Promise<void> {
+	async checkForUpdates(explicit: boolean): Promise<void> {
+		const includeLanguages = this.configurationService.getValue<boolean>('update.primaryLanguageReporting');
+		this.logService.debug('update#checkForUpdates, includeLanguages =', includeLanguages);
 		this.logService.trace('update#checkForUpdates, state = ', this.state.type);
 
 		this.logService.debug('update#checkForUpdates, languages =', this._activeLanguages.join(', '));

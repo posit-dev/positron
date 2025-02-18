@@ -23,6 +23,7 @@ import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 const workbench = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
 
@@ -193,6 +194,26 @@ class DownloadAction extends Action2 {
 		}
 	}
 }
+
+// --- Start Positron ---
+class DeveloperRefreshLanguageUsage extends Action2 {
+	constructor() {
+		super({
+			id: 'update.updateLanguageUsage',
+			title: localize2('updateLanguageUsage', 'Update Language Usage'),
+			category: Categories.Developer,
+			f1: true
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+		runtimeSessionService.updateActiveLanguages();
+	}
+}
+
+registerAction2(DeveloperRefreshLanguageUsage);
+// --- End Positron ---
 
 registerAction2(DownloadAction);
 registerAction2(CheckForUpdateAction);
