@@ -48,7 +48,7 @@ class RDriver implements positron.ConnectionsDriver {
 			return true;
 		}
 
-		let session = await positron.runtime.getForegroundSession()
+		const session = await positron.runtime.getForegroundSession();
 		if (session) {
 
 			if (session.runtimeMetadata.languageId !== 'r') {
@@ -56,7 +56,7 @@ class RDriver implements positron.ConnectionsDriver {
 			}
 
 			for (const pkg of this.packages) {
-				const installed = await session.callMethod?.('is_installed', pkg)
+				const installed = await session.callMethod?.('is_installed', pkg);
 				if (!installed) {
 					return false;
 				}
@@ -72,18 +72,27 @@ class RDriver implements positron.ConnectionsDriver {
 		if (this.packages.length === 0) {
 			return true;
 		}
-		let session = await positron.runtime.getForegroundSession()
+		const session = await positron.runtime.getForegroundSession();
 		if (session) {
 
 			if (session.runtimeMetadata.languageId !== 'r') {
 				return true;
 			}
 
+			const allow_install = await positron.window.showSimpleModalDialogPrompt(
+				vscode.l10n.t("Installing dependencies"),
+				vscode.l10n.t("The following R packages are required for this connection: {0}. Would you like to install them now?", this.packages.join(', '))
+			);
+
+			if (!allow_install) {
+				return false;
+			}
+
 			for (const pkg of this.packages) {
-				const installed = await session.callMethod?.('is_installed', pkg)
+				const installed = await session.callMethod?.('is_installed', pkg);
 				if (!installed) {
-					const installed = await session.callMethod?.('install_packages', pkg);
-					if (!installed) {
+					const install_succeed = await session.callMethod?.('install_packages', pkg);
+					if (!install_succeed) {
 						throw new Error('Failed to install dependencies');
 					}
 				}
@@ -159,7 +168,7 @@ class RPostgreSQLDriver extends RDriver implements positron.ConnectionsDriver {
 
 		return `library(DBI)
 con <- dbConnect(
-	RPostgres::Postgres(),
+	RPostgres:: Postgres(),
 	dbname = '${dbname ?? ''}',
 	host = '${host ?? ''}',
 	port = ${port ?? ''},
@@ -209,11 +218,11 @@ class RSQLiteDriver extends RDriver implements positron.ConnectionsDriver {
 
 		return `library(DBI)
 con <- dbConnect(
-	RSQLite::SQLite(),
+	RSQLite:: SQLite(),
 	${dbname ? `dbname = '${dbname}'` : ''},
 	bigint = '${bigint ?? ''}'
 )
-connections::connection_view(con)
+connections:: connection_view(con)
 `;
 	}
 }
