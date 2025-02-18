@@ -31,7 +31,7 @@ const { config } = require('./lib/electron');
 const createAsar = require('./lib/asar').createAsar;
 const minimist = require('minimist');
 const { compileBuildTask } = require('./gulpfile.compile');
-const { compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileAllExtensionsBuildTask, compileExtensionMediaBuildTask, cleanExtensionsBuildTask } = require('./gulpfile.extensions');
+const { compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileAllExtensionsBuildTask, compileExtensionMediaBuildTask, cleanExtensionsBuildTask, copyExtensionBinariesTask } = require('./gulpfile.extensions');
 const { promisify } = require('util');
 const glob = promisify(require('glob'));
 const rcedit = promisify(require('rcedit'));
@@ -605,6 +605,9 @@ BUILD_TARGETS.forEach(buildTarget => {
 			cleanExtensionsBuildTask,
 			compileNonNativeExtensionsBuildTask,
 			compileExtensionMediaBuildTask,
+			// --- Start Positron ---
+			copyExtensionBinariesTask,
+			// --- End Positron ---
 			minified ? minifyVSCodeTask : bundleVSCodeTask,
 			vscodeTaskCI
 		));
