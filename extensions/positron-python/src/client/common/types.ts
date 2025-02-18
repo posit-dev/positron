@@ -189,6 +189,8 @@ export interface IPythonSettings {
     readonly languageServerDebug: boolean;
     readonly languageServerLogLevel: string;
     readonly quietMode: boolean;
+    readonly interpretersInclude: string[];
+    readonly interpretersExclude: string[];
     // --- End Positron ---
     readonly defaultInterpreterPath: string;
     readonly REPL: IREPLSettings;

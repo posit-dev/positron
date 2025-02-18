@@ -8,10 +8,7 @@ import path from 'path';
 import { traceInfo, traceLog, traceVerbose } from '../logging';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { arePathsSame, isParentPath } from '../pythonEnvironments/common/externalDependencies';
-
-// Settings keys for various interpreter settings
-export const INTERPRETERS_INCLUDE_SETTING_KEY = 'interpreters.include';
-export const INTERPRETERS_EXCLUDE_SETTING_KEY = 'interpreters.exclude';
+import { INTERPRETERS_EXCLUDE_SETTING_KEY, INTERPRETERS_INCLUDE_SETTING_KEY } from '../common/constants';
 
 /**
  * Gets the list of interpreters that the user has explicitly included in the settings. Converts
