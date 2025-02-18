@@ -46,6 +46,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 	const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(positronConsoleContext.configurationService);
 
 	// State hooks.
+	const [consoleWidth, setConsoleWidth] = useState(0);
 	const [consolePaneWidth, setConsolePaneWidth] = useState(0);
 	const [consoleTabListWidth, setConsoleTabListWidth] = useState(0);
 	const [startupPhase, setStartupPhase] = useState(
@@ -66,11 +67,32 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 		// The maximum tab list width is 2/5 of the total available width
 		const MAXIMUM_CONSOLE_TAB_LIST_WIDTH = Math.trunc(2 * props.width / 5);
 
-		// Determine the maximum width we want to allot for the tab list
-		setConsoleTabListWidth(MAXIMUM_CONSOLE_TAB_LIST_WIDTH);
-		// Allocate the remaining width to the console pane
-		setConsolePaneWidth(props.width - MAXIMUM_CONSOLE_TAB_LIST_WIDTH);
-	}, [props.width])
+		// Initialize the width for the console pane and console tab list
+		if (consolePaneWidth === 0 || consoleTabListWidth === 0) {
+			setConsoleTabListWidth(MAXIMUM_CONSOLE_TAB_LIST_WIDTH)
+			// Allocate the remaining width to the console pane
+			setConsolePaneWidth(props.width - MAXIMUM_CONSOLE_TAB_LIST_WIDTH);
+		} else if (props.width >= consoleWidth) {
+			// Allocate the additional width to the console pane when parent width is increased
+			setConsolePaneWidth(props.width - consoleTabListWidth);
+		} else if (props.width < consoleWidth) {
+			// Determine if the console tab list should be reduced in width
+			if (consolePaneWidth > consoleTabListWidth) {
+				if (props.width - consoleTabListWidth >= MINIMUM_CONSOLE_PANE_WIDTH) {
+					setConsoleTabListWidth(props.width - consolePaneWidth);
+				} else {
+					setConsolePaneWidth(MINIMUM_CONSOLE_PANE_WIDTH);
+					setConsoleTabListWidth(props.width - MINIMUM_CONSOLE_PANE_WIDTH);
+				}
+			} else {
+				// Allocate the additional width to the console pane when parent width is increased
+				setConsolePaneWidth(Math.max(props.width - consoleTabListWidth, MINIMUM_CONSOLE_PANE_WIDTH));
+			}
+		}
+
+		// Track the console width to accurately resize in future
+		setConsoleWidth(props.width)
+	}, [consolePaneWidth, consoleTabListWidth, consoleWidth, props.width])
 
 	/**
 	 * onBeginResize handler.

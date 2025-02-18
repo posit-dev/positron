@@ -71,7 +71,9 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 							className='icon'
 							src={`data:image/svg+xml;base64,${positronConsoleInstance.session.runtimeMetadata.base64EncodedIconSvg}`}
 						/>
-						{positronConsoleInstance.session.metadata.sessionName}
+						<span className='session-name'>
+							{positronConsoleInstance.session.metadata.sessionName}
+						</span>
 					</span>
 
 				</button>
