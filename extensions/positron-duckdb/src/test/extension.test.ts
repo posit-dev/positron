@@ -34,7 +34,7 @@ import {
 	TableSelectionKind,
 	TextSearchType
 } from '../interfaces';
-import { randomUUID } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 
 const DEFAULT_FORMAT_OPTIONS: FormatOptions = {
 	large_num_digits: 2,
@@ -128,6 +128,13 @@ async function getSchema(tableName: string, formatOptions?: FormatOptions) {
 			column_indices: Array.from({ length: shape.num_columns }, (_, index) => index)
 		} satisfies GetSchemaParams
 	}) as Promise<TableSchema>;
+}
+
+function generateRandomString(length: number) {
+	return randomBytes(length)
+		.toString('base64')
+		.replace(/[^a-zA-Z0-9]/g, '')
+		.slice(0, length);
 }
 
 async function getAllDataValues(tableName: string, formatOptions?: FormatOptions) {
@@ -466,6 +473,8 @@ suite('Positron DuckDB Extension Test Suite', () => {
 	test('export_data_selection works correctly', async () => {
 		const tableName = makeTempTableName();
 
+		const longString = generateRandomString(1000);
+
 		// Create a test table with mixed data types for comprehensive testing
 		await createTempTable(tableName, [
 			{
@@ -476,7 +485,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			{
 				name: 'str_col',
 				type: 'VARCHAR',
-				values: ['\'a\'', '\'b\'', '\'c\'', 'NULL', '\'e\'']
+				values: ['\'a\'', '\'b\'', '\'c\'', 'NULL', '\'' + longString + '\'']
 			},
 			{
 				name: 'float_col',
@@ -545,6 +554,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			// VARCHAR
 			{ row: 2, col: 1, expected: 'c' },
 			{ row: 3, col: 1, expected: 'NULL' },
+			{ row: 4, col: 1, expected: longString },
 
 			// DOUBLE
 			{ row: 3, col: 2, expected: 'NULL' },
@@ -618,7 +628,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			);
 		};
 
-		await testColRange(0, 1, 'int_col,str_col\n1,a\n2,b\n3,c\n4,NULL\nNULL,e');
+		await testColRange(0, 1, `int_col,str_col\n1,a\n2,b\n3,c\n4,NULL\nNULL,${longString}`);
 
 		// Test RowIndices selection
 		const testRowIndices = async (indices: number[], expected: string) => {
