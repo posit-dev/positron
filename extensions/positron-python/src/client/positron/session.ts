@@ -257,7 +257,13 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         interpreter: PythonEnvironment,
         kernelSpec: JupyterKernelSpec,
     ): Promise<boolean> {
-        // _ipykernelBundlePaths may be undefined for a reticulate session, set it if needed.
+
+        if (kernelSpec.startKernel) {
+            // The kernel is expected to be started differently (eg reticulate sessions), there's
+            // nothing we can do to use the bundled ipykernel.
+            return false;
+        }
+
         if (!this._ipykernelBundle) {
             this._ipykernelBundle = await getIpykernelBundle(interpreter, this.serviceContainer);
         }
