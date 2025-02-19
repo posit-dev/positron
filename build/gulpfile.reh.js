@@ -27,7 +27,7 @@ const File = require('vinyl');
 const fs = require('fs');
 const glob = require('glob');
 const { compileBuildTask } = require('./gulpfile.compile');
-const { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask } = require('./gulpfile.extensions');
+const { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask, copyExtensionBinariesTask } = require('./gulpfile.extensions');
 // --- Start Positron ---
 const { vscodeWebEntryPoints, vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } = require('./gulpfile.vscode.web');
 const { positronBuildNumber } = require('./utils');
@@ -550,6 +550,9 @@ function tweakProductForServerWeb(product) {
 				cleanExtensionsBuildTask,
 				compileNonNativeExtensionsBuildTask,
 				compileExtensionMediaBuildTask,
+				// --- Start Positron ---
+				copyExtensionBinariesTask,
+				// --- End Positron ---
 				minified ? minifyTask : bundleTask,
 				serverTaskCI
 			));
