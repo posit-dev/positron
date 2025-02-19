@@ -15,7 +15,6 @@ const PREVIOUS_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .po
 const CLEAR_PLOTS_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Clear all plots"]';
 const PLOT_SIZE_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Auto"]';
 const SAVE_PLOT_FROM_PLOTS_PANE_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Save plot"]';
-const SAVE_PLOT_FROM_EDITOR_BUTTON = '.editor-actions .codicon-positron-save';
 const COPY_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Copy plot to clipboard"]';
 const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Fit"]';
 const OUTER_WEBVIEW_FRAME = '.webview';
