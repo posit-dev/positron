@@ -104,7 +104,6 @@ export const ActionBarButton = forwardRef<
 					<div
 						className={positronClassNames(
 							'action-bar-button-icon',
-							props.dropdownIndicator,
 						)}
 						style={iconStyle}>
 						<img
