@@ -8,6 +8,9 @@
  * setting `python.interpreters.include`.
  *
  * The implementation follows similar patterns to other locators in the same directory.
+ *
+ * See extensions/positron-python/src/client/pythonEnvironments/base/locators/common/nativePythonFinder.ts
+ * `getAdditionalEnvDirs()` for the equivalent handling using the native locator.
  */
 
 import { toLower, uniq, uniqBy } from 'lodash';

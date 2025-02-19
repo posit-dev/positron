@@ -9,6 +9,10 @@ import { getSearchPathEntries } from '../../common/utils/exec';
 import { resolveSymbolicLink } from './externalDependencies';
 import { traceError, traceInfo, traceVerbose, traceWarn } from '../../logging';
 
+// --- Start Positron ---
+import { findInterpretersInDir, looksLikeBasicGlobalPython } from './commonUtils';
+// --- End Positron ---
+
 /**
  * Determine if the given filename looks like the simplest Python executable.
  */
@@ -154,3 +158,35 @@ export async function getPythonBinFromPosixPaths(searchDirs: string[]): Promise<
     const pythonPaths = keys.map((key) => pickShortestPath([key, ...(binToLinkMap.get(key) ?? [])]));
     return uniq(pythonPaths);
 }
+
+// --- Start Positron ---
+/**
+ * Gets additional directories to look for Python binaries on Posix systems.
+ *
+ * For example, `/opt/python/3.10.4/bin` will be returned if the machine has Python 3.10.4 installed
+ * in `/opt/python/3.10.4/bin/python`.
+ *
+ * See extensions/positron-python/src/client/pythonEnvironments/base/locators/common/nativePythonFinder.ts
+ * `getAdditionalEnvDirs()` for the equivalent handling using the native locator.
+ *
+ * @param searchDepth Number of levels of sub-directories to recurse when looking for interpreters.
+ *                    Defaults is 2 levels.
+ * @returns Paths to Python binaries found in additional locations for Posix systems.
+ */
+export async function* getAdditionalPosixDirs(searchDepth = 2): AsyncGenerator<string> {
+    const additionalLocations = [
+        // /opt/python is a recommended Python installation location on Posit Workbench.
+        // see: https://docs.posit.co/ide/server-pro/python/installing_python.html
+        '/opt/python',
+    ];
+    for (const location of additionalLocations) {
+        const additionalDirs = findInterpretersInDir(location, searchDepth);
+        for await (const dir of additionalDirs) {
+            const { filename } = dir;
+            if (await looksLikeBasicGlobalPython(filename)) {
+                yield path.dirname(filename);
+            }
+        }
+    }
+}
+// --- End Positron ---

@@ -5,7 +5,7 @@ import * as os from 'os';
 import { gte } from 'semver';
 import { PythonEnvKind, PythonEnvSource } from '../../info';
 import { BasicEnvInfo, IPythonEnvsIterator, Locator } from '../../locator';
-import { commonPosixBinPaths, getPythonBinFromPosixPaths } from '../../../common/posixUtils';
+import { commonPosixBinPaths, getAdditionalPosixDirs, getPythonBinFromPosixPaths } from '../../../common/posixUtils';
 import { isPyenvShimDir } from '../../../common/environmentManagers/pyenv';
 import { getOSType, OSType } from '../../../../common/utils/platform';
 import { isMacDefaultPythonPath } from '../../../common/environmentManagers/macDefault';
@@ -34,6 +34,14 @@ export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
                 // the binaries specified in .python-version file in the cwd. We should not be reporting
                 // those binaries as environments.
                 const knownDirs = (await commonPosixBinPaths()).filter((dirname) => !isPyenvShimDir(dirname));
+
+                // --- Start Positron ---
+                const additionalDirs = getAdditionalPosixDirs();
+                for await (const dir of additionalDirs) {
+                    knownDirs.push(dir);
+                }
+                // --- End Positron ---
+
                 let pythonBinaries = await getPythonBinFromPosixPaths(knownDirs);
                 traceVerbose(`Found ${pythonBinaries.length} python binaries in posix paths`);
 
