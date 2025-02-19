@@ -46,6 +46,8 @@ test.describe('Reticulate', {
 			// Prompt did not appear
 		}
 
+		await app.workbench.popups.installIPyKernel();
+
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 
 		await verifyReticulateFunctionality(app, interpreter, false);
