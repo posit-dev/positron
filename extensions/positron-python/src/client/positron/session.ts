@@ -10,6 +10,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import PQueue from 'p-queue';
+import path from 'path';
 import * as fs from '../common/platform/fs-paths';
 import { ProductNames } from '../common/installer/productNames';
 import { InstallOptions, ModuleInstallFlags } from '../common/installer/types';
@@ -38,6 +39,9 @@ import { IInterpreterService } from '../interpreter/contracts';
 import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
 import { getIpykernelBundle, IPykernelBundle } from './ipykernel';
+
+/** Regex for commands to uninstall packages using supported Python package managers. */
+const _uninstallCommandRegex = /(pip|pipenv|conda).*uninstall|poetry.*remove/g;
 
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
@@ -150,10 +154,64 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         errorBehavior: positron.RuntimeErrorBehavior,
     ): void {
         if (this._kernel) {
+            if (this._isUninstallBundledPackageCommand(code, id)) {
+                // It's an attempt to uninstall a bundled package, don't execute.
+                return;
+            }
+
             this._kernel.execute(code, id, mode, errorBehavior);
         } else {
             throw new Error(`Cannot execute '${code}'; kernel not started`);
         }
+    }
+
+    /**
+     * Check if the code is an attempt to uninstall a bundled package, and if so, show a warning.
+     */
+    private _isUninstallBundledPackageCommand(code: string, id: string): boolean {
+        if (!_uninstallCommandRegex.test(code)) {
+            // Not an uninstall command.
+            return false;
+        }
+
+        // It's an uninstall command.
+        // Check if any bundled packages are being uninstalled.
+        const protectedPackages = (this._ipykernelBundle?.paths ?? [])
+            .flatMap((path) => fs.readdirSync(path).map((name) => ({ parent: path, name })))
+            .filter(({ name }) => code.includes(name));
+        if (!protectedPackages) {
+            return false;
+        }
+
+        // A bundled package is being uninstalled.
+        // Emit a messaging explaining why the uninstall is not allowed.
+        const protectedPackagesStr = protectedPackages
+            .map(({ parent, name }) => `- ${name} (from ${parent})`)
+            .join('\n');
+        this._messageEmitter.fire({
+            id: `${id}-0`,
+            parent_id: id,
+            when: new Date().toISOString(),
+            type: positron.LanguageRuntimeMessageType.Stream,
+            name: positron.LanguageRuntimeStreamName.Stdout,
+            text: vscode.l10n.t(
+                'Cannot uninstall the following packages:\n\n{0}\n\n' +
+                    'These packages are bundled with Positron, ' +
+                    "and removing them would break Positron's Python functionality.\n\n" +
+                    'If you would like to uninstall these packages from the active environment, ' +
+                    'please rerun `{1}` in a terminal.',
+                protectedPackagesStr,
+                code,
+            ),
+        } as positron.LanguageRuntimeStream);
+        this._messageEmitter.fire({
+            id: `${id}-1`,
+            parent_id: id,
+            when: new Date().toISOString(),
+            type: positron.LanguageRuntimeMessageType.State,
+            state: positron.RuntimeOnlineState.Idle,
+        } as positron.LanguageRuntimeState);
+        return true;
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
