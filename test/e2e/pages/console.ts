@@ -331,6 +331,10 @@ class Session {
 		});
 	}
 
+	/**
+	 * Verify: Check the metadata of the session dialog
+	 * @param data the expected metadata to verify
+	 */
 	async checkMetadata(data: SessionDetails & { state: 'active' | 'idle' | 'disconnected' | 'exited' }) {
 		await test.step(`Verify ${data.language} ${data.version} metadata`, async () => {
 
