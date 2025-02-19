@@ -311,7 +311,7 @@ if __name__ == "__main__":
     main(
         requirement="ipykernel",
         python_versions=["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"],
-        output_dir=Path("./python_files/lib/ipykernel/"),
+        output_dir=Path("./python_files/ipykernel_requirements/"),
         max_rounds=10,
         cache_dir=CACHE_DIR,
     )

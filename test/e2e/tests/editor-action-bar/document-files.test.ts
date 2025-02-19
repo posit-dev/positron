@@ -18,9 +18,8 @@ test.describe('Editor Action Bar: Document Files', {
 	tag: [tags.WEB, tags.WIN, tags.EDITOR_ACTION_BAR, tags.EDITOR]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings, app }) {
+	test.beforeAll(async function ({ app }) {
 		editorActionBar = app.workbench.editorActionBar;
-		await userSettings.set([['editor.actionBar.enabled', 'true']], false);
 	});
 
 	test.afterEach(async function ({ runCommand }) {
