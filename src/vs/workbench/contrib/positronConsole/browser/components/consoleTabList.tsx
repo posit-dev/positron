@@ -62,6 +62,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 					aria-labelledby={`console-panel-${positronConsoleInstance.session.sessionId}`}
 					aria-selected={positronConsoleContext.activePositronConsoleInstance?.session.sessionId === positronConsoleInstance.session.sessionId}
 					className={`tab-button ${positronConsoleContext.activePositronConsoleInstance?.session.sessionId === positronConsoleInstance.session.sessionId && 'tab-button--active'}`}
+					data-testid={`console-tab-${positronConsoleInstance.session.sessionId}`}
 					role='tab'
 					onClick={() => handleTabClick(positronConsoleInstance.session.sessionId)}
 				>
