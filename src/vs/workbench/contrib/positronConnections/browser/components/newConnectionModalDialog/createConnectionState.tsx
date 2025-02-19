@@ -71,7 +71,20 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 			}
 
 			if (props.selectedDriver.checkDependencies && props.selectedDriver.installDependencies) {
-				const dependenciesInstalled = await props.selectedDriver.checkDependencies();
+				let dependenciesInstalled = false;
+				try {
+					dependenciesInstalled = await props.selectedDriver.checkDependencies();
+				} catch (err) {
+					services.notificationService.error(localize(
+						'positron.newConnectionModalDialog.createConnection.failedToCheckDependencies',
+						'Failed to check if dependencies are installed: {}',
+						err
+					));
+					// If we fail to check if dependencies are installed, we presume they are installed
+					// and let the user try to connect anyway so they don't get blocked.
+					dependenciesInstalled = true;
+				}
+
 				if (!dependenciesInstalled) {
 					await props.selectedDriver.installDependencies();
 				}
