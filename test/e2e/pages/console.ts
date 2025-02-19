@@ -70,6 +70,8 @@ export class Console {
 		// may include additional items above the desired interpreter string.
 		await this.quickinput.selectQuickInputElementContaining(desiredInterpreterString);
 		await this.quickinput.waitForQuickInputClosed();
+
+		// Move mouse to prevent tooltip hover
 		await this.code.driver.page.mouse.move(0, 0);
 
 		if (waitForReady) {
@@ -164,6 +166,8 @@ export class Console {
 
 		// ensure we are on Console tab
 		await page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
+
+		// Move mouse to prevent tooltip hover
 		await this.code.driver.page.mouse.move(0, 0);
 
 		// wait for the dropdown to contain R, Python, or No Interpreter.
@@ -267,6 +271,7 @@ export class Console {
 
 	async clickConsoleTab() {
 		await this.code.driver.page.locator('.basepanel').getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
+		// Move mouse to prevent tooltip hover
 		await this.code.driver.page.mouse.move(0, 0);
 	}
 

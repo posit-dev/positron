@@ -110,7 +110,6 @@ export class Workbench {
 		this.problems = new Problems(code, this.quickaccess);
 		this.references = new References(code);
 		this.scm = new SCM(code, this.layouts);
-		this.problems = new Problems(code, this.quickaccess);
 	}
 }
 
