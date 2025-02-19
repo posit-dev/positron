@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -700,6 +700,11 @@ class ColumnSummaryStats(BaseModel):
         description="Statistics for a datetime data type",
     )
 
+    other_stats: Optional[SummaryStatsOther] = Field(
+        default=None,
+        description="Summary statistics for any other data types",
+    )
+
 
 class SummaryStatsNumber(BaseModel):
     """
@@ -743,6 +748,17 @@ class SummaryStatsBoolean(BaseModel):
 
     false_count: StrictInt = Field(
         description="The number of non-null false values",
+    )
+
+
+class SummaryStatsOther(BaseModel):
+    """
+    SummaryStatsOther in Schemas
+    """
+
+    num_unique: Optional[StrictInt] = Field(
+        default=None,
+        description="The number of unique values",
     )
 
 
@@ -1652,6 +1668,8 @@ ColumnSummaryStats.update_forward_refs()
 SummaryStatsNumber.update_forward_refs()
 
 SummaryStatsBoolean.update_forward_refs()
+
+SummaryStatsOther.update_forward_refs()
 
 SummaryStatsString.update_forward_refs()
 

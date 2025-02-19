@@ -697,6 +697,8 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             "datetime",
         ),
         ([None, MyData(5), MyData(-1), None, None], "mixed", "object"),
+        (["foo", 1, None, "str", False], "mixed-integer", "object"),
+        (np.array([1, 2, 3.5, None, 5], dtype=object), "mixed-integer-float", "object"),
         (
             np.array([1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, 5 + 5j], dtype="complex64"),
             "complex64",
@@ -771,7 +773,8 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
     dxf.register_table("full_schema", test_df)
     result = dxf.get_schema("full_schema", list(range(100)))
 
-    assert result == _wrap_json(ColumnSchema, full_schema)
+    for result_item, expected_item in zip(result, full_schema):
+        assert result_item == ColumnSchema(**expected_item).dict()
 
     # Test partial schema gets, boundschecking
     result = dxf.get_schema("full_schema", list(range(2, 100)))
@@ -2524,6 +2527,10 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             "f7": [1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, np.nan] * 20,  # complex,
             "f8": [np.nan, np.inf, -np.inf, 0, np.nan] * 20,  # with infinity
             "f9": [np.nan] * 100,
+            # mixed-integer
+            "f10": ["str", 1, 2, None, False] * 20,
+            # mixed-integer-float
+            "f11": np.array([1.5, 2, 2, None, 3.5] * 20, dtype=object),
         }
     )
 
@@ -2660,6 +2667,18 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             "df1",
             9,
             {},
+        ),
+        # mixed-integer
+        (
+            "df1",
+            10,
+            {"num_unique": 4},
+        ),
+        # mixed-integer-float
+        (
+            "df1",
+            11,
+            {"num_unique": 3},
         ),
         (
             "df_mixed_tz1",

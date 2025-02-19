@@ -11,7 +11,7 @@ import { positronConfigurationNodeBase } from '../../languageRuntime/common/lang
 
 // Key for the multiple sessions setting
 export const USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY =
-	'positron.multipleConsoleSessions';
+	'console.multipleConsoleSessions';
 
 /**
  * Retrieves the value of the configuration setting that determines whether to enable
@@ -39,7 +39,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: false,
 			markdownDescription: localize(
-				'positron.enableMultipleConsoleSessionsFeature',
+				'console.enableMultipleConsoleSessionsFeature',
 				'**CAUTION**: Enable experimental Positron multiple console sessions features which may result in unexpected behaviour. Please restart Positron if you change this option.'
 			),
 		},
