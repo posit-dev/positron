@@ -2,7 +2,7 @@
 //  Copyright (c) Microsoft Corporation. All rights reserved.
 //  Licensed under the MIT License.
 import * as assert from 'assert';
-import { TestRun, Uri, TestRunProfileKind } from 'vscode';
+import { TestRun, Uri, TestRunProfileKind, DebugSessionOptions } from 'vscode';
 import * as typeMoq from 'typemoq';
 import * as sinon from 'sinon';
 import * as path from 'path';
@@ -21,8 +21,10 @@ import * as util from '../../../../client/testing/testController/common/utils';
 import { EXTENSION_ROOT_DIR } from '../../../../client/constants';
 import { MockChildProcess } from '../../../mocks/mockChildProcess';
 import { traceInfo } from '../../../../client/logging';
+import * as extapi from '../../../../client/envExt/api.internal';
 
 suite('pytest test execution adapter', () => {
+    let useEnvExtensionStub: sinon.SinonStub;
     let configService: IConfigurationService;
     let execFactory = typeMoq.Mock.ofType<IPythonExecutionFactory>();
     let adapter: PytestTestExecutionAdapter;
@@ -35,7 +37,10 @@ suite('pytest test execution adapter', () => {
     let mockProc: MockChildProcess;
     let utilsWriteTestIdsFileStub: sinon.SinonStub;
     let utilsStartRunResultNamedPipeStub: sinon.SinonStub;
+
     setup(() => {
+        useEnvExtensionStub = sinon.stub(extapi, 'useEnvExtension');
+        useEnvExtensionStub.returns(false);
         configService = ({
             getSettings: () => ({
                 testing: { pytestArgs: ['.'] },
@@ -83,14 +88,7 @@ suite('pytest test execution adapter', () => {
         myTestPath = path.join('/', 'my', 'test', 'path', '/');
 
         utilsStartRunResultNamedPipeStub = sinon.stub(util, 'startRunResultNamedPipe');
-        utilsStartRunResultNamedPipeStub.callsFake(() =>
-            Promise.resolve({
-                name: 'runResultPipe-mockName',
-                dispose: () => {
-                    /* no-op */
-                },
-            }),
-        );
+        utilsStartRunResultNamedPipeStub.callsFake(() => Promise.resolve('runResultPipe-mockName'));
     });
     teardown(() => {
         sinon.restore();
@@ -245,7 +243,7 @@ suite('pytest test execution adapter', () => {
         const deferred3 = createDeferred();
         utilsWriteTestIdsFileStub.callsFake(() => Promise.resolve('testIdPipe-mockName'));
         debugLauncher
-            .setup((dl) => dl.launchDebugger(typeMoq.It.isAny(), typeMoq.It.isAny()))
+            .setup((dl) => dl.launchDebugger(typeMoq.It.isAny(), typeMoq.It.isAny(), typeMoq.It.isAny()))
             .returns(async (_opts, callback) => {
                 traceInfo('stubs launch debugger');
                 if (typeof callback === 'function') {
@@ -280,6 +278,10 @@ suite('pytest test execution adapter', () => {
                         return true;
                     }),
                     typeMoq.It.isAny(),
+                    typeMoq.It.is<DebugSessionOptions>((sessionOptions) => {
+                        assert.equal(sessionOptions.testRun, testRun.object);
+                        return true;
+                    }),
                 ),
             typeMoq.Times.once(),
         );

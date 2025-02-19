@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -66,7 +66,7 @@ export const LabeledFolderInput = ({ skipValidation = false, ...props }: Labeled
 			<label>
 				{props.label}
 				<div className='folder-input'>
-					<input className='text-input' readOnly={props.readOnlyInput} placeholder={props.placeholder} type='text' value={props.value} onChange={props.onChange} maxLength={255} />
+					<input className='text-input' maxLength={255} placeholder={props.placeholder} readOnly={props.readOnlyInput} type='text' value={props.value} onChange={props.onChange} />
 					<Button className='browse-button' onPressed={props.onBrowse}>
 						{localize('positronFolderInputBrowse', 'Browse...')}
 					</Button>

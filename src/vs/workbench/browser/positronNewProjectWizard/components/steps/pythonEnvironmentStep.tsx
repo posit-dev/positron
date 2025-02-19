@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -146,7 +146,6 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 								"The environment will be created at: "
 							))()}
 						<PathDisplay
-							pathService={context.services.pathService}
 							maxLength={65}
 							pathComponents={
 								locationForNewEnv(
@@ -155,6 +154,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 									envProviderNameForId(envProviderId, envProviders!)
 								)
 							}
+							pathService={context.services.pathService}
 						/>
 
 					</WizardFormattedText>
@@ -367,10 +367,6 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	// Render.
 	return (
 		<PositronWizardStep
-			title={(() => localize(
-				'pythonEnvironmentStep.title',
-				"Set up Python environment"
-			))()}
 			backButtonConfig={{ onClick: props.back }}
 			cancelButtonConfig={{ onClick: props.cancel }}
 			okButtonConfig={{
@@ -381,6 +377,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				))(),
 				disable: disableCreateButton()
 			}}
+			title={(() => localize(
+				'pythonEnvironmentStep.title',
+				"Set up Python environment"
+			))()}
 		>
 			{/* New or existing Python environment selection */}
 			<PositronWizardSubStep
@@ -391,10 +391,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				titleId='pythonEnvironment-howToSetUpEnv'
 			>
 				<RadioGroup
-					name='envSetup'
-					labelledBy='pythonEnvironment-howToSetUpEnv'
 					entries={envSetupRadioButtons}
 					initialSelectionId={envSetupType}
+					labelledBy='pythonEnvironment-howToSetUpEnv'
+					name='envSetup'
 					onSelectionChanged={
 						identifier => onEnvSetupTypeSelected(identifier)
 					}
@@ -403,10 +403,6 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			{/* If New Environment, show dropdown for Python environment providers */}
 			{envSetupType === EnvironmentSetupType.NewEnvironment ?
 				<PositronWizardSubStep
-					title={(() => localize(
-						'pythonEnvironmentSubStep.label',
-						"Python Environment"
-					))()}
 					description={
 						<WizardFormattedText type={WizardFormattedTextType.Info}>
 							{(() => localize(
@@ -421,20 +417,24 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						</WizardFormattedText>
 					}
 					feedback={envProviderStepFeedback()}
+					title={(() => localize(
+						'pythonEnvironmentSubStep.label',
+						"Python Environment"
+					))()}
 				>
 					<DropDownListBox
-						keybindingService={keybindingService}
-						layoutService={layoutService}
-						disabled={!envProvidersAvailable()}
-						title={envProviderDropdownTitle()}
-						entries={envProviderDropdownEntries()}
-						selectedIdentifier={envProviderId}
 						createItem={(item) => (
 							<DropdownEntry
-								title={item.options.value.name}
 								subtitle={item.options.value.description}
+								title={item.options.value.name}
 							/>
 						)}
+						disabled={!envProvidersAvailable()}
+						entries={envProviderDropdownEntries()}
+						keybindingService={keybindingService}
+						layoutService={layoutService}
+						selectedIdentifier={envProviderId}
+						title={envProviderDropdownTitle()}
 						onSelectionChanged={(item) =>
 							onEnvProviderSelected(item.options.identifier)
 						}
@@ -443,30 +443,30 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			}
 			{/* Show the Python interpreter dropdown */}
 			<PositronWizardSubStep
-				title={(() =>
-					localize(
-						'pythonInterpreterSubStep.title',
-						"Python Interpreter"
-					))()}
 				description={(() =>
 					localize(
 						'pythonInterpreterSubStep.description',
 						"Select a Python installation for your project."
 					))()}
 				feedback={interpreterStepFeedback()}
+				title={(() =>
+					localize(
+						'pythonInterpreterSubStep.title',
+						"Python Interpreter"
+					))()}
 			>
 				<DropDownListBox
-					keybindingService={keybindingService}
-					layoutService={layoutService}
-					disabled={!interpretersAvailable()}
-					title={interpreterDropdownTitle()}
-					entries={interpreterDropdownEntries()}
-					selectedIdentifier={selectedInterpreterId()}
 					createItem={(item) => (
 						<InterpreterEntry
 							interpreterInfo={item.options.value}
 						/>
 					)}
+					disabled={!interpretersAvailable()}
+					entries={interpreterDropdownEntries()}
+					keybindingService={keybindingService}
+					layoutService={layoutService}
+					selectedIdentifier={selectedInterpreterId()}
+					title={interpreterDropdownTitle()}
 					onSelectionChanged={(item) =>
 						onInterpreterSelected(item.options.identifier)
 					}

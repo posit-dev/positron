@@ -42,9 +42,11 @@ type VerticalSplitterBaseProps = | {
  */
 type VerticalSplitterCollapseProps = | {
 	readonly collapsible?: false;
+	readonly isCollapsed?: never;
 	readonly onCollapsedChanged?: never;
 } | {
 	readonly collapsible: true;
+	readonly isCollapsed: boolean;
 	readonly onCollapsedChanged: (collapsed: boolean) => void;
 };
 
@@ -59,7 +61,7 @@ type VerticalSplitterProps = VerticalSplitterBaseProps & VerticalSplitterCollaps
 export interface VerticalSplitterResizeParams {
 	readonly minimumWidth: number;
 	readonly maximumWidth: number;
-	readonly columnsWidth: number;
+	readonly startingWidth: number;
 }
 
 /**
@@ -134,6 +136,7 @@ export const VerticalSplitter = ({
 	invert,
 	showSash,
 	collapsible,
+	isCollapsed,
 	onCollapsedChanged,
 	onBeginResize,
 	onResize,
@@ -154,7 +157,7 @@ export const VerticalSplitter = ({
 	const [hovering, setHovering] = useState(false);
 	const [highlightExpandCollapse, setHighlightExpandCollapse] = useState(false);
 	const [hoveringDelayer, setHoveringDelayer] = useState<Delayer<void>>(undefined!);
-	const [collapsed, setCollapsed, collapsedRef] = useStateRef(false);
+	const [collapsed, setCollapsed, collapsedRef] = useStateRef(isCollapsed);
 	const [resizing, setResizing] = useState(false);
 
 	// Main useEffect.
@@ -188,6 +191,11 @@ export const VerticalSplitter = ({
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
 	}, [collapsible, configurationService]);
+
+	// Collapsed useEffect.
+	useEffect(() => {
+		setCollapsed(isCollapsed);
+	}, [isCollapsed, setCollapsed]);
 
 	/**
 	 * Sash onPointerEnter handler.
@@ -275,7 +283,7 @@ export const VerticalSplitter = ({
 
 		// Setup the resize state.
 		const resizeParams = onBeginResize();
-		const startingWidth = collapsed ? sashWidth : resizeParams.columnsWidth;
+		const startingWidth = collapsed ? sashWidth : resizeParams.startingWidth;
 		const target = DOM.getWindow(e.currentTarget).document.body;
 		const clientX = e.clientX;
 		const styleSheet = createStyleSheet(target);
@@ -385,9 +393,9 @@ export const VerticalSplitter = ({
 					left: collapsible ? -1 : -(sashWidth / 2),
 					width: collapsible ? sashWidth + 2 : sashWidth
 				}}
+				onPointerDown={sashPointerDownHandler}
 				onPointerEnter={sashPointerEnterHandler}
 				onPointerLeave={sashPointerLeaveHandler}
-				onPointerDown={sashPointerDownHandler}
 			>
 				{showSash && (hovering || resizing) &&
 					<div
@@ -406,12 +414,12 @@ export const VerticalSplitter = ({
 				<Button
 					ref={expandCollapseButtonRef}
 					className='expand-collapse-button'
+					mouseTrigger={MouseTrigger.MouseDown}
 					style={{
 						top: EXPAND_COLLAPSE_BUTTON_TOP,
 						width: EXPAND_COLLAPSE_BUTTON_SIZE,
 						height: EXPAND_COLLAPSE_BUTTON_SIZE
 					}}
-					mouseTrigger={MouseTrigger.MouseDown}
 					onPressed={expandCollapseButtonPressedHandler}
 				>
 					<div

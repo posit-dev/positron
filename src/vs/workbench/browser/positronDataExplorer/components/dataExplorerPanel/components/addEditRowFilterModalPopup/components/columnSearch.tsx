@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -66,17 +66,17 @@ export const ColumnSearch = (props: ColumnSearchProps) => {
 			<div className={positronClassNames('column-search-input', { 'focused': focused })}>
 				<input
 					ref={inputRef}
-					type='text'
 					className='text-input'
 					placeholder={(() => localize('positron.searchPlacehold', "search"))()}
+					type='text'
 					value={searchText}
-					onKeyDown={handleOnKeyDown}
-					onFocus={() => setFocused(true)}
 					onBlur={() => setFocused(false)}
 					onChange={e => {
 						setSearchText(e.target.value);
 						props.onSearchTextChanged(e.target.value);
 					}}
+					onFocus={() => setFocused(true)}
+					onKeyDown={handleOnKeyDown}
 				/>
 				{searchText !== '' && (
 					<button className='clear-button'>

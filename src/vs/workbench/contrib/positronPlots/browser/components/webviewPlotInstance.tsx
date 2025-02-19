@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -70,7 +70,7 @@ export const WebviewPlotInstance = (props: WebviewPlotInstanceProps) => {
 	// The DOM we render is just a single div that the webview will be
 	// positioned over.
 	return (
-		<div style={style} className='plot-instance' ref={webviewRef}>
+		<div ref={webviewRef} className='plot-instance' style={style}>
 		</div>
 	);
 };

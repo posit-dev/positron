@@ -11,24 +11,24 @@ let editorActionBar: EditorActionBar;
 
 const testCases = [
 	{
-		title: 'R - Load data frame via variables pane',
+		title: 'R - Can load data frame via variables pane',
 		openFile: 'workspaces/generate-data-frames-r/simple-data-frames.r',
 		variable: 'df',
 		tabName: 'Data: df',
 	},
 	{
-		title: 'Python - Load data frame via variables pane',
+		title: 'Python - Can load data frame via variables pane',
 		openFile: 'workspaces/generate-data-frames-py/simple-data-frames.py',
 		variable: 'df',
 		tabName: 'Data: df',
 	},
 	{
-		title: 'Open parquet file via DuckDB',
+		title: 'Can open parquet file via DuckDB',
 		openDataFile: 'data-files/100x100/100x100.parquet',
 		tabName: 'Data: 100x100.parquet',
 	},
 	{
-		title: 'Open CSV file via DuckDB',
+		title: 'Can open CSV file via DuckDB',
 		openDataFile: 'data-files/flights/flights.csv',
 		tabName: 'Data: flights.csv'
 	}];
@@ -41,9 +41,8 @@ test.describe('Editor Action Bar: Data Files', {
 	tag: [tags.WEB, tags.WIN, tags.EDITOR_ACTION_BAR, tags.DATA_EXPLORER]
 }, () => {
 
-	test.beforeAll(async function ({ app, userSettings }) {
+	test.beforeAll(async function ({ app }) {
 		editorActionBar = app.workbench.editorActionBar;
-		await userSettings.set([['editor.actionBar.enabled', 'true']], false);
 	});
 
 	test.afterEach(async function ({ runCommand }) {

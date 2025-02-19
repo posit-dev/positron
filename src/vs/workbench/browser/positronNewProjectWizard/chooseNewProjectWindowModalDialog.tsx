@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -38,9 +38,6 @@ export const showChooseNewProjectWindowModalDialog = (
 	// Show the choose new project window modal dialog.
 	renderer.render(
 		<ChooseNewProjectWindowModalDialog
-			renderer={renderer}
-			projectName={projectName}
-			openInNewWindow={openInNewWindow}
 			chooseNewProjectWindowAction={async (openInNewWindow: boolean) => {
 				// Open the project in the selected window.
 				await commandService.executeCommand(
@@ -52,6 +49,9 @@ export const showChooseNewProjectWindowModalDialog = (
 					}
 				);
 			}}
+			openInNewWindow={openInNewWindow}
+			projectName={projectName}
+			renderer={renderer}
 		/>
 	);
 };
@@ -102,14 +102,14 @@ const ChooseNewProjectWindowModalDialog = (props: ChooseNewProjectWindowModalDia
 	// Render.
 	return (
 		<PositronModalDialog
-			renderer={props.renderer}
-			width={320}
 			height={180}
+			renderer={props.renderer}
 			title={(() =>
 				localize(
 					'positron.chooseNewProjectWindowModalDialog.title',
 					'Create New Project'
 				))()}
+			width={320}
 		>
 			<div className='choose-new-project-window-modal-dialog'>
 				<VerticalStack>

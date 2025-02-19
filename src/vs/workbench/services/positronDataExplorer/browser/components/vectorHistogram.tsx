@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -59,26 +59,26 @@ export const VectorHistogram = (props: VectorHistogramProps) => {
 	return (
 		<svg
 			className='vector-histogram'
-			viewBox={`0 0 ${props.graphWidth} ${props.graphHeight + props.xAxisHeight}`}
 			shapeRendering='crispEdges'
+			viewBox={`0 0 ${props.graphWidth} ${props.graphHeight + props.xAxisHeight}`}
 		>
 			<g>
 				<rect className='x-axis'
+					height={props.xAxisHeight}
+					width={props.graphWidth}
 					x={0}
 					y={props.graphHeight - props.xAxisHeight}
-					width={props.graphWidth}
-					height={props.xAxisHeight}
 				/>
 				{props.columnHistogram.bin_counts.map((binCount, binCountIndex) => {
 					const binCountHeight = (binCount / maxBinCount) * props.graphHeight;
 					return (
 						<rect
-							className='bin-count'
 							key={`bin-count-${binCountIndex}`}
+							className='bin-count'
+							height={binCountHeight}
+							width={binWidth}
 							x={binCountIndex * binWidth}
 							y={props.graphHeight - props.xAxisHeight - binCountHeight}
-							width={binWidth}
-							height={binCountHeight}
 						/>
 					);
 				})}

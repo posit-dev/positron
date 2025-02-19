@@ -16,7 +16,7 @@ test.describe('Variables Pane', {
 		await app.workbench.layouts.enterLayout('stacked');
 	});
 
-	test('Python - Verifies Variables pane basic function', async function ({ app, logger, python }) {
+	test('Python - Verify Variables pane basic function', async function ({ app, logger, python }) {
 		const executeCode = async (code: string) => {
 			await app.workbench.console.executeCode('Python', code);
 		};
@@ -36,7 +36,7 @@ test.describe('Variables Pane', {
 
 	});
 
-	test.skip('Python - Verifies only 1 entery per environment', {
+	test.skip('Python - Verify only 1 entry per environment', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5887' }],
 	}, async function ({ app, logger, python }) {
 		await app.workbench.console.barClearButton.click();
@@ -47,7 +47,7 @@ test.describe('Variables Pane', {
 		expect((await groupList).length).toBe(1);
 	});
 
-	test('R - Verifies Variables pane basic function', async function ({ app, logger, r }) {
+	test('R - Verify Variables pane basic function', async function ({ app, logger, r }) {
 		const executeCode = async (code: string) => {
 			await app.workbench.console.executeCode('R', code);
 		};
@@ -67,7 +67,7 @@ test.describe('Variables Pane', {
 	});
 
 
-	test.skip('R - Verifies only 1 entery per environment', {
+	test.skip('R - Verify only 1 entry per environment', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5887' }],
 	}, async function ({ app, logger, r }) {
 		await app.workbench.console.barClearButton.click();

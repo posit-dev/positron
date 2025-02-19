@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -108,7 +108,7 @@ export const InterpreterGroups = (props: InterpreterGroupsProps) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.languageRuntimeService, props.runtimeAffiliationService]);
 
 	// Render.
 	return (
@@ -116,11 +116,11 @@ export const InterpreterGroups = (props: InterpreterGroupsProps) => {
 			{interpreterGroups.map((interpreterGroup, index, runningRuntimes) => (
 				<InterpreterGroup
 					key={interpreterGroup.primaryRuntime.runtimeId}
+					interpreterGroup={interpreterGroup}
 					languageRuntimeService={props.languageRuntimeService}
 					runtimeSessionService={props.runtimeSessionService}
-					interpreterGroup={interpreterGroup}
-					onStartRuntime={props.onStartRuntime}
 					onActivateRuntime={props.onActivateRuntime}
+					onStartRuntime={props.onStartRuntime}
 				/>
 			))}
 		</div>

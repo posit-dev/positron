@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -108,8 +108,8 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 	switch (results.status) {
 		case 'pending':
 			return <div
-				className='positron-notebooks-deferred-img-placeholder'
 				aria-label={(() => localize('deferredImageLoading', 'Loading image...'))()}
+				className='positron-notebooks-deferred-img-placeholder'
 				role='img'
 				{...props}
 			></div>;

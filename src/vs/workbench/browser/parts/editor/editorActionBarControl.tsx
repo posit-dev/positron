@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -105,9 +105,9 @@ export class EditorActionBarControl extends Disposable {
 				configurationService={this._configurationService}
 				contextKeyService={this._contextKeyService}
 				contextMenuService={this._contextMenuService}
+				editorActionBarFactory={editorActionBarFactory}
 				hoverService={this._hoverService}
 				keybindingService={this._keybindingService}
-				editorActionBarFactory={editorActionBarFactory}
 			/>
 		);
 	}

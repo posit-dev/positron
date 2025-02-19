@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -131,6 +131,7 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 			{...props}
 			dropdownIndicator={props.dropdownIndicator ?? 'enabled'}
 			mouseTrigger={MouseTrigger.MouseDown}
+			onDropdownPressed={async () => await showMenu()}
 			onPressed={async () => {
 				if (props.dropdownIndicator !== 'enabled-split') {
 					await showMenu();
@@ -139,7 +140,6 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 					defaultAction ? defaultAction.run() : actions[0].run();
 				}
 			}}
-			onDropdownPressed={async () => await showMenu()}
 		/>
 	);
 };

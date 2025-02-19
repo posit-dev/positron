@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -56,11 +56,6 @@ export const showNewFolderFromGitModalDialog = async (
 	// Show the new folder from git modal dialog.
 	renderer.render(
 		<NewFolderFromGitModalDialog
-			fileDialogService={fileDialogService}
-			labelService={labelService}
-			pathService={pathService}
-			renderer={renderer}
-			parentFolder={await fileDialogService.defaultFolderPath()}
 			createFolder={async result => {
 				if (result.repo) {
 					// temporarily set openAfterClone to facilitate result.newWindow then set it
@@ -88,6 +83,11 @@ export const showNewFolderFromGitModalDialog = async (
 					}
 				}
 			}}
+			fileDialogService={fileDialogService}
+			labelService={labelService}
+			parentFolder={await fileDialogService.defaultFolderPath()}
+			pathService={pathService}
+			renderer={renderer}
 		/>
 	);
 };
@@ -171,14 +171,14 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 	// Render.
 	return (
 		<OKCancelModalDialog
-			renderer={props.renderer}
-			width={400}
+			catchErrors
 			height={300}
+			renderer={props.renderer}
 			title={(() => localize(
 				'positronNewFolderFromGitModalDialogTitle',
 				"New Folder from Git"
 			))()}
-			catchErrors
+			width={400}
 			onAccept={async () => {
 				if (isInputEmpty(result.repo)) {
 					throw new Error(localize('positron.gitRepoNotProvided', "A git repository URL was not provided."));
@@ -191,12 +191,12 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 			<VerticalStack>
 				<LabeledTextInput
 					ref={folderNameRef}
-					value={result.repo}
+					autoFocus
 					label={(() => localize(
 						'positron.GitRepositoryURL',
 						"Git repository URL"
 					))()}
-					autoFocus
+					value={result.repo}
 					onChange={e => setResult({ ...result, repo: e.target.value })}
 				/>
 				<LabeledFolderInput

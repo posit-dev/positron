@@ -67,10 +67,10 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 					<ConsoleInstance
 						key={positronConsoleInstance.session.runtimeMetadata.languageId}
 						active={positronConsoleInstance === positronConsoleContext.activePositronConsoleInstance}
-						width={props.width}
 						height={adjustedHeight}
 						positronConsoleInstance={positronConsoleInstance}
 						reactComponentContainer={props.reactComponentContainer}
+						width={props.width}
 					/>
 				)}
 			</div>

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -150,10 +150,10 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 			<PositronActionBarContextProvider {...props}>
 
 				<PositronActionBar
-					size='large'
 					borderBottom={true}
 					paddingLeft={kHorizontalPadding}
 					paddingRight={kHorizontalPadding}
+					size='large'
 				>
 					<ActionBarRegion location='left'>
 						<TopActionBarNewMenu />
@@ -161,32 +161,32 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 						<TopActionBarOpenMenu />
 						<ActionBarSeparator />
 						<ActionBarCommandButton
-							iconId='positron-save'
-							commandId={SAVE}
 							ariaLabel={CommandCenter.title(SAVE)}
+							commandId={SAVE}
+							iconId='positron-save'
 						/>
 						<ActionBarCommandButton
-							iconId='positron-save-all'
-							commandId={SAVE_ALL}
 							ariaLabel={CommandCenter.title(SAVE_ALL)}
+							commandId={SAVE_ALL}
+							iconId='positron-save-all'
 						/>
 					</ActionBarRegion>
 
 					{showCenterUI && (
 						<ActionBarRegion location='center'>
 
-							<PositronActionBar size='large' nestedActionBar={true}>
+							<PositronActionBar nestedActionBar={true} size='large'>
 								{showFullCenterUI && (
-									<ActionBarRegion width={60} location='left' justify='right'>
+									<ActionBarRegion justify='right' location='left' width={60}>
 										<ActionBarCommandButton
-											iconId='chevron-left'
-											commandId={NAV_BACK}
 											ariaLabel={CommandCenter.title(NAV_BACK)}
+											commandId={NAV_BACK}
+											iconId='chevron-left'
 										/>
 										<ActionBarCommandButton
-											iconId='chevron-right'
-											commandId={NAV_FORWARD}
 											ariaLabel={CommandCenter.title(NAV_FORWARD)}
+											commandId={NAV_FORWARD}
+											iconId='chevron-right'
 										/>
 									</ActionBarRegion>
 								)}
@@ -194,7 +194,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 									<TopActionBarCommandCenter />
 								</ActionBarRegion>
 								{showFullCenterUI && (
-									<ActionBarRegion width={60} location='right' justify='left' />
+									<ActionBarRegion justify='left' location='right' width={60} />
 								)}
 							</PositronActionBar>
 
@@ -203,8 +203,8 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 
 					<ActionBarRegion location='right'>
 						<TopActionBarInterpretersManager
-							onStartRuntime={startRuntimeHandler}
 							onActivateRuntime={activateRuntimeHandler}
+							onStartRuntime={startRuntimeHandler}
 						/>
 						{showCenterUI && (
 							<TopActionBarCustonFolderMenu />

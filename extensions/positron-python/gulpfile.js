@@ -21,7 +21,6 @@ const flat = require('flat');
 const { argv } = require('yargs');
 const os = require('os');
 // --- Start Positron ---
-const rmrf = require('rimraf');
 const fancyLog = require('fancy-log');
 const ansiColors = require('ansi-colors');
 // --- End Positron ---
@@ -33,6 +32,10 @@ const isCI = process.env.TRAVIS === 'true' || process.env.TF_BUILD !== undefined
 
 // --- Start Positron ---
 const pythonCommand = locatePython();
+const arch = os.arch();
+if (arch !== 'x64' && arch !== 'arm64') {
+    throw new Error(`Unsupported architecture: ${arch}`);
+}
 // --- End Positron ---
 
 gulp.task('compileCore', (done) => {
@@ -233,12 +236,6 @@ function getAllowedWarningsForWebPack(buildConfig) {
             throw new Error('Unknown WebPack Configuration');
     }
 }
-gulp.task('renameSourceMaps', async () => {
-    // By default source maps will be disabled in the extension.
-    // Users will need to use the command `python.enableSourceMapSupport` to enable source maps.
-    const extensionSourceMap = path.join(__dirname, 'out', 'client', 'extension.js.map');
-    await fsExtra.rename(extensionSourceMap, `${extensionSourceMap}.disabled`);
-});
 
 gulp.task('verifyBundle', async () => {
     const matches = await glob.sync(path.join(__dirname, '*.vsix'));
@@ -249,93 +246,99 @@ gulp.task('verifyBundle', async () => {
     }
 });
 
-gulp.task('prePublishBundle', gulp.series('webpack', 'renameSourceMaps'));
+gulp.task('prePublishBundle', gulp.series('webpack'));
 gulp.task('checkDependencies', gulp.series('checkNativeDependencies'));
 gulp.task('prePublishNonBundle', gulp.series('compile'));
 
 // --- Start Positron ---
-gulp.task('installPythonRequirements', async (done) => {
-    const args = [
+async function pipInstall(args) {
+    await spawnAsync(pythonCommand, [
         '-m',
         'pip',
+
+        // Silence warnings about pip version.
         '--disable-pip-version-check',
+
         'install',
-        '--no-user',
-        '-t',
-        './python_files/lib/python',
+
+        // Upgrade to avoid warnings when rerunning the task.
+        '--upgrade',
+
+        // Args for a safer installation.
         '--no-cache-dir',
+        '--no-deps',
+        '--require-hashes',
+        '--only-binary',
+        ':all:',
+
+        ...args,
+    ]);
+}
+
+async function installPythonScriptRequirements() {
+    await pipInstall(['--target', './python_files/lib/python', '--implementation', 'py', '-r', './requirements.txt']);
+}
+
+async function vendorPythonKernelRequirements() {
+    await spawnAsync(pythonCommand, ['scripts/vendor.py']);
+}
+
+async function bundleIPykernel() {
+    const pythonVersions = ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13'];
+    const minimumPythonVersion = '3.8';
+
+    // Pure Python 3 requirements.
+    await pipInstall([
+        '--target',
+        './python_files/lib/ipykernel/py3',
         '--implementation',
         'py',
-        '--no-deps',
-        '--upgrade',
+        '--python-version',
+        minimumPythonVersion,
+        '--abi',
+        'none',
         '-r',
-        './requirements.txt',
-    ];
-    await spawnAsync(pythonCommand, args)
-        .then(() => true)
-        .catch((ex) => {
-            const msg = "Failed to install requirements using 'python'";
-            fancyLog.error(ansiColors.red(`error`), msg, ex);
-            done(new Error(msg));
-        });
+        './python_files/ipykernel_requirements/py3-requirements.txt',
+    ]);
 
-    // Vendor Python requirements for the Positron Python kernel.
-    await spawnAsync(pythonCommand, ['scripts/vendor.py']).catch((ex) => {
-        const msg = 'Failed to vendor Python requirements';
-        fancyLog.error(ansiColors.red(`error`), msg, ex);
-        done(new Error(msg));
-    });
-});
-
-// See https://github.com/microsoft/vscode-python/issues/7136
-gulp.task('installDebugpy', async (done) => {
-    // Install dependencies needed for 'install_debugpy.py'
-    const depsArgs = [
-        '-m',
-        'pip',
-        '--disable-pip-version-check',
-        'install',
-        '--no-user',
-        '--upgrade',
-        '-t',
-        './python_files/lib/temp',
+    // CPython 3 requirements (specific to platform and architecture).
+    await pipInstall([
+        '--target',
+        `./python_files/lib/ipykernel/${arch}/cp3`,
+        '--implementation',
+        'cp',
+        '--python-version',
+        '3.8',
+        '--abi',
+        'abi3',
         '-r',
-        './build/build-install-requirements.txt',
-    ];
-    await spawnAsync(pythonCommand, depsArgs)
-        .then(() => true)
-        .catch((ex) => {
-            const msg = "Failed to install dependencies need by 'install_debugpy.py' using 'python'";
-            fancyLog.error(ansiColors.red(`error`), msg, ex);
-            done(new Error(msg));
-        });
+        `./python_files/ipykernel_requirements/cp3-requirements.txt`,
+    ]);
 
-    // Install new DEBUGPY with wheels for python
-    const wheelsArgs = ['./python_files/install_debugpy.py'];
-    const wheelsEnv = { PYTHONPATH: './python_files/lib/temp' };
-    await spawnAsync(pythonCommand, wheelsArgs, wheelsEnv)
-        .then(() => true)
-        .catch((ex) => {
-            const msg = "Failed to install DEBUGPY wheels using 'python'";
-            fancyLog.error(ansiColors.red(`error`), msg, ex);
-            done(new Error(msg));
-        });
+    // CPython 3.x requirements (specific to platform, architecture, and Python version).
+    for (const pythonVersion of pythonVersions) {
+        const shortVersion = pythonVersion.replace('.', '');
+        const abi = `cp${shortVersion}`;
+        await pipInstall([
+            '--target',
+            `./python_files/lib/ipykernel/${arch}/${abi}`,
+            '--implementation',
+            'cp',
+            '--python-version',
+            pythonVersion,
+            '--abi',
+            abi,
+            '-r',
+            './python_files/ipykernel_requirements/cpx-requirements.txt',
+        ]);
+    }
+}
 
-    // Download get-pip.py
-    const getPipArgs = ['./python_files/download_get_pip.py'];
-    const getPipEnv = { PYTHONPATH: './python_files/lib/temp' };
-    await spawnAsync(pythonCommand, getPipArgs, getPipEnv)
-        .then(() => true)
-        .catch((ex) => {
-            const msg = "Failed to download get-pip.py using 'python'";
-            fancyLog.error(ansiColors.red(`error`), msg, ex);
-            done(new Error(msg));
-        });
-
-    rmrf.sync('./python_files/lib/temp');
-});
-
-gulp.task('installPythonLibs', gulp.series('installPythonRequirements'));
+gulp.task(
+    'installPythonLibs',
+    // Run in parallel since vendoring rewrites imports which is somewhat CPU-bound.
+    gulp.parallel(vendorPythonKernelRequirements, gulp.series(installPythonScriptRequirements, bundleIPykernel)),
+);
 
 function locatePython() {
     let pythonPath = process.env.CI_PYTHON_PATH || 'python3';

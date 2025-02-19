@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -51,8 +51,8 @@ export const showSetPlotSizeModalDialog = async (
 	// Show the set plot size modal dialog.
 	renderer.render(
 		<SetPlotSizeModalDialog
-			renderer={renderer}
 			customSize={customSize}
+			renderer={renderer}
 			setPlotSize={setPlotSize}
 		/>
 	);
@@ -122,30 +122,30 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 	// Render.
 	return (
 		<PositronModalDialog
-			renderer={props.renderer}
-			width={350}
 			height={200}
+			renderer={props.renderer}
 			title={(() => localize('positronSetPlotSizeModalDialogTitle', "Custom Plot Size"))()}
+			width={350}
 			onCancel={cancelHandler}>
 			<ContentArea>
 				<table>
 					<tbody>
 						<tr>
 							<td>
-								<LabeledTextInput label={(() => localize(
-									'positronPlotWidth',
-									"Width"
-								))()}
-									value={width} autoFocus={true} min={100}
-									type='number' onChange={(el) => setWidth(el.target.valueAsNumber)} />
+								<LabeledTextInput autoFocus={true}
+									label={(() => localize(
+										'positronPlotWidth',
+										"Width"
+									))()} min={100} type='number'
+									value={width} onChange={(el) => setWidth(el.target.valueAsNumber)} />
 							</td>
 							<td>
 								<LabeledTextInput label={(() => localize(
 									'positronPlotHeight',
 									"Height"
 								))()}
-									value={height} min={100}
-									type='number' onChange={(el) => setHeight(el.target.valueAsNumber)} />
+									min={100} type='number'
+									value={height} onChange={(el) => setHeight(el.target.valueAsNumber)} />
 							</td>
 						</tr>
 					</tbody>
@@ -163,7 +163,7 @@ const SetPlotSizeModalDialog = (props: SetPlotSizeModalDialogProps) => {
 					</Button>
 				</div>
 				<div className='right'>
-					<PlatformNativeDialogActionBar secondaryButton={cancelButton} primaryButton={okButton} />
+					<PlatformNativeDialogActionBar primaryButton={okButton} secondaryButton={cancelButton} />
 				</div>
 			</div>
 		</PositronModalDialog>

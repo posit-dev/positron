@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -20,8 +20,8 @@ export function AddCellButtons({ index }: { index: number }) {
 	const notebookInstance = useNotebookInstance();
 
 	return <div className='positron-add-cell-buttons'>
-		<AddCodeCellButton notebookInstance={notebookInstance} index={index} bordered />
-		<AddMarkdownCellButton notebookInstance={notebookInstance} index={index} bordered />
+		<AddCodeCellButton bordered index={index} notebookInstance={notebookInstance} />
+		<AddMarkdownCellButton bordered index={index} notebookInstance={notebookInstance} />
 	</div>;
 }
 
@@ -31,11 +31,11 @@ export function AddCodeCellButton({ notebookInstance, index, bordered }: { noteb
 	const label = localize('newCodeCellshort', 'Code');
 	const fullLabel = localize('newCodeCellLong', 'New Code Cell');
 	return <IconedButton
-		codicon='code'
-		label={label}
-		fullLabel={fullLabel}
-		onClick={() => notebookInstance.addCell(CellKind.Code, index)}
 		bordered={bordered}
+		codicon='code'
+		fullLabel={fullLabel}
+		label={label}
+		onClick={() => notebookInstance.addCell(CellKind.Code, index)}
 	/>;
 
 }
@@ -46,11 +46,11 @@ export function AddMarkdownCellButton({ notebookInstance, index, bordered }: { n
 	const label = localize('newMarkdownCellShort', 'Markdown');
 	const fullLabel = localize('newMarkdownCellLong', 'New Markdown Cell');
 	return <IconedButton
-		codicon='markdown'
-		label={label}
-		fullLabel={fullLabel}
-		onClick={() => notebookInstance.addCell(CellKind.Markup, index)}
 		bordered={bordered}
+		codicon='markdown'
+		fullLabel={fullLabel}
+		label={label}
+		onClick={() => notebookInstance.addCell(CellKind.Markup, index)}
 	/>;
 
 }

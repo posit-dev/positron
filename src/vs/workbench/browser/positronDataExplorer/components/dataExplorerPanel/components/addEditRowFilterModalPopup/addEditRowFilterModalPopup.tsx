@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -752,27 +752,18 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 	// Render.
 	return (
 		<PositronModalPopup
-			renderer={props.renderer}
 			anchorElement={props.anchorElement}
-			popupPosition='auto'
-			popupAlignment='auto'
-			width={275}
 			height={'min-content'}
 			keyboardNavigationStyle='dialog'
+			popupAlignment='auto'
+			popupPosition='auto'
+			renderer={props.renderer}
+			width={275}
 			onAccept={applyRowFilter}
 		>
 			<div className='add-edit-row-filter-modal-popup-body'>
 				{supportsConditions && !props.isFirstFilter &&
 					<DropDownListBox
-						onSelectionChanged={dropDownListBoxItem => {
-							setSelectedCondition(dropDownListBoxItem.options.identifier);
-						}}
-						keybindingService={props.renderer.keybindingService}
-						layoutService={props.renderer.layoutService}
-						title={(() => localize(
-							'positron.addEditRowFilter.selectCombiningOperator',
-							"Select Combining Operator"
-						))()}
 						entries={[
 							new DropDownListBoxItem({
 								identifier: RowFilterCondition.And,
@@ -791,19 +782,28 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 								value: RowFilterCondition.Or
 							})
 						]}
+						keybindingService={props.renderer.keybindingService}
+						layoutService={props.renderer.layoutService}
 						selectedIdentifier={selectedCondtion}
+						title={(() => localize(
+							'positron.addEditRowFilter.selectCombiningOperator',
+							"Select Combining Operator"
+						))()}
+						onSelectionChanged={dropDownListBoxItem => {
+							setSelectedCondition(dropDownListBoxItem.options.identifier);
+						}}
 					/>
 				}
 				<DropDownColumnSelector
 					configurationService={props.configurationService}
+					dataExplorerClientInstance={props.dataExplorerClientInstance}
 					keybindingService={props.renderer.keybindingService}
 					layoutService={props.renderer.layoutService}
-					dataExplorerClientInstance={props.dataExplorerClientInstance}
+					selectedColumnSchema={selectedColumnSchema}
 					title={(() => localize(
 						'positron.addEditRowFilter.selectColumn',
 						"Select Column"
 					))()}
-					selectedColumnSchema={selectedColumnSchema}
 					onSelectedColumnSchemaChanged={columnSchema => {
 						// Set the selected column schema.
 						setSelectedColumnSchema(columnSchema);
@@ -817,14 +817,14 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				/>
 				<DropDownListBox
 					disabled={selectedColumnSchema === undefined}
+					entries={conditionEntries()}
 					keybindingService={props.renderer.keybindingService}
 					layoutService={props.renderer.layoutService}
+					selectedIdentifier={selectedFilterType}
 					title={(() => localize(
 						'positron.addEditRowFilter.selectCondition',
 						"Select Condition"
 					))()}
-					entries={conditionEntries()}
-					selectedIdentifier={selectedFilterType}
 					onSelectionChanged={dropDownListBoxItem => {
 						const prevSelected = selectedFilterType;
 						const nextSelected = dropDownListBoxItem.options.identifier;

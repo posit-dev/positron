@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -72,18 +72,18 @@ export const OpenInEditorMenuButton = (props: OpenInEditorMenuButtonProps) => {
 			};
 		});
 		setActions(actions);
-	}, [defaultAction]);
+	}, [defaultAction, openEditorPlotHandler]);
 
 
 	return (
 		<ActionBarMenuButton
+			actions={() => actions}
+			ariaLabel={props.ariaLabel}
+			dropdownAriaLabel={localize('positron-editor-open-in-editor-dropdown', 'Select where to open plot')}
+			dropdownIndicator='enabled-split'
+			dropdownTooltip={localize('positron-editor-open-in-editor-dropdown', 'Select where to open plot')}
 			iconId='go-to-file'
 			tooltip={props.tooltip}
-			ariaLabel={props.ariaLabel}
-			actions={() => actions}
-			dropdownIndicator='enabled-split'
-			dropdownAriaLabel={localize('positron-editor-open-in-editor-dropdown', 'Select where to open plot')}
-			dropdownTooltip={localize('positron-editor-open-in-editor-dropdown', 'Select where to open plot')}
 		/>
 	);
 };

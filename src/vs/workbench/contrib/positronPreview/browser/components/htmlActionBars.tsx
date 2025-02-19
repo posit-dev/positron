@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -78,7 +78,7 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 	return (
 		<PositronActionBarContextProvider {...props}>
 			<div className='action-bars preview-action-bar'>
-				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+				<PositronActionBar borderBottom={true} borderTop={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight} size='small'>
 					<ActionBarRegion location='left'>
 						<span className='codicon codicon-file'></span>
 					</ActionBarRegion>
@@ -87,30 +87,30 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<ActionBarButton
-							iconId='positron-refresh'
 							align='right'
-							tooltip={reload}
 							ariaLabel={reload}
+							iconId='positron-refresh'
+							tooltip={reload}
 							onPressed={reloadHandler} />
 						<ActionBarButton
-							iconId='positron-open-in-new-window'
 							align='right'
-							tooltip={openInBrowser}
 							ariaLabel={openInBrowser}
+							iconId='positron-open-in-new-window'
+							tooltip={openInBrowser}
 							onPressed={openInBrowserHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton
-							iconId='go-to-file'
 							align='right'
-							tooltip={openInEditor}
 							ariaLabel={openInEditor}
+							iconId='go-to-file'
+							tooltip={openInEditor}
 							onPressed={openInEditorHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton
-							iconId='clear-all'
 							align='right'
-							tooltip={clear}
 							ariaLabel={clear}
+							iconId='clear-all'
+							tooltip={clear}
 							onPressed={clearHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>

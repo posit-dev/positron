@@ -13,7 +13,7 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN] }, () => {
 
 	test.describe('Stacked Layout', () => {
 
-		test('Verify stacked layout puts stuff in appropriate places', async function ({ app }) {
+		test('Verify Stacked Layout displays Console, Terminal, and Auxiliary Sections in correct order', async function ({ app }) {
 			const layouts = app.workbench.layouts;
 
 			await app.code.driver.page.setViewportSize({ width: 1400, height: 1000 });
@@ -58,7 +58,7 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN] }, () => {
 
 	test.describe('Side-by-side Layout', () => {
 
-		test('Verify Side-by-side layout puts stuff in appropriate places', async function ({ app }) {
+		test('Verify Side-by-Side Layout collapses Sidebar and Panel while arranging Console, Variables, and Plots', async function ({ app }) {
 
 			const layouts = app.workbench.layouts;
 
@@ -100,7 +100,7 @@ test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN] }, () => {
 
 	test.describe('Notebook Layout', () => {
 
-		test('Verify notebook layout puts stuff in appropriate places', async function ({ app }) {
+		test('Verify Notebook Layout collapses Panel by default and expands correctly', async function ({ app }) {
 
 			const layouts = app.workbench.layouts;
 

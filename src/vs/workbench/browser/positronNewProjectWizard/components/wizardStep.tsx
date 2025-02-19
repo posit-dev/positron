@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -38,10 +38,10 @@ export const PositronWizardStep = (props: PropsWithChildren<PositronWizardStepPr
 			<div className='wizard-step-title'>{props.title}</div>
 			<VerticalStack>{props.children}</VerticalStack>
 			<OKCancelBackNextActionBar
-				okButtonConfig={props.okButtonConfig}
-				cancelButtonConfig={props.cancelButtonConfig}
 				backButtonConfig={props.backButtonConfig}
+				cancelButtonConfig={props.cancelButtonConfig}
 				nextButtonConfig={props.nextButtonConfig}
+				okButtonConfig={props.okButtonConfig}
 			/>
 		</div>
 	);

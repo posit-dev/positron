@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -39,7 +39,7 @@ export const Checkbox = ({ label, initialChecked, onChanged }: CheckboxProps) =>
 	// Render.
 	return (
 		<div className='checkbox'>
-			<button ref={buttonRef} id={id} className='checkbox-button' aria-checked='false' tabIndex={0} role='checkbox' onClick={clickHandler}>
+			<button ref={buttonRef} aria-checked='false' className='checkbox-button' id={id} role='checkbox' tabIndex={0} onClick={clickHandler}>
 				{checked && <div className='check-indicator codicon codicon-check' />}
 			</button>
 			<label htmlFor={id}>{label}</label>

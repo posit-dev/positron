@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -53,13 +53,13 @@ export const StaticPlotInstance = (props: StaticPlotInstanceProps) => {
 	}, []);
 
 	return (
-		<div className='plot-instance static-plot-instance' ref={ref}>
+		<div ref={ref} className='plot-instance static-plot-instance'>
 			<PanZoomImage
-				imageUri={props.plotClient.uri}
 				description={props.plotClient.code ? props.plotClient.code : 'Plot ' + props.plotClient.id}
-				zoom={props.zoom}
-				width={width}
 				height={height}
+				imageUri={props.plotClient.uri}
+				width={width}
+				zoom={props.zoom}
 			/>
 		</div>);
 };

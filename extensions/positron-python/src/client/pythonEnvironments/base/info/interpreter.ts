@@ -17,6 +17,9 @@ export type InterpreterInformation = {
     arch: Architecture;
     executable: PythonExecutableInfo;
     version: PythonVersion;
+    // --- Start Positron ---
+    implementation?: string;
+    // --- End Positron ---
 };
 
 /**
@@ -58,6 +61,9 @@ function extractInterpreterInfo(python: string, raw: InterpreterInfoJson): Inter
             ...parseVersion(rawVersion),
             sysVersion: raw.sysVersion,
         },
+        // --- Start Positron ---
+        implementation: raw.implementation,
+        // --- End Positron ---
     };
 }
 

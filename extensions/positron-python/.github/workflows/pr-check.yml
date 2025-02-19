@@ -351,7 +351,7 @@ jobs:
         env:
           TEST_FILES_SUFFIX: testvirtualenvs
           CI_PYTHON_VERSION: ${{ matrix.python }}
-        uses: GabrielBB/xvfb-action@v1.6
+        uses: GabrielBB/xvfb-action@v1.7
         with:
           run: npm run testSingleWorkspace
           working-directory: ${{ env.special-working-directory }}
@@ -360,7 +360,7 @@ jobs:
       - name: Run single-workspace tests
         env:
           CI_PYTHON_VERSION: ${{ matrix.python }}
-        uses: GabrielBB/xvfb-action@v1.6
+        uses: GabrielBB/xvfb-action@v1.7
         with:
           run: npm run testSingleWorkspace
           working-directory: ${{ env.special-working-directory }}
@@ -369,7 +369,7 @@ jobs:
       - name: Run debugger tests
         env:
           CI_PYTHON_VERSION: ${{ matrix.python }}
-        uses: GabrielBB/xvfb-action@v1.6
+        uses: GabrielBB/xvfb-action@v1.7
         with:
           run: npm run testDebugger
           working-directory: ${{ env.special-working-directory }}
@@ -458,6 +458,7 @@ jobs:
     name: Coverage
     # The value of runs-on is the OS of the current job (specified in the strategy matrix below) instead of being hardcoded.
     runs-on: ${{ matrix.os }}
+    needs: [lint, check-types, python-tests, tests, native-tests]
     strategy:
       fail-fast: false
       matrix:
@@ -611,7 +612,7 @@ jobs:
           TEST_FILES_SUFFIX: testvirtualenvs
           CI_PYTHON_VERSION: ${{ env.PYTHON_VERSION }}
           CI_DISABLE_AUTO_SELECTION: 1
-        uses: GabrielBB/xvfb-action@v1.6
+        uses: GabrielBB/xvfb-action@v1.7
         with:
           run: npm run testSingleWorkspace:cover
 
@@ -619,7 +620,7 @@ jobs:
         env:
           CI_PYTHON_VERSION: ${{ env.PYTHON_VERSION }}
           CI_DISABLE_AUTO_SELECTION: 1
-        uses: GabrielBB/xvfb-action@v1.6
+        uses: GabrielBB/xvfb-action@v1.7
         with:
           run: npm run testSingleWorkspace:cover
 
@@ -628,7 +629,7 @@ jobs:
       #   env:
       #     CI_PYTHON_VERSION: ${{ env.PYTHON_VERSION }}
       #     CI_DISABLE_AUTO_SELECTION: 1
-      #   uses: GabrielBB/xvfb-action@v1.6
+      #   uses: GabrielBB/xvfb-action@v1.7
       #   with:
       #     run: npm run testMultiWorkspace:cover
 
@@ -637,7 +638,7 @@ jobs:
       #   env:
       #     CI_PYTHON_VERSION: ${{ env.PYTHON_VERSION }}
       #     CI_DISABLE_AUTO_SELECTION: 1
-      #   uses: GabrielBB/xvfb-action@v1.6
+      #   uses: GabrielBB/xvfb-action@v1.7
       #   with:
       #     run: npm run testDebugger:cover
 

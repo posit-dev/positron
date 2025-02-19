@@ -657,8 +657,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	removeClient(id: string): void {
-		const commOpen = new CommCloseCommand(id);
-		this.sendCommand(commOpen);
+		// Ignore this if the session is already exited; an exited session has
+		// no clients
+		if (this._runtimeState === positron.RuntimeState.Exited) {
+			this.log(`Ignoring request to close comm ${id}; kernel has already exited`, vscode.LogLevel.Debug);
+			return;
+		}
+		const commClose = new CommCloseCommand(id);
+		this.sendCommand(commClose);
 	}
 
 	/**

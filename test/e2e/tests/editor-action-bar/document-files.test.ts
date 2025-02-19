@@ -18,16 +18,15 @@ test.describe('Editor Action Bar: Document Files', {
 	tag: [tags.WEB, tags.WIN, tags.EDITOR_ACTION_BAR, tags.EDITOR]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings, app }) {
+	test.beforeAll(async function ({ app }) {
 		editorActionBar = app.workbench.editorActionBar;
-		await userSettings.set([['editor.actionBar.enabled', 'true']], false);
 	});
 
 	test.afterEach(async function ({ runCommand }) {
 		await runCommand('workbench.action.closeAllEditors');
 	});
 
-	test('R Markdown Document', {
+	test('R Markdown Document - Verify `preview`, `split editor`, `open in new window` behavior', {
 		tag: [tags.R_MARKDOWN]
 	}, async function ({ app, openFile }) {
 		await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
@@ -36,7 +35,7 @@ test.describe('Editor Action Bar: Document Files', {
 		await verifyOpenInNewWindow(app, 'This post examines the features');
 	});
 
-	test('Quarto Document', {
+	test('Quarto Document - Verify `preview`, `split editor`, `open in new window` behavior', {
 		tag: [tags.QUARTO]
 	}, async function ({ app, page, openFile }) {
 		await openFile('workspaces/quarto_basic/quarto_basic.qmd');
@@ -46,14 +45,14 @@ test.describe('Editor Action Bar: Document Files', {
 		await verifyOpenInNewWindow(app, 'Diamond sizes');
 	});
 
-	test('HTML Document', { tag: [tags.HTML] }, async function ({ app, page, openFile }) {
+	test('HTML Document - Verify `open viewer`, `split editor`, `open in new window` behavior', { tag: [tags.HTML] }, async function ({ app, page, openFile }) {
 		await openFile('workspaces/dash-py-example/data/OilandGasMetadata.html');
 		await verifyOpenViewerRendersHtml(app, 'Oil, Gas, and Other Regulated');
 		await verifySplitEditor('OilandGasMetadata.html');
 		await verifyOpenInNewWindow(app, '<title> Oil &amp; Gas Wells - Metadata</title>');
 	});
 
-	test('Jupyter Notebook', {
+	test('Jupyter Notebook - Verify toggle `line numbers`, `toggle breadcrumbs`, `split editor` behavior', {
 		tag: [tags.NOTEBOOKS],
 	}, async function ({ app, page, openDataFile }) {
 		await openDataFile('workspaces/large_r_notebook/spotify.ipynb');
@@ -99,7 +98,7 @@ async function verifyOpenChanges(page: Page) {
 		}
 
 		// make change & save
-		await page.getByText('date', { exact: true }).click();
+		await page.locator('[id="workbench\\.parts\\.editor"]').getByText('date').click();
 		await page.keyboard.press('X');
 		await bindPlatformHotkey(page, 'S');
 

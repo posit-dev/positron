@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -19,6 +19,9 @@ export interface RMetadataExtra {
 
 	/** R's binary path */
 	readonly binpath: string;
+
+	/** R's Rscript path */
+	readonly scriptpath: string;
 
 	/**
 	 * Is this known to be the current version of R?
@@ -43,7 +46,8 @@ export enum ReasonDiscovered {
 	HQ = "HQ",
 	/* eslint-enable @typescript-eslint/naming-convention */
 	adHoc = "adHoc",
-	user = "user"
+	user = "user",
+	server = "server"
 }
 
 /**
@@ -70,6 +74,8 @@ export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null)
 				return 'Found in a conventional location for symlinked R binaries';
 			case ReasonDiscovered.user:
 				return 'User-specified location';
+			case ReasonDiscovered.server:
+				return 'Found in a conventional location for R binaries installed on a server';
 		}
 	} else if (Object.values(ReasonRejected).includes(reason as ReasonRejected)) {
 		switch (reason) {

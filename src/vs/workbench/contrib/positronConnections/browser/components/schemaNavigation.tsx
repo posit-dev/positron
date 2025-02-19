@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -83,9 +83,9 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 			<div className='positron-connections-schema-navigation'>
 				<ActionBar
 					{...context}
+					onBack={() => props.setActiveInstanceId(undefined)}
 					onDisconnect={() => { }}
 					onRefresh={() => { }}
-					onBack={() => props.setActiveInstanceId(undefined)}
 				>
 				</ActionBar>
 			</div>
@@ -103,9 +103,9 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 			<PositronConnectionsItem
 				item={itemProps}
 				selected={itemProps.id === selectedId}
+				style={props.style}
 				onSelected={() => setSelectedId(itemProps.id)}
-				onToggleExpand={toggleExpandHandler}
-				style={props.style}>
+				onToggleExpand={toggleExpandHandler}>
 			</PositronConnectionsItem>
 		);
 	};
@@ -117,29 +117,31 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 		<div className='positron-connections-schema-navigation'>
 			<ActionBar
 				{...context}
+				onBack={() => props.setActiveInstanceId(undefined)}
 				onDisconnect={() => activeInstance.disconnect?.()}
 				onRefresh={() => activeInstance.refresh?.()}
-				onBack={() => props.setActiveInstanceId(undefined)}
 			>
 			</ActionBar>
 			<div className='connections-items-container'>
 				<div className={'connections-instance-details'} style={{ height: DETAILS_BAR_HEIGHT }}>
 					<div className='connection-name'>{name}</div>
 					<div className='connection-language'>{languageIdToName(language_id)}</div>
-					<div className={'connection-icon'}>
-						{
-							icon || <div className='codicon codicon-positron-database-connection'></div>
-						}
-					</div>
+					{
+						icon ?
+							<img className='connection-icon' src={icon}></img> :
+							<div className='connection-icon'>
+								<div className='codicon codicon-positron-database-connection'></div>
+							</div>
+					}
 				</div>
 				<List
-					itemCount={entries.length}
-					itemSize={26}
-					/* size if the actionbar and the secondary side bar combined) */
 					height={height - ACTION_BAR_HEIGHT - DETAILS_BAR_HEIGHT}
-					width={'calc(100% - 2px)'}
-					itemKey={index => entries[index].id}
 					innerRef={innerRef}
+					itemCount={entries.length}
+					itemKey={index => entries[index].id}
+					itemSize={26}
+					width={'calc(100% - 2px)'}
+				/* size if the actionbar and the secondary side bar combined) */
 				>
 					{ItemEntry}
 				</List>
@@ -177,16 +179,9 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		props.onToggleExpand(props.item.id);
 	};
 
-	const icon = (() => {
-
-		if (props.item.icon) {
-			return props.item.icon;
-		}
-
-		if (props.item.kind) {
-			// TODO: we'll probably want backends to implement the casting to a set of known
-			// types or provide their own icon.
-			switch (props.item.kind) {
+	const iconClass = (kind?: string) => {
+		if (kind) {
+			switch (kind.toLowerCase()) {
 				case 'table':
 					return 'positron-table-connection';
 				case 'view':
@@ -198,11 +193,13 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 				case 'catalog':
 					return 'positron-catalog-connection';
 				case 'field':
-					switch (props.item.dtype) {
+					switch (props.item.dtype?.toLowerCase()) {
 						case 'character':
+						case 'string':
 							return 'positron-data-type-string';
 						case 'integer':
 						case 'numeric':
+						case 'float':
 							return 'positron-data-type-number';
 						case 'boolean':
 						case 'bool':
@@ -212,8 +209,26 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 					}
 			}
 		}
-		// If kind is not known, then no icon is dplsayed by default.
+
 		return '';
+	}
+
+	const icon = (() => {
+		// icon is a base64 encoded png
+		if (props.item.icon) {
+			return <img
+				src={props.item.icon}
+			>
+			</img>;
+		}
+
+		return <div
+			className={positronClassNames(
+				'codicon',
+				`codicon-${iconClass(props.item.kind)}`,
+			)}
+		>
+		</div>
 	})();
 
 	const rowMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
@@ -268,17 +283,13 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 				{props.item.error && <span className='connections-error codicon codicon-error' title={props.item.error}></span>}
 			</div>
 			<div
-				className='connections-icon'
+				className={positronClassNames(
+					'connections-icon',
+					{ 'disabled': props.item.preview === undefined }
+				)}
 				onClick={() => props.item.preview?.()}
 			>
-				<div
-					className={positronClassNames(
-						'codicon',
-						`codicon-${icon}`,
-						{ 'disabled': props.item.preview === undefined }
-					)}
-				>
-				</div>
+				{icon}
 			</div>
 		</div>
 	);

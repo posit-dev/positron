@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -51,15 +51,6 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 		</div>
 		<div className='select-language'>
 			<DropDownListBox
-				keybindingService={props.services.keybindingService}
-				layoutService={props.services.layoutService}
-				title={(() => localize('positron.newConnectionModalDialog.listDrivers.selectLanguage', "Select a language"))()}
-				entries={getRegisteredLanguages(props.services).map((item) => {
-					return new DropDownListBoxItem({
-						identifier: item.languageId,
-						value: item
-					});
-				})}
 				createItem={(item) => {
 					const value = item.options.value;
 
@@ -70,8 +61,17 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 						</div>
 					</div>;
 				}}
-				onSelectionChanged={(item) => onLanguageChangeHandler(item.options.identifier)}
+				entries={getRegisteredLanguages(props.services).map((item) => {
+					return new DropDownListBoxItem({
+						identifier: item.languageId,
+						value: item
+					});
+				})}
+				keybindingService={props.services.keybindingService}
+				layoutService={props.services.layoutService}
 				selectedIdentifier={languageId}
+				title={(() => localize('positron.newConnectionModalDialog.listDrivers.selectLanguage', "Select a language"))()}
+				onSelectionChanged={(item) => onLanguageChangeHandler(item.options.identifier)}
 			>
 			</DropDownListBox>
 		</div>

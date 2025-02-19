@@ -10,8 +10,9 @@ import {
     NotebookEdit,
     WorkspaceEdit,
     workspace,
+    Uri,
 } from 'vscode';
-import { getExistingReplViewColumn } from './replUtils';
+import { getExistingReplViewColumn, getTabNameForUri } from './replUtils';
 import { PVSC_EXTENSION_ID } from '../common/constants';
 
 /**
@@ -19,19 +20,38 @@ import { PVSC_EXTENSION_ID } from '../common/constants';
  */
 export async function openInteractiveREPL(
     notebookController: NotebookController,
-    notebookDocument: NotebookDocument | undefined,
-): Promise<NotebookEditor> {
+    notebookDocument: NotebookDocument | Uri | undefined,
+    preserveFocus: boolean = true,
+): Promise<NotebookEditor | undefined> {
     let viewColumn = ViewColumn.Beside;
-
-    // Case where NotebookDocument (REPL document already exists in the tab)
-    if (notebookDocument) {
+    if (notebookDocument instanceof Uri) {
+        // Case where NotebookDocument is undefined, but workspace mementoURI exists.
+        notebookDocument = await workspace.openNotebookDocument(notebookDocument);
+    } else if (notebookDocument) {
+        // Case where NotebookDocument (REPL document already exists in the tab)
         const existingReplViewColumn = getExistingReplViewColumn(notebookDocument);
         viewColumn = existingReplViewColumn ?? viewColumn;
     } else if (!notebookDocument) {
-        // Case where NotebookDocument doesnt exist, create a blank one.
+        // Case where NotebookDocument doesnt exist, or
+        // became outdated (untitled.ipynb created without Python extension knowing, effectively taking over original Python REPL's URI)
         notebookDocument = await workspace.openNotebookDocument('jupyter-notebook');
     }
-    const editor = window.showNotebookDocument(notebookDocument!, { viewColumn, asRepl: 'Python REPL' });
+    const editor = await window.showNotebookDocument(notebookDocument!, {
+        viewColumn,
+        asRepl: 'Python REPL',
+        preserveFocus,
+    });
+
+    // Sanity check that we opened a Native REPL from showNotebookDocument.
+    if (
+        !editor ||
+        !editor.notebook ||
+        !editor.notebook.uri ||
+        getTabNameForUri(editor.notebook.uri) !== 'Python REPL'
+    ) {
+        return undefined;
+    }
+
     await commands.executeCommand('notebook.selectKernel', {
         editor,
         id: notebookController.id,

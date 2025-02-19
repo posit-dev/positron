@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -73,7 +73,7 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 				<div className='top-spacer' />
 				{this.props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
 					if (runtimeItem instanceof RuntimeItemActivity) {
-						return <RuntimeActivity key={runtimeItem.id} fontInfo={this.props.editorFontInfo} runtimeItemActivity={runtimeItem} positronConsoleInstance={this.props.positronConsoleInstance} />;
+						return <RuntimeActivity key={runtimeItem.id} fontInfo={this.props.editorFontInfo} positronConsoleInstance={this.props.positronConsoleInstance} runtimeItemActivity={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemPendingInput) {
 						return <RuntimePendingInput key={runtimeItem.id} fontInfo={this.props.editorFontInfo} runtimeItemPendingInput={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemStartup) {
@@ -95,7 +95,7 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 						}
 						return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemRestartButton) {
-						return <RuntimeRestartButton key={runtimeItem.id} runtimeItemRestartButton={runtimeItem} positronConsoleInstance={this.props.positronConsoleInstance} />;
+						return <RuntimeRestartButton key={runtimeItem.id} positronConsoleInstance={this.props.positronConsoleInstance} runtimeItemRestartButton={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
 						return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemTrace) {
@@ -118,13 +118,13 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 
 				<ConsoleInput
 					hidden={this.props.positronConsoleInstance.promptActive || !this.props.runtimeAttached}
-					width={this.props.consoleInputWidth}
 					positronConsoleInstance={this.props.positronConsoleInstance}
-					onSelectAll={this.props.onSelectAll}
+					width={this.props.consoleInputWidth}
 					onCodeExecuted={() =>
 						// Update the component to eliminate flickering.
 						flushSync(() => this.forceUpdate()
 						)}
+					onSelectAll={this.props.onSelectAll}
 				/>
 			</>
 		);

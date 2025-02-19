@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -325,21 +325,21 @@ export const ActionBar = (props: ActionBarProps) => {
 		<PositronActionBarContextProvider {...positronConsoleContext}>
 			<div className='action-bar'>
 				<PositronActionBar
-					size='small'
-					borderTop={true}
 					borderBottom={true}
+					borderTop={true}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
+					size='small'
 				>
 					<ActionBarRegion location='left'>
 						<ConsoleInstanceMenuButton {...props} />
 						<div className='action-bar-separator' />
 						{directoryLabel &&
-							<div className='directory-label'
-								aria-label={(() => localize(
-									'directoryLabel',
-									"Current Working Directory"
-								))()}
+							<div aria-label={(() => localize(
+								'directoryLabel',
+								"Current Working Directory"
+							))()}
+								className='directory-label'
 							>
 								<span className='codicon codicon-folder' role='presentation'></span>
 								<span className='label' title={directoryLabel}>{directoryLabel}</span>
@@ -350,11 +350,11 @@ export const ActionBar = (props: ActionBarProps) => {
 						<div className='state-label'>{stateLabel}</div>
 						{interruptible &&
 							<ActionBarButton
-								fadeIn={true}
-								disabled={interrupting}
 								align='right'
-								tooltip={positronInterruptExecution}
 								ariaLabel={positronInterruptExecution}
+								disabled={interrupting}
+								fadeIn={true}
+								tooltip={positronInterruptExecution}
 								onPressed={interruptHandler}
 							>
 								<div className={
@@ -370,45 +370,45 @@ export const ActionBar = (props: ActionBarProps) => {
 							<ActionBarSeparator fadeIn={true} />
 						}
 						<ActionBarButton
-							iconId='positron-power-button-thin'
 							align='right'
-							disabled={!(canShutdown || canStart)}
-							tooltip={canStart ? positronStartConsole : positronShutdownConsole}
 							ariaLabel={canStart ? positronStartConsole : positronShutdownConsole}
+							disabled={!(canShutdown || canStart)}
+							iconId='positron-power-button-thin'
+							tooltip={canStart ? positronStartConsole : positronShutdownConsole}
 							onPressed={powerCycleConsoleHandler}
 						/>
 						<ActionBarButton
-							iconId='positron-restart-runtime-thin'
 							align='right'
-							disabled={!canShutdown}
-							tooltip={positronRestartConsole}
 							ariaLabel={positronRestartConsole}
+							disabled={!canShutdown}
+							iconId='positron-restart-runtime-thin'
+							tooltip={positronRestartConsole}
 							onPressed={restartConsoleHandler}
 						/>
 						{multiSessionsEnabled && <ConsoleInstanceInfoButton />}
 						<ActionBarSeparator />
 						{showDeveloperUI &&
 							<ActionBarButton
-								iconId='wand'
 								align='right'
-								tooltip={positronToggleTrace}
 								ariaLabel={positronToggleTrace}
+								iconId='wand'
+								tooltip={positronToggleTrace}
 								onPressed={toggleTraceHandler}
 							/>
 						}
 						<ActionBarButton
-							iconId='word-wrap'
 							align='right'
-							tooltip={positronToggleWordWrap}
 							ariaLabel={positronToggleWordWrap}
+							iconId='word-wrap'
+							tooltip={positronToggleWordWrap}
 							onPressed={toggleWordWrapHandler}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
-							iconId='clear-all'
 							align='right'
-							tooltip={positronClearConsole}
 							ariaLabel={positronClearConsole}
+							iconId='clear-all'
+							tooltip={positronClearConsole}
 							onPressed={clearConsoleHandler}
 						/>
 					</ActionBarRegion>

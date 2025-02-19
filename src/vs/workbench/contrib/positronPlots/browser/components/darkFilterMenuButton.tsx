@@ -110,11 +110,11 @@ export const DarkFilterMenuButton = (props: DarkFilterMenuButtonProps) => {
 
 	return (
 		<ActionBarMenuButton
+			actions={actions}
+			align='right'
+			ariaLabel={darkFilterTooltip}
 			iconId={iconForDarkFilter(darkFilterMode)}
 			tooltip={darkFilterTooltip}
-			ariaLabel={darkFilterTooltip}
-			align='right'
-			actions={actions}
 		/>
 	);
 };

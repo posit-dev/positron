@@ -87,9 +87,12 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 
 	initialize(): void { }
 
-	private getPrivateStorageId(): string {
+	private getPrivateStorageId(createIfNone = false): string | undefined {
 		let id = this.storageService.get('positron-connections-secret-id', StorageScope.WORKSPACE);
-		if (!id) {
+
+		if (createIfNone && !id) {
+			// If an id did not exist, we generate a new one and store it.
+			// This will trigger Positron to request access to secret keys.
 			id = generateUuid();
 			this.storageService.store(
 				'positron-connections-secret-id',
@@ -98,14 +101,34 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 				StorageTarget.MACHINE
 			);
 		}
+
 		return id;
 	}
 
+	private async deletePrivateStorageId() {
+		const id = this.getPrivateStorageId();
+
+		this.storageService.store('positron-connections-secret-id',
+			undefined,
+			StorageScope.WORKSPACE,
+			StorageTarget.MACHINE
+		);
+
+		if (id) {
+			await this.secretStorageService.delete(id);
+		}
+	}
+
+	// Adds stored connections to the service, so users can re-connect later.
 	private async addStoredConnections() {
 		const id = this.getPrivateStorageId();
-		const storedConnections: IConnectionMetadata[] = JSON.parse(
-			await this.secretStorageService.get(id) || '[]'
-		);
+
+		let storedConnections: IConnectionMetadata[] = [];
+		if (id) {
+			storedConnections = JSON.parse(
+				await this.secretStorageService.get(id) || '[]'
+			);
+		}
 
 		storedConnections.forEach((metadata) => {
 			if (metadata === null) {
@@ -250,12 +273,23 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 	}
 
 	private saveConnectionsState() {
-		this.secretStorageService.set(
-			this.getPrivateStorageId(),
-			JSON.stringify(this.connections.map((con) => {
-				return con.metadata;
-			}))
-		);
+		// This is called whenever a connection is added or removed, thus
+		// we save the entire state of the connections list -> will require access
+		// to the secret storage service unless the list of connections is empty.
+		// In this case we can simply delete the private storage key we have stored earlier.
+		const id = this.getPrivateStorageId(true);
+		if (id) { // should always be true
+			if (this.connections.length === 0) {
+				this.deletePrivateStorageId();
+			} else {
+				this.secretStorageService.set(
+					id,
+					JSON.stringify(this.connections.map((con) => {
+						return con.metadata;
+					}))
+				);
+			}
+		}
 	}
 }
 

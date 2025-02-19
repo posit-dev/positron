@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -73,31 +73,31 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 	// Render.
 	return (
 		<PositronModalPopup
-			renderer={props.renderer}
 			anchorElement={props.anchorElement}
-			popupPosition='auto'
-			popupAlignment='auto'
-			width={props.anchorElement.offsetWidth}
-			height={'min-content'}
 			focusableElementSelectors='input[type="text"],div[id=column-positron-data-grid]'
+			height={'min-content'}
 			keyboardNavigationStyle='dialog'
+			popupAlignment='auto'
+			popupPosition='auto'
+			renderer={props.renderer}
+			width={props.anchorElement.offsetWidth}
 		>
 			<div className='column-selector' >
 				<div className='column-selector-search'>
 					<ColumnSearch
-						initialSearchText={props.searchInput}
 						focus={props.focusInput}
-						onSearchTextChanged={async searchText => {
-							await props.columnSelectorDataGridInstance.setSearchText(
-								searchText !== '' ? searchText : undefined
-							);
+						initialSearchText={props.searchInput}
+						onConfirmSearch={() => {
+							props.columnSelectorDataGridInstance.selectItem(props.columnSelectorDataGridInstance.cursorColumnIndex);
 						}}
 						onNavigateOut={() => {
 							positronDataGridRef.current.focus();
 							props.columnSelectorDataGridInstance.showCursor();
 						}}
-						onConfirmSearch={() => {
-							props.columnSelectorDataGridInstance.selectItem(props.columnSelectorDataGridInstance.cursorColumnIndex);
+						onSearchTextChanged={async searchText => {
+							await props.columnSelectorDataGridInstance.setSearchText(
+								searchText !== '' ? searchText : undefined
+							);
 						}}
 					/>
 				</div>
@@ -106,11 +106,11 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 					onKeyDown={onKeyDown}
 				>
 					<PositronDataGrid
-						configurationService={props.configurationService}
-						layoutService={props.renderer.layoutService}
 						ref={positronDataGridRef}
+						configurationService={props.configurationService}
 						id='column-positron-data-grid'
 						instance={props.columnSelectorDataGridInstance}
+						layoutService={props.renderer.layoutService}
 					/>
 				</div>
 			</div>

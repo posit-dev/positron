@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -31,9 +31,9 @@ export function NotebookCellWrapper({ cell, children }: { cell: IPositronNoteboo
 	}, [cell, cellRef]);
 
 	return <div
+		ref={cellRef}
 		className={`positron-notebook-cell positron-notebook-${cell.kind === CellKind.Code ? 'code' : 'markdown'}-cell ${selectionStatus}`}
 		data-is-running={executionStatus === 'running'}
-		ref={cellRef}
 		tabIndex={0}
 		onClick={(e) => {
 			const clickTarget = e.nativeEvent.target as HTMLElement;

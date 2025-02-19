@@ -13,7 +13,7 @@ test.use({
 
 test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 
-	test('Verify restart button inside the console', {
+	test('Python - Verify restart button inside the console', {
 		tag: [tags.WIN]
 	}, async function ({ app, python }) {
 		await expect(async () => {
@@ -31,7 +31,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 		}).toPass();
 	});
 
-	test('Verify restart button on console bar', {
+	test('Python - Verify restart button on console bar', {
 		tag: [tags.WIN]
 	}, async function ({ app, python }) {
 		// Need to make console bigger to see all bar buttons
@@ -46,7 +46,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 	});
 
-	test('Verify cancel button on console bar', {
+	test('Python - Verify cancel button on console bar', {
 		tag: [tags.WIN]
 	}, async function ({ app, python }) {
 
@@ -57,8 +57,9 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 
 	});
 
-	// not enabled for WIN yet; need to add additional versions
-	test('Verify multiple versions', async function ({ app, python }) {
+	test('Python - Verify can use multiple interpreter versions', {
+		tag: [tags.WIN]
+	}, async function ({ app, python }) {
 
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 
@@ -75,10 +76,11 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 		const secondaryPython = process.env.POSITRON_PY_ALT_VER_SEL;
 
 		if (secondaryPython) {
-			await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, `${secondaryPython} (Pyenv)`, true);
+			await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, secondaryPython, true);
 			await app.workbench.console.barClearButton.click();
 			await app.workbench.console.pasteCodeToConsole(`import platform; print(platform.python_version())`, true);
-			await app.workbench.console.waitForConsoleContents(secondaryPython);
+			// If POSITRON_PY_ALT_VER_SEL has " (Pyenv)" in it, remove it"
+			await app.workbench.console.waitForConsoleContents(secondaryPython.replace(' (Pyenv)', ''));
 		} else {
 			fail('Secondary Python version not set');
 		}
