@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -10,9 +10,11 @@ import * as positron from 'positron';
 import * as sinon from 'sinon';
 import { verify } from 'ts-mockito';
 import * as TypeMoq from 'typemoq';
+import { WorkspaceConfiguration } from 'vscode';
 import * as fs from '../../client/common/platform/fs-paths';
 import * as runtime from '../../client/positron/runtime';
 import * as session from '../../client/positron/session';
+import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 import { IEnvironmentVariablesProvider } from '../../client/common/variables/types';
 import { IConfigurationService, IDisposable } from '../../client/common/types';
 import { IServiceContainer } from '../../client/ioc/types';
@@ -31,6 +33,10 @@ suite('Python runtime manager', () => {
     let envVarsProvider: TypeMoq.IMock<IEnvironmentVariablesProvider>;
     let interpreterService: TypeMoq.IMock<IInterpreterService>;
     let serviceContainer: TypeMoq.IMock<IServiceContainer>;
+    let workspaceConfig: TypeMoq.IMock<WorkspaceConfiguration>;
+
+    let getConfigurationStub: sinon.SinonStub;
+
     let pythonRuntimeManager: PythonRuntimeManager;
     let disposables: IDisposable[];
 
@@ -41,6 +47,7 @@ suite('Python runtime manager', () => {
         envVarsProvider = createTypeMoq<IEnvironmentVariablesProvider>();
         interpreterService = createTypeMoq<IInterpreterService>();
         serviceContainer = createTypeMoq<IServiceContainer>();
+        workspaceConfig = createTypeMoq<WorkspaceConfiguration>();
 
         runtimeMetadata.setup((r) => r.runtimeId).returns(() => 'runtimeId');
         runtimeMetadata
@@ -54,6 +61,14 @@ suite('Python runtime manager', () => {
         serviceContainer.setup((s) => s.get(IConfigurationService)).returns(() => configService.object);
         serviceContainer.setup((s) => s.get(IEnvironmentVariablesProvider)).returns(() => envVarsProvider.object);
         serviceContainer.setup((s) => s.get(IInterpreterService)).returns(() => interpreterService.object);
+
+        getConfigurationStub = sinon.stub(workspaceApis, 'getConfiguration');
+        getConfigurationStub.callsFake((section?: string, _scope?: any) => {
+            if (section === 'python') {
+                return workspaceConfig.object;
+            }
+            return undefined;
+        });
 
         pythonRuntimeManager = new PythonRuntimeManager(serviceContainer.object, interpreterService.object);
         disposables = [];
