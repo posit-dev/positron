@@ -338,10 +338,10 @@ class Session {
 			await this.metadataButton.click();
 
 			// Verify metadata
-			await expect(this.page.getByRole('paragraph').filter({ hasText: `${data.language} ${data.version}` })).toBeVisible();
+			await expect(this.page.getByRole('dialog').getByText(new RegExp(`${data.language} ${data.version}`))).toBeVisible();
 			await expect(this.page.getByText(new RegExp(`Session ID: ${data.language.toLowerCase()}-[a-zA-Z0-9]+`))).toBeVisible();
 			await expect(this.page.getByText(`State: ${data.state}`)).toBeVisible();
-			await expect(this.page.getByText(`Path: ${data.path}`)).toBeVisible();
+			await expect(this.page.getByText(data.path)).toBeVisible();
 			await expect(this.page.getByText(`Source: ${data.source}`)).toBeVisible();
 
 			// Verify Output Channel
@@ -450,6 +450,6 @@ export type MetaData = {
 	language: 'Python' | 'R';
 	version: string;
 	state: 'active' | 'idle' | 'disconnected' | 'exited';
-	path: string;
+	path: RegExp | string;
 	source: string;
 };

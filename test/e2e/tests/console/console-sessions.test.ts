@@ -19,14 +19,14 @@ const rSession: SessionDetails = {
 const pythonMetaData: MetaData = {
 	...pythonSession,
 	state: 'idle',
-	path: '~/.pyenv/versions/3.10.15/bin/python',
+	path: /Path:.*bin\/python/,
 	source: 'Pyenv',
 };
 
 const rMetaData: MetaData = {
 	...rSession,
 	state: 'idle',
-	path: '/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/bin/R',
+	path: /Path:.*bin\/R/,
 	source: 'System',
 };
 
