@@ -45,7 +45,7 @@ export class Plots {
 		this.clearPlotsButton = this.code.driver.page.locator(CLEAR_PLOTS_BUTTON);
 		this.plotSizeButton = this.code.driver.page.locator(PLOT_SIZE_BUTTON);
 		this.savePlotFromPlotsPaneButton = this.code.driver.page.locator(SAVE_PLOT_FROM_PLOTS_PANE_BUTTON);
-		this.savePlotFromEditorButton = this.code.driver.page.locator(SAVE_PLOT_FROM_EDITOR_BUTTON);
+		this.savePlotFromEditorButton = this.code.driver.page.getByRole('button', { name: 'Save Plot From Active Editor' });
 		this.copyPlotButton = this.code.driver.page.locator(COPY_PLOT_BUTTON);
 		this.zoomPlotButton = this.code.driver.page.locator(ZOOM_PLOT_BUTTON);
 		this.currentPlot = this.code.driver.page.locator(CURRENT_PLOT);
