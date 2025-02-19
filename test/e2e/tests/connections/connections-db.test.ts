@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('SQLite DB Connection', {
-	tag: [tags.WEB, tags.CRITICAL, tags.CONNECTIONS]
+	tag: [tags.WEB, tags.CRITICAL, tags.CONNECTIONS, tags.WIN]
 }, () => {
 	test.beforeAll(async function ({ userSettings }) {
 		await userSettings.set([['positron.connections.showConnectionPane', 'true']]);
@@ -23,9 +23,7 @@ test.describe('SQLite DB Connection', {
 		await app.workbench.connections.deleteConnection();
 	});
 
-	test('Python - Can establish a connection, disconnect & reconnect', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5692' }]
-	}, async function ({ app, python }) {
+	test('Python - Can establish a connection, disconnect & reconnect', async function ({ app, python }) {
 		await test.step('Open a Python file and run it', async () => {
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 			await app.workbench.quickaccess.runCommand('python.execInConsole');
@@ -55,9 +53,7 @@ test.describe('SQLite DB Connection', {
 		});
 	});
 
-	test('R - Can establish a connection, disconnect & reconnect', {
-		tag: [tags.WIN]
-	}, async function ({ app, r }) {
+	test('R - Can establish a connection, disconnect & reconnect', async function ({ app, r }) {
 		await test.step('Open an R file and run it', async () => {
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
 			await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
@@ -84,9 +80,7 @@ test.describe('SQLite DB Connection', {
 
 	});
 
-	test('R - Ensure connections are updated after adding a database', {
-		tag: [tags.WIN]
-	}, async function ({ app, page, r }) {
+	test('R - Ensure connections are updated after adding a database', async function ({ app, page, r }) {
 		await test.step('Open an empty connection', async () => {
 			await app.workbench.console.executeCode(
 				'R',
