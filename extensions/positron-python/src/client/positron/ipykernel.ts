@@ -3,25 +3,38 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as os from 'os';
+import * as path from 'path';
 import * as vscode from 'vscode';
+import * as fs from '../common/platform/fs-paths';
 import { IServiceContainer } from '../ioc/types';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { IWorkspaceService } from '../common/application/types';
 import { IPythonExecutionFactory } from '../common/process/types';
-import { traceVerbose } from '../logging';
+import { traceWarn } from '../logging';
+import { EXTENSION_ROOT_DIR } from '../constants';
+
+/** IPyKernel bundle information. */
+export interface IPykernelBundle {
+    /** If bundling is disabled, the reason for it. */
+    disabledReason?: string;
+
+    /** Paths to be appended to the PYTHONPATH environment variable in this order, if bundling is enabled. */
+    paths?: string[];
+}
 
 /**
- * Check if an interpreter should use the bundled ipykernel.
+ * Get the IPyKernel bundle for a given interpreter.
  *
  * @param interpreter The interpreter to check.
  * @param serviceContainer The service container to use for dependency injection.
  * @param resource The resource to scope setting to.
  */
-export async function shouldUseBundledIpykernel(
+export async function getIpykernelBundle(
     interpreter: PythonEnvironment,
     serviceContainer: IServiceContainer,
     resource?: vscode.Uri,
-): Promise<boolean> {
+): Promise<IPykernelBundle> {
     // Get the required services.
     const workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
     const pythonExecutionFactory = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
@@ -31,16 +44,13 @@ export async function shouldUseBundledIpykernel(
         .getConfiguration('python', resource)
         .get<boolean>('useBundledIpykernel', true);
     if (!useBundledIpykernel) {
-        traceVerbose('createPythonRuntime: ipykernel bundling is disabled');
-        return false;
+        return { disabledReason: 'useBundledIpykernel setting is disabled' };
     }
-    traceVerbose('createPythonRuntime: ipykernel bundling is enabled, checking if interpreter is supported');
 
     // Check if ipykernel is bundled for the interpreter version.
     // (defined in scripts/pip-compile-ipykernel.py).
     if (interpreter.version?.major !== 3 || ![8, 9, 10, 11, 12, 13].includes(interpreter.version?.minor)) {
-        traceVerbose(`createPythonRuntime: ipykernel not bundled for interpreter version: ${interpreter.version?.raw}`);
-        return false;
+        return { disabledReason: `unsupported interpreter version: ${interpreter.version?.raw}` };
     }
 
     // Get the interpreter implementation if it's not already available.
@@ -53,12 +63,25 @@ export async function shouldUseBundledIpykernel(
     // Check if ipykernel is bundled for the interpreter implementation.
     // (defined in scripts/pip-compile-ipykernel.py).
     if (implementation !== 'cpython') {
-        traceVerbose(
-            `createPythonRuntime: ipykernel not bundled for interpreter implementation: ${interpreter.implementation}`,
-        );
-        return false;
+        return { disabledReason: `unsupported interpreter implementation: ${implementation}` };
     }
 
-    traceVerbose(`createPythonRuntime: ipykernel bundling is supported by interpreter: ${interpreter.path}`);
-    return true;
+    // Append the bundle paths (defined in gulpfile.js) to the PYTHONPATH environment variable.
+    const arch = os.arch();
+    const cpxSpecifier = `cp${interpreter.version.major}${interpreter.version.minor}`;
+    const paths = [
+        path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', arch, cpxSpecifier),
+        path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', arch, 'cp3'),
+        path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'py3'),
+    ];
+
+    for (const path of paths) {
+        if (!(await fs.pathExists(path))) {
+            // This shouldn't happen. Did something go wrong during `npm install`?
+            traceWarn(`ipykernel bundle path does not exist: ${path}`);
+            return { disabledReason: `bundle path does not exist: ${path}` };
+        }
+    }
+
+    return { paths };
 }
