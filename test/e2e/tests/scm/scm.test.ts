@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Hotkeys } from '../../infra';
 import { test, tags } from '../_test.setup';
 import { join } from 'path';
 
@@ -14,7 +15,7 @@ test.describe('Source Content Management', {
 	tag: [tags.SCM, tags.WEB, tags.WIN]
 }, () => {
 
-	test('Verify SCM Tracks File Modifications, Staging, and Commit Actions', async function ({ app, openFile }) {
+	test('Verify SCM Tracks File Modifications, Staging, and Commit Actions', async function ({ app, openFile, keyboard }) {
 
 		const file = 'chinook-sqlite.py';
 		await test.step('Open file and add a new line to it', async () => {
@@ -28,7 +29,7 @@ test.describe('Source Content Management', {
 
 			await app.code.driver.page.keyboard.type('print(df)');
 
-			await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+S' : 'Control+S');
+			await keyboard.hotKeys(Hotkeys.SAVE);
 
 		});
 

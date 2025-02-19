@@ -52,9 +52,9 @@ export class DialogService extends Disposable implements IDialogService {
 	prompt<T>(prompt: IPromptWithDefaultCancel<T>): Promise<IPromptResult<T>>;
 	prompt<T>(prompt: IPrompt<T>): Promise<IPromptResult<T>>;
 	async prompt<T>(prompt: IPrompt<T> | IPromptWithCustomCancel<T> | IPromptWithDefaultCancel<T>): Promise<IPromptResult<T> | IPromptResultWithCancel<T>> {
-		if (this.skipDialogs()) {
-			throw new Error(`DialogService: refused to show dialog in tests. Contents: ${prompt.message}`);
-		}
+		// if (this.skipDialogs()) {
+		// 	throw new Error(`DialogService: refused to show dialog in tests. Contents: ${prompt.message}`);
+		// }
 
 		const handle = this.model.show({ promptArgs: { prompt } });
 

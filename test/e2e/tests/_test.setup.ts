@@ -21,8 +21,9 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags } from '../infra';
+import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags, } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
+import { Keyboard } from '../infra/fixtures/keyboard';
 
 // Constants
 const TEMP_DIR = `temp-${randomUUID()}`;
@@ -151,9 +152,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	// ex: await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
 	openFile: async ({ app }, use) => {
-		await use(async (filePath: string) => {
+		await use(async (filePath: string, waitForFocus = true) => {
 			await test.step(`Open file: ${path.basename(filePath)}`, async () => {
-				await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath));
+				await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath), waitForFocus);
 			});
 		});
 	},
@@ -199,6 +200,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(async (language: 'Python' | 'R', code: string) => {
 			await app.workbench.console.executeCode(language, code);
 		});
+	},
+
+	// ex: await keyboard.hotKeys(HotKeys.COPY);
+	// ex: await keyboard.press('Enter');
+	keyboard: async ({ page }, use) => {
+		const keyboard = new Keyboard(page);
+		await use(keyboard);
 	},
 
 	// ex: await userSettings.set([['editor.actionBar.enabled', 'true']], false);
@@ -338,7 +346,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 // Runs once per worker. If a worker handles multiple specs, these hooks only run for the first spec.
 // However, we are using `suiteId` to ensure each suite gets a new worker (and a fresh app
 // instance). This also ensures these before/afterAll hooks will run for EACH spec
-test.beforeAll(async ({ logger }, testInfo) => {
+test.beforeAll('Mark test start in logger', async ({ logger }, testInfo) => {
 	// since the worker doesn't know or have access to the spec name when it starts,
 	// we store the spec name in a global variable. this ensures logs are written
 	// to the correct folder even when the app is scoped to "worker".
@@ -351,7 +359,7 @@ test.beforeAll(async ({ logger }, testInfo) => {
 	logger.log('');
 });
 
-test.afterAll(async function ({ logger }, testInfo) {
+test.afterAll('Mark test end in logger', async function ({ logger }, testInfo) {
 	try {
 		logger.log('');
 		logger.log(`>>> Suite end: '${testInfo.titlePath[0] ?? 'unknown'}' <<<`);
@@ -404,11 +412,12 @@ interface TestFixtures {
 	packages: PackageManager;
 	autoTestFixture: any;
 	devTools: void;
-	openFile: (filePath: string) => Promise<void>;
+	openFile: (filePath: string, waitForFocus?: boolean) => Promise<void>;
 	openDataFile: (filePath: string) => Promise<void>;
 	openFolder: (folderPath: string) => Promise<void>;
 	runCommand: (command: string) => Promise<void>;
 	executeCode: (language: 'Python' | 'R', code: string) => Promise<void>;
+	keyboard: Keyboard;
 }
 
 interface WorkerFixtures {

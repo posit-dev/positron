@@ -5,6 +5,7 @@
 
 import { Code } from './code';
 import { Interpreter } from '../infra/fixtures/interpreter';
+import { Keyboard } from '../infra/fixtures/keyboard';
 import { Popups } from '../pages/popups';
 import { Console } from '../pages/console';
 import { Variables } from '../pages/variables';
@@ -75,6 +76,7 @@ export class Workbench {
 	readonly problems: Problems;
 	readonly references: References;
 	readonly scm: SCM;
+	readonly keyboard: Keyboard;
 
 	constructor(code: Code) {
 
@@ -111,6 +113,7 @@ export class Workbench {
 		this.problems = new Problems(code, this.quickaccess);
 		this.references = new References(code);
 		this.scm = new SCM(code, this.layouts);
+		this.keyboard = new Keyboard(code.driver.page);
 	}
 }
 

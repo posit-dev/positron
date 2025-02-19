@@ -6,7 +6,7 @@
 import { expect, Page } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 import { EditorActionBar } from '../../pages/editorActionBar';
-import { Application } from '../../infra';
+import { Application, Hotkeys, Keyboard } from '../../infra';
 
 let editorActionBar: EditorActionBar;
 
@@ -92,15 +92,13 @@ async function verifyOpenViewerRendersHtml(app: Application, title: string) {
 }
 
 async function verifyOpenChanges(page: Page) {
+	const keyboard = new Keyboard(page);
 	await test.step('verify "open changes" shows diff', async () => {
-		async function bindPlatformHotkey(page: Page, key: string) {
-			await page.keyboard.press(process.platform === 'darwin' ? `Meta+${key}` : `Control+${key}`);
-		}
 
 		// make change & save
 		await page.locator('[id="workbench\\.parts\\.editor"]').getByText('date').click();
 		await page.keyboard.press('X');
-		await bindPlatformHotkey(page, 'S');
+		await keyboard.hotKeys(Hotkeys.SAVE);
 
 		// click open changes & verify
 		await editorActionBar.clickButton('Open Changes');
@@ -109,8 +107,8 @@ async function verifyOpenChanges(page: Page) {
 		await page.getByRole('tab', { name: 'quarto_basic.qmd (Working' }).getByLabel('Close').click();
 
 		// undo changes & save
-		await bindPlatformHotkey(page, 'Z');
-		await bindPlatformHotkey(page, 'S');
+		await keyboard.hotKeys(Hotkeys.UNDO);
+		await keyboard.hotKeys(Hotkeys.SAVE);
 	});
 }
 

@@ -91,28 +91,28 @@ export class QuickAccess {
 		this.code.logger.log('QuickAccess: File search succeeded.');
 	}
 
-	async openFile(path: string): Promise<void> {
-		await test.step('Open file', async () => {
-			if (!isAbsolute(path)) {
-				// we require absolute paths to get a single
-				// result back that is unique and avoid hitting
-				// the search process to reduce chances of
-				// search needing longer.
-				throw new Error('QuickAccess.openFile requires an absolute path');
-			}
+	async openFile(path: string, waitForFocus = true): Promise<void> {
+		if (!isAbsolute(path)) {
+			// we require absolute paths to get a single
+			// result back that is unique and avoid hitting
+			// the search process to reduce chances of
+			// search needing longer.
+			throw new Error('QuickAccess.openFile requires an absolute path');
+		}
 
-			const fileName = basename(path);
+		const fileName = basename(path);
 
-			// quick access shows files with the basename of the path
-			await this.openFileQuickAccessAndWait(path, basename(path));
+		// quick access shows files with the basename of the path
+		await this.openFileQuickAccessAndWait(path, basename(path));
 
-			// open first element
-			await this.quickInput.selectQuickInputElement(0);
+		// open first element
+		await this.quickInput.selectQuickInputElement(0);
 
-			// wait for editor being focused
+		// wait for editor being focused
+		if (waitForFocus) {
 			await this.editors.waitForActiveTab(fileName);
 			await this.editors.selectTab(fileName);
-		});
+		}
 	}
 
 	private async openQuickAccessWithRetry(kind: QuickAccessKind, value?: string): Promise<void> {
