@@ -365,7 +365,9 @@ const marketplaceWebExtensionsExclude = new Set([
 ]);
 const productJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../../product.json'), 'utf8'));
 const builtInExtensions = productJson.builtInExtensions || [];
+// --- Start Positron ---
 const bootstrapExtensions = productJson.bootstrapExtensions || [];
+// --- End Positron ---
 const webBuiltInExtensions = productJson.webBuiltInExtensions || [];
 /**
  * Loosely based on `getExtensionKind` from `src/vs/workbench/services/extensions/common/extensionManifestPropertiesService.ts`
@@ -498,6 +500,7 @@ function packageMarketplaceExtensionsStream(forWeb) {
     return (marketplaceExtensionsStream
         .pipe(util2.setExecutableBit(['**/*.sh'])));
 }
+// --- Start Positron ---
 function packageBootstrapExtensionsStream() {
     return es.merge(...bootstrapExtensions
         .map(extension => {

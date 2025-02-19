@@ -78,9 +78,9 @@ function getExtensionDownloadStream(extension, bootstrap = false) {
 }
 // --- Start Positron ---
 function getExtensionStream(extension, bootstrap = false) {
-    // --- End Positron ---
     // if the extension exists on disk, use those files instead of downloading anew
     if (isUpToDate(extension, bootstrap)) {
+        // --- End Positron ---
         log('[extensions]', `${extension.name}@${extension.version} up to date`, ansiColors.green('✔︎'));
         return vfs.src(['**'], { cwd: getExtensionPath(extension), dot: true })
             .pipe(rename(p => p.dirname = `${extension.name}/${p.dirname}`));
@@ -91,10 +91,10 @@ function getExtensionStream(extension, bootstrap = false) {
 }
 // --- Start Positron ---
 function syncMarketplaceExtension(extension, bootstrap = false) {
-    // --- End Positron ---
     const galleryServiceUrl = productjson.extensionsGallery?.serviceUrl;
     const source = ansiColors.blue(galleryServiceUrl ? '[marketplace]' : '[github]');
     if (isUpToDate(extension, bootstrap)) {
+        // --- End Positron ---
         log(source, `${extension.name}@${extension.version}`, ansiColors.green('✔︎'));
         return es.readArray([]);
     }
@@ -187,7 +187,6 @@ function getBuiltInExtensions() {
 }
 // --- Start Positron ---
 function getBootstrapExtensions() {
-    log('Synchronizing bootstrap extensions...');
     const control = readControlFile(bootstrapControlFilePath);
     const streams = [];
     for (const extension of [...bootstrapExtensions]) {

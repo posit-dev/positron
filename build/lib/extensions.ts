@@ -403,7 +403,9 @@ const marketplaceWebExtensionsExclude = new Set([
 
 const productJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../../product.json'), 'utf8'));
 const builtInExtensions: IExtensionDefinition[] = productJson.builtInExtensions || [];
+// --- Start Positron ---
 const bootstrapExtensions: IExtensionDefinition[] = productJson.bootstrapExtensions || [];
+// --- End Positron ---
 const webBuiltInExtensions: IExtensionDefinition[] = productJson.webBuiltInExtensions || [];
 
 type ExtensionKind = 'ui' | 'workspace' | 'web';
@@ -574,6 +576,7 @@ export function packageMarketplaceExtensionsStream(forWeb: boolean): Stream {
 	);
 }
 
+// --- Start Positron ---
 export function packageBootstrapExtensionsStream(): Stream {
 	return es.merge(
 		...bootstrapExtensions
@@ -585,6 +588,7 @@ export function packageBootstrapExtensionsStream(): Stream {
 			})
 	);
 }
+// --- End Positron ---
 
 export interface IScannedBuiltinExtension {
 	extensionPath: string;

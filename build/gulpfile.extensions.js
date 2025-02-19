@@ -301,9 +301,7 @@ exports.cleanExtensionsBuildTask = cleanExtensionsBuildTask;
 const bundleMarketplaceExtensionsBuildTask = task.define('bundle-marketplace-extensions-build', () => ext.packageMarketplaceExtensionsStream(false).pipe(gulp.dest('.build')));
 
 // --- Start Positron ---
-
 const bundleBootstrapExtensionsBuildTask = task.define('bundle-bootstrap-extensions-build', () => ext.packageBootstrapExtensionsStream().pipe(gulp.dest('.build')));
-
 // --- End Positron ---
 
 /**

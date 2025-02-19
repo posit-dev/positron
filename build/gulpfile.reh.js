@@ -320,6 +320,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		const extensionPaths = [...localWorkspaceExtensions, ...marketplaceExtensions]
 			.map(name => `.build/extensions/${name}/**`);
 
+		//const extensions = gulp.src(extensionPaths, { base: '.build', dot: true });
 		// --- Start Positron ---
 
 		const bootstrapExtensions = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'product.json'), 'utf8')).bootstrapExtensions
