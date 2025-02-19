@@ -5,7 +5,6 @@
 
 import { SessionDetails } from '../../infra';
 import { test, tags } from '../_test.setup';
-import { expect } from '@playwright/test';
 
 const pythonSession: SessionDetails = {
 	language: 'Python',
@@ -134,30 +133,5 @@ test.describe('Console: Sessions', {
 		await variables.checkRuntime(rSession);
 		await variables.checkVariableValue('x', '3');
 		await variables.checkVariableValue('z', '4');
-	});
-
-	test.skip('R - Validate editor problems reload with session restart', {
-		tag: [tags.PROBLEMS],
-		annotation: [{ type: 'waiting on feature', description: 'https://github.com/posit-dev/positron/issues/6310' }],
-	}, async function ({ app, page, openFile }) {
-		await openFile('workspaces/fast-statement-execution/fast-execution.r');
-		const console = app.workbench.console;
-		const problems = app.workbench.problems;
-
-		// Ensure R session exist and is idle
-		await console.session.ensureStartedAndIdle(rSession);
-
-		// Edit file to introduce a warning squiggly
-		await test.step('Edit file to introduce warning squiggly', async () => {
-			await page.getByText('x <- 1').dblclick();
-			await app.code.driver.page.keyboard.type('<- 1a');
-		});
-
-		// Verify warning squiggly appears
-		await expect(problems.warningSquiggly).toBeVisible();
-
-		// Restart R session and verify warning squiggly re-appears
-		await console.session.restart(rSession);
-		await expect(problems.warningSquiggly).toBeVisible();
 	});
 });
