@@ -1,16 +1,24 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+// --- Start Positron ---
+import path from 'path';
+// --- End Positron ---
+
 import * as os from 'os';
 import { gte } from 'semver';
 import { PythonEnvKind, PythonEnvSource } from '../../info';
 import { BasicEnvInfo, IPythonEnvsIterator, Locator } from '../../locator';
-import { commonPosixBinPaths, getAdditionalPosixDirs, getPythonBinFromPosixPaths } from '../../../common/posixUtils';
+import { commonPosixBinPaths, getPythonBinFromPosixPaths } from '../../../common/posixUtils';
 import { isPyenvShimDir } from '../../../common/environmentManagers/pyenv';
 import { getOSType, OSType } from '../../../../common/utils/platform';
 import { isMacDefaultPythonPath } from '../../../common/environmentManagers/macDefault';
 import { traceError, traceInfo, traceVerbose } from '../../../../logging';
 import { StopWatch } from '../../../../common/utils/stopWatch';
+
+// --- Start Positron ---
+import { findInterpretersInDir, looksLikeBasicGlobalPython } from '../../../common/commonUtils';
+// --- End Positron ---
 
 export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
     public readonly providerId = 'posixKnownPaths';
@@ -67,3 +75,35 @@ export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
         return iterator(this.kind);
     }
 }
+
+// --- Start Positron ---
+/**
+ * Gets additional directories to look for Python binaries on Posix systems.
+ *
+ * For example, `/opt/python/3.10.4/bin` will be returned if the machine has Python 3.10.4 installed
+ * in `/opt/python/3.10.4/bin/python`.
+ *
+ * See extensions/positron-python/src/client/pythonEnvironments/base/locators/common/nativePythonFinder.ts
+ * `getAdditionalEnvDirs()` for the equivalent handling using the native locator.
+ *
+ * @param searchDepth Number of levels of sub-directories to recurse when looking for interpreters.
+ *                    Defaults is 2 levels.
+ * @returns Paths to Python binaries found in additional locations for Posix systems.
+ */
+export async function* getAdditionalPosixDirs(searchDepth = 2): AsyncGenerator<string> {
+    const additionalLocations = [
+        // /opt/python is a recommended Python installation location on Posit Workbench.
+        // see: https://docs.posit.co/ide/server-pro/python/installing_python.html
+        '/opt/python',
+    ];
+    for (const location of additionalLocations) {
+        const additionalDirs = findInterpretersInDir(location, searchDepth);
+        for await (const dir of additionalDirs) {
+            const { filename } = dir;
+            if (await looksLikeBasicGlobalPython(filename)) {
+                yield path.dirname(filename);
+            }
+        }
+    }
+}
+// --- End Positron ---
