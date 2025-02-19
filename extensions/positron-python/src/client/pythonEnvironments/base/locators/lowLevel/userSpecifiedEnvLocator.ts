@@ -21,9 +21,10 @@ import { BasicEnvInfo, IPythonEnvsIterator } from '../../locator';
 import { FSWatchingLocator } from './fsWatchingLocator';
 import { findInterpretersInDir, looksLikeBasicVirtualPython } from '../../../common/commonUtils';
 import '../../../../common/extensions';
-import { traceError, traceInfo, traceVerbose } from '../../../../logging';
+import { traceError, traceInfo, traceVerbose, traceWarn } from '../../../../logging';
 import { StopWatch } from '../../../../common/utils/stopWatch';
 import { getUserIncludedInterpreters } from '../../../../positron/interpreterSettings';
+import { isParentPath } from '../../../common/externalDependencies';
 
 /**
  * Default number of levels of sub-directories to recurse when looking for interpreters.
@@ -69,13 +70,16 @@ export class UserSpecifiedEnvironmentLocator extends FSWatchingLocator {
 
         async function* iterator() {
             const stopWatch = new StopWatch();
-            traceInfo('Searching for user-specified environments');
+            traceInfo('[UserSpecifiedEnvironmentLocator] Searching for user-specified environments');
             const envRootDirs = await getUserSpecifiedEnvDirs();
             const envGenerators = envRootDirs.map((envRootDir) => {
                 async function* generator() {
-                    traceVerbose(`Searching for user-specified envs in: ${envRootDir}`);
+                    traceVerbose(
+                        `[UserSpecifiedEnvironmentLocator] Searching for user-specified envs in: ${envRootDir}`,
+                    );
 
-                    const executables = findInterpretersInDir(envRootDir, searchDepth);
+                    const foundPythons: string[] = [];
+                    const executables = findInterpretersInDir(envRootDir, searchDepth, undefined, false);
 
                     for await (const entry of executables) {
                         const { filename } = entry;
@@ -89,21 +93,38 @@ export class UserSpecifiedEnvironmentLocator extends FSWatchingLocator {
                             // we can use the kind to determine this anyway.
                             const kind = await getVirtualEnvKind(filename);
                             try {
+                                foundPythons.push(filename);
                                 yield { kind, executablePath: filename, searchLocation: undefined };
-                                traceVerbose(`User-specified Environment: [added] ${filename}`);
+                                traceVerbose(
+                                    `[UserSpecifiedEnvironmentLocator] User-specified Environment: [added] ${filename}`,
+                                );
                             } catch (ex) {
-                                traceError(`Failed to process environment: ${filename}`, ex);
+                                traceError(
+                                    `[UserSpecifiedEnvironmentLocator] Failed to process environment: ${filename}`,
+                                    ex,
+                                );
                             }
                         } else {
-                            traceVerbose(`User-specified Environment: [skipped] ${filename}`);
+                            traceVerbose(
+                                `[UserSpecifiedEnvironmentLocator] User-specified Environment: [skipped] ${filename}`,
+                            );
                         }
+                    }
+
+                    // If no environments are found in the directory, log a warning.
+                    if (!foundPythons.find((entry) => isParentPath(entry, envRootDir))) {
+                        traceWarn(
+                            `[UserSpecifiedEnvironmentLocator] No environments found in: ${envRootDir}. The directory may not contain Python installations or is an invalid path.`,
+                        );
                     }
                 }
                 return generator();
             });
 
             yield* iterable(chain(envGenerators));
-            traceInfo(`Finished searching for user-specified envs: ${stopWatch.elapsedTime} milliseconds`);
+            traceInfo(
+                `[UserSpecifiedEnvironmentLocator] Finished searching for user-specified envs: ${stopWatch.elapsedTime} milliseconds`,
+            );
         }
 
         return iterator();

@@ -21,8 +21,11 @@ import { NativePythonEnvironmentKind } from './nativePythonUtils';
 import type { IExtensionContext } from '../../../../common/types';
 import { StopWatch } from '../../../../common/utils/stopWatch';
 import { untildify } from '../../../../common/helpers';
-import { traceError } from '../../../../logging';
+import { traceError, traceVerbose } from '../../../../logging';
+
+// --- Start Positron ---
 import { getUserIncludedInterpreters } from '../../../../positron/interpreterSettings';
+// --- End Positron ---
 
 const PYTHON_ENV_TOOLS_PATH = isWindows()
     ? // --- Start Positron ---
@@ -470,7 +473,13 @@ function getAdditionalEnvDirs(): string[] {
     additionalDirs.push(...userIncludedDirs);
 
     // Return the list of additional directories.
-    return Array.from(new Set(additionalDirs));
+    const uniqueDirs = Array.from(new Set(additionalDirs));
+    traceVerbose(
+        `[getAdditionalEnvDirs] Found ${
+            uniqueDirs.length
+        } additional directories to search for Python environments: ${uniqueDirs.map((dir) => `"${dir}"`).join(', ')}`,
+    );
+    return uniqueDirs;
 }
 // --- End Positron ---
 
