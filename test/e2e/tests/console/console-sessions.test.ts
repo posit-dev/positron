@@ -39,7 +39,7 @@ test.describe('Console: Sessions', {
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['positron.multipleConsoleSessions', 'true']], true);
+		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
 	});
 
 	test('Validate state between sessions (active, idle, disconnect) ', async function ({ app, interpreter }) {
