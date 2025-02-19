@@ -28,9 +28,12 @@ test.describe('Console: Sessions', {
 		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
 	});
 
+	test.beforeEach(async function ({ app }) {
+		await app.workbench.variables.toggleVariablesView('hide');
+	});
+
 	test('Validate state between sessions (active, idle, disconnect) ', async function ({ app, interpreter }) {
 		const console = app.workbench.console;
-		await app.workbench.variables.toggleVariablesView('hide');
 
 		// Start Python session
 		await interpreter.set('Python', false);
@@ -71,7 +74,6 @@ test.describe('Console: Sessions', {
 
 	test('Validate metadata between sessions', async function ({ app }) {
 		const console = app.workbench.console;
-		await app.workbench.variables.toggleVariablesView('hide');
 
 		// Ensure sessions exist and are idle
 		await console.session.ensureStartedAndIdle(pythonSession);
