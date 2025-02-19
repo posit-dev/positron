@@ -6,6 +6,7 @@
 
 import * as path from 'path';
 // --- End Positron ---
+import * as vscode from 'vscode';
 import { injectable, inject } from 'inversify';
 import { Resource } from '../../common/types';
 import { Architecture } from '../../common/utils/platform';
@@ -160,6 +161,15 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
                 return false;
             }
             // --- Start Positron ---
+            const configuration = vscode.workspace.getConfiguration(
+                'python',
+                vscode.workspace.workspaceFolders?.[0]?.uri,
+            );
+            const defaultInterpreterPath = configuration.get<string>('defaultInterpreterPath');
+
+            if (defaultInterpreterPath !== 'python' && i.path !== defaultInterpreterPath) {
+                return false;
+            }
             // if we have a pyenv version number, only recommend interpreters that match the specified pyenv version.
             if (i.version?.raw === pyenvVersion && i.envType === EnvironmentType.Pyenv) {
                 return true;
