@@ -167,6 +167,7 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
             );
             const defaultInterpreterPath = configuration.get<string>('defaultInterpreterPath');
 
+            // if there is a default interpreter and it is not the default path, prefer it
             if (defaultInterpreterPath !== 'python' && i.path !== defaultInterpreterPath) {
                 return false;
             }
