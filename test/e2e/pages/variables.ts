@@ -205,4 +205,16 @@ export class Variables {
 		await expect(row).toBeVisible();
 		await expect(row.locator('.details-column .value')).toHaveText(value);
 	}
+
+	/**
+	 * Action: Show or hide the secondary side bar (variables pane).
+	 * @param action show or hide the secondary side bar
+	 */
+	async toggleSecondarySideBar(action: 'show' | 'hide') {
+		const variablesSectionIsVisible = await this.code.driver.page.getByRole('button', { name: 'Variables Section' }).isVisible();
+
+		if (action === 'show' && !variablesSectionIsVisible || action === 'hide' && variablesSectionIsVisible) {
+			await this.code.driver.page.getByRole('checkbox', { name: 'Toggle Secondary Side Bar (' }).click();
+		}
+	}
 }
