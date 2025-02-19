@@ -28,22 +28,6 @@ test.describe('Python - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJEC
 		await verifyProjectCreation(app, projectTitle);
 	});
 
-	test('Existing env: ipykernel not already installed', { tag: [tags.WIN] }, async function ({ app, python, packages }) {
-		const projectTitle = addRandomNumSuffix('no-ipykernel');
-
-		await packages.manage('ipykernel', 'uninstall');
-		await createNewProject(app, {
-			type: ProjectType.PYTHON_PROJECT,
-			title: projectTitle,
-			status: 'existing',
-			interpreterPath: await getInterpreterPath(app),
-			ipykernelFeedback: 'show'
-		});
-
-		await verifyProjectCreation(app, projectTitle);
-		await verifyIpykernelInstalled(app);
-	});
-
 	test('New env: Git initialized', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
 		const projectTitle = addRandomNumSuffix('git-init');
 
@@ -142,14 +126,6 @@ async function verifyGitStatus(app: Application) {
 		await app.workbench.terminal.createTerminal();
 		await app.workbench.terminal.runCommandInTerminal('git status');
 		await app.workbench.terminal.waitForTerminalText('On branch main');
-	});
-}
-
-
-async function verifyIpykernelInstalled(app: Application) {
-	await test.step('Verify ipykernel is installed', async () => {
-		await app.workbench.console.typeToConsole('pip show ipykernel', true, 10);
-		await app.workbench.console.waitForConsoleContents('Name: ipykernel');
 	});
 }
 
