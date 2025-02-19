@@ -93,7 +93,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 			setSessionState(state);
 		}));
 
-		// Fetch available channels.
+		// Fetch available channels from current session.
 		props.session.listOutputChannels().then(availableChannels => {
 			const channels = intersectionOutputChannels(availableChannels);
 			setAvailableChannels(channels);

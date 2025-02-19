@@ -367,6 +367,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 * Show runtime log in output panel.
 	 */
 	showOutput(channel?: positron.LanguageRuntimeSessionChannel) {
+		// Show the output for the LSP channel, if requested
 		if (channel === positron.LanguageRuntimeSessionChannel.LSP) {
 			this._lsp.showOutput();
 		} else {
@@ -376,6 +377,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 	listOutputChannels(): positron.LanguageRuntimeSessionChannel[] {
 		const channels = this._kernel?.listOutputChannels?.() ?? [];
+		// Add LSP channel in addition to the kernel channels
 		return [...channels, positron.LanguageRuntimeSessionChannel.LSP];
 	}
 

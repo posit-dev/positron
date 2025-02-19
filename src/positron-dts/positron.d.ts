@@ -773,6 +773,10 @@ declare module 'positron' {
 		data: any | undefined;
 	}
 
+	/**
+	 * Enum of available channels for a language runtime session.
+	 * Used to enumerate available channels for users.
+	 */
 	export enum LanguageRuntimeSessionChannel {
 		Console = 'console',
 		Kernel = 'kernel',

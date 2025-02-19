@@ -41,6 +41,7 @@ export enum RuntimeStartMode {
 
 /**
  * The output channels provided by a language runtime.
+ * Copy for core Positron code.
  */
 export enum LanguageRuntimeSessionChannel {
 	Console = 'console',

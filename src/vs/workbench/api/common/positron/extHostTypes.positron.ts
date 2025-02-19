@@ -324,6 +324,10 @@ export enum LanguageRuntimeSessionLocation {
 	Browser = 'browser',
 }
 
+/**
+ * An enumeration of possible channels for runtime sessions.
+ * Copy for ExtHost API.
+ */
 export enum LanguageRuntimeSessionChannel {
 	Console = 'console',
 	Kernel = 'kernel',
