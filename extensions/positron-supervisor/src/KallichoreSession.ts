@@ -40,9 +40,6 @@ import { UICommRequest } from './UICommRequest';
 import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 import { AdoptedSession } from './AdoptedSession';
 
-const KERNEL_CHANNEL_NAME = 'kernel';
-const PROFILE_CHANNEL_NAME = 'profile';
-const RUNTIME_CHANNEL_NAME = 'runtime';
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
 	 * The runtime messages emitter; consumes Jupyter messages and translates
