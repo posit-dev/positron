@@ -38,6 +38,14 @@ export async function* pythonRuntimeDiscoverer(
         // Get the recommended interpreter
         // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
         const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+        // if no workspace uri
+        const configuration = vscode.workspace.getConfiguration('python', workspaceUri);
+        const defaultInterpreterPath = configuration.get<string>('defaultInterpreterPath');
+        traceInfo(`pythonRuntimeDiscoverer: default interpreter path: ${defaultInterpreterPath}`);
+        // if not in a workspace and a default interpreter has been specified, choose that
+        if (!workspaceUri && defaultInterpreterPath) {
+            recommendedInterpreter = defaultInterpreterPath;
+        }
         const suggestions = interpreterSelector.getSuggestions(workspaceUri);
         let recommendedInterpreter = interpreterSelector.getRecommendedSuggestion(suggestions, workspaceUri)
             ?.interpreter;
