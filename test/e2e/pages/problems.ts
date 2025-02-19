@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 
@@ -15,9 +15,19 @@ export const enum ProblemSeverity {
 
 export class Problems {
 
-	static PROBLEMS_VIEW_SELECTOR = '.panel .markers-panel';
+	problemsView: Locator;
+	warningSquiggly: Locator;
+	errorSquiggly: Locator;
+	problemsViewWarning: Locator;
+	problemsViewError: Locator;
 
-	constructor(private code: Code, private quickaccess: QuickAccess) { }
+	constructor(private code: Code, private quickaccess: QuickAccess) {
+		this.problemsView = this.code.driver.page.locator('.panel .markers-panel');
+		this.problemsViewWarning = this.code.driver.page.locator(`div[id="workbench.panel.markers"] .monaco-tl-contents .marker-icon .codicon-warning`);
+		this.problemsViewError = this.code.driver.page.locator(`div[id="workbench.panel.markers"] .monaco-tl-contents .marker-icon .codicon-error`);
+		this.warningSquiggly = this.code.driver.page.locator('.view-overlays .cdr.squiggly-warning');
+		this.errorSquiggly = this.code.driver.page.locator('.view-overlays .cdr.squiggly-error');
+	}
 
 	async showProblemsView(): Promise<any> {
 		await this.quickaccess.runCommand('workbench.panel.markers.view.focus');
@@ -25,17 +35,6 @@ export class Problems {
 	}
 
 	async waitForProblemsView(): Promise<void> {
-		await expect(this.code.driver.page.locator(Problems.PROBLEMS_VIEW_SELECTOR)).toBeVisible();
-	}
-
-
-	static getSelectorInProblemsView(problemType: ProblemSeverity): string {
-		const selector = problemType === ProblemSeverity.WARNING ? 'codicon-warning' : 'codicon-error';
-		return `div[id="workbench.panel.markers"] .monaco-tl-contents .marker-icon .${selector}`;
-	}
-
-	static getSelectorInEditor(problemType: ProblemSeverity): string {
-		const selector = problemType === ProblemSeverity.WARNING ? 'squiggly-warning' : 'squiggly-error';
-		return `.view-overlays .cdr.${selector}`;
+		await expect(this.problemsView).toBeVisible();
 	}
 }

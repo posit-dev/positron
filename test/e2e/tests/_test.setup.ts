@@ -398,7 +398,7 @@ interface TestFixtures {
 	page: playwright.Page;
 	attachScreenshotsToReport: any;
 	attachLogsToReport: any;
-	interpreter: { set: (interpreterName: 'Python' | 'R') => Promise<void> };
+	interpreter: { set: (interpreterName: 'Python' | 'R', waitFoReady?: boolean) => Promise<void> };
 	r: void;
 	python: void;
 	packages: PackageManager;
