@@ -27,6 +27,7 @@ import { ILanguageRuntimeSession, RuntimeStartMode } from '../../../../services/
 import { ConsoleInstanceMenuButton } from './consoleInstanceMenuButton.js';
 import { multipleConsoleSessionsFeatureEnabled } from '../../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
 import { ConsoleInstanceInfoButton } from './consoleInstanceInfoButton.js';
+import { CreateConsoleInstanceButton } from './createConsoleInstanceButton.js';
 
 /**
  * Constants.
@@ -407,7 +408,13 @@ export const ActionBar = (props: ActionBarProps) => {
 							tooltip={positronRestartConsole}
 							onPressed={restartConsoleHandler}
 						/>
-						{multiSessionsEnabled && <ConsoleInstanceInfoButton />}
+						{multiSessionsEnabled &&
+							<>
+								<ConsoleInstanceInfoButton />
+								<CreateConsoleInstanceButton />
+							</>
+
+						}
 						<ActionBarSeparator />
 						{showDeveloperUI &&
 							<ActionBarButton
