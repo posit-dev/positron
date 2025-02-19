@@ -63,6 +63,8 @@ test.describe('Reticulate', {
 
 		await app.workbench.interpreter.selectInterpreter('Python', 'Python (reticulate)', !sequential);
 
+		await app.workbench.popups.installIPyKernel();
+
 		await verifyReticulateFunctionality(app, interpreter, sequential);
 
 		await app.workbench.layouts.enterLayout('stacked');
