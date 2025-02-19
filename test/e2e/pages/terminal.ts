@@ -39,26 +39,6 @@ export class Terminal {
 		return expectedCount ? matchingLines.allTextContents() : [];
 	}
 
-
-	/**
-	 * Verify: Wait for the terminal to contain the expected output.
-	 * Note: This leverages the clipboard to read the terminal text. This may be helpful if terminal renders canvas.
-	 * @param expectedOutput the expected output to be found in the terminal
-	 */
-	async waitForTerminalTextViaClipboard(expectedOutput: string) {
-		await this.code.driver.page.locator('#terminal').click();
-		await this.code.driver.context.grantPermissions(['clipboard-read', 'clipboard-write']);
-
-		await expect(async () => {
-			await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
-			await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+C' : 'Control+C');
-
-			const clipboardText = await this.code.driver.page.evaluate(() => navigator.clipboard.readText());
-
-			return expect(clipboardText).toContain(expectedOutput);
-		}).toPass({ timeout: 15000 });
-	}
-
 	async waitForTerminalLines() {
 
 		await expect(async () => {
