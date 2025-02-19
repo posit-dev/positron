@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { MetaData, SessionDetails } from '../../infra';
+import { SessionDetails } from '../../infra';
 import { test, tags } from '../_test.setup';
 import { expect } from '@playwright/test';
 
@@ -14,20 +14,6 @@ const pythonSession: SessionDetails = {
 const rSession: SessionDetails = {
 	language: 'R',
 	version: process.env.POSITRON_R_VER_SEL || ''
-};
-
-const pythonMetaData: MetaData = {
-	...pythonSession,
-	state: 'idle',
-	path: /Path:.*bin\/python/,
-	source: 'Pyenv',
-};
-
-const rMetaData: MetaData = {
-	...rSession,
-	state: 'idle',
-	path: /Path:.*bin\/R/,
-	source: 'System',
 };
 
 test.use({
@@ -44,7 +30,7 @@ test.describe('Console: Sessions', {
 
 	test('Validate state between sessions (active, idle, disconnect) ', async function ({ app, interpreter }) {
 		const console = app.workbench.console;
-		await app.workbench.variables.toggleSecondarySideBar('hide');
+		await app.workbench.variables.toggleVariablesView('hide');
 
 		// Start Python session
 		await interpreter.set('Python', false);
@@ -85,23 +71,23 @@ test.describe('Console: Sessions', {
 
 	test('Validate metadata between sessions', async function ({ app }) {
 		const console = app.workbench.console;
-		await app.workbench.variables.toggleSecondarySideBar('hide');
+		await app.workbench.variables.toggleVariablesView('hide');
 
 		// Ensure sessions exist and are idle
 		await console.session.ensureStartedAndIdle(pythonSession);
 		await console.session.ensureStartedAndIdle(rSession);
 
 		// Verify Python session metadata
-		await console.session.checkMetadata(pythonMetaData);
-		await console.session.checkMetadata(rMetaData);
+		await console.session.checkMetadata({ ...pythonSession, state: 'idle' });
+		await console.session.checkMetadata({ ...rSession, state: 'idle' });
 
 		// Shutdown Python session and verify metadata
 		await console.session.shutdown(pythonSession);
-		await console.session.checkMetadata({ ...pythonMetaData, state: 'exited' });
+		await console.session.checkMetadata({ ...pythonSession, state: 'exited' });
 
 		// Shutdown R session and verify metadata
 		await console.session.shutdown(rSession);
-		await console.session.checkMetadata({ ...rMetaData, state: 'exited' });
+		await console.session.checkMetadata({ ...rSession, state: 'exited' });
 	});
 
 	test('Validate variables between sessions', {

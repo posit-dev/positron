@@ -75,11 +75,16 @@ export class Variables {
 		});
 	}
 
-	async toggleVariablesView() {
-		const isMac = os.platform() === 'darwin';
-		const modifier = isMac ? 'Meta' : 'Control';
+	/**
+	 * Action: Show or hide the secondary side bar (variables pane).
+	 * @param action show or hide the secondary side bar
+	 */
+	async toggleVariablesView(action: 'show' | 'hide') {
+		const variablesSectionIsVisible = await this.code.driver.page.getByRole('button', { name: 'Variables Section' }).isVisible();
 
-		await this.code.driver.page.keyboard.press(`${modifier}+Alt+B`);
+		if (action === 'show' && !variablesSectionIsVisible || action === 'hide' && variablesSectionIsVisible) {
+			await this.code.driver.page.keyboard.press(os.platform() === 'darwin' ? 'Meta+Alt+B' : 'Control+Alt+B');
+		}
 	}
 
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
@@ -181,6 +186,7 @@ export class Variables {
 	 * @param version the version of the runtime: e.g. 3.10.15
 	 */
 	async selectRuntime(session: SessionDetails) {
+		await this.toggleVariablesView('show');
 		await this.code.driver.page.locator('[id="workbench.panel.positronSession"]').getByLabel(/^(?!Refresh objects$)(Python|R)/).click();
 		await this.code.driver.page.locator('[id="workbench.panel.positronSession"]').getByLabel(new RegExp(`${session.language}.*${session.version}`)).click();
 	}
@@ -191,6 +197,7 @@ export class Variables {
 	 * @param version the version of the runtime: e.g. 3.10.15
 	 */
 	async checkRuntime(session: SessionDetails) {
+		await this.toggleVariablesView('show');
 		await expect(this.code.driver.page.locator('[id="workbench.panel.positronSession"]').getByLabel(new RegExp(`${session.language}.*${session.version}`))).toBeVisible();
 	}
 
@@ -200,21 +207,10 @@ export class Variables {
 	 * @param value the expected value of the variable
 	 */
 	async checkVariableValue(variableName: string, value: string) {
+		await this.toggleVariablesView('show');
 		const row = this.code.driver.page.locator('.variables-instance[style*="z-index: 1"] .variable-item').filter({ hasText: variableName });
 
 		await expect(row).toBeVisible();
 		await expect(row.locator('.details-column .value')).toHaveText(value);
-	}
-
-	/**
-	 * Action: Show or hide the secondary side bar (variables pane).
-	 * @param action show or hide the secondary side bar
-	 */
-	async toggleSecondarySideBar(action: 'show' | 'hide') {
-		const variablesSectionIsVisible = await this.code.driver.page.getByRole('button', { name: 'Variables Section' }).isVisible();
-
-		if (action === 'show' && !variablesSectionIsVisible || action === 'hide' && variablesSectionIsVisible) {
-			await this.code.driver.page.getByRole('checkbox', { name: 'Toggle Secondary Side Bar (' }).click();
-		}
 	}
 }

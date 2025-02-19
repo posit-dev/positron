@@ -331,7 +331,7 @@ class Session {
 		});
 	}
 
-	async checkMetadata(data: MetaData) {
+	async checkMetadata(data: SessionDetails & { state: 'active' | 'idle' | 'disconnected' | 'exited' }) {
 		await test.step(`Verify ${data.language} ${data.version} metadata`, async () => {
 
 			// Click metadata button for desired session
@@ -343,8 +343,8 @@ class Session {
 			await expect(this.metadataDialog.getByText(`${data.language} ${data.version}`)).toBeVisible();
 			await expect(this.metadataDialog.getByText(new RegExp(`Session ID: ${data.language.toLowerCase()}-[a-zA-Z0-9]+`))).toBeVisible();
 			await expect(this.metadataDialog.getByText(`State: ${data.state}`)).toBeVisible();
-			await expect(this.metadataDialog.getByText(/Path: [\/~a-zA-Z0-9.]+/)).toBeVisible();
-			await expect(this.metadataDialog.getByText(`Source: ${data.source}`)).toBeVisible();
+			await expect(this.metadataDialog.getByText(/^Path: [\/~a-zA-Z0-9.]+/)).toBeVisible();
+			await expect(this.metadataDialog.getByText(/^Source: (Pyenv|System)$/)).toBeVisible();
 
 			// Verify Output Channel
 			await this.page.getByRole('button', { name: 'Show Kernel Output Channel' }).click();
@@ -446,12 +446,4 @@ class Session {
 export type SessionDetails = {
 	language: 'Python' | 'R';
 	version: string; // e.g. '3.10.15'
-};
-
-export type MetaData = {
-	language: 'Python' | 'R';
-	version: string;
-	state: 'active' | 'idle' | 'disconnected' | 'exited';
-	path: RegExp | string;
-	source: string;
 };

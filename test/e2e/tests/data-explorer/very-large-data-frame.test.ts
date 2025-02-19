@@ -35,7 +35,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.dataExplorer.closeDataExplorer();
-		await app.workbench.variables.toggleVariablesView();
+		await app.workbench.variables.toggleVariablesView('show');
 	});
 
 	if (githubActions) {
