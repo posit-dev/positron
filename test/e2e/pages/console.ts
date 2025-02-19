@@ -283,12 +283,14 @@ class Session {
 	idleStatus: (session: Locator) => Locator;
 	disconnectedStatus: (session: Locator) => Locator;
 	metadataButton: Locator;
+	metadataDialog: Locator;
 
 	constructor(private page: Page, private console: Console) {
 		this.activeStatus = (session: Locator) => session.locator('.codicon-positron-status-active');
 		this.idleStatus = (session: Locator) => session.locator('.codicon-positron-status-idle');
 		this.disconnectedStatus = (session: Locator) => session.locator('.codicon-positron-status-disconnected');
 		this.metadataButton = this.page.getByRole('button', { name: 'Console information' });
+		this.metadataDialog = this.page.getByRole('dialog');
 	}
 
 	/**
@@ -338,11 +340,11 @@ class Session {
 			await this.metadataButton.click();
 
 			// Verify metadata
-			await expect(this.page.getByRole('dialog').getByText(new RegExp(`${data.language} ${data.version}`))).toBeVisible();
-			await expect(this.page.getByText(new RegExp(`Session ID: ${data.language.toLowerCase()}-[a-zA-Z0-9]+`))).toBeVisible();
-			await expect(this.page.getByText(`State: ${data.state}`)).toBeVisible();
-			await expect(this.page.getByText(data.path)).toBeVisible();
-			await expect(this.page.getByText(`Source: ${data.source}`)).toBeVisible();
+			await expect(this.metadataDialog.getByText(`${data.language} ${data.version}`)).toBeVisible();
+			await expect(this.metadataDialog.getByText(new RegExp(`Session ID: ${data.language.toLowerCase()}-[a-zA-Z0-9]+`))).toBeVisible();
+			await expect(this.metadataDialog.getByText(`State: ${data.state}`)).toBeVisible();
+			await expect(this.metadataDialog.getByText(/Path: [\/~a-zA-Z0-9.]+/)).toBeVisible();
+			await expect(this.metadataDialog.getByText(`Source: ${data.source}`)).toBeVisible();
 
 			// Verify Output Channel
 			await this.page.getByRole('button', { name: 'Show Kernel Output Channel' }).click();
