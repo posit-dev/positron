@@ -10,9 +10,8 @@ test.use({
 	suiteId: __filename
 });
 
-// WEB and WIN padd in CI but not locally
 test.describe('Tasks', {
-	tag: [tags.TASKS]
+	tag: [tags.TASKS, tags.WEB]
 }, () => {
 
 	test('Python: Verify Basic Tasks Functionality', async function ({ app, python, openFile }) {
@@ -25,8 +24,7 @@ test.describe('Tasks', {
 		await app.workbench.quickInput.selectQuickInputElementContaining('Run Python File');
 		await app.workbench.quickInput.waitForQuickInputClosed();
 
-		await app.workbench.terminal.waitForTerminalText('336776');
-
+		await app.workbench.terminal.waitForTerminalTextViaClipboard('336776');
 		await app.workbench.terminal.sendKeysToTerminal('Enter');
 	});
 
@@ -40,8 +38,7 @@ test.describe('Tasks', {
 		await app.workbench.quickInput.selectQuickInputElementContaining('Run R File');
 		await app.workbench.quickInput.waitForQuickInputClosed();
 
-		await app.workbench.terminal.waitForTerminalText('336776');
-
+		await app.workbench.terminal.waitForTerminalTextViaClipboard('336776');
 		await app.workbench.terminal.sendKeysToTerminal('Enter');
 	});
 });
