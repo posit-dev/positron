@@ -55,12 +55,9 @@ test.describe('Reticulate', {
 
 	});
 
-	test('R - Verify Reticulate Stop/Restart Functionality', async function ({ app, interpreter }) {
-
-		// web only test but we don't have another way to skip electron tests
-		if (!app.web) {
-			return;
-		}
+	test('R - Verify Reticulate Stop/Restart Functionality', {
+		tag: [tags.WEB_ONLY]
+	}, async function ({ app, interpreter }) {
 
 		await app.workbench.interpreter.selectInterpreter('Python', 'Python (reticulate)', !sequential);
 

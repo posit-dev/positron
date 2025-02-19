@@ -52,6 +52,7 @@ export enum TestTags {
 
 	// platform  tags
 	WEB = '@:web',
+	WEB_ONLY = '@:web-only',
 	WIN = '@:win'
 }
 
