@@ -29,7 +29,7 @@ test.describe('Console: Sessions', {
 	});
 
 	test.beforeEach(async function ({ app }) {
-		await app.workbench.variables.toggleVariablesView('hide');
+		await app.workbench.variables.togglePane('hide');
 	});
 
 	test('Validate state between sessions (active, idle, disconnect) ', async function ({ app, interpreter }) {
@@ -72,7 +72,11 @@ test.describe('Console: Sessions', {
 		await console.session.checkStatus(pythonSession, 'disconnected');
 	});
 
-	test('Validate metadata between sessions', async function ({ app }) {
+	test('Validate metadata between sessions', {
+		annotation: [
+			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6389' },
+			{ type: 'waiting on feature', description: 'https://github.com/posit-dev/positron/issues/6149' }]
+	}, async function ({ app }) {
 		const console = app.workbench.console;
 
 		// Ensure sessions exist and are idle
@@ -132,8 +136,9 @@ test.describe('Console: Sessions', {
 		await variables.checkVariableValue('z', '4');
 	});
 
-	test('R - Validate editor problems reload with session restart', {
-		tag: [tags.PROBLEMS]
+	test.skip('R - Validate editor problems reload with session restart', {
+		tag: [tags.PROBLEMS],
+		annotation: [{ type: 'waiting on feature', description: 'https://github.com/posit-dev/positron/issues/6310' }],
 	}, async function ({ app, page, openFile }) {
 		await openFile('workspaces/fast-statement-execution/fast-execution.r');
 		const console = app.workbench.console;

@@ -16,7 +16,7 @@ test.describe('Data Explorer - XLSX', {
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.dataExplorer.closeDataExplorer();
-		await app.workbench.variables.toggleVariablesView('show');
+		await app.workbench.variables.togglePane('show');
 	});
 
 	test('Python - Verify data explorer functionality with XLSX input', async function ({ app, python, logger }) {

@@ -41,7 +41,7 @@ df = pd.DataFrame(data)`;
 		}).toPass({ timeout: 60000 });
 
 		await app.workbench.dataExplorer.closeDataExplorer();
-		await app.workbench.variables.toggleVariablesView('show');
+		await app.workbench.variables.togglePane('show');
 	});
 
 	test('Python Pandas - Verify data explorer functionality with empty fields', async function ({ app, python, logger }) {
@@ -112,7 +112,7 @@ df2 = pd.DataFrame(data)`;
 		await app.workbench.sideBar.closeSecondarySideBar();
 
 		await app.workbench.dataExplorer.closeDataExplorer();
-		await app.workbench.variables.toggleVariablesView('show');
+		await app.workbench.variables.togglePane('show');
 
 	});
 

@@ -348,12 +348,15 @@ class Session {
 
 			// Verify Output Channel
 			await this.page.getByRole('button', { name: 'Show Kernel Output Channel' }).click();
-			await this.page.keyboard.press('Escape'); // Todo: remove when menu closes on click as expected
+			// Todo: https://github.com/posit-dev/positron/issues/6389
+			// Todo: remove when menu closes on click as expected
+			await this.page.keyboard.press('Escape');
 			await this.page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowUp' : 'Control+Home');
 			await expect(this.page.getByText(`Begin kernel log for session ${data.language} ${data.version}`)).toBeVisible();
 
-			// Todo: Verify Language Pack
-			// Todo: Verify Language Console
+			// Todo: https://github.com/posit-dev/positron/issues/6149
+			// Todo: Verify Language Pack when implemented
+			// Todo: Verify Language Console when implemented
 
 			// Go back to console when done
 			await this.console.clickConsoleTab();
