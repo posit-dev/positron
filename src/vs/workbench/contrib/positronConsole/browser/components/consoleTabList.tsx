@@ -65,17 +65,14 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 					role='tab'
 					onClick={() => handleTabClick(positronConsoleInstance.session.sessionId)}
 				>
-					<span className='tab-button-contents'>
-						<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
-						<img
-							className='icon'
-							src={`data:image/svg+xml;base64,${positronConsoleInstance.session.runtimeMetadata.base64EncodedIconSvg}`}
-						/>
-						<span className='session-name'>
-							{positronConsoleInstance.session.metadata.sessionName}
-						</span>
-					</span>
-
+					<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
+					<img
+						className='icon'
+						src={`data:image/svg+xml;base64,${positronConsoleInstance.session.runtimeMetadata.base64EncodedIconSvg}`}
+					/>
+					<p className='session-name'>
+						{positronConsoleInstance.session.metadata.sessionName}
+					</p>
 				</button>
 			))}
 		</div>

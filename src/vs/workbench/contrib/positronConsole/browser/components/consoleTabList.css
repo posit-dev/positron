@@ -44,13 +44,21 @@
 	background-color: var(--vscode-list-inactiveSelectionBackground);
 }
 
-.tabs-container .tab-button .tab-button-contents {
+.tabs-container .tab-button {
 	display: flex;
 	align-items: center;
 }
 
-.tabs-container .tab-button .tab-button-contents .icon {
+.tabs-container .tab-button .icon {
 	height: 15px;
 	width: 15px;
 	margin: 0 6px
+}
+
+.tabs-container .tab-button .session-name {
+	margin: 0;
+	line-height: 22px;
+	overflow: hidden;
+	min-width: 0;
+	text-overflow: ellipsis;
 }
