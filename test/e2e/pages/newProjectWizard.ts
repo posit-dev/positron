@@ -151,12 +151,21 @@ export class NewProjectWizard {
 		}
 
 		// Open the dropdown and select the interpreter by path
-		await this.interpreterDropdown.click();
-		await this.dropDropdownOptions
-			.locator('div.dropdown-entry-subtitle')
-			.getByText(interpreterPath)
-			.first()
-			.click();
+		await expect(async () => {
+
+			try {
+				await this.interpreterDropdown.click();
+				await this.dropDropdownOptions
+					.locator('div.dropdown-entry-subtitle')
+					.getByText(interpreterPath)
+					.first()
+					.click({ timeout: 5000 });
+			} catch (error) {
+				await this.code.driver.page.keyboard.press('Escape');
+				throw error;
+			}
+
+		}).toPass({ intervals: [1_000, 5_000, 10_000], timeout: 15000 });
 	}
 }
 

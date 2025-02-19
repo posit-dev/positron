@@ -13,15 +13,14 @@ test.use({
 // Not running conda test on windows because conda reeks havoc on selecting the correct python interpreter
 test.describe('Python - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJECT_WIZARD] }, () => {
 
-	test('Existing env: ipykernel already installed', { tag: [tags.WIN], }, async function ({ app, python, packages }) {
+	test('Existing env: ipykernel already installed', { tag: [tags.WIN], }, async function ({ app, python }) {
 		const projectTitle = addRandomNumSuffix('ipykernel-installed');
 
-		await packages.manage('ipykernel', 'install');
 		await createNewProject(app, {
 			type: ProjectType.PYTHON_PROJECT,
 			title: projectTitle,
 			status: 'existing',
-			ipykernelFeedback: 'hide',
+			ipykernelFeedback: 'show', // change to 'hide' when https://github.com/posit-dev/positron/issues/6386 is fixed
 			interpreterPath: await getInterpreterPath(app),
 		});
 

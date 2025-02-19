@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -14,6 +14,7 @@ import { RSessionManager } from './session-manager';
 import { quickPickRuntime } from './runtime-quickpick';
 import { MINIMUM_RENV_VERSION, MINIMUM_R_VERSION } from './constants';
 import { RRuntimeManager } from './runtime-manager';
+import { RMetadataExtra } from './r-installation';
 
 export async function registerCommands(context: vscode.ExtensionContext, runtimeManager: RRuntimeManager) {
 
@@ -148,6 +149,18 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 
 		vscode.commands.registerCommand('r.selectInterpreter', async () => {
 			await quickPickRuntime(runtimeManager);
+		}),
+
+		vscode.commands.registerCommand('r.scriptPath', async () => {
+			const session = RSessionManager.instance.getConsoleSession();
+			if (!session) {
+				throw new Error(`Cannot get Rscript path; no R session available`);
+			}
+			const scriptPath = (session.runtimeMetadata.extraRuntimeData as RMetadataExtra).scriptpath;
+			if (!scriptPath) {
+				throw new Error(`Cannot get Rscript path; no Rscript path available`);
+			}
+			return scriptPath;
 		}),
 
 		// Commands used to source the current file

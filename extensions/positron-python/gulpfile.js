@@ -32,6 +32,10 @@ const isCI = process.env.TRAVIS === 'true' || process.env.TF_BUILD !== undefined
 
 // --- Start Positron ---
 const pythonCommand = locatePython();
+const arch = os.arch();
+if (arch !== 'x64' && arch !== 'arm64') {
+    throw new Error(`Unsupported architecture: ${arch}`);
+}
 // --- End Positron ---
 
 gulp.task('compileCore', (done) => {
@@ -279,25 +283,28 @@ async function vendorPythonKernelRequirements() {
     await spawnAsync(pythonCommand, ['scripts/vendor.py']);
 }
 
-async function installIPyKernelPurePythonRequirements() {
+async function bundleIPykernel() {
+    const pythonVersions = ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13'];
+    const minimumPythonVersion = '3.8';
+
+    // Pure Python 3 requirements.
     await pipInstall([
         '--target',
         './python_files/lib/ipykernel/py3',
         '--implementation',
         'py',
         '--python-version',
-        '3.8',
+        minimumPythonVersion,
         '--abi',
         'none',
         '-r',
         './python_files/ipykernel_requirements/py3-requirements.txt',
     ]);
-}
 
-async function installIPyKernelCPythonVersionAgnosticRequirements() {
+    // CPython 3 requirements (specific to platform and architecture).
     await pipInstall([
         '--target',
-        './python_files/lib/ipykernel/cp3',
+        `./python_files/lib/ipykernel/${arch}/cp3`,
         '--implementation',
         'cp',
         '--python-version',
@@ -305,17 +312,16 @@ async function installIPyKernelCPythonVersionAgnosticRequirements() {
         '--abi',
         'abi3',
         '-r',
-        './python_files/ipykernel_requirements/cp3-requirements.txt',
+        `./python_files/ipykernel_requirements/cp3-requirements.txt`,
     ]);
-}
 
-async function installIPyKernelCPythonVersionSpecificRequirements() {
-    for (const pythonVersion of ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13']) {
+    // CPython 3.x requirements (specific to platform, architecture, and Python version).
+    for (const pythonVersion of pythonVersions) {
         const shortVersion = pythonVersion.replace('.', '');
         const abi = `cp${shortVersion}`;
         await pipInstall([
             '--target',
-            `./python_files/lib/ipykernel/${abi}`,
+            `./python_files/lib/ipykernel/${arch}/${abi}`,
             '--implementation',
             'cp',
             '--python-version',
@@ -326,12 +332,6 @@ async function installIPyKernelCPythonVersionSpecificRequirements() {
             './python_files/ipykernel_requirements/cpx-requirements.txt',
         ]);
     }
-}
-
-async function bundleIPykernel() {
-    await installIPyKernelPurePythonRequirements();
-    await installIPyKernelCPythonVersionAgnosticRequirements();
-    await installIPyKernelCPythonVersionSpecificRequirements();
 }
 
 gulp.task(

@@ -17,6 +17,7 @@ import { BackendState, ColumnDisplayType } from '../../languageRuntime/common/po
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { COLUMN_PROFILE_DATE_LINE_COUNT } from './components/columnProfileDate.js';
 import { COLUMN_PROFILE_NUMBER_LINE_COUNT } from './components/columnProfileNumber.js';
+import { COLUMN_PROFILE_OBJECT_LINE_COUNT } from './components/columnProfileObject.js';
 import { COLUMN_PROFILE_STRING_LINE_COUNT } from './components/columnProfileString.js';
 import { COLUMN_PROFILE_BOOLEAN_LINE_COUNT } from './components/columnProfileBoolean.js';
 import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from './components/columnProfileDatetime.js';
@@ -427,9 +428,13 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 				return rowHeight(false, COLUMN_PROFILE_DATE_TIME_LINE_COUNT);
 			}
 
+			// Object.
+			case ColumnDisplayType.Object: {
+				return rowHeight(true, COLUMN_PROFILE_OBJECT_LINE_COUNT);
+			}
+
 			// Column display types that do not render a profile.
 			case ColumnDisplayType.Time:
-			case ColumnDisplayType.Object:
 			case ColumnDisplayType.Array:
 			case ColumnDisplayType.Struct:
 			case ColumnDisplayType.Unknown: {
