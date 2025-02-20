@@ -23,8 +23,12 @@ type ActionBarButtonIconProps = {
 	readonly iconFontSize?: number;
 
 	readonly iconImageSrc?: never;
+	readonly iconHeight?: never;
+	readonly iconWidth?: never;
 } | {
 	readonly iconImageSrc?: string;
+	readonly iconHeight?: number;
+	readonly iconWidth?: number;
 
 	readonly iconId?: never;
 	readonly iconFontSize?: never;
@@ -109,8 +113,8 @@ export const ActionBarButton = forwardRef<
 						<img
 							src={props.iconImageSrc}
 							style={{
-								height: 16,
-								width: 16
+								height: props.iconHeight ?? 16,
+								width: props.iconWidth ?? 16
 							}}
 						/>
 					</div>
