@@ -87,7 +87,7 @@ export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
  * `getAdditionalEnvDirs()` for the equivalent handling using the native locator.
  *
  * @param searchDepth Number of levels of sub-directories to recurse when looking for interpreters.
- *                    Defaults is 2 levels.
+ *                    Default is 2 levels.
  * @returns Paths to Python binaries found in additional locations for Posix systems.
  */
 export async function* getAdditionalPosixDirs(searchDepth = 2): AsyncGenerator<string> {

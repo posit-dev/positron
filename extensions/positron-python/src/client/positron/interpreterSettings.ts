@@ -5,7 +5,7 @@
 
 import path from 'path';
 
-import { traceInfo, traceLog, traceVerbose } from '../logging';
+import { traceInfo, traceVerbose } from '../logging';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { arePathsSame, isParentPath } from '../pythonEnvironments/common/externalDependencies';
 import { INTERPRETERS_EXCLUDE_SETTING_KEY, INTERPRETERS_INCLUDE_SETTING_KEY } from '../common/constants';
@@ -22,11 +22,11 @@ export function getUserIncludedInterpreters(): string[] {
             if (path.isAbsolute(item)) {
                 return true;
             }
-            traceLog(`[getUserIncludedInterpreters]: interpreter path ${item} is not absolute...ignoring`);
+            traceVerbose(`[shouldIncludeInterpreter]: included interpreter path ${item} is not absolute...ignoring`);
             return false;
         });
     }
-    traceLog(`[getUserIncludedInterpreters]: No interpreters specified via ${INTERPRETERS_INCLUDE_SETTING_KEY}`);
+    traceVerbose(`[shouldIncludeInterpreter]: No interpreters specified via ${INTERPRETERS_INCLUDE_SETTING_KEY}`);
     return [];
 }
 
@@ -42,11 +42,11 @@ export function getUserExcludedInterpreters(): string[] {
             if (path.isAbsolute(item)) {
                 return true;
             }
-            traceLog(`[getUserExcludedInterpreters]: interpreter path ${item} is not absolute...ignoring`);
+            traceVerbose(`[shouldIncludeInterpreter]: excluded interpreter path ${item} is not absolute...ignoring`);
             return false;
         });
     }
-    traceLog(`[getUserExcludedInterpreters]: No interpreters specified via ${INTERPRETERS_EXCLUDE_SETTING_KEY}`);
+    traceVerbose(`[shouldIncludeInterpreter]: No interpreters specified via ${INTERPRETERS_EXCLUDE_SETTING_KEY}`);
     return [];
 }
 
