@@ -15,7 +15,7 @@ test.use({
 
 // Re-add WEB tag when https://github.com/posit-dev/positron/issues/6397 is fixed
 test.describe('Reticulate', {
-	tag: [tags.RETICULATE],
+	tag: [tags.RETICULATE, tags.WEB],
 	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6397' }]
 }, () => {
 	test.beforeAll(async function ({ app, userSettings }) {
@@ -47,6 +47,8 @@ test.describe('Reticulate', {
 			// Prompt did not appear
 		}
 
+		await app.workbench.popups.installIPyKernel();
+
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 
 		await verifyReticulateFunctionality(app, interpreter, false);
@@ -59,7 +61,13 @@ test.describe('Reticulate', {
 		tag: [tags.WEB_ONLY]
 	}, async function ({ app, interpreter }) {
 
-		await app.workbench.interpreter.selectInterpreter('Python', 'Python (reticulate)', !sequential);
+		await app.workbench.interpreter.selectInterpreter('Python', 'Python (reticulate)', false);
+
+		await app.workbench.popups.installIPyKernel();
+
+		if (!sequential) {
+			app.workbench.console.waitForReadyAndStarted('>>>', 30000);
+		}
 
 		await verifyReticulateFunctionality(app, interpreter, sequential);
 
