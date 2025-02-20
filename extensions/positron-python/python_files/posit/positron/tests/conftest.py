@@ -75,7 +75,7 @@ def _prepare_shell(shell: PositronShell) -> None:
     #       manually add them to user_ns_hidden to replicate running in Positron.
     shell.user_ns_hidden.update(
         {
-            k: None
+            k: ""
             for k in [
                 "__name__",
                 "__doc__",
@@ -134,6 +134,8 @@ def shell(kernel) -> Iterable[PositronShell]:
     new_user_ns_keys = set(shell.user_ns.keys()) - user_ns_keys
     for key in new_user_ns_keys:
         del shell.user_ns[key]
+    if "_" in shell.user_ns:
+        del shell.user_ns["_"]
 
 
 @pytest.fixture
