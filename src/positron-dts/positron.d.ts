@@ -603,6 +603,25 @@ declare module 'positron' {
 	}
 
 	/**
+	 * The possible types of language model that can be used with the Positron Assistant.
+	 */
+	export enum PositronLanguageModelType {
+		Chat = 'chat',
+		Completion = 'completion',
+	}
+
+	/**
+	 * The possible locations a Positron Assistant chat request can be invoked from.
+	 */
+	export enum PositronChatAgentLocation {
+		Panel = 'panel',
+		Terminal = 'terminal',
+		Notebook = 'notebook',
+		Editor = 'editor',
+		EditingSession = 'editing-session',
+	}
+
+	/**
 	 * A message received from a runtime client instance.
 	 */
 	export interface RuntimeClientOutput<T> {
@@ -1542,5 +1561,154 @@ declare module 'positron' {
 		 * @returns A disposable that unregisters the driver when disposed
 		 */
 		export function registerConnectionDriver(driver: ConnectionsDriver): vscode.Disposable;
+	}
+
+	/**
+	 * Experimental AI features.
+	 */
+	namespace ai {
+		/**
+		 * A language model provider, extends vscode.LanguageModelChatProvider.
+		 */
+		export interface LanguageModelChatProvider {
+			name: string;
+			provider: string;
+			identifier: string;
+
+			/**
+			 * Handle a language model request with tool calls and streaming chat responses.
+			 */
+			provideLanguageModelResponse(
+				messages: vscode.LanguageModelChatMessage[],
+				options: vscode.LanguageModelChatRequestOptions,
+				extensionId: string,
+				progress: vscode.Progress<{
+					index: number;
+					part: vscode.LanguageModelTextPart | vscode.LanguageModelToolCallPart;
+				}>,
+				token: vscode.CancellationToken,
+			): Thenable<any>;
+
+			/**
+			 * Calculate the token count for a given string.
+			 */
+			provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Thenable<number>;
+		}
+
+		/**
+		 * Dynamically defined chat agent properties and metadata.
+		 */
+		export interface ChatAgentData {
+			id: string;
+			name: string;
+			fullName?: string;
+			description?: string;
+			isDefault?: boolean;
+			metadata: { isSticky?: boolean };
+			slashCommands: {
+				name: string;
+				description: string;
+				isSticky?: boolean;
+			}[];
+			locations: PositronChatAgentLocation[];
+			disambiguation: { category: string; description: string; examples: string[] }[];
+		}
+
+		/**
+		 * A chat participant, extends vscode.ChatParticipant with additional dynamic metadata.
+		 */
+		export interface ChatParticipant extends vscode.ChatParticipant {
+			agentData: ChatAgentData;
+		}
+
+		/**
+		 * Register a chat agent dynamically, without requiring registration in `package.json`.
+		 * This allows for dynamic chat agent commands in Positron.
+		 */
+		export function registerChatAgent(agentData: ChatAgentData): Thenable<vscode.Disposable>;
+
+		/**
+		 * Positron Language Model source, used for user configuration of language models.
+		 */
+		export interface LanguageModelSource {
+			type: PositronLanguageModelType;
+			provider: { id: string; displayName: string };
+			supportedOptions: Exclude<{
+				[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K] ? K : never
+			}[keyof LanguageModelConfig], undefined>[];
+			defaults: LanguageModelConfigOptions;
+		}
+
+		/**
+		 * Positron Language Model configuration.
+		 */
+		export interface LanguageModelConfig extends LanguageModelConfigOptions {
+			type: PositronLanguageModelType;
+			provider: string;
+		}
+
+		/**
+		 * Positron Language Model configuration options.
+		 */
+		export interface LanguageModelConfigOptions {
+			name: string;
+			model: string;
+			baseUrl?: string;
+			apiKey?: string;
+			toolCalls?: boolean;
+			resourceName?: string;
+			project?: string;
+			location?: string;
+			numCtx?: number;
+		}
+
+		/**
+		 * Request the current plot data.
+		 */
+		export function getCurrentPlotUri(): Thenable<string | undefined>;
+
+		/**
+		 * Get Positron global context information to be included with every request.
+		 */
+		export function getPositronChatContext(request: vscode.ChatRequest): Thenable<ChatContext>;
+
+		/**
+		 * Send a progress response to the chat response stream.
+		 */
+		export function responseProgress(token: unknown, part: vscode.ChatResponsePart | {
+			// vscode.ChatResponseConfirmationPart
+			title: string;
+			message: string;
+			data: any;
+			buttons?: string[];
+		} | {
+			// vscode.ChatResponseTextEditPart
+			uri: vscode.Uri;
+			edits: vscode.TextEdit[];
+		}): void;
+
+		/**
+		 * Show a modal dialog for language model configuration.
+		 */
+		export function showLanguageModelConfig(
+			sources: LanguageModelSource[],
+			onSave: (config: LanguageModelConfig) => Thenable<void>
+		): Thenable<void>;
+
+		/**
+		 * The context in which a chat request is made.
+		 */
+		export interface ChatContext {
+			console?: {
+				language: string;
+				version: string;
+			};
+			variables?: {
+				name: string;
+				value: string;
+				type: string;
+			}[];
+			shell?: string;
+		}
 	}
 }

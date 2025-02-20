@@ -30,6 +30,8 @@ import { ExtHostMethods } from './extHostMethods.js';
 import { ExtHostEditors } from '../extHostTextEditors.js';
 import { UiFrontendRequest } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { ExtHostConnections } from './extHostConnections.js';
+import { ExtHostAiFeatures } from './extHostAiFeatures.js';
+import { IToolInvocationContext } from '../../../contrib/chat/common/languageModelToolsService.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -65,6 +67,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostEditors: ExtHostEditors = rpcProtocol.getRaw(ExtHostContext.ExtHostEditors);
 	const extHostDocuments: ExtHostDocuments = rpcProtocol.getRaw(ExtHostContext.ExtHostDocuments);
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol, extHostLogService));
+	const extHostAiFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostAiFeatures, new ExtHostAiFeatures(rpcProtocol, extHostCommands));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
 	const extHostContextKeyService = rpcProtocol.set(ExtHostPositronContext.ExtHostContextKeyService, new ExtHostContextKeyService(rpcProtocol));
@@ -207,6 +210,25 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			}
 		};
 
+		const ai: typeof positron.ai = {
+			getCurrentPlotUri(): Thenable<string | undefined> {
+				return extHostAiFeatures.getCurrentPlotUri();
+			},
+			showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onSave: (config: positron.ai.LanguageModelConfig) => Thenable<void>): Thenable<void> {
+				return extHostAiFeatures.showLanguageModelConfig(sources, onSave);
+			},
+			registerChatAgent(agentData: positron.ai.ChatAgentData): Thenable<vscode.Disposable> {
+				return extHostAiFeatures.registerChatAgent(extension, agentData);
+			},
+			responseProgress(token: unknown, part: vscode.ChatResponsePart | vscode.ChatResponseTextEditPart | vscode.ChatResponseConfirmationPart): void {
+				const context = token as IToolInvocationContext;
+				return extHostAiFeatures.responseProgress(context, part);
+			},
+			getPositronChatContext(request: vscode.ChatRequest): Thenable<positron.ai.ChatContext> {
+				return extHostAiFeatures.getPositronChatContext(request);
+			}
+		};
+
 		// --- End Positron ---
 
 		return <typeof positron>{
@@ -217,6 +239,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			languages,
 			methods,
 			connections,
+			ai,
+			PositronLanguageModelType: extHostTypes.PositronLanguageModelType,
+			PositronChatAgentLocation: extHostTypes.PositronChatAgentLocation,
 			PositronOutputLocation: extHostTypes.PositronOutputLocation,
 			RuntimeClientType: extHostTypes.RuntimeClientType,
 			RuntimeClientState: extHostTypes.RuntimeClientState,

@@ -1281,6 +1281,18 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		const currentAgent = this.parsedInput.parts.find(part => part instanceof ChatRequestAgentPart);
 		this.agentInInput.set(!!currentAgent);
 	}
+
+	// --- Start Positron ---
+	// This is required so we can add our own items to menus such as `MenuId.ChatInput` from an
+	// extension, since the chat widget object is passed as a context argument to commands.
+	// TODO: Include additional useful properties in the serialisation as required.
+	toJSON(): string {
+		return JSON.stringify({
+			_location: this._location,
+			_visible: this._visible
+		});
+	}
+	// --- End Positron ---
 }
 
 export class ChatWidgetService extends Disposable implements IChatWidgetService {
