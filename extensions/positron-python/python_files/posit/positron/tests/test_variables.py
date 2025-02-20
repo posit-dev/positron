@@ -340,36 +340,39 @@ async def test_clear(
     variables_service: VariablesService,
     variables_comm: DummyComm,
 ) -> None:
-    shell.user_ns.update({"x": 3, "y": 5, "_": 8})
+    with patch("positron.variables.timestamp", return_value=0):
+        shell.user_ns.update({"x": 3, "y": 5, "_": 8})
 
-    msg = json_rpc_request("clear", {"include_hidden_objects": False}, comm_id="dummy_comm_id")
-    variables_comm.handle_msg(msg)
+        msg = json_rpc_request("clear", {"include_hidden_objects": False}, comm_id="dummy_comm_id")
+        variables_comm.handle_msg(msg)
 
-    # Wait until all resulting kernel tasks are processed
-    await asyncio.gather(*variables_service._pending_tasks)  # noqa: SLF001
+        # Wait until all resulting kernel tasks are processed
+        await asyncio.gather(*variables_service._pending_tasks)  # noqa: SLF001
 
-    # We should get a result
-    underscore = not_none(_summarize_variable("_", shell.user_ns["_"])).dict()
-    assert variables_comm.messages == [
-        json_rpc_response({}),
-        json_rpc_notification(
-            "update",
-            {
-                "assigned": [],
-                "removed": _encode_path(["x", "y"]),
-                "unevaluated": [],
-                "version": 0,
-            },
-        ),
-        json_rpc_notification("refresh", {"length": 1, "variables": [underscore], "version": 0}),
-    ]
+        # We should get a result
+        underscore = not_none(_summarize_variable("_", shell.user_ns["_"])).dict()
+        assert variables_comm.messages == [
+            json_rpc_response({}),
+            json_rpc_notification(
+                "update",
+                {
+                    "assigned": [],
+                    "removed": _encode_path(["x", "y"]),
+                    "unevaluated": [],
+                    "version": 0,
+                },
+            ),
+            json_rpc_notification(
+                "refresh", {"length": 1, "variables": [underscore], "version": 0}
+            ),
+        ]
 
-    # All user variables are removed
-    assert "x" not in shell.user_ns
-    assert "y" not in shell.user_ns
+        # All user variables are removed
+        assert "x" not in shell.user_ns
+        assert "y" not in shell.user_ns
 
-    # ...except hidden variables, because %reset -s doesn't touch those
-    assert "_" in shell.user_ns
+        # ...except hidden variables, because %reset -s doesn't touch those
+        assert "_" in shell.user_ns
 
 
 @pytest.mark.parametrize("varname", ["x", "_"])
