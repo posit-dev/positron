@@ -1165,7 +1165,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	/**
 	 * Restarts the runtime.
 	 */
-	async restart(): Promise<void> {
+	async restart(_workingDirectory?: string): Promise<void> {
 		// Let the user know what we're doing and go through the shutdown sequence.
 		const parentId = randomUUID();
 		this.simulateOutputMessage(parentId, 'Restarting.');
