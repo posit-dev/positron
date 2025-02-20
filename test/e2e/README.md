@@ -48,7 +48,7 @@ export POSITRON_PY_ALT_VER_SEL='3.13.0 (Pyenv)'
 export POSITRON_R_ALT_VER_SEL='4.4.2'
 ```
 
-_Note: The environment variables with `ALT` in them are for the alternate interpreters which are used in fewer tests and might not be immediatly needed. If you are using Pyenv for your alternate Python interpreter, please add ` (Pyenv)` to the variable value._
+_Note: The environment variables with `ALT` in them are for the alternate interpreters which are used in fewer tests and might not be immediately needed. If you are using Pyenv for your alternate Python interpreter, please add ` (Pyenv)` to the variable value._
 
 _Note: If you forgot to set the environment variables before running the tests, you'll need to restart your editor or shell session for the environment variables to be loaded in._
 
