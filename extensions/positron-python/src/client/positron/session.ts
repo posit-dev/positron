@@ -185,7 +185,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         // A bundled package is being uninstalled.
         // Emit a messaging explaining why the uninstall is not allowed.
         const protectedPackagesStr = protectedPackages
-            .map(({ parent, name }) => `- ${name} (from ${parent})`)
+            .map(({ parent, name }) => vscode.l10n.t('- {0} (from {1})', name, parent))
             .join('\n');
         this._messageEmitter.fire({
             id: `${id}-0`,
