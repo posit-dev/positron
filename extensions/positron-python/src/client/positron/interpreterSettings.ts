@@ -23,11 +23,13 @@ export function getUserIncludedInterpreters(): string[] {
             .map((item) => untildify(item))
             .filter((item) => {
                 if (path.isAbsolute(item)) {
-                return true;
-            }
-            traceVerbose(`[shouldIncludeInterpreter]: included interpreter path ${item} is not absolute...ignoring`);
-            return false;
-        });
+                    return true;
+                }
+                traceVerbose(
+                    `[shouldIncludeInterpreter]: included interpreter path ${item} is not absolute...ignoring`,
+                );
+                return false;
+            });
     }
     traceVerbose(`[shouldIncludeInterpreter]: No interpreters specified via ${INTERPRETERS_INCLUDE_SETTING_KEY}`);
     return [];
@@ -45,11 +47,13 @@ export function getUserExcludedInterpreters(): string[] {
             .map((item) => untildify(item))
             .filter((item) => {
                 if (path.isAbsolute(item)) {
-                return true;
-            }
-            traceVerbose(`[shouldIncludeInterpreter]: excluded interpreter path ${item} is not absolute...ignoring`);
-            return false;
-        });
+                    return true;
+                }
+                traceVerbose(
+                    `[shouldIncludeInterpreter]: excluded interpreter path ${item} is not absolute...ignoring`,
+                );
+                return false;
+            });
     }
     traceVerbose(`[shouldIncludeInterpreter]: No interpreters specified via ${INTERPRETERS_EXCLUDE_SETTING_KEY}`);
     return [];
