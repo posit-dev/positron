@@ -1682,7 +1682,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	public updateActiveLanguages(): void {
-		const languages: string[] = [];
+		const languages = new Set<string>();
 		this._activeSessionsBySessionId.forEach(activeSession => {
 			// get the beginning of the day in UTC so that usage is the same 24-hour period across time zones
 			const startUTC = new Date(Date.now()).setUTCHours(0, 0, 0, 0);
@@ -1690,10 +1690,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 			// only update the active languages if the session was used today
 			if (lastUsed > startUTC && activeSession.session.getRuntimeState() !== RuntimeState.Exited) {
-				languages.push(activeSession.session.runtimeMetadata.languageId);
+				languages.add(activeSession.session.runtimeMetadata.languageId);
 			}
 		});
-		this._updateService.updateActiveLanguages(languages);
+		this._updateService.updateActiveLanguages([...languages]);
 	}
 
 }
