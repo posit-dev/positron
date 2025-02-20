@@ -9,17 +9,20 @@ import { traceInfo, traceVerbose } from '../logging';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { arePathsSame, isParentPath } from '../pythonEnvironments/common/externalDependencies';
 import { INTERPRETERS_EXCLUDE_SETTING_KEY, INTERPRETERS_INCLUDE_SETTING_KEY } from '../common/constants';
+import { untildify } from '../common/helpers';
 
 /**
- * Gets the list of interpreters that the user has explicitly included in the settings. Converts
- * relative and aliased paths to absolute paths.
+ * Gets the list of interpreters that the user has explicitly included in the settings.
+ * Converts aliased paths to absolute paths. Relative paths are not included.
  * @returns List of interpreters that the user has explicitly included in the settings.
  */
 export function getUserIncludedInterpreters(): string[] {
     const interpretersInclude = getConfiguration('python').get<string[]>(INTERPRETERS_INCLUDE_SETTING_KEY) ?? [];
     if (interpretersInclude.length > 0) {
-        return interpretersInclude.filter((item) => {
-            if (path.isAbsolute(item)) {
+        return interpretersInclude
+            .map((item) => untildify(item))
+            .filter((item) => {
+                if (path.isAbsolute(item)) {
                 return true;
             }
             traceVerbose(`[shouldIncludeInterpreter]: included interpreter path ${item} is not absolute...ignoring`);
@@ -31,15 +34,17 @@ export function getUserIncludedInterpreters(): string[] {
 }
 
 /**
- * Gets the list of interpreters that the user has explicitly excluded in the settings. Converts
- * relative and aliased paths to absolute paths.
+ * Gets the list of interpreters that the user has explicitly excluded in the settings.
+ * Converts aliased paths to absolute paths. Relative paths are not included.
  * @returns List of interpreters that the user has explicitly excluded in the settings.
  */
 export function getUserExcludedInterpreters(): string[] {
     const interpretersExclude = getConfiguration('python').get<string[]>(INTERPRETERS_EXCLUDE_SETTING_KEY) ?? [];
     if (interpretersExclude.length > 0) {
-        return interpretersExclude.filter((item) => {
-            if (path.isAbsolute(item)) {
+        return interpretersExclude
+            .map((item) => untildify(item))
+            .filter((item) => {
+                if (path.isAbsolute(item)) {
                 return true;
             }
             traceVerbose(`[shouldIncludeInterpreter]: excluded interpreter path ${item} is not absolute...ignoring`);
