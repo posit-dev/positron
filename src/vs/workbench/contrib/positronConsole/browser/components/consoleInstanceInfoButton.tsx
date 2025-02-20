@@ -17,11 +17,22 @@ import { ActionBarButton } from '../../../../../platform/positronActionBar/brows
 import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
-import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 
 const positronConsoleInfo = localize('positron.console.info.label', "Console information");
-const showKernelOutputChannel = localize('positron.console.info.showKernelOutputChannel', "Show Kernel Output Channel");
+const localizeShowKernelOutputChannel = (channelName: string) => localize('positron.console.info.showKernelOutputChannel', "Show {0} Output Channel", channelName);
+
+const OutputChannelNames = {
+	[LanguageRuntimeSessionChannel.Kernel]: localize('positron.console.info.kernel', 'Kernel'),
+	[LanguageRuntimeSessionChannel.Console]: localize('positron.console.info.console', 'Console'),
+	[LanguageRuntimeSessionChannel.LSP]: localize('positron.console.info.lsp', 'LSP')
+};
+
+function intersectionOutputChannels(availableChannels: string[]): LanguageRuntimeSessionChannel[] {
+	const outputChannels = Object.values(LanguageRuntimeSessionChannel);
+	return outputChannels.filter(channel => availableChannels.includes(channel));
+}
 
 export const ConsoleInstanceInfoButton = () => {
 	// Hooks.
@@ -73,6 +84,7 @@ interface ConsoleInstanceInfoModalPopupProps {
 
 const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps) => {
 	const [sessionState, setSessionState] = useState(() => props.session.getRuntimeState());
+	const [availableChannels, setAvailableChannels] = useState<LanguageRuntimeSessionChannel[]>([]);
 
 	// Main useEffect hook.
 	useEffect(() => {
@@ -80,11 +92,18 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 		disposableStore.add(props.session.onDidChangeRuntimeState(state => {
 			setSessionState(state);
 		}));
-		return () => disposableStore.dispose();
-	}, [props.session]);
 
-	const showKernelOutputChannelClickHandler = () => {
-		props.session.showOutput();
+		// Fetch available channels from current session.
+		props.session.listOutputChannels().then(availableChannels => {
+			const channels = intersectionOutputChannels(availableChannels);
+			setAvailableChannels(channels);
+		});
+
+		return () => disposableStore.dispose();
+	}, [props.session, props.renderer]);
+
+	const showKernelOutputChannelClickHandler = (channel: LanguageRuntimeSessionChannel) => {
+		props.session.showOutput(channel);
 	}
 
 	// Render.
@@ -125,9 +144,11 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 					</div>
 				</div>
 				<div className='top-separator actions'>
-					<PositronButton className='link' onPressed={showKernelOutputChannelClickHandler}>
-						{showKernelOutputChannel}
-					</PositronButton>
+					{availableChannels.map(channel => (
+						<PositronButton className='link' onPressed={() => showKernelOutputChannelClickHandler(channel)}>
+							{localizeShowKernelOutputChannel(OutputChannelNames[channel])}
+						</PositronButton>
+					))}
 				</div>
 			</div>
 		</PositronModalPopup>

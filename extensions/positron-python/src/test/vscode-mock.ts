@@ -170,4 +170,9 @@ mockedVSCode.LogLevel = vscodeMocks.LogLevel;
 mockedVSCode.TestRunProfileKind = vscodeMocks.TestRunProfileKind;
 // --- Start Positron ---
 mockedPositron.LanguageRuntimeSessionMode = positronMocks.LanguageRuntimeSessionMode;
+mockedPositron.RuntimeCodeExecutionMode = positronMocks.RuntimeCodeExecutionMode;
+mockedPositron.RuntimeErrorBehavior = positronMocks.RuntimeErrorBehavior;
+mockedPositron.LanguageRuntimeMessageType = positronMocks.LanguageRuntimeMessageType;
+mockedPositron.LanguageRuntimeStreamName = positronMocks.LanguageRuntimeStreamName;
+mockedPositron.RuntimeOnlineState = positronMocks.RuntimeOnlineState;
 // --- End Positron ---
