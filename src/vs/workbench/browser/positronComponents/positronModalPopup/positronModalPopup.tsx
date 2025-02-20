@@ -42,13 +42,10 @@ class PopupLayout {
 	right: number | 'auto' = 'auto';
 	bottom: number | 'auto' = 'auto';
 	left: number | 'auto' = 'auto';
-
 	width: number | 'min-content' = 'min-content';
 	height: number | 'min-content' = 'min-content';
-
 	maxWidth: number | 'none' = 'none';
 	maxHeight: number | 'none' = 'none';
-
 	shadow: 'top' | 'bottom' = 'bottom';
 }
 
