@@ -172,7 +172,7 @@ export const TopActionBarInterpretersManager_New = (props: TopActionBarInterpret
 		return () => disposableStore.dispose();
 	}, [context.runtimeSessionService]);
 
-	const labelText = activeSession?.runtimeMetadata?.runtimeName ?? localize('positron.interpretersManager.chooseRuntime', 'Choose Runtime');
+	const labelText = activeSession?.runtimeMetadata?.runtimeName ?? localize('positron.interpretersManager.chooseRuntime', 'Choose Session');
 
 	return (
 		<ActionBarCommandButton

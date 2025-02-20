@@ -592,9 +592,9 @@ export function registerLanguageRuntimeActions() {
 		}
 	});
 
-	registerLanguageRuntimeAction('workbench.action.language.runtime.openActivePicker', 'Open Active Runtime Picker', async accessor => {
+	registerLanguageRuntimeAction('workbench.action.language.runtime.openActivePicker', 'Open Active Session Picker', async accessor => {
 		// Constants
-		const startNewId = 'runtimes-start-new';
+		const startNewId = 'sessions-start-new';
 
 		// Access services.
 		const quickInputService = accessor.get(IQuickInputService);
@@ -640,7 +640,7 @@ export function registerLanguageRuntimeActions() {
 		// Show quick pick to select an active runtime or show all runtimes.
 		const result = await quickInputService.pick([
 			{
-				label: 'Active Runtimes',
+				label: 'Active Sessions',
 				type: 'separator',
 			},
 			...activeRuntimeItems,
@@ -648,12 +648,12 @@ export function registerLanguageRuntimeActions() {
 				type: 'separator'
 			},
 			{
-				label: 'All Runtimes...',
+				label: 'New Session...',
 				id: startNewId,
 				alwaysShow: true
 			},
 		], {
-			title: 'Select an Active Runtime',
+			title: 'Select a Session',
 			canPickMany: false,
 			activeItem: activeRuntimeItems.filter(item => item.picked)[0]
 		});
@@ -668,7 +668,7 @@ export function registerLanguageRuntimeActions() {
 		}
 	});
 
-	registerLanguageRuntimeAction('workbench.action.language.runtime.openStartPicker', 'Open Start Runtime Picker', async accessor => {
+	registerLanguageRuntimeAction('workbench.action.language.runtime.openStartPicker', 'Open Start Session Picker', async accessor => {
 		// Access services.
 		const quickInputService = accessor.get(IQuickInputService);
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
@@ -712,7 +712,7 @@ export function registerLanguageRuntimeActions() {
 		// Prompt the user to select a runtime to start
 		const selectedRuntime = await quickInputService.pick(
 			runtimeItems,
-			{ title: 'Start Another Runtime', canPickMany: false }
+			{ title: 'Start a New Session', canPickMany: false }
 		);
 
 		// If the user selected a runtime, set it as the active runtime
