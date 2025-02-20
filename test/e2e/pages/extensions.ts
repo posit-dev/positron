@@ -39,14 +39,16 @@ export class Extensions {
 		}
 	}
 
-	async installExtension(id: string, waitUntilEnabled: boolean): Promise<void> {
+	async installExtension(id: string, waitUntilEnabled: boolean, attemptInstallOnly: boolean = false): Promise<void> {
 		await this.searchForExtension(id);
 		const locator = this.code.driver.page.locator(`div.extensions-viewlet[id="workbench.view.extensions"] .monaco-list-row[data-extension-id="${id}"] .extension-list-item .monaco-action-bar .action-item:not(.disabled) .extension-action.install`).first();
 		await expect(locator).toBeVisible();
 		await locator.click();
-		await expect(this.code.driver.page.locator(`.extension-editor .monaco-action-bar .action-item:not(.disabled) .extension-action.uninstall`).first()).toBeVisible();
-		if (waitUntilEnabled) {
-			await expect(this.code.driver.page.locator(`.extension-editor .monaco-action-bar .action-item:not(.disabled) a[aria-label="Disable this extension"]`)).toBeVisible();
+		if (!attemptInstallOnly) {
+			await expect(this.code.driver.page.locator(`.extension-editor .monaco-action-bar .action-item:not(.disabled) .extension-action.uninstall`).first()).toBeVisible();
+			if (waitUntilEnabled) {
+				await expect(this.code.driver.page.locator(`.extension-editor .monaco-action-bar .action-item:not(.disabled) a[aria-label="Disable this extension"]`)).toBeVisible();
+			}
 		}
 	}
 

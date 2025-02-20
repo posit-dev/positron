@@ -26,6 +26,7 @@ export enum TestTags {
 	DEBUG = '@:debug',
 	DUCK_DB = '@:duck-db',
 	EDITOR_ACTION_BAR = '@:editor-action-bar',
+	EXTENSIONS = '@:extensions',
 	HELP = '@:help',
 	HTML = '@:html',
 	INTERPRETER = '@:interpreter',
