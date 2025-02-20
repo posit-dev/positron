@@ -66,6 +66,9 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	// Track the last execution ID for interrupts.
 	private _lastExecutionId?: string;
 
+	// Track the working directory.
+	private _workingDirectory = '';
+
 	readonly dynState = {
 		inputPrompt: `T>`,
 		continuationPrompt: 'T+',
@@ -186,6 +189,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 
 	setWorkingDirectory(dir: string): Promise<void> {
 		if (this._uiClient) {
+			this._workingDirectory = dir;
 			this._uiClient.setWorkingDirectory(dir);
 		} else {
 			throw new Error('No UI client');
@@ -193,8 +197,12 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		return Promise.resolve();
 	}
 
+	clearWorkingDirectory() {
+		this._workingDirectory = '';
+	}
+
 	getWorkingDirectory() {
-		return this._uiClient?.workingDirectory ?? '';
+		return this._workingDirectory;
 	}
 
 	async start(): Promise<ILanguageRuntimeInfo> {
@@ -228,6 +236,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 
 		// Wait for the session to exit, then start it again.
 		const disposable = this._register(this.onDidChangeRuntimeState(state => {
+			this._workingDirectory = workingDirectory ?? this._workingDirectory;
 			if (state === RuntimeState.Exited) {
 				disposable.dispose();
 				this.start();

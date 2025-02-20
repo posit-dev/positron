@@ -1011,6 +1011,11 @@ suite('Positron - RuntimeSessionService', () => {
 		const dir = '/baz/bar/foo';
 		session.setWorkingDirectory(dir);
 
+		// Clear the working directory. This clears the state w/o firing an event.
+		session.clearWorkingDirectory();
+
+		// This should restore the working directory to the last state Positron
+		// saw.
 		await runtimeSessionService.restartSession(session.sessionId, startReason);
 		await timeout(0);
 
