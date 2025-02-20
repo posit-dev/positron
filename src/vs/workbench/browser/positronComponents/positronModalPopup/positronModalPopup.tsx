@@ -138,7 +138,8 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 			anchorHeight = props.anchorElement.offsetHeight;
 		}
 
-		// Calculate the left and right area widths.
+		// Calculate the left and right area widths. This is the space that is available for laying
+		// out the modal popup anchored to the left or right of the anchor point or element.
 		const leftAreaWidth = anchorX + anchorWidth - LAYOUT_MARGIN;
 		const rightAreaWidth = documentWidth - anchorX - LAYOUT_MARGIN;
 
@@ -176,7 +177,8 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 			}
 		}
 
-		// Calculate the top and bottom area heights.
+		// Calculate the top and bottom area heights. This is the space that is available for laying
+		// out the modal popup anchored to the top or bottom of the anchor point or element.
 		const topAreaHeight = anchorY - LAYOUT_OFFSET - LAYOUT_MARGIN;
 		const bottomAreaHeight = documentHeight -
 			(anchorY + anchorHeight + LAYOUT_OFFSET + LAYOUT_MARGIN);
