@@ -86,11 +86,10 @@ export interface PositronModalPopupProps {
 	readonly height: number | 'min-content';
 	readonly minHeight?: number | 'auto';
 	readonly maxHeight?: number | 'none';
+	readonly fixedHeight?: boolean;
 	readonly focusableElementSelectors?: string;
 	readonly keyboardNavigationStyle: KeyboardNavigationStyle;
 	readonly onAccept?: () => void;
-
-	yaba?: boolean;
 }
 
 /**
@@ -121,9 +120,6 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		const { clientWidth: documentWidth, clientHeight: documentHeight } =
 			DOM.getWindow(popupRef.current).document.documentElement;
 
-		// Create the popup layout.
-		const popupLayout = new PopupLayout();
-
 		// Calculate the anchor position and size.
 		let anchorX: number;
 		let anchorY: number;
@@ -145,6 +141,9 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		// Calculate the left and right area widths.
 		const leftAreaWidth = anchorX + anchorWidth - LAYOUT_MARGIN;
 		const rightAreaWidth = documentWidth - anchorX - LAYOUT_MARGIN;
+
+		// Create the popup layout.
+		const popupLayout = new PopupLayout();
 
 		/**
 		 * Positions the popup aligned with the left edge of the anchor element.
@@ -193,7 +192,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 			// Position the popup at the bottom.
 			const positionBottom = () => {
 				popupLayout.top = anchorY + anchorHeight + LAYOUT_OFFSET;
-				if (props.yaba) {
+				if (props.fixedHeight) {
 					popupLayout.top = Math.min(popupLayout.top, documentHeight - layoutHeight - LAYOUT_MARGIN);
 				} else {
 					popupLayout.maxHeight = documentHeight - popupLayout.top - LAYOUT_MARGIN;
@@ -262,7 +261,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 		// Set the popup layout.
 		setPopupLayout(popupLayout);
-	}, [props.anchorElement, props.anchorPoint, props.height, props.popupAlignment, props.popupPosition, props.width, props.yaba]);
+	}, [props.anchorElement, props.anchorPoint, props.height, props.popupAlignment, props.popupPosition, props.width, props.fixedHeight]);
 
 	// Layout.
 	useLayoutEffect(() => {

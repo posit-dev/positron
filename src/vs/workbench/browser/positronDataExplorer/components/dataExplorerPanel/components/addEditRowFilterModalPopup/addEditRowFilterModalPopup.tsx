@@ -753,13 +753,13 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 	return (
 		<PositronModalPopup
 			anchorElement={props.anchorElement}
+			fixedHeight={true}
 			height={'min-content'}
 			keyboardNavigationStyle='dialog'
 			popupAlignment='auto'
 			popupPosition='auto'
 			renderer={props.renderer}
 			width={275}
-			yaba={true}
 			onAccept={applyRowFilter}
 		>
 			<div className='add-edit-row-filter-modal-popup-body'>
