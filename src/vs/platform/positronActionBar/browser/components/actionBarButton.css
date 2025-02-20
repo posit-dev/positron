@@ -34,8 +34,8 @@
 
 .action-bar-button.border {
 	height: 26px;
-	background-color: var(--vscode-positronTopActionBar-selectBoxBackground);
-	border: 1px solid var(--vscode-positronTopActionBar-selectBorder);
+	background-color: var(--positronActionBar-textInputBackground);
+	border: 1px solid var(--positronActionBar-border);
 }
 
 .action-bar-button:hover {
