@@ -7,11 +7,10 @@
 import './positronModalPopup.css';
 
 // React.
-import React, { PropsWithChildren, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { PropsWithChildren, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
-import { isNumber } from '../../../../base/common/types.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 import { PositronModalReactRenderer } from '../../positronModalReactRenderer/positronModalReactRenderer.js';
@@ -19,8 +18,8 @@ import { PositronModalReactRenderer } from '../../positronModalReactRenderer/pos
 /**
  * Constants.
  */
-const LAYOUT_MARGIN = 4;
-const MIN_SCROLLABLE_HEIGHT = 75;
+const LAYOUT_OFFSET = 2;
+const LAYOUT_MARGIN = 10;
 
 /**
  * Focusable element selectors.
@@ -35,45 +34,6 @@ const focusableElementSelectors =
 	'select:not([disabled])';
 
 /**
- * AnchorLayout class.
- */
-class AnchorLayout {
-	/**
-	 * The anchor x.
-	 */
-	readonly anchorX: number;
-
-	/**
-	 * The anchor y.
-	 */
-	readonly anchorY: number;
-
-	/**
-	 * The anchor width.
-	 */
-	readonly anchorWidth: number;
-
-	/**
-	 * The anchor height.
-	 */
-	readonly anchorHeight: number;
-
-	/**
-	 * Constructor.
-	 * @param anchorX The anchor x.
-	 * @param anchorY The anchor y.
-	 * @param anchorWidth The anchor width.
-	 * @param anchorHeight The anchor height.
-	 */
-	constructor(anchorX: number, anchorY: number, anchorWidth: number, anchorHeight: number) {
-		this.anchorX = anchorX;
-		this.anchorY = anchorY;
-		this.anchorWidth = anchorWidth;
-		this.anchorHeight = anchorHeight;
-	}
-}
-
-/**
  * PopupLayout class.
  */
 class PopupLayout {
@@ -81,8 +41,14 @@ class PopupLayout {
 	right: number | 'auto' = 'auto';
 	bottom: number | 'auto' = 'auto';
 	left: number | 'auto' = 'auto';
-	maxWidth: number | 'auto' = 'auto';
-	maxHeight: number | 'auto' = 'auto';
+
+	width: number | 'min-content' = 'min-content';
+	height: number | 'min-content' = 'min-content';
+
+	maxWidth: number | 'none' = 'none';
+	maxHeight: number | 'none' = 'none';
+
+	shadow: 'top' | 'bottom' = 'bottom';
 }
 
 /**
@@ -96,7 +62,7 @@ export interface AnchorPoint {
 /**
  * PopupPosition type.
  */
-export type PopupPosition = 'top' | 'bottom' | 'auto';
+export type PopupPosition = 'bottom' | 'top' | 'auto';
 
 /**
  * PopupAlignment type.
@@ -121,9 +87,12 @@ export interface PositronModalPopupProps {
 	readonly minWidth?: number | 'auto';
 	readonly height: number | 'min-content';
 	readonly minHeight?: number | 'auto';
+	readonly maxHeight?: number | 'none';
 	readonly focusableElementSelectors?: string;
 	readonly keyboardNavigationStyle: KeyboardNavigationStyle;
 	readonly onAccept?: () => void;
+
+	yaba?: boolean;
 }
 
 /**
@@ -138,29 +107,18 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 	const popupChildrenRef = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
-	const [anchorLayout] = useState(() => {
-		if (props.anchorPoint) {
-			return new AnchorLayout(props.anchorPoint.clientX, props.anchorPoint.clientY, 0, 0);
-		} else {
-			const topLeftAnchorOffset = DOM.getTopLeftOffset(props.anchorElement);
-			return new AnchorLayout(
-				topLeftAnchorOffset.left,
-				topLeftAnchorOffset.top,
-				props.anchorElement.offsetWidth,
-				props.anchorElement.offsetHeight
-			);
-		}
-	});
 	const [popupLayout, setPopupLayout] = useState<PopupLayout>(() => {
 		// Initially, position the popup off screen.
-		const newPopupLayout = new PopupLayout();
-		newPopupLayout.left = -10000;
-		newPopupLayout.top = -10000;
-		return newPopupLayout;
+		const popupLayout = new PopupLayout();
+		popupLayout.left = -10000;
+		popupLayout.top = -10000;
+		return popupLayout;
 	});
 
-	// Layout.
-	useLayoutEffect(() => {
+	/**
+	 * Updates the popup layout.
+	 */
+	const updatePopupLayout = useCallback(() => {
 		// Get the document width and height.
 		const { clientWidth: documentWidth, clientHeight: documentHeight } =
 			DOM.getWindow(popupRef.current).document.documentElement;
@@ -168,116 +126,157 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		// Create the popup layout.
 		const popupLayout = new PopupLayout();
 
+		// Calculate the anchor position and size.
+		let anchorX: number;
+		let anchorY: number;
+		let anchorWidth: number;
+		let anchorHeight: number;
+		if (props.anchorPoint) {
+			anchorX = props.anchorPoint.clientX;
+			anchorY = props.anchorPoint.clientY;
+			anchorWidth = 0;
+			anchorHeight = 0;
+		} else {
+			const topLeftAnchorOffset = DOM.getTopLeftOffset(props.anchorElement);
+			anchorX = topLeftAnchorOffset.left;
+			anchorY = topLeftAnchorOffset.top;
+			anchorWidth = props.anchorElement.offsetWidth;
+			anchorHeight = props.anchorElement.offsetHeight;
+		}
+
+		// Calculate the left and right area widths.
+		const leftAreaWidth = anchorX + anchorWidth - LAYOUT_MARGIN;
+		const rightAreaWidth = documentWidth - anchorX - LAYOUT_MARGIN;
+
 		/**
 		 * Positions the popup aligned with the left edge of the anchor element.
 		 */
 		const positionLeft = () => {
-			popupLayout.left = anchorLayout.anchorX;
+			popupLayout.left = anchorX;
 		};
 
 		/**
 		 * Positions the popup aligned with the right edge of the anchor element.
 		 */
 		const positionRight = () => {
-			popupLayout.right = documentWidth - (anchorLayout.anchorX + anchorLayout.anchorWidth);
+			popupLayout.right = documentWidth - (anchorX + anchorWidth);
 		};
 
-		// Adjust the popup layout for the popup alignment.
+		// Perform horizontal popup layout.
 		if (props.popupAlignment === 'left') {
 			positionLeft();
 		} else if (props.popupAlignment === 'right') {
 			positionRight();
 		} else if (props.popupAlignment === 'auto') {
-			// Get the children width.
-			const childrenWidth = popupChildrenRef.current ?
-				popupChildrenRef.current.scrollWidth :
-				0;
-
-			// Calculate the ideal right.
-			const idealRight = anchorLayout.anchorX +
-				childrenWidth +
-				LAYOUT_MARGIN;
-
-			// Try to position the popup fully at the bottom or fully at the top. If this this isn't
-			// possible, try to position the popup with scrolling at the bottom or at the top. If
-			// this isn't posssible, fallback to positioning the popup at the top of its container.
-			if (idealRight < documentWidth) {
-				positionLeft();
-			} else if (childrenWidth < anchorLayout.anchorX - 1) {
+			if (leftAreaWidth > rightAreaWidth) {
 				positionRight();
 			} else {
-				popupLayout.left = 0;
+				positionLeft();
 			}
 		}
 
-		/**
-		 * Positions the popup at the bottom of the anchor element.
-		 */
-		const positionBottom = () => {
-			popupLayout.top = anchorLayout.anchorY + anchorLayout.anchorHeight + 1;
-			popupLayout.maxHeight = documentHeight - LAYOUT_MARGIN - popupLayout.top;
-		};
+		// Calculate the top and bottom area heights.
+		const topAreaHeight = anchorY - LAYOUT_OFFSET - LAYOUT_MARGIN;
+		const bottomAreaHeight = documentHeight -
+			(anchorY + anchorHeight + LAYOUT_OFFSET + LAYOUT_MARGIN);
 
-		/**
-		 * Positions the popup at the top of the anchor element.
-		 */
-		const positionTop = () => {
-			popupLayout.bottom = documentHeight - (anchorLayout.anchorY - 1);
-			popupLayout.maxHeight = anchorLayout.anchorY - LAYOUT_MARGIN;
-		};
+		// Perform vertical popup layout.
+		if (props.height === 'min-content') {
+			// Set the popup layout height.
+			popupLayout.height = props.height;
 
-		// Adjust the popup layout for the popup position.
-		if (props.popupPosition === 'bottom') {
-			positionBottom();
-		} else if (props.popupPosition === 'top') {
-			positionTop();
-		} else if (props.popupPosition === 'auto') {
-			// Get the children height.
-			const childrenHeight = popupChildrenRef.current ?
-				popupChildrenRef.current.scrollHeight :
-				0;
+			// Calculate the layout height. (Adding 2 for the border.)
+			const layoutHeight = popupChildrenRef.current.offsetHeight + 2;
 
-			// Calculate the ideal bottom.
-			const idealBottom = anchorLayout.anchorY +
-				anchorLayout.anchorHeight +
-				1 +
-				childrenHeight +
-				LAYOUT_MARGIN;
+			// Position the popup at the bottom.
+			const positionBottom = () => {
+				popupLayout.top = anchorY + anchorHeight + LAYOUT_OFFSET;
+				if (props.yaba) {
+					popupLayout.top = Math.min(popupLayout.top, documentHeight - layoutHeight - LAYOUT_MARGIN);
+				} else {
+					popupLayout.maxHeight = documentHeight - popupLayout.top - LAYOUT_MARGIN;
+				}
+				popupLayout.shadow = 'bottom';
+			};
 
-			// Try to position the popup fully at the bottom or fully at the top. If this this
-			// isn't possible, try to position the popup with scrolling at the bottom or with
-			// scrolling at the top. If this isn't posssible, fallback to positioning the popup at
-			// the top of its container.
-			if (idealBottom < documentHeight - 1) {
+			// Position the popup at the top.
+			const positionTop = () => {
+				const drawHeight = Math.min(topAreaHeight, layoutHeight);
+				popupLayout.top = Math.max(anchorY - drawHeight - LAYOUT_OFFSET, LAYOUT_MARGIN);
+				popupLayout.maxHeight = drawHeight;//documentHeight - popupLayout.top - LAYOUT_MARGIN;
+				popupLayout.shadow = 'top';
+			};
+
+			// Adjust the popup layout for the popup position.
+			if (props.popupPosition === 'bottom') {
 				positionBottom();
-			} else if (childrenHeight < anchorLayout.anchorY - 1) {
+			} if (props.popupPosition === 'top') {
 				positionTop();
 			} else {
-				// Calculate the max bottom height.
-				const top = anchorLayout.anchorY + anchorLayout.anchorHeight + 1;
-				const maxBottomHeight = documentHeight - LAYOUT_MARGIN - top;
-
-				// Position the popup on the bottom with scrolling, if we can.
-				if (maxBottomHeight > MIN_SCROLLABLE_HEIGHT) {
+				if (layoutHeight <= bottomAreaHeight) {
 					positionBottom();
-				} else if (anchorLayout.anchorY - LAYOUT_MARGIN > MIN_SCROLLABLE_HEIGHT) {
+				} else if (layoutHeight <= topAreaHeight) {
 					positionTop();
 				} else {
-					// Position the popup at the top of its container.
-					popupLayout.top = LAYOUT_MARGIN;
-					popupLayout.maxHeight = documentHeight - (LAYOUT_MARGIN * 2);
+					if (bottomAreaHeight > topAreaHeight) {
+						positionBottom();
+					} else {
+						positionTop();
+					}
+				}
+			}
+		} else {
+			// Set the popup layout height.
+			popupLayout.height = props.height;
+
+			// Position the popup at the bottom.
+			const positionBottom = () => {
+				popupLayout.top = anchorY + anchorHeight + LAYOUT_OFFSET;
+				popupLayout.maxHeight = bottomAreaHeight;
+				popupLayout.shadow = 'bottom';
+			};
+
+			// Position the popup at the top.
+			const positionTop = (height: number) => {
+				const drawHeight = Math.min(topAreaHeight, height);
+				popupLayout.top = anchorY - drawHeight - LAYOUT_OFFSET;
+				popupLayout.maxHeight = drawHeight;//topAreaHeight;
+				popupLayout.shadow = 'top';
+			};
+
+			// Adjust the popup layout for the popup position.
+			if (props.popupPosition === 'bottom') {
+				positionBottom();
+			} else if (props.popupPosition === 'top') {
+				positionTop(props.height);
+			} else {
+				if (bottomAreaHeight > topAreaHeight) {
+					positionBottom();
+				} else {
+					positionTop(props.height);
 				}
 			}
 		}
 
 		// Set the popup layout.
 		setPopupLayout(popupLayout);
-	}, [anchorLayout.anchorHeight, anchorLayout.anchorWidth, anchorLayout.anchorX, anchorLayout.anchorY, props.popupAlignment, props.popupPosition]);
+	}, [props.anchorElement, props.anchorPoint, props.height, props.popupAlignment, props.popupPosition, props.yaba]);
+
+	// Layout.
+	useLayoutEffect(() => {
+		updatePopupLayout();
+	}, [updatePopupLayout]);
 
 	// Event handlers.
 	useEffect(() => {
 		// Create a disposable store for the event handlers we'll add.
 		const disposableStore = new DisposableStore();
+
+		// Add the onResize event handler.
+		disposableStore.add(props.renderer.onResize(e => {
+			// On resize, update the layout.
+			updatePopupLayout();
+		}));
 
 		// Add the onKeyDown event handler.
 		disposableStore.add(props.renderer.onKeyDown(e => {
@@ -410,42 +409,9 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 			}
 		}));
 
-		// Add the onResize event handler.
-		disposableStore.add(props.renderer.onResize(e => {
-			// Get the document width and height.
-			const { clientWidth: documentWidth, clientHeight: documentHeight } =
-				DOM.getWindow(popupRef.current).document.documentElement;
-
-			// Get the popup right and bottom.
-			const { right: popupRight, bottom: popupBottom } =
-				popupRef.current.getBoundingClientRect();
-
-			// When resizing results in the popup being off screen, dispose of it.
-			if (popupRight >= documentWidth - LAYOUT_MARGIN ||
-				popupBottom >= documentHeight - LAYOUT_MARGIN
-			) {
-				props.renderer.dispose();
-			} else if (isNumber(popupLayout.maxHeight)) {
-				// Increase the max height, if possible.
-				if (isNumber(popupLayout.top)) {
-					// Bottom alignment.
-					const maxHeight = documentHeight - LAYOUT_MARGIN - popupLayout.top;
-					if (maxHeight > popupLayout.maxHeight) {
-						setPopupLayout({ ...popupLayout, maxHeight });
-					}
-				} else if (isNumber(popupLayout.bottom)) {
-					// Top alignment.
-					const maxHeight = anchorLayout.anchorY - LAYOUT_MARGIN;
-					if (maxHeight > popupLayout.maxHeight) {
-						setPopupLayout({ ...popupLayout, maxHeight });
-					}
-				}
-			}
-		}));
-
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, [anchorLayout.anchorY, popupLayout, props]);
+	}, [props, updatePopupLayout]);
 
 	// Render.
 	return (
@@ -459,20 +425,11 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 				ref={popupRef}
 				className={positronClassNames(
 					'positron-modal-popup',
-					popupLayout.top === 'auto' ? 'shadow-top' : 'shadow-bottom'
+					popupLayout.shadow === 'top' ? 'shadow-top' : 'shadow-bottom'
 				)}
 				style={{
 					...popupLayout,
-					width: props.width,
-					minWidth: props.minWidth ?? 'auto',
-					height: props.height,
-					minHeight: props.minHeight ?? 'auto'
-				}}
-				onWheel={e => {
-					// window.ts#registerListeners() discards wheel events to prevent back / forward
-					// gestures. Send wheel events to the div so they are not lost.
-					e.currentTarget.scrollBy(e.deltaX, e.deltaY);
-					e.preventDefault();
+					width: props.width
 				}}
 			>
 				<div ref={popupChildrenRef} className='positron-modal-popup-children'>

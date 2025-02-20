@@ -759,6 +759,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			popupPosition='auto'
 			renderer={props.renderer}
 			width={275}
+			yaba={true}
 			onAccept={applyRowFilter}
 		>
 			<div className='add-edit-row-filter-modal-popup-body'>

@@ -7,12 +7,12 @@
 import React, { JSX } from 'react';
 
 // Other dependencies.
+import { ColumnSelectorCell } from './columnSelectorCell.js';
 import { Emitter } from '../../../../../../../../base/common/event.js';
 import { DataGridInstance } from '../../../../../../positronDataGrid/classes/dataGridInstance.js';
 import { ColumnSchemaCache } from '../../../../../../../services/positronDataExplorer/common/columnSchemaCache.js';
 import { BackendState, ColumnSchema } from '../../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { DataExplorerClientInstance } from '../../../../../../../services/languageRuntime/common/languageRuntimeDataExplorerClient.js';
-import { ColumnSelectorCell } from './columnSelectorCell.js';
 
 /**
  * Constants.
@@ -24,6 +24,11 @@ const ROW_HEIGHT = 26;
  */
 export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	//#region Private Properties
+
+	/**
+	 * Gets or sets the backend state.
+	 */
+	private _backendState: BackendState;
 
 	/**
 	 * Gets or sets the search text.
@@ -59,7 +64,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 
 			// Return a new instance of the column selector data grid instance.
 			return new ColumnSelectorDataGridInstance(
-				backedState.table_shape.num_columns,
+				backedState,
 				dataExplorerClientInstance
 			);
 		} catch {
@@ -73,11 +78,11 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 
 	/**
 	 * Constructor.
-	 * @param initialColumns The initial number of columns.
+	 * @param backendState The initial backend state.
 	 * @param _dataExplorerClientInstance The data explorer client instance.
 	 */
-	protected constructor(
-		initialColumns: number,
+	private constructor(
+		backedState: BackendState,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
 	) {
 		// Call the base class's constructor.
@@ -101,26 +106,32 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 			selection: false
 		});
 
+		// Set the backend state.
+		this._backendState = backedState;
+
 		// Create the column schema cache.
 		this._register(
 			this._columnSchemaCache = new ColumnSchemaCache(this._dataExplorerClientInstance)
 		);
 
 		// Set the initial layout entries in the row layout manager.
-		this._rowLayoutManager.setLayoutEntries(initialColumns);
+		this._rowLayoutManager.setLayoutEntries(backedState.table_shape.num_columns);
 
 		/**
 		 * Updates the data grid instance.
-		 * @param state The state, if known; otherwise, undefined.
+		 * @param backendState The backend state, if known; otherwise, undefined.
 		 */
-		const updateDataGridInstance = async (state?: BackendState) => {
+		const updateDataGridInstance = async (backendState?: BackendState) => {
 			// Get the backend state, if it was not supplied.
-			if (!state) {
-				state = await this._dataExplorerClientInstance.getBackendState();
+			if (!backendState) {
+				backendState = await this._dataExplorerClientInstance.getBackendState();
 			}
 
+			// Update the backend state.
+			this._backendState = backendState;
+
 			// Set the layout entries in the row layout manager.
-			this._rowLayoutManager.setLayoutEntries(state.table_shape.num_columns);
+			this._rowLayoutManager.setLayoutEntries(backendState.table_shape.num_columns);
 
 			// Scroll to the top.
 			await this.setScrollOffsets(0, 0);
@@ -139,10 +150,12 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		));
 
 		// Add the onDidUpdateBackendState event handler.
-		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state =>
-			// Update the data grid instance.
-			updateDataGridInstance(state)
-		));
+		this._register(
+			this._dataExplorerClientInstance.onDidUpdateBackendState(async backendState =>
+				// Update the data grid instance.
+				updateDataGridInstance(backendState)
+			)
+		);
 
 		// Add the onDidUpdateCache event handler.
 		this._register(this._columnSchemaCache.onDidUpdateCache(() =>
@@ -166,7 +179,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	 * Gets the number of rows.
 	 */
 	get rows() {
-		return this._columnSchemaCache.columns;
+		return this._backendState.table_shape.num_columns;
 	}
 
 	/**

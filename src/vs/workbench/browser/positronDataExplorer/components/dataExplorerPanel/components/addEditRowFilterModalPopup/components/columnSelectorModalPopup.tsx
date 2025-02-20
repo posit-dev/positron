@@ -10,14 +10,14 @@ import './columnSelectorModalPopup.css';
 import React, { useEffect, useRef } from 'react';
 
 // Other dependencies.
+import { ColumnSearch } from './columnSearch.js';
 import { DisposableStore } from '../../../../../../../../base/common/lifecycle.js';
-import { IConfigurationService } from '../../../../../../../../platform/configuration/common/configuration.js';
+import { ColumnSelectorDataGridInstance } from './columnSelectorDataGridInstance.js';
 import { PositronDataGrid } from '../../../../../../positronDataGrid/positronDataGrid.js';
+import { IConfigurationService } from '../../../../../../../../platform/configuration/common/configuration.js';
 import { ColumnSchema } from '../../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { PositronModalPopup } from '../../../../../../positronComponents/positronModalPopup/positronModalPopup.js';
 import { PositronModalReactRenderer } from '../../../../../../positronModalReactRenderer/positronModalReactRenderer.js';
-import { ColumnSearch } from './columnSearch.js';
-import { ColumnSelectorDataGridInstance } from './columnSelectorDataGridInstance.js';
 
 /**
  * ColumnSelectorModalPopupProps interface.
@@ -43,10 +43,14 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 
 	// Main useEffect.
 	useEffect(() => {
-		if (props.focusInput) { return; }
+		if (props.focusInput) {
+			return;
+		}
+
 		// Drive focus into the data grid so the user can immediately navigate.
 		props.columnSelectorDataGridInstance.setCursorPosition(0, 0);
 		positronDataGridRef.current.focus();
+
 	}, [props.columnSelectorDataGridInstance, props.focusInput]);
 
 	useEffect(() => {
@@ -70,45 +74,70 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 		}
 	};
 
+	// Calculate the max height.
+	const { defaultRowHeight, rows, rowsMargin } = props.columnSelectorDataGridInstance;
+
+	// Enable search when there are more than 10 rows.
+	const enableSearch = rows > 10;
+
+	// Calculate the max height. This is the height of the search UI plus the height of the rows,
+	// plus the height of the top and bottom rows margin.
+	const maxHeight =
+		(enableSearch ? 34 : 0) +
+		(rows * defaultRowHeight) +
+		(rowsMargin * 2) +
+		4;
+
+	// Calculate the min height. This is the height of the search UI plus the height of four rows,
+	// plus the height of the top and bottom rows margin.
+	const minHeight =
+		(enableSearch ? 34 : 0) +
+		(2 * defaultRowHeight) +
+		(rowsMargin * 2) +
+		4;
+
 	// Render.
 	return (
 		<PositronModalPopup
 			anchorElement={props.anchorElement}
-			focusableElementSelectors='input[type="text"],div[id=column-positron-data-grid]'
-			height={'min-content'}
+			focusableElementSelectors='input[type="text"],div[id=column-selector-positron-data-grid]'
+			height={maxHeight}
 			keyboardNavigationStyle='dialog'
+			maxHeight={maxHeight}
+			minHeight={minHeight}
 			popupAlignment='auto'
 			popupPosition='auto'
 			renderer={props.renderer}
 			width={props.anchorElement.offsetWidth}
 		>
-			<div className='column-selector' >
-				<div className='column-selector-search'>
-					<ColumnSearch
-						focus={props.focusInput}
-						initialSearchText={props.searchInput}
-						onConfirmSearch={() => {
-							props.columnSelectorDataGridInstance.selectItem(props.columnSelectorDataGridInstance.cursorColumnIndex);
-						}}
-						onNavigateOut={() => {
-							positronDataGridRef.current.focus();
-							props.columnSelectorDataGridInstance.showCursor();
-						}}
-						onSearchTextChanged={async searchText => {
-							await props.columnSelectorDataGridInstance.setSearchText(
-								searchText !== '' ? searchText : undefined
-							);
-						}}
-					/>
-				</div>
-				<div
-					className='column-selector-data-grid' style={{ height: 400 }}
-					onKeyDown={onKeyDown}
-				>
+			<div className='column-selector'>
+				{enableSearch && (
+					<div className='column-selector-search'>
+						<ColumnSearch
+							focus={props.focusInput}
+							initialSearchText={props.searchInput}
+							onConfirmSearch={() => {
+								props.columnSelectorDataGridInstance.selectItem(
+									props.columnSelectorDataGridInstance.cursorColumnIndex
+								);
+							}}
+							onNavigateOut={() => {
+								positronDataGridRef.current.focus();
+								props.columnSelectorDataGridInstance.showCursor();
+							}}
+							onSearchTextChanged={async searchText => {
+								await props.columnSelectorDataGridInstance.setSearchText(
+									searchText !== '' ? searchText : undefined
+								);
+							}}
+						/>
+					</div>
+				)}
+				<div className='column-selector-data-grid' onKeyDown={onKeyDown}>
 					<PositronDataGrid
 						ref={positronDataGridRef}
 						configurationService={props.configurationService}
-						id='column-positron-data-grid'
+						id='column-selector-positron-data-grid'
 						instance={props.columnSelectorDataGridInstance}
 						layoutService={props.renderer.layoutService}
 					/>

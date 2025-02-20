@@ -7,16 +7,22 @@
 	width: 100%;
 	height: 100%;
 	display: grid;
-	grid-template-rows: [column-selector-search] 34px [column-selector-data-grid] 1fr [end-column-selector-data-grid];
+
+	/* Prevent scrolling the entire modal. */
+	overflow: hidden;
+	grid-template-rows: [column-selector-search] min-content [column-selector-data-grid] 1fr [end-column-selector-data-grid];
 }
 
-.column-selector
-.column-selector-search {
+.column-selector .column-selector-search {
+	height: 34px;
 	grid-row: column-selector-search / column-selector-data-grid;
 	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);
 }
 
-.column-selector
-.column-selector-data-grid {
+.column-selector .column-selector-data-grid {
+	/* Allow the grid to shrink. */
+	min-width: 0;
+	/* Allow the grid to shrink. */
+	min-height: 0;
 	grid-row: column-selector-data-grid / end-column-selector-data-grid;
 }
