@@ -40,6 +40,16 @@ export enum RuntimeStartMode {
 }
 
 /**
+ * The output channels provided by a language runtime.
+ * Copy for core Positron code.
+ */
+export enum LanguageRuntimeSessionChannel {
+	Console = 'console',
+	Kernel = 'kernel',
+	LSP = 'lsp',
+}
+
+/**
  * Event that fires when a runtime session is about to start.
  */
 export interface IRuntimeSessionWillStartEvent {
@@ -208,7 +218,10 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	forceQuit(): Thenable<void>;
 
 	/** Show output log of the runtime */
-	showOutput(): void;
+	showOutput(channel?: LanguageRuntimeSessionChannel): void;
+
+	/** Retrieve list of output channels provided by this Language Runtime */
+	listOutputChannels(): Thenable<LanguageRuntimeSessionChannel[]>;
 
 	/** Show profiler log of the runtime, if supported */
 	showProfile(): Thenable<void>;
