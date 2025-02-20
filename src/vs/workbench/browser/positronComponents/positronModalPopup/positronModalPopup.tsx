@@ -11,6 +11,7 @@ import React, { PropsWithChildren, useCallback, useEffect, useLayoutEffect, useR
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
+import { isNumber } from '../../../../base/common/types.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 import { PositronModalReactRenderer } from '../../positronModalReactRenderer/positronModalReactRenderer.js';
@@ -159,7 +160,11 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		 * Positions the popup aligned with the right edge of the anchor element.
 		 */
 		const positionRight = () => {
-			popupLayout.right = documentWidth - (anchorX + anchorWidth);
+			if (isNumber(props.width)) {
+				popupLayout.left = (anchorX + anchorWidth) - props.width - LAYOUT_OFFSET;
+			} else {
+				popupLayout.right = documentWidth - (anchorX + anchorWidth);
+			}
 		};
 
 		// Perform horizontal popup layout.
@@ -260,7 +265,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 		// Set the popup layout.
 		setPopupLayout(popupLayout);
-	}, [props.anchorElement, props.anchorPoint, props.height, props.popupAlignment, props.popupPosition, props.yaba]);
+	}, [props.anchorElement, props.anchorPoint, props.height, props.popupAlignment, props.popupPosition, props.width, props.yaba]);
 
 	// Layout.
 	useLayoutEffect(() => {
