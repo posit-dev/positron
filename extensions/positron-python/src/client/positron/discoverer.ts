@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -31,21 +31,8 @@ export async function* pythonRuntimeDiscoverer(
 ): AsyncGenerator<positron.LanguageRuntimeMetadata> {
     try {
         traceInfo('pythonRuntimeDiscoverer: Starting Python runtime discoverer');
-
+        const recommendedInterpreter = await recommendInterpreter(serviceContainer);
         const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
-        const interpreterSelector = serviceContainer.get<IInterpreterSelector>(IInterpreterSelector);
-
-        // Get the recommended interpreter
-        // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
-        const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
-        const suggestions = interpreterSelector.getSuggestions(workspaceUri);
-        let recommendedInterpreter = interpreterSelector.getRecommendedSuggestion(suggestions, workspaceUri)
-            ?.interpreter;
-        if (!recommendedInterpreter) {
-            // fallback to active interpreter if we don't have a recommended interpreter
-            recommendedInterpreter = await interpreterService.getActiveInterpreter(workspaceUri);
-        }
-        traceInfo(`pythonRuntimeDiscoverer: recommended interpreter: ${recommendedInterpreter?.path}`);
 
         // Discover Python interpreters
         let interpreters = interpreterService.getInterpreters();
@@ -137,4 +124,46 @@ async function hasFiles(includes: string[]): Promise<boolean> {
  */
 function isVersionSupported(version: PythonVersion | undefined, minimumSupportedVersion: PythonVersion): boolean {
     return !version || comparePythonVersionDescending(minimumSupportedVersion, version) >= 0;
+}
+
+/**
+ * Recommends a Python interpreter based on workspace configuration and available suggestions.
+ *
+ * The function follows this priority order:
+ * 1. If no workspace and default interpreter is set, use the default interpreter
+ * 2. Use the recommended interpreter from suggestions
+ * 3. Fall back to the active interpreter
+ *
+ * @param serviceContainer - Container providing access to interpreter services
+ * @returns Promise resolving to a recommended Python environment or undefined if none found
+ *
+ */
+export async function recommendInterpreter(
+    serviceContainer: IServiceContainer,
+): Promise<PythonEnvironment | undefined> {
+    const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
+    const interpreterSelector = serviceContainer.get<IInterpreterSelector>(IInterpreterSelector);
+
+    // Get the recommended interpreter
+    // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
+    const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+    const suggestions = interpreterSelector.getSuggestions(workspaceUri);
+
+    const configuration = vscode.workspace.getConfiguration('python', vscode.workspace.workspaceFolders?.[0]?.uri);
+    let defaultInterpreterPath = configuration?.get<string>('defaultInterpreterPath');
+    defaultInterpreterPath = defaultInterpreterPath === 'python' ? undefined : defaultInterpreterPath;
+
+    const recommendedInterpreter =
+        // if there there is no workspace and a default interpreter set, use the default
+        (workspaceUri || !defaultInterpreterPath
+            ? undefined
+            : await interpreterService.getInterpreterDetails(defaultInterpreterPath)) ||
+        // otherwise, try to get recommended interpreter
+        interpreterSelector.getRecommendedSuggestion(suggestions, workspaceUri)?.interpreter ||
+        // if there is still no interpreter, just use the active one
+        (await interpreterService.getActiveInterpreter(workspaceUri));
+
+    console.log(`pythonRuntimeDiscoverer: recommended interpreter: ${recommendedInterpreter?.path}`);
+
+    return recommendedInterpreter;
 }
