@@ -729,7 +729,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Ask the runtime to restart.
 		try {
-			await session.restart();
+			// Restart the working directory in the same directory as the session.
+			await session.restart(activeSession.workingDirectory);
 		} catch (err) {
 			startPromise.error(err);
 			this.clearStartingSessionMaps(

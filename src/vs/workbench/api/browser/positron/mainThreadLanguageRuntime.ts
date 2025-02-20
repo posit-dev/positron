@@ -517,13 +517,13 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		return this._proxy.$interruptLanguageRuntime(this.handle);
 	}
 
-	async restart(): Promise<void> {
+	async restart(workingDirectory?: string): Promise<void> {
 		if (!this.canShutdown()) {
 			throw new Error(`Cannot restart runtime '${this.runtimeMetadata.runtimeName}': ` +
 				`runtime is in state '${this._currentState}'`);
 		}
 		this._stateEmitter.fire(RuntimeState.Restarting);
-		return this._proxy.$restartSession(this.handle);
+		return this._proxy.$restartSession(this.handle, workingDirectory);
 	}
 
 	async shutdown(exitReason = RuntimeExitReason.Shutdown): Promise<void> {

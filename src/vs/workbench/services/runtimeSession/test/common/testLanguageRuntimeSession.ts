@@ -205,7 +205,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		}
 	}
 
-	async restart(): Promise<void> {
+	async restart(workingDirectory?: string): Promise<void> {
 		await this.shutdown(RuntimeExitReason.Restart);
 
 		// Wait for the session to exit, then start it again.

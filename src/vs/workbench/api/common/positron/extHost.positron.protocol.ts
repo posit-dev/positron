@@ -66,7 +66,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$replyToPrompt(handle: number, id: string, response: string): void;
 	$setWorkingDirectory(handle: number, directory: string): Promise<void>;
 	$interruptLanguageRuntime(handle: number): Promise<void>;
-	$restartSession(handle: number): Promise<void>;
+	$restartSession(handle: number, workingDirectory?: string): Promise<void>;
 	$shutdownLanguageRuntime(handle: number, exitReason: RuntimeExitReason): Promise<void>;
 	$forceQuitLanguageRuntime(handle: number): Promise<void>;
 	$showOutputLanguageRuntime(handle: number): void;
