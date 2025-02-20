@@ -149,7 +149,7 @@ export async function recommendInterpreter(
     const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
     const suggestions = interpreterSelector.getSuggestions(workspaceUri);
 
-    const configuration = vscode.workspace.getConfiguration('python', vscode.workspace.workspaceFolders?.[0]?.uri);
+    const configuration = vscode.workspace.getConfiguration('python');
     let defaultInterpreterPath = configuration?.get<string>('defaultInterpreterPath');
     defaultInterpreterPath = defaultInterpreterPath === 'python' ? undefined : defaultInterpreterPath;
 
