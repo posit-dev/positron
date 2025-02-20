@@ -10,7 +10,6 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import PQueue from 'p-queue';
-import path from 'path';
 import * as fs from '../common/platform/fs-paths';
 import { ProductNames } from '../common/installer/productNames';
 import { InstallOptions, ModuleInstallFlags } from '../common/installer/types';

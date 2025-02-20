@@ -158,11 +158,11 @@ suite('Python Runtime Session', () => {
         kernelSpec = mock<JupyterKernelSpec>({ env: {} });
 
         kernel = mock<JupyterLanguageRuntimeSession>({
-            execute: () => { },
+            execute: () => {},
             onDidChangeRuntimeState: () => ({ dispose() {} }),
             onDidReceiveRuntimeMessage: () => ({ dispose() {} }),
             onDidEndSession: () => ({ dispose() {} }),
-            start: () => Promise.resolve({} as positron.LanguageRuntimeInfo,
+            start: () => Promise.resolve({} as positron.LanguageRuntimeInfo),
         });
 
         const adapterApi = mock<PositronSupervisorApi>({
@@ -318,7 +318,7 @@ suite('Python Runtime Session', () => {
 
         // Record emitted runtime messages.
         const messages: positron.LanguageRuntimeMessage[] = [];
-        disposables.push(consoleSession.onDidReceiveRuntimeMessage(message => messages.push(message)));
+        disposables.push(consoleSession.onDidReceiveRuntimeMessage((message) => messages.push(message)));
 
         // Execute a command that tries to uninstall a bundled package.
         const id = 'execute-id';
