@@ -79,6 +79,7 @@ export class Terminal {
 	}
 
 	async logTerminalContents() {
+		// await test.step('Log terminal contents', async () => {
 		const terminalRows = this.code.driver.page.locator('.xterm-rows > div');
 		const terminalContents = (await terminalRows.evaluateAll((rows) =>
 			rows.map((row) => {
@@ -93,5 +94,6 @@ export class Terminal {
 		this.code.logger.log('---- START: Terminal Contents ----');
 		this.code.logger.log(terminalContents);
 		this.code.logger.log('---- END: Terminal Contents ----');
+		// });
 	}
 }

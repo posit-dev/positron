@@ -78,6 +78,8 @@ export class QuickInput {
 		const element = `${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`;
 
 		await this.code.driver.page.locator(element).first().click({ force: true, timeout: 10000 });
+		// Move mouse to avoid lingering hover state
+		await this.code.driver.page.mouse.move(0, 0);
 	}
 
 	async clickOkButton(): Promise<void> {
