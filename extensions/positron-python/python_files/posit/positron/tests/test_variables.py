@@ -368,7 +368,7 @@ async def test_clear(
     assert "x" not in shell.user_ns
     assert "y" not in shell.user_ns
 
-    # ...except hidden variables, because %reset doesn't touch those
+    # ...except hidden variables, because %reset -s doesn't touch those
     assert "_" in shell.user_ns
 
 

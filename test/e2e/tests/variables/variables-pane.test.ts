@@ -24,6 +24,7 @@ test.describe('Variables Pane', {
 		await executeCode('x=1');
 		await executeCode('y=10');
 		await executeCode('z=100');
+		await executeCode('_=1000');
 
 		logger.log('Entered lines in console defining variables');
 		await app.workbench.console.logConsoleContents();
@@ -33,6 +34,7 @@ test.describe('Variables Pane', {
 		expect(variablesMap.get('x')).toStrictEqual({ value: '1', type: 'int' });
 		expect(variablesMap.get('y')).toStrictEqual({ value: '10', type: 'int' });
 		expect(variablesMap.get('z')).toStrictEqual({ value: '100', type: 'int' });
+		expect(variablesMap.get('_')).toStrictEqual({ value: '1000', type: 'int' });
 
 	});
 
@@ -78,5 +80,3 @@ test.describe('Variables Pane', {
 		expect((await groupList).length).toBe(1);
 	});
 });
-
-
