@@ -222,7 +222,7 @@ con <- dbConnect(
 	dbname = ${JSON.stringify(dbname)},
 	bigint = ${JSON.stringify(bigint)}
 )
-connections:: connection_view(con)
+connections::connection_view(con)
 `;
 	}
 }
