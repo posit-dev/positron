@@ -25,8 +25,13 @@ import {
 	DataExplorerResponse,
 	DataExplorerRpc,
 	DataExplorerUiEvent,
+	DataSelectionCellRange,
+	DataSelectionIndices,
+	DataSelectionRange,
+	DataSelectionSingleCell,
 	ExportDataSelectionParams,
 	ExportedData,
+	ExportFormat,
 	FilterBetween,
 	FilterComparison,
 	FilterComparisonOp,
@@ -48,6 +53,7 @@ import {
 	TableData,
 	TableRowLabels,
 	TableSchema,
+	TableSelectionKind,
 	TextSearchType
 } from './interfaces';
 import * as duckdb from '@duckdb/duckdb-wasm';
@@ -55,7 +61,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as zlib from 'zlib';
 import Worker from 'web-worker';
-import { Table, Vector } from 'apache-arrow';
+import { Schema, StructRow, Table, Vector } from 'apache-arrow';
 import { pathToFileURL } from 'url';
 
 // Set to true when doing development for better console logging
@@ -1090,8 +1096,12 @@ END`;
 				},
 				set_sort_columns: { support_status: SupportStatus.Supported, },
 				export_data_selection: {
-					support_status: SupportStatus.Unsupported,
-					supported_formats: []
+					support_status: SupportStatus.Supported,
+					supported_formats: [
+						ExportFormat.Csv,
+						ExportFormat.Tsv,
+						ExportFormat.Html
+					]
 				}
 			}
 		};
@@ -1173,9 +1183,146 @@ END`;
 	}
 
 	async exportDataSelection(params: ExportDataSelectionParams): RpcResponse<ExportedData> {
-		return 'not implemented';
-	}
+		const kind = params.selection.kind;
 
+		const exportQueryOutput = async (query: string,
+			columns: Array<SchemaEntry>): Promise<ExportedData> => {
+			const result = await this.db.runQuery(query);
+			const unboxed = [
+				columns.map(s => s.column_name),
+				// TODO: maybe this can be made more efficient
+				...result.toArray().map(row => result.schema.names.map(name => row[name]))
+			];
+
+			let data;
+			switch (params.format) {
+				case ExportFormat.Csv:
+					data = unboxed.map(row => row.join(',')).join('\n');
+					break;
+				case ExportFormat.Tsv:
+					data = unboxed.map(row => row.join('\t')).join('\n');
+					break;
+				case ExportFormat.Html:
+					data = unboxed.map(row => `<tr><td>${row.join('</td><td>')}</td></tr>`).join('\n');
+					break;
+				default:
+					throw new Error(`Unknown export format: ${params.format}`);
+			}
+
+			return {
+				data,
+				format: params.format,
+			};
+		};
+
+		const formatColumnNames = (columns: Array<SchemaEntry>) => {
+			return columns.map(s => quoteIdentifier(s.column_name)).join(', ');
+		}
+
+		const getColumnSelectors = (columns: Array<SchemaEntry>) => {
+			const columnSelectors = [];
+			for (const column of columns) {
+				const quotedName = quoteIdentifier(column.column_name);
+
+				// Build column selector. Just casting to string for now
+				let columnSelector;
+				switch (column.column_type) {
+					case 'FLOAT':
+					case 'DOUBLE': {
+						columnSelector = `CASE WHEN isinf(${quotedName}) AND ${quotedName} > 0 THEN 'Inf'
+	WHEN isinf(${quotedName}) AND ${quotedName} < 0 THEN '-Inf'
+	WHEN isnan(${quotedName}) THEN 'NaN'
+	ELSE CAST(${quotedName} AS VARCHAR)
+	END`;
+						break;
+					}
+					case 'TIMESTAMP':
+						columnSelector = `strftime(${quotedName} AT TIME ZONE 'UTC', '%Y-%m-%d %H:%M:%S')`;
+						break;
+					case 'TIMESTAMP WITH TIME ZONE':
+						columnSelector = `strftime(${quotedName}, '%Y-%m-%d %H:%M:%S%z')`;
+						break;
+					case 'VARCHAR':
+					case 'TINYINT':
+					case 'SMALLINT':
+					case 'INTEGER':
+					case 'BIGINT':
+					case 'DATE':
+					case 'TIME':
+					default:
+						columnSelector = `CAST(${quotedName} AS VARCHAR)`;
+						break;
+				}
+				columnSelectors.push(
+					`CASE WHEN ${quotedName} IS NULL THEN 'NULL' ELSE ${columnSelector} END
+					AS formatted_${columnSelectors.length} `);
+			}
+			return columnSelectors;
+		};
+
+		let data: string;
+		switch (kind) {
+			case TableSelectionKind.SingleCell: {
+				const selection = params.selection.selection as DataSelectionSingleCell;
+				const rowIndex = selection.row_index;
+				const columnIndex = selection.column_index;
+				const schema = this.fullSchema[columnIndex];
+				const selector = getColumnSelectors([schema])[0];
+				const query = `SELECT ${selector} FROM ${this.tableName} LIMIT 1 OFFSET ${rowIndex};`;
+				const result = await this.db.runQuery(query);
+				return {
+					data: result.toArray()[0][result.schema.names[0]],
+					format: params.format
+				}
+			}
+			case TableSelectionKind.CellRange: {
+				const selection = params.selection.selection as DataSelectionCellRange;
+				const rowStart = selection.first_row_index;
+				const rowEnd = selection.last_row_index;
+				const columnStart = selection.first_column_index;
+				const columnEnd = selection.last_column_index;
+				const columns = this.fullSchema.slice(columnStart, columnEnd + 1);
+				const query = `SELECT ${getColumnSelectors(columns).join(',')}
+				FROM ${this.tableName}
+				LIMIT ${rowEnd - rowStart + 1} OFFSET ${rowStart};`;
+				return await exportQueryOutput(query, columns);
+			}
+			case TableSelectionKind.RowRange: {
+				const selection = params.selection.selection as DataSelectionRange;
+				const rowStart = selection.first_index;
+				const rowEnd = selection.last_index;
+				const query = `SELECT ${getColumnSelectors(this.fullSchema).join(',')}
+				FROM ${this.tableName}
+				LIMIT ${rowEnd - rowStart + 1} OFFSET ${rowStart};`;
+				return await exportQueryOutput(query, this.fullSchema);
+			}
+			case TableSelectionKind.ColumnRange: {
+				const selection = params.selection.selection as DataSelectionRange;
+				const columnStart = selection.first_index;
+				const columnEnd = selection.last_index;
+				const columns = this.fullSchema.slice(columnStart, columnEnd + 1);
+				const query = `SELECT ${getColumnSelectors(columns).join(',')}
+				FROM ${this.tableName}`;
+				return await exportQueryOutput(query, columns);
+			}
+			case TableSelectionKind.RowIndices: {
+				const selection = params.selection.selection as DataSelectionIndices;
+				const indices = selection.indices;
+				const query = `SELECT ${getColumnSelectors(this.fullSchema).join(',')}
+				FROM ${this.tableName}
+				WHERE rowid IN (${indices.join(', ')})`;
+				return await exportQueryOutput(query, this.fullSchema);
+			}
+			case TableSelectionKind.ColumnIndices: {
+				const selection = params.selection.selection as DataSelectionIndices;
+				const indices = selection.indices;
+				const columns = indices.map(i => this.fullSchema[i]);
+				const query = `SELECT ${getColumnSelectors(columns).join(',')}
+				FROM ${this.tableName}`;
+				return await exportQueryOutput(query, columns);
+			}
+		}
+	}
 	private async _getShape(whereClause: string = ''): Promise<[number, number]> {
 		const numColumns = this.fullSchema.length;
 		const countStar = `SELECT count(*) AS num_rows

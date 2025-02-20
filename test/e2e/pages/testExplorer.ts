@@ -68,6 +68,6 @@ export class TestExplorer extends Explorer {
 	 * @returns Promise<void>
 	 */
 	async runAllTests(): Promise<void> {
-		await this.code.driver.page.getByRole('toolbar').getByLabel('Run Tests').click();
+		await this.code.driver.page.locator('.composite.title').getByLabel('Run Tests', { exact: true }).click();
 	}
 }

@@ -57,8 +57,9 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 
 	});
 
-	// not enabled for WIN yet; need to add additional versions
-	test('Python - Verify can use multiple interpreter versions', async function ({ app, python }) {
+	test('Python - Verify can use multiple interpreter versions', {
+		tag: [tags.WIN]
+	}, async function ({ app, python }) {
 
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 
@@ -75,10 +76,11 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 		const secondaryPython = process.env.POSITRON_PY_ALT_VER_SEL;
 
 		if (secondaryPython) {
-			await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, `${secondaryPython} (Pyenv)`, true);
+			await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, secondaryPython, true);
 			await app.workbench.console.barClearButton.click();
 			await app.workbench.console.pasteCodeToConsole(`import platform; print(platform.python_version())`, true);
-			await app.workbench.console.waitForConsoleContents(secondaryPython);
+			// If POSITRON_PY_ALT_VER_SEL has " (Pyenv)" in it, remove it"
+			await app.workbench.console.waitForConsoleContents(secondaryPython.replace(' (Pyenv)', ''));
 		} else {
 			fail('Secondary Python version not set');
 		}

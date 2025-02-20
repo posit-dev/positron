@@ -45,6 +45,8 @@ export enum TestTags {
 	R_PKG_DEVELOPMENT = '@:r-pkg-development',
 	RETICULATE = '@:reticulate',
 	SCM = '@:scm',
+	SESSIONS = '@:sessions',
+	TASKS = '@:tasks',
 	TEST_EXPLORER = '@:test-explorer',
 	TOP_ACTION_BAR = '@:top-action-bar',
 	VARIABLES = '@:variables',
@@ -52,6 +54,7 @@ export enum TestTags {
 
 	// platform  tags
 	WEB = '@:web',
+	WEB_ONLY = '@:web-only',
 	WIN = '@:win'
 }
 

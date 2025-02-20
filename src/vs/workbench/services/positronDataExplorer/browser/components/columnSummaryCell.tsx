@@ -17,6 +17,7 @@ import { usePositronDataGridContext } from '../../../../browser/positronDataGrid
 import { VectorHistogram } from './vectorHistogram.js';
 import { ColumnProfileDate } from './columnProfileDate.js';
 import { ColumnProfileNumber } from './columnProfileNumber.js';
+import { ColumnProfileObject } from './columnProfileObject.js';
 import { ColumnProfileString } from './columnProfileString.js';
 import { VectorFrequencyTable } from './vectorFrequencyTable.js';
 import { ColumnProfileBoolean } from './columnProfileBoolean.js';
@@ -261,9 +262,12 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			case ColumnDisplayType.Datetime:
 				return <ColumnProfileDatetime columnIndex={props.columnIndex} instance={props.instance} />;
 
+			// Object (pandas columns of dtype=object that are not uniformly typed).
+			case ColumnDisplayType.Object:
+				return <ColumnProfileObject columnIndex={props.columnIndex} instance={props.instance} />;
+
 			// Column display types that do not render a profile.
 			case ColumnDisplayType.Time:
-			case ColumnDisplayType.Object:
 			case ColumnDisplayType.Array:
 			case ColumnDisplayType.Struct:
 			case ColumnDisplayType.Unknown:
@@ -338,11 +342,10 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		case ColumnDisplayType.String:
 		case ColumnDisplayType.Date:
 		case ColumnDisplayType.Datetime:
+		case ColumnDisplayType.Object:
 			summaryStatsSupported = isSummaryStatsSupported();
 			break;
-
 		case ColumnDisplayType.Time:
-		case ColumnDisplayType.Object:
 		case ColumnDisplayType.Array:
 		case ColumnDisplayType.Struct:
 		case ColumnDisplayType.Unknown:

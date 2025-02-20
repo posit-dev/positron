@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -69,6 +69,11 @@ def get_qualname(value: Any) -> str:
 
     if qualname is None:
         # Finally, try to return the generic type's name, otherwise report object
+        qualname = getattr(type(value), "__name__", "object")
+
+    # In the rare situation an object incorrectly handles __qualname__ by not returning
+    # a str, we fall back to the name of the type
+    if not isinstance(qualname, str):
         qualname = getattr(type(value), "__name__", "object")
 
     # Tell the type checker that it's a string

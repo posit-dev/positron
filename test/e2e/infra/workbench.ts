@@ -79,7 +79,6 @@ export class Workbench {
 	constructor(code: Code) {
 
 		this.popups = new Popups(code);
-
 		this.variables = new Variables(code);
 		this.dataExplorer = new DataExplorer(code, this);
 		this.sideBar = new SideBar(code);

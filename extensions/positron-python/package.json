@@ -2,7 +2,7 @@
     "name": "python",
     "displayName": "Positron Python",
     "description": "Positron Python",
-    "version": "2024.99.0-dev",
+    "version": "2025.99.0-dev",
     "featureFlags": {
         "usingNewInterpreterStorage": true
     },
@@ -310,11 +310,6 @@
             },
             {
                 "category": "Python",
-                "command": "python.enableSourceMapSupport",
-                "title": "%python.command.python.enableSourceMapSupport.title%"
-            },
-            {
-                "category": "Python",
                 "command": "python.execInTerminal",
                 "title": "%python.command.python.execInTerminal.title%"
             },
@@ -443,18 +438,6 @@
             },
             {
                 "category": "Python",
-                "command": "python.launchTensorBoard",
-                "title": "%python.command.python.launchTensorBoard.title%"
-            },
-            {
-                "category": "Python",
-                "command": "python.refreshTensorBoard",
-                "enablement": "python.hasActiveTensorBoardSession",
-                "icon": "$(refresh)",
-                "title": "%python.command.python.refreshTensorBoard.title%"
-            },
-            {
-                "category": "Python",
                 "command": "python.reportIssue",
                 "title": "%python.command.python.reportIssue.title%"
             },
@@ -547,12 +530,6 @@
                     "scope": "machine-overridable",
                     "type": "string"
                 },
-                "python.diagnostics.sourceMapsEnabled": {
-                    "default": false,
-                    "description": "%python.diagnostics.sourceMapsEnabled.description%",
-                    "scope": "application",
-                    "type": "boolean"
-                },
                 "python.envFile": {
                     "default": "${workspaceFolder}/.env",
                     "description": "%python.envFile.description%",
@@ -576,8 +553,7 @@
                             "pythonTerminalEnvVarActivation",
                             "pythonDiscoveryUsingWorkers",
                             "pythonTestAdapter",
-                            "pythonREPLSmartSend",
-                            "pythonRecommendTensorboardExt"
+                            "pythonREPLSmartSend"
                         ],
                         "enumDescriptions": [
                             "%python.experiments.All.description%",
@@ -586,8 +562,7 @@
                             "%python.experiments.pythonTerminalEnvVarActivation.description%",
                             "%python.experiments.pythonDiscoveryUsingWorkers.description%",
                             "%python.experiments.pythonTestAdapter.description%",
-                            "%python.experiments.pythonREPLSmartSend.description%",
-                            "%python.experiments.pythonRecommendTensorboardExt.description%"
+                            "%python.experiments.pythonREPLSmartSend.description%"
                         ]
                     },
                     "scope": "window",
@@ -726,14 +701,6 @@
                     "scope": "machine-overridable",
                     "type": "string"
                 },
-                "python.tensorBoard.logDirectory": {
-                    "default": "",
-                    "description": "%python.tensorBoard.logDirectory.description%",
-                    "scope": "resource",
-                    "type": "string",
-                    "markdownDeprecationMessage": "%python.tensorBoard.logDirectory.markdownDeprecationMessage%",
-                    "deprecationMessage": "%python.tensorBoard.logDirectory.deprecationMessage%"
-                },
                 "python.terminal.activateEnvInCurrentTerminal": {
                     "default": false,
                     "description": "%python.terminal.activateEnvInCurrentTerminal.description%",
@@ -858,6 +825,12 @@
                 "python.installModulesInTerminal": {
                     "default": false,
                     "markdownDescription": "%python.installModulesInTerminal.description%",
+                    "scope": "resource",
+                    "type": "boolean"
+                },
+                "python.useBundledIpykernel": {
+                    "default": true,
+                    "markdownDescription": "%python.useBundledIpykernel.description%",
                     "scope": "resource",
                     "type": "boolean"
                 }
@@ -1412,12 +1385,6 @@
                 },
                 {
                     "category": "Python",
-                    "command": "python.enableSourceMapSupport",
-                    "title": "%python.command.python.enableSourceMapSupport.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported"
-                },
-                {
-                    "category": "Python",
                     "command": "python.execInTerminal",
                     "title": "%python.command.python.execInTerminal.title%",
                     "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
@@ -1465,20 +1432,6 @@
                     "command": "python.execInREPL",
                     "title": "%python.command.python.execInREPL.title%",
                     "when": "false"
-                },
-                {
-                    "category": "Python",
-                    "command": "python.launchTensorBoard",
-                    "title": "%python.command.python.launchTensorBoard.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported && !python.tensorboardExtInstalled"
-                },
-                {
-                    "category": "Python",
-                    "command": "python.refreshTensorBoard",
-                    "enablement": "python.hasActiveTensorBoardSession",
-                    "icon": "$(refresh)",
-                    "title": "%python.command.python.refreshTensorBoard.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported && !python.tensorboardExtInstalled"
                 },
                 {
                     "category": "Python",
@@ -1616,13 +1569,6 @@
                     "command": "python.execInREPL",
                     "group": "Python",
                     "when": "false"
-                }
-            ],
-            "editor/title": [
-                {
-                    "command": "python.refreshTensorBoard",
-                    "group": "navigation@0",
-                    "when": "python.hasActiveTensorBoardSession && !virtualWorkspace && shellExecutionSupported"
                 }
             ],
             "editor/title/run": [
@@ -1845,7 +1791,6 @@
         "arch": "^2.1.0",
         "fs-extra": "^11.2.0",
         "glob": "^7.2.0",
-        "hash.js": "^1.1.7",
         "iconv-lite": "^0.6.3",
         "inversify": "6.0.2",
         "jsonc-parser": "^3.0.0",

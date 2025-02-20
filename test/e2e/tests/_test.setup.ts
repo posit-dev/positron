@@ -291,7 +291,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			await use(app);
 		} else {
 			// start tracing
-			await app.startTracing();
+			await app.startTracing(testInfo.titlePath.join(' › '));
 
 			await use(app);
 
@@ -398,7 +398,7 @@ interface TestFixtures {
 	page: playwright.Page;
 	attachScreenshotsToReport: any;
 	attachLogsToReport: any;
-	interpreter: { set: (interpreterName: 'Python' | 'R') => Promise<void> };
+	interpreter: { set: (interpreterName: 'Python' | 'R', waitFoReady?: boolean) => Promise<void> };
 	r: void;
 	python: void;
 	packages: PackageManager;
