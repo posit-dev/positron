@@ -38,6 +38,7 @@ jobs:
       display_name: "electron (linux)"
       currents_tags: "pull-request,electron/linux,${{ needs.pr-tags.outputs.tags }}"
       report_testrail: false
+      enable_currents_reporter: false
     secrets: inherit
 
   e2e-windows-electron:
@@ -50,6 +51,7 @@ jobs:
       display_name: "electron (windows)"
       currents_tags: "pull-request,electron/windows,${{ needs.pr-tags.outputs.tags }}"
       report_testrail: false
+      enable_currents_reporter: false
     secrets: inherit
 
   e2e-linux-browser:
@@ -63,6 +65,7 @@ jobs:
       project: "e2e-browser"
       currents_tags: "pull-request,browser/linux,${{ needs.pr-tags.outputs.tags }}"
       report_testrail: false
+      enable_currents_reporter: false
     secrets: inherit
 
   unit-tests:
