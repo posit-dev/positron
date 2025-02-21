@@ -115,7 +115,7 @@ class RDriver implements positron.ConnectionsDriver {
 class RPostgreSQLDriver extends RDriver implements positron.ConnectionsDriver {
 
 	constructor(context: vscode.ExtensionContext) {
-		super(['RPostgres', 'DBI']);
+		super(['RPostgres', 'DBI', 'connections']);
 		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'postgre.svg');
 		const iconData = readFileSync(iconPath, 'base64');
 		this.metadata.base64EncodedIconSvg = iconData;
@@ -189,6 +189,7 @@ con <- dbConnect(
 	password = '${password ?? ''}',
 	bigint = '${bigint ?? ''}'
 )
+connections::connection_view(con)
 `;
 	}
 }
