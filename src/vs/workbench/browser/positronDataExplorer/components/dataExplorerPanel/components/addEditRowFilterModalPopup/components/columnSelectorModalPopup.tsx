@@ -77,10 +77,8 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 	// Calculate the max height.
 	const { defaultRowHeight, rows, rowsMargin } = props.columnSelectorDataGridInstance;
 
-	// TODO: Tests need to be updated for this feature.
-	const enableSearch = true;
-	// // Enable search when there are more than 10 rows.
-	// const enableSearch = rows > 10;
+	// Enable search when there are more than 10 rows.
+	const enableSearch = rows > 10;
 
 	// Calculate the max height. This is the height of the search UI plus the height of the rows,
 	// plus the height of the top and bottom rows margin.
