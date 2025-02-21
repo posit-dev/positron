@@ -58,6 +58,7 @@ import { traceError } from '../../../../logging';
 import { shouldIncludeInterpreter } from '../../../../positron/interpreterSettings';
 // eslint-disable-next-line import/no-duplicates
 import { MINIMUM_PYTHON_VERSION } from '../../../../common/constants';
+import { isVersionSupported } from '../../../../positron/discoverer';
 // --- End Positron ---
 import { untildify } from '../../../../common/helpers';
 import { useEnvExtension } from '../../../../envExt/api.internal';
@@ -742,7 +743,6 @@ function filterWrapper(filter: ((i: PythonEnvironment) => boolean) | undefined) 
     return (i: PythonEnvironment) =>
         (filter ? filter(i) : true) &&
         shouldIncludeInterpreter(i.path) &&
-        (i.version?.major ?? 0) >= MINIMUM_PYTHON_VERSION.major &&
-        (i.version?.minor ?? 0) >= MINIMUM_PYTHON_VERSION.minor;
+        isVersionSupported(i.version, MINIMUM_PYTHON_VERSION);
 }
 // --- End Positron ---
