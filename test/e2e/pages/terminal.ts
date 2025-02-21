@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect, Locator } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 
@@ -79,21 +79,21 @@ export class Terminal {
 	}
 
 	async logTerminalContents() {
-		// await test.step('Log terminal contents', async () => {
-		const terminalRows = this.code.driver.page.locator('.xterm-rows > div');
-		const terminalContents = (await terminalRows.evaluateAll((rows) =>
-			rows.map((row) => {
-				const spans = row.querySelectorAll('span');
-				return Array.from(spans)
-					.map((span) => span.textContent?.trim() || '')
-					.join(' ');
-			})
-		)).filter((line) => line && line.length > 0)
-			.join('\n');
+		await test.step('Log terminal contents', async () => {
+			const terminalRows = this.code.driver.page.locator('.xterm-rows > div');
+			const terminalContents = (await terminalRows.evaluateAll((rows) =>
+				rows.map((row) => {
+					const spans = row.querySelectorAll('span');
+					return Array.from(spans)
+						.map((span) => span.textContent?.trim() || '')
+						.join(' ');
+				})
+			)).filter((line) => line && line.length > 0)
+				.join('\n');
 
-		this.code.logger.log('---- START: Terminal Contents ----');
-		this.code.logger.log(terminalContents);
-		this.code.logger.log('---- END: Terminal Contents ----');
-		// });
+			this.code.logger.log('---- START: Terminal Contents ----');
+			this.code.logger.log(terminalContents);
+			this.code.logger.log('---- END: Terminal Contents ----');
+		});
 	}
 }

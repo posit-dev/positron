@@ -166,12 +166,12 @@ export class Console {
 	}
 
 	async logConsoleContents() {
-		// await test.step('Log console contents', async () => {
-		this.code.logger.log('---- START: Console Contents ----');
-		const contents = await this.code.driver.page.locator(CONSOLE_LINES).allTextContents();
-		contents.forEach(line => this.code.logger.log(line));
-		this.code.logger.log('---- END: Console Contents ----');
-		// });
+		await test.step('Log console contents', async () => {
+			this.code.logger.log('---- START: Console Contents ----');
+			const contents = await this.code.driver.page.locator(CONSOLE_LINES).allTextContents();
+			contents.forEach(line => this.code.logger.log(line));
+			this.code.logger.log('---- END: Console Contents ----');
+		});
 	}
 
 	async typeToConsole(text: string, pressEnter = false, delay = 10) {
