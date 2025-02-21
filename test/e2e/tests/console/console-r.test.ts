@@ -5,7 +5,7 @@
 
 import { fail } from 'assert';
 import { test, expect, tags } from '../_test.setup';
-import { InterpreterType } from '../../infra';
+import { InterpreterType } from '../../infra/fixtures/interpreter';
 
 test.use({
 	suiteId: __filename

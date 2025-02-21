@@ -209,7 +209,7 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	interrupt(): void;
 
 	/** Restart the runtime */
-	restart(): Thenable<void>;
+	restart(workingDirectory?: string): Thenable<void>;
 
 	/** Shut down the runtime */
 	shutdown(exitReason?: RuntimeExitReason): Thenable<void>;

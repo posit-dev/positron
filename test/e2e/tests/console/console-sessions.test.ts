@@ -20,7 +20,7 @@ test.use({
 });
 
 test.describe('Console: Sessions', {
-	tag: [tags.WIN, tags.CONSOLE, tags.SESSIONS]
+	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
@@ -35,7 +35,7 @@ test.describe('Console: Sessions', {
 		const console = app.workbench.console;
 
 		// Start Python session
-		await interpreter.set('Python', false);
+		await app.workbench.console.startSession({ ...pythonSession, waitForReady: false });
 
 		// Verify Python session is visible and transitions from active --> idle
 		await console.session.checkStatus(pythonSession, 'active');
@@ -47,7 +47,7 @@ test.describe('Console: Sessions', {
 		await console.session.checkStatus(pythonSession, 'idle');
 
 		// Start R session
-		await interpreter.set('R', false);
+		await app.workbench.console.startSession({ ...rSession, waitForReady: false });
 
 		// Verify R session transitions from active --> idle while Python session remains idle
 		await console.session.checkStatus(rSession, 'active');
@@ -71,10 +71,30 @@ test.describe('Console: Sessions', {
 		await console.session.checkStatus(pythonSession, 'disconnected');
 	});
 
+	test('Validate session state displays as active when executing code', async function ({ app }) {
+		const console = app.workbench.console;
+
+		// Ensure sessions exist and are idle
+		await console.session.ensureStartedAndIdle(pythonSession);
+		await console.session.ensureStartedAndIdle(rSession);
+
+		// Verify Python session transitions to active when executing code
+		await console.session.select(pythonSession);
+		await console.typeToConsole('import time', true);
+		await console.typeToConsole('time.sleep(1)', true);
+		await console.session.checkStatus(pythonSession, 'active');
+		await console.session.checkStatus(pythonSession, 'idle');
+
+		// Verify R session transitions to active when executing code
+		await console.session.select(rSession);
+		await console.typeToConsole('Sys.sleep(1)', true);
+		await console.session.checkStatus(rSession, 'active');
+		await console.session.checkStatus(rSession, 'idle');
+	});
+
 	test('Validate metadata between sessions', {
 		annotation: [
-			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6389' },
-			{ type: 'waiting on feature', description: 'https://github.com/posit-dev/positron/issues/6149' }]
+			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6389' }]
 	}, async function ({ app }) {
 		const console = app.workbench.console;
 

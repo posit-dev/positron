@@ -922,8 +922,12 @@ declare module 'positron' {
 		 * has been successfully started (not necessarily when it has completed). A restart will
 		 * cause the runtime to be shut down and then started again; its status will change from
 		 * `Restarting` => `Exited` => `Initializing` => `Starting` => `Ready`.
+		 *
+		 * @param workingDirectory The new working directory to use for the
+		 * restarted runtime, if any. Use `undefined` to keep the current
+		 * working directory.
 		 */
-		restart(): Thenable<void>;
+		restart(workingDirectory?: string): Thenable<void>;
 
 		/**
 		 * Shut down the runtime; returns a Thenable that resolves when the
