@@ -84,8 +84,8 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 	const enableSearch = rows > 10;
 
 	// Calculate the base height. This is the height of the search UI plus the height of the top and
-	// bottom rows margin.
-	const baseHeight = (enableSearch ? SEARCH_AREA_HEIGHT : 0) + (2 * rowsMargin);
+	// bottom rows margin plus the height of the border of the popup.
+	const baseHeight = (enableSearch ? SEARCH_AREA_HEIGHT : 0) + (2 * rowsMargin) + 2;
 
 	// Calculate the max height for all rows.
 	const maxHeight = baseHeight + (rows * defaultRowHeight);
