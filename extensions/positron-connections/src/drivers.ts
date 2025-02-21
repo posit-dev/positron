@@ -9,7 +9,15 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 
 export function registerConnectionDrivers(context: vscode.ExtensionContext) {
-	for (const driver of [new RSQLiteDriver(context), new RPostgreSQLDriver(context), new PythonSQLiteDriver(context)]) {
+
+	const drivers = [
+		new RSQLiteDriver(context),
+		new RPostgreSQLDriver(context),
+		new PythonSQLiteDriver(context),
+		new RSparkDriver(context),
+	];
+
+	for (const driver of drivers) {
 		context.subscriptions.push(
 			positron.connections.registerConnectionDriver(driver)
 		);
@@ -231,6 +239,51 @@ con <- dbConnect(
 	bigint = ${JSON.stringify(bigint)}
 )
 connections::connection_view(con)
+`;
+	}
+}
+
+class RSparkDriver extends RDriver implements positron.ConnectionsDriver {
+	constructor(context: vscode.ExtensionContext) {
+		super(['sparklyr']);
+		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'spark.svg');
+		const iconData = readFileSync(iconPath, 'base64');
+		this.metadata.base64EncodedIconSvg = iconData;
+	}
+
+	driverId: string = 'spark';
+	metadata: positron.ConnectionsDriverMetadata = {
+		languageId: 'r',
+		name: 'Spark',
+		inputs: [
+			{
+				'id': 'master',
+				'label': 'Master',
+				'type': 'string',
+				'value': 'local'
+			},
+			{
+				'id': 'method',
+				'label': 'Method',
+				'type': 'option',
+				'options': [
+					{ 'identifier': 'shell', 'title': 'Shell' },
+					{ 'identifier': 'livy', 'title': 'Livy' },
+					{ 'identifier': 'databricks', 'title': 'Databricks' },
+					{ 'identifier': 'qubole', 'title': 'Qubole' },
+					{ 'identifier': 'synapse', 'title': 'Synapse' }
+				],
+				'value': 'shell'
+			},
+		]
+	};
+
+	generateCode(inputs: positron.ConnectionsInput[]) {
+		return `library(sparklyr)
+sc <- spark_connect(
+	master = ${JSON.stringify(inputs.find(input => input.id === 'master')?.value)},
+	method = ${JSON.stringify(inputs.find(input => input.id === 'method')?.value)}
+)
 `;
 	}
 }
