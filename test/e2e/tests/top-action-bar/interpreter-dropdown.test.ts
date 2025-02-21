@@ -20,7 +20,7 @@ const rSession: SessionDetails = {
 };
 
 test.describe('Top Action Bar - Interpreter Dropdown', {
-	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.TOP_ACTION_BAR, tags.INTERPRETER]
+	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.TOP_ACTION_BAR, tags.SESSIONS]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {

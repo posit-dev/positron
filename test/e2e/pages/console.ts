@@ -265,16 +265,16 @@ export class Console {
 			await this.code.driver.page.mouse.move(0, 0);
 
 			// wait for the dropdown to contain R, Python, or Select Runtime.
-			const currentInterpreter = await page.getByRole('button', { name: 'Open Active Runtime Picker' }).textContent() || '';
+			const currentInterpreter = await page.getByRole('button', { name: 'Open Active Session Picker' }).textContent() || '';
 
 			if (currentInterpreter.includes('Python')) {
 				await expect(page.getByRole('code').getByText('>>>')).toBeVisible({ timeout: 30000 });
 				return;
-			} else if (currentInterpreter.includes('R') && !currentInterpreter.includes('Choose Runtime')) {
+			} else if (currentInterpreter.includes('R') && !currentInterpreter.includes('Choose Session')) {
 				await expect(page.getByRole('code').getByText('>')).toBeVisible({ timeout: 30000 });
 				return;
-			} else if (currentInterpreter.includes('Choose Runtime')) {
-				await expect(page.getByText('Choose Runtime')).toBeVisible();
+			} else if (currentInterpreter.includes('Choose Session')) {
+				await expect(page.getByText('Choose Session')).toBeVisible();
 				return;
 			}
 

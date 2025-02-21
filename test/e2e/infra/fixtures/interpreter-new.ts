@@ -17,7 +17,7 @@ export interface InterpreterInfo {
 }
 
 export class InterpreterNew {
-	private interpreterDropdown = this.code.driver.page.getByRole('button', { name: 'Open Active Runtime Picker' })
+	private interpreterDropdown = this.code.driver.page.getByRole('button', { name: 'Open Active Session Picker' })
 	private interpreterQuickMenu = this.code.driver.page.getByText(/(Select an Active Runtime)|(Start Another Runtime)/);
 
 	constructor(private code: Code) { }
@@ -34,10 +34,10 @@ export class InterpreterNew {
 		}
 
 		if (viewAllRuntimes) {
-			await this.code.driver.page.getByText(/All Runtimes/).click();
-			await expect(this.code.driver.page.getByText(/Start Another Runtime/)).toBeVisible();
+			await this.code.driver.page.getByText(/New Session.../).click();
+			await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible();
 		} else {
-			await expect(this.code.driver.page.getByText(/All Runtimes/)).toBeVisible();
+			await expect(this.code.driver.page.getByText(/New Session.../)).toBeVisible();
 		}
 	}
 
