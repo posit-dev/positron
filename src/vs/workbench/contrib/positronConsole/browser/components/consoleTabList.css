@@ -21,6 +21,11 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+
+	/* Use this property to take padding into account when sizing (prevents overflow) */
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
 }
 
 .tabs-container .tab-button:focus {
@@ -44,19 +49,6 @@
 	background-color: var(--vscode-list-inactiveSelectionBackground);
 }
 
-.tabs-container .tab-button {
-	display: flex;
-	flex-direction: row;
-	align-items: center;
-	justify-content: space-between;
-}
-
-.tabs-container .tab-button .tab-content {
-	flex: 1;
-	display: flex;
-	align-items: center;
-	justify-content: start
-}
 .tabs-container .tab-button .icon {
 	height: 15px;
 	width: 15px;
@@ -71,10 +63,34 @@
 	text-overflow: ellipsis;
 }
 
+/* Grow second to last item to fill available space */
+.tabs-container .tab-button :nth-last-child(2) {
+	flex: 1;
+}
+
 .tabs-container .tab-button .close-button {
+	display: none;
+
 	background-color: transparent;
 	border: none;
 	cursor: pointer;
 	height: 22px;
-	padding: 0 10px;
+	padding: 2px;
+
+	border-radius: 5px;
+}
+
+.tabs-container .tab-button:hover .close-button {
+	display: unset;
+}
+
+.tabs-container .tab-button .close-button .codicon {
+	height: 15px;
+	width: 15px;
+
+	vertical-align: middle;
+}
+
+.tabs-container .tab-button .close-button:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
 }

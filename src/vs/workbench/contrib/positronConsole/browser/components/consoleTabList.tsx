@@ -66,16 +66,14 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 					role='tab'
 					onClick={() => handleTabClick(positronConsoleInstance.session.sessionId)}
 				>
-					<div className='tab-content'>
-						<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
-						<img
-							className='icon'
-							src={`data:image/svg+xml;base64,${positronConsoleInstance.session.runtimeMetadata.base64EncodedIconSvg}`}
-						/>
-						<p className='session-name'>
-							{positronConsoleInstance.session.metadata.sessionName}
-						</p>
-					</div>
+					<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
+					<img
+						className='icon'
+						src={`data:image/svg+xml;base64,${positronConsoleInstance.session.runtimeMetadata.base64EncodedIconSvg}`}
+					/>
+					<p className='session-name'>
+						{positronConsoleInstance.session.metadata.sessionName}
+					</p>
 					<button className='close-button' onClick={e => {
 						e.preventDefault();
 						e.stopPropagation();
