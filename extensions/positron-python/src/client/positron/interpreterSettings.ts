@@ -25,7 +25,7 @@ export function getUserIncludedInterpreters(): string[] {
                 if (path.isAbsolute(item)) {
                     return true;
                 }
-                traceVerbose(
+                traceInfo(
                     `[shouldIncludeInterpreter]: included interpreter path ${item} is not absolute...ignoring`,
                 );
                 return false;
@@ -49,7 +49,7 @@ export function getUserExcludedInterpreters(): string[] {
                 if (path.isAbsolute(item)) {
                     return true;
                 }
-                traceVerbose(
+                traceInfo(
                     `[shouldIncludeInterpreter]: excluded interpreter path ${item} is not absolute...ignoring`,
                 );
                 return false;
