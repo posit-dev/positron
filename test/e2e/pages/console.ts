@@ -441,6 +441,21 @@ class Session {
 	}
 
 	/**
+	 * Action: Open the metadata dialog and select the desired menu item
+	 * @param menuItem the menu item to click on the metadata dialog
+	 */
+	async clickMetadataMenuItem(menuItem: 'Show Kernel Output Channel' | 'Show Console Output Channel' | 'Show LSP Output Channel') {
+		await this.console.clickConsoleTab();
+		await this.metadataButton.click();
+		await this.metadataDialog.getByText(menuItem).click();
+
+		await expect(this.page.getByRole('tab', { name: 'Output' })).toHaveClass('action-item checked');
+		// Todo: https://github.com/posit-dev/positron/issues/6389
+		// Todo: remove when menu closes on click as expected
+		await this.page.keyboard.press('Escape');
+	}
+
+	/**
 	 * Verify: Check the metadata of the session dialog
 	 * @param data the expected metadata to verify
 	 */
@@ -458,19 +473,19 @@ class Session {
 			await expect(this.metadataDialog.getByText(`State: ${data.state}`)).toBeVisible();
 			await expect(this.metadataDialog.getByText(/^Path: [\/~a-zA-Z0-9.]+/)).toBeVisible();
 			await expect(this.metadataDialog.getByText(/^Source: (Pyenv|System)$/)).toBeVisible();
+			await this.page.keyboard.press('Escape');
+
+			// Verify Language Console
+			await this.clickMetadataMenuItem('Show Console Output Channel');
+			await expect(this.page.getByRole('combobox')).toHaveValue(new RegExp(`^${data.language} ${data.version}.*: Console$`));
 
 			// Verify Output Channel
-			await this.page.getByRole('button', { name: 'Show Kernel Output Channel' }).click();
-			// Todo: https://github.com/posit-dev/positron/issues/6389
-			// Todo: remove when menu closes on click as expected
-			await this.page.keyboard.press('Escape');
-			await expect(this.page.getByRole('tab', { name: 'Output' })).toHaveClass('action-item checked');
-			await this.page.keyboard.press('Home');
-			await expect(this.page.getByText(`Begin kernel log for session ${data.language} ${data.version}`)).toBeVisible();
+			await this.clickMetadataMenuItem('Show Kernel Output Channel');
+			await expect(this.page.getByRole('combobox')).toHaveValue(new RegExp(`^${data.language} ${data.version}.*: Kernel$`));
 
-			// Todo: https://github.com/posit-dev/positron/issues/6149
-			// Todo: Verify Language Pack when implemented
-			// Todo: Verify Language Console when implemented
+			// Verify LSP Output Channel
+			await this.clickMetadataMenuItem('Show LSP Output Channel');
+			await expect(this.page.getByRole('combobox')).toHaveValue(/Language Server \(Console\)$/);
 
 			// Go back to console when done
 			await this.console.clickConsoleTab();

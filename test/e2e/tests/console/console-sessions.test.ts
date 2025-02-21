@@ -71,10 +71,30 @@ test.describe('Console: Sessions', {
 		await console.session.checkStatus(pythonSession, 'disconnected');
 	});
 
+	test('Validate session state displays as active when executing code', async function ({ app }) {
+		const console = app.workbench.console;
+
+		// Ensure sessions exist and are idle
+		await console.session.ensureStartedAndIdle(pythonSession);
+		await console.session.ensureStartedAndIdle(rSession);
+
+		// Verify Python session transitions to active when executing code
+		await console.session.select(pythonSession);
+		await console.typeToConsole('import time', true);
+		await console.typeToConsole('time.sleep(1)', true);
+		await console.session.checkStatus(pythonSession, 'active');
+		await console.session.checkStatus(pythonSession, 'idle');
+
+		// Verify R session transitions to active when executing code
+		await console.session.select(rSession);
+		await console.typeToConsole('Sys.sleep(1)', true);
+		await console.session.checkStatus(rSession, 'active');
+		await console.session.checkStatus(rSession, 'idle');
+	});
+
 	test('Validate metadata between sessions', {
 		annotation: [
-			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6389' },
-			{ type: 'waiting on feature', description: 'https://github.com/posit-dev/positron/issues/6149' }]
+			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6389' }]
 	}, async function ({ app }) {
 		const console = app.workbench.console;
 
