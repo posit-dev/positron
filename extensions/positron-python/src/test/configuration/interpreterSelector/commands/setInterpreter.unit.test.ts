@@ -1,6 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+// --- Start Positron ---
+/* eslint-disable import/no-duplicates */
+/* eslint-disable import/order */
+// --- End Positron ---
+
 import * as assert from 'assert';
 import { expect } from 'chai';
 import * as path from 'path';
@@ -51,7 +56,9 @@ import { untildify } from '../../../../client/common/helpers';
 import * as extapi from '../../../../client/envExt/api.internal';
 // --- Start Positron ---
 import * as windowApis from '../../../../client/common/vscodeApis/windowApis';
+import * as workspaceApis from '../../../../client/common/vscodeApis/workspaceApis';
 import { IPythonRuntimeManager } from '../../../../client/positron/manager';
+import { WorkspaceConfiguration } from 'vscode';
 // --- End Positron ---
 
 type TelemetryEventType = { eventName: EventName; properties: unknown };
@@ -68,6 +75,8 @@ suite('Set Interpreter Command', () => {
     let multiStepInputFactory: TypeMoq.IMock<IMultiStepInputFactory>;
     // --- Start Positron ---
     let pythonRuntimeManager: TypeMoq.IMock<IPythonRuntimeManager>;
+    let workspaceConfig: TypeMoq.IMock<WorkspaceConfiguration>;
+    let getConfigurationStub: sinon.SinonStub;
     // --- End Positron ---
     let interpreterService: IInterpreterService;
     let useEnvExtensionStub: sinon.SinonStub;
@@ -93,6 +102,15 @@ suite('Set Interpreter Command', () => {
         pythonRuntimeManager
             .setup((p) => p.selectLanguageRuntimeFromPath(TypeMoq.It.isAny()))
             .returns(() => Promise.resolve());
+        workspaceConfig = TypeMoq.Mock.ofType<WorkspaceConfiguration>();
+
+        getConfigurationStub = sinon.stub(workspaceApis, 'getConfiguration');
+        getConfigurationStub.callsFake((section?: string, _scope?: any) => {
+            if (section === 'python') {
+                return workspaceConfig.object;
+            }
+            return undefined;
+        });
         // --- End Positron ---
 
         workspace = TypeMoq.Mock.ofType<IWorkspaceService>();
