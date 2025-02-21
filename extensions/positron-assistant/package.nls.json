@@ -2,5 +2,18 @@
 	"displayName": "Positron Assistant",
 	"description": "Provides default assistant and language models for Positron.",
 	"commands.addModelConfiguration.title": "Add Language Model",
-	"commands.addModelConfiguration.category": "Positron Assistant"
+	"commands.addModelConfiguration.category": "Positron Assistant",
+	"configuration.enable.description": "Enable Positron Assistant (experimental)",
+	"configuration.models.description": "Array of language model configurations.",
+	"configuration.models.id.description": "Identifier for the model provider, used for API key storage.",
+	"configuration.models.name.description": "Display name for the model.",
+	"configuration.models.model.description": "The specific model to use.",
+	"configuration.models.baseUrl.description": "URL prefix for API calls.",
+	"configuration.models.numCtx.description": "Context window size.",
+	"configuration.models.toolCalls.description": "Should the LLM make tool calls?",
+	"configuration.models.project.description": "Google Cloud Project ID.",
+	"configuration.models.location.description": "Google Cloud Location.",
+	"configuration.models.resourceName.description": "Azure resource name.",
+	"configuration.models.provider.description": "The language model provider.",
+	"configuration.models.type.description": "Type of model; chat participant or code completion."
 }

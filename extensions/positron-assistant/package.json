@@ -52,7 +52,7 @@
         "positron.assistant.enable": {
           "type": "boolean",
           "default": false,
-          "description": "Enable Positron Assistant (experimental)"
+          "description": "%configuration.enable.description%"
         },
         "positron.assistant.models": {
           "type": "array",
@@ -61,39 +61,39 @@
             "properties": {
               "id": {
                 "type": "string",
-                "description": "Identifier for the model provider, used for API key storage."
+                "description": "%configuration.models.id.description%"
               },
               "name": {
                 "type": "string",
-                "description": "Display name for the model."
+                "description": "%configuration.models.name.description%"
               },
               "model": {
                 "type": "string",
-                "description": "The specific model to use."
+                "description": "%configuration.models.model.description%"
               },
               "baseUrl": {
                 "type": "string",
-                "description": "URL prefix for API calls."
+                "description": "%configuration.models.baseUrl.description%"
               },
               "numCtx": {
                 "type": "number",
-                "description": "Context window size."
+                "description": "%configuration.models.numCtx.description%"
               },
               "toolCalls": {
                 "type": "boolean",
-                "description": "Should the LLM make tool calls?"
+                "description": "%configuration.models.toolCalls.description%"
               },
               "project": {
                 "type": "string",
-                "description": "Google Cloud Project ID."
+                "description": "%configuration.models.project.description%"
               },
               "location": {
                 "type": "string",
-                "description": "Google Cloud Location."
+                "description": "%configuration.models.location.description%"
               },
               "resourceName": {
                 "type": "string",
-                "description": "Azure resource name."
+                "description": "%configuration.models.resourceName.description%"
               },
               "provider": {
                 "type": "string",
@@ -109,17 +109,16 @@
                   "openrouter",
                   "bedrock",
                   "vertex",
-                  "vertex",
                   "vertex-legacy"
                 ],
-                "description": "The language model provider."
+                "description": "%configuration.models.provider.description%"
               },
               "type": {
                 "enum": [
                   "chat",
                   "completion"
                 ],
-                "description": "Type of model; chat participant or code completion."
+                "description": "%configuration.models.type.description%"
               }
             },
             "required": [
@@ -128,7 +127,7 @@
             ],
             "additionalProperties": false
           },
-          "description": "Array of language model configurations."
+          "description": "%configuration.models.description%"
         }
       }
     }
