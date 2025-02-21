@@ -739,14 +739,10 @@ function getGroup(item: IInterpreterQuickPickItem, workspacePath?: string) {
  * @returns A new filter function that includes the original filter function and the additional filtering logic
  */
 function filterWrapper(filter: ((i: PythonEnvironment) => boolean) | undefined) {
-    return (i: PythonEnvironment) => {
-        const version = i.version?.major ?? 0;
-        return (
-            (filter ? filter(i) : true) &&
-            shouldIncludeInterpreter(i.path) &&
-            version >= MINIMUM_PYTHON_VERSION.major &&
-            (i.version?.minor ?? 0) >= MINIMUM_PYTHON_VERSION.minor
-        );
-    };
+    return (i: PythonEnvironment) =>
+        (filter ? filter(i) : true) &&
+        shouldIncludeInterpreter(i.path) &&
+        (i.version?.major ?? 0) >= MINIMUM_PYTHON_VERSION.major &&
+        (i.version?.minor ?? 0) >= MINIMUM_PYTHON_VERSION.minor;
 }
 // --- End Positron ---
