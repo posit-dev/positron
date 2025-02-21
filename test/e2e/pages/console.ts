@@ -276,8 +276,6 @@ export class Console {
 			// Move mouse to prevent tooltip hover
 			await this.code.driver.page.mouse.move(0, 0);
 			await expect(this.code.driver.page.getByRole('tab', { name: 'Console', exact: true })).toHaveClass('action-item checked');
-
-
 		}).toPass();
 	}
 
