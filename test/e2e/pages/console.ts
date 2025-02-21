@@ -367,7 +367,7 @@ class Session {
 			// Todo: remove when menu closes on click as expected
 			await this.page.keyboard.press('Escape');
 			await expect(this.page.getByRole('tab', { name: 'Output' })).toHaveClass('action-item checked');
-			await this.page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowUp' : 'Home');
+			await this.page.keyboard.press('Home');
 			await expect(this.page.getByText(`Begin kernel log for session ${data.language} ${data.version}`)).toBeVisible();
 
 			// Todo: https://github.com/posit-dev/positron/issues/6149
