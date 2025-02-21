@@ -56,6 +56,8 @@ import { IPythonRuntimeManager } from '../../../../positron/manager';
 import { showErrorMessage } from '../../../../common/vscodeApis/windowApis';
 import { traceError } from '../../../../logging';
 import { shouldIncludeInterpreter } from '../../../../positron/interpreterSettings';
+// eslint-disable-next-line import/no-duplicates
+import { MINIMUM_PYTHON_VERSION } from '../../../../common/constants';
 // --- End Positron ---
 import { untildify } from '../../../../common/helpers';
 import { useEnvExtension } from '../../../../envExt/api.internal';
@@ -737,6 +739,14 @@ function getGroup(item: IInterpreterQuickPickItem, workspacePath?: string) {
  * @returns A new filter function that includes the original filter function and the additional filtering logic
  */
 function filterWrapper(filter: ((i: PythonEnvironment) => boolean) | undefined) {
-    return (i: PythonEnvironment) => (filter ? filter(i) : true) && shouldIncludeInterpreter(i.path);
+    return (i: PythonEnvironment) => {
+        const version = i.version?.major ?? 0;
+        return (
+            (filter ? filter(i) : true) &&
+            shouldIncludeInterpreter(i.path) &&
+            version >= MINIMUM_PYTHON_VERSION.major &&
+            (i.version?.minor ?? 0) >= MINIMUM_PYTHON_VERSION.minor
+        );
+    };
 }
 // --- End Positron ---
