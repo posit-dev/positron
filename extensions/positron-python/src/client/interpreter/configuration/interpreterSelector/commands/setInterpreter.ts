@@ -55,11 +55,11 @@ import { CreateEnv } from '../../../../common/utils/localize';
 import { IPythonRuntimeManager } from '../../../../positron/manager';
 import { showErrorMessage } from '../../../../common/vscodeApis/windowApis';
 import { traceError } from '../../../../logging';
+import { shouldIncludeInterpreter } from '../../../../positron/interpreterSettings';
 // --- End Positron ---
 import { untildify } from '../../../../common/helpers';
 import { useEnvExtension } from '../../../../envExt/api.internal';
 import { setInterpreterLegacy } from '../../../../envExt/api.legacy';
-import { shouldIncludeInterpreter } from '../../../../positron/interpreterSettings';
 
 export type InterpreterStateArgs = { path?: string; workspace: Resource };
 export type QuickPickType = IInterpreterQuickPickItem | ISpecialQuickPickItem | QuickPickItem;
@@ -408,7 +408,7 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
         // --- Start Positron ---
         // Apply additional filtering to the suggestions by wrapping the filter
         if (filterWrapper(filter) && event.new && !filterWrapper(filter)(event.new)) {
-        // --- End Positron ---
+            // --- End Positron ---
             event.new = undefined; // Remove envs we're not looking for from the list.
         }
         let envIndex = -1;
@@ -731,26 +731,8 @@ function getGroup(item: IInterpreterQuickPickItem, workspacePath?: string) {
 
 // --- Start Positron ---
 /**
- * Removes interpreters that should not be shown from the list of quick pick items
- * @param items The list of quick pick items to filter
- * @returns The list of quick pick items with interpreters that should not be shown filtered out
- */
-// function removeUserExcludedInterpreters(items: QuickPickType[]) {
-//     items.forEach((item, i) => {
-//         if (isInterpreterQuickPickItem(item)) {
-//             console.log('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
-//             if (shouldIncludeInterpreter(item.interpreter.path)) {
-//                 console.log(`Including interpreter: ${item.interpreter.path}`);
-//                 return;
-//             }
-//             console.log(`Excluding interpreter: ${item.interpreter.path}`);
-//             items.splice(i, 1);
-//         }
-//     });
-// }
-
-/**
  * Wraps the original filter function to include additional filtering logic.
+ * If no filter is provided, the returned function will only include the additional filtering logic.
  * @param filter The original filter function
  * @returns A new filter function that includes the original filter function and the additional filtering logic
  */
