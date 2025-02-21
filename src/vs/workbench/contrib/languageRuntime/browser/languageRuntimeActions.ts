@@ -601,8 +601,8 @@ export function registerLanguageRuntimeActions() {
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 		const commandService = accessor.get(ICommandService);
 
-		// Create quick pick items for active runtimes.
-		const sortedActiveSessions = [...runtimeSessionService.activeSessions].sort((a, b) => b.lastUsed - a.lastUsed);
+		// Create quick pick items for active runtimes sorted by creation time, oldest to newest.
+		const sortedActiveSessions = [...runtimeSessionService.activeSessions].sort((a, b) => a.metadata.createdTimestamp - b.metadata.createdTimestamp);
 
 		const activeRuntimeItems: IQuickPickItem[] = sortedActiveSessions.filter(
 			(session) => {
