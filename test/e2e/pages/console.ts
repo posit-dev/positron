@@ -86,14 +86,14 @@ export class Console {
 	}
 
 	/**
-	 * Action: Select an interpreter via the dropdown or quickaccess.
+	 * Action: Start a session via the dropdown or quickaccess.
 	 * @param options - Configuration options for selecting the interpreter.
 	 * @param options.language the programming language interpreter to select.
 	 * @param options.version the specific version of the interpreter to select (e.g., "3.10.15").
 	 * @param options.triggerMode the method used to trigger the selection: dropdown or quickaccess.
 	 * @param options.waitForReady whether to wait for the console to be ready after selecting the interpreter.
 	 */
-	async selectInterpreterNew(options: {
+	async startSession(options: {
 		language: 'Python' | 'R';
 		version?: string;
 		triggerMode?: 'dropdown' | 'quickaccess';
@@ -114,7 +114,7 @@ export class Console {
 			const command = language === 'Python' ? 'python.setInterpreter' : 'r.selectInterpreter';
 			triggerMode === 'quickaccess'
 				? await this.quickaccess.runCommand(command, { keepOpen: true })
-				: await this.interpreter.openInterpreterDropdown();
+				: await this.interpreter.openSessionQuickPickMenu();
 
 			await this.quickinput.waitForQuickInputOpened();
 			await this.quickinput.type(`${language} ${version}`);
@@ -543,7 +543,7 @@ class Session {
 			// Start Session if it does not exist
 			const sessionExists = await this.getSessionLocator(session).isVisible({ timeout: 30000 });
 			if (!sessionExists) {
-				await this.console.selectInterpreterNew(session);
+				await this.console.startSession(session);
 			}
 
 			// Ensure session is idle (ready)

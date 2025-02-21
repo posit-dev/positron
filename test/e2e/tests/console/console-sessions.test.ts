@@ -35,7 +35,7 @@ test.describe('Console: Sessions', {
 		const console = app.workbench.console;
 
 		// Start Python session
-		await app.workbench.console.selectInterpreterNew({ ...pythonSession, waitForReady: false });
+		await app.workbench.console.startSession({ ...pythonSession, waitForReady: false });
 
 		// Verify Python session is visible and transitions from active --> idle
 		await console.session.checkStatus(pythonSession, 'active');
@@ -47,7 +47,7 @@ test.describe('Console: Sessions', {
 		await console.session.checkStatus(pythonSession, 'idle');
 
 		// Start R session
-		await app.workbench.console.selectInterpreterNew({ ...rSession, waitForReady: false });
+		await app.workbench.console.startSession({ ...rSession, waitForReady: false });
 
 		// Verify R session transitions from active --> idle while Python session remains idle
 		await console.session.checkStatus(rSession, 'active');

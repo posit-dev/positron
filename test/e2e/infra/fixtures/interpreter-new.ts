@@ -12,13 +12,14 @@ const DESIRED_R = process.env.POSITRON_R_VER_SEL;
 export interface InterpreterInfo {
 	language: 'Python' | 'R';
 	version: string; // e.g. Python 3.12.4 64-bit or Python 3.9.19 64-bit ('3.9.19') or R 4.4.0
-	path: string;    // e.g. /usr/local/bin/python3 or ~/.pyenv/versions/3.9.19/bin/python or /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/bin/R
-	source?: string; // e.g. Pyenv, Global, Conda, or System
+	path: string;    // e.g. /usr/local/bin/python3
+	source?: string; // e.g. Pyenv, Global, System, etc
 }
 
 export class InterpreterNew {
-	private interpreterDropdown = this.code.driver.page.getByRole('button', { name: 'Open Active Session Picker' })
-	private interpreterQuickMenu = this.code.driver.page.getByText(/(Select an Active Runtime)|(Start Another Runtime)/);
+	private interpreterButton = this.code.driver.page.getByRole('button', { name: 'Open Active Session Picker' })
+	private interpreterQuickMenu = this.code.driver.page.getByText(/(Select a Session)|(Start a New Session)/);
+	private newSessionQuickOption = this.code.driver.page.getByText(/New Session.../);
 
 	constructor(private code: Code) { }
 
@@ -27,24 +28,23 @@ export class InterpreterNew {
 	/**
 	 * Action: Open the interpreter dropdown in the top action bar.
 	 */
-	async openInterpreterDropdown(viewAllRuntimes = true) {
+	async openSessionQuickPickMenu(viewAllRuntimes = true) {
 		if (!await this.interpreterQuickMenu.isVisible()) {
-			await this.interpreterDropdown.click();
-			//runCommand: workbench.action.language.runtime.openActivePicker
+			await this.interpreterButton.click();
 		}
 
 		if (viewAllRuntimes) {
-			await this.code.driver.page.getByText(/New Session.../).click();
+			await this.newSessionQuickOption.click();
 			await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible();
 		} else {
-			await expect(this.code.driver.page.getByText(/New Session.../)).toBeVisible();
+			await expect(this.code.driver.page.getByText(/Select a Session/)).toBeVisible();
 		}
 	}
 
 	/**
 	 * Action: Close the interpreter dropdown in the top action bar.
 	 */
-	async closeInterpreterDropdown() {
+	async closeSessionQuickPickMenu() {
 		if (await this.interpreterQuickMenu.isVisible()) {
 			await this.code.driver.page.keyboard.press('Escape');
 			await expect(this.interpreterQuickMenu).not.toBeVisible();
@@ -57,8 +57,8 @@ export class InterpreterNew {
 	 * Util: Get the interpreter info for the currently selected interpreter in the dropdown.
 	 * @returns The interpreter info for the selected interpreter if found, otherwise undefined.
 	 */
-	async getSelectedInterpreterInfo(): Promise<InterpreterInfo> {
-		await this.openInterpreterDropdown(false);
+	async getSelectedSessionInfo(): Promise<InterpreterInfo> {
+		await this.openSessionQuickPickMenu(false);
 		const selectedInterpreter = this.code.driver.page.locator('.quick-input-list-entry').filter({ hasText: 'Currently Selected' })
 
 		// Extract the runtime name
@@ -70,7 +70,7 @@ export class InterpreterNew {
 		// Extract the path
 		const path = await selectedInterpreter.locator('.quick-input-list-label-meta .monaco-icon-label-container .label-name .monaco-highlighted-label').nth(0).textContent();
 
-		await this.closeInterpreterDropdown();
+		await this.closeSessionQuickPickMenu();
 
 		return {
 			language: language as 'Python' | 'R',
@@ -112,7 +112,7 @@ export class InterpreterNew {
 	 * Verify: the selected interpreter is the expected interpreter.
 	 * @param version The descriptive string of the interpreter to verify.
 	 */
-	async verifyInterpreterIsSelected(
+	async verifySessionIsSelected(
 		options: { language?: 'Python' | 'R'; version?: string } = {}
 	) {
 		if (!DESIRED_PYTHON || !DESIRED_R) {
@@ -124,7 +124,7 @@ export class InterpreterNew {
 			version = language === 'Python' ? DESIRED_PYTHON : DESIRED_R,
 		} = options;
 		await test.step(`Verify interpreter is selected: ${language} ${version}`, async () => {
-			const interpreterInfo = await this.getSelectedInterpreterInfo();
+			const interpreterInfo = await this.getSelectedSessionInfo();
 			expect(interpreterInfo.language).toContain(language);
 			expect(interpreterInfo.version).toContain(version);
 		});
