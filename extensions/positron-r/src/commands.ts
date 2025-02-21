@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { PromiseHandles, timeout } from './util';
+import { PromiseHandles, delay } from './util';
 import { checkInstalled } from './session';
 import { getRPackageName } from './contexts';
 import { getRPackageTasks } from './tasks';
@@ -124,6 +124,13 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			if (isInstalled) {
 				vscode.tasks.executeTask(task);
 			}
+		}),
+
+		vscode.commands.registerCommand('r.packageTestExplorer', async () => {
+			vscode.commands.executeCommand('workbench.view.testing.focus');
+			// Wait for the test explorer to set up before running tests
+			await delay(500);
+			vscode.commands.executeCommand('testing.runAll');
 		}),
 
 		vscode.commands.registerCommand('r.useTestthat', async () => {
