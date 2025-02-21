@@ -89,7 +89,7 @@ test.describe('Console: Sessions', {
 		await console.session.select(rSession);
 		await console.typeToConsole('Sys.sleep(1)', true);
 		await console.session.checkStatus(rSession, 'active');
-		await console.session.checkStatus(pythonSession, 'idle');
+		await console.session.checkStatus(rSession, 'idle');
 	});
 
 	test('Validate metadata between sessions', {
