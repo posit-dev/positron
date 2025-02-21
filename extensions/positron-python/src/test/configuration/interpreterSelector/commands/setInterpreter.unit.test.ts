@@ -105,7 +105,7 @@ suite('Set Interpreter Command', () => {
         workspaceConfig = TypeMoq.Mock.ofType<WorkspaceConfiguration>();
 
         getConfigurationStub = sinon.stub(workspaceApis, 'getConfiguration');
-        getConfigurationStub.callsFake((section?: string, _scope?: any) => {
+        getConfigurationStub.callsFake((section?: string) => {
             if (section === 'python') {
                 return workspaceConfig.object;
             }
