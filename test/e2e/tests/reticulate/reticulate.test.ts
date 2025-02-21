@@ -61,8 +61,7 @@ test.describe('Reticulate', {
 		tag: [tags.WEB_ONLY]
 	}, async function ({ app, interpreter }) {
 
-		// await app.workbench.interpreter.selectInterpreter('Python', 'Python (reticulate)', false);
-		await app.workbench.console.session.start({ language: 'Python', version: 'Python (reticulate)' });
+		await app.workbench.interpreter.selectInterpreter('Python', 'Python (reticulate)', false);
 
 		await app.workbench.popups.installIPyKernel();
 
