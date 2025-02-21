@@ -158,7 +158,7 @@ test.describe('Console: Sessions', {
 
 	test('Validate active session list in console matches active session list in session picker', {
 		annotation: [
-			{ type: 'issue', description: 'sessions are not correctly sorted atm. see line 174' }
+			{ type: 'issue', description: 'sessions are not correctly sorted atm. see line 174.' }
 		]
 	}, async function ({ app }) {
 		const console = app.workbench.console;
@@ -171,7 +171,7 @@ test.describe('Console: Sessions', {
 		// Get active sessions and verify they match the session picker: order matters!
 		let activeSessionsFromConsole = await console.session.getActiveSessions();
 		let activeSessionsFromPicker = await interpreter.getActiveSessions();
-		// expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
+		expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
 
 		// Shutdown Python session and verify active sessions
 		await console.session.shutdown(pythonSession);
@@ -181,6 +181,18 @@ test.describe('Console: Sessions', {
 
 		// Shutdown R session and verify active sessions
 		await console.session.shutdown(rSession);
+		activeSessionsFromConsole = await console.session.getActiveSessions();
+		activeSessionsFromPicker = await interpreter.getActiveSessions();
+		expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
+
+		// Start Python session (again) and verify active sessions
+		await console.session.start(pythonSession);
+		activeSessionsFromConsole = await console.session.getActiveSessions();
+		activeSessionsFromPicker = await interpreter.getActiveSessions();
+		expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
+
+		// Restart Python session and verify active sessions
+		await console.session.restart(pythonSession);
 		activeSessionsFromConsole = await console.session.getActiveSessions();
 		activeSessionsFromPicker = await interpreter.getActiveSessions();
 		expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
