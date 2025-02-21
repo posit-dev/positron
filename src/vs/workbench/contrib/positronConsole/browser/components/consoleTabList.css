@@ -46,9 +46,17 @@
 
 .tabs-container .tab-button {
 	display: flex;
+	flex-direction: row;
 	align-items: center;
+	justify-content: space-between;
 }
 
+.tabs-container .tab-button .tab-content {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: start
+}
 .tabs-container .tab-button .icon {
 	height: 15px;
 	width: 15px;
@@ -61,4 +69,12 @@
 	overflow: hidden;
 	min-width: 0;
 	text-overflow: ellipsis;
+}
+
+.tabs-container .tab-button .close-button {
+	background-color: transparent;
+	border: none;
+	cursor: pointer;
+	height: 22px;
+	padding: 0 10px;
 }

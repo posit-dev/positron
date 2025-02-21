@@ -153,6 +153,11 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	private readonly _onDidStartPositronConsoleInstanceEmitter = this._register(new Emitter<IPositronConsoleInstance>);
 
 	/**
+	 * The onDidDeletePositronConsoleInstance event emitter.
+	 */
+	private readonly _onDidDeletePositronConsoleInstanceEmitter = this._register(new Emitter<IPositronConsoleInstance>);
+
+	/**
 	 * The onDidChangeActivePositronConsoleInstance event emitter.
 	 */
 	private readonly _onDidChangeActivePositronConsoleInstanceEmitter = this._register(new Emitter<IPositronConsoleInstance | undefined>);
@@ -327,6 +332,20 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				}
 			}
 		}));
+
+		this._register(this._runtimeSessionService.onDidDeleteRuntime(sessionId => {
+			const consoleInstance = this._positronConsoleInstancesBySessionId.get(sessionId);
+			if (!consoleInstance) {
+				return;
+			}
+
+			this._onDidDeletePositronConsoleInstanceEmitter.fire(consoleInstance);
+
+			this._positronConsoleInstancesByLanguageId.delete(consoleInstance.session.runtimeMetadata.languageId);
+			this._positronConsoleInstancesBySessionId.delete(sessionId);
+
+			consoleInstance.dispose();
+		}));
 	}
 
 	//#endregion Constructor & Dispose
@@ -338,6 +357,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 	// An event that is fired when a REPL instance is started.
 	readonly onDidStartPositronConsoleInstance = this._onDidStartPositronConsoleInstanceEmitter.event;
+
+	// An event that is fired when a REPL instance is deleted.
+	readonly onDidDeletePositronConsoleInstance = this._onDidDeletePositronConsoleInstanceEmitter.event;
 
 	// An event that is fired when the active REPL instance changes.
 	readonly onDidChangeActivePositronConsoleInstance = this._onDidChangeActivePositronConsoleInstanceEmitter.event;

@@ -119,6 +119,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private readonly _onDidChangeForegroundSessionEmitter =
 		this._register(new Emitter<ILanguageRuntimeSession | undefined>);
 
+	// The event emitter for the onDidDeleteRuntime event.
+	private readonly _onDidDeleteRuntimeEmitter =
+		this._register(new Emitter<string>);
+
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -218,6 +222,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	// An event that fires when the active runtime changes.
 	readonly onDidChangeForegroundSession = this._onDidChangeForegroundSessionEmitter.event;
+
+	// An event that fires when a runtime is deleted.
+	readonly onDidDeleteRuntime = this._onDidDeleteRuntimeEmitter.event;
 
 	/**
 	 * Registers a session manager with the service.
@@ -687,6 +694,21 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// The runtime is not in a state where it can be restarted.
 			throw new Error(`The ${session.runtimeMetadata.languageName} session is '${state}' ` +
 				`and cannot be restarted.`);
+		}
+	}
+
+	async deleteSession(sessionId: string): Promise<void> {
+		const session = this.getSession(sessionId);
+		if (!session) {
+			throw new Error(`No session with ID '${sessionId}' was found.`);
+		}
+		await session.shutdown(RuntimeExitReason.Shutdown);
+		if (this._activeSessionsBySessionId.delete(sessionId)) {
+			// Dispose of the session.
+			session.dispose();
+
+			// Fire the onDidDeleteRuntime event only if the session was actually deleted.
+			this._onDidDeleteRuntimeEmitter.fire(sessionId);
 		}
 	}
 

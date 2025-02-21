@@ -56,7 +56,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 			style={{ height: props.height, width: props.width }}
 		>
 			{consoleInstances.map((positronConsoleInstance) => (
-				<button
+				<div
 					key={`tab-${positronConsoleInstance.session.sessionId}`}
 					aria-label={positronConsoleInstance.session.metadata.sessionName}
 					aria-labelledby={`console-panel-${positronConsoleInstance.session.sessionId}`}
@@ -66,15 +66,25 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 					role='tab'
 					onClick={() => handleTabClick(positronConsoleInstance.session.sessionId)}
 				>
-					<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
-					<img
-						className='icon'
-						src={`data:image/svg+xml;base64,${positronConsoleInstance.session.runtimeMetadata.base64EncodedIconSvg}`}
-					/>
-					<p className='session-name'>
-						{positronConsoleInstance.session.metadata.sessionName}
-					</p>
-				</button>
+					<div className='tab-content'>
+						<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
+						<img
+							className='icon'
+							src={`data:image/svg+xml;base64,${positronConsoleInstance.session.runtimeMetadata.base64EncodedIconSvg}`}
+						/>
+						<p className='session-name'>
+							{positronConsoleInstance.session.metadata.sessionName}
+						</p>
+					</div>
+					<button className='close-button' onClick={e => {
+						e.preventDefault();
+						e.stopPropagation();
+
+						positronConsoleContext.runtimeSessionService.deleteSession(positronConsoleInstance.session.sessionId);
+					}}>
+						<span className='codicon codicon-trash' />
+					</button>
+				</div>
 			))}
 		</div>
 	)
