@@ -1,5 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+// --- Start Positron ---
+// Disable eslint rules for our import block below. This appears at the top of the file to stop
+// auto-formatting tools from reordering the imports.
+/* eslint-disable import/no-duplicates */
+// --- End Positron ---
 
 'use strict';
 
@@ -50,13 +55,11 @@ import { BaseInterpreterSelectorCommand } from './base';
 // --- Start Positron ---
 // eslint-disable-next-line import/order
 import * as fs from 'fs-extra';
-// eslint-disable-next-line import/no-duplicates
 import { CreateEnv } from '../../../../common/utils/localize';
 import { IPythonRuntimeManager } from '../../../../positron/manager';
 import { showErrorMessage } from '../../../../common/vscodeApis/windowApis';
 import { traceError } from '../../../../logging';
 import { shouldIncludeInterpreter } from '../../../../positron/interpreterSettings';
-// eslint-disable-next-line import/no-duplicates
 import { MINIMUM_PYTHON_VERSION } from '../../../../common/constants';
 import { isVersionSupported } from '../../../../positron/discoverer';
 // --- End Positron ---
