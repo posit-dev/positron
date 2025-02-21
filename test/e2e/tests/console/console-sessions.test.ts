@@ -78,14 +78,14 @@ test.describe('Console: Sessions', {
 		await console.session.ensureStartedAndIdle(pythonSession);
 		await console.session.ensureStartedAndIdle(rSession);
 
-		// Execute code in Python session
+		// Verify Python session transitions to active when executing code
 		await console.session.select(pythonSession);
 		await console.typeToConsole('import time', true);
 		await console.typeToConsole('time.sleep(1)', true);
 		await console.session.checkStatus(pythonSession, 'active');
 		await console.session.checkStatus(pythonSession, 'idle');
 
-		// Execute code in R session
+		// Verify R session transitions to active when executing code
 		await console.session.select(rSession);
 		await console.typeToConsole('Sys.sleep(1)', true);
 		await console.session.checkStatus(rSession, 'active');
