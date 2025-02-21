@@ -441,7 +441,7 @@ class Session {
 	}
 
 	/**
-	 * Action: click Metadata menu button
+	 * Action: Open the metadata dialog and select the desired menu item
 	 * @param menuItem the menu item to click on the metadata dialog
 	 */
 	async clickMetadataMenuItem(menuItem: 'Show Kernel Output Channel' | 'Show Console Output Channel' | 'Show LSP Output Channel') {
