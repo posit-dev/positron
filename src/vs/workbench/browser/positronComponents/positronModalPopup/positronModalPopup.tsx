@@ -213,7 +213,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 			// Adjust the popup layout for the popup position.
 			if (props.popupPosition === 'bottom') {
 				positionBottom();
-			} if (props.popupPosition === 'top') {
+			} else if (props.popupPosition === 'top') {
 				positionTop();
 			} else {
 				if (layoutHeight <= bottomAreaHeight) {
