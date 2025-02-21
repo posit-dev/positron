@@ -3,14 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { SessionDetails } from '../../infra';
+import { expect } from '@playwright/test';
+import { SessionName } from '../../infra';
 import { test, tags } from '../_test.setup';
 
-const pythonSession: SessionDetails = {
+const pythonSession: SessionName = {
 	language: 'Python',
 	version: process.env.POSITRON_PY_VER_SEL || ''
 };
-const rSession: SessionDetails = {
+const rSession: SessionName = {
 	language: 'R',
 	version: process.env.POSITRON_R_VER_SEL || ''
 };
@@ -153,5 +154,35 @@ test.describe('Console: Sessions', {
 		await variables.checkRuntime(rSession);
 		await variables.checkVariableValue('x', '3');
 		await variables.checkVariableValue('z', '4');
+	});
+
+	test('Validate active session list in console matches active session list in session picker', {
+		annotation: [
+			{ type: 'issue', description: 'sessions are not correctly sorted atm. see line 174' }
+		]
+	}, async function ({ app }) {
+		const console = app.workbench.console;
+		const interpreter = app.workbench.interpreterNew;
+
+		// Ensure sessions exist and are idle
+		await console.session.ensureStartedAndIdle(pythonSession);
+		await console.session.ensureStartedAndIdle(rSession);
+
+		// Get active sessions and verify they match the session picker: order matters!
+		let activeSessionsFromConsole = await console.session.getActiveSessions();
+		let activeSessionsFromPicker = await interpreter.getActiveSessions();
+		// expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
+
+		// Shutdown Python session and verify active sessions
+		await console.session.shutdown(pythonSession);
+		activeSessionsFromConsole = await console.session.getActiveSessions();
+		activeSessionsFromPicker = await interpreter.getActiveSessions();
+		expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
+
+		// Shutdown R session and verify active sessions
+		await console.session.shutdown(rSession);
+		activeSessionsFromConsole = await console.session.getActiveSessions();
+		activeSessionsFromPicker = await interpreter.getActiveSessions();
+		expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
 	});
 });

@@ -119,25 +119,25 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 		>
 			<div className='console-instance-info'>
 				<div className='content'>
-					<p className='line'>{props.session.metadata.sessionName}</p>
+					<p className='line' data-testid='session-name'>{props.session.metadata.sessionName}</p>
 					<div className='top-separator'>
-						<p className='line'>
+						<p className='line' data-testid='session-id'>
 							{(() => localize(
 								'positron.console.info.sessionId', 'Session ID: {0}',
 								props.session.sessionId
 							))()}
 						</p>
-						<p className='line'>{(() => localize(
+						<p className='line' data-testid='session-state'>{(() => localize(
 							'positron.console.info.state', 'State: {0}',
 							sessionState))()}
 						</p>
 					</div>
 					<div className='top-separator'>
-						<p className='line'>{(() => localize(
+						<p className='line' data-testid='session-path'>{(() => localize(
 							'positron.console.info.runtimePath', 'Path: {0}',
 							props.session.runtimeMetadata.runtimePath))()}
 						</p>
-						<p className='line'>{(() => localize(
+						<p className='line' data-testid='session-source'>{(() => localize(
 							'positron.console.info.runtimeSource', 'Source: {0}',
 							props.session.runtimeMetadata.runtimeSource))()}
 						</p>

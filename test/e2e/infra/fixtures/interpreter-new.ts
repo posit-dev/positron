@@ -54,6 +54,31 @@ export class InterpreterNew {
 	// --- Utils ---
 
 	/**
+	 * Util: Get active sessions from the session picker.
+	 * @returns The list of active sessions.
+	 */
+	async getActiveSessions(): Promise<QuickPickSessionInfo[]> {
+		await this.openSessionQuickPickMenu(false);
+		const allSessions = await this.code.driver.page.locator('.quick-input-list-rows').all();
+
+		// Get the text of all sessions
+		const activeSessions = await Promise.all(
+			allSessions.map(async element => {
+				const runtime = (await element.locator('.quick-input-list-row').nth(0).textContent())?.replace('Currently Selected', '');
+				const path = await element.locator('.quick-input-list-row').nth(1).textContent();
+				return { name: runtime?.trim() || '', path: path?.trim() || '' };
+			})
+		);
+
+		// Filter out the one with "New Session..."
+		const filteredSessions = activeSessions
+			.filter(session => !session.name.includes("New Session..."))
+
+		await this.closeSessionQuickPickMenu();
+		return filteredSessions;
+	}
+
+	/**
 	 * Util: Get the interpreter info for the currently selected interpreter in the dropdown.
 	 * @returns The interpreter info for the selected interpreter if found, otherwise undefined.
 	 */
@@ -130,3 +155,8 @@ export class InterpreterNew {
 		});
 	}
 }
+
+export type QuickPickSessionInfo = {
+	name: string;
+	path: string;
+};

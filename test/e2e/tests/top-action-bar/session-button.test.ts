@@ -3,23 +3,23 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { SessionDetails } from '../../infra';
+import { SessionName } from '../../infra';
 import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-const pythonSession: SessionDetails = {
+const pythonSession: SessionName = {
 	language: 'Python',
 	version: process.env.POSITRON_PY_VER_SEL || ''
 };
-const rSession: SessionDetails = {
+const rSession: SessionName = {
 	language: 'R',
 	version: process.env.POSITRON_R_VER_SEL || ''
 };
 
-test.describe('Top Action Bar - Session Button', {
+test.describe('Top Action Bar: Session Button', {
 	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.TOP_ACTION_BAR, tags.SESSIONS]
 }, () => {
 
