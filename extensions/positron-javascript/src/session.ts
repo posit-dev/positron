@@ -176,7 +176,7 @@ export class JavaScriptLanguageRuntimeSession implements positron.LanguageRuntim
 		return Promise.resolve();
 	}
 
-	restart(): Thenable<void> {
+	restart(workingDirectory?: string): Thenable<void> {
 		// See notes on `interrupt()`
 		return Promise.resolve();
 	}

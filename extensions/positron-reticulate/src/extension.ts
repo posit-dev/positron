@@ -606,7 +606,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		return this.pythonSession.interrupt();
 	}
 
-	public async restart() {
+	public async restart(workingDirectory: string | undefined) {
 		// Sending a restart to the python session will not work simply, because it's
 		// tied to the R session.
 		// We have to send a restart to the R session, and send a reticulate::repl_python()
@@ -627,7 +627,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		// 2. restart the attached R session
 		// 3. start a new reticulate session.
 		this.pythonSession.onDidEndSession((sess) => {
-			this.rSession.restart();
+			this.rSession.restart(workingDirectory);
 		});
 
 		const disposeListener = this.rSession.onDidChangeRuntimeState(async (e) => {

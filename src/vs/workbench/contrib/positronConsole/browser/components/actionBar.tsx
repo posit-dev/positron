@@ -317,7 +317,12 @@ export const ActionBar = (props: ActionBarProps) => {
 
 	// Restart console event handler.
 	const restartConsoleHandler = async () => {
-		positronConsoleContext.activePositronConsoleInstance?.session.restart();
+		if (!positronConsoleContext.activePositronConsoleInstance) {
+			return;
+		}
+		positronConsoleContext.runtimeSessionService.restartSession(
+			activePositronConsoleInstance!.session.sessionId,
+			'User-requested restart from console action bar');
 	};
 
 	// Render.
