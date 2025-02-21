@@ -15,6 +15,7 @@ const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
 let modelDisposables: vscode.Disposable[] = [];
 let participantDisposables: vscode.Disposable[] = [];
+let assistantEnabled = false;
 
 function disposeModels() {
 	modelDisposables.forEach(d => d.dispose());
@@ -99,7 +100,7 @@ function registerMappedEditsProvider(context: vscode.ExtensionContext) {
 	);
 }
 
-export function activate(context: vscode.ExtensionContext) {
+function registerAssistant(context: vscode.ExtensionContext) {
 	// Register chat participants
 	registerParticipants(context);
 
@@ -131,4 +132,37 @@ export function activate(context: vscode.ExtensionContext) {
 			disposeParticipants();
 		}
 	});
+
+	// Mark the assistant as enabled
+	assistantEnabled = true;
+}
+
+export function activate(context: vscode.ExtensionContext) {
+	// Check to see if the assistant is enabled
+	const enabled = vscode.workspace.getConfiguration('positron.assistant').get('enable');
+	if (enabled) {
+		registerAssistant(context);
+	} else {
+		// If the assistant is not enabled, listen for configuration changes so that we can
+		// enable it immediately if the user enables it in the settings.
+		context.subscriptions.push(
+			vscode.workspace.onDidChangeConfiguration(e => {
+				if (e.affectsConfiguration('positron.assistant.enable')) {
+					const enabled =
+						vscode.workspace.getConfiguration('positron.assistant').get('enable');
+					if (enabled && !assistantEnabled) {
+						try {
+							registerAssistant(context);
+							vscode.window.showInformationMessage(
+								vscode.l10n.t('Positron Assistant is now enabled.')
+							);
+						} catch (e) {
+							vscode.window.showErrorMessage(
+								vscode.l10n.t(
+									'Positron Assistant: Failed to enable assistant. {0}', [e]));
+						}
+					}
+				}
+			}));
+	}
 }

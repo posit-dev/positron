@@ -49,6 +49,11 @@
     "configuration": {
       "title": "Positron Assistant",
       "properties": {
+        "positron.assistant.enable": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Positron Assistant (experimental)"
+        },
         "positron.assistant.models": {
           "type": "array",
           "items": {
