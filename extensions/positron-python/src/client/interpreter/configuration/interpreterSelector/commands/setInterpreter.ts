@@ -1,5 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+// --- Start Positron ---
+// Disable eslint rules for our import block below. This appears at the top of the file to stop
+// auto-formatting tools from reordering the imports.
+/* eslint-disable import/no-duplicates */
+// --- End Positron ---
 
 'use strict';
 
@@ -50,12 +55,13 @@ import { BaseInterpreterSelectorCommand } from './base';
 // --- Start Positron ---
 // eslint-disable-next-line import/order
 import * as fs from 'fs-extra';
-// eslint-disable-next-line import/no-duplicates
 import { CreateEnv } from '../../../../common/utils/localize';
 import { IPythonRuntimeManager } from '../../../../positron/manager';
 import { showErrorMessage } from '../../../../common/vscodeApis/windowApis';
 import { traceError } from '../../../../logging';
 import { shouldIncludeInterpreter } from '../../../../positron/interpreterSettings';
+import { MINIMUM_PYTHON_VERSION } from '../../../../common/constants';
+import { isVersionSupported } from '../../../../positron/discoverer';
 // --- End Positron ---
 import { untildify } from '../../../../common/helpers';
 import { useEnvExtension } from '../../../../envExt/api.internal';
@@ -737,6 +743,9 @@ function getGroup(item: IInterpreterQuickPickItem, workspacePath?: string) {
  * @returns A new filter function that includes the original filter function and the additional filtering logic
  */
 function filterWrapper(filter: ((i: PythonEnvironment) => boolean) | undefined) {
-    return (i: PythonEnvironment) => (filter ? filter(i) : true) && shouldIncludeInterpreter(i.path);
+    return (i: PythonEnvironment) =>
+        (filter ? filter(i) : true) &&
+        shouldIncludeInterpreter(i.path) &&
+        isVersionSupported(i.version, MINIMUM_PYTHON_VERSION);
 }
 // --- End Positron ---

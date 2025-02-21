@@ -165,6 +165,9 @@ async function hasFiles(includes: string[]): Promise<boolean> {
  * Check if a version is supported (i.e. >= the minimum supported version).
  * Also returns true if the version could not be determined.
  */
-function isVersionSupported(version: PythonVersion | undefined, minimumSupportedVersion: PythonVersion): boolean {
+export function isVersionSupported(
+    version: PythonVersion | undefined,
+    minimumSupportedVersion: PythonVersion,
+): boolean {
     return !version || comparePythonVersionDescending(minimumSupportedVersion, version) >= 0;
 }
