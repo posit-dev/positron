@@ -17,7 +17,7 @@ import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.j
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { PositronConsoleFocused } from '../../../common/contextkeys.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
-import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -30,6 +30,8 @@ import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../service
 import { IExecutionHistoryService } from '../../executionHistory/common/executionHistoryService.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 /**
  * Positron console command ID's.
@@ -38,7 +40,9 @@ const enum PositronConsoleCommandId {
 	ClearConsole = 'workbench.action.positronConsole.clearConsole',
 	ClearInputHistory = 'workbench.action.positronConsole.clearInputHistory',
 	ExecuteCode = 'workbench.action.positronConsole.executeCode',
-	FocusConsole = 'workbench.action.positronConsole.focusConsole'
+	FocusConsole = 'workbench.action.positronConsole.focusConsole',
+	NewConsoleSession = 'workbench.action.positronConsole.newConsoleSession',
+	NewConsoleSessionActiveRuntime = 'workbench.action.positronConsole.newConsoleSessionActiveRuntime'
 }
 
 /**
@@ -586,6 +590,91 @@ export function registerPositronConsoleActions() {
 				text: '\n'
 			};
 			model.pushEditOperations([], [editOperation], () => []);
+		}
+	});
+
+	// TODO: HIDE BEHIND MULTIPLE CONSOLE SESSION FEATURE FLAG
+	/**
+	 * Register the new console session from active runtime action. This action creates a new
+	 * console sesison using the same runtime as the foreground session.
+	 */
+	registerAction2(class extends Action2 {
+		/**
+		 * Constructor.
+		 */
+		constructor() {
+			super({
+				icon: Codicon.plus,
+				id: PositronConsoleCommandId.NewConsoleSessionActiveRuntime,
+				title: {
+					value: localize('workbench.action.positronConsole.NewConsoleSessionActiveRuntime', "Duplicate active session"),
+					original: 'Duplicate active session'
+				},
+				category,
+				menu: [{
+					id: MenuId.ViewTitle,
+					when: ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
+					group: 'navigation',
+					order: 1
+				}]
+			});
+		}
+
+		/**
+		 * Runs action; Execute the command to show all runtimes.
+		 *
+		 * @param accessor The services accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			const runtimeSessionService = accessor.get(IRuntimeSessionService);
+			const foregroundSession = runtimeSessionService.foregroundSession;
+			if (!foregroundSession) {
+				return;
+			}
+			// Start a new session using the runtime for the foreground session
+			runtimeSessionService.selectRuntime(
+				foregroundSession.runtimeMetadata.runtimeId,
+				`User-requested a new ${foregroundSession.runtimeMetadata.runtimeName} session from console action bar.`);
+		}
+	});
+
+	// TODO: HIDE BEHIND MULTIPLE CONSOLE SESSION FEATURE FLAG
+	/**
+	 * Register the new conosle session action. This action is used to expose a button in the console
+	 * panel toolbar that executes the `workbench.action.language.runtime.openStartPicker` command.
+	 *
+	 * This action is equivalent to the `workbench.action.language.runtime.openStartPicker` command.
+	 */
+	registerAction2(class extends Action2 {
+		/**
+		 * Constructor.
+		 */
+		constructor() {
+			super({
+				icon: Codicon.positronDropDownArrow,
+				id: PositronConsoleCommandId.NewConsoleSession,
+				title: {
+					value: localize('workbench.action.positronConsole.newConsoleSession', "New Session..."),
+					original: 'New Console'
+				},
+				category,
+				menu: [{
+					id: MenuId.ViewTitle,
+					when: ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
+					group: 'navigation',
+					order: 1,
+				}]
+			});
+		}
+
+		/**
+		 * Runs action; Execute the command to show all runtimes.
+		 *
+		 * @param accessor The services accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			const commandService = accessor.get(ICommandService);
+			await commandService.executeCommand('workbench.action.language.runtime.openStartPicker');
 		}
 	});
 }
