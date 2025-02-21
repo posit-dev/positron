@@ -195,10 +195,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             name: positron.LanguageRuntimeStreamName.Stdout,
             text: vscode.l10n.t(
                 'Cannot uninstall the following packages:\n\n{0}\n\n' +
-                'These packages are bundled with Positron, ' +
-                "and removing them would break Positron's Python functionality.\n\n" +
-                'If you would like to uninstall these packages from the active environment, ' +
-                'please rerun `{1}` in a terminal.',
+                    'These packages are bundled with Positron, ' +
+                    "and removing them would break Positron's Python functionality.\n\n" +
+                    'If you would like to uninstall these packages from the active environment, ' +
+                    'please rerun `{1}` in a terminal.',
                 protectedPackagesStr,
                 code,
             ),
@@ -614,15 +614,15 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this.adapterApi = ext?.exports as PositronSupervisorApi;
         const kernel = this.kernelSpec
             ? // We have a kernel spec, so we're creating a new session
-            await this.adapterApi.createSession(
-                this.runtimeMetadata,
-                this.metadata,
-                this.kernelSpec,
-                this.dynState,
-                createJupyterKernelExtra(),
-            )
+              await this.adapterApi.createSession(
+                  this.runtimeMetadata,
+                  this.metadata,
+                  this.kernelSpec,
+                  this.dynState,
+                  createJupyterKernelExtra(),
+              )
             : // We don't have a kernel spec, so we're restoring a session
-            await this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata);
+              await this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata);
 
         kernel.onDidChangeRuntimeState((state) => {
             this._stateEmitter.fire(state);
@@ -745,10 +745,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             const regex = /^(\w*Error|Exception)\b/m;
             const errortext = regex.test(logFileContent)
                 ? vscode.l10n.t(
-                    '{0} exited unexpectedly with error: {1}',
-                    kernel.runtimeMetadata.runtimeName,
-                    logFileContent,
-                )
+                      '{0} exited unexpectedly with error: {1}',
+                      kernel.runtimeMetadata.runtimeName,
+                      logFileContent,
+                  )
                 : Console.consoleExitGeneric;
 
             const res = await showErrorMessage(errortext, vscode.l10n.t('Open Logs'));
