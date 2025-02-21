@@ -206,7 +206,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 			const positionTop = () => {
 				const drawHeight = Math.min(topAreaHeight, layoutHeight);
 				popupLayout.top = Math.max(anchorY - drawHeight - LAYOUT_OFFSET, LAYOUT_MARGIN);
-				popupLayout.maxHeight = drawHeight;//documentHeight - popupLayout.top - LAYOUT_MARGIN;
+				popupLayout.maxHeight = drawHeight;
 				popupLayout.shadow = 'top';
 			};
 

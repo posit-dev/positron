@@ -85,16 +85,14 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 	const maxHeight =
 		(enableSearch ? 34 : 0) +
 		(rows * defaultRowHeight) +
-		(rowsMargin * 2) +
-		4;
+		(rowsMargin * 2);
 
 	// Calculate the min height. This is the height of the search UI plus the height of four rows,
 	// plus the height of the top and bottom rows margin.
 	const minHeight =
 		(enableSearch ? 34 : 0) +
 		(2 * defaultRowHeight) +
-		(rowsMargin * 2) +
-		4;
+		(rowsMargin * 2);
 
 	// Render.
 	return (

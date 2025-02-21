@@ -60,11 +60,11 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	): Promise<ColumnSelectorDataGridInstance | undefined> {
 		try {
 			// Get the backend state so that we can get the initial number of columns.
-			const backedState = await dataExplorerClientInstance.getBackendState();
+			const backendState = await dataExplorerClientInstance.getBackendState();
 
 			// Return a new instance of the column selector data grid instance.
 			return new ColumnSelectorDataGridInstance(
-				backedState,
+				backendState,
 				dataExplorerClientInstance
 			);
 		} catch {
@@ -82,7 +82,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	 * @param _dataExplorerClientInstance The data explorer client instance.
 	 */
 	private constructor(
-		backedState: BackendState,
+		backendState: BackendState,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
 	) {
 		// Call the base class's constructor.
@@ -107,7 +107,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		});
 
 		// Set the backend state.
-		this._backendState = backedState;
+		this._backendState = backendState;
 
 		// Create the column schema cache.
 		this._register(
@@ -115,7 +115,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		);
 
 		// Set the initial layout entries in the row layout manager.
-		this._rowLayoutManager.setLayoutEntries(backedState.table_shape.num_columns);
+		this._rowLayoutManager.setLayoutEntries(backendState.table_shape.num_columns);
 
 		/**
 		 * Updates the data grid instance.
