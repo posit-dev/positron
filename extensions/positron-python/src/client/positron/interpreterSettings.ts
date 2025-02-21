@@ -25,9 +25,7 @@ export function getUserIncludedInterpreters(): string[] {
                 if (path.isAbsolute(item)) {
                     return true;
                 }
-                traceInfo(
-                    `[shouldIncludeInterpreter]: included interpreter path ${item} is not absolute...ignoring`,
-                );
+                traceInfo(`[shouldIncludeInterpreter]: included interpreter path ${item} is not absolute...ignoring`);
                 return false;
             });
     }
@@ -49,9 +47,7 @@ export function getUserExcludedInterpreters(): string[] {
                 if (path.isAbsolute(item)) {
                     return true;
                 }
-                traceInfo(
-                    `[shouldIncludeInterpreter]: excluded interpreter path ${item} is not absolute...ignoring`,
-                );
+                traceInfo(`[shouldIncludeInterpreter]: excluded interpreter path ${item} is not absolute...ignoring`);
                 return false;
             });
     }
