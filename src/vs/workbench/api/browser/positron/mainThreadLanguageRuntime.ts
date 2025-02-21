@@ -42,6 +42,7 @@ import { isWebviewReplayMessage } from '../../../contrib/positronWebviewPreloads
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/browser/interfaces/runtimeNotebookKernelService.js';
+import { LanguageRuntimeSessionChannel } from '../../common/positron/extHostTypes.positron.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -540,8 +541,12 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		return this._proxy.$forceQuitLanguageRuntime(this.handle);
 	}
 
-	async showOutput(): Promise<void> {
-		return this._proxy.$showOutputLanguageRuntime(this.handle);
+	async showOutput(channel?: LanguageRuntimeSessionChannel): Promise<void> {
+		return this._proxy.$showOutputLanguageRuntime(this.handle, channel);
+	}
+
+	async listOutputChannels(): Promise<LanguageRuntimeSessionChannel[]> {
+		return await this._proxy.$listOutputChannelsLanguageRuntime(this.handle);
 	}
 
 	async showProfile(): Promise<void> {

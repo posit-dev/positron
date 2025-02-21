@@ -375,8 +375,31 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
 	 * Reveals the output channel for this kernel.
 	 */
-	showOutput(): void {
-		this._kernelChannel?.show();
+	showOutput(channel?: positron.LanguageRuntimeSessionChannel): void {
+		switch (channel) {
+			case positron.LanguageRuntimeSessionChannel.Kernel:
+				this._kernelChannel?.show();
+				break;
+			case positron.LanguageRuntimeSessionChannel.Console:
+				this._consoleChannel.show();
+				break;
+			case undefined:
+				this._kernelChannel.show();
+				break;
+			default:
+				throw new Error(`Unknown output channel ${channel}`);
+		}
+	}
+
+
+	/**
+	 * Get a list of output channels
+	 * @returns A list of output channels available on this runtime
+	 */
+	listOutputChannels(): positron.LanguageRuntimeSessionChannel[] {
+		// We always have a console channel and a kernel channel
+		const channels = [positron.LanguageRuntimeSessionChannel.Console, positron.LanguageRuntimeSessionChannel.Kernel];
+		return channels;
 	}
 
 	/**

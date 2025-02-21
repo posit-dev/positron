@@ -11,11 +11,9 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
+test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
 
-	test('Python - Verify restart button inside the console', {
-		tag: [tags.WIN]
-	}, async function ({ app, python }) {
+	test('Python - Verify restart button inside the console', async function ({ app, python }) {
 		await expect(async () => {
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 			await app.workbench.console.barClearButton.click();
@@ -31,9 +29,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 		}).toPass();
 	});
 
-	test('Python - Verify restart button on console bar', {
-		tag: [tags.WIN]
-	}, async function ({ app, python }) {
+	test('Python - Verify restart button on console bar', async function ({ app, python }) {
 		// Need to make console bigger to see all bar buttons
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.console.barClearButton.click();
@@ -46,9 +42,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 	});
 
-	test('Python - Verify cancel button on console bar', {
-		tag: [tags.WIN]
-	}, async function ({ app, python }) {
+	test('Python - Verify cancel button on console bar', async function ({ app, python }) {
 
 		await app.workbench.console.pasteCodeToConsole('import time; time.sleep(10)');
 		await app.workbench.console.sendEnterKey();
@@ -57,9 +51,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 
 	});
 
-	test('Python - Verify can use multiple interpreter versions', {
-		tag: [tags.WIN]
-	}, async function ({ app, python }) {
+	test('Python - Verify can use multiple interpreter versions', async function ({ app, python }) {
 
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 
@@ -81,6 +73,22 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE] }, () => {
 			await app.workbench.console.pasteCodeToConsole(`import platform; print(platform.python_version())`, true);
 			// If POSITRON_PY_ALT_VER_SEL has " (Pyenv)" in it, remove it"
 			await app.workbench.console.waitForConsoleContents(secondaryPython.replace(' (Pyenv)', ''));
+		} else {
+			fail('Secondary Python version not set');
+		}
+	});
+
+	test('Python - Verify alternate python can skip bundled ipykernel', async function ({ app, python, userSettings }) {
+
+		await userSettings.set([['python.useBundledIpykernel', 'false']], true);
+
+		const secondaryPython = process.env.POSITRON_PY_ALT_VER_SEL;
+
+		if (secondaryPython) {
+			await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, secondaryPython, true);
+			await app.workbench.console.barClearButton.click();
+			await app.workbench.console.pasteCodeToConsole(`import ipykernel; ipykernel.__file__`, true);
+			await app.workbench.console.waitForConsoleContents('site-packages');
 		} else {
 			fail('Secondary Python version not set');
 		}

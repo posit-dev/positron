@@ -365,9 +365,13 @@ export class Console {
 	}
 
 	async clickConsoleTab() {
-		await this.code.driver.page.locator('.basepanel').getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
-		// Move mouse to prevent tooltip hover
-		await this.code.driver.page.mouse.move(0, 0);
+		// sometimes the click doesn't seem to work, so adding a retry
+		await expect(async () => {
+			await this.code.driver.page.locator('.basepanel').getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
+			// Move mouse to prevent tooltip hover
+			await this.code.driver.page.mouse.move(0, 0);
+			await expect(this.code.driver.page.getByRole('tab', { name: 'Console', exact: true })).toHaveClass('action-item checked');
+		}).toPass();
 	}
 
 	async interruptExecution() {
@@ -455,7 +459,8 @@ class Session {
 			// Todo: https://github.com/posit-dev/positron/issues/6389
 			// Todo: remove when menu closes on click as expected
 			await this.page.keyboard.press('Escape');
-			await this.page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowUp' : 'Control+Home');
+			await expect(this.page.getByRole('tab', { name: 'Output' })).toHaveClass('action-item checked');
+			await this.page.keyboard.press('Home');
 			await expect(this.page.getByText(`Begin kernel log for session ${data.language} ${data.version}`)).toBeVisible();
 
 			// Todo: https://github.com/posit-dev/positron/issues/6149
@@ -536,7 +541,7 @@ class Session {
 	async ensureStartedAndIdle(session: SessionDetails): Promise<void> {
 		await test.step(`Ensure ${session.language} ${session.version} session is started and idle`, async () => {
 			// Start Session if it does not exist
-			const sessionExists = await this.getSessionLocator(session).isVisible();
+			const sessionExists = await this.getSessionLocator(session).isVisible({ timeout: 30000 });
 			if (!sessionExists) {
 				await this.console.selectInterpreterNew(session);
 			}

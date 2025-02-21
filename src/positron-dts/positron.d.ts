@@ -774,6 +774,16 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Enum of available channels for a language runtime session.
+	 * Used to enumerate available channels for users.
+	 */
+	export enum LanguageRuntimeSessionChannel {
+		Console = 'console',
+		Kernel = 'kernel',
+		LSP = 'lsp',
+	}
+
+	/**
 	 * LanguageRuntimeSession is an interface implemented by extensions that provide a
 	 * set of common tools for interacting with a language runtime, such as code
 	 * execution, LSP implementation, and plotting.
@@ -913,8 +923,17 @@ declare module 'positron' {
 
 		/**
 		 * Show runtime log in output panel.
+		 *
+		 * @param channel The channel to show the output in
 		 */
-		showOutput?(): void;
+		showOutput?(channel?: LanguageRuntimeSessionChannel): void;
+
+		/**
+		 * Return a list of output channels
+		 *
+		 * @returns A list of output channels available on this runtime
+		 */
+		listOutputChannels?(): LanguageRuntimeSessionChannel[];
 
 		/**
 		 * Show profiler log if supported.

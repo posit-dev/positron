@@ -560,8 +560,19 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
-    showOutput(): void {
-        this._kernel?.showOutput();
+    showOutput(channel?: positron.LanguageRuntimeSessionChannel): void {
+        // Show the output for the LSP channel, if requested
+        if (channel === positron.LanguageRuntimeSessionChannel.LSP) {
+            this._lsp?.showOutput();
+        } else {
+            this._kernel?.showOutput(channel);
+        }
+    }
+
+    listOutputChannels(): positron.LanguageRuntimeSessionChannel[] {
+        const channels = this._kernel?.listOutputChannels?.() ?? [];
+        // Add the LSP channel in addition to the kernel channels
+        return [...channels, positron.LanguageRuntimeSessionChannel.LSP];
     }
 
     async forceQuit(): Promise<void> {
