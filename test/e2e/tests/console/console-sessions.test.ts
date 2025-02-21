@@ -94,8 +94,7 @@ test.describe('Console: Sessions', {
 
 	test('Validate metadata between sessions', {
 		annotation: [
-			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6389' },
-			{ type: 'waiting on feature', description: 'https://github.com/posit-dev/positron/issues/6149' }]
+			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6389' }]
 	}, async function ({ app }) {
 		const console = app.workbench.console;
 
