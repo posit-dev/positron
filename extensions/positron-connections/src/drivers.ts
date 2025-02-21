@@ -15,6 +15,7 @@ export function registerConnectionDrivers(context: vscode.ExtensionContext) {
 		new RPostgreSQLDriver(context),
 		new PythonSQLiteDriver(context),
 		new RSparkDriver(context),
+		new PythonPostgreSQLDriver(context),
 	];
 
 	for (const driver of drivers) {
@@ -347,6 +348,76 @@ class PythonSQLiteDriver extends PythonDriver implements positron.ConnectionsDri
 
 		return `import sqlite3
 conn = sqlite3.connect(${JSON.stringify(dbname) ?? JSON.stringify('')})
+%connection_show conn
+`;
+	}
+}
+
+class PythonPostgreSQLDriver extends PythonDriver implements positron.ConnectionsDriver {
+
+	constructor(context: vscode.ExtensionContext) {
+		super();
+		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'postgre.svg');
+		const iconData = readFileSync(iconPath, 'base64');
+		this.metadata.base64EncodedIconSvg = iconData;
+	}
+
+	driverId: string = 'py-postgres';
+	metadata: positron.ConnectionsDriverMetadata = {
+		languageId: 'python',
+		name: 'PostgresSQL',
+		inputs: [
+			{
+				'id': 'dbname',
+				'label': 'Database Name',
+				'type': 'string',
+				'value': 'localhost'
+			},
+			{
+				'id': 'host',
+				'label': 'Host',
+				'type': 'string',
+				'value': 'localhost'
+			},
+			{
+				'id': 'port',
+				'label': 'Port',
+				'type': 'number',
+				'value': '5432'
+			},
+			{
+				'id': 'user',
+				'label': 'User',
+				'type': 'string',
+				'value': 'postgres'
+			},
+			{
+				'id': 'password',
+				'label': 'Password',
+				'type': 'string',
+				'value': 'password'
+			},
+		]
+	};
+
+	generateCode(inputs: positron.ConnectionsInput[]) {
+		const dbname = inputs.find(input => input.id === 'dbname')?.value;
+		const host = inputs.find(input => input.id === 'host')?.value;
+		const port = inputs.find(input => input.id === 'port')?.value;
+		const user = inputs.find(input => input.id === 'user')?.value;
+		const password = inputs.find(input => input.id === 'password')?.value;
+
+		const connection_string = `postgresql+psycopg2://${user}:${password}@${host}:${port}/${dbname}`;
+
+		return `import sqlalchemy
+conn = sqlalchemy.create_engine(sqlalchemy.URL.create(
+	"postgresql+psycopg2",
+	username=${JSON.stringify(user)},
+	password=${JSON.stringify(password)},
+	host=${JSON.stringify(host)},
+	database=${JSON.stringify(dbname)},
+	port=${JSON.stringify(port)}
+))
 %connection_show conn
 `;
 	}
