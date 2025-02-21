@@ -3,11 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { readFileSync } from 'fs';
+import path = require('path');
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 
 export function registerConnectionDrivers(context: vscode.ExtensionContext) {
-	for (const driver of [new RSQLiteDriver(), new RPostgreSQLDriver(), new PythonSQLiteDriver()]) {
+	for (const driver of [new RSQLiteDriver(context), new RPostgreSQLDriver(context), new PythonSQLiteDriver(context)]) {
 		context.subscriptions.push(
 			positron.connections.registerConnectionDriver(driver)
 		);
@@ -104,8 +106,11 @@ class RDriver implements positron.ConnectionsDriver {
 
 class RPostgreSQLDriver extends RDriver implements positron.ConnectionsDriver {
 
-	constructor() {
+	constructor(context: vscode.ExtensionContext) {
 		super(['RPostgres', 'DBI']);
+		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'postgre.svg');
+		const iconData = readFileSync(iconPath, 'base64');
+		this.metadata.base64EncodedIconSvg = iconData;
 	}
 
 	driverId: string = 'postgres';
@@ -182,8 +187,11 @@ con <- dbConnect(
 
 class RSQLiteDriver extends RDriver implements positron.ConnectionsDriver {
 
-	constructor() {
+	constructor(context: vscode.ExtensionContext) {
 		super(['RSQLite', 'DBI', 'connections']);
+		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'sqlite.svg');
+		const iconData = readFileSync(iconPath, 'base64');
+		this.metadata.base64EncodedIconSvg = iconData;
 	}
 
 	driverId: string = 'sqlite';
@@ -252,6 +260,14 @@ class PythonDriver implements positron.ConnectionsDriver {
 }
 
 class PythonSQLiteDriver extends PythonDriver implements positron.ConnectionsDriver {
+
+	constructor(context: vscode.ExtensionContext) {
+		super();
+		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'sqlite.svg');
+		const iconData = readFileSync(iconPath, 'base64');
+		this.metadata.base64EncodedIconSvg = iconData;
+	}
+
 	driverId: string = 'py-sqlite';
 	metadata: positron.ConnectionsDriverMetadata = {
 		languageId: 'python',
