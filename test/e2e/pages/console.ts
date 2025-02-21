@@ -8,7 +8,8 @@ import test, { expect, Locator, Page } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
-import { InterpreterType } from '../infra';
+import { InterpreterNew } from '../infra';
+import { InterpreterType } from '../infra/fixtures/interpreter';
 
 const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
@@ -19,6 +20,8 @@ const EMPTY_CONSOLE = '.positron-console .empty-console';
 const INTERRUPT_RUNTIME = 'div.action-bar-button-face .codicon-positron-interrupt-runtime';
 const SUGGESTION_LIST = '.suggest-widget .monaco-list-row';
 const CONSOLE_LINES = `${ACTIVE_CONSOLE_INSTANCE} div span`;
+const DESIRED_PYTHON = process.env.POSITRON_PY_VER_SEL;
+const DESIRED_R = process.env.POSITRON_R_VER_SEL;
 
 /*
  *  Reuseable Positron console functionality for tests to leverage.  Includes the ability to select an interpreter and execute code which
@@ -37,7 +40,7 @@ export class Console {
 		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
 	}
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) {
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private interpreter: InterpreterNew) {
 		this.barPowerButton = this.code.driver.page.getByLabel('Shutdown console');
 		this.barRestartButton = this.code.driver.page.getByLabel('Restart console');
 		this.barClearButton = this.code.driver.page.getByLabel('Clear console');
@@ -82,6 +85,62 @@ export class Console {
 		return;
 	}
 
+	/**
+	 * Action: Start a session via the dropdown or quickaccess.
+	 * @param options - Configuration options for selecting the interpreter.
+	 * @param options.language the programming language interpreter to select.
+	 * @param options.version the specific version of the interpreter to select (e.g., "3.10.15").
+	 * @param options.triggerMode the method used to trigger the selection: dropdown or quickaccess.
+	 * @param options.waitForReady whether to wait for the console to be ready after selecting the interpreter.
+	 */
+	async startSession(options: {
+		language: 'Python' | 'R';
+		version?: string;
+		triggerMode?: 'dropdown' | 'quickaccess';
+		waitForReady?: boolean;
+	}): Promise<void> {
+
+		if (!DESIRED_PYTHON || !DESIRED_R) {
+			throw new Error('Please set env vars: POSITRON_PY_VER_SEL, POSITRON_R_VER_SEL');
+		}
+
+		const {
+			language,
+			version = language === 'Python' ? DESIRED_PYTHON : DESIRED_R,
+			waitForReady = true,
+			triggerMode = 'quickaccess',
+		} = options;
+
+		await test.step(`Start session via ${triggerMode}: ${language} ${version}`, async () => {
+			// Don't try to start a new interpreter if one is currently starting up
+			await this.waitForReadyOrNoInterpreterNew();
+
+			// Start the interpreter via the dropdown or quickaccess
+			const command = language === 'Python' ? 'python.setInterpreter' : 'r.selectInterpreter';
+			triggerMode === 'quickaccess'
+				? await this.quickaccess.runCommand(command, { keepOpen: true })
+				: await this.interpreter.openSessionQuickPickMenu();
+
+			await this.quickinput.waitForQuickInputOpened();
+			await this.quickinput.type(`${language} ${version}`);
+
+			// Wait until the desired interpreter string appears in the list and select it.
+			// We need to click instead of using 'enter' because the Python select interpreter command
+			// may include additional items above the desired interpreter string.
+			await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`);
+			await this.quickinput.waitForQuickInputClosed();
+
+			// Move mouse to prevent tooltip hover
+			await this.code.driver.page.mouse.move(0, 0);
+
+			if (waitForReady) {
+				language === 'Python'
+					? await this.waitForReadyAndStarted('>>>', 40000)
+					: await this.waitForReadyAndStarted('>', 40000);
+			}
+		});
+	}
+
 	async executeCode(languageName: 'Python' | 'R', code: string): Promise<void> {
 		await test.step(`Execute ${languageName} code in console: ${code}`, async () => {
 
@@ -112,10 +171,12 @@ export class Console {
 	}
 
 	async logConsoleContents() {
-		this.code.logger.log('---- START: Console Contents ----');
-		const contents = await this.code.driver.page.locator(CONSOLE_LINES).allTextContents();
-		contents.forEach(line => this.code.logger.log(line));
-		this.code.logger.log('---- END: Console Contents ----');
+		await test.step('Log console contents', async () => {
+			this.code.logger.log('---- START: Console Contents ----');
+			const contents = await this.code.driver.page.locator(CONSOLE_LINES).allTextContents();
+			contents.forEach(line => this.code.logger.log(line));
+			this.code.logger.log('---- END: Console Contents ----');
+		});
 	}
 
 	async typeToConsole(text: string, pressEnter = false, delay = 10) {
@@ -141,13 +202,17 @@ export class Console {
 	}
 
 	async waitForReadyAndStarted(prompt: string, timeout = 30000): Promise<void> {
-		await this.waitForReady(prompt, timeout);
-		await this.waitForConsoleContents('started', { timeout });
+		await test.step('Wait for console to be ready and started', async () => {
+			await this.waitForReady(prompt, timeout);
+			await this.waitForConsoleContents('started', { timeout });
+		});
 	}
 
 	async waitForReadyAndRestarted(prompt: string, timeout = 30000): Promise<void> {
-		await this.waitForReady(prompt, timeout);
-		await this.waitForConsoleContents('restarted', { timeout });
+		await test.step('Wait for console to be ready and restarted', async () => {
+			await this.waitForReady(prompt, timeout);
+			await this.waitForConsoleContents('restarted', { timeout });
+		});
 	}
 
 	async waitForInterpretersToFinishLoading() {
@@ -186,6 +251,41 @@ export class Console {
 
 		// If we reach here, the console is not ready.
 		throw new Error('Console is not ready after waiting for R or Python to start');
+	}
+
+	/**
+	 * Check if the console is ready with Python or R, or if Select Runtime.
+	 * @throws An error if the console is not ready after the retry count.
+	 */
+	async waitForReadyOrNoInterpreterNew() {
+		await test.step('Wait for console to be ready or no session', async () => {
+			const page = this.code.driver.page;
+
+			await this.waitForInterpretersToFinishLoading();
+
+			// ensure we are on Console tab
+			await page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
+
+			// Move mouse to prevent tooltip hover
+			await this.code.driver.page.mouse.move(0, 0);
+
+			// wait for the dropdown to contain R, Python, or Select Runtime.
+			const currentSession = await page.getByRole('button', { name: 'Open Active Session Picker' }).textContent() || '';
+
+			if (currentSession.includes('Python')) {
+				await expect(page.getByRole('code').getByText('>>>')).toBeVisible({ timeout: 30000 });
+				return;
+			} else if (currentSession.includes('R') && !currentSession.includes('Choose Session')) {
+				await expect(page.getByRole('code').getByText('>')).toBeVisible({ timeout: 30000 });
+				return;
+			} else if (currentSession.includes('Choose Session')) {
+				await expect(page.getByText('Choose Session')).toBeVisible();
+				return;
+			}
+
+			// If we reach here, the console is not ready.
+			throw new Error('Console is not ready after waiting for session to start');
+		});
 	}
 
 	async waitForInterpreterShutdown() {
@@ -448,7 +548,7 @@ class Session {
 			// Start Session if it does not exist
 			const sessionExists = await this.getSessionLocator(session).isVisible({ timeout: 30000 });
 			if (!sessionExists) {
-				await this.console.selectInterpreter(session.language === 'Python' ? InterpreterType.Python : InterpreterType.R, session.version);
+				await this.console.startSession(session);
 			}
 
 			// Ensure session is idle (ready)
