@@ -1,6 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+// --- Start Positron ---
+/* eslint-disable import/no-duplicates */
+// --- End Positron ---
+
 import { Disposable, EventEmitter, Event, Uri } from 'vscode';
 import * as ch from 'child_process';
 import * as path from 'path';
@@ -21,10 +25,11 @@ import { NativePythonEnvironmentKind } from './nativePythonUtils';
 import type { IExtensionContext } from '../../../../common/types';
 import { StopWatch } from '../../../../common/utils/stopWatch';
 import { untildify } from '../../../../common/helpers';
-import { traceError, traceVerbose } from '../../../../logging';
+import { traceError } from '../../../../logging';
 
 // --- Start Positron ---
 import { getUserIncludedInterpreters } from '../../../../positron/interpreterSettings';
+import { traceVerbose } from '../../../../logging';
 // --- End Positron ---
 
 const PYTHON_ENV_TOOLS_PATH = isWindows()
