@@ -9,11 +9,11 @@ import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { IQuickInputService, IQuickPickItem, IQuickPickSeparator } from '../../../../platform/quickinput/common/quickInput.js';
+import { IQuickInputService, IQuickPickItem, IQuickPickSeparator, QuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
@@ -239,6 +239,59 @@ const selectRunningLanguageRuntime = async (
 
 	// As the user to select the running language runtime.
 	return await selectLanguageRuntimeSession(quickInputService, activeSessions, placeHolder);
+};
+
+/**
+ * IInterpreterGroup interface.
+ */
+interface IInterpreterGroup {
+	primaryRuntime: ILanguageRuntimeMetadata;
+	alternateRuntimes: ILanguageRuntimeMetadata[];
+}
+
+/**
+ * Creates an IInterpreterGroup array representing the available language runtimes.
+ * @param languageRuntimeService The ILanguageRuntimeService.
+ * @returns An IInterpreterGroup array representing the available language runtimes.
+ */
+const createInterpreterGroups = (
+	languageRuntimeService: ILanguageRuntimeService,
+	runtimeAffiliationService: IRuntimeStartupService) => {
+	const preferredRuntimeByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
+	const languageRuntimeGroups = new Map<string, IInterpreterGroup>();
+	for (const runtime of languageRuntimeService.registeredRuntimes) {
+		const languageId = runtime.languageId;
+
+		// Get the preferred runtime for the language.
+		let preferredRuntime = preferredRuntimeByLanguageId.get(languageId);
+		if (!preferredRuntime) {
+			preferredRuntime = runtimeAffiliationService.getPreferredRuntime(languageId);
+			preferredRuntimeByLanguageId.set(languageId, preferredRuntime);
+		}
+
+		// Create the language runtime group if it doesn't exist.
+		let languageRuntimeGroup = languageRuntimeGroups.get(languageId);
+		if (!languageRuntimeGroup) {
+			languageRuntimeGroup = { primaryRuntime: preferredRuntime, alternateRuntimes: [] };
+			languageRuntimeGroups.set(languageId, languageRuntimeGroup);
+		}
+
+		// Add the runtime to the alternateRuntimes array if it's not the preferred runtime.
+		if (runtime.runtimeId !== preferredRuntime.runtimeId) {
+			languageRuntimeGroup.alternateRuntimes.push(runtime);
+		}
+	}
+
+	// Sort the runtimes by language name.
+	return Array.from(languageRuntimeGroups.values()).sort((a, b) => {
+		if (a.primaryRuntime.languageName < b.primaryRuntime.languageName) {
+			return -1;
+		} else if (a.primaryRuntime.languageName > b.primaryRuntime.languageName) {
+			return 1;
+		} else {
+			return 0;
+		}
+	});
 };
 
 /**
@@ -536,6 +589,135 @@ export function registerLanguageRuntimeActions() {
 		// If the user selected a runtime client instance, dispose it.
 		if (selection) {
 			selection.runtimeClientInstance.dispose();
+		}
+	});
+
+	registerLanguageRuntimeAction('workbench.action.language.runtime.openActivePicker', 'Open Active Session Picker', async accessor => {
+		// Constants
+		const startNewId = 'sessions-start-new';
+
+		// Access services.
+		const quickInputService = accessor.get(IQuickInputService);
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+		const commandService = accessor.get(ICommandService);
+
+		// Create quick pick items for active runtimes.
+		const sortedActiveSessions = [...runtimeSessionService.activeSessions].sort((a, b) => b.lastUsed - a.lastUsed);
+
+		const activeRuntimeItems: IQuickPickItem[] = sortedActiveSessions.filter(
+			(session) => {
+				switch (session.getRuntimeState()) {
+					case RuntimeState.Initializing:
+					case RuntimeState.Starting:
+					case RuntimeState.Ready:
+					case RuntimeState.Idle:
+					case RuntimeState.Busy:
+					case RuntimeState.Restarting:
+					case RuntimeState.Exiting:
+					case RuntimeState.Offline:
+					case RuntimeState.Interrupting:
+						return true;
+					default:
+						return false;
+				}
+			}
+		).map(
+			({ runtimeMetadata }) => {
+				const isForegroundSession = (runtimeMetadata.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId);
+				return {
+					id: runtimeMetadata.runtimeId,
+					label: runtimeMetadata.runtimeName,
+					detail: runtimeMetadata.runtimePath,
+					description: isForegroundSession ? 'Currently Selected' : undefined,
+					iconPath: {
+						dark: URI.parse(`data:image/svg+xml;base64, ${runtimeMetadata.base64EncodedIconSvg}`),
+					},
+					picked: isForegroundSession,
+				};
+			}
+		);
+
+		// Show quick pick to select an active runtime or show all runtimes.
+		const result = await quickInputService.pick([
+			{
+				label: 'Active Sessions',
+				type: 'separator',
+			},
+			...activeRuntimeItems,
+			{
+				type: 'separator'
+			},
+			{
+				label: 'New Session...',
+				id: startNewId,
+				alwaysShow: true
+			},
+		], {
+			title: 'Select a Session',
+			canPickMany: false,
+			activeItem: activeRuntimeItems.filter(item => item.picked)[0]
+		});
+
+		// Handle the user's selection.
+		if (result?.id === startNewId) {
+			// If the user selected "All Runtimes...", execute the command to show all runtimes.
+			await commandService.executeCommand('workbench.action.language.runtime.openStartPicker');
+		} else if (result?.id) {
+			// If the user selected a specific runtime, set it as the active runtime.
+			runtimeSessionService.selectRuntime(result.id, 'User selected runtime');
+		}
+	});
+
+	registerLanguageRuntimeAction('workbench.action.language.runtime.openStartPicker', 'Open Start Session Picker', async accessor => {
+		// Access services.
+		const quickInputService = accessor.get(IQuickInputService);
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+		const runtimeStartupService = accessor.get(IRuntimeStartupService);
+		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+
+		// Group runtimes by language.
+		const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService);
+
+		// Generate quick pick items for runtimes.
+		const runtimeItems: QuickPickItem[] = [];
+		interpreterGroups.forEach(group => {
+			const language = group.primaryRuntime.languageName;
+			// Add separator with language name.
+			runtimeItems.push({ type: 'separator', label: language });
+			// Add primary runtime first.
+			runtimeItems.push({
+				id: group.primaryRuntime.runtimeId,
+				label: group.primaryRuntime.runtimeName,
+				detail: group.primaryRuntime.runtimePath,
+				iconPath: {
+					dark: URI.parse(`data:image/svg+xml;base64, ${group.primaryRuntime.base64EncodedIconSvg}`),
+				},
+				picked: (group.primaryRuntime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+			});
+			// Follow with alternate runtimes.
+			group.alternateRuntimes.sort((a, b) => a.runtimeName.localeCompare(b.runtimeName));
+			group.alternateRuntimes.forEach(runtime => {
+				runtimeItems.push({
+					id: runtime.runtimeId,
+					label: runtime.runtimeName,
+					detail: runtime.runtimePath,
+					iconPath: {
+						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
+					},
+					picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+				});
+			});
+		});
+
+		// Prompt the user to select a runtime to start
+		const selectedRuntime = await quickInputService.pick(
+			runtimeItems,
+			{ title: 'Start a New Session', canPickMany: false }
+		);
+
+		// If the user selected a runtime, set it as the active runtime
+		if (selectedRuntime?.id) {
+			runtimeSessionService.selectRuntime(selectedRuntime.id, 'User selected runtime');
 		}
 	});
 
