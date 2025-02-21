@@ -158,7 +158,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		 */
 		const positionRight = () => {
 			if (isNumber(props.width)) {
-				popupLayout.left = (anchorX + anchorWidth) - props.width - LAYOUT_OFFSET;
+				popupLayout.left = (anchorX + anchorWidth) - props.width;
 			} else {
 				popupLayout.right = documentWidth - (anchorX + anchorWidth);
 			}

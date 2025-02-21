@@ -19,6 +19,9 @@ import { ColumnSchema } from '../../../../../../../services/languageRuntime/comm
 import { PositronModalPopup } from '../../../../../../positronComponents/positronModalPopup/positronModalPopup.js';
 import { PositronModalReactRenderer } from '../../../../../../positronModalReactRenderer/positronModalReactRenderer.js';
 
+// Constants.
+const SEARCH_AREA_HEIGHT = 34;
+
 /**
  * ColumnSelectorModalPopupProps interface.
  */
@@ -80,19 +83,15 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 	// Enable search when there are more than 10 rows.
 	const enableSearch = rows > 10;
 
-	// Calculate the max height. This is the height of the search UI plus the height of the rows,
-	// plus the height of the top and bottom rows margin.
-	const maxHeight =
-		(enableSearch ? 34 : 0) +
-		(rows * defaultRowHeight) +
-		(rowsMargin * 2);
+	// Calculate the base height. This is the height of the search UI plus the height of the top and
+	// bottom rows margin.
+	const baseHeight = (enableSearch ? SEARCH_AREA_HEIGHT : 0) + (2 * rowsMargin);
 
-	// Calculate the min height. This is the height of the search UI plus the height of four rows,
-	// plus the height of the top and bottom rows margin.
-	const minHeight =
-		(enableSearch ? 34 : 0) +
-		(2 * defaultRowHeight) +
-		(rowsMargin * 2);
+	// Calculate the max height for all rows.
+	const maxHeight = baseHeight + (rows * defaultRowHeight);
+
+	// Calculate the min height for two rows.
+	const minHeight = baseHeight + (2 * defaultRowHeight);
 
 	// Render.
 	return (
