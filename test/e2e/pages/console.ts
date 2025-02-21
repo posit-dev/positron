@@ -104,9 +104,14 @@ export class Console {
 			throw new Error('Please set env vars: POSITRON_PY_VER_SEL, POSITRON_R_VER_SEL');
 		}
 
-		const { language, version = language === 'Python' ? DESIRED_PYTHON : DESIRED_R, waitForReady = true, triggerMode = 'quickaccess' } = options;
+		const {
+			language,
+			version = language === 'Python' ? DESIRED_PYTHON : DESIRED_R,
+			waitForReady = true,
+			triggerMode = 'quickaccess',
+		} = options;
 
-		await test.step(`Select interpreter via ${triggerMode}: ${language} ${version}`, async () => {
+		await test.step(`Start session via ${triggerMode}: ${language} ${version}`, async () => {
 			// Don't try to start a new interpreter if one is currently starting up
 			await this.waitForReadyOrNoInterpreterNew();
 
@@ -253,7 +258,7 @@ export class Console {
 	 * @throws An error if the console is not ready after the retry count.
 	 */
 	async waitForReadyOrNoInterpreterNew() {
-		await test.step('Wait for console to be ready or no interpreter', async () => {
+		await test.step('Wait for console to be ready or no session', async () => {
 			const page = this.code.driver.page;
 
 			await this.waitForInterpretersToFinishLoading();
@@ -265,21 +270,21 @@ export class Console {
 			await this.code.driver.page.mouse.move(0, 0);
 
 			// wait for the dropdown to contain R, Python, or Select Runtime.
-			const currentInterpreter = await page.getByRole('button', { name: 'Open Active Session Picker' }).textContent() || '';
+			const currentSession = await page.getByRole('button', { name: 'Open Active Session Picker' }).textContent() || '';
 
-			if (currentInterpreter.includes('Python')) {
+			if (currentSession.includes('Python')) {
 				await expect(page.getByRole('code').getByText('>>>')).toBeVisible({ timeout: 30000 });
 				return;
-			} else if (currentInterpreter.includes('R') && !currentInterpreter.includes('Choose Session')) {
+			} else if (currentSession.includes('R') && !currentSession.includes('Choose Session')) {
 				await expect(page.getByRole('code').getByText('>')).toBeVisible({ timeout: 30000 });
 				return;
-			} else if (currentInterpreter.includes('Choose Session')) {
+			} else if (currentSession.includes('Choose Session')) {
 				await expect(page.getByText('Choose Session')).toBeVisible();
 				return;
 			}
 
 			// If we reach here, the console is not ready.
-			throw new Error('Console is not ready after waiting for R or Python to start');
+			throw new Error('Console is not ready after waiting for session to start');
 		});
 	}
 
