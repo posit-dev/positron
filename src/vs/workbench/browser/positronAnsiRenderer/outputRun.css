@@ -14,3 +14,7 @@ a.output-run-hyperlink {
 	text-decoration: underline dotted;
 	color: var(--vscode-textLink-foreground);
 }
+
+.output-run {
+	display: inline-block;
+}
