@@ -43,7 +43,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 		onChangeForegroundSession(sessionId);
 	};
 
-	// Sort console sessions by created time, so the most recent sessions are at the bottom
+	// Sort console sessions by created time, oldest to newest
 	const consoleInstances = Array.from(positronConsoleContext.positronConsoleInstances.values()).sort((a, b) => {
 		return a.session.metadata.createdTimestamp - b.session.metadata.createdTimestamp;
 	});
