@@ -17,7 +17,8 @@
 		"../../src/vscode-dts/vscode.proposed.mappedEditsProvider.d.ts",
 		"../../src/vscode-dts/vscode.proposed.defaultChat*.d.ts",
 		"../../src/vscode-dts/vscode.proposed.inlineCompletions*.d.ts",
+		"../../src/vscode-dts/vscode.d.ts",
 		"../../src/positron-dts/positron.d.ts",
 	],
-	"exclude": ["node_modules"]
+	"exclude": ["node_modules"],
 }
