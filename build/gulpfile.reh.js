@@ -288,6 +288,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 			'vscode-test-resolver',
 			'positron-zed',
 			'positron-javascript',
+			'positron-assistant',
 		];
 		// --- End Positron ---
 		const localWorkspaceExtensions = glob.sync('extensions/*/package.json')

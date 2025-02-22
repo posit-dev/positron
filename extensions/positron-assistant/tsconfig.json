@@ -1,0 +1,23 @@
+{
+	"compilerOptions": {
+		"module": "commonjs",
+		"target": "es2020",
+		"lib": ["es2020"],
+		"outDir": "out",
+		"sourceMap": true,
+		"strict": true,
+		"typeRoots": [
+			"./node_modules/@types"
+		],
+		"rootDir": "src"
+	},
+	"include": [
+		"src/**/*",
+		"../../src/vscode-dts/vscode.proposed.chat*.d.ts",
+		"../../src/vscode-dts/vscode.proposed.mappedEditsProvider.d.ts",
+		"../../src/vscode-dts/vscode.proposed.defaultChat*.d.ts",
+		"../../src/vscode-dts/vscode.proposed.inlineCompletions*.d.ts",
+		"../../src/positron-dts/positron.d.ts",
+	],
+	"exclude": ["node_modules"]
+}
