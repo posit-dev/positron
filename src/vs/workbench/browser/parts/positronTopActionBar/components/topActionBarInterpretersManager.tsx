@@ -22,8 +22,7 @@ import { ActionBarCommandButton } from '../../../../../platform/positronActionBa
 import { CommandCenter } from '../../../../../platform/commandCenter/common/commandCenter.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { localize } from '../../../../../nls.js';
-
-const runtimePickerAction = 'workbench.action.language.runtime.openActivePicker';
+import { LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID } from '../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
 
 /**
  * TopActionBarInterpretersManagerProps interface.
@@ -176,9 +175,9 @@ export const TopActionBarInterpretersManager_New = (props: TopActionBarInterpret
 
 	return (
 		<ActionBarCommandButton
-			ariaLabel={CommandCenter.title(runtimePickerAction)}
+			ariaLabel={CommandCenter.title(LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID)}
 			border={true}
-			commandId={runtimePickerAction}
+			commandId={LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID}
 			text={labelText}
 			{
 			...(

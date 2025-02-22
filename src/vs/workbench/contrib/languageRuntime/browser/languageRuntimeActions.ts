@@ -35,6 +35,10 @@ interface LanguageRuntimeQuickPickItem extends IQuickPickItem { runtime: ILangua
 interface RuntimeClientTypeQuickPickItem extends IQuickPickItem { runtimeClientType: RuntimeClientType }
 interface RuntimeClientInstanceQuickPickItem extends IQuickPickItem { runtimeClientInstance: IRuntimeClientInstance<any, any> }
 
+// Action IDs
+export const LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID = 'workbench.action.language.runtime.openActivePicker';
+export const LANGUAGE_RUNTIME_START_SESSION_ID = 'workbench.action.language.runtime.openStartPicker';
+
 /**
  * Helper function that askses the user to select a language from the list of registered language
  * runtimes.
@@ -592,7 +596,8 @@ export function registerLanguageRuntimeActions() {
 		}
 	});
 
-	registerLanguageRuntimeAction('workbench.action.language.runtime.openActivePicker', 'Open Active Session Picker', async accessor => {
+
+	registerLanguageRuntimeAction(LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID, 'Open Active Session Picker', async accessor => {
 		// Constants
 		const startNewId = 'sessions-start-new';
 
@@ -661,14 +666,14 @@ export function registerLanguageRuntimeActions() {
 		// Handle the user's selection.
 		if (result?.id === startNewId) {
 			// If the user selected "All Runtimes...", execute the command to show all runtimes.
-			await commandService.executeCommand('workbench.action.language.runtime.openStartPicker');
+			await commandService.executeCommand(LANGUAGE_RUNTIME_START_SESSION_ID);
 		} else if (result?.id) {
 			// If the user selected a specific runtime, set it as the active runtime.
 			runtimeSessionService.selectRuntime(result.id, 'User selected runtime');
 		}
 	});
 
-	registerLanguageRuntimeAction('workbench.action.language.runtime.openStartPicker', 'Open Start Session Picker', async accessor => {
+	registerLanguageRuntimeAction(LANGUAGE_RUNTIME_START_SESSION_ID, 'Open Start Session Picker', async accessor => {
 		// Access services.
 		const quickInputService = accessor.get(IQuickInputService);
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);

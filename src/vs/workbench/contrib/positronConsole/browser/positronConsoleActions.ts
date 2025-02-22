@@ -32,6 +32,8 @@ import { IPositronModalDialogsService } from '../../../services/positronModalDia
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { LANGUAGE_RUNTIME_START_SESSION_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
+import { USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY } from '../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
 
 /**
  * Positron console command ID's.
@@ -616,7 +618,8 @@ export function registerPositronConsoleActions() {
 					when: ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
 					group: 'navigation',
 					order: 1
-				}]
+				}],
+				precondition: ContextKeyExpr.equals(`config.${USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY}`, true)
 			});
 		}
 
@@ -640,10 +643,8 @@ export function registerPositronConsoleActions() {
 
 	// TODO: HIDE BEHIND MULTIPLE CONSOLE SESSION FEATURE FLAG
 	/**
-	 * Register the new conosle session action. This action is used to expose a button in the console
+	 * Register the new console session action. This action is used to expose a button in the console
 	 * panel toolbar that executes the `workbench.action.language.runtime.openStartPicker` command.
-	 *
-	 * This action is equivalent to the `workbench.action.language.runtime.openStartPicker` command.
 	 */
 	registerAction2(class extends Action2 {
 		/**
@@ -663,7 +664,8 @@ export function registerPositronConsoleActions() {
 					when: ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
 					group: 'navigation',
 					order: 1,
-				}]
+				}],
+				precondition: ContextKeyExpr.equals(`config.${USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY}`, true)
 			});
 		}
 
@@ -674,7 +676,7 @@ export function registerPositronConsoleActions() {
 		 */
 		async run(accessor: ServicesAccessor) {
 			const commandService = accessor.get(ICommandService);
-			await commandService.executeCommand('workbench.action.language.runtime.openStartPicker');
+			await commandService.executeCommand(LANGUAGE_RUNTIME_START_SESSION_ID);
 		}
 	});
 }

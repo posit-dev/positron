@@ -17,8 +17,7 @@ import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../brows
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-
-const runtimePickerAction = 'workbench.action.language.runtime.openStartPicker';
+import { LANGUAGE_RUNTIME_START_SESSION_ID } from '../../../languageRuntime/browser/languageRuntimeActions.js';
 
 // Localized Text.
 const NewConsoleLabelText = localize('positron.console.new.label', "New Console");
@@ -73,7 +72,7 @@ export const CreateConsoleInstanceButton = () => {
 		})
 		entries.push(new CustomContextMenuItem({
 			label: NewConsoleEnvironmentLabelText,
-			onSelected: () => positronConsoleContext.commandService.executeCommand(runtimePickerAction)
+			onSelected: () => positronConsoleContext.commandService.executeCommand(LANGUAGE_RUNTIME_START_SESSION_ID)
 		}));
 
 		// Show the context menu.
