@@ -17,4 +17,5 @@ a.output-run-hyperlink {
 
 .output-run {
 	display: inline-block;
+	word-break: break-all;
 }
