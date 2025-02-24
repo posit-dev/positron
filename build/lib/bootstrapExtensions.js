@@ -4,8 +4,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getExtensionStream = getExtensionStream;
-exports.getBuiltInExtensions = getBuiltInExtensions;
+exports.getBootstrapExtensionStream = getBootstrapExtensionStream;
+exports.getBootstrapExtensions = getBootstrapExtensions;
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
@@ -18,17 +18,16 @@ const fancyLog = require("fancy-log");
 const ansiColors = require("ansi-colors");
 const root = path.dirname(path.dirname(__dirname));
 const productjson = JSON.parse(fs.readFileSync(path.join(__dirname, '../../product.json'), 'utf8'));
-const builtInExtensions = productjson.builtInExtensions || [];
-const webBuiltInExtensions = productjson.webBuiltInExtensions || [];
-const controlFilePath = path.join(os.homedir(), '.vscode-oss-dev', 'extensions', 'control.json');
-const ENABLE_LOGGING = !process.env['VSCODE_BUILD_BUILTIN_EXTENSIONS_SILENCE_PLEASE'];
+const ENABLE_LOGGING = !process.env['VSCODE_BUILD_BOOTSTRAP_EXTENSIONS_SILENCE_PLEASE'];
+const bootstrapExtensions = productjson.bootstrapExtensions || [];
+const controlFilePath = path.join(os.homedir(), '.vscode-oss-dev', 'extensions', 'bootstrap-control.json');
 function log(...messages) {
     if (ENABLE_LOGGING) {
         fancyLog(...messages);
     }
 }
 function getExtensionPath(extension) {
-    return path.join(root, '.build', 'builtInExtensions', extension.name);
+    return path.join(root, '.build', 'bootstrapExtensions', extension.name);
 }
 function isUpToDate(extension) {
     const packagePath = path.join(getExtensionPath(extension), 'package.json');
@@ -45,20 +44,11 @@ function isUpToDate(extension) {
     }
 }
 function getExtensionDownloadStream(extension) {
-    // --- Start PWB: Bundle PWB extension ---
-    // the PWB extension is a special case because it's not availble from the marketplace or github
-    if (extension.name === 'rstudio.rstudio-workbench') {
-        return ext.fromPositUrl(extension)
-            .pipe(rename(p => p.dirname = `${extension.name}/${p.dirname}`));
-    }
-    // --- End PWB: Bundle PWB extension ---
-    // --- Start Positron ---
     const url = extension.metadata.multiPlatformServiceUrl || productjson.extensionsGallery?.serviceUrl;
-    return (url ? ext.fromMarketplace(url, extension) : ext.fromGithub(extension))
-        // --- End Positron ---
-        .pipe(rename(p => p.dirname = `${extension.name}/${p.dirname}`));
+    return (url ? ext.fromMarketplace(url, extension, true) : ext.fromGithub(extension))
+        .pipe(rename(p => { p.basename = `${extension.name}-${extension.version}.vsix`; }));
 }
-function getExtensionStream(extension) {
+function getBootstrapExtensionStream(extension) {
     // if the extension exists on disk, use those files instead of downloading anew
     if (isUpToDate(extension)) {
         log('[extensions]', `${extension.name}@${extension.version} up to date`, ansiColors.green('✔︎'));
@@ -76,7 +66,7 @@ function syncMarketplaceExtension(extension) {
     }
     rimraf.sync(getExtensionPath(extension));
     return getExtensionDownloadStream(extension)
-        .pipe(vfs.dest('.build/builtInExtensions'))
+        .pipe(vfs.dest('.build/bootstrapExtensions'))
         .on('end', () => log(source, extension.name, ansiColors.green('✔︎')));
 }
 function syncExtension(extension, controlState) {
@@ -92,14 +82,20 @@ function syncExtension(extension, controlState) {
             log(ansiColors.blue('[disabled]'), ansiColors.gray(extension.name));
             return es.readArray([]);
         case 'marketplace':
+            // --- Start Positron ---
             return syncMarketplaceExtension(extension);
+        // --- End Positron ---
         default:
             if (!fs.existsSync(controlState)) {
-                log(ansiColors.red(`Error: Built-in extension '${extension.name}' is configured to run from '${controlState}' but that path does not exist.`));
+                // --- Start Positron ---
+                log(ansiColors.red(`Error: Bootstrap extension '${extension.name}' is configured to run from '${controlState}' but that path does not exist.`));
+                // --- End Positron ---
                 return es.readArray([]);
             }
             else if (!fs.existsSync(path.join(controlState, 'package.json'))) {
-                log(ansiColors.red(`Error: Built-in extension '${extension.name}' is configured to run from '${controlState}' but there is no 'package.json' file in that directory.`));
+                // --- Start Positron ---
+                log(ansiColors.red(`Error: Bootstrap extension '${extension.name}' is configured to run from '${controlState}' but there is no 'package.json' file in that directory.`));
+                // --- End Positron ---
                 return es.readArray([]);
             }
             log(ansiColors.blue('[local]'), `${extension.name}: ${ansiColors.cyan(controlState)}`, ansiColors.green('✔︎'));
@@ -114,30 +110,19 @@ function readControlFile() {
         return {};
     }
 }
-function writeControlFile(control) {
-    fs.mkdirSync(path.dirname(controlFilePath), { recursive: true });
-    fs.writeFileSync(controlFilePath, JSON.stringify(control, null, 2));
+function writeControlFile(control, filePath) {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify(control, null, 2));
 }
-function getBuiltInExtensions() {
-    log('Synchronizing built-in extensions...');
-    log(`You can manage built-in extensions with the ${ansiColors.cyan('--builtin')} flag`);
+function getBootstrapExtensions() {
     const control = readControlFile();
     const streams = [];
-    for (const extension of [...builtInExtensions, ...webBuiltInExtensions]) {
+    for (const extension of [...bootstrapExtensions]) {
         const controlState = control[extension.name] || 'marketplace';
         control[extension.name] = controlState;
-        // --- Start Positron ---
-        // Discard extensions intended for the web. The 'type' field isn't a
-        // formal part of the extension definition but a custom field we use to
-        // filter out web-only extensions (i.e. Posit Workbench)
-        // @ts-ignore
-        if (extension.type === 'reh-web') {
-            continue;
-        }
-        // --- End Positron ---
         streams.push(syncExtension(extension, controlState));
     }
-    writeControlFile(control);
+    writeControlFile(control, controlFilePath);
     return new Promise((resolve, reject) => {
         es.merge(streams)
             .on('error', reject)
@@ -145,9 +130,9 @@ function getBuiltInExtensions() {
     });
 }
 if (require.main === module) {
-    getBuiltInExtensions().then(() => process.exit(0)).catch(err => {
+    getBootstrapExtensions().then(() => process.exit(0)).catch(err => {
         console.error(err);
         process.exit(1);
     });
 }
-//# sourceMappingURL=builtInExtensions.js.map
+//# sourceMappingURL=bootstrapExtensions.js.map

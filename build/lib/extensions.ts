@@ -23,6 +23,7 @@ import * as jsoncParser from 'jsonc-parser';
 import webpack = require('webpack');
 import { getProductionDependencies } from './dependencies';
 import { IExtensionDefinition, getExtensionStream } from './builtInExtensions';
+import { getBootstrapExtensionStream } from './bootstrapExtensions';
 import { getVersion } from './getVersion';
 import { fetchUrls, fetchGithub } from './fetch';
 
@@ -581,7 +582,7 @@ export function packageBootstrapExtensionsStream(): Stream {
 	return es.merge(
 		...bootstrapExtensions
 			.map(extension => {
-				const src = getExtensionStream(extension, true).pipe(rename(p => {
+				const src = getBootstrapExtensionStream(extension).pipe(rename(p => {
 					p.dirname = `extensions/bootstrap`;
 				}));
 				return src;

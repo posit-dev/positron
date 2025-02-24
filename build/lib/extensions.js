@@ -35,6 +35,7 @@ const buffer = require('gulp-buffer');
 const jsoncParser = require("jsonc-parser");
 const dependencies_1 = require("./dependencies");
 const builtInExtensions_1 = require("./builtInExtensions");
+const bootstrapExtensions_1 = require("./bootstrapExtensions");
 const getVersion_1 = require("./getVersion");
 const fetch_1 = require("./fetch");
 // --- Start Positron ---
@@ -504,7 +505,7 @@ function packageMarketplaceExtensionsStream(forWeb) {
 function packageBootstrapExtensionsStream() {
     return es.merge(...bootstrapExtensions
         .map(extension => {
-        const src = (0, builtInExtensions_1.getExtensionStream)(extension, true).pipe(rename(p => {
+        const src = (0, bootstrapExtensions_1.getBootstrapExtensionStream)(extension).pipe(rename(p => {
             p.dirname = `extensions/bootstrap`;
         }));
         return src;
