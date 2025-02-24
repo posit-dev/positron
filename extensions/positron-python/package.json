@@ -481,6 +481,11 @@
                 "category": "Python",
                 "command": "python.installJupyter",
                 "title": "%python.command.python.installJupyter.title%"
+            },
+            {
+                "category": "Python",
+                "command": "python.interpreters.debugInfo",
+                "title": "%python.command.python.interpreterDebugInfo.title%"
             }
         ],
         "configuration": {

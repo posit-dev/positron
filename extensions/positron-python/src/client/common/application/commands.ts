@@ -41,6 +41,9 @@ interface ICommandNameWithoutArgumentTypeMapping {
     [Commands.CreateNewFile]: [];
     [Commands.ReportIssue]: [];
     [LSCommands.RestartLS]: [];
+    // --- Start Positron ---
+    [Commands.Show_Interpreter_Debug_Info]: [];
+    // --- End Positron ---
 }
 
 export type AllCommands = keyof ICommandNameArgumentTypeMapping;

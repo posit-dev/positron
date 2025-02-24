@@ -12,11 +12,10 @@ import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
-import { PythonVersion } from '../pythonEnvironments/info/pythonVersion';
 import { createPythonRuntimeMetadata } from './runtime';
 import { comparePythonVersionDescending } from '../interpreter/configuration/environmentTypeComparer';
 import { MINIMUM_PYTHON_VERSION } from '../common/constants';
-import { shouldIncludeInterpreter } from './interpreterSettings';
+import { isVersionSupported, shouldIncludeInterpreter } from './interpreterSettings';
 
 /**
  * Provides Python language runtime metadata to Positron; called during the
@@ -159,15 +158,4 @@ async function hasFiles(includes: string[]): Promise<boolean> {
     const include = `{${includes.join(',')}}`;
     // Exclude node_modules for performance reasons
     return (await vscode.workspace.findFiles(include, '**/node_modules/**', 1)).length > 0;
-}
-
-/**
- * Check if a version is supported (i.e. >= the minimum supported version).
- * Also returns true if the version could not be determined.
- */
-export function isVersionSupported(
-    version: PythonVersion | undefined,
-    minimumSupportedVersion: PythonVersion,
-): boolean {
-    return !version || comparePythonVersionDescending(minimumSupportedVersion, version) >= 0;
 }

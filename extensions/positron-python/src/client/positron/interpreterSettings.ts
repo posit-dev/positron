@@ -8,8 +8,15 @@ import path from 'path';
 import { traceInfo, traceVerbose } from '../logging';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { arePathsSame, isParentPath } from '../pythonEnvironments/common/externalDependencies';
-import { INTERPRETERS_EXCLUDE_SETTING_KEY, INTERPRETERS_INCLUDE_SETTING_KEY } from '../common/constants';
+import {
+    INTERPRETERS_EXCLUDE_SETTING_KEY,
+    INTERPRETERS_INCLUDE_SETTING_KEY,
+    MINIMUM_PYTHON_VERSION,
+} from '../common/constants';
 import { untildify } from '../common/helpers';
+import { PythonEnvironment } from '../pythonEnvironments/info';
+import { PythonVersion } from '../pythonEnvironments/info/pythonVersion';
+import { comparePythonVersionDescending } from '../interpreter/configuration/environmentTypeComparer';
 
 /**
  * Gets the list of interpreters that the user has explicitly included in the settings.
@@ -64,23 +71,15 @@ export function getUserExcludedInterpreters(): string[] {
 export function shouldIncludeInterpreter(interpreterPath: string): boolean {
     // If a user has explicitly included the interpreter, include it. In other words, including an
     // interpreter takes precedence over excluding it.
-    const interpretersInclude = getUserIncludedInterpreters();
-    if (interpretersInclude.length > 0) {
-        const userIncluded = interpretersInclude.some(
-            (includePath) => isParentPath(interpreterPath, includePath) || arePathsSame(interpreterPath, includePath),
-        );
-        if (userIncluded) {
-            traceInfo(`[shouldIncludeInterpreter] Interpreter ${interpreterPath} was included via settings`);
-            return true;
-        }
+    const userIncluded = userIncludedInterpreter(interpreterPath);
+    if (userIncluded === true) {
+        traceInfo(`[shouldIncludeInterpreter] Interpreter ${interpreterPath} was included via settings`);
+        return true;
     }
 
     // If the user has not explicitly included the interpreter, check if it is explicitly excluded.
-    const interpretersExclude = getUserExcludedInterpreters();
-    const userExcluded = interpretersExclude.some(
-        (excludePath) => isParentPath(interpreterPath, excludePath) || arePathsSame(interpreterPath, excludePath),
-    );
-    if (userExcluded) {
+    const userExcluded = userExcludedInterpreter(interpreterPath);
+    if (userExcluded === true) {
         traceInfo(`[shouldIncludeInterpreter] Interpreter ${interpreterPath} was excluded via settings`);
         return false;
     }
@@ -88,4 +87,121 @@ export function shouldIncludeInterpreter(interpreterPath: string): boolean {
     // If the interpreter is not explicitly included or excluded, include it.
     traceVerbose(`[shouldIncludeInterpreter] Interpreter ${interpreterPath} not explicitly included or excluded`);
     return true;
+}
+
+/**
+ * Checks if an interpreter path is included in the user's settings.
+ * @param interpreterPath The interpreter path to check
+ * @returns True if the interpreter is included in the user's settings, false if it is not included
+ * the user's settings, and undefined if the user has not specified any included interpreters.
+ */
+function userIncludedInterpreter(interpreterPath: string): boolean | undefined {
+    const interpretersInclude = getUserIncludedInterpreters();
+    if (interpretersInclude.length === 0) {
+        return undefined;
+    }
+    return interpretersInclude.some(
+        (includePath) => isParentPath(interpreterPath, includePath) || arePathsSame(interpreterPath, includePath),
+    );
+}
+
+/**
+ * Checks if an interpreter path is excluded in the user's settings.
+ * @param interpreterPath The interpreter path to check
+ * @returns True if the interpreter is excluded in the user's settings, false if it is not excluded
+ * the user's settings, and undefined if the user has not specified any excluded interpreters.
+ */
+function userExcludedInterpreter(interpreterPath: string): boolean | undefined {
+    const interpretersExclude = getUserExcludedInterpreters();
+    if (interpretersExclude.length === 0) {
+        return undefined;
+    }
+    return interpretersExclude.some(
+        (excludePath) => isParentPath(interpreterPath, excludePath) || arePathsSame(interpreterPath, excludePath),
+    );
+}
+
+/**
+ * Check if a version is supported (i.e. >= the minimum supported version).
+ * Also returns true if the version could not be determined.
+ */
+export function isVersionSupported(
+    version: PythonVersion | undefined,
+    minimumSupportedVersion: PythonVersion,
+): boolean {
+    return !version || comparePythonVersionDescending(minimumSupportedVersion, version) >= 0;
+}
+
+/**
+ * Interface for debug information about a Python interpreter.
+ */
+interface InterpreterDebugInfo {
+    name: string; // e.g. 'Python 3.13.1 64-bit'
+    path: string;
+    versionInfo: {
+        version: string;
+        supportedVersion: boolean;
+    };
+    envInfo: {
+        envName: string;
+        envType: string;
+    };
+    enablementInfo: {
+        visibleInUI: boolean;
+        includedInSettings: boolean | undefined;
+        excludedInSettings: boolean | undefined;
+    };
+}
+
+/**
+ * Print debug information about the Python interpreters discovered by the extension.
+ * @param interpreters The list of Python interpreters discovered by the extension.
+ */
+export function printInterpreterDebugInfo(interpreters: PythonEnvironment[]): void {
+    // Construct interpreter setting information
+    const interpreterSettingInfo = {
+        defaultInterpreterPath: getConfiguration('python').get<string>('defaultInterpreterPath'),
+        'interpreters.include': getUserIncludedInterpreters(),
+        'interpreters.exclude': getUserExcludedInterpreters(),
+    };
+
+    // Construct debug information about each interpreter
+    const debugInfo = interpreters
+        .sort((a, b) => {
+            // Sort by path and then version descending
+            const pathCompare = a.path.localeCompare(b.path);
+            if (pathCompare !== 0) {
+                return pathCompare;
+            }
+            return comparePythonVersionDescending(a.version, b.version);
+        })
+        .map(
+            (interpreter): InterpreterDebugInfo => ({
+                name: interpreter.detailedDisplayName ?? interpreter.displayName ?? 'Python',
+                path: interpreter.path,
+                versionInfo: {
+                    version: interpreter.version?.raw ?? 'Unknown',
+                    supportedVersion: isVersionSupported(interpreter.version, MINIMUM_PYTHON_VERSION),
+                },
+                envInfo: {
+                    envType: interpreter.envType,
+                    envName: interpreter.envName ?? '',
+                },
+                enablementInfo: {
+                    visibleInUI: shouldIncludeInterpreter(interpreter.path),
+                    includedInSettings: userIncludedInterpreter(interpreter.path),
+                    excludedInSettings: userExcludedInterpreter(interpreter.path),
+                },
+            }),
+        );
+
+    // Print debug information
+    traceInfo('=====================================================================');
+    traceInfo('=============== [START] PYTHON INTERPRETER DEBUG INFO ===============');
+    traceInfo('=====================================================================');
+    traceInfo('Python interpreter settings:', interpreterSettingInfo);
+    traceInfo('Python interpreters discovered:', debugInfo);
+    traceInfo('=====================================================================');
+    traceInfo('================ [END] PYTHON INTERPRETER DEBUG INFO ================');
+    traceInfo('=====================================================================');
 }

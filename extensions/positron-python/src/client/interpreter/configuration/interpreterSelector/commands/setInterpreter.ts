@@ -59,9 +59,8 @@ import { CreateEnv } from '../../../../common/utils/localize';
 import { IPythonRuntimeManager } from '../../../../positron/manager';
 import { showErrorMessage } from '../../../../common/vscodeApis/windowApis';
 import { traceError } from '../../../../logging';
-import { shouldIncludeInterpreter } from '../../../../positron/interpreterSettings';
+import { isVersionSupported, shouldIncludeInterpreter } from '../../../../positron/interpreterSettings';
 import { MINIMUM_PYTHON_VERSION } from '../../../../common/constants';
-import { isVersionSupported } from '../../../../positron/discoverer';
 // --- End Positron ---
 import { untildify } from '../../../../common/helpers';
 import { useEnvExtension } from '../../../../envExt/api.internal';
