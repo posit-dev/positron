@@ -33,10 +33,10 @@ configurationRegistry.registerConfiguration({
 	properties: {
 		[USE_POSITRON_CONNECTIONS_KEY]: {
 			type: 'boolean',
-			default: false,
+			default: true,
 			markdownDescription: localize(
 				'positron.enableConnectionsPane',
-				'**CAUTION**: Enable experimental Positron Connections Pane features which may result in unexpected behaviour. Please restart Positron if you change this option.'
+				'Enables the new Positron Connections Pane. Please restart Positron if you change this option.'
 			),
 		},
 	},
