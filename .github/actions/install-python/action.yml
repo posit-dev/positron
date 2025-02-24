@@ -5,6 +5,10 @@ inputs:
     description: "The alternate version of Python to install (e.g., 3.13.0)"
     required: true
     default: "3.13.0"
+  install_undetectable_interpreters:
+    description: "Install undetectable interpreters"
+    required: true
+    type: boolean
 runs:
   using: "composite"
   steps:
@@ -64,3 +68,25 @@ runs:
 
         # Verify that Python is reset
         python --version
+
+    - name: Install Prebuilt Python in ~/scratch
+      if: ${{ inputs.install_undetectable_interpreters }}
+      shell: bash
+      run: |
+        echo "Installing Python 3.12.3 in ~/scratch..."
+
+        # Set installation path
+        INSTALL_DIR="$HOME/scratch/python-custom"
+        mkdir -p $INSTALL_DIR
+
+        # Download official prebuilt Python binary
+        curl -o python.tar.xz "https://www.python.org/ftp/python/3.12.3/Python-3.12.3.tar.xz"
+
+        # Extract to the custom install location
+        tar -xf python.tar.xz -C $INSTALL_DIR --strip-components=1
+
+        # Verify installation
+        $INSTALL_DIR/bin/python3 --version
+        $INSTALL_DIR/bin/python3 -m pip install --upgrade pip
+
+        echo "Custom Python installed at $INSTALL_DIR"

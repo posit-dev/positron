@@ -82,6 +82,7 @@ jobs:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          install_undetectable_interpreters: true
 
       - name: Configure xvfb Service
         shell: bash

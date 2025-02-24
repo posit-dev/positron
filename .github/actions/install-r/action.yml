@@ -9,6 +9,10 @@ inputs:
     description: "The alternate R version to install (e.g., 4.4.2)"
     required: false
     default: "4.4.2"
+  install_undetectable_interpreters:
+    description: "Install undetectable interpreters"
+    required: true
+    type: boolean
 runs:
   using: "composite"
   steps:
@@ -54,3 +58,24 @@ runs:
         R_ALTERNATE_VERSION="${{ inputs.alternate_version }}"
         echo "Installing R version $R_ALTERNATE_VERSION using Rig..."
         rig add "$R_ALTERNATE_VERSION"
+
+    - name: Install Prebuilt R 4.4.1 in ~/scratch
+      if: ${{ inputs.install_undetectable_interpreters }}
+      shell: bash
+      run: |
+        echo "Installing R 4.4.1 in ~/scratch..."
+
+        # Set installation path
+        INSTALL_DIR="$HOME/scratch/R-4.4.1"
+        mkdir -p $INSTALL_DIR
+
+        # Download prebuilt R binary for Linux (modify for macOS if needed)
+        curl -o R.tar.gz "https://cloud.r-project.org/bin/linux/ubuntu/noble-cran40/r-base-core_4.4.1-1_amd64.deb"
+
+        # Extract the binary to the custom directory
+        tar -xf R.tar.gz -C $INSTALL_DIR --strip-components=1
+
+        # Verify installation
+        $INSTALL_DIR/bin/R --version
+
+        echo "Custom R installed at $INSTALL_DIR"
