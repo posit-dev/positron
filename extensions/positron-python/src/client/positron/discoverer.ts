@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -12,10 +12,10 @@ import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
-import { PythonVersion } from '../pythonEnvironments/info/pythonVersion';
 import { createPythonRuntimeMetadata } from './runtime';
 import { comparePythonVersionDescending } from '../interpreter/configuration/environmentTypeComparer';
 import { MINIMUM_PYTHON_VERSION } from '../common/constants';
+import { isVersionSupported, shouldIncludeInterpreter } from './interpreterSettings';
 
 /**
  * Provides Python language runtime metadata to Positron; called during the
@@ -49,11 +49,18 @@ export async function* pythonRuntimeDiscoverer(
 
         // Discover Python interpreters
         let interpreters = interpreterService.getInterpreters();
+
+        traceInfo(`pythonRuntimeDiscoverer: discovered ${interpreters.length} Python interpreters`);
+
+        // Filter out unsupported and user-excluded interpreters
+        traceInfo('pythonRuntimeDiscoverer: filtering interpreters');
+        interpreters = filterInterpreters(interpreters);
+
+        traceInfo(`pythonRuntimeDiscoverer: ${interpreters.length} Python interpreters remain after filtering`);
+
         // Sort the available interpreters, favoring the recommended interpreter (if one is available)
         traceInfo('pythonRuntimeDiscoverer: sorting interpreters');
         interpreters = sortInterpreters(interpreters, recommendedInterpreter);
-
-        traceInfo(`pythonRuntimeDiscoverer: discovered ${interpreters.length} Python interpreters`);
 
         // Recommend Python for the workspace if it contains Python-relevant files
         let recommendedForWorkspace = await hasFiles([
@@ -75,23 +82,19 @@ export async function* pythonRuntimeDiscoverer(
         // Register each interpreter as a language runtime metadata entry
         for (const interpreter of interpreters) {
             try {
-                if (isVersionSupported(interpreter?.version, MINIMUM_PYTHON_VERSION)) {
-                    const runtime = await createPythonRuntimeMetadata(
-                        interpreter,
-                        serviceContainer,
-                        recommendedForWorkspace,
-                    );
+                const runtime = await createPythonRuntimeMetadata(
+                    interpreter,
+                    serviceContainer,
+                    recommendedForWorkspace,
+                );
 
-                    // Ensure we only recommend one runtime for the workspace.
-                    recommendedForWorkspace = false;
+                // Ensure we only recommend one runtime for the workspace.
+                recommendedForWorkspace = false;
 
-                    traceInfo(
-                        `pythonRuntimeDiscoverer: registering runtime for interpreter ${interpreter.path} with id ${runtime.runtimeId}`,
-                    );
-                    yield runtime;
-                } else {
-                    traceInfo(`pythonRuntimeDiscoverer: skipping unsupported interpreter ${interpreter.path}`);
-                }
+                traceInfo(
+                    `pythonRuntimeDiscoverer: registering runtime for interpreter ${interpreter.path} with id ${runtime.runtimeId}`,
+                );
+                yield runtime;
             } catch (err) {
                 traceError(
                     `pythonRuntimeDiscoverer: failed to register runtime for interpreter ${interpreter.path}`,
@@ -102,6 +105,32 @@ export async function* pythonRuntimeDiscoverer(
     } catch (ex) {
         traceError('pythonRuntimeDiscoverer() failed', ex);
     }
+}
+
+/**
+ * Returns a list of Python interpreters with unsupported and user-excluded interpreters removed.
+ * @param interpreters The list of Python interpreters to filter.
+ * @returns A list of Python interpreters that are supported and not user-excluded.
+ */
+function filterInterpreters(interpreters: PythonEnvironment[]): PythonEnvironment[] {
+    return interpreters.filter((interpreter) => {
+        // Check if the interpreter version is supported
+        const isSupported = isVersionSupported(interpreter.version, MINIMUM_PYTHON_VERSION);
+        if (!isSupported) {
+            traceInfo(`pythonRuntimeDiscoverer: filtering out unsupported interpreter ${interpreter.path}`);
+            return false;
+        }
+
+        // Check if the interpreter is excluded by the user
+        const shouldInclude = shouldIncludeInterpreter(interpreter.path);
+        if (!shouldInclude) {
+            traceInfo(`pythonRuntimeDiscoverer: filtering out user-excluded interpreter ${interpreter.path}`);
+            return false;
+        }
+
+        // Otherwise, keep the interpreter!
+        return true;
+    });
 }
 
 // Returns a sorted copy of the array of Python environments, in descending order
@@ -129,12 +158,4 @@ async function hasFiles(includes: string[]): Promise<boolean> {
     const include = `{${includes.join(',')}}`;
     // Exclude node_modules for performance reasons
     return (await vscode.workspace.findFiles(include, '**/node_modules/**', 1)).length > 0;
-}
-
-/**
- * Check if a version is supported (i.e. >= the minimum supported version).
- * Also returns true if the version could not be determined.
- */
-function isVersionSupported(version: PythonVersion | undefined, minimumSupportedVersion: PythonVersion): boolean {
-    return !version || comparePythonVersionDescending(minimumSupportedVersion, version) >= 0;
 }

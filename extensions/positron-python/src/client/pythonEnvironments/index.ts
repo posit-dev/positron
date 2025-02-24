@@ -46,6 +46,10 @@ import { createNativeEnvironmentsApi } from './nativeAPI';
 import { useEnvExtension } from '../envExt/api.internal';
 import { createEnvExtApi } from '../envExt/envExtApi';
 
+// --- Start Positron ---
+import { UserSpecifiedEnvironmentLocator } from './base/locators/lowLevel/userSpecifiedEnvLocator';
+// --- End Positron ---
+
 const PYTHON_ENV_INFO_CACHE_KEY = 'PYTHON_ENV_INFO_CACHEv2';
 
 export function shouldUseNativeLocator(): boolean {
@@ -199,6 +203,9 @@ function createNonWorkspaceLocators(ext: ExtensionState): ILocator<BasicEnvInfo>
         new ActiveStateLocator(),
         new GlobalVirtualEnvironmentLocator(),
         new CustomVirtualEnvironmentLocator(),
+        // --- Start Positron ---
+        new UserSpecifiedEnvironmentLocator(),
+        // --- End Positron ---
     );
 
     if (getOSType() === OSType.Windows) {
