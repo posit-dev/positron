@@ -64,27 +64,31 @@ export function getUserExcludedInterpreters(): string[] {
 
 /**
  * Check whether an interpreter should be included in the list of discovered interpreters.
- * If an interpreter is both explicitly included and excluded, it will be included.
+ * If an interpreter is both included and excluded via settings, it will be excluded.
  * @param interpreterPath The interpreter path to check
  * @returns Whether the interpreter should be included in the list of discovered interpreters.
  */
 export function shouldIncludeInterpreter(interpreterPath: string): boolean {
-    // If a user has explicitly included the interpreter, include it. In other words, including an
-    // interpreter takes precedence over excluding it.
-    const userIncluded = userIncludedInterpreter(interpreterPath);
-    if (userIncluded === true) {
-        traceInfo(`[shouldIncludeInterpreter] Interpreter ${interpreterPath} was included via settings`);
-        return true;
-    }
-
-    // If the user has not explicitly included the interpreter, check if it is explicitly excluded.
+    // If the settings exclude the interpreter, exclude it. Excluding an interpreter takes
+    // precedence over including it, so we return right away if the interpreter is excluded.
     const userExcluded = userExcludedInterpreter(interpreterPath);
     if (userExcluded === true) {
-        traceInfo(`[shouldIncludeInterpreter] Interpreter ${interpreterPath} was excluded via settings`);
+        traceInfo(
+            `[shouldIncludeInterpreter] Interpreter ${interpreterPath} excluded via ${INTERPRETERS_EXCLUDE_SETTING_KEY} setting`,
+        );
         return false;
     }
 
-    // If the interpreter is not explicitly included or excluded, include it.
+    // If the settings include the interpreter, include it.
+    const userIncluded = userIncludedInterpreter(interpreterPath);
+    if (userIncluded === true) {
+        traceInfo(
+            `[shouldIncludeInterpreter] Interpreter ${interpreterPath} included via ${INTERPRETERS_INCLUDE_SETTING_KEY} setting`,
+        );
+        return true;
+    }
+
+    // If the interpreter is not included or excluded in the settings, include it.
     traceVerbose(`[shouldIncludeInterpreter] Interpreter ${interpreterPath} not explicitly included or excluded`);
     return true;
 }
@@ -93,7 +97,7 @@ export function shouldIncludeInterpreter(interpreterPath: string): boolean {
  * Checks if an interpreter path is included in the user's settings.
  * @param interpreterPath The interpreter path to check
  * @returns True if the interpreter is included in the user's settings, false if it is not included
- * the user's settings, and undefined if the user has not specified any included interpreters.
+ * in the user's settings, and undefined if the user has not specified any included interpreters.
  */
 function userIncludedInterpreter(interpreterPath: string): boolean | undefined {
     const interpretersInclude = getUserIncludedInterpreters();
@@ -109,7 +113,7 @@ function userIncludedInterpreter(interpreterPath: string): boolean | undefined {
  * Checks if an interpreter path is excluded in the user's settings.
  * @param interpreterPath The interpreter path to check
  * @returns True if the interpreter is excluded in the user's settings, false if it is not excluded
- * the user's settings, and undefined if the user has not specified any excluded interpreters.
+ * in the user's settings, and undefined if the user has not specified any excluded interpreters.
  */
 function userExcludedInterpreter(interpreterPath: string): boolean | undefined {
     const interpretersExclude = getUserExcludedInterpreters();
