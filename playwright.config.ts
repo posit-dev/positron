@@ -42,12 +42,14 @@ export default defineConfig<CustomTestOptions>({
 			}],
 			['junit', { outputFile: 'test-results/junit.xml' }],
 			['list'], ['html'], ['blob'],
-			currentsReporter({
-				ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
-				recordKey: process.env.CURRENTS_RECORD_KEY || '',
-				projectId: 'ZOs5z2',
-				disableTitleTags: true,
-			}),
+			...(process.env.ENABLE_CURRENTS_REPORTER !== 'false'
+				? [currentsReporter({
+					ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
+					recordKey: process.env.CURRENTS_RECORD_KEY || '',
+					projectId: 'ZOs5z2',
+					disableTitleTags: true,
+				})]
+				: [])
 		]
 		: [
 			['list'],

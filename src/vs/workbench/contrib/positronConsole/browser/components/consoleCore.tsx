@@ -17,6 +17,13 @@ import { ConsoleInstance } from './consoleInstance.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { StartupStatus } from './startupStatus.js';
 import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ConsoleTabList } from './consoleTabList.js';
+import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
+import { multipleConsoleSessionsFeatureEnabled } from '../../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+
+const MINIMUM_CONSOLE_TAB_LIST_WIDTH = 64;
+const MINIMUM_CONSOLE_PANE_WIDTH = 120;
 
 // ConsoleCoreProps interface.
 interface ConsoleCoreProps {
@@ -31,12 +38,21 @@ interface ConsoleCoreProps {
  * @returns The rendered component.
  */
 export const ConsoleCore = (props: ConsoleCoreProps) => {
+	// Calculate the adjusted height (the height minus the action bar height).
+	const adjustedHeight = props.height - 32;
+
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
+	const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(positronConsoleContext.configurationService);
 
+	// State hooks.
+	const [consoleWidth, setConsoleWidth] = useState(0);
+	const [consolePaneWidth, setConsolePaneWidth] = useState(0);
+	const [consoleTabListWidth, setConsoleTabListWidth] = useState(0);
 	const [startupPhase, setStartupPhase] = useState(
 		positronConsoleContext.languageRuntimeService.startupPhase);
 
+	// Main useEffect hook.
 	useEffect(() => {
 		const disposables =
 			positronConsoleContext.languageRuntimeService.onDidChangeRuntimeStartupPhase(
@@ -45,6 +61,54 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 				});
 		return () => disposables.dispose();
 	});
+
+	// Console Width Effect
+	useEffect(() => {
+		// The maximum tab list width is 2/5 of the total available width
+		const MAXIMUM_CONSOLE_TAB_LIST_WIDTH = Math.trunc(2 * props.width / 5);
+
+		// Initialize the width for the console pane and console tab list if it hasn't been
+		if (consoleWidth === 0) {
+			setConsoleTabListWidth(MAXIMUM_CONSOLE_TAB_LIST_WIDTH)
+			// Allocate the remaining width to the console pane
+			setConsolePaneWidth(props.width - MAXIMUM_CONSOLE_TAB_LIST_WIDTH);
+		} else if (props.width >= consoleWidth) {
+			// Allocate any additional width to the console pane when parent width is increased
+			setConsolePaneWidth(props.width - consoleTabListWidth);
+		} else if (props.width < consoleWidth) {
+			const newConsolePaneWidth = props.width - consoleTabListWidth;
+			// Decrease the console pane width first as long as we have not hit the minimum width
+			if (newConsolePaneWidth >= MINIMUM_CONSOLE_PANE_WIDTH) {
+				setConsolePaneWidth(newConsolePaneWidth)
+			} else {
+				// Decrease the tab list width when the console pane can no longer be decreased in width
+				setConsoleTabListWidth(Math.max(props.width - consolePaneWidth, MINIMUM_CONSOLE_TAB_LIST_WIDTH));
+			}
+		}
+
+		// Track the console width to accurately resize in future
+		setConsoleWidth(props.width)
+	}, [consolePaneWidth, consoleTabListWidth, consoleWidth, props.width])
+
+	/**
+	 * onBeginResize handler.
+	 * @returns A VerticalSplitterResizeParams containing the resize parameters.
+	 */
+	const handleBeginResize = (): VerticalSplitterResizeParams => ({
+		minimumWidth: MINIMUM_CONSOLE_PANE_WIDTH,
+		maximumWidth: props.width - MINIMUM_CONSOLE_TAB_LIST_WIDTH,
+		startingWidth: consolePaneWidth,
+	});
+
+	/**
+	 * onResize event handler.
+	 * @param newConsolePaneWidth The new console pane width.
+	 */
+	const handleResize = (newConsolePaneWidth: number) => {
+		// Adjust the column widths.
+		setConsolePaneWidth(newConsolePaneWidth);
+		setConsoleTabListWidth(props.width - newConsolePaneWidth);
+	};
 
 	// If there are no console instances, render the empty console and return.
 	if (positronConsoleContext.positronConsoleInstances.length === 0) {
@@ -55,25 +119,54 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 		}
 	}
 
-	// Calculate the adjusted height (the height minus the action bar height).
-	const adjustedHeight = props.height - 32;
-
 	// Render.
 	return (
-		<div className='console-core'>
-			<ActionBar {...props} />
-			<div className='console-instances-container' style={{ width: props.width, height: adjustedHeight }}>
-				{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
-					<ConsoleInstance
-						key={positronConsoleInstance.session.runtimeMetadata.languageId}
-						active={positronConsoleInstance === positronConsoleContext.activePositronConsoleInstance}
-						height={adjustedHeight}
-						positronConsoleInstance={positronConsoleInstance}
-						reactComponentContainer={props.reactComponentContainer}
-						width={props.width}
-					/>
-				)}
-			</div>
+		<div
+			className={positronClassNames('console-core', { 'console-tab-list': multiSessionsEnabled })}
+		>
+			{
+				multiSessionsEnabled
+					? <>
+						<div
+							style={{ height: props.height, width: consolePaneWidth }}
+						>
+							<ActionBar {...props} />
+							<div className='console-instances-container'>
+								{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
+									<ConsoleInstance
+										key={positronConsoleInstance.session.runtimeMetadata.languageId}
+										active={positronConsoleInstance === positronConsoleContext.activePositronConsoleInstance}
+										height={adjustedHeight}
+										positronConsoleInstance={positronConsoleInstance}
+										reactComponentContainer={props.reactComponentContainer}
+										width={consolePaneWidth}
+									/>
+								)}
+							</div>
+						</div>
+						<VerticalSplitter
+							configurationService={positronConsoleContext.configurationService}
+							onBeginResize={handleBeginResize}
+							onResize={handleResize}
+						/>
+						<ConsoleTabList height={props.height} width={consoleTabListWidth} />
+					</>
+					: <>
+						<ActionBar {...props} />
+						<div className='console-instances-container' style={{ width: props.width, height: adjustedHeight }}>
+							{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
+								<ConsoleInstance
+									key={positronConsoleInstance.session.runtimeMetadata.languageId}
+									active={positronConsoleInstance === positronConsoleContext.activePositronConsoleInstance}
+									height={adjustedHeight}
+									positronConsoleInstance={positronConsoleInstance}
+									reactComponentContainer={props.reactComponentContainer}
+									width={props.width}
+								/>
+							)}
+						</div>
+					</>
+			}
 		</div>
 	);
 };

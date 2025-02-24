@@ -40,6 +40,7 @@ import { mock } from './utils';
 import { EXTENSION_ROOT_DIR } from '../../client/constants';
 
 suite('Python Runtime Session', () => {
+    let disposables: vscode.Disposable[];
     let applicationShell: IApplicationShell;
     let runtimeMetadata: positron.LanguageRuntimeMetadata;
     let installerSpy: sinon.SinonSpiedInstance<IInstaller>;
@@ -50,10 +51,13 @@ suite('Python Runtime Session', () => {
     let interpreter: PythonEnvironment;
     let serviceContainer: IServiceContainer;
     let kernelSpec: JupyterKernelSpec;
+    let kernel: JupyterLanguageRuntimeSession;
     let consoleSession: positron.LanguageRuntimeSession;
     let notebookSession: positron.LanguageRuntimeSession;
 
     setup(() => {
+        disposables = [];
+
         applicationShell = mock<IApplicationShell>({
             showErrorMessage: () => Promise.resolve(undefined),
         });
@@ -153,13 +157,12 @@ suite('Python Runtime Session', () => {
 
         kernelSpec = mock<JupyterKernelSpec>({ env: {} });
 
-        const kernel = mock<JupyterLanguageRuntimeSession>({
+        kernel = mock<JupyterLanguageRuntimeSession>({
+            execute: () => {},
             onDidChangeRuntimeState: () => ({ dispose() {} }),
             onDidReceiveRuntimeMessage: () => ({ dispose() {} }),
             onDidEndSession: () => ({ dispose() {} }),
-            start() {
-                return Promise.resolve({} as positron.LanguageRuntimeInfo);
-            },
+            start: () => Promise.resolve({} as positron.LanguageRuntimeInfo),
         });
 
         const adapterApi = mock<PositronSupervisorApi>({
@@ -199,6 +202,7 @@ suite('Python Runtime Session', () => {
     });
 
     teardown(() => {
+        disposables.forEach((disposable) => disposable.dispose());
         sinon.restore();
     });
 
@@ -303,5 +307,38 @@ suite('Python Runtime Session', () => {
 
         // Should try to use ipykernel from the environment.
         sinon.assert.called(installerSpy.isProductVersionCompatible);
+    });
+
+    test('Execute: dont uninstall bundled packages', async () => {
+        // Start a console session.
+        await consoleSession.start();
+
+        // Spy on the kernel execute method.
+        const executeSpy = sinon.spy(kernel, 'execute');
+
+        // Record emitted runtime messages.
+        const messages: positron.LanguageRuntimeMessage[] = [];
+        disposables.push(consoleSession.onDidReceiveRuntimeMessage((message) => messages.push(message)));
+
+        // Execute a command that tries to uninstall a bundled package.
+        const id = 'execute-id';
+        consoleSession.execute(
+            'pip uninstall ipykernel',
+            id,
+            positron.RuntimeCodeExecutionMode.Interactive,
+            positron.RuntimeErrorBehavior.Stop,
+        );
+
+        // Should not execute the command.
+        sinon.assert.notCalled(executeSpy);
+
+        // Should display a message and end the execution (via state: idle).
+        assert.strictEqual(messages.length, 2);
+        assert.strictEqual(messages[0].type, positron.LanguageRuntimeMessageType.Stream);
+        const stream = messages[0] as positron.LanguageRuntimeStream;
+        assert.ok(stream.text.startsWith('Cannot uninstall'));
+        assert.strictEqual(messages[1].type, positron.LanguageRuntimeMessageType.State);
+        const state = messages[1] as positron.LanguageRuntimeState;
+        assert.strictEqual(state.state, positron.RuntimeOnlineState.Idle);
     });
 });

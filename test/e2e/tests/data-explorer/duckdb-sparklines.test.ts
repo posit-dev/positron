@@ -9,8 +9,8 @@ test.use({
 	suiteId: __filename
 });
 
-test.afterEach(async function ({ runCommand }) {
-	runCommand('workbench.action.closeAllEditors');
+test.afterEach(async function ({ app }) {
+	await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 });
 
 test.describe('Data Explorer - DuckDB Column Summary', {

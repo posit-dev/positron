@@ -92,6 +92,6 @@ convention = "pep257"
 
 # --- Start Positron ---
 [tool.pytest.ini_options]
-# Enable colors in the VSCode Test Results pane.
-addopts = "--color=yes"
+# Enable colors and verbosity in the VSCode Test Results pane.
+addopts = "--color=yes -vv"
 # --- End Positron ---

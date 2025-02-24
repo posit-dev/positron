@@ -9,6 +9,22 @@ export class Clipboard {
 
 	constructor(private code: Code) { }
 
+	async getClipboardText(): Promise<string | null> {
+		// Grant permissions to read from clipboard
+		await this.code.driver.context.grantPermissions(['clipboard-read']);
+
+		const clipboardText = await this.code.driver.page.evaluate(async () => {
+			try {
+				return await navigator.clipboard.readText();
+			} catch (error) {
+				console.error('Failed to read clipboard text:', error);
+				return null;
+			}
+		});
+
+		return clipboardText;
+	}
+
 	async getClipboardImage(): Promise<Buffer | null> {
 		// Grant permissions to read from clipboard
 		await this.code.driver.context.grantPermissions(['clipboard-read']);

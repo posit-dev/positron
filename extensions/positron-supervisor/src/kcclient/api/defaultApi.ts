@@ -20,6 +20,7 @@ import { ConnectionInfo } from '../model/connectionInfo';
 import { ModelError } from '../model/modelError';
 import { NewSession } from '../model/newSession';
 import { NewSession200Response } from '../model/newSession200Response';
+import { RestartSession } from '../model/restartSession';
 import { ServerStatus } from '../model/serverStatus';
 import { SessionList } from '../model/sessionList';
 import { StartupError } from '../model/startupError';
@@ -723,8 +724,9 @@ export class DefaultApi {
      * 
      * @summary Restart a session
      * @param sessionId 
+     * @param restartSession 
      */
-    public async restartSession (sessionId: string, options: {headers: {[name: string]: string}} = {headers: {}}) : Promise<{ response: http.IncomingMessage; body: any;  }> {
+    public async restartSession (sessionId: string, restartSession?: RestartSession, options: {headers: {[name: string]: string}} = {headers: {}}) : Promise<{ response: http.IncomingMessage; body: any;  }> {
         const localVarPath = this.basePath + '/sessions/{session_id}/restart'
             .replace('{' + 'session_id' + '}', encodeURIComponent(String(sessionId)));
         let localVarQueryParameters: any = {};
@@ -754,6 +756,7 @@ export class DefaultApi {
             uri: localVarPath,
             useQuerystring: this._useQuerystring,
             json: true,
+            body: ObjectSerializer.serialize(restartSession, "RestartSession")
         };
 
         let authenticationPromise = Promise.resolve();

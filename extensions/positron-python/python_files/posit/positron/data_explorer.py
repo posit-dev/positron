@@ -84,6 +84,7 @@ from .data_explorer_comm import (
     SummaryStatsDate,
     SummaryStatsDatetime,
     SummaryStatsNumber,
+    SummaryStatsOther,
     SummaryStatsString,
     SupportedFeatures,
     SupportStatus,
@@ -811,6 +812,13 @@ def _box_number_stats(min_val, max_val, mean_val, median_val, std_val):
     )
 
 
+def _box_other_stats(num_unique):
+    return ColumnSummaryStats(
+        type_display=ColumnDisplayType.Object,
+        other_stats=SummaryStatsOther(num_unique=int(num_unique)),
+    )
+
+
 def _box_string_stats(num_empty, num_unique):
     return ColumnSummaryStats(
         type_display=ColumnDisplayType.String,
@@ -1011,6 +1019,11 @@ def _pandas_summarize_string(col: pd.Series, _options: FormatOptions):
     num_empty = (col.str.len() == 0).sum()
     num_unique = col.nunique()
     return _box_string_stats(num_empty, num_unique)
+
+
+def _pandas_summarize_object(col: pd.Series, _options: FormatOptions):
+    num_unique = col.nunique()
+    return _box_other_stats(num_unique)
 
 
 def _pandas_summarize_boolean(col: pd.Series, _options: FormatOptions):
@@ -1328,8 +1341,8 @@ class PandasView(DataExplorerTableView):
             "complex64": "number",
             "complex128": "number",
             "complex256": "number",
-            "mixed-integer": "number",
-            "mixed-integer-float": "number",
+            "mixed-integer": "object",
+            "mixed-integer-float": "object",
             "mixed": "object",
             "decimal": "number",
             "complex": "number",
@@ -1688,6 +1701,7 @@ class PandasView(DataExplorerTableView):
             ColumnDisplayType.String: _pandas_summarize_string,
             ColumnDisplayType.Date: _pandas_summarize_date,
             ColumnDisplayType.Datetime: _pandas_summarize_datetime,
+            ColumnDisplayType.Object: _pandas_summarize_object,
         }
     )
 

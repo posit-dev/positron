@@ -433,7 +433,7 @@ function* createRustComm(name: string, frontend: any, backend: any): Generator<s
 	yield `// @generated
 
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) ${year} Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-${year} Posit Software, PBC. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
 //
@@ -786,7 +786,7 @@ function* createPythonComm(name: string,
 	frontend: any,
 	backend: any): Generator<string> {
 	yield `#
-# Copyright (C) ${year} Posit Software, PBC. All rights reserved.
+# Copyright (C) 2024-${year} Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -1159,7 +1159,7 @@ function* createTypescriptComm(name: string, frontend: any, backend: any): Gener
 	const metadata: CommMetadata = JSON.parse(
 		readFileSync(path.join(commsDir, `${name}.json`), { encoding: 'utf-8' }));
 	yield `/*---------------------------------------------------------------------------------------------
- *  Copyright (C) ${year} Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-${year} Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 

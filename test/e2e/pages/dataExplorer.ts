@@ -16,15 +16,7 @@ const CLOSE_DATA_EXPLORER = '.tab .codicon-close';
 const IDLE_STATUS = '.status-bar-indicator .icon.idle';
 const SCROLLBAR_LOWER_RIGHT_CORNER = '.data-grid-scrollbar-corner';
 const DATA_GRID_TOP_LEFT = '.data-grid-corner-top-left';
-const ADD_FILTER_BUTTON = '.codicon-positron-add-filter';
-const COLUMN_SELECTOR = '.positron-modal-overlay .drop-down-column-selector';
-const COLUMN_INPUT = '.positron-modal-overlay .column-search-input .text-input';
-const COLUMN_SELECTOR_CELL = '.column-selector-cell';
-const FUNCTION_SELECTOR = '.positron-modal-overlay .drop-down-list-box';
-const FILTER_SELECTOR = '.positron-modal-overlay .row-filter-parameter-input .text-input';
-const APPLY_FILTER = '.positron-modal-overlay .button-apply-row-filter';
 const STATUS_BAR = '.positron-data-explorer .status-bar';
-const OVERLAY_BUTTON = '.positron-modal-overlay .positron-button';
 const CLEAR_SORTING_BUTTON = '.codicon-positron-clear-sorting';
 const MISSING_PERCENT = (rowNumber: number) => `${DATA_GRID_ROW}:nth-child(${rowNumber}) .column-null-percent .text-percent`;
 const EXPAND_COLLAPSE_PROFILE = (rowNumber: number) => `${DATA_GRID_ROW}:nth-child(${rowNumber}) .expand-collapse-button`;
@@ -48,9 +40,17 @@ export interface ColumnProfile {
 export class DataExplorer {
 
 	clearSortingButton: Locator;
+	addFilterButton: Locator;
+	selectColumnButton: Locator;
+	selectConditionButton: Locator;
+	applyFilterButton: Locator;
 
 	constructor(private code: Code, private workbench: Workbench) {
 		this.clearSortingButton = this.code.driver.page.locator(CLEAR_SORTING_BUTTON);
+		this.addFilterButton = this.code.driver.page.getByRole('button', { name: 'Add Filter' });
+		this.selectColumnButton = this.code.driver.page.getByRole('button', { name: 'Select Column' });
+		this.selectConditionButton = this.code.driver.page.getByRole('button', { name: 'Select Condition' });
+		this.applyFilterButton = this.code.driver.page.getByRole('button', { name: 'Apply Filter' });
 	}
 
 	/*
@@ -103,35 +103,19 @@ export class DataExplorer {
 	 * Add a filter to the data explorer.  Only works for a single filter at the moment.
 	 */
 	async addFilter(columnName: string, functionText: string, filterValue: string) {
+		await this.addFilterButton.click();
 
-		await this.code.driver.page.locator(ADD_FILTER_BUTTON).click();
+		// select column
+		await this.selectColumnButton.click();
+		await this.code.driver.page.getByRole('button', { name: columnName }).click();
 
-		// worakaround for column being set incorrectly
-		await expect(async () => {
-			try {
-				await this.code.driver.page.locator(COLUMN_SELECTOR).click();
-				const columnText = `${columnName}\n`;
-				await this.code.driver.page.locator(COLUMN_INPUT).fill(columnText);
-				await this.code.driver.page.locator(COLUMN_SELECTOR_CELL).click();
-				const checkValue = await this.code.driver.page.locator(COLUMN_SELECTOR).textContent();
-				expect(checkValue).toBe(columnName);
-			} catch (e) {
-				await this.code.driver.page.keyboard.press('Escape');
-				throw e;
-			}
-		}).toPass({ timeout: 30000 });
+		// select condition
+		await this.selectConditionButton.click();
+		await this.code.driver.page.getByRole('button', { name: functionText, exact: true }).click();
 
-
-		await this.code.driver.page.locator(FUNCTION_SELECTOR).click();
-
-		// note that base Microsoft funtionality does not work with "has text" type selection
-		const equalTo = this.code.driver.page.locator(`${OVERLAY_BUTTON} div:has-text("${functionText}")`);
-		await equalTo.click();
-
-		const filterValueText = `${filterValue}\n`;
-		await this.code.driver.page.locator(FILTER_SELECTOR).fill(filterValueText);
-
-		await this.code.driver.page.locator(APPLY_FILTER).click();
+		// enter value
+		await this.code.driver.page.getByRole('textbox', { name: 'value' }).fill(filterValue);
+		await this.applyFilterButton.click();
 	}
 
 	async getDataExplorerStatusBarText(): Promise<String> {

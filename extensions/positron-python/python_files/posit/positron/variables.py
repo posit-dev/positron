@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 from __future__ import annotations
@@ -196,11 +196,8 @@ class VariablesService:
         variables = self._get_filtered_vars(unevaluated)
         filtered_unevaluated = _summarize_children(variables, MAX_ITEMS)
 
-        # Filter out hidden removed variables and encode access keys
-        hidden = self._get_user_ns_hidden()
-        filtered_removed = [
-            encode_access_key(name) for name in sorted(removed) if name not in hidden
-        ]
+        # We don't have to filter out hidden removed variables, but make sure to encode access keys
+        filtered_removed = [encode_access_key(name) for name in sorted(removed)]
 
         if filtered_assigned or filtered_unevaluated or filtered_removed:
             msg = UpdateParams(
@@ -275,7 +272,6 @@ class VariablesService:
         or contain many large mutable objects.
         """
         ns = self._get_user_ns()
-        hidden = self._get_user_ns_hidden()
 
         # Variables which are immutable and thus can be compared by
         # reference
@@ -298,7 +294,7 @@ class VariablesService:
         start = time.time()
 
         for key, value in ns.items():
-            if key in hidden:
+            if self._is_hidden(key, value):
                 continue
 
             inspector = get_inspector(value)
@@ -349,7 +345,6 @@ class VariablesService:
             return assigned, unevaluated, removed
 
         after = self._get_user_ns()
-        hidden = self._get_user_ns_hidden()
 
         snapshot = self._snapshot
 
@@ -373,7 +368,7 @@ class VariablesService:
 
             for key, value in ns_subset.items():
                 try:
-                    if key in hidden:
+                    if self._is_hidden(key, value):
                         continue
 
                     if key not in after:
@@ -403,7 +398,7 @@ class VariablesService:
         )
 
         for key, value in after.items():
-            if key in hidden:
+            if self._is_hidden(key, value):
                 continue
 
             if key not in all_snapshot_keys:
@@ -417,8 +412,17 @@ class VariablesService:
     def _get_user_ns(self) -> dict[str, Any]:
         return self.kernel.shell.user_ns or {}
 
-    def _get_user_ns_hidden(self) -> dict[str, Any]:
-        return self.kernel.shell.user_ns_hidden or {}
+    def _is_hidden(self, name: str, value: Any) -> bool:
+        """Is this variable a hidden kernel variable?.
+
+        Most of the time the answer is just whether it's in the kernel-hidden user namespace. But
+        the _ symbol is commonly overridden by users/packages. So we don't want to hide it if its
+        value is different from the value in the hidden namespace.
+        """
+        hidden = self.kernel.shell.user_ns_hidden or {}
+        if name == "_":
+            return name in hidden and value is hidden[name]
+        return name in hidden
 
     # -- Private Methods --
 
@@ -431,12 +435,10 @@ class VariablesService:
         A filtered dict of the variables, excluding hidden variables. If variables
         is None, the current user namespace in the environment is used.
         """
-        hidden = self._get_user_ns_hidden()
-
         if variables is None:
             variables = self._get_user_ns()
 
-        return {key: value for key, value in variables.items() if key not in hidden}
+        return {key: value for key, value in variables.items() if not self._is_hidden(key, value)}
 
     def _find_var(self, path: Iterable[str]) -> tuple[bool, Any]:
         """

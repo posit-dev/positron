@@ -107,4 +107,8 @@ export interface IUpdateService {
 
 	isLatestVersion(): Promise<boolean | undefined>;
 	_applySpecificUpdate(packagePath: string): Promise<void>;
+
+	// --- Start Positron ---
+	updateActiveLanguages(languages: string[]): void;
+	// --- End Positron ---
 }

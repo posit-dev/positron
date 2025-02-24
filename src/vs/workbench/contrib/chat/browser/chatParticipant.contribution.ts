@@ -281,7 +281,15 @@ export class ChatExtensionPointHandler implements IWorkbenchContribution {
 			storageId: viewContainerId,
 			hideIfEmpty: true,
 			order: 100,
-		}, ViewContainerLocation.AuxiliaryBar, { doNotRegisterOpenCommand: true });
+		},
+			// --- Start Positron ---
+			// In VS Code this defaults to ViewContainerLocation.AuxiliaryBar,
+			// but that's where all Positron's views are too (plots, variables,
+			// etc.) Put the Chat view in the Sidebar instead so that it doesn't
+			// obscure the other views.
+			ViewContainerLocation.Sidebar,
+			// --- End Positron ---
+			{ doNotRegisterOpenCommand: true });
 
 		return viewContainer;
 	}

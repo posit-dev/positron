@@ -24,6 +24,8 @@ export class ActiveRuntimeSession extends Disposable {
 
 	public state: RuntimeState;
 
+	public workingDirectory: string = '';
+
 	// The event emitter for the onDidReceiveRuntimeEvent event.
 	private readonly _onDidReceiveRuntimeEventEmitter =
 		this._register(new Emitter<ILanguageRuntimeGlobalEvent>());
@@ -185,6 +187,8 @@ export class ActiveRuntimeSession extends Disposable {
 			});
 		}));
 		this._register(uiClient.onDidWorkingDirectory(event => {
+			// Track the working directory
+			this.workingDirectory = event.directory;
 			this._onDidReceiveRuntimeEventEmitter.fire({
 				session_id: sessionId,
 				event: {

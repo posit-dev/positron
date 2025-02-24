@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -80,6 +80,7 @@ const HelpLines = [
 	'preview msg      - Sends a message to the preview pane',
 	'preview http...  - Show the URL starting with http... in the preview pane',
 	'progress         - Renders a progress bar',
+	'pwd              - Prints the current working directory',
 	'restart          - Simulates orderly restart',
 	'shutdown X       - Simulates orderly shutdown, or sets the shutdown delay to X',
 	'static plot      - Renders a static plot (image)',
@@ -193,6 +194,11 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	 * The current state of the runtime.
 	 */
 	private _state: positron.RuntimeState;
+
+	/**
+	 * The current working directory
+	 */
+	private _workingDirectory: string = '';
 
 	//#endregion Private Properties
 
@@ -875,6 +881,11 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 				break;
 			}
 
+			case 'pwd': {
+				this.simulateSuccessfulCodeExecution(id, code, this._workingDirectory);
+				break;
+			}
+
 			default: {
 				this.simulateUnsuccessfulCodeExecution(id, code, 'Unknown Command', `Error. '${code}' not recognized.\n`, []);
 				break;
@@ -924,7 +935,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 
 				// Immediately notify Positron of a "working directory"
 				if (this._ui) {
-					this._ui.changeDirectory('');
+					this._workingDirectory = this._ui.changeDirectory('');
 				}
 				break;
 
@@ -1080,7 +1091,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	 * @param workingDirectory The working directory to set
 	 */
 	public setWorkingDirectory(workingDirectory: string): Promise<void> {
-		this._ui?.changeDirectory(workingDirectory);
+		this._workingDirectory = this._ui?.changeDirectory(workingDirectory) || '';
 		return Promise.resolve();
 	}
 
@@ -1165,7 +1176,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	/**
 	 * Restarts the runtime.
 	 */
-	async restart(): Promise<void> {
+	async restart(workingDirectory?: string): Promise<void> {
 		// Let the user know what we're doing and go through the shutdown sequence.
 		const parentId = randomUUID();
 		this.simulateOutputMessage(parentId, 'Restarting.');
@@ -1179,6 +1190,11 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 
 		// Wait for a second before starting again.
 		await new Promise(resolve => setTimeout(resolve, 500));
+
+		// Apply new working directory
+		if (workingDirectory) {
+			this._workingDirectory = workingDirectory;
+		}
 
 		// Go through the startup sequence again.
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Initializing);
@@ -1423,7 +1439,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		this.simulateInputMessage(parentId, code);
 
 		if (this._ui) {
-			this._ui.changeDirectory(directory);
+			this._workingDirectory = this._ui.changeDirectory(directory);
 			this.simulateOutputMessage(parentId, `Changed directory to '${this._ui.directory}'.`);
 		} else {
 			this.simulateErrorMessage(parentId, 'No Frontend', 'No frontend is connected.', []);

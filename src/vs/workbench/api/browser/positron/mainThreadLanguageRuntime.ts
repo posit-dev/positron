@@ -42,6 +42,7 @@ import { isWebviewReplayMessage } from '../../../contrib/positronWebviewPreloads
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/browser/interfaces/runtimeNotebookKernelService.js';
+import { LanguageRuntimeSessionChannel } from '../../common/positron/extHostTypes.positron.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -105,7 +106,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	private readonly _onDidCreateClientInstanceEmitter = new Emitter<ILanguageRuntimeClientCreatedEvent>();
 
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
-	private _lastUsed: number = Date.now();
+	private _lastUsed: number = 0;
 	private _clients: Map<string, ExtHostRuntimeClientInstance<any, any>> =
 		new Map<string, ExtHostRuntimeClientInstance<any, any>>();
 
@@ -517,13 +518,13 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		return this._proxy.$interruptLanguageRuntime(this.handle);
 	}
 
-	async restart(): Promise<void> {
+	async restart(workingDirectory?: string): Promise<void> {
 		if (!this.canShutdown()) {
 			throw new Error(`Cannot restart runtime '${this.runtimeMetadata.runtimeName}': ` +
 				`runtime is in state '${this._currentState}'`);
 		}
 		this._stateEmitter.fire(RuntimeState.Restarting);
-		return this._proxy.$restartSession(this.handle);
+		return this._proxy.$restartSession(this.handle, workingDirectory);
 	}
 
 	async shutdown(exitReason = RuntimeExitReason.Shutdown): Promise<void> {
@@ -540,8 +541,12 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		return this._proxy.$forceQuitLanguageRuntime(this.handle);
 	}
 
-	async showOutput(): Promise<void> {
-		return this._proxy.$showOutputLanguageRuntime(this.handle);
+	async showOutput(channel?: LanguageRuntimeSessionChannel): Promise<void> {
+		return this._proxy.$showOutputLanguageRuntime(this.handle, channel);
+	}
+
+	async listOutputChannels(): Promise<LanguageRuntimeSessionChannel[]> {
+		return await this._proxy.$listOutputChannelsLanguageRuntime(this.handle);
 	}
 
 	async showProfile(): Promise<void> {

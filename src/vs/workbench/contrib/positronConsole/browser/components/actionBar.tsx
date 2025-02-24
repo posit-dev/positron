@@ -317,7 +317,12 @@ export const ActionBar = (props: ActionBarProps) => {
 
 	// Restart console event handler.
 	const restartConsoleHandler = async () => {
-		positronConsoleContext.activePositronConsoleInstance?.session.restart();
+		if (!positronConsoleContext.activePositronConsoleInstance) {
+			return;
+		}
+		positronConsoleContext.runtimeSessionService.restartSession(
+			activePositronConsoleInstance!.session.sessionId,
+			'User-requested restart from console action bar');
 	};
 
 	// Render.
@@ -331,21 +336,38 @@ export const ActionBar = (props: ActionBarProps) => {
 					paddingRight={kPaddingRight}
 					size='small'
 				>
-					<ActionBarRegion location='left'>
-						<ConsoleInstanceMenuButton {...props} />
-						<div className='action-bar-separator' />
-						{directoryLabel &&
-							<div aria-label={(() => localize(
-								'directoryLabel',
-								"Current Working Directory"
-							))()}
-								className='directory-label'
-							>
-								<span className='codicon codicon-folder' role='presentation'></span>
-								<span className='label' title={directoryLabel}>{directoryLabel}</span>
-							</div>
-						}
-					</ActionBarRegion>
+					{!multiSessionsEnabled &&
+						<ActionBarRegion location='left'>
+							<ConsoleInstanceMenuButton {...props} />
+							<div className='action-bar-separator' />
+							{directoryLabel &&
+								<div aria-label={(() => localize(
+									'directoryLabel',
+									"Current Working Directory"
+								))()}
+									className='directory-label'
+								>
+									<span className='codicon codicon-folder' role='presentation'></span>
+									<span className='label' title={directoryLabel}>{directoryLabel}</span>
+								</div>
+							}
+						</ActionBarRegion>
+					}
+					{multiSessionsEnabled &&
+						<div>
+							{directoryLabel &&
+								<div aria-label={(() => localize(
+									'directoryLabel',
+									"Current Working Directory"
+								))()}
+									className='directory-label'
+								>
+									<span className='codicon codicon-folder' role='presentation'></span>
+									<span className='label' title={directoryLabel}>{directoryLabel}</span>
+								</div>
+							}
+						</div>
+					}
 					<ActionBarRegion location='right'>
 						<div className='state-label'>{stateLabel}</div>
 						{interruptible &&

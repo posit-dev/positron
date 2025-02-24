@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -18,6 +18,7 @@ import { Interpreters } from '../common/utils/localize';
 import { IApplicationShell } from '../common/application/types';
 import { activateAppDetection as activateWebAppDetection } from './webAppContexts';
 import { activateWebAppCommands } from './webAppCommands';
+import { printInterpreterDebugInfo } from './interpreterSettings';
 
 export async function activatePositron(serviceContainer: IServiceContainer): Promise<void> {
     try {
@@ -72,6 +73,18 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
         // Register a command to get the minimum version of python supported by the extension.
         disposables.push(
             vscode.commands.registerCommand('python.getMinimumPythonVersion', (): string => MINIMUM_PYTHON_VERSION.raw),
+        );
+        // Register a command to output information about Python environments.
+        disposables.push(
+            vscode.commands.registerCommand(Commands.Show_Interpreter_Debug_Info, async () => {
+                // Open up the Python Language Pack output channel.
+                await vscode.commands.executeCommand(Commands.ViewOutput);
+
+                // Log information about the Python environments.
+                const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
+                const interpreters = interpreterService.getInterpreters();
+                printInterpreterDebugInfo(interpreters);
+            }),
         );
 
         // Activate detection for web applications

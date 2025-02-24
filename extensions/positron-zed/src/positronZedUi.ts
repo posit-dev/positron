@@ -18,8 +18,9 @@ export class ZedUi {
 	 * Emits an event to the front end indicating a change in the working directory.
 	 *
 	 * @param directory The directory to change to
+	 * @returns The name of the directory
 	 */
-	public changeDirectory(directory: string): void {
+	public changeDirectory(directory: string): string {
 		if (!directory) {
 			// Make up a random directory name if we don't have a truthy one
 			let hexDigits = Math.floor(Math.random() * 1679616).toString(16);
@@ -32,12 +33,14 @@ export class ZedUi {
 		// Emit the event to the front end
 		this._directory = directory;
 		this._onDidEmitData.fire({
-			msg_type: 'event',
-			name: 'working_directory',
-			data: {
+			jsonrpc: '2.0',
+			method: 'working_directory',
+			params: {
 				directory: directory,
 			}
 		});
+
+		return directory;
 	}
 
 	/**

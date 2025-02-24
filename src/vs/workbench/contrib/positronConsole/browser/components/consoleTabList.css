@@ -1,0 +1,64 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.tabs-container {
+	border-left: 1px solid var(--vscode-terminal-border);
+	background-color: var(--vscode-tab-inactiveBackground);
+	flex-grow: 1;
+}
+
+.tabs-container .tab-button {
+	background-color: inherit;
+	border: none;
+	border-left: 1px solid transparent;
+	cursor: pointer;
+	height: 22px;
+	padding: 0 10px;
+	width: 100%;
+	text-align: left;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.tabs-container .tab-button:focus {
+	outline: none;
+}
+
+.tabs-container .tab-button:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.tabs-container .tab-button:hover {
+	background-color: var(--vscode-list-hoverBackground);
+}
+
+.tabs-container .tab-button--active {
+	background-color: var(--vscode-list-inactiveSelectionBackground);
+	border-left: 1px solid var(--vscode-panelTitle-activeBorder);
+}
+
+.tabs-container .tab-button--active:hover {
+	background-color: var(--vscode-list-inactiveSelectionBackground);
+}
+
+.tabs-container .tab-button {
+	display: flex;
+	align-items: center;
+}
+
+.tabs-container .tab-button .icon {
+	height: 15px;
+	width: 15px;
+	margin: 0 6px
+}
+
+.tabs-container .tab-button .session-name {
+	margin: 0;
+	line-height: 22px;
+	overflow: hidden;
+	min-width: 0;
+	text-overflow: ellipsis;
+}

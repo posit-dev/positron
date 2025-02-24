@@ -1,6 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+// --- Start Positron ---
+/* eslint-disable import/no-duplicates */
+// --- End Positron ---
+
 import { Disposable, EventEmitter, Event, Uri } from 'vscode';
 import * as ch from 'child_process';
 import * as path from 'path';
@@ -22,6 +26,11 @@ import type { IExtensionContext } from '../../../../common/types';
 import { StopWatch } from '../../../../common/utils/stopWatch';
 import { untildify } from '../../../../common/helpers';
 import { traceError } from '../../../../logging';
+
+// --- Start Positron ---
+import { getUserIncludedInterpreters } from '../../../../positron/interpreterSettings';
+import { traceVerbose } from '../../../../logging';
+// --- End Positron ---
 
 const PYTHON_ENV_TOOLS_PATH = isWindows()
     ? // --- Start Positron ---
@@ -456,14 +465,26 @@ function getEnvironmentDirs(): string[] {
  */
 function getAdditionalEnvDirs(): string[] {
     const additionalDirs: string[] = [];
+
+    // Add additional dirs to search for Python environments on non-Windows platforms.
     if (!isWindows()) {
         // /opt/python is a recommended Python installation location on Posit Workbench.
         // see: https://docs.posit.co/ide/server-pro/python/installing_python.html
         additionalDirs.push('/opt/python');
     }
-    // TODO: add user-specified additional directories to include in discovery
-    // see: https://github.com/posit-dev/positron/issues/3574
-    return additionalDirs;
+
+    // Add user-specified Python search directories.
+    const userIncludedDirs = getUserIncludedInterpreters();
+    additionalDirs.push(...userIncludedDirs);
+
+    // Return the list of additional directories.
+    const uniqueDirs = Array.from(new Set(additionalDirs));
+    traceVerbose(
+        `[getAdditionalEnvDirs] Found ${
+            uniqueDirs.length
+        } additional directories to search for Python environments: ${uniqueDirs.map((dir) => `"${dir}"`).join(', ')}`,
+    );
+    return uniqueDirs;
 }
 // --- End Positron ---
 

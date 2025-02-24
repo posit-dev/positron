@@ -79,7 +79,8 @@ export const InterpreterActions = (props: PropsWithChildren<InterpreterActionsPr
 	// Restart the session, if we have one.
 	const restart = () => {
 		if (session) {
-			session.restart();
+			props.runtimeSessionService.restartSession(
+				session.sessionId, 'Restarted from top action bar');
 		}
 	};
 

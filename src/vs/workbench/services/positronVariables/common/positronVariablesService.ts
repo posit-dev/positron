@@ -108,7 +108,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 
 		// Register the onDidChangeActiveRuntime event handler.
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
-			this._setActivePositronVariablesBySession(session)
+			this._setActivePositronVariablesBySession(session);
 		}));
 
 		// Set up listeners for any existing console instances

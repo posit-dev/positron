@@ -301,7 +301,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	// Keep track of LSP init to avoid stopping in the middle of startup
 	private _lspStarting: Promise<void> = Promise.resolve();
 
-	async restart(): Promise<void> {
+	async restart(workingDirectory: string | undefined): Promise<void> {
 		if (this._kernel) {
 			// Stop the LSP client before restarting the kernel. Don't stop it
 			// until fully started to avoid an inconsistent state where the
@@ -318,7 +318,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				})
 			]);
 			await this._lsp.deactivate(true);
-			return this._kernel.restart();
+			return this._kernel.restart(workingDirectory);
 		} else {
 			throw new Error('Cannot restart; kernel not started');
 		}
@@ -366,8 +366,19 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/**
 	 * Show runtime log in output panel.
 	 */
-	showOutput() {
-		this._kernel?.showOutput();
+	showOutput(channel?: positron.LanguageRuntimeSessionChannel) {
+		// Show the output for the LSP channel, if requested
+		if (channel === positron.LanguageRuntimeSessionChannel.LSP) {
+			this._lsp.showOutput();
+		} else {
+			this._kernel?.showOutput(channel);
+		}
+	}
+
+	listOutputChannels(): positron.LanguageRuntimeSessionChannel[] {
+		const channels = this._kernel?.listOutputChannels?.() ?? [];
+		// Add LSP channel in addition to the kernel channels
+		return [...channels, positron.LanguageRuntimeSessionChannel.LSP];
 	}
 
 	/**

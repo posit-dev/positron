@@ -19,7 +19,7 @@ import { ActionBarButton, ActionBarButtonProps } from './actionBarButton.js';
 /**
  * ActionBarCommandButtonProps interface.
  */
-interface ActionBarCommandButtonProps extends ActionBarButtonProps {
+type ActionBarCommandButtonProps = ActionBarButtonProps & {
 	readonly commandId: string;
 }
 

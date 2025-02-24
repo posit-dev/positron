@@ -34,7 +34,7 @@ import { TopActionBarOpenMenu } from './components/topActionBarOpenMenu.js';
 import { IPositronTopActionBarService } from '../../../services/positronTopActionBar/browser/positronTopActionBarService.js';
 import { TopActionBarCommandCenter } from './components/topActionBarCommandCenter.js';
 import { PositronTopActionBarContextProvider } from './positronTopActionBarContext.js';
-import { TopActionBarCustonFolderMenu } from './components/topActionBarCustomFolderMenu.js';
+import { TopActionBarCustomFolderMenu } from './components/topActionBarCustomFolderMenu.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { TopActionBarInterpretersManager } from './components/topActionBarInterpretersManager.js';
 import { SAVE_ALL_COMMAND_ID, SAVE_FILE_COMMAND_ID } from '../../../contrib/files/browser/fileConstants.js';
@@ -207,7 +207,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 							onStartRuntime={startRuntimeHandler}
 						/>
 						{showCenterUI && (
-							<TopActionBarCustonFolderMenu />
+							<TopActionBarCustomFolderMenu />
 						)}
 					</ActionBarRegion>
 

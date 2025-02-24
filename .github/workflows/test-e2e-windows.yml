@@ -23,10 +23,15 @@ on:
         default: ""
         type: string
       report_testrail:
-          required: false
-          description: "Whether or not to report results to TestRail."
-          default: false
-          type: boolean
+        required: false
+        description: "Whether or not to report results to TestRail."
+        default: false
+        type: boolean
+      enable_currents_reporter:
+        required: false
+        description: "Whether or not to report results to Currents."
+        type: boolean
+        default: true
 
   workflow_dispatch:
     inputs:
@@ -108,7 +113,7 @@ jobs:
           curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          python -m pip install ipykernel trcli
+          python -m pip install trcli
 
       # Alternate python version
       - name: Install Python 3.13.0
@@ -180,6 +185,7 @@ jobs:
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/win'}}
+          ENABLE_CURRENTS_REPORTER: ${{ inputs.enable_currents_reporter }}
         if: ${{ !cancelled() }}
         run: npx playwright test --project "e2e-windows" --grep "${{ env.PW_TAGS }}" --workers 2 --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 

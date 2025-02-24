@@ -97,6 +97,12 @@ export class BrowserUpdateService extends Disposable implements IUpdateService {
 	async _applySpecificUpdate(packagePath: string): Promise<void> {
 		// noop
 	}
+
+	// --- Start Positron ---
+	updateActiveLanguages(languages: string[]): void {
+		// no-op
+	}
+	// --- End Positron ---
 }
 
 registerSingleton(IUpdateService, BrowserUpdateService, InstantiationType.Eager);

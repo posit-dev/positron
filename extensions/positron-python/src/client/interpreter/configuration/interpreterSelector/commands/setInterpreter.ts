@@ -1,5 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+// --- Start Positron ---
+// Disable eslint rules for our import block below. This appears at the top of the file to stop
+// auto-formatting tools from reordering the imports.
+/* eslint-disable import/no-duplicates */
+// --- End Positron ---
 
 'use strict';
 
@@ -50,11 +55,12 @@ import { BaseInterpreterSelectorCommand } from './base';
 // --- Start Positron ---
 // eslint-disable-next-line import/order
 import * as fs from 'fs-extra';
-// eslint-disable-next-line import/no-duplicates
 import { CreateEnv } from '../../../../common/utils/localize';
 import { IPythonRuntimeManager } from '../../../../positron/manager';
 import { showErrorMessage } from '../../../../common/vscodeApis/windowApis';
 import { traceError } from '../../../../logging';
+import { isVersionSupported, shouldIncludeInterpreter } from '../../../../positron/interpreterSettings';
+import { MINIMUM_PYTHON_VERSION } from '../../../../common/constants';
 // --- End Positron ---
 import { untildify } from '../../../../common/helpers';
 import { useEnvExtension } from '../../../../envExt/api.internal';
@@ -283,7 +289,11 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
         if (defaultInterpreterPathSuggestion) {
             suggestions.push(defaultInterpreterPathSuggestion);
         }
-        const interpreterSuggestions = this.getSuggestions(resource, filter, params);
+
+        // --- Start Positron ---
+        // Apply additional filtering to the suggestions by wrapping the filter
+        const interpreterSuggestions = this.getSuggestions(resource, filterWrapper(filter), params);
+        // --- End Positron ---
         this.finalizeItems(interpreterSuggestions, resource, params);
         suggestions.push(...interpreterSuggestions);
         return suggestions;
@@ -399,7 +409,11 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
         const updatedItems = [...items.values()];
         const areItemsGrouped = items.find((item) => isSeparatorItem(item));
         const env = event.old ?? event.new;
-        if (filter && event.new && !filter(event.new)) {
+
+        // --- Start Positron ---
+        // Apply additional filtering to the suggestions by wrapping the filter
+        if (filterWrapper(filter) && event.new && !filterWrapper(filter)(event.new)) {
+            // --- End Positron ---
             event.new = undefined; // Remove envs we're not looking for from the list.
         }
         let envIndex = -1;
@@ -719,3 +733,18 @@ function getGroup(item: IInterpreterQuickPickItem, workspacePath?: string) {
             return EnvGroups[item.interpreter.envType];
     }
 }
+
+// --- Start Positron ---
+/**
+ * Wraps the original filter function to include additional filtering logic.
+ * If no filter is provided, the returned function will only include the additional filtering logic.
+ * @param filter The original filter function
+ * @returns A new filter function that includes the original filter function and the additional filtering logic
+ */
+function filterWrapper(filter: ((i: PythonEnvironment) => boolean) | undefined) {
+    return (i: PythonEnvironment) =>
+        (filter ? filter(i) : true) &&
+        shouldIncludeInterpreter(i.path) &&
+        isVersionSupported(i.version, MINIMUM_PYTHON_VERSION);
+}
+// --- End Positron ---

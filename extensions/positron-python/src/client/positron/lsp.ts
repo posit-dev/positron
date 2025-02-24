@@ -260,4 +260,18 @@ export class PythonLsp implements vscode.Disposable {
         this.activationDisposables.forEach((d) => d.dispose());
         await this.deactivate(false);
     }
+
+    /**
+     * Displays the output channel associated with the current Python LSP session.
+     *
+     * This method retrieves the output channel using the session name and session mode
+     * from the metadata, and then shows the output channel to the user.
+     */
+    public showOutput(): void {
+        const outputChannel = PythonLspOutputChannelManager.instance.getOutputChannel(
+            this._metadata.sessionName,
+            this._metadata.sessionMode,
+        );
+        outputChannel.show();
+    }
 }

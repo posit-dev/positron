@@ -27,7 +27,7 @@ const File = require('vinyl');
 const fs = require('fs');
 const glob = require('glob');
 const { compileBuildTask } = require('./gulpfile.compile');
-const { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask } = require('./gulpfile.extensions');
+const { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask, copyExtensionBinariesTask } = require('./gulpfile.extensions');
 // --- Start Positron ---
 const { vscodeWebEntryPoints, vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } = require('./gulpfile.vscode.web');
 const { positronBuildNumber } = require('./utils');
@@ -288,6 +288,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 			'vscode-test-resolver',
 			'positron-zed',
 			'positron-javascript',
+			'positron-assistant',
 		];
 		// --- End Positron ---
 		const localWorkspaceExtensions = glob.sync('extensions/*/package.json')
@@ -550,6 +551,9 @@ function tweakProductForServerWeb(product) {
 				cleanExtensionsBuildTask,
 				compileNonNativeExtensionsBuildTask,
 				compileExtensionMediaBuildTask,
+				// --- Start Positron ---
+				copyExtensionBinariesTask,
+				// --- End Positron ---
 				minified ? minifyTask : bundleTask,
 				serverTaskCI
 			));

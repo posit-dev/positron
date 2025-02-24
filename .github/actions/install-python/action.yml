@@ -14,7 +14,6 @@ runs:
         curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
         python3 -m pip install --upgrade pip
         python3 -m pip install -r requirements.txt
-        python3 -m pip install ipykernel
 
     - name: Verify Python Version
       shell: bash
@@ -51,7 +50,7 @@ runs:
         PYTHON_ALTERNATE_VERSION="${{ inputs.alternate_version }}"
         echo "Installing Python version $PYTHON_ALTERNATE_VERSION using pyenv..."
         pyenv install -s "$PYTHON_ALTERNATE_VERSION"
-        
+
         pyenv versions
 
         pyenv global "$PYTHON_ALTERNATE_VERSION"

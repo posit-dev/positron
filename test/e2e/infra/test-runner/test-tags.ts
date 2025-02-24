@@ -26,6 +26,7 @@ export enum TestTags {
 	DEBUG = '@:debug',
 	DUCK_DB = '@:duck-db',
 	EDITOR_ACTION_BAR = '@:editor-action-bar',
+	EXTENSIONS = '@:extensions',
 	HELP = '@:help',
 	HTML = '@:html',
 	INTERPRETER = '@:interpreter',
@@ -45,6 +46,8 @@ export enum TestTags {
 	R_PKG_DEVELOPMENT = '@:r-pkg-development',
 	RETICULATE = '@:reticulate',
 	SCM = '@:scm',
+	SESSIONS = '@:sessions',
+	TASKS = '@:tasks',
 	TEST_EXPLORER = '@:test-explorer',
 	TOP_ACTION_BAR = '@:top-action-bar',
 	VARIABLES = '@:variables',
@@ -52,6 +55,7 @@ export enum TestTags {
 
 	// platform  tags
 	WEB = '@:web',
+	WEB_ONLY = '@:web-only',
 	WIN = '@:win'
 }
 

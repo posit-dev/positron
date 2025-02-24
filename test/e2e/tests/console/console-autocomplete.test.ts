@@ -25,7 +25,7 @@ test.describe('Console Autocomplete', {
 		await app.workbench.console.sendEnterKey();
 
 		// need to type to console slowly to see suggestions with R
-		await app.workbench.console.typeToConsole('df2 <- read_p', 250);
+		await app.workbench.console.typeToConsole('df2 <- read_p', false, 250);
 		await expect(app.workbench.console.suggestionList).toHaveCount(4, { timeout: 15000 });
 	});
 });

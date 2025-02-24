@@ -12,11 +12,11 @@ test.use({
 });
 
 const testCases = [
-	{ name: 'parquet', file: 'flights.parquet' },
-	{ name: 'csv', file: 'flights.csv' },
-	{ name: 'gzipped csv', file: 'flights.csv.gz' },
-	{ name: 'tsv', file: 'flights.tsv' },
-	{ name: 'gzipped tsv', file: 'flights.tsv.gz' }
+	{ name: 'parquet', file: 'flights.parquet', copyValue: '2013' },
+	{ name: 'csv', file: 'flights.csv', copyValue: '0' },
+	{ name: 'gzipped csv', file: 'flights.csv.gz', copyValue: '0' },
+	{ name: 'tsv', file: 'flights.tsv', copyValue: '0' },
+	{ name: 'gzipped tsv', file: 'flights.tsv.gz', copyValue: '0' }
 ];
 
 const plainTextTestCases = [
@@ -32,10 +32,11 @@ test.describe('Headless Data Explorer', {
 		await app.workbench.dataExplorer.closeDataExplorer();
 	});
 
-	testCases.forEach(({ name, file }) => {
+	testCases.forEach(({ name, file, copyValue }) => {
 		test(`Verify can open and view data with large ${name} file`, async function ({ app, openDataFile }) {
 			await openDataFile(join(`data-files/flights/${file}`));
 			await app.workbench.dataExplorer.verifyTab(file, { isVisible: true, isSelected: true });
+			await verifyCopyFromCell(app, copyValue);
 			await verifyDataIsPresent(app);
 			await verifyPlainTextButtonInActionBar(app, file.endsWith('.csv') || file.endsWith('.tsv'));
 		});
@@ -84,4 +85,12 @@ async function verifyPlainTextButtonInActionBar(app: Application, isVisible: boo
 	isVisible
 		? await expect(openAsPlainTextInActionBar).toBeVisible()
 		: await expect(openAsPlainTextInActionBar).not.toBeVisible();
+}
+
+async function verifyCopyFromCell(app: Application, value: string) {
+	await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
+	await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+C' : 'Control+C');
+	const clipboardText = await app.workbench.clipboard.getClipboardText();
+	expect(clipboardText).toBe(value);
+
 }

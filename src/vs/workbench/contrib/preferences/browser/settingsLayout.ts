@@ -200,6 +200,13 @@ export const tocData: ITOCEntry<string> = {
 					label: localize('extensions', "Extensions"),
 					settings: ['extensions.*']
 				},
+				// --- Start Positron ---
+				{
+					id: 'features/console',
+					label: localize('console', "Console"),
+					settings: ['console.*']
+				},
+				// --- End Positron ---
 				{
 					id: 'features/terminal',
 					label: localize('terminal', "Terminal"),
