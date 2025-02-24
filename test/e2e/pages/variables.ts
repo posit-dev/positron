@@ -7,7 +7,7 @@
 import { Code } from '../infra/code';
 import * as os from 'os';
 import test, { expect, Locator } from '@playwright/test';
-import { SessionName } from './session';
+import { SessionName } from './sessions';
 
 interface FlatVariables {
 	value: string;

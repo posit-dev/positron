@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { SessionName } from '../../pages/session';
+import { SessionName } from '../../pages/sessions';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -28,14 +28,14 @@ test.describe('Top Action Bar: Session Button', {
 	});
 
 	test('Python - Verify session starts and displays as running', async function ({ app }) {
-		await app.workbench.console.startSession({ ...pythonSession, triggerMode: 'top-action-bar' });
-		await app.workbench.interpreterNew.verifySessionIsSelected(pythonSession);
-		await app.workbench.session.checkStatus(pythonSession, 'idle');
+		await app.workbench.sessions.launch({ ...pythonSession, triggerMode: 'top-action-bar' });
+		await app.workbench.sessions.verifySessionPickerValue(pythonSession);
+		await app.workbench.sessions.checkStatus(pythonSession, 'idle');
 	});
 
 	test('R - Verify session starts and displays as running', async function ({ app }) {
-		await app.workbench.console.startSession({ ...rSession, triggerMode: 'top-action-bar' });
-		await app.workbench.interpreterNew.verifySessionIsSelected(rSession);
-		await app.workbench.session.checkStatus(rSession, 'idle');
+		await app.workbench.sessions.launch({ ...rSession, triggerMode: 'top-action-bar' });
+		await app.workbench.sessions.verifySessionPickerValue(rSession);
+		await app.workbench.sessions.checkStatus(rSession, 'idle');
 	});
 });

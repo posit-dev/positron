@@ -5,7 +5,7 @@
 
 import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
-import { SessionName } from '../../pages/session';
+import { SessionName } from '../../pages/sessions';
 
 const pythonSession: SessionName = {
 	language: 'Python',
@@ -33,103 +33,103 @@ test.describe('Console: Sessions', {
 	});
 
 	test('Validate state between sessions (active, idle, disconnect) ', async function ({ app }) {
-		const session = app.workbench.session;
+		const sessions = app.workbench.sessions;
 
 		// Start Python session
-		await app.workbench.console.startSession({ ...pythonSession, waitForReady: false });
+		await app.workbench.sessions.launch({ ...pythonSession, waitForReady: false });
 
 		// Verify Python session is visible and transitions from active --> idle
-		await session.checkStatus(pythonSession, 'active');
-		await session.checkStatus(pythonSession, 'idle');
+		await sessions.checkStatus(pythonSession, 'active');
+		await sessions.checkStatus(pythonSession, 'idle');
 
 		// Restart Python session and confirm state returns to active --> idle
-		await session.restart(pythonSession, false);
-		await session.checkStatus(pythonSession, 'active');
-		await session.checkStatus(pythonSession, 'idle');
+		await sessions.restart(pythonSession, false);
+		await sessions.checkStatus(pythonSession, 'active');
+		await sessions.checkStatus(pythonSession, 'idle');
 
 		// Start R session
-		await app.workbench.console.startSession({ ...rSession, waitForReady: false });
+		await app.workbench.sessions.launch({ ...rSession, waitForReady: false });
 
 		// Verify R session transitions from active --> idle while Python session remains idle
-		await session.checkStatus(rSession, 'active');
-		await session.checkStatus(rSession, 'idle');
-		await session.checkStatus(pythonSession, 'idle');
+		await sessions.checkStatus(rSession, 'active');
+		await sessions.checkStatus(rSession, 'idle');
+		await sessions.checkStatus(pythonSession, 'idle');
 
 		// Shutdown Python session, verify Python transitions to disconnected while R remains idle
-		await session.shutdown(pythonSession, false);
-		await session.checkStatus(pythonSession, 'disconnected');
-		await session.checkStatus(rSession, 'idle');
+		await sessions.shutdown(pythonSession, false);
+		await sessions.checkStatus(pythonSession, 'disconnected');
+		await sessions.checkStatus(rSession, 'idle');
 
 		// Restart R session, verify R to returns to active --> idle and Python remains disconnected
-		await session.restart(rSession, false);
-		await session.checkStatus(rSession, 'active');
-		await session.checkStatus(rSession, 'idle');
-		await session.checkStatus(pythonSession, 'disconnected');
+		await sessions.restart(rSession, false);
+		await sessions.checkStatus(rSession, 'active');
+		await sessions.checkStatus(rSession, 'idle');
+		await sessions.checkStatus(pythonSession, 'disconnected');
 
 		// Shutdown R, verify both Python and R in disconnected state
-		await session.shutdown(rSession, false);
-		await session.checkStatus(rSession, 'disconnected');
-		await session.checkStatus(pythonSession, 'disconnected');
+		await sessions.shutdown(rSession, false);
+		await sessions.checkStatus(rSession, 'disconnected');
+		await sessions.checkStatus(pythonSession, 'disconnected');
 	});
 
 	test('Validate session state displays as active when executing code', async function ({ app }) {
-		const session = app.workbench.session;
+		const sessions = app.workbench.sessions;
 		const console = app.workbench.console;
 
 		// Ensure sessions exist and are idle
-		await session.ensureStartedAndIdle(pythonSession);
-		await session.ensureStartedAndIdle(rSession);
+		await sessions.ensureStartedAndIdle(pythonSession);
+		await sessions.ensureStartedAndIdle(rSession);
 
 		// Verify Python session transitions to active when executing code
-		await session.select(pythonSession);
+		await sessions.select(pythonSession);
 		await console.typeToConsole('import time', true);
 		await console.typeToConsole('time.sleep(1)', true);
-		await session.checkStatus(pythonSession, 'active');
-		await session.checkStatus(pythonSession, 'idle');
+		await sessions.checkStatus(pythonSession, 'active');
+		await sessions.checkStatus(pythonSession, 'idle');
 
 		// Verify R session transitions to active when executing code
-		await session.select(rSession);
+		await sessions.select(rSession);
 		await console.typeToConsole('Sys.sleep(1)', true);
-		await session.checkStatus(rSession, 'active');
-		await session.checkStatus(rSession, 'idle');
+		await sessions.checkStatus(rSession, 'active');
+		await sessions.checkStatus(rSession, 'idle');
 	});
 
 	test('Validate metadata between sessions', {
 		annotation: [
 			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6389' }]
 	}, async function ({ app }) {
-		const session = app.workbench.session;
+		const sessions = app.workbench.sessions;
 
 		// Ensure sessions exist and are idle
-		await session.ensureStartedAndIdle(pythonSession);
-		await session.ensureStartedAndIdle(rSession);
+		await sessions.ensureStartedAndIdle(pythonSession);
+		await sessions.ensureStartedAndIdle(rSession);
 
 		// Verify Python session metadata
-		await session.checkMetadata({ ...pythonSession, state: 'idle' });
-		await session.checkMetadata({ ...rSession, state: 'idle' });
+		await sessions.checkMetadata({ ...pythonSession, state: 'idle' });
+		await sessions.checkMetadata({ ...rSession, state: 'idle' });
 
 		// Shutdown Python session and verify metadata
-		await session.shutdown(pythonSession);
-		await session.checkMetadata({ ...pythonSession, state: 'exited' });
+		await sessions.shutdown(pythonSession);
+		await sessions.checkMetadata({ ...pythonSession, state: 'exited' });
 
 		// Shutdown R session and verify metadata
-		await session.shutdown(rSession);
-		await session.checkMetadata({ ...rSession, state: 'exited' });
+		await sessions.shutdown(rSession);
+		await sessions.checkMetadata({ ...rSession, state: 'exited' });
 	});
 
 	test('Validate variables between sessions', {
 		tag: [tags.VARIABLES]
 	}, async function ({ app }) {
-		const session = app.workbench.session;
+		const sessions = app.workbench.sessions;
 		const console = app.workbench.console;
 		const variables = app.workbench.variables;
 
 		// Ensure sessions exist and are idle
-		await session.ensureStartedAndIdle(pythonSession);
-		await session.ensureStartedAndIdle(rSession);
+		await sessions.ensureStartedAndIdle(pythonSession);
+		await sessions.ensureStartedAndIdle(rSession);
 
 		// Set and verify variables in Python
-		await session.select(pythonSession);
+		await sessions.select(pythonSession);
 		await console.typeToConsole('x = 1', true);
 		await console.typeToConsole('y = 2', true);
 		await variables.checkRuntime(pythonSession);
@@ -137,7 +137,7 @@ test.describe('Console: Sessions', {
 		await variables.checkVariableValue('y', '2');
 
 		// Set and verify variables in R
-		await session.select(rSession);
+		await sessions.select(rSession);
 		await console.typeToConsole('x <- 3', true);
 		await console.typeToConsole('z <- 4', true);
 		await variables.checkRuntime(rSession);
@@ -145,14 +145,14 @@ test.describe('Console: Sessions', {
 		await variables.checkVariableValue('z', '4');
 
 		// Switch back to Python, update variables, and verify
-		await session.select(pythonSession);
+		await sessions.select(pythonSession);
 		await console.typeToConsole('x = 0', true);
 		await variables.checkRuntime(pythonSession);
 		await variables.checkVariableValue('x', '0');
 		await variables.checkVariableValue('y', '2');
 
 		// Switch back to R, verify variables remain unchanged
-		await session.select(rSession);
+		await sessions.select(rSession);
 		await variables.checkRuntime(rSession);
 		await variables.checkVariableValue('x', '3');
 		await variables.checkVariableValue('z', '4');
@@ -163,39 +163,39 @@ test.describe('Console: Sessions', {
 			{ type: 'issue', description: 'sessions are not correctly sorted atm. see line 174.' }
 		]
 	}, async function ({ app }) {
-		const session = app.workbench.session;
-		const interpreter = app.workbench.interpreterNew;
+		const sessions = app.workbench.sessions;
+		const interpreter = app.workbench.sessions.quickPick;
 
 		// Ensure sessions exist and are idle
-		await session.ensureStartedAndIdle(pythonSession);
-		await session.ensureStartedAndIdle(rSession);
+		await sessions.ensureStartedAndIdle(pythonSession);
+		await sessions.ensureStartedAndIdle(rSession);
 
 		// Get active sessions and verify they match the session picker: order matters!
-		let activeSessionsFromConsole = await session.getActiveSessions();
+		let activeSessionsFromConsole = await sessions.getActiveSessions();
 		let activeSessionsFromPicker = await interpreter.getActiveSessions();
 		expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
 
 		// Shutdown Python session and verify active sessions
-		await session.shutdown(pythonSession);
-		activeSessionsFromConsole = await session.getActiveSessions();
+		await sessions.shutdown(pythonSession);
+		activeSessionsFromConsole = await sessions.getActiveSessions();
 		activeSessionsFromPicker = await interpreter.getActiveSessions();
 		expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
 
 		// Shutdown R session and verify active sessions
-		await session.shutdown(rSession);
-		activeSessionsFromConsole = await session.getActiveSessions();
+		await sessions.shutdown(rSession);
+		activeSessionsFromConsole = await sessions.getActiveSessions();
 		activeSessionsFromPicker = await interpreter.getActiveSessions();
 		expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
 
 		// Start Python session (again) and verify active sessions
-		await session.start(pythonSession);
-		activeSessionsFromConsole = await session.getActiveSessions();
+		await sessions.start(pythonSession);
+		activeSessionsFromConsole = await sessions.getActiveSessions();
 		activeSessionsFromPicker = await interpreter.getActiveSessions();
 		expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
 
 		// Restart Python session and verify active sessions
-		await session.restart(pythonSession);
-		activeSessionsFromConsole = await session.getActiveSessions();
+		await sessions.restart(pythonSession);
+		activeSessionsFromConsole = await sessions.getActiveSessions();
 		activeSessionsFromPicker = await interpreter.getActiveSessions();
 		expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
 	});

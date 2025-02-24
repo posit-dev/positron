@@ -4,13 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import test, { expect, Locator, Page } from '@playwright/test';
-import { Code, Console, QuickPickSessionInfo } from '../infra';
+import { Code, Console, QuickAccess } from '../infra';
+import { QuickInput } from './quickInput';
+
+const DESIRED_PYTHON = process.env.POSITRON_PY_VER_SEL;
+const DESIRED_R = process.env.POSITRON_R_VER_SEL;
 
 
 /**
  * Class to manage console sessions
  */
-export class Session {
+export class Sessions {
 	page: Page;
 	activeStatus: (session: Locator) => Locator;
 	idleStatus: (session: Locator) => Locator;
@@ -18,8 +22,10 @@ export class Session {
 	sessions: Locator;
 	metadataButton: Locator;
 	metadataDialog: Locator;
+	chooseSessionButton: Locator;
+	quickPick: SessionQuickPick;
 
-	constructor(private code: Code, private console: Console) {
+	constructor(private code: Code, private console: Console, private quickaccess: QuickAccess, private quickinput: QuickInput) {
 		this.page = this.code.driver.page;
 		this.activeStatus = (session: Locator) => session.locator('.codicon-positron-status-active');
 		this.idleStatus = (session: Locator) => session.locator('.codicon-positron-status-idle');
@@ -27,9 +33,66 @@ export class Session {
 		this.sessions = this.page.getByTestId(/console-tab/);
 		this.metadataButton = this.page.getByRole('button', { name: 'Console information' });
 		this.metadataDialog = this.page.getByRole('dialog');
+		this.quickPick = new SessionQuickPick(this.code, this);
+		this.chooseSessionButton = this.page.getByRole('button', { name: 'Open Active Session Picker' });
 	}
 
 	// -- Actions --
+
+	/**
+	 * Action: Start a session via the top action bar button or quickaccess.
+	 * @param options - Configuration options for selecting the interpreter.
+	 * @param options.language the programming language interpreter to select.
+	 * @param options.version the specific version of the interpreter to select (e.g., "3.10.15").
+	 * @param options.triggerMode the method used to trigger the selection: top-action-bar or quickaccess.
+	 * @param options.waitForReady whether to wait for the console to be ready after selecting the interpreter.
+	 */
+	async launch(options: {
+		language: 'Python' | 'R';
+		version?: string;
+		triggerMode?: 'top-action-bar' | 'quickaccess';
+		waitForReady?: boolean;
+	}): Promise<void> {
+
+		if (!DESIRED_PYTHON || !DESIRED_R) {
+			throw new Error('Please set env vars: POSITRON_PY_VER_SEL, POSITRON_R_VER_SEL');
+		}
+
+		const {
+			language,
+			version = language === 'Python' ? DESIRED_PYTHON : DESIRED_R,
+			waitForReady = true,
+			triggerMode = 'quickaccess',
+		} = options;
+
+		await test.step(`Start session via ${triggerMode}: ${language} ${version}`, async () => {
+			// Don't try to start a new runtime if one is currently starting up
+			await this.waitForReadyOrNoSessions();
+
+			// Start the runtime via the dropdown or quickaccess
+			const command = language === 'Python' ? 'python.setInterpreter' : 'r.selectInterpreter';
+			triggerMode === 'quickaccess'
+				? await this.quickaccess.runCommand(command, { keepOpen: true })
+				: await this.quickPick.openSessionQuickPickMenu();
+
+			await this.quickinput.type(`${language} ${version}`);
+
+			// Wait until the desired runtime appears in the list and select it.
+			// We need to click instead of using 'enter' because the Python select interpreter command
+			// may include additional items above the desired interpreter string.
+			await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`);
+			await this.quickinput.waitForQuickInputClosed();
+
+			// Move mouse to prevent tooltip hover
+			await this.code.driver.page.mouse.move(0, 0);
+
+			if (waitForReady) {
+				language === 'Python'
+					? await this.console.waitForReadyAndStarted('>>>', 40000)
+					: await this.console.waitForReadyAndStarted('>', 40000);
+			}
+		});
+	}
 
 	/**
 	 * Action: Select the session
@@ -120,7 +183,7 @@ export class Session {
 			// Start Session if it does not exist
 			const sessionExists = await this.getSessionLocator(session).isVisible({ timeout: 30000 });
 			if (!sessionExists) {
-				await this.console.startSession(session);
+				await this.launch(session);
 			}
 
 			// Ensure session is idle (ready)
@@ -128,6 +191,46 @@ export class Session {
 			if (status !== 'idle') {
 				await this.start(session);
 			}
+		});
+	}
+
+	/**
+	 * Helper: Wait for runtimes to finish loading
+	 */
+	async waitForRuntimesToLoad() {
+		await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 80000 });
+	}
+
+	/**
+	 * Helper: Wait for the console to be ready or no sessions have been started
+	 */
+	async waitForReadyOrNoSessions() {
+		await test.step('Wait for console to be ready or no session', async () => {
+
+			await this.waitForRuntimesToLoad();
+
+			// ensure we are on Console tab
+			await this.page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
+
+			// Move mouse to prevent tooltip hover
+			await this.code.driver.page.mouse.move(0, 0);
+
+			// wait for the dropdown to contain R, Python, or Choose Session.
+			const currentSession = await this.chooseSessionButton.textContent() || '';
+
+			if (currentSession.includes('Python')) {
+				await expect(this.page.getByRole('code').getByText('>>>')).toBeVisible({ timeout: 30000 });
+				return;
+			} else if (currentSession.includes('R') && !currentSession.includes('Choose Session')) {
+				await expect(this.page.getByRole('code').getByText('>')).toBeVisible({ timeout: 30000 });
+				return;
+			} else if (currentSession.includes('Choose Session')) {
+				await expect(this.page.getByText('Choose Session')).toBeVisible();
+				return;
+			}
+
+			// If we reach here, the console is not ready.
+			throw new Error('Console is not ready after waiting for session to start');
 		});
 	}
 
@@ -298,12 +401,163 @@ export class Session {
 			await this.console.clickConsoleTab();
 		});
 	}
+
+	/**
+	 * Verify: the selected runtime is the expected runtime in the Session Picker button
+	 * @param version The descriptive string of the runtime to verify.
+	 */
+	async verifySessionPickerValue(
+		options: { language?: 'Python' | 'R'; version?: string } = {}
+	) {
+		if (!DESIRED_PYTHON || !DESIRED_R) {
+			throw new Error('Please set env vars: POSITRON_PY_VER_SEL, POSITRON_R_VER_SEL');
+		}
+
+		const {
+			language = 'Python',
+			version = language === 'Python' ? DESIRED_PYTHON : DESIRED_R,
+		} = options;
+		await test.step(`Verify runtime is selected: ${language} ${version}`, async () => {
+			const runtimeInfo = await this.quickPick.getSelectedSessionInfo();
+			expect(runtimeInfo.language).toContain(language);
+			expect(runtimeInfo.version).toContain(version);
+		});
+	}
 }
+
+/**
+ * Helper class to manage the session quick pick
+ */
+export class SessionQuickPick {
+	private sessionQuickMenu = this.code.driver.page.getByText(/(Select a Session)|(Start a New Session)/);
+	private newSessionQuickOption = this.code.driver.page.getByText(/New Session.../);
+
+	constructor(private code: Code, private sessions: Sessions) { }
+
+	// -- Actions --
+
+	/**
+	 * Action: Open the session quickpick menu via the "Choose Session" button in top action bar.
+	 */
+	async openSessionQuickPickMenu(viewAllRuntimes = true) {
+		if (!await this.sessionQuickMenu.isVisible()) {
+			await this.sessions.chooseSessionButton.click();
+		}
+
+		if (viewAllRuntimes) {
+			await this.newSessionQuickOption.click();
+			await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible();
+		} else {
+			await expect(this.code.driver.page.getByText(/Select a Session/)).toBeVisible();
+		}
+	}
+
+	/**
+	 * Action: Close the session quickpick menu if it is open.
+	 */
+	async closeSessionQuickPickMenu() {
+		if (await this.sessionQuickMenu.isVisible()) {
+			await this.code.driver.page.keyboard.press('Escape');
+			await expect(this.sessionQuickMenu).not.toBeVisible();
+		}
+	}
+
+	// --- Helpers ---
+
+	/**
+	 * Helper: Get active sessions from the session picker.
+	 * @returns The list of active sessions.
+	 */
+	async getActiveSessions(): Promise<QuickPickSessionInfo[]> {
+		await this.openSessionQuickPickMenu(false);
+		const allSessions = await this.code.driver.page.locator('.quick-input-list-rows').all();
+
+		// Get the text of all sessions
+		const activeSessions = await Promise.all(
+			allSessions.map(async element => {
+				const runtime = (await element.locator('.quick-input-list-row').nth(0).textContent())?.replace('Currently Selected', '');
+				const path = await element.locator('.quick-input-list-row').nth(1).textContent();
+				return { name: runtime?.trim() || '', path: path?.trim() || '' };
+			})
+		);
+
+		// Filter out the one with "New Session..."
+		const filteredSessions = activeSessions
+			.filter(session => !session.name.includes('New Session...'));
+
+		await this.closeSessionQuickPickMenu();
+		return filteredSessions;
+	}
+
+	/**
+	 * Helper: Get the interpreter info for the currently selected runtime via the quickpick menu.
+	 * @returns The interpreter info for the selected interpreter if found, otherwise undefined.
+	 */
+	async getSelectedSessionInfo(): Promise<SessionInfo> {
+		await this.openSessionQuickPickMenu(false);
+		const selectedInterpreter = this.code.driver.page.locator('.quick-input-list-entry').filter({ hasText: 'Currently Selected' });
+
+		// Extract the runtime name
+		const runtime = await selectedInterpreter.locator('.monaco-icon-label-container .label-name .monaco-highlighted-label').nth(0).textContent();
+
+		// Extract the language, version, and source from runtime name
+		const { language, version, source } = await this.parseRuntimeName(runtime);
+
+		// Extract the path
+		const path = await selectedInterpreter.locator('.quick-input-list-label-meta .monaco-icon-label-container .label-name .monaco-highlighted-label').nth(0).textContent();
+
+		await this.closeSessionQuickPickMenu();
+
+		return {
+			language: language as 'Python' | 'R',
+			version,
+			source,
+			path: path || '',
+		};
+	}
+
+	// -- Utils --
+
+	/**
+	 * Utils: Parse the full runtime name into language, version, and source.
+	 * @param runtimeName the full runtime name to parse. E.g., "Python 3.10.15 (Pyenv)"
+	 * @returns The parsed runtime name. E.g., { language: "Python", version: "3.10.15", source: "Pyenv" }
+	 */
+	async parseRuntimeName(runtimeName: string | null) {
+		if (!runtimeName) {
+			throw new Error('No interpreter string provided');
+		}
+
+		// Note: Some interpreters may not have a source, so the source is optional
+		const match = runtimeName.match(/^(\w+)\s([\d.]+)(?:\s\(([^)]+)\))?$/);
+		if (!match) {
+			throw new Error(`Invalid interpreter format: ${runtimeName}`);
+		}
+
+		return {
+			language: match[1],  // e.g., "Python", "R"
+			version: match[2],   // e.g., "3.10.15", "4.4.1"
+			source: match[3] || undefined    // e.g., "Pyenv", "System"
+		};
+	}
+}
+
+export type QuickPickSessionInfo = {
+	name: string;
+	path: string;
+};
+
 
 export type SessionName = {
 	language: 'Python' | 'R';
 	version: string; // e.g. '3.10.15'
 };
+
+
+export interface SessionInfo extends SessionName {
+	path: string;    // e.g. /usr/local/bin/python3
+	source?: string; // e.g. Pyenv, Global, System, etc
+}
 
 export type SessionMetaData = {
 	name: string;
