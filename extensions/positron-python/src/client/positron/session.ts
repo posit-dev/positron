@@ -40,7 +40,7 @@ import { Console } from '../common/utils/localize';
 import { getIpykernelBundle, IPykernelBundle } from './ipykernel';
 
 /** Regex for commands to uninstall packages using supported Python package managers. */
-const _uninstallCommandRegex = /(pip|pipenv|conda).*uninstall|poetry.*remove/g;
+const _uninstallCommandRegex = /(pip|pipenv|conda).*uninstall|poetry.*remove/;
 
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
