@@ -89,13 +89,13 @@ export class Console {
 	 * @param options - Configuration options for selecting the interpreter.
 	 * @param options.language the programming language interpreter to select.
 	 * @param options.version the specific version of the interpreter to select (e.g., "3.10.15").
-	 * @param options.triggerMode the method used to trigger the selection: button or quickaccess.
+	 * @param options.triggerMode the method used to trigger the selection: top-action-bar or quickaccess.
 	 * @param options.waitForReady whether to wait for the console to be ready after selecting the interpreter.
 	 */
 	async startSession(options: {
 		language: 'Python' | 'R';
 		version?: string;
-		triggerMode?: 'button' | 'quickaccess';
+		triggerMode?: 'top-action-bar' | 'quickaccess';
 		waitForReady?: boolean;
 	}): Promise<void> {
 
