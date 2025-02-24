@@ -29,10 +29,8 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 		this.storageFilePath = join(this.getVSIXPath().fsPath, '.version');
 		const currentVersion = this.productService.positronVersion;
 
-		this.logService.info('currentVersion:', currentVersion);
 		const lastKnownVersion = existsSync(this.storageFilePath) ? readFileSync(this.storageFilePath, 'utf8').trim() : '';
 
-		this.logService.info('lastKnownVersion:', lastKnownVersion);
 		if (lastKnownVersion !== currentVersion) {
 			this.logService.info('First launch after first install, upgrade, or downgrade. Installing bootstrapped extensions');
 			this.installVSIXOnStartup()
