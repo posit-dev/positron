@@ -36,7 +36,7 @@ configurationRegistry.registerConfiguration({
 		},
 		'update.autoUpdate': {
 			type: 'boolean',
-			default: false,
+			default: true,
 			scope: ConfigurationScope.APPLICATION,
 			description: localize('autoUpdateEnable', "Enable automatic updates. Requires a restart after change to take effect."),
 			tags: ['usesOnlineServices'],
