@@ -37,6 +37,7 @@ import { Problems } from '../pages/problems';
 import { References } from '../pages/references';
 import { SCM } from '../pages/scm';
 import { InterpreterNew } from './fixtures/interpreter-new';
+import { Session } from '../pages/session';
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -77,6 +78,7 @@ export class Workbench {
 	readonly problems: Problems;
 	readonly references: References;
 	readonly scm: SCM;
+	readonly session: Session;
 
 	constructor(code: Code) {
 
@@ -113,5 +115,6 @@ export class Workbench {
 		this.problems = new Problems(code, this.quickaccess);
 		this.references = new References(code);
 		this.scm = new SCM(code, this.layouts);
+		this.session = new Session(code, this.console);
 	}
 }
