@@ -12,6 +12,7 @@ import React from 'react';
 // Other dependencies.
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { ConsoleInstanceState } from './consoleInstanceState.js';
+import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService';
 
 // ConsoleCoreProps interface.
 interface ConsoleTabListProps {
@@ -42,6 +43,19 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 	const handleTabClick = (sessionId: string) => {
 		onChangeForegroundSession(sessionId);
 	};
+
+	const handleTabDeleteClick = async (evt: React.MouseEvent<HTMLButtonElement, MouseEvent>, consoleInstance: IPositronConsoleInstance) => {
+		evt.preventDefault();
+		evt.stopPropagation();
+
+		// Prevent the button from being clicked multiple times
+		evt.currentTarget.disabled = true;
+
+		await positronConsoleContext.runtimeSessionService.deleteSession(consoleInstance.session.sessionId);
+
+		// Re-enable the button when done deleting (should not exist anymore)
+		evt.currentTarget.disabled = false;
+	}
 
 	// Sort console sessions by created time, so the most recent sessions are at the bottom
 	const consoleInstances = Array.from(positronConsoleContext.positronConsoleInstances.values()).sort((a, b) => {
@@ -74,12 +88,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 					<p className='session-name'>
 						{positronConsoleInstance.session.metadata.sessionName}
 					</p>
-					<button className='close-button' onClick={e => {
-						e.preventDefault();
-						e.stopPropagation();
-
-						positronConsoleContext.runtimeSessionService.deleteSession(positronConsoleInstance.session.sessionId);
-					}}>
+					<button className='close-button' onClick={evt => handleTabDeleteClick(evt, positronConsoleInstance)}>
 						<span className='codicon codicon-trash' />
 					</button>
 				</div>
