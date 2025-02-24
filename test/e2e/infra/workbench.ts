@@ -36,7 +36,7 @@ import { EditorActionBar } from '../pages/editorActionBar';
 import { Problems } from '../pages/problems';
 import { References } from '../pages/references';
 import { SCM } from '../pages/scm';
-import { InterpreterNew } from './fixtures/interpreter-new';
+import { Sessions } from '../pages/sessions';
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -45,7 +45,6 @@ export interface Commands {
 export class Workbench {
 
 	readonly interpreter: Interpreter;
-	readonly interpreterNew: InterpreterNew;
 	readonly popups: Popups;
 	readonly console: Console;
 	readonly variables: Variables;
@@ -77,6 +76,7 @@ export class Workbench {
 	readonly problems: Problems;
 	readonly references: References;
 	readonly scm: SCM;
+	readonly sessions: Sessions;
 
 	constructor(code: Code) {
 
@@ -95,8 +95,7 @@ export class Workbench {
 		this.connections = new Connections(code, this.quickaccess);
 		this.newProjectWizard = new NewProjectWizard(code, this.quickaccess);
 		this.output = new Output(code, this.quickaccess, this.quickInput);
-		this.interpreterNew = new InterpreterNew(code);
-		this.console = new Console(code, this.quickaccess, this.quickInput, this.interpreterNew);
+		this.console = new Console(code, this.quickaccess, this.quickInput);
 		this.interpreter = new Interpreter(code, this.console);
 		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess);
 		this.welcome = new Welcome(code);
@@ -113,5 +112,6 @@ export class Workbench {
 		this.problems = new Problems(code, this.quickaccess);
 		this.references = new References(code);
 		this.scm = new SCM(code, this.layouts);
+		this.sessions = new Sessions(code, this.console, this.quickaccess, this.quickInput);
 	}
 }
