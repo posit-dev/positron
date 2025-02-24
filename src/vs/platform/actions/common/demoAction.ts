@@ -7,82 +7,37 @@ import { localize2 } from '../../../nls.js';
 import { Categories } from '../../action/common/actionCommonCategories.js';
 import { Action2 } from './actions.js';
 import { ServicesAccessor } from '../../instantiation/common/instantiation.js';
-import { IEditorService } from '../../../workbench/services/editor/common/editorService.js';
 import { URI } from '../../../base/common/uri.js';
-// import { IResourceMergeEditorInput } from '../../../workbench/common/editor.js';
-// import { IFileService } from '../../files/common/files.js';
+import { ICommandService } from '../../commands/common/commands.js';
+// import { IQuickInputService } from '../../quickinput/common/quickInput.js';
 
-export class DemoAction extends Action2 {
+export class ImportSettingsAction extends Action2 {
 
 	constructor() {
 		super({
-			id: 'action.demo',
-			title: localize2('title', "Sam's Demo Action"),
+			id: 'positron.settings.import',
+			title: localize2('positron.settings.import', "Import VSCode Settings"),
 			category: Categories.View,
 			f1: true
 		});
 	}
 
 	async run(accessor: ServicesAccessor): Promise<void> {
-		// accessor.get(IMenuService).resetHiddenStates();
-		// accessor.get(ILogService).info('did RESET all menu hidden states');
-		const editorService = accessor.get(IEditorService);
-		// const resolverService = accessor.get(IEditorResolverService);
+		// const quickInputService = accessor.get(IQuickInputService);
+		const commandService = accessor.get(ICommandService);
 
-		// const originalPane = await editorService.openEditor({
-		// 	resource: URI.parse('file:///Users/sclark/Library/Application Support/Code/User/settings.json')
-		// });
-		// const modifiedPane = await editorService.openEditor({
-		// 	resource: URI.parse('file:///Users/sclark/.vscode-oss-dev/User/settings.json')
-		// });
-		// // const original: ITextResourceEditorInput = {
-		// // 	resource: URI.parse('file:///Users/samuelkarp/Downloads/old.txt')
-		// // };
-		// // const modified: ITextResourceEditorInput = {
-		// // 	resource: URI.parse('file:///Users/samuelkarp/Downloads/new.txt')
-		// // };
-		// const diffResource = {
-		// 	original: originalPane?.input!,
-		// 	modified: modifiedPane?.input!
-		// };
-
-		// new MergeEditorInput(URI.parse("file:///"), { uri: URI.parse('file:///Users/sclark/Library/Application Support/Code/User/settings.json') }, { uri: URI.parse('file:///Users/sclark/.vscode-oss-dev/User/settings.json') }, URI.parse('file:///Users/sclark/Library/Application Support/Code/User/settings.json'));
-		// editorService.openEditor({ resource: URI.parse('untitled://Untitled-1') }).then(resource => resource?.input.);
-
-		// await fileService.createFile(URI.parse('file:///Users/sclark/Projects/positron-playground/merged-settings.json'));
-
-		// const fileService = accessor.get(IFileService);
-		const positronUri = URI.parse('file:///Users/sclark/.vscode-oss-dev/User/settings.json');
-		const codeUri = URI.parse('file:///Users/sclark/Library/Application Support/Code/User/settings.json');
-		// const mergedUri = URI.parse('file:///Users/sclark/Projects/positron-playground/merged-settings.json');
-
-		// await fileService.copy(positronUri, mergedUri, true);
-
-		const originalPane = await editorService.openEditor({
-			resource: positronUri
-		});
-		const modifiedPane = await editorService.openEditor({
-			resource: codeUri,
-			options: {}
-		});
-		const diffResource = {
-			original: originalPane?.input!,
-			modified: modifiedPane?.input!
-		};
-
-		await editorService.openEditor(diffResource);
-
-		// const mergeInput: IResourceMergeEditorInput = {
-		// 	base: { resource: positronUri },
-		// 	input1: { resource: positronUri, label: 'Existing VSCode Settings' },
-		// 	input2: { resource: codeUri, label: 'Existing Positron Settings' },
-		// 	result: { resource: mergedUri, label: 'Merged Positron Settings' },
-
-		// };
-		// const resolvedEditor = await resolverService.resolveEditor(mergeInput, undefined);
-		// if (!isEditorInputWithOptionsAndGroup(resolvedEditor)) {
+		// const result = await quickInputService.pick([{ label: 'Yes', id: 'yes' }, { label: 'No', id: 'no' }], { canPickMany: false, title: 'This may overwrite Positron settings. Continue?' });
+		// if (result?.id !== 'yes') {
 		// 	return;
 		// }
-		// await editorService.openEditor(mergeInput);
+
+		// alert(result?.label);
+		confirm('Overwrite settings?');
+
+		const positronUri = URI.parse('file:///Users/sclark/.vscode-oss-dev/User/settings.json');
+		const codeUri = URI.parse('file:///Users/sclark/Library/Application Support/Code/User/settings.json');
+
+		commandService.executeCommand('vscode.diff', positronUri, codeUri, { preview: false });
+
 	}
 }
