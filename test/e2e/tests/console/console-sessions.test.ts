@@ -5,7 +5,7 @@
 
 import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
-import { SessionName } from '../../pages/sessions';
+import { SessionName } from '../../infra';
 
 const pythonSession: SessionName = {
 	language: 'Python',

@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { SessionName } from '../../pages/sessions';
+import { SessionName } from '../../infra';
 import { test, tags } from '../_test.setup';
 
 test.use({
