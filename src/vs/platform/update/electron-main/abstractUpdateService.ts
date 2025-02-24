@@ -53,6 +53,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	protected url: string | undefined;
 
 	// --- Start Positron ---
+	private _activeLanguages: string[];
 	// enable the service to download and apply updates automatically
 	protected enableAutoUpdate = false;
 	// --- End Positron ---
@@ -83,6 +84,10 @@ export abstract class AbstractUpdateService implements IUpdateService {
 		@INativeHostMainService protected readonly nativeHostMainService: INativeHostMainService
 		// --- End Positron ---
 	) {
+		// --- Start Positron ---
+		this._activeLanguages = [];
+		// --- End Positron ---
+
 		lifecycleMainService.when(LifecycleMainPhase.AfterWindowOpen)
 			.finally(() => this.initialize());
 	}
@@ -167,26 +172,39 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	}
 	// --- End Positron ---
 
-	private scheduleCheckForUpdates(delay = 60 * 60 * 1000): Promise<void> {
+	// --- Start Positron ---
+	private async scheduleCheckForUpdates(delay = 6 * 60 * 60 * 1000): Promise<void> {
 		return timeout(delay)
-			.then(() => this.checkForUpdates(false))
 			.then(() => {
-				// Check again after 1 hour
-				return this.scheduleCheckForUpdates(60 * 60 * 1000);
+				this.checkForUpdates(false);
+			})
+			.then(() => {
+				// Check again after 6 hours
+				return this.scheduleCheckForUpdates(6 * 60 * 60 * 1000);
 			});
+		// --- End Positron ---
 	}
 
+	// --- Start Positron ---
 	async checkForUpdates(explicit: boolean): Promise<void> {
+		const includeLanguages = this.configurationService.getValue<boolean>('update.primaryLanguageReporting');
+		this.logService.debug('update#checkForUpdates, includeLanguages =', includeLanguages);
 		this.logService.trace('update#checkForUpdates, state = ', this.state.type);
 
+		this.logService.debug('update#checkForUpdates, languages =', this._activeLanguages.join(', '));
 		if (this.state.type !== StateType.Idle) {
 			return;
 		}
 
-		// --- Start Positron ---
 		this.setState(State.CheckingForUpdates(explicit));
+		let releaseMetadataUrl = this.url;
+		if (includeLanguages && this._activeLanguages.length > 0) {
+			releaseMetadataUrl = `${releaseMetadataUrl}?${this._activeLanguages.map(lang => `${lang}=1`).join('&')}`;
+		}
 
-		this.requestService.request({ url: this.url }, CancellationToken.None)
+		this.logService.debug('update#checkForUpdates, url =', releaseMetadataUrl);
+
+		this.requestService.request({ url: releaseMetadataUrl }, CancellationToken.None)
 			.then<IUpdate | null>(asJson)
 			.then(update => {
 				if (!update || !update.url || !update.version) {
@@ -210,8 +228,8 @@ export abstract class AbstractUpdateService implements IUpdateService {
 				const message: string | undefined = !!explicit ? (err.message || err) : undefined;
 				this.setState(State.Idle(this.getUpdateType(), message));
 			});
-		// --- End Positron ---
 	}
+	// --- End Positron ---
 
 	async downloadUpdate(): Promise<void> {
 		this.logService.trace('update#downloadUpdate, state = ', this.state.type);
@@ -320,6 +338,9 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	protected abstract buildUpdateFeedUrl(channel: string): string | undefined;
 	protected updateAvailable(context: IUpdate): void {
 		this.setState(State.AvailableForDownload(context));
+	}
+	updateActiveLanguages(languages: string[]): void {
+		this._activeLanguages = languages;
 	}
 	// --- End Positron ---
 }

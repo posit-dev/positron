@@ -443,6 +443,13 @@ export interface IRuntimeSessionService {
 	 * @returns A promise that resolves when the session has exited.
 	 */
 	shutdownNotebookSession(notebookUri: URI, exitReason: RuntimeExitReason, source: string): Promise<void>;
+
+	/**
+	 * Updates the active languages with the update service. This has to be pushed to the update
+	 * service since it is in the platform layer.z
+	 *
+	 */
+	updateActiveLanguages(): void;
 }
 
 export { RuntimeClientType };
