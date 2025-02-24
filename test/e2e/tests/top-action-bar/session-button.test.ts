@@ -28,13 +28,13 @@ test.describe('Top Action Bar: Session Button', {
 	});
 
 	test('Python - Verify session starts and displays as running', async function ({ app }) {
-		await app.workbench.console.startSession({ ...pythonSession, triggerMode: 'dropdown' });
+		await app.workbench.console.startSession({ ...pythonSession, triggerMode: 'top-action-bar' });
 		await app.workbench.interpreterNew.verifySessionIsSelected(pythonSession);
 		await app.workbench.console.session.checkStatus(pythonSession, 'idle');
 	});
 
 	test('R - Verify session starts and displays as running', async function ({ app }) {
-		await app.workbench.console.startSession({ ...rSession, triggerMode: 'dropdown' });
+		await app.workbench.console.startSession({ ...rSession, triggerMode: 'top-action-bar' });
 		await app.workbench.interpreterNew.verifySessionIsSelected(rSession);
 		await app.workbench.console.session.checkStatus(rSession, 'idle');
 	});
