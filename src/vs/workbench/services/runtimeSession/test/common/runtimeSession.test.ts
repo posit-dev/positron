@@ -19,6 +19,7 @@ import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageR
 import { createRuntimeServices, createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
 import { TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
+import { USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY } from '../../common/positronMultipleConsoleSessionsFeatureFlag.js';
 
 type IStartSessionTask = (runtimeMetadata?: ILanguageRuntimeMetadata) => Promise<TestLanguageRuntimeSession>;
 
@@ -684,6 +685,8 @@ suite('Positron - RuntimeSessionService', () => {
 	});
 
 	test('select console to the same runtime sets the foreground session', async () => {
+		configService.setUserConfiguration(USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY, false);
+
 		const session1 = await startConsole();
 
 		runtimeSessionService.foregroundSession = undefined;

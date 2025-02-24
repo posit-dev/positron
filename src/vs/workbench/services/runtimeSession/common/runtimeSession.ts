@@ -664,8 +664,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		this._foregroundSession = session;
 
-		// Update the map of active console sessions per language
-		this._lastActiveConsoleSessionByLanguageId.set(session!.runtimeMetadata.languageId, session!);
+		if (session) {
+			// Update the map of active console sessions per language
+			this._lastActiveConsoleSessionByLanguageId.set(session.runtimeMetadata.languageId, session);
+		}
 
 		// Fire the onDidChangeForegroundSession event.
 		this._onDidChangeForegroundSessionEmitter.fire(this._foregroundSession);
