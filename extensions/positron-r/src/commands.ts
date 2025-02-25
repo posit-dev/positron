@@ -15,6 +15,7 @@ import { quickPickRuntime } from './runtime-quickpick';
 import { MINIMUM_RENV_VERSION, MINIMUM_R_VERSION } from './constants';
 import { RRuntimeManager } from './runtime-manager';
 import { RMetadataExtra } from './r-installation';
+import { onDidDiscoverTestFiles } from './testing/testing';
 
 export async function registerCommands(context: vscode.ExtensionContext, runtimeManager: RRuntimeManager) {
 
@@ -127,10 +128,10 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		}),
 
 		vscode.commands.registerCommand('r.packageTestExplorer', async () => {
-			vscode.commands.executeCommand('workbench.view.testing.focus');
-			// Wait for the test explorer to set up before running tests
-			await delay(500);
-			vscode.commands.executeCommand('testing.runAll');
+			await vscode.commands.executeCommand('workbench.view.testing.focus');
+			onDidDiscoverTestFiles(event => {
+				vscode.commands.executeCommand('testing.runAll');
+			});
 		}),
 
 		vscode.commands.registerCommand('r.useTestthat', async () => {
