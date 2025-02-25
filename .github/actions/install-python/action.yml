@@ -69,11 +69,6 @@ runs:
         # Verify that Python is reset
         python --version
 
-    - name: Debug Install Undetectable Interpreters
-      shell: bash
-      run: |
-        echo "install_undetectable_interpreters = '${{ inputs.install_undetectable_interpreters }}'"
-
     - name: Install Prebuilt Python 3.11.11 in ~/scratch
       if: ${{ inputs.install_undetectable_interpreters == 'true' }}
       shell: bash
@@ -84,26 +79,24 @@ runs:
         INSTALL_DIR="$HOME/scratch/python-custom"
         mkdir -p $INSTALL_DIR
 
-        # Download official prebuilt Python binary
-        curl -o python.tar.xz "https://www.python.org/ftp/python/3.11.11/Python-3.11.11.tar.xz"
+        # Download prebuilt Python 3.11.11 .deb packages for Ubuntu
+        curl -o python.deb "http://ftp.debian.org/debian/pool/main/p/python3.11/python3.11_3.11.11-1_amd64.deb"
 
-        # Extract directly into the install directory
-        tar -xf python.tar.xz --strip-components=1 -C $INSTALL_DIR
+        # Extract the .deb package manually (no sudo required)
+        dpkg-deb -x python.deb $INSTALL_DIR
 
-        # Ensure the Python binary is executable
-        chmod +x $INSTALL_DIR/bin/python3 || true  # Ignore if already executable
+        # Set the correct path for Python binary
+        PYTHON_BIN="$INSTALL_DIR/usr/bin/python3.11"
 
-        # Debug: Check the extracted files
-        ls -lah $INSTALL_DIR/bin/
-
-        # Verify installation
-        if [[ -x "$INSTALL_DIR/bin/python3" ]]; then
-            $INSTALL_DIR/bin/python3 --version
-            $INSTALL_DIR/bin/python3 -m pip install --upgrade pip
+        # Verify Python installation
+        if [[ -x "$PYTHON_BIN" ]]; then
+            echo "Python successfully extracted."
+            $PYTHON_BIN --version
+            $PYTHON_BIN -m ensurepip
+            $PYTHON_BIN -m pip install --upgrade pip
             echo "Custom Python installed at $INSTALL_DIR"
         else
-            echo "Error: Python binary not found in $INSTALL_DIR/bin/"
+            echo "Error: Python binary not found in extracted directory."
             exit 1
         fi
-
 

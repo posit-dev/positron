@@ -59,11 +59,6 @@ runs:
         echo "Installing R version $R_ALTERNATE_VERSION using Rig..."
         rig add "$R_ALTERNATE_VERSION"
 
-    - name: Debug Install Undetectable Interpreters
-      shell: bash
-      run: |
-        echo "install_undetectable_interpreters = '${{ inputs.install_undetectable_interpreters }}'"
-
     - name: Install Prebuilt R 4.4.1 in ~/scratch
       if: ${{ inputs.install_undetectable_interpreters == 'true' }}
       shell: bash
