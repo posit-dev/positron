@@ -75,7 +75,7 @@ runs:
         echo "install_undetectable_interpreters = '${{ inputs.install_undetectable_interpreters }}'"
 
     - name: Install Prebuilt Python 3.11.11 in ~/scratch
-      if: ${{ inputs.install_undetectable_interpreters == true }}
+      if: ${{ inputs.install_undetectable_interpreters == 'true' }}
       shell: bash
       run: |
         echo "Installing Python 3.11.11 in ~/scratch..."

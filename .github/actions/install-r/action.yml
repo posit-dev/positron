@@ -65,7 +65,7 @@ runs:
         echo "install_undetectable_interpreters = '${{ inputs.install_undetectable_interpreters }}'"
 
     - name: Install Prebuilt R 4.4.1 in ~/scratch
-      if: ${{ inputs.install_undetectable_interpreters == true }}
+      if: ${{ inputs.install_undetectable_interpreters == 'true' }}
       shell: bash
       run: |
         echo "Installing R 4.4.1 in ~/scratch..."
