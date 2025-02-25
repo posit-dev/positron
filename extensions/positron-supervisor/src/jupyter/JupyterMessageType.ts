@@ -10,6 +10,8 @@ export enum JupyterMessageType {
 	CommInfoRequest = 'comm_info_request',
 	CommMsg = 'comm_msg',
 	CommOpen = 'comm_open',
+	DebugEvent = 'debug_event',
+	DebugReply = 'debug_reply',
 	DisplayData = 'display_data',
 	Error = 'error',
 	ExecuteInput = 'execute_input',

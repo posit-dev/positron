@@ -3,7 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as path from 'path';
+// eslint-disable-next-line import/no-unresolved
+import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { DebugProtocol } from 'vscode-debugprotocol';
+import { randomUUID } from 'crypto';
 import { IDisposableRegistry, IInstaller, InstallerResponse, Product } from '../common/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
@@ -15,6 +20,62 @@ import { activateAppDetection as activateWebAppDetection } from './webAppContext
 import { activateWebAppCommands } from './webAppCommands';
 import { activateWalkthroughCommands } from './walkthroughCommands';
 import { printInterpreterDebugInfo } from './interpreterSettings';
+
+class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
+    private readonly _disposables: vscode.Disposable[] = [];
+
+    private readonly _onDidSendMessage = new vscode.EventEmitter<vscode.DebugProtocolMessage>();
+
+    public readonly onDidSendMessage = this._onDidSendMessage.event;
+
+    constructor(
+        private readonly _debugSession: vscode.DebugSession,
+        private readonly _runtimeSession: positron.LanguageRuntimeSession,
+    ) {
+        this._disposables.push(this._onDidSendMessage);
+
+        this._disposables.push(
+            this._runtimeSession.onDidReceiveRuntimeMessage((message) => {
+                if (message.type === positron.LanguageRuntimeMessageType.DebugEvent) {
+                    const debugEvent = message as positron.LanguageRuntimeDebugEvent;
+                    this._onDidSendMessage.fire(debugEvent.content);
+                }
+            }),
+        );
+    }
+
+    // eslint-disable-next-line class-methods-use-this
+    public handleMessage(message: DebugProtocol.ProtocolMessage): void {
+        console.log('PythonNotebookDebugAdapter.handleMessage', message);
+        this._handleMessageAsync(message).ignoreErrors();
+    }
+
+    private async _handleMessageAsync(message: DebugProtocol.ProtocolMessage): Promise<void> {
+        if (message.type === 'request') {
+            const id = randomUUID();
+
+            const disposable = this._runtimeSession.onDidReceiveRuntimeMessage((message) => {
+                if (message.parent_id !== id) {
+                    return;
+                }
+                if (message.type === positron.LanguageRuntimeMessageType.DebugReply) {
+                    const debugReply = message as positron.LanguageRuntimeDebugReply;
+                    if (debugReply.content === undefined) {
+                        throw new Error('No content in debug reply. Is debugpy already listening?');
+                    }
+                    this._onDidSendMessage.fire(debugReply.content);
+                    disposable.dispose();
+                }
+            });
+
+            this._runtimeSession.debug(message as DebugProtocol.Request, id);
+        }
+    }
+
+    public dispose() {
+        this._disposables.forEach((disposable) => disposable.dispose());
+    }
+}
 import { registerLanguageServerManager } from './languageServerManager';
 
 export async function activatePositron(serviceContainer: IServiceContainer): Promise<void> {
@@ -90,6 +151,48 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
 
         // Activate web application commands.
         activateWebAppCommands(serviceContainer, disposables);
+
+        disposables.push(
+            vscode.debug.registerDebugAdapterDescriptorFactory('pythonNotebook', {
+                async createDebugAdapterDescriptor(
+                    debugSession: vscode.DebugSession,
+                    _executable: vscode.DebugAdapterExecutable,
+                ) {
+                    const notebook = vscode.workspace.notebookDocuments.find(
+                        (doc) => doc.uri.toString() === debugSession.configuration.__notebookUri,
+                    );
+                    if (!notebook) {
+                        return undefined;
+                    }
+
+                    const runtimeSession = await positron.runtime.getNotebookSession(notebook.uri);
+                    if (!runtimeSession) {
+                        return undefined;
+                    }
+
+                    const adapter = new PythonNotebookDebugAdapter(debugSession, runtimeSession);
+                    return new vscode.DebugAdapterInlineImplementation(adapter);
+                },
+            }),
+        );
+
+        disposables.push(
+            vscode.commands.registerCommand('python.runAndDebugCell', async () => {
+                const notebookEditor = vscode.window.activeNotebookEditor;
+                if (!notebookEditor) {
+                    return;
+                }
+
+                await vscode.debug.startDebugging(undefined, {
+                    type: 'pythonNotebook',
+                    name: path.basename(notebookEditor.notebook.uri.fsPath),
+                    request: 'attach',
+                    // TODO: Get from config.
+                    justMyCode: false,
+                    __notebookUri: notebookEditor.notebook.uri.toString(),
+                });
+            }),
+        );
 
         // Activate walkthrough commands.
         activateWalkthroughCommands(disposables);
