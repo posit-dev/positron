@@ -7,7 +7,7 @@ import { expect } from 'chai';
 import * as sinon from 'sinon';
 import * as typemoq from 'typemoq';
 import * as vscode from 'vscode';
-import * as interpreterSettings from '../../client/positron/interpreterSettings';
+import * as positronUtils from '../../client/positron/util';
 import { IInterpreterSelector } from '../../client/interpreter/configuration/types';
 import { IInterpreterService } from '../../client/interpreter/contracts';
 import { IServiceContainer } from '../../client/ioc/types';
@@ -55,7 +55,7 @@ suite('Python Runtime Discoverer - recommendInterpreter', () => {
         serviceContainer.setup((c) => c.get(IWorkspaceService)).returns(() => workspaceService.object);
         interpreterSelector.setup((s) => s.getSuggestions(typemoq.It.isAny())).returns(() => suggestions);
 
-        userDefaultInterpreterStub = sinon.stub(interpreterSettings, 'getUserDefaultInterpreter');
+        userDefaultInterpreterStub = sinon.stub(positronUtils, 'getUserDefaultInterpreter');
         userDefaultInterpreterStub.returns(userSettingDefault);
 
         Object.defineProperty(vscode.workspace, 'workspaceFolders', {

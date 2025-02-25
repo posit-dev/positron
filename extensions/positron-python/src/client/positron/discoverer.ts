@@ -15,7 +15,8 @@ import { PythonEnvironment } from '../pythonEnvironments/info';
 import { createPythonRuntimeMetadata } from './runtime';
 import { comparePythonVersionDescending } from '../interpreter/configuration/environmentTypeComparer';
 import { MINIMUM_PYTHON_VERSION } from '../common/constants';
-import { isVersionSupported, shouldIncludeInterpreter, getUserDefaultInterpreter } from './interpreterSettings';
+import { isVersionSupported, shouldIncludeInterpreter } from './interpreterSettings';
+import { getUserDefaultInterpreter } from './util';
 
 /**
  * Provides Python language runtime metadata to Positron; called during the

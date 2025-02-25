@@ -26,7 +26,7 @@ import { arePathsSame } from '../../common/platform/fs-paths';
 // --- Start Positron ---
 import { getPyenvDir } from '../../pythonEnvironments/common/environmentManagers/pyenv';
 import { readFileSync, pathExistsSync, checkParentDirs } from '../../pythonEnvironments/common/externalDependencies';
-import { getUserDefaultInterpreter } from '../../positron/interpreterSettings';
+import { getUserDefaultInterpreter } from '../../positron/util';
 // --- End Positron ---
 
 export enum EnvLocationHeuristic {

@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
 import path from 'path';
 
 import { traceInfo, traceVerbose } from '../logging';
@@ -209,16 +208,4 @@ export function printInterpreterDebugInfo(interpreters: PythonEnvironment[]): vo
     traceInfo('=====================================================================');
     traceInfo('================ [END] PYTHON INTERPRETER DEBUG INFO ================');
     traceInfo('=====================================================================');
-}
-
-/**
- * Retrieves the user's default Python interpreter path from VS Code settings
- *
- * @returns The configured Python interpreter path if it exists and is not 'python',
- *          otherwise returns an empty string
- */
-export function getUserDefaultInterpreter(): string {
-    const configuration = vscode.workspace.getConfiguration('python');
-    const defaultInterpreterPath = configuration?.get<string>('defaultInterpreterPath');
-    return !defaultInterpreterPath || defaultInterpreterPath === 'python' ? '' : defaultInterpreterPath;
 }

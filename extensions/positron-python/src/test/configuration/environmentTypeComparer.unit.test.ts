@@ -19,7 +19,7 @@ import { PythonEnvType } from '../../client/pythonEnvironments/base/info';
 import * as pyenv from '../../client/pythonEnvironments/common/environmentManagers/pyenv';
 import { EnvironmentType, PythonEnvironment } from '../../client/pythonEnvironments/info';
 // --- Start Positron ---
-import * as interpreterSettings from '../../client/positron/interpreterSettings';
+import * as positronUtils from '../../client/positron/util';
 import * as externalDependencies from '../../client/pythonEnvironments/common/externalDependencies';
 import { getPyenvVersion } from '../../client/interpreter/configuration/environmentTypeComparer';
 import * as pyenvUtils from '../../client/pythonEnvironments/common/environmentManagers/pyenv';
@@ -47,7 +47,7 @@ suite('Environment sorting', () => {
         const getActivePyenvForDirectory = sinon.stub(pyenv, 'getActivePyenvForDirectory');
         getActivePyenvForDirectory.resolves(preferredPyenv);
         // --- Start Positron ---
-        userDefaultInterpreterStub = sinon.stub(interpreterSettings, 'getUserDefaultInterpreter');
+        userDefaultInterpreterStub = sinon.stub(positronUtils, 'getUserDefaultInterpreter');
         userDefaultInterpreterStub.returns(userSettingDefault);
         // --- End Positron ---
     });
