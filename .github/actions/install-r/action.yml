@@ -59,46 +59,44 @@ runs:
         echo "Installing R version $R_ALTERNATE_VERSION using Rig..."
         rig add "$R_ALTERNATE_VERSION"
 
-    - name: Install Prebuilt R 4.4.1 in ~/scratch (Ubuntu Only)
+    - name: Install Prebuilt R in ~/scratch (Using Tarball)
       if: ${{ inputs.install_undetectable_interpreters == 'true' }}
       shell: bash
       run: |
-        echo "Installing R 4.4.1 in ~/scratch..."
+        echo "Installing R in ~/scratch..."
 
         # Set installation path
-        INSTALL_DIR="$HOME/scratch/R-4.4.1"
+        INSTALL_DIR="$HOME/scratch/R"
         mkdir -p $INSTALL_DIR
 
-        # Download the correct R 4.4.1 package for Ubuntu
-        DEB_URL="https://cloud.r-project.org/bin/linux/ubuntu/noble-cran40/r-base-core_4.4.1-3.2404.0_amd64.deb"
-        curl -fLO "$DEB_URL"
+        # Define R version and OS identifier
+        R_VERSION="4.4.1"
+        OS_IDENTIFIER="ubuntu-2404"
 
-        # Verify the file format before extracting
-        if file r-base-core_4.4.1-3.2404.0_amd64.deb | grep -q "Debian binary package"; then
-            echo "Valid Debian package detected."
-        else
-            echo "Error: Downloaded file is not a valid .deb package!"
-            exit 1
-        fi
+        # Construct the tarball URL
+        TAR_URL="https://cdn.posit.co/r/${OS_IDENTIFIER}/R-${R_VERSION}-${OS_IDENTIFIER}.tar.gz"
+        echo "Downloading R from $TAR_URL"
 
-        # Extract the .deb package manually (without sudo)
-        dpkg-deb -x r-base-core_4.4.1-3.2404.0_amd64.deb $INSTALL_DIR
+        # Download the tarball
+        curl -fLO "$TAR_URL"
 
-        # Set the correct path for R binary
-        R_BIN="$INSTALL_DIR/usr/bin/R"
+        # Extract the tarball into our install directory
+        tar -xzf R-${R_VERSION}-${OS_IDENTIFIER}.tar.gz -C $INSTALL_DIR --strip-components=1
 
-        # Fix R_HOME to match our extracted directory
-        export R_HOME="$INSTALL_DIR/usr/lib/R"
-        export PATH="$INSTALL_DIR/usr/bin:$PATH"
+        # Set R_HOME and PATH
+        export R_HOME="$INSTALL_DIR"
+        export PATH="$INSTALL_DIR/bin:$PATH"
+
+        # Ensure R is executable
+        chmod +x $INSTALL_DIR/bin/R
 
         # Verify R installation
-        if [[ -x "$R_BIN" ]]; then
+        if [[ -x "$INSTALL_DIR/bin/R" ]]; then
             echo "R successfully extracted."
-            R_HOME="$INSTALL_DIR/usr/lib/R" $R_BIN --version
+            R --version
         else
             echo "Error: R binary not found in extracted directory."
             exit 1
         fi
 
         echo "Custom R installed at $INSTALL_DIR"
-
