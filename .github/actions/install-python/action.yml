@@ -70,7 +70,7 @@ runs:
         python --version
 
     - name: Install Prebuilt Python in ~/scratch
-      if: ${{ inputs.install_undetectable_interpreters }}
+      if: ${{ inputs.install_undetectable_interpreters == true }}
       shell: bash
       run: |
         echo "Installing Python 3.12.3 in ~/scratch..."
@@ -82,11 +82,22 @@ runs:
         # Download official prebuilt Python binary
         curl -o python.tar.xz "https://www.python.org/ftp/python/3.12.3/Python-3.12.3.tar.xz"
 
-        # Extract to the custom install location
-        tar -xf python.tar.xz -C $INSTALL_DIR --strip-components=1
+        # Extract directly into the install directory
+        tar -xf python.tar.xz --strip-components=1 -C $INSTALL_DIR
+
+        # Ensure the Python binary is executable
+        chmod +x $INSTALL_DIR/bin/python3 || true  # Ignore if already executable
+
+        # Debug: Check the extracted files
+        ls -lah $INSTALL_DIR/bin/
 
         # Verify installation
-        $INSTALL_DIR/bin/python3 --version
-        $INSTALL_DIR/bin/python3 -m pip install --upgrade pip
+        if [[ -x "$INSTALL_DIR/bin/python3" ]]; then
+            $INSTALL_DIR/bin/python3 --version
+            $INSTALL_DIR/bin/python3 -m pip install --upgrade pip
+            echo "Custom Python installed at $INSTALL_DIR"
+        else
+            echo "Error: Python binary not found in $INSTALL_DIR/bin/"
+            exit 1
+        fi
 
-        echo "Custom Python installed at $INSTALL_DIR"
