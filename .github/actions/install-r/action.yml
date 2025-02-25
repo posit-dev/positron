@@ -88,21 +88,26 @@ runs:
         echo "Extracted directory structure:"
         ls -R $INSTALL_DIR
 
-        # Set R_HOME and PATH correctly
+        # Force R to use the correct installation path
         export R_HOME="$INSTALL_DIR/lib/R"
         export PATH="$INSTALL_DIR/bin:$PATH"
 
+        # Patch the R script to override hardcoded paths
+        sed -i "s|/opt/R/4.4.1|$INSTALL_DIR|g" "$INSTALL_DIR/bin/R"
+        sed -i "s|/opt/R/4.4.1|$INSTALL_DIR|g" "$INSTALL_DIR/lib/R/etc/Renviron"
+
         # Ensure R is executable
-        if [[ -f "$INSTALL_DIR/bin/R" ]]; then
-            chmod +x $INSTALL_DIR/bin/R
+        chmod +x $INSTALL_DIR/bin/R
+
+        # Verify R installation
+        if [[ -x "$INSTALL_DIR/bin/R" ]]; then
+            echo "R successfully extracted."
+            R --version
         else
             echo "Error: R binary not found in extracted directory."
             exit 1
         fi
 
-        # Verify R installation
-        echo "R successfully extracted."
-        R --version
-
         echo "Custom R installed at $INSTALL_DIR"
+
 
