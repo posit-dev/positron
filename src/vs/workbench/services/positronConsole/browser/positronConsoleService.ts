@@ -139,6 +139,11 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	private readonly _positronConsoleInstancesByLanguageId = new Map<string, PositronConsoleInstance>();
 
 	/**
+	 * A map of the Positron console instances by runtime ID.
+	 */
+	private readonly _positronConsoleInstancesByRuntimeId = new Map<string, PositronConsoleInstance>();
+
+	/**
 	 * A map of the Positron console instances by session ID.
 	 */
 	private readonly _positronConsoleInstancesBySessionId = new Map<string, PositronConsoleInstance>();
@@ -264,8 +269,16 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 					this.startPositronConsoleInstance(e.session, attachMode, e.activate);
 				}
 			} else {
-				// Create a new Positron console instance.
-				this.startPositronConsoleInstance(e.session, attachMode, e.activate);
+				// Reuse an instance for the same runtime if we have one
+				const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(e.session.runtimeMetadata.runtimeId);
+				if (positronConsoleInstance && positronConsoleInstance.state === PositronConsoleState.Exited) {
+					this._positronConsoleInstancesBySessionId.delete(positronConsoleInstance.session.sessionId);
+					positronConsoleInstance.setRuntimeSession(e.session, attachMode);
+					this._positronConsoleInstancesBySessionId.set(e.session.sessionId, positronConsoleInstance);
+				} else {
+					// Create a new Positron console instance if we don't have a console instance we can reuse
+					this.startPositronConsoleInstance(e.session, attachMode, e.activate);
+				}
 			}
 		}));
 
@@ -510,6 +523,12 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			// Add the Positron console instance.
 			this._positronConsoleInstancesByLanguageId.set(
 				session.runtimeMetadata.languageId,
+				positronConsoleInstance
+			);
+		} else {
+			// Add the Positron console instance.
+			this._positronConsoleInstancesByRuntimeId.set(
+				session.runtimeMetadata.runtimeId,
 				positronConsoleInstance
 			);
 		}
@@ -1209,7 +1228,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param attachMode A value which indicates the attachment mode for the session.
 	 */
 	setRuntimeSession(session: ILanguageRuntimeSession, attachMode: SessionAttachMode) {
-		// Is this the same runtime we're currently attached to?
+		// Is this the same session we're currently attached to?
 		if (this._session && this._session.sessionId === session.sessionId) {
 			if (this.runtimeAttached) {
 				// Yes, it's the same one. If we're already attached, we're

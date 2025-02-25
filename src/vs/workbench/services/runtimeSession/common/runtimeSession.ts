@@ -1319,11 +1319,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				if (!multiSessionsEnabled) {
 					this._consoleSessionsByLanguageId.set(languageId, session);
 				} else {
-					// Append the new session to the list of existing sessions
+					// Append the new session to the list of existing sessions if it hasn't been added
 					const runtimeId = session.runtimeMetadata.runtimeId;
 					const consoleSessionsByRuntimeId = this._consoleSessionsByRuntimeId.get(runtimeId) || [];
-					consoleSessionsByRuntimeId.push(session);
-					this._consoleSessionsByRuntimeId.set(runtimeId, consoleSessionsByRuntimeId);
+
+					const foundSession = consoleSessionsByRuntimeId?.some(s => s.sessionId === session.sessionId);
+					if (!foundSession) {
+						consoleSessionsByRuntimeId.push(session);
+						this._consoleSessionsByRuntimeId.set(runtimeId, consoleSessionsByRuntimeId);
+					}
 				}
 			} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 				if (session.metadata.notebookUri) {
