@@ -14,9 +14,10 @@ test.use({
 // to the installed python path
 
 // Re-add WEB tag when https://github.com/posit-dev/positron/issues/6397 is fixed
-test.describe('Reticulate', {
+// Skipping until https://github.com/posit-dev/ark/pull/713 is merged
+test.describe.skip('Reticulate', {
 	tag: [tags.RETICULATE, tags.WEB],
-	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6397' }]
+	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6397' }],
 }, () => {
 	test.beforeAll(async function ({ app, userSettings }) {
 		try {
@@ -34,9 +35,7 @@ test.describe('Reticulate', {
 	// will already be running
 	let sequential = false;
 
-	test.skip('R - Verify Basic Reticulate Functionality', {
-		annotation: [{ type: 'issue', description: 'Need https://github.com/posit-dev/ark/pull/713' }]
-	}, async function ({ app, r, interpreter }) {
+	test.skip('R - Verify Basic Reticulate Functionality', async function ({ app, r, interpreter }) {
 
 		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()');
 		await app.workbench.console.sendEnterKey();
