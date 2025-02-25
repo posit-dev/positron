@@ -19,6 +19,7 @@ import { PythonEnvType } from '../../client/pythonEnvironments/base/info';
 import * as pyenv from '../../client/pythonEnvironments/common/environmentManagers/pyenv';
 import { EnvironmentType, PythonEnvironment } from '../../client/pythonEnvironments/info';
 // --- Start Positron ---
+import * as interpreterSettings from '../../client/positron/interpreterSettings';
 import * as externalDependencies from '../../client/pythonEnvironments/common/externalDependencies';
 import { getPyenvVersion } from '../../client/interpreter/configuration/environmentTypeComparer';
 import * as pyenvUtils from '../../client/pythonEnvironments/common/environmentManagers/pyenv';
@@ -30,6 +31,10 @@ suite('Environment sorting', () => {
     let getActiveWorkspaceUriStub: sinon.SinonStub;
     let getInterpreterTypeDisplayNameStub: sinon.SinonStub;
     const preferredPyenv = path.join('path', 'to', 'preferred', 'pyenv');
+    // --- Start Positron ---
+    let userDefaultInterpreterStub: sinon.SinonStub;
+    const userSettingDefault = 'path/to/user/setting';
+    // --- End Positron ---
 
     setup(() => {
         getActiveWorkspaceUriStub = sinon.stub().returns({ folderUri: { fsPath: workspacePath } });
@@ -41,6 +46,10 @@ suite('Environment sorting', () => {
         } as unknown) as IInterpreterHelper;
         const getActivePyenvForDirectory = sinon.stub(pyenv, 'getActivePyenvForDirectory');
         getActivePyenvForDirectory.resolves(preferredPyenv);
+        // --- Start Positron ---
+        userDefaultInterpreterStub = sinon.stub(interpreterSettings, 'getUserDefaultInterpreter');
+        userDefaultInterpreterStub.returns(userSettingDefault);
+        // --- End Positron ---
     });
 
     teardown(() => {
@@ -335,6 +344,38 @@ suite('Environment sorting', () => {
             } as PythonEnvironment,
             expected: 1,
         },
+        // --- Start Positron ---
+        {
+            title: 'User specified defaultInterpreterPath should come before non-workspace env',
+            envA: {
+                envType: EnvironmentType.Venv,
+                type: PythonEnvType.Virtual,
+                version: { major: 3, minor: 10, patch: 2 },
+                path: userSettingDefault,
+            } as PythonEnvironment,
+            envB: {
+                envType: EnvironmentType.Venv,
+                type: PythonEnvType.Virtual,
+                version: { major: 3, minor: 10, patch: 2 },
+            } as PythonEnvironment,
+            expected: -1,
+        },
+        {
+            title: 'User specified defaultInterpreterPath should come after a workspace env',
+            envA: {
+                envType: EnvironmentType.Venv,
+                type: PythonEnvType.Virtual,
+                path: path.join('path', 'to', 'user', 'setting'),
+            } as PythonEnvironment,
+            envB: {
+                envType: EnvironmentType.Venv,
+                type: PythonEnvType.Virtual,
+                path: path.join(workspacePath, '.venv'),
+                version: { major: 3, minor: 10, patch: 2 },
+            } as PythonEnvironment,
+            expected: 1,
+        },
+        // --- End Positron ---
     ];
 
     testcases.forEach(({ title, envA, envB, expected }) => {

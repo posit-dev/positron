@@ -26,6 +26,7 @@ import { arePathsSame } from '../../common/platform/fs-paths';
 // --- Start Positron ---
 import { getPyenvDir } from '../../pythonEnvironments/common/environmentManagers/pyenv';
 import { readFileSync, pathExistsSync, checkParentDirs } from '../../pythonEnvironments/common/externalDependencies';
+import { getUserDefaultInterpreter } from '../../positron/interpreterSettings';
 // --- End Positron ---
 
 export enum EnvLocationHeuristic {
@@ -49,17 +50,20 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
         this.workspaceFolderPath = this.interpreterHelper.getActiveWorkspaceUri(undefined)?.folderUri.fsPath ?? '';
     }
 
+    // --- Start Positron ---
     /**
      * Compare 2 Python environments, sorting them by assumed usefulness.
      * Return 0 if both environments are equal, -1 if a should be closer to the beginning of the list, or 1 if a comes after b.
      *
      * The comparison guidelines are:
      * 1. Local environments first (same path as the workspace root);
-     * 2. Global environments next (anything not local), with conda environments at a lower priority, and "base" being last;
-     * 3. Globally-installed interpreters (/usr/bin/python3, Microsoft Store).
+     * 2. Interpreters defined in the setting defaultInterpreterPath (Positron);
+     * 3. Global environments next (anything not local), with conda environments at a lower priority, and "base" being last;
+     * 4. Globally-installed interpreters (/usr/bin/python3, Microsoft Store).
      *
      * Always sort with newest version of Python first within each subgroup.
      */
+    // --- End Positron ---
     public compare(a: PythonEnvironment, b: PythonEnvironment): number {
         if (isProblematicCondaEnvironment(a)) {
             return 1;
@@ -84,6 +88,15 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
                 }
             }
         }
+
+        // --- Start Positron ---
+        if (a.path && getUserDefaultInterpreter() === a.path) {
+            return -1;
+        }
+        if (b.path && getUserDefaultInterpreter() === b.path) {
+            return 1;
+        }
+        // --- End Positron ---
 
         // Check environment type.
         const envTypeComparison = compareEnvironmentType(a, b);

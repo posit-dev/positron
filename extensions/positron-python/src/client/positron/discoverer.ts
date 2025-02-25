@@ -15,7 +15,7 @@ import { PythonEnvironment } from '../pythonEnvironments/info';
 import { createPythonRuntimeMetadata } from './runtime';
 import { comparePythonVersionDescending } from '../interpreter/configuration/environmentTypeComparer';
 import { MINIMUM_PYTHON_VERSION } from '../common/constants';
-import { isVersionSupported, shouldIncludeInterpreter } from './interpreterSettings';
+import { isVersionSupported, shouldIncludeInterpreter, getUserDefaultInterpreter } from './interpreterSettings';
 
 /**
  * Provides Python language runtime metadata to Positron; called during the
@@ -170,15 +170,11 @@ export async function recommendInterpreter(
     const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
     const suggestions = interpreterSelector.getSuggestions(workspaceUri);
 
-    const configuration = vscode.workspace.getConfiguration('python');
-    let defaultInterpreterPath = configuration?.get<string>('defaultInterpreterPath');
-    defaultInterpreterPath = defaultInterpreterPath === 'python' ? undefined : defaultInterpreterPath;
-
     const recommendedInterpreter =
-        // if there there is no workspace and a default interpreter set, use the default
-        (workspaceUri || !defaultInterpreterPath
-            ? undefined
-            : await interpreterService.getInterpreterDetails(defaultInterpreterPath)) ||
+        // if there there is no workspace and a default interpreter is set, use that
+        (!workspaceUri && getUserDefaultInterpreter()
+            ? await interpreterService.getInterpreterDetails(getUserDefaultInterpreter())
+            : undefined) ||
         // otherwise, try to get recommended interpreter
         interpreterSelector.getRecommendedSuggestion(suggestions, workspaceUri)?.interpreter ||
         // if there is still no interpreter, just use the active one
