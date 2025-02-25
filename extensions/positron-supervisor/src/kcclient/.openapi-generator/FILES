@@ -11,6 +11,7 @@ model/modelError.ts
 model/models.ts
 model/newSession.ts
 model/newSession200Response.ts
+model/restartSession.ts
 model/serverStatus.ts
 model/sessionList.ts
 model/startupError.ts

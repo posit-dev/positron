@@ -40,6 +40,13 @@ df = pd.DataFrame(data)`;
 			expect(tableData.length).toBe(4);
 		}).toPass({ timeout: 60000 });
 
+		await test.step('Verify copy to clipboard', async () => {
+			await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
+			await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+C' : 'Control+C');
+			const clipboardText = await app.workbench.clipboard.getClipboardText();
+			expect(clipboardText).toBe('Jai');
+		});
+
 		await app.workbench.dataExplorer.closeDataExplorer();
 		await app.workbench.variables.togglePane('show');
 	});

@@ -991,4 +991,34 @@ suite('Positron - RuntimeSessionService', () => {
 		const uiCommsAfter = await session.listClients(RuntimeClientType.Ui);
 		assert.strictEqual(uiCommsAfter.length, 1);
 	});
+
+	test(`can set the working directory`, async () => {
+		// Create the session
+		const session = await startConsole();
+		await timeout(0);
+
+		const dir = '/foo/bar/baz';
+		session.setWorkingDirectory(dir);
+
+		assert.strictEqual(session.getWorkingDirectory(), dir);
+	});
+
+	test(`working directory sticks after a restart`, async () => {
+		// Create the session
+		const session = await startConsole();
+		await timeout(0);
+
+		const dir = '/baz/bar/foo';
+		session.setWorkingDirectory(dir);
+
+		// Clear the working directory. This clears the state w/o firing an event.
+		session.clearWorkingDirectory();
+
+		// This should restore the working directory to the last state Positron
+		// saw.
+		await runtimeSessionService.restartSession(session.sessionId, startReason);
+		await timeout(0);
+
+		assert.strictEqual(session.getWorkingDirectory(), dir);
+	});
 });

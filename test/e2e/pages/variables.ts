@@ -7,7 +7,7 @@
 import { Code } from '../infra/code';
 import * as os from 'os';
 import test, { expect, Locator } from '@playwright/test';
-import { SessionDetails } from '../infra';
+import { SessionName } from '../infra';
 
 interface FlatVariables {
 	value: string;
@@ -187,7 +187,7 @@ export class Variables {
 	 * @param language the language of the runtime: Python or R
 	 * @param version the version of the runtime: e.g. 3.10.15
 	 */
-	async selectRuntime(session: SessionDetails) {
+	async selectRuntime(session: SessionName) {
 		await test.step(`Select runtime: ${session.language} ${session.version}`, async () => {
 			await this.togglePane('show');
 			await this.code.driver.page.locator('[id="workbench.panel.positronSession"]').getByLabel(/^(?!Refresh objects$)(Python|R)/).click();
@@ -200,7 +200,7 @@ export class Variables {
 	 * @param language the language of the runtime: Python or R
 	 * @param version the version of the runtime: e.g. 3.10.15
 	 */
-	async checkRuntime(session: SessionDetails) {
+	async checkRuntime(session: SessionName) {
 		await test.step(`Verify runtime: ${session.language} ${session.version}`, async () => {
 			await this.togglePane('show');
 			await expect(this.code.driver.page.locator('[id="workbench.panel.positronSession"]').getByLabel(new RegExp(`${session.language}.*${session.version}`))).toBeVisible();

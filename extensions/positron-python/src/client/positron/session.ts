@@ -40,7 +40,7 @@ import { Console } from '../common/utils/localize';
 import { getIpykernelBundle, IPykernelBundle } from './ipykernel';
 
 /** Regex for commands to uninstall packages using supported Python package managers. */
-const _uninstallCommandRegex = /(pip|pipenv|conda).*uninstall|poetry.*remove/g;
+const _uninstallCommandRegex = /(pip|pipenv|conda).*uninstall|poetry.*remove/;
 
 /**
  * A Positron language runtime that wraps a Jupyter kernel and a Language Server
@@ -526,7 +526,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         );
     }
 
-    async restart(): Promise<void> {
+    async restart(workingDirectory?: string): Promise<void> {
         if (this._kernel) {
             // Stop the LSP client before restarting the kernel. Don't stop it
             // until fully started to avoid an inconsistent state where the
@@ -544,7 +544,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             ]);
             await this._lsp?.deactivate(true);
 
-            return this._kernel.restart();
+            return this._kernel.restart(workingDirectory);
         } else {
             throw new Error('Cannot restart; kernel not started');
         }

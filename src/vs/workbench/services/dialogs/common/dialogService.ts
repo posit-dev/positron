@@ -33,9 +33,7 @@ export class DialogService extends Disposable implements IDialogService {
 			return true; // integration tests
 		}
 
-		// --- Start Positron ---
-		return false;
-		// --- End Positron ---
+		return !!this.environmentService.enableSmokeTestDriver; // smoke tests
 	}
 
 	async confirm(confirmation: IConfirmation): Promise<IConfirmationResult> {

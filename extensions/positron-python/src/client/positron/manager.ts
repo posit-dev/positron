@@ -25,6 +25,7 @@ import { EXTENSION_ROOT_DIR } from '../common/constants';
 import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { checkAndInstallPython } from './extension';
+import { shouldIncludeInterpreter } from './interpreterSettings';
 
 export const IPythonRuntimeManager = Symbol('IPythonRuntimeManager');
 
@@ -114,10 +115,15 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
      * @param runtimeMetadata The metadata for the runtime to register.
      */
     public registerLanguageRuntime(runtime: positron.LanguageRuntimeMetadata): void {
-        // Save the runtime for later use
         const extraData = runtime.extraRuntimeData as PythonRuntimeExtraData;
-        this.registeredPythonRuntimes.set(extraData.pythonPath, runtime);
-        this.onDidDiscoverRuntimeEmitter.fire(runtime);
+        // Check if the interpreter should be included in the list of registered runtimes
+        if (shouldIncludeInterpreter(extraData.pythonPath)) {
+            // Save the runtime for later use
+            this.registeredPythonRuntimes.set(extraData.pythonPath, runtime);
+            this.onDidDiscoverRuntimeEmitter.fire(runtime);
+        } else {
+            traceInfo(`Not registering runtime ${extraData.pythonPath} as it is excluded via user settings.`);
+        }
     }
 
     /**

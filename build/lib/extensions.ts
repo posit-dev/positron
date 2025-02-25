@@ -374,6 +374,7 @@ const excludedExtensions = [
 	// --- Start Positron ---
 	'positron-zed',
 	'positron-javascript',
+	'positron-assistant',
 	// --- End Positron ---
 ];
 

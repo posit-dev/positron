@@ -333,3 +333,22 @@ export enum LanguageRuntimeSessionChannel {
 	Kernel = 'kernel',
 	LSP = 'lsp',
 }
+
+/**
+ * The possible types of language model that can be used with the Positron Assistant.
+ */
+export enum PositronLanguageModelType {
+	Chat = 'chat',
+	Completion = 'completion',
+}
+
+/**
+ * The possible locations a Positron Assistant chat request can be invoked from.
+ */
+export enum PositronChatAgentLocation {
+	Panel = 'panel',
+	Terminal = 'terminal',
+	Notebook = 'notebook',
+	Editor = 'editor',
+	EditingSession = 'editing-session',
+}

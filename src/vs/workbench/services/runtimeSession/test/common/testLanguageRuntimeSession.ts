@@ -12,6 +12,7 @@ import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRunt
 import { IRuntimeClientEvent } from '../../../languageRuntime/common/languageRuntimeUiClient.js';
 import { TestRuntimeClientInstance } from '../../../languageRuntime/test/common/testRuntimeClientInstance.js';
 import { CancellationError } from '../../../../../base/common/errors.js';
+import { TestUiClientInstance } from '../../../languageRuntime/test/common/testUiClientInstance.js';
 
 export class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeSession {
 	private readonly _onDidChangeRuntimeState = this._register(new Emitter<RuntimeState>());
@@ -36,6 +37,8 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	private _currentState = RuntimeState.Uninitialized;
 
 	private _clients = new Map<string, TestRuntimeClientInstance>();
+
+	private _uiClient: TestUiClientInstance | undefined;
 
 	onDidChangeRuntimeState = this._onDidChangeRuntimeState.event;
 	onDidCompleteStartup = this._onDidCompleteStartup.event;
@@ -62,6 +65,9 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 
 	// Track the last execution ID for interrupts.
 	private _lastExecutionId?: string;
+
+	// Track the working directory.
+	private _workingDirectory = '';
 
 	readonly dynState = {
 		inputPrompt: `T>`,
@@ -136,7 +142,13 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	async createClient(
 		type: RuntimeClientType, params: any, metadata?: any, id?: string
 	): Promise<TestRuntimeClientInstance> {
-		const client = this._register(new TestRuntimeClientInstance(id ?? generateUuid(), type));
+		const client = type === RuntimeClientType.Ui ?
+			new TestUiClientInstance(id ?? generateUuid()) :
+			new TestRuntimeClientInstance(id ?? generateUuid(), type);
+		if (type === RuntimeClientType.Ui) {
+			this._uiClient = client as TestUiClientInstance;
+		}
+		this._register(client);
 		this._clients.set(client.getClientId(), client);
 		this._onDidCreateClientInstance.fire(
 			{
@@ -175,8 +187,22 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		throw new Error('Not implemented.');
 	}
 
-	setWorkingDirectory(_dir: string): Promise<void> {
-		throw new Error('Not implemented.');
+	setWorkingDirectory(dir: string): Promise<void> {
+		if (this._uiClient) {
+			this._workingDirectory = dir;
+			this._uiClient.setWorkingDirectory(dir);
+		} else {
+			throw new Error('No UI client');
+		}
+		return Promise.resolve();
+	}
+
+	clearWorkingDirectory() {
+		this._workingDirectory = '';
+	}
+
+	getWorkingDirectory() {
+		return this._workingDirectory;
 	}
 
 	async start(): Promise<ILanguageRuntimeInfo> {
@@ -205,11 +231,12 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		}
 	}
 
-	async restart(): Promise<void> {
+	async restart(workingDirectory?: string): Promise<void> {
 		await this.shutdown(RuntimeExitReason.Restart);
 
 		// Wait for the session to exit, then start it again.
 		const disposable = this._register(this.onDidChangeRuntimeState(state => {
+			this._workingDirectory = workingDirectory ?? this._workingDirectory;
 			if (state === RuntimeState.Exited) {
 				disposable.dispose();
 				this.start();

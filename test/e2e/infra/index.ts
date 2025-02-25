@@ -39,10 +39,10 @@ export * from '../pages/debug';
 export * from '../pages/problems';
 export * from '../pages/references';
 export * from '../pages/scm';
+export * from '../pages/sessions';
 
 // fixtures
 export * from './fixtures/userSettings';
-export * from './fixtures/interpreter';
 
 // test-runner
 export * from './test-runner';
