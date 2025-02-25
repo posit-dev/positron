@@ -203,7 +203,6 @@ export class RInstallation {
 					LOGGER.info(`User has excluded R installation at ${this.binpath}`);
 					this.reasonRejected = ReasonRejected.userExcluded;
 					this.usable = false;
-					return;
 				}
 			}
 		} else {
