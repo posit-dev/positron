@@ -1675,8 +1675,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private async scheduleUpdateActiveLanguages(delay = 60 * 60 * 1000): Promise<IDisposable> {
 		const updateLanguagesDisposable = disposableTimeout(() => {
 			this.updateActiveLanguages();
+
+			// Schedule the next update with default delay after the first update during service startup
 			this.scheduleUpdateActiveLanguages();
 		}, delay);
+
 		this._register(updateLanguagesDisposable);
 		return updateLanguagesDisposable;
 	}
