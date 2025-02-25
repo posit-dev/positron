@@ -90,7 +90,6 @@ from ._vendor.lsprotocol.types import (
     SymbolInformation,
     TextDocumentIdentifier,
     TextDocumentPositionParams,
-    TextEdit,
     WorkspaceEdit,
     WorkspaceSymbolParams,
 )
