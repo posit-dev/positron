@@ -30,9 +30,9 @@ export const CreateConsoleInstanceButton = () => {
 	// Reference hooks.
 	const contextMenuButtonRef = useRef<HTMLButtonElement>(undefined!);
 
-	const createNewConsoleInstance = (runtimeId: string, runtimeName: string) => {
+	const createNewConsoleInstance = async (runtimeId: string, runtimeName: string) => {
 		// Start a new session that is a duplicate of the active session
-		positronConsoleContext.runtimeSessionService.startNewRuntimeSession(
+		await positronConsoleContext.runtimeSessionService.startNewRuntimeSession(
 			runtimeId,
 			runtimeName,
 			LanguageRuntimeSessionMode.Console,

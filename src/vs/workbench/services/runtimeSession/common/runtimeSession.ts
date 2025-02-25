@@ -410,7 +410,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				sessionMode,
 				undefined, // No notebook URI (console session)
 				source,
-				RuntimeStartMode.Switching,
+				!multiSessionsEnabled ? RuntimeStartMode.Switching : RuntimeStartMode.Starting,
 				true);
 		}
 	}

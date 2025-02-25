@@ -684,6 +684,9 @@ suite('Positron - RuntimeSessionService', () => {
 		);
 	});
 
+	// Update this test to support multiple console sessions once the feature flag is on
+	// selectRuntime creates a new session under the hood when called so it is guaranteed
+	// the sessions will be different for the test
 	test('select console to the same runtime sets the foreground session', async () => {
 		configService.setUserConfiguration(USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY, false);
 
