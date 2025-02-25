@@ -39,6 +39,7 @@ jobs:
       currents_tags: "pull-request,electron/linux,${{ needs.pr-tags.outputs.tags }}"
       report_testrail: false
       enable_currents_reporter: false
+      install_undetectable_interpreters: false
     secrets: inherit
 
   e2e-windows-electron:
@@ -66,6 +67,7 @@ jobs:
       currents_tags: "pull-request,browser/linux,${{ needs.pr-tags.outputs.tags }}"
       report_testrail: false
       enable_currents_reporter: false
+      install_undetectable_interpreters: false
     secrets: inherit
 
   unit-tests:

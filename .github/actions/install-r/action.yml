@@ -59,8 +59,13 @@ runs:
         echo "Installing R version $R_ALTERNATE_VERSION using Rig..."
         rig add "$R_ALTERNATE_VERSION"
 
+    - name: Debug Install Undetectable Interpreters
+      shell: bash
+      run: |
+        echo "install_undetectable_interpreters = '${{ inputs.install_undetectable_interpreters }}'"
+
     - name: Install Prebuilt R 4.4.1 in ~/scratch
-      if: ${{ inputs.install_undetectable_interpreters }}
+      if: ${{ inputs.install_undetectable_interpreters == true }}
       shell: bash
       run: |
         echo "Installing R 4.4.1 in ~/scratch..."
@@ -69,13 +74,20 @@ runs:
         INSTALL_DIR="$HOME/scratch/R-4.4.1"
         mkdir -p $INSTALL_DIR
 
-        # Download prebuilt R binary for Linux (modify for macOS if needed)
-        curl -o R.tar.gz "https://cloud.r-project.org/bin/linux/ubuntu/noble-cran40/r-base-core_4.4.1-1_amd64.deb"
+        # Download prebuilt R binary for Ubuntu (modify for macOS if needed)
+        curl -o R.deb "https://cloud.r-project.org/bin/linux/ubuntu/noble-cran40/r-base-core_4.4.1-1_amd64.deb"
 
-        # Extract the binary to the custom directory
-        tar -xf R.tar.gz -C $INSTALL_DIR --strip-components=1
+        # Extract the .deb package manually (since we don't have sudo)
+        dpkg-deb -x R.deb $INSTALL_DIR
 
         # Verify installation
-        $INSTALL_DIR/bin/R --version
+        if [[ -x "$INSTALL_DIR/usr/lib/R/bin/R" ]]; then
+            echo "R successfully extracted."
+            $INSTALL_DIR/usr/lib/R/bin/R --version
+        else
+            echo "Error: R binary not found in extracted directory."
+            exit 1
+        fi
 
         echo "Custom R installed at $INSTALL_DIR"
+
