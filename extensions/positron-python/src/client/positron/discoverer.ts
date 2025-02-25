@@ -181,7 +181,7 @@ export async function recommendInterpreter(
         // if there is still no interpreter, just use the active one
         (await interpreterService.getActiveInterpreter(workspaceUri));
 
-    console.log(`pythonRuntimeDiscoverer: recommended interpreter: ${recommendedInterpreter?.path}`);
+    traceInfo(`pythonRuntimeDiscoverer: recommended interpreter: ${recommendedInterpreter?.path}`);
 
     return recommendedInterpreter;
 }
