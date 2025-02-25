@@ -69,25 +69,35 @@ runs:
         # Verify that Python is reset
         python --version
 
-    - name: Install Prebuilt Python 3.11.11 in ~/scratch (Ubuntu Only)
+    - name: Install Prebuilt Python 3.12.7 in ~/scratch (Ubuntu Only)
       if: ${{ inputs.install_undetectable_interpreters == 'true' }}
       shell: bash
       run: |
-        echo "Installing Python 3.11.11 in ~/scratch..."
+        echo "Installing Python 3.12.7 (minimal) in ~/scratch..."
 
         # Set installation path
         INSTALL_DIR="$HOME/scratch/python-custom"
         mkdir -p $INSTALL_DIR
 
-        # Update package list and download the correct .deb package
-        sudo apt-get update
-        apt-get download python3.11
+        # Use your confirmed working .deb URL
+        DEB_URL="http://archive.ubuntu.com/ubuntu/pool/main/p/python3.12/python3.12-minimal_3.12.7-1ubuntu2_amd64.deb"
 
-        # Extract the downloaded .deb package
-        dpkg-deb -x python3.11_*.deb $INSTALL_DIR
+        # Download the package
+        curl -fLO "$DEB_URL"
+
+        # Verify the file format before extracting
+        if file python3.12-minimal_3.12.7-1ubuntu2_amd64.deb | grep -q "Debian binary package"; then
+            echo "Valid Debian package detected."
+        else
+            echo "Error: Downloaded file is not a valid .deb package!"
+            exit 1
+        fi
+
+        # Extract the .deb package manually (without sudo)
+        dpkg-deb -x python3.12-minimal_3.12.7-1ubuntu2_amd64.deb $INSTALL_DIR
 
         # Set the correct path for Python binary
-        PYTHON_BIN="$INSTALL_DIR/usr/bin/python3.11"
+        PYTHON_BIN="$INSTALL_DIR/usr/bin/python3.12"
 
         # Verify Python installation
         if [[ -x "$PYTHON_BIN" ]]; then
@@ -100,5 +110,4 @@ runs:
             echo "Error: Python binary not found in extracted directory."
             exit 1
         fi
-
 
