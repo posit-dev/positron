@@ -107,7 +107,7 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 
 
 	private getVSIXPath(): URI {
-		return URI.file(join(this.environmentService.appRoot, 'extensions', 'bootstrap'));
+		return process.env['VSCODE_DEV'] ? URI.file(join(this.environmentService.appRoot, '.build', 'bootstrapExtensions')) : URI.file(join(this.environmentService.appRoot, 'extensions', 'bootstrap'));
 	}
 
 	override dispose(): void {
