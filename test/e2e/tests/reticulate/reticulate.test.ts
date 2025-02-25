@@ -17,7 +17,7 @@ test.use({
 // Skipping until https://github.com/posit-dev/ark/pull/713 is merged
 test.describe.skip('Reticulate', {
 	tag: [tags.RETICULATE, tags.WEB],
-	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6397' }],
+	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6397' }]
 }, () => {
 	test.beforeAll(async function ({ app, userSettings }) {
 		try {
