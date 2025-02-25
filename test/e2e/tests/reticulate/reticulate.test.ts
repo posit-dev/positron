@@ -35,7 +35,7 @@ test.describe.skip('Reticulate', {
 	// will already be running
 	let sequential = false;
 
-	test.skip('R - Verify Basic Reticulate Functionality', async function ({ app, r, interpreter }) {
+	test('R - Verify Basic Reticulate Functionality', async function ({ app, r, interpreter }) {
 
 		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()');
 		await app.workbench.console.sendEnterKey();
