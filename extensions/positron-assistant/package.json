@@ -102,6 +102,7 @@
                   "azure",
                   "echo",
                   "error",
+                  "google",
                   "mistral",
                   "ollama",
                   "openai",
@@ -138,7 +139,7 @@
     "lint": "eslint src --ext ts"
   },
   "devDependencies": {
-    "@ai-sdk/amazon-bedrock": "^1.1.5",
+    "@ai-sdk/amazon-bedrock": "^1.1.6",
     "@ai-sdk/anthropic": "^1.0.5",
     "@ai-sdk/azure": "^1.1.9",
     "@ai-sdk/google": "^1.1.17",
