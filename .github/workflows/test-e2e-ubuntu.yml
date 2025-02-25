@@ -1,4 +1,4 @@
-name: "Test: E2E (Linux)"
+name: "Test: E2E (Ubuntu)"
 
 on:
   workflow_call:
@@ -26,7 +26,7 @@ on:
       currents_tags:
         required: false
         description: "The tags to use for Currents recording."
-        default: "@linux"
+        default: "@ubuntu"
         type: string
       report_testrail:
         required: false
@@ -146,7 +146,7 @@ jobs:
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/linux' }}
+          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/ubuntu' }}
           ENABLE_CURRENTS_REPORTER: ${{ inputs.enable_currents_reporter }}
         run: |
           if [ "${{ inputs.project }}" == "e2e-electron" ]; then
