@@ -1593,9 +1593,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				// Restrict the number of console sessions that can be created to 15.
 				// This value is arbitrary and should be made a configuration setting
 				// in the future for users once this feature has stabilized!
-				const numberOfActiveConsoleSessions =
-					this._activeSessionsBySessionId.size;
-				if (numberOfActiveConsoleSessions === MAX_CONCURRENT_SESSIONS) {
+				if (this._activeSessionsBySessionId.size >= MAX_CONCURRENT_SESSIONS) {
 					throw new Error(`Session for language runtime ` +
 						`${formatLanguageRuntimeMetadata(languageRuntime)} ` +
 						`cannot be started because the maximum number of ` +
