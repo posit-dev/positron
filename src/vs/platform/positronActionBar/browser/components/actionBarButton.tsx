@@ -162,7 +162,14 @@ export const ActionBarButton = forwardRef<
 				tooltip={props.tooltip}
 				onMouseEnter={props.onMouseEnter}
 				onMouseLeave={props.onMouseLeave}
-				onPressed={props.onPressed}
+				onPressed={() => {
+					if (context.renderer) {
+						context.renderer.dispose();
+					}
+					if (props.onPressed) {
+						props.onPressed();
+					}
+				}}
 			>
 				<ActionBarButtonFace />
 				{props.children}

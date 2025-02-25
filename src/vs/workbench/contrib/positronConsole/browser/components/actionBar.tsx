@@ -328,114 +328,113 @@ export const ActionBar = (props: ActionBarProps) => {
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...positronConsoleContext}>
-			<div className='action-bar'>
-				<PositronActionBar
-					borderBottom={true}
-					borderTop={true}
-					paddingLeft={kPaddingLeft}
-					paddingRight={kPaddingRight}
-					size='small'
-				>
-					{!multiSessionsEnabled &&
-						<ActionBarRegion location='left'>
-							<ConsoleInstanceMenuButton {...props} />
-							<div className='action-bar-separator' />
-							{directoryLabel &&
-								<div aria-label={(() => localize(
-									'directoryLabel',
-									"Current Working Directory"
-								))()}
-									className='directory-label'
-								>
-									<span className='codicon codicon-folder' role='presentation'></span>
-									<span className='label' title={directoryLabel}>{directoryLabel}</span>
-								</div>
-							}
-						</ActionBarRegion>
-					}
-					{multiSessionsEnabled &&
-						<div>
-							{directoryLabel &&
-								<div aria-label={(() => localize(
-									'directoryLabel',
-									"Current Working Directory"
-								))()}
-									className='directory-label'
-								>
-									<span className='codicon codicon-folder' role='presentation'></span>
-									<span className='label' title={directoryLabel}>{directoryLabel}</span>
-								</div>
-							}
-						</div>
-					}
-					<ActionBarRegion location='right'>
-						<div className='state-label'>{stateLabel}</div>
-						{interruptible &&
-							<ActionBarButton
-								align='right'
-								ariaLabel={positronInterruptExecution}
-								disabled={interrupting}
-								fadeIn={true}
-								tooltip={positronInterruptExecution}
-								onPressed={interruptHandler}
+			<PositronActionBar
+				borderBottom={true}
+				borderTop={true}
+				debug={true}
+				paddingLeft={kPaddingLeft}
+				paddingRight={kPaddingRight}
+				size='small'
+			>
+				{!multiSessionsEnabled &&
+					<ActionBarRegion location='left'>
+						<ConsoleInstanceMenuButton {...props} />
+						<div className='action-bar-separator' />
+						{directoryLabel &&
+							<div aria-label={(() => localize(
+								'directoryLabel',
+								"Current Working Directory"
+							))()}
+								className='directory-label'
 							>
-								<div className={
-									`action-bar-button-icon
+								<span className='codicon codicon-folder' role='presentation'></span>
+								<span className='label' title={directoryLabel}>{directoryLabel}</span>
+							</div>
+						}
+					</ActionBarRegion>
+				}
+				{multiSessionsEnabled &&
+					<div>
+						{directoryLabel &&
+							<div aria-label={(() => localize(
+								'directoryLabel',
+								"Current Working Directory"
+							))()}
+								className='directory-label'
+							>
+								<span className='codicon codicon-folder' role='presentation'></span>
+								<span className='label' title={directoryLabel}>{directoryLabel}</span>
+							</div>
+						}
+					</div>
+				}
+				<ActionBarRegion location='right'>
+					<div className='state-label'>{stateLabel}</div>
+					{interruptible &&
+						<ActionBarButton
+							align='right'
+							ariaLabel={positronInterruptExecution}
+							disabled={interrupting}
+							fadeIn={true}
+							tooltip={positronInterruptExecution}
+							onPressed={interruptHandler}
+						>
+							<div className={
+								`action-bar-button-icon
 									interrupt
 									codicon
 									codicon-positron-interrupt-runtime`
-								}
-								/>
-							</ActionBarButton>
-						}
-						{interruptible &&
-							<ActionBarSeparator fadeIn={true} />
-						}
-						<ActionBarButton
-							align='right'
-							ariaLabel={canStart ? positronStartConsole : positronShutdownConsole}
-							disabled={!(canShutdown || canStart)}
-							iconId='positron-power-button-thin'
-							tooltip={canStart ? positronStartConsole : positronShutdownConsole}
-							onPressed={powerCycleConsoleHandler}
-						/>
-						<ActionBarButton
-							align='right'
-							ariaLabel={positronRestartConsole}
-							disabled={!canShutdown}
-							iconId='positron-restart-runtime-thin'
-							tooltip={positronRestartConsole}
-							onPressed={restartConsoleHandler}
-						/>
-						{multiSessionsEnabled && <ConsoleInstanceInfoButton />}
-						<ActionBarSeparator />
-						{showDeveloperUI &&
-							<ActionBarButton
-								align='right'
-								ariaLabel={positronToggleTrace}
-								iconId='wand'
-								tooltip={positronToggleTrace}
-								onPressed={toggleTraceHandler}
+							}
 							/>
-						}
+						</ActionBarButton>
+					}
+					{interruptible &&
+						<ActionBarSeparator fadeIn={true} />
+					}
+					<ActionBarButton
+						align='right'
+						ariaLabel={canStart ? positronStartConsole : positronShutdownConsole}
+						disabled={!(canShutdown || canStart)}
+						iconId='positron-power-button-thin'
+						tooltip={canStart ? positronStartConsole : positronShutdownConsole}
+						onPressed={powerCycleConsoleHandler}
+					/>
+					<ActionBarButton
+						align='right'
+						ariaLabel={positronRestartConsole}
+						disabled={!canShutdown}
+						iconId='positron-restart-runtime-thin'
+						tooltip={positronRestartConsole}
+						onPressed={restartConsoleHandler}
+					/>
+					{multiSessionsEnabled && <ConsoleInstanceInfoButton />}
+					<ActionBarSeparator />
+					{showDeveloperUI &&
 						<ActionBarButton
 							align='right'
-							ariaLabel={positronToggleWordWrap}
-							iconId='word-wrap'
-							tooltip={positronToggleWordWrap}
-							onPressed={toggleWordWrapHandler}
+							ariaLabel={positronToggleTrace}
+							iconId='wand'
+							tooltip={positronToggleTrace}
+							onPressed={toggleTraceHandler}
 						/>
-						<ActionBarSeparator />
-						<ActionBarButton
-							align='right'
-							ariaLabel={positronClearConsole}
-							iconId='clear-all'
-							tooltip={positronClearConsole}
-							onPressed={clearConsoleHandler}
-						/>
-					</ActionBarRegion>
-				</PositronActionBar>
-			</div>
+					}
+					<ActionBarButton
+						align='right'
+						ariaLabel={positronToggleWordWrap}
+						iconId='word-wrap'
+						tooltip={positronToggleWordWrap}
+						onPressed={toggleWordWrapHandler}
+					/>
+					<ActionBarSeparator />
+					<ActionBarButton
+						align='right'
+						ariaLabel={positronClearConsole}
+						iconId='clear-all'
+						tooltip={positronClearConsole}
+						onPressed={clearConsoleHandler}
+					/>
+				</ActionBarRegion>
+			</PositronActionBar>
 		</PositronActionBarContextProvider>
 	);
 };

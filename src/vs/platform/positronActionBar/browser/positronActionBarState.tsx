@@ -20,6 +20,18 @@ import { IConfigurationService } from '../../configuration/common/configuration.
 import { IAccessibilityService } from '../../accessibility/common/accessibility.js';
 import { ContextKeyExpression, IContextKeyService } from '../../contextkey/common/contextkey.js';
 import { PositronActionBarHoverManager } from './positronActionBarHoverManager.js';
+import { ILayoutService } from '../../layout/browser/layoutService.js';
+import { PositronModalReactRenderer } from '../../../workbench/browser/positronModalReactRenderer/positronModalReactRenderer.js';
+
+/**
+ * CommandAction interface.
+ */
+export interface CommandAction {
+	id: string;
+	label?: string;
+	separator?: boolean;
+	when?: ContextKeyExpression;
+}
 
 /**
  * PositronActionBarServices interface. Defines the set of services that are required by a Positron
@@ -33,16 +45,8 @@ export interface PositronActionBarServices {
 	readonly contextMenuService: IContextMenuService;
 	readonly hoverService: IHoverService;
 	readonly keybindingService: IKeybindingService;
-}
-
-/**
- * CommandAction interface.
- */
-export interface CommandAction {
-	id: string;
-	label?: string;
-	separator?: boolean;
-	when?: ContextKeyExpression;
+	readonly layoutService: ILayoutService;
+	readonly renderer: PositronModalReactRenderer | undefined;
 }
 
 /**
@@ -55,6 +59,8 @@ export interface PositronActionBarState extends PositronActionBarServices {
 	menuShowing: boolean;
 	setMenuShowing(menuShowing: boolean): void;
 	focusableComponents: Set<HTMLElement>;
+	width: number;
+	setWidth(width: number): void;
 }
 
 /**
@@ -65,6 +71,7 @@ export interface PositronActionBarState extends PositronActionBarServices {
 export const usePositronActionBarState = (
 	services: PositronActionBarServices
 ): PositronActionBarState => {
+	const [width, setWidth] = useState<number>(0);
 	const [menuShowing, setMenuShowing] = useState(false);
 	const [focusableComponents] = useState(new Set<HTMLElement>());
 	const [hoverManager, setHoverManager] = useState<IHoverManager>(undefined!);
@@ -152,6 +159,8 @@ export const usePositronActionBarState = (
 		hoverManager,
 		menuShowing,
 		setMenuShowing,
-		focusableComponents
+		focusableComponents,
+		width,
+		setWidth
 	};
 };

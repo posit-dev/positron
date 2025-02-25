@@ -5,23 +5,25 @@
 
 .action-bar-region {
 	flex: 1;
+	display: flex;
 	overflow: visible;
+	flex-direction: row;
 }
 
 .action-bar-region-left {
-	display: flex;
+	/* display: flex; */
 	margin-right: 4px;
 	align-items: center;
 }
 
 .action-bar-region-center {
-	display: flex;
+	/* display: flex; */
 	margin: 0 4px;
 	align-items: center;
 }
 
 .action-bar-region-right {
-	display: flex;
+	/* display: flex; */
 	margin-left: 4px;
 	align-items: center;
 }

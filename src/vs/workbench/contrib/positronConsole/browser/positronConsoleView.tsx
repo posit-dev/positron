@@ -42,6 +42,7 @@ import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../..
 import { IExecutionHistoryService } from '../../executionHistory/common/executionHistoryService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 
 /**
  * PositronConsoleViewPane class.
@@ -185,6 +186,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 	 * @param keybindingService The keybinding service.
 	 * @param languageRuntimeService The language runtime service.
 	 * @param languageService The language service.
+	 * @param layoutService The layout service.
 	 * @param logService The log service.
 	 * @param modelService The model service.
 	 * @param notificationService The notification service.
@@ -213,6 +215,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		@IKeybindingService keybindingService: IKeybindingService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
 		@ILanguageService private readonly languageService: ILanguageService,
+		@ILayoutService private readonly layoutService: ILayoutService,
 		@ILogService private readonly logService: ILogService,
 		@IModelService private readonly modelService: IModelService,
 		@INotificationService private readonly notificationService: INotificationService,
@@ -291,6 +294,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 				keybindingService={this.keybindingService}
 				languageRuntimeService={this.languageRuntimeService}
 				languageService={this.languageService}
+				layoutService={this.layoutService}
 				logService={this.logService}
 				modelService={this.modelService}
 				notificationService={this.notificationService}

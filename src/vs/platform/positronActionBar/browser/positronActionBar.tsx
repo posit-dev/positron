@@ -7,12 +7,12 @@
 import './positronActionBar.css';
 
 // React.
-import React, { KeyboardEvent, PropsWithChildren, useEffect } from 'react';
+import React, { KeyboardEvent, PropsWithChildren, useEffect, useLayoutEffect, useRef } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../base/browser/dom.js';
-import { optionalValue, positronClassNames } from '../../../base/common/positronUtilities.js';
 import { usePositronActionBarContext } from './positronActionBarContext.js';
+import { optionalValue, positronClassNames } from '../../../base/common/positronUtilities.js';
 
 /**
  * CommonPositronActionBarProps interface.
@@ -22,6 +22,7 @@ interface CommonPositronActionBarProps {
 	gap?: number;
 	paddingLeft?: number;
 	paddingRight?: number;
+	debug?: boolean;
 }
 
 /**
@@ -42,8 +43,13 @@ type PositronActionBarProps = CommonPositronActionBarProps & NestedPositronActio
  * @returns The rendered component.
  */
 export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProps>) => {
+	// Context hooks.
+	const context = usePositronActionBarContext();
+
+	// Reference hooks.
+	const ref = useRef<HTMLDivElement>(undefined!);
+
 	// State hooks.
-	const { focusableComponents } = usePositronActionBarContext();
 	const [focusedIndex, setFocusedIndex] = React.useState(0);
 	const [prevIndex, setPrevIndex] = React.useState(-1);
 
@@ -72,7 +78,7 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 				e.stopPropagation();
 				setPrevIndex(() => focusedIndex);
 				if (focusedIndex === 0) {
-					setFocusedIndex(focusableComponents.size - 1);
+					setFocusedIndex(context.focusableComponents.size - 1);
 				} else {
 					setFocusedIndex(() => focusedIndex - 1);
 				}
@@ -82,7 +88,7 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 				e.preventDefault();
 				e.stopPropagation();
 				setPrevIndex(() => focusedIndex);
-				if (focusedIndex === focusableComponents.size - 1) {
+				if (focusedIndex === context.focusableComponents.size - 1) {
 					setFocusedIndex(0);
 				} else {
 					setFocusedIndex(() => focusedIndex + 1);
@@ -100,15 +106,30 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 				e.preventDefault();
 				e.stopPropagation();
 				setPrevIndex(() => focusedIndex);
-				setFocusedIndex(() => focusableComponents.size - 1);
+				setFocusedIndex(() => context.focusableComponents.size - 1);
 				break;
 			}
 		}
 	};
 
+	// Automatic layout useEffect.
+	useLayoutEffect(() => {
+		// Allocate and initialize the resize observer.
+		const resizeObserver = new ResizeObserver(entries => {
+			if (props.debug) {
+				context.setWidth(entries[0].contentRect.width);
+				console.log(`ActionBar: Left ${entries[0].contentRect.left}`);
+				console.log(`ActionBar: Width ${entries[0].contentRect.width}`);
+			}
+		});
+
+		// Start observing the size of the data explorer.
+		resizeObserver.observe(ref.current);
+	}, [context, props.debug]);
+
 	useEffect(() => {
 		if (!props.nestedActionBar && prevIndex >= 0 && (focusedIndex !== prevIndex)) {
-			const items = Array.from(focusableComponents);
+			const items = Array.from(context.focusableComponents);
 			const currentNode = items[focusedIndex];
 			const previousNode = items[prevIndex];
 
@@ -120,12 +141,12 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 				currentNode.focus();
 			}
 		}
-	}, [focusedIndex, prevIndex, focusableComponents, props.nestedActionBar]);
-
+	}, [focusedIndex, prevIndex, context.focusableComponents, props.nestedActionBar]);
 
 	// Render.
 	return (
 		<div
+			ref={ref}
 			className={classNames}
 			style={{
 				gap: optionalValue(props.gap, 0),
