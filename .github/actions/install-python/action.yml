@@ -79,10 +79,8 @@ runs:
         INSTALL_DIR="$HOME/scratch/python-custom"
         mkdir -p $INSTALL_DIR
 
-        # Use your confirmed working .deb URL
+        # Download the correct Python 3.12.7 minimal package from Ubuntu archive
         DEB_URL="http://archive.ubuntu.com/ubuntu/pool/main/p/python3.12/python3.12-minimal_3.12.7-1ubuntu2_amd64.deb"
-
-        # Download the package
         curl -fLO "$DEB_URL"
 
         # Verify the file format before extracting
@@ -103,11 +101,15 @@ runs:
         if [[ -x "$PYTHON_BIN" ]]; then
             echo "Python successfully extracted."
             $PYTHON_BIN --version
-            $PYTHON_BIN -m ensurepip
-            $PYTHON_BIN -m pip install --upgrade pip
-            echo "Custom Python installed at $INSTALL_DIR"
         else
             echo "Error: Python binary not found in extracted directory."
             exit 1
         fi
+
+        # Manually install pip since `ensurepip` is disabled
+        echo "Installing pip manually..."
+        curl -sS https://bootstrap.pypa.io/get-pip.py | $PYTHON_BIN
+
+        # Verify pip installation
+        $PYTHON_BIN -m pip --version
 
