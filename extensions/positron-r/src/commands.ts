@@ -128,7 +128,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		}),
 
 		vscode.commands.registerCommand('r.packageTestExplorer', async () => {
-			await vscode.commands.executeCommand('workbench.view.testing.focus');
+			vscode.commands.executeCommand('workbench.view.testing.focus');
 			onDidDiscoverTestFiles(event => {
 				vscode.commands.executeCommand('testing.runAll');
 			});
