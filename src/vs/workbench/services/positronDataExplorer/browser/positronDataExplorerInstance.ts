@@ -114,7 +114,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 	//#endregion Private Properties
 
-	//#region Constructor
+	//#region Constructor & Dispose
 
 	/**
 	 * Constructor.
@@ -199,7 +199,18 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		}));
 	}
 
-	//#endregion Constructor
+	/**
+	 * Dispose method.
+	 */
+	public override dispose(): void {
+		// Fire the onDidClose event.
+		this._onDidCloseEmitter.fire();
+
+		// Call the base class's dispose method.
+		super.dispose();
+	}
+
+	//#endregion Constructor & Dispose
 
 	//#region IPositronDataExplorerInstance Implementation
 
