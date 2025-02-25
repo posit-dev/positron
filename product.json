@@ -177,34 +177,20 @@
 				"publisherDisplayName": "ms-pyright"
 			}
 		},
-		{
-			"name": "ms-python.black-formatter",
-			"version": "2024.2.0",
-			"repo": "https://github.com/microsoft/vscode-black-formatter",
-			"metadata": {
-				"id": "859e640c-c157-47da-8699-9080b81c8371",
-				"publisherId": {
-					"publisherId": "998b010b-e2af-44a5-a6cd-0b5fd3b9b6f8",
-					"publisherName": "ms-python",
-					"displayName": "Black Formatter",
-					"flags": "verified"
-				},
-				"publisherDisplayName": "ms-python"
-			}
-		},
+
 		{
 			"name": "ms-python.debugpy",
 			"version": "2024.8.0",
 			"repo": "https://github.com/microsoft/vscode-python-debugger",
 			"metadata": {
 				"id": "4bd5d2c9-9d65-401a-b0b2-7498d9f17615",
-				"publisherId": {
-					"publisherId": "998b010b-e2af-44a5-a6cd-0b5fd3b9b6f8",
-					"publisherName": "ms-python",
-					"displayName": "Python Debugger",
+				"publisherid": {
+					"publisherid": "998b010b-e2af-44a5-a6cd-0b5fd3b9b6f8",
+					"publishername": "ms-python",
+					"displayname": "python debugger",
 					"flags": "verified"
 				},
-				"publisherDisplayName": "ms-python",
+				"publisherdisplayname": "ms-python",
 				"multiPlatformServiceUrl": "https://open-vsx.org/api"
 			}
 		},
@@ -221,6 +207,44 @@
 	],
 	"bootstrapExtensions": [
 		{
+			"name": "ms-python.black-formatter",
+			"version": "2024.2.0",
+			"repo": "https://github.com/microsoft/vscode-black-formatter",
+			"metadata": {
+				"id": "859e640c-c157-47da-8699-9080b81c8371",
+				"publisherId": {
+					"publisherId": "998b010b-e2af-44a5-a6cd-0b5fd3b9b6f8",
+					"publisherName": "ms-python",
+					"displayName": "Black Formatter",
+					"flags": "verified"
+				},
+				"publisherDisplayName": "ms-python"
+			}
+		},
+		{
+			"name": "posit.publisher",
+			"version": "1.10.0",
+			"repo": "https://github.com/posit-dev/publisher",
+			"metadata": {
+				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
+				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
+				"displayName": "Posit Publisher",
+				"multiPlatformServiceUrl": "https://open-vsx.org/api"
+			},
+			"publisherDisplayName": "Posit Software, PBC"
+		},
+		{
+			"name": "posit.shiny",
+			"version": "1.1.2",
+			"repo": "http://github.com/posit-dev/shiny-vscode",
+			"metadata": {
+				"id": "f1b3b3b4-3b3b-4b3b-8b3b-3b3b3b3b3b3b",
+				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
+				"displayName": "Shiny",
+				"multiPlatformServiceUrl": "https://open-vsx.org/api"
+			}
+		},
+		{
 			"name": "quarto.quarto",
 			"version": "1.118.0",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
@@ -234,20 +258,7 @@
 				},
 				"publisherDisplayName": "Quarto"
 			}
-		},
-		{
-			"name": "posit.publisher",
-			"version": "1.8.0",
-			"repo": "https://github.com/posit-dev/publisher",
-			"metadata": {
-				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
-				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
-				"displayName": "Posit Publisher",
-				"multiPlatformServiceUrl": "https://open-vsx.org/api"
-			},
-			"publisherDisplayName": "Posit Software, PBC"
 		}
-
 	],
 	"extensionsGallery": {
 		"serviceUrl": "https://open-vsx.org/vscode/gallery",
