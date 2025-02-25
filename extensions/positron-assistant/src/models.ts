@@ -426,6 +426,7 @@ export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModel
 		'anthropic': AnthropicLanguageModel,
 		'azure': AzureLanguageModel,
 		'bedrock': AWSLanguageModel,
+		'google': GoogleLanguageModel,
 		'mistral': MistralLanguageModel,
 		'ollama': OllamaLanguageModel,
 		'openai': OpenAILanguageModel,
@@ -449,13 +450,12 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 			id: 'google',
 			displayName: 'Google Generative AI'
 		},
-		supportedOptions: ['toolCalls', 'project', 'location'],
+		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {
 			name: 'Gemini 2.0 Flash',
 			model: 'gemini-2.0-flash-exp',
-			project: undefined,
-			location: undefined,
-			toolCalls: true,
+			baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+			apiKey: undefined,
 		},
 	};
 
@@ -463,19 +463,20 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 		super(_config);
 		this.model = createGoogleGenerativeAI({
 			apiKey: this._config.apiKey,
+			baseURL: this._config.baseUrl,
 		})(this._config.model);
 	}
 }
 
 
 export const languageModels = [
+	AWSLanguageModel,
 	AnthropicLanguageModel,
 	AzureLanguageModel,
-	AWSLanguageModel,
+	GoogleLanguageModel,
 	MistralLanguageModel,
+	OllamaLanguageModel,
 	OpenAILanguageModel,
 	OpenRouterLanguageModel,
-	OllamaLanguageModel,
 	VertexLanguageModel,
-	GoogleLanguageModel
 ];
