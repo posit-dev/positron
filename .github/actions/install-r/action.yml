@@ -81,29 +81,28 @@ runs:
         # Download the tarball
         curl -fLO "$TAR_URL"
 
-        # Extract the tarball into our install directory
-        tar -xzf R-${R_VERSION}-${OS_IDENTIFIER}.tar.gz -C $BASE_DIR
+        # Extract the tarball into ~/scratch/R-4.4.1
+        tar -xzf R-${R_VERSION}-${OS_IDENTIFIER}.tar.gz -C $INSTALL_DIR --strip-components=1
 
-        # Check if an extra subdirectory was created during extraction
-        if [[ -d "$BASE_DIR/R-${R_VERSION}/lib/R" ]]; then
-            INSTALL_DIR="$BASE_DIR/R-${R_VERSION}"
-        fi
+        # Debug: Check the extracted contents
+        echo "Extracted directory structure:"
+        ls -R $INSTALL_DIR
 
         # Set R_HOME and PATH correctly
         export R_HOME="$INSTALL_DIR/lib/R"
         export PATH="$INSTALL_DIR/bin:$PATH"
 
         # Ensure R is executable
-        chmod +x $INSTALL_DIR/bin/R
-
-        # Verify R installation
-        if [[ -x "$INSTALL_DIR/bin/R" ]]; then
-            echo "R successfully extracted."
-            R --version
+        if [[ -f "$INSTALL_DIR/bin/R" ]]; then
+            chmod +x $INSTALL_DIR/bin/R
         else
             echo "Error: R binary not found in extracted directory."
             exit 1
         fi
+
+        # Verify R installation
+        echo "R successfully extracted."
+        R --version
 
         echo "Custom R installed at $INSTALL_DIR"
 
