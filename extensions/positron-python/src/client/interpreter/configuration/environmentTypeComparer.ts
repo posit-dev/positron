@@ -90,10 +90,10 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
         }
 
         // --- Start Positron ---
-        if (a.path && getUserDefaultInterpreter() === a.path) {
+        if (a.path && arePathsSame(getUserDefaultInterpreter(), a.path)) {
             return -1;
         }
-        if (b.path && getUserDefaultInterpreter() === b.path) {
+        if (b.path && arePathsSame(getUserDefaultInterpreter(), b.path)) {
             return 1;
         }
         // --- End Positron ---

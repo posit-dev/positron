@@ -171,17 +171,25 @@ export async function recommendInterpreter(
     const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
     const suggestions = interpreterSelector.getSuggestions(workspaceUri);
 
-    const recommendedInterpreter =
-        // if there there is no workspace and a default interpreter is set, use that
-        (!workspaceUri && getUserDefaultInterpreter()
-            ? await interpreterService.getInterpreterDetails(getUserDefaultInterpreter())
-            : undefined) ||
-        // otherwise, try to get recommended interpreter
-        interpreterSelector.getRecommendedSuggestion(suggestions, workspaceUri)?.interpreter ||
-        // if there is still no interpreter, just use the active one
-        (await interpreterService.getActiveInterpreter(workspaceUri));
+    let recommendedInterpreter: PythonEnvironment | undefined;
 
-    traceInfo(`pythonRuntimeDiscoverer: recommended interpreter: ${recommendedInterpreter?.path}`);
+    // if there is no workspace and a default interpreter is set, use that
+    if (!workspaceUri && getUserDefaultInterpreter()) {
+        recommendedInterpreter = await interpreterService.getInterpreterDetails(getUserDefaultInterpreter());
+        traceInfo(`pythonRuntimeDiscoverer: using default interpreter ${recommendedInterpreter?.path}`);
+    }
+
+    // if no interpreter found yet, try to get recommended interpreter
+    if (!recommendedInterpreter) {
+        recommendedInterpreter = interpreterSelector.getRecommendedSuggestion(suggestions, workspaceUri)?.interpreter;
+        traceInfo(`pythonRuntimeDiscoverer: using recommended suggestion ${recommendedInterpreter?.path}`);
+    }
+
+    // if still no interpreter, use the active one
+    if (!recommendedInterpreter) {
+        recommendedInterpreter = await interpreterService.getActiveInterpreter(workspaceUri);
+        traceInfo(`pythonRuntimeDiscoverer: falling back to active interpreter ${recommendedInterpreter?.path}`);
+    }
 
     return recommendedInterpreter;
 }
