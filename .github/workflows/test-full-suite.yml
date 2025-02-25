@@ -1,13 +1,11 @@
 name: "Test: Full Suite"
 
 on:
-  schedule:
-    - cron: "0 4 * * 1-5" # Run at 4 AM UTC on weekdays
 
   workflow_dispatch:
       inputs:
         run_e2e_linux:
-          description: "E2E Tests / Electron (Linux)"
+          description: "E2E Tests / Electron (Ubuntu)"
           required: false
           default: true
           type: boolean
@@ -17,7 +15,7 @@ on:
           default: true
           type: boolean
         run_e2e_browser:
-          description: "E2E Tests / Chromium (Linux)"
+          description: "E2E Tests / Chromium (Ubuntu)"
           required: false
           default: true
           type: boolean
@@ -49,13 +47,13 @@ jobs:
   e2e-electron:
     name: e2e
     if: ${{ github.event_name == 'schedule' || inputs.run_e2e_linux  }}
-    uses: ./.github/workflows/test-e2e-linux.yml
+    uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
       grep: ""
       project: "e2e-electron"
-      display_name: "electron (linux)"
-      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/linux' || 'electron/linux' }}
+      display_name: "electron (ubuntu)"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/ubuntu' || 'electron/ubuntu' }}
       report_testrail: false
       install_undetectable_interpreters: true
 
@@ -73,13 +71,13 @@ jobs:
   e2e-browser:
     name: e2e
     if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser }}
-    uses: ./.github/workflows/test-e2e-linux.yml
+    uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
       grep: ""
       project: "e2e-browser"
-      display_name: "browser (linux)"
-      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,browser/linux' || 'browser/linux' }}
+      display_name: "browser (ubuntu)"
+      currents_tags: ${{ github.event_name == 'schedule' && 'nightly,browser/ubuntu' || 'browser/ubuntu' }}
       report_testrail: false
       install_undetectable_interpreters: true
 
