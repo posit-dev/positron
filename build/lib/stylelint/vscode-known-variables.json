@@ -370,6 +370,7 @@
 		"--vscode-inlineEdit-originalBackground",
 		"--vscode-inlineEdit-originalChangedLineBackground",
 		"--vscode-inlineEdit-originalChangedTextBackground",
+		"--vscode-inlineEdit-acceptedBackground",
 		"--vscode-input-background",
 		"--vscode-input-border",
 		"--vscode-input-foreground",
@@ -1084,6 +1085,7 @@
 		"--test-bar-width",
 		"--widget-color",
 		"--text-link-decoration",
+		"--vscode-action-item-auto-timeout"
 		"--positronActionBar-background",
 		"--positronActionBar-border",
 		"--positronActionBar-height",
