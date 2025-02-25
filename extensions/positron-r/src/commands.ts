@@ -129,9 +129,16 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 
 		vscode.commands.registerCommand('r.packageTestExplorer', async () => {
 			vscode.commands.executeCommand('workbench.view.testing.focus');
+
+			// For when we need to wait for the test explorer to load:
 			onDidDiscoverTestFiles(event => {
 				vscode.commands.executeCommand('testing.runAll');
 			});
+
+			// For when the test explorer is already loaded:
+			if (context.workspaceState.get('testExplorerSetUp') === true) {
+				vscode.commands.executeCommand('testing.runAll');
+			}
 		}),
 
 		vscode.commands.registerCommand('r.useTestthat', async () => {

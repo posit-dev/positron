@@ -22,6 +22,7 @@ export const onDidDiscoverTestFiles = _onDidDiscoverTestFiles.event;
 
 
 export async function setupTestExplorer(context: vscode.ExtensionContext) {
+	context.workspaceState.update('testExplorerSetUp', false);
 	if (testExplorerEnabled()) {
 		return discoverTests(context);
 	}
@@ -96,6 +97,7 @@ export async function discoverTests(context: vscode.ExtensionContext) {
 				context.subscriptions.push(watcher);
 			}
 			_onDidDiscoverTestFiles.fire();
+			context.workspaceState.update('testExplorerSetUp', true);
 			LOGGER.info('Testthat file watchers are in place.');
 		}
 	};
