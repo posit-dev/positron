@@ -9,7 +9,6 @@ import { IncomingMessage } from 'http';
 import * as https from 'https';
 import * as os from 'os';
 import * as path from 'path';
-import { URL } from 'url';
 import { defaultCachePath } from '@vscode/test-electron/out/download';
 import { TestOptions } from '@vscode/test-electron/out/runTest';
 import { runTests as vscodeRunTests } from '@vscode/test-electron';
@@ -271,20 +270,20 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     }
 
     const fileName = `Positron-${version}${suffix}`;
-    const downloadUrl = URL.parse(`https://cdn.posit.co/positron/prereleases/mac/universal/${fileName}`);
-    if (!downloadUrl) {
-        throw new Error(`Failed to parse URL: ${downloadUrl}`);
+    const url = new URL(`https://cdn.posit.co/positron/prereleases/mac/universal/${fileName}`);
+    if (!url) {
+        throw new Error(`Failed to parse URL: ${url}`);
     }
 
-    console.log(`Downloading Positron for ${platform} from ${downloadUrl.href}`);
+    console.log(`Downloading Positron for ${platform} from ${url.href}`);
     // Reset the Accept header to download the asset.
     headers.Accept = 'application/octet-stream';
     const dlRequestOptions: https.RequestOptions = {
         headers,
         method: 'GET',
-        protocol: downloadUrl.protocol,
-        hostname: downloadUrl.hostname,
-        path: downloadUrl.pathname,
+        protocol: url.protocol,
+        hostname: url.hostname,
+        path: url.pathname,
     };
 
     let dlResponse = await httpsGetAsync(dlRequestOptions);
