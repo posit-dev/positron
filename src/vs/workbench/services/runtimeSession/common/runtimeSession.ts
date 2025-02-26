@@ -198,6 +198,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			if (e.scope === StorageScope.APPLICATION && this._disconnectedSessions.size > 0) {
 				this._logService.debug(`Application storage scope changed; ` +
 					`discarding ${this._disconnectedSessions.size} disconnected sessions`);
+
+				// TODO @samclark2015: Trash console instances as well.
+				// What is app storage scope and how can I test it?
+
+				// Clear map and fire deletion events to update
+				// console session service consumers.
+				this._disconnectedSessions.forEach(value => {
+					this._onDidDeleteRuntimeEmitter.fire(value.sessionId);
+				});
 				this._disconnectedSessions.clear();
 			}
 		}));
@@ -698,12 +707,20 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	async deleteSession(sessionId: string): Promise<void> {
+		if (this._disconnectedSessions.has(sessionId)) {
+			throw new Error(`Cannot delete session because it is disconnected.`);
+		}
+
 		const session = this.getSession(sessionId);
 		if (!session) {
-			throw new Error(`No session with ID '${sessionId}' was found.`);
+			throw new Error(`Cannot delete session because its runtime was not found.`);
 		}
-		await session.shutdown(RuntimeExitReason.Shutdown);
-		if (this._activeSessionsBySessionId.delete(sessionId)) {
+
+		await this.shutdownRuntimeSession(session, RuntimeExitReason.Shutdown);
+		if (
+			this._activeSessionsBySessionId.delete(sessionId) &&
+			this._consoleSessionsByLanguageId.delete(session.runtimeMetadata.languageId)
+		) {
 			// Dispose of the session.
 			session.dispose();
 

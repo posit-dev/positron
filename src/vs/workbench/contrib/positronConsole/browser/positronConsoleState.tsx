@@ -26,7 +26,6 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { useStateRef } from '../../../../base/browser/ui/react/useStateRef.js';
 
 /**
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron
@@ -69,7 +68,7 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 	const [positronConsoleInstances, setPositronConsoleInstances] = useState<IPositronConsoleInstance[]>(
 		services.positronConsoleService.positronConsoleInstances
 	);
-	const [activePositronConsoleInstance, setActivePositronConsoleInstance, activePositronConsoleInstanceRef] = useStateRef<IPositronConsoleInstance | undefined>(
+	const [activePositronConsoleInstance, setActivePositronConsoleInstance] = useState<IPositronConsoleInstance | undefined>(
 		services.positronConsoleService.activePositronConsoleInstance
 	);
 
@@ -96,23 +95,6 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 				const idx = instances.indexOf(positronConsoleInstance);
 				if (idx !== -1) {
 					instances.splice(idx, 1);
-					// Set the active instance to the next available one, if available.
-					if (instances.length === 0) {
-						services.runtimeSessionService.foregroundSession = undefined;
-					} else if (positronConsoleInstance === activePositronConsoleInstanceRef.current) {
-						let session;
-						if (idx === 0) {
-							session =
-								services.runtimeSessionService.getSession(instances[0].session.sessionId);
-						} else {
-							session =
-								services.runtimeSessionService.getSession(instances[idx - 1].session.sessionId);
-						}
-						if (session) {
-							// Set the session as the foreground session
-							services.runtimeSessionService.foregroundSession = session;
-						}
-					}
 				}
 				return instances;
 			});
@@ -120,7 +102,7 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, [activePositronConsoleInstanceRef, services.positronConsoleService, services.runtimeSessionService, setActivePositronConsoleInstance]);
+	}, [services.positronConsoleService, services.runtimeSessionService, setActivePositronConsoleInstance]);
 
 	// Return the Positron console state.
 	return {
