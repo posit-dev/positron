@@ -527,24 +527,31 @@ function patchWin32DependenciesTask(cwd) {
 		const packageJson = JSON.parse(await fs.promises.readFile(path.join(cwd, 'resources', 'app', 'package.json'), 'utf8'));
 		const product = JSON.parse(await fs.promises.readFile(path.join(cwd, 'resources', 'app', 'product.json'), 'utf8'));
 		const baseVersion = packageJson.version.replace(/-.*$/, '');
+		// --- Start Positron ---
+		const executablePath = `${product.nameShort}.exe`;
+		const fileMetadata = {
+			'file-version': baseVersion,
+			'version-string': {
+				'CompanyName': 'Microsoft Corporation',
+				'FileDescription': product.nameLong,
+				'FileVersion': packageJson.version,
+				'InternalName': executablePath,
+				'LegalCopyright': 'Copyright (C) 2022 Microsoft. All rights reserved',
+				'OriginalFilename': executablePath,
+				'ProductName': product.nameLong,
+				'ProductVersion': packageJson.version,
+			}
+		};
+		fancyLog('rcedit: ' + executablePath);
+
+		await rcedit(path.join(cwd, executablePath), fileMetadata);
 
 		await Promise.all(deps.map(async dep => {
 			const basename = path.basename(dep);
-			// --- Start Positron ---
+			fancyLog('rcedit: ' + dep);
 			try {
-				await rcedit(path.join(cwd, dep), {
-					'file-version': baseVersion,
-					'version-string': {
-						'CompanyName': 'Microsoft Corporation',
-						'FileDescription': product.nameLong,
-						'FileVersion': packageJson.version,
-						'InternalName': basename,
-						'LegalCopyright': 'Copyright (C) 2022 Microsoft. All rights reserved',
-						'OriginalFilename': basename,
-						'ProductName': product.nameLong,
-						'ProductVersion': packageJson.version,
-					}
-				});
+				fileMetadata['version-string'].InternalName = basename;
+				await rcedit(path.join(cwd, dep), fileMetadata);
 			} catch (e) {
 				fancyLog('Skipping rcedit for ' + dep + ': ' + e);
 			}
