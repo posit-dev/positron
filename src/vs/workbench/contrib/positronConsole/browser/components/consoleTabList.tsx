@@ -13,6 +13,7 @@ import React, { useState } from 'react';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { ConsoleInstanceState } from './consoleInstanceState.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService';
+import { localize } from '../../../../../nls';
 
 
 interface ConsoleTabProps {
@@ -25,7 +26,6 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 	const [deleteDisabled, setDeleteDisabled] = useState(false);
 
 	const handleTabDeleteClick = async (evt: React.MouseEvent<HTMLButtonElement, MouseEvent>, consoleInstance: IPositronConsoleInstance) => {
-		// evt.preventDefault();
 		evt.stopPropagation();
 
 		// Prevent the button from being clicked multiple times
@@ -33,7 +33,9 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 		try {
 			await positronConsoleContext.runtimeSessionService.deleteSession(consoleInstance.session.sessionId);
 		} catch (error) {
-			positronConsoleContext.notificationService.error(`Failed to delete session: ${error}`);
+			positronConsoleContext.notificationService.error(
+				localize('positronDeleteSessionError', "Failed to delete session: {0}", error)
+			);
 		} finally {
 			// Re-enable the button when done deleting (should not exist anymore)
 			setDeleteDisabled(false);
