@@ -382,7 +382,7 @@ export class Sessions {
 			await expect(this.metadataDialog.getByText(new RegExp(`Session ID: ${data.language.toLowerCase()}-[a-zA-Z0-9]+`))).toBeVisible();
 			await expect(this.metadataDialog.getByText(`State: ${data.state}`)).toBeVisible();
 			await expect(this.metadataDialog.getByText(/^Path: [\/~a-zA-Z0-9.]+/)).toBeVisible();
-			await expect(this.metadataDialog.getByText(/^Source: (Pyenv|System)$/)).toBeVisible();
+			await expect(this.metadataDialog.getByText(/^Source: (Pyenv|System|Global)$/)).toBeVisible();
 			await this.page.keyboard.press('Escape');
 
 			// Verify Language Console

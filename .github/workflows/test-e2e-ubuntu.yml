@@ -144,7 +144,7 @@ jobs:
 
       - name: Run Playwright Tests (Electron)
         env:
-          POSITRON_PY_VER_SEL: 3.12.3
+          POSITRON_PY_VER_SEL: 3.12.6
           POSITRON_R_VER_SEL: 4.4.0
           POSITRON_PY_ALT_VER_SEL: "3.13.0 (Pyenv)"
           POSITRON_R_ALT_VER_SEL: 4.4.2
