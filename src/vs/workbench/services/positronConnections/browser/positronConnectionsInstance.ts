@@ -75,7 +75,13 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 			try {
 				// Failing to acquire the icon is fine
 				// We just log the error
-				object.metadata.icon = FileAccess.uriToBrowserUri(URI.file(await object.getIcon())).toString();
+				let icon: string | undefined = await object.getIcon();
+				if (!icon || icon === '') {
+					icon = undefined;
+				} else {
+					icon = FileAccess.uriToBrowserUri(URI.file(icon)).toString();
+				}
+				object.metadata.icon = icon;
 			} catch (err: any) {
 				service.log(`Failed to get icon for ${object.id}: ${err.message}`);
 			}
@@ -461,7 +467,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 
 	private async getIcon() {
 		const icon = await this.instance.client.getIcon(this.path);
-		if (icon === '') {
+		if (!icon || icon === '') {
 			return undefined;
 		} else {
 			return FileAccess.uriToBrowserUri(URI.file(icon)).toString();
