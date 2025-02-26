@@ -467,7 +467,6 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		let positronConsoleInstance: PositronConsoleInstance | undefined;
 		if (!multiSessionsEnabled) {
 			positronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(languageId);
-
 		} else {
 			if (this._activePositronConsoleInstance?.session.runtimeMetadata.languageId === languageId) {
 				// Return the active console instance for the language if there is one
