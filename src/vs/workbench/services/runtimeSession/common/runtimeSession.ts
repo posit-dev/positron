@@ -706,29 +706,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 	}
 
-	async deleteSession(sessionId: string): Promise<void> {
-		if (this._disconnectedSessions.has(sessionId)) {
-			throw new Error(`Cannot delete session because it is disconnected.`);
-		}
-
-		const session = this.getSession(sessionId);
-		if (!session) {
-			throw new Error(`Cannot delete session because its runtime was not found.`);
-		}
-
-		await this.shutdownRuntimeSession(session, RuntimeExitReason.Shutdown);
-		if (
-			this._activeSessionsBySessionId.delete(sessionId) &&
-			this._consoleSessionsByLanguageId.delete(session.runtimeMetadata.languageId)
-		) {
-			// Dispose of the session.
-			session.dispose();
-
-			// Fire the onDidDeleteRuntime event only if the session was actually deleted.
-			this._onDidDeleteRuntimeEmitter.fire(sessionId);
-		}
-	}
-
 	/**
 	 * Internal method to restart a runtime session.
 	 *
@@ -830,6 +807,46 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 
 		return shutdownPromise.p;
+	}
+
+	/**
+	 * Shutdown a runtime session if active, and delete it.
+	 * Cleans up the session and removes it from the active sessions list.
+	 * @param sessionId The session ID of the runtime to delete.
+	 */
+	async deleteSession(sessionId: string): Promise<void> {
+		if (this._disconnectedSessions.has(sessionId)) {
+			throw new Error(`Cannot delete session because it is disconnected.`);
+		}
+
+		const session = this.getSession(sessionId);
+		if (!session) {
+			throw new Error(`Cannot delete session because its runtime was not found.`);
+		}
+
+		const runtimeState = session.getRuntimeState();
+		if (runtimeState !== RuntimeState.Exited) {
+			if (runtimeState === RuntimeState.Busy ||
+				runtimeState === RuntimeState.Idle ||
+				runtimeState === RuntimeState.Ready) {
+				// If the runtime is in a state where it can be shut down, do so.
+				await this.shutdownRuntimeSession(session, RuntimeExitReason.Shutdown);
+			} else {
+				// Otherwise throw error.
+				throw new Error(`Cannot delete session because it is in state '${runtimeState}'`);
+			}
+		}
+
+		if (this._activeSessionsBySessionId.delete(sessionId)) {
+			// Clean up if necessary (should already by done once the runtime is exited).
+			this._consoleSessionsByLanguageId.delete(session.runtimeMetadata.languageId);
+
+			// Dispose of the session.
+			session.dispose();
+
+			// Fire the onDidDeleteRuntime event only if the session was actually deleted.
+			this._onDidDeleteRuntimeEmitter.fire(sessionId);
+		}
 	}
 
 	/**
