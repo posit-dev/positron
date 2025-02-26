@@ -117,6 +117,7 @@ class RPostgreSQLDriver extends RDriver implements positron.ConnectionsDriver {
 
 	constructor(context: vscode.ExtensionContext) {
 		super(['RPostgres', 'DBI', 'connections']);
+		// See the top-level ThirdPartyNotices.txt file for attribution and license details.
 		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'postgre.svg');
 		const iconData = readFileSync(iconPath, 'base64');
 		this.metadata.base64EncodedIconSvg = iconData;
@@ -199,6 +200,7 @@ class RSQLiteDriver extends RDriver implements positron.ConnectionsDriver {
 
 	constructor(context: vscode.ExtensionContext) {
 		super(['RSQLite', 'DBI', 'connections']);
+		// See the top-level ThirdPartyNotices.txt file for attribution and license details.
 		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'sqlite.svg');
 		const iconData = readFileSync(iconPath, 'base64');
 		this.metadata.base64EncodedIconSvg = iconData;
@@ -248,6 +250,7 @@ connections::connection_view(con)
 class RSparkDriver extends RDriver implements positron.ConnectionsDriver {
 	constructor(context: vscode.ExtensionContext) {
 		super(['sparklyr']);
+		// See the top-level ThirdPartyNotices.txt file for attribution and license details.
 		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'spark.svg');
 		const iconData = readFileSync(iconPath, 'base64');
 		this.metadata.base64EncodedIconSvg = iconData;
@@ -318,6 +321,7 @@ class PythonSQLiteDriver extends PythonDriver implements positron.ConnectionsDri
 
 	constructor(context: vscode.ExtensionContext) {
 		super();
+		// See the top-level ThirdPartyNotices.txt file for attribution and license details.
 		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'sqlite.svg');
 		const iconData = readFileSync(iconPath, 'base64');
 		this.metadata.base64EncodedIconSvg = iconData;
@@ -357,6 +361,7 @@ class PythonPostgreSQLDriver extends PythonDriver implements positron.Connection
 
 	constructor(context: vscode.ExtensionContext) {
 		super();
+		// See the top-level ThirdPartyNotices.txt file for attribution and license details.
 		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'postgre.svg');
 		const iconData = readFileSync(iconPath, 'base64');
 		this.metadata.base64EncodedIconSvg = iconData;
