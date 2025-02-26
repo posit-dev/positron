@@ -141,7 +141,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	/**
 	 * A map of the Positron console instances by runtime ID.
 	 */
-	private readonly _positronConsoleInstancesByRuntimeId = new Map<string, PositronConsoleInstance>();
+	private readonly _positronConsoleInstancesByRuntimeId = new Map<string, PositronConsoleInstance[]>();
 
 	/**
 	 * A map of the Positron console instances by session ID.
@@ -269,9 +269,22 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 					this.startPositronConsoleInstance(e.session, attachMode, e.activate);
 				}
 			} else {
-				// Reuse an instance for the same runtime if we have one
-				const positronConsoleInstance = this._positronConsoleInstancesByRuntimeId.get(e.session.runtimeMetadata.runtimeId);
-				if (positronConsoleInstance && positronConsoleInstance.state === PositronConsoleState.Exited) {
+				/**
+				 * Reuse an instance for the same runtime if we have one.
+				 *
+				 * NOTE: This logic for re-using a console instance has issues in the scenario where there
+				 * are multiple console sessions which have been shutdown/disconnected.
+				 *
+				 * If a user attempts to start up a session for a specific console instance there is no gaurantee
+				 * the console instance we attach the session to is the one used for the dead session.
+				 *
+				 * TODO: @dhruvisompura
+				 * Add a separate listener to handle this power-cycle scenario that returns the old session id
+				 * for the console instance we want to use. This allows us to find the console instance that needs to be replaced.
+				 */
+				const positronConsoleInstances = this._positronConsoleInstancesByRuntimeId.get(e.session.runtimeMetadata.runtimeId);
+				const positronConsoleInstance = positronConsoleInstances?.find(console => console.state === PositronConsoleState.Exited);
+				if (positronConsoleInstance) {
 					this._positronConsoleInstancesBySessionId.delete(positronConsoleInstance.session.sessionId);
 					positronConsoleInstance.setRuntimeSession(e.session, attachMode);
 					this._positronConsoleInstancesBySessionId.set(e.session.sessionId, positronConsoleInstance);
@@ -527,9 +540,12 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			);
 		} else {
 			// Add the Positron console instance.
+			const positronConsoleInstancesForRuntime =
+				this._positronConsoleInstancesByRuntimeId.get(session.runtimeMetadata.runtimeId) || [];
+			positronConsoleInstancesForRuntime.push(positronConsoleInstance);
 			this._positronConsoleInstancesByRuntimeId.set(
 				session.runtimeMetadata.runtimeId,
-				positronConsoleInstance
+				positronConsoleInstancesForRuntime
 			);
 		}
 		this._positronConsoleInstancesBySessionId.set(
