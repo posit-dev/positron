@@ -14,8 +14,7 @@ test.use({
 // to the installed python path
 
 // Re-add WEB tag when https://github.com/posit-dev/positron/issues/6397 is fixed
-// Skipping until https://github.com/posit-dev/ark/pull/713 is merged
-test.describe.skip('Reticulate', {
+test.describe('Reticulate', {
 	tag: [tags.RETICULATE, tags.WEB],
 	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6397' }]
 }, () => {
