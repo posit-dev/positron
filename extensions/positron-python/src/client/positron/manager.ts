@@ -15,7 +15,7 @@ import { Event, EventEmitter } from 'vscode';
 import { inject, injectable } from 'inversify';
 import * as fs from '../common/platform/fs-paths';
 import { IServiceContainer } from '../ioc/types';
-import { pythonRuntimeDiscoverer } from './discoverer';
+import { pythonRuntimeDiscoverer, recommendInterpreter } from './discoverer';
 import { IInterpreterService } from '../interpreter/contracts';
 import { traceError, traceInfo } from '../logging';
 import { IConfigurationService, IDisposable } from '../common/types';
@@ -99,8 +99,12 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
      * Recommend a Python language runtime based on the workspace.
      */
     async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
-        // TODO: This is where we could recommend a runtime based on the
-        // workspace, e.g. if it contains a virtualenv
+        const recommended = await recommendInterpreter(this.serviceContainer);
+        if (recommended) {
+            traceInfo(`Recommended interpreter found: ${recommended}`);
+            return createPythonRuntimeMetadata(recommended, this.serviceContainer, true);
+        }
+        traceInfo(`No recommended interpreter found.`);
         return undefined;
     }
 
