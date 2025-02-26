@@ -24,7 +24,7 @@ runs:
       shell: bash
       run: |
         curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-        uv pip install --system -r requirements.txt -v
+        uv pip install --system -r requirements.txt
         echo "Checking installed packages..."
         python -m pip list
 
