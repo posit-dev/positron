@@ -88,6 +88,11 @@
         "shortTitle": "%r.menu.packageTest.title%"
       },
       {
+        "command": "r.packageTestExplorer",
+        "category": "R",
+        "title": "%r.command.packageTestExplorer.title%"
+      },
+      {
         "command": "r.useTestthat",
         "category": "R",
         "title": "%r.command.useTestthat.title%"
@@ -415,7 +420,7 @@
         "when": "isRPackage"
       },
       {
-        "command": "r.packageTest",
+        "command": "r.packageTestExplorer",
         "key": "ctrl+shift+t",
         "mac": "cmd+shift+t",
         "when": "isRPackage"
@@ -518,6 +523,11 @@
         {
           "category": "R",
           "command": "r.packageTest",
+          "when": "isRPackage"
+        },
+        {
+          "category": "R",
+          "command": "r.packageTestExplorer",
           "when": "isRPackage"
         },
         {
