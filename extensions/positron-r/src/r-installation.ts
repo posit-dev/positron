@@ -304,9 +304,9 @@ function getRHomePathWindows(binpath: string): string | undefined {
  */
 function getUserExcludedInstallations(): string[] {
 	const config = vscode.workspace.getConfiguration('positron.r');
-	const customExcludes = config.get<string[]>('customExcludes') ?? [];
-	if (customExcludes.length > 0) {
-		const excludedPaths = customExcludes
+	const interpretersExclude = config.get<string[]>('interpreters.exclude') ?? [];
+	if (interpretersExclude.length > 0) {
+		const excludedPaths = interpretersExclude
 			.map((item) => untildify(item))
 			.filter((item) => {
 				if (path.isAbsolute(item)) {
