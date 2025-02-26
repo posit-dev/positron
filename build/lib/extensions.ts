@@ -257,7 +257,9 @@ const baseHeaders = {
 	'X-Market-User-Id': '291C1CD0-051A-4123-9B4B-30D60EF52EE2',
 };
 
-export function fromMarketplace(serviceUrl: string, { name: extensionName, version, sha256, metadata }: IExtensionDefinition): Stream {
+// --- Start Positron ---
+export function fromMarketplace(serviceUrl: string, { name: extensionName, version, sha256, metadata }: IExtensionDefinition, bootstrap: boolean = false): Stream {
+	// --- End Positron ---
 	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
 
 	const [publisher, name] = extensionName.split('.');
@@ -290,20 +292,33 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 
 	const packageJsonFilter = filter('package.json', { restore: true });
 
-	return fetchUrls('', {
-		base: url,
-		nodeFetchOptions: {
-			headers: baseHeaders
-		},
-		checksumSha256: sha256
-	})
-		.pipe(vzip.src())
-		.pipe(filter('extension/**'))
-		.pipe(rename(p => p.dirname = p.dirname!.replace(/^extension\/?/, '')))
-		.pipe(packageJsonFilter)
-		.pipe(buffer())
-		.pipe(json({ __metadata: metadata }))
-		.pipe(packageJsonFilter.restore);
+	// --- Start Positron ---
+	if (bootstrap) {
+		return fetchUrls('', {
+			base: url,
+			nodeFetchOptions: {
+				headers: baseHeaders
+			},
+			checksumSha256: sha256
+		})
+			.pipe(buffer());
+	} else {
+		return fetchUrls('', {
+			base: url,
+			nodeFetchOptions: {
+				headers: baseHeaders
+			},
+			checksumSha256: sha256
+		})
+			.pipe(vzip.src())
+			.pipe(filter('extension/**'))
+			.pipe(rename(p => p.dirname = p.dirname!.replace(/^extension\/?/, '')))
+			.pipe(packageJsonFilter)
+			.pipe(buffer())
+			.pipe(json({ __metadata: metadata }))
+			.pipe(packageJsonFilter.restore);
+	}
+	// --- End Positron ---
 }
 
 // --- Start PWB: Bundle PWB extension ---
@@ -388,6 +403,7 @@ const marketplaceWebExtensionsExclude = new Set([
 
 const productJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../../product.json'), 'utf8'));
 const builtInExtensions: IExtensionDefinition[] = productJson.builtInExtensions || [];
+const bootstrapExtensions: IExtensionDefinition[] = productJson.bootstrapExtensions || [];
 const webBuiltInExtensions: IExtensionDefinition[] = productJson.webBuiltInExtensions || [];
 
 type ExtensionKind = 'ui' | 'workspace' | 'web';
@@ -555,6 +571,18 @@ export function packageMarketplaceExtensionsStream(forWeb: boolean): Stream {
 	return (
 		marketplaceExtensionsStream
 			.pipe(util2.setExecutableBit(['**/*.sh']))
+	);
+}
+
+export function packageBootstrapExtensionsStream(): Stream {
+	return es.merge(
+		...bootstrapExtensions
+			.map(extension => {
+				const src = getExtensionStream(extension, true).pipe(rename(p => {
+					p.dirname = `extensions/bootstrap`;
+				}));
+				return src;
+			})
 	);
 }
 

@@ -320,7 +320,19 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		const extensionPaths = [...localWorkspaceExtensions, ...marketplaceExtensions]
 			.map(name => `.build/extensions/${name}/**`);
 
-		const extensions = gulp.src(extensionPaths, { base: '.build', dot: true });
+		// --- Start Positron ---
+
+		const bootstrapExtensions = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'product.json'), 'utf8')).bootstrapExtensions
+			.filter(entry => !entry.platforms || new Set(entry.platforms).has(platform))
+			.filter(entry => !entry.type || entry.type === type)
+			.map(entry => entry.name);
+		const bootstrapExtensionPaths = [...bootstrapExtensions]
+			.map(name => `.build/extensions/bootstrap/${name}*.vsix`);
+
+		const extensions = gulp.src([...extensionPaths, ...bootstrapExtensionPaths], { base: '.build', dot: true });
+
+		// --- End Positron ---
+
 		const extensionsCommonDependencies = gulp.src('.build/extensions/node_modules/**', { base: '.build', dot: true });
 		const sources = es.merge(src, extensions, extensionsCommonDependencies)
 			.pipe(filter(['**', '!**/*.js.map'], { dot: true }));

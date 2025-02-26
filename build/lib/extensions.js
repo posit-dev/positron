@@ -11,6 +11,7 @@ exports.packageNonNativeLocalExtensionsStream = packageNonNativeLocalExtensionsS
 exports.packageNativeLocalExtensionsStream = packageNativeLocalExtensionsStream;
 exports.packageAllLocalExtensionsStream = packageAllLocalExtensionsStream;
 exports.packageMarketplaceExtensionsStream = packageMarketplaceExtensionsStream;
+exports.packageBootstrapExtensionsStream = packageBootstrapExtensionsStream;
 exports.scanBuiltinExtensions = scanBuiltinExtensions;
 exports.translatePackageJSON = translatePackageJSON;
 exports.webpackExtensions = webpackExtensions;
@@ -234,7 +235,9 @@ const baseHeaders = {
     'User-Agent': userAgent,
     'X-Market-User-Id': '291C1CD0-051A-4123-9B4B-30D60EF52EE2',
 };
-function fromMarketplace(serviceUrl, { name: extensionName, version, sha256, metadata }) {
+// --- Start Positron ---
+function fromMarketplace(serviceUrl, { name: extensionName, version, sha256, metadata }, bootstrap = false) {
+    // --- End Positron ---
     const json = require('gulp-json-editor');
     const [publisher, name] = extensionName.split('.');
     // --- Start Positron ---
@@ -263,20 +266,34 @@ function fromMarketplace(serviceUrl, { name: extensionName, version, sha256, met
     // --- End Positron ---
     fancyLog('Downloading extension:', ansiColors.yellow(`${extensionName}@${version}`), '...');
     const packageJsonFilter = filter('package.json', { restore: true });
-    return (0, fetch_1.fetchUrls)('', {
-        base: url,
-        nodeFetchOptions: {
-            headers: baseHeaders
-        },
-        checksumSha256: sha256
-    })
-        .pipe(vzip.src())
-        .pipe(filter('extension/**'))
-        .pipe(rename(p => p.dirname = p.dirname.replace(/^extension\/?/, '')))
-        .pipe(packageJsonFilter)
-        .pipe(buffer())
-        .pipe(json({ __metadata: metadata }))
-        .pipe(packageJsonFilter.restore);
+    // --- Start Positron ---
+    if (bootstrap) {
+        return (0, fetch_1.fetchUrls)('', {
+            base: url,
+            nodeFetchOptions: {
+                headers: baseHeaders
+            },
+            checksumSha256: sha256
+        })
+            .pipe(buffer());
+    }
+    else {
+        return (0, fetch_1.fetchUrls)('', {
+            base: url,
+            nodeFetchOptions: {
+                headers: baseHeaders
+            },
+            checksumSha256: sha256
+        })
+            .pipe(vzip.src())
+            .pipe(filter('extension/**'))
+            .pipe(rename(p => p.dirname = p.dirname.replace(/^extension\/?/, '')))
+            .pipe(packageJsonFilter)
+            .pipe(buffer())
+            .pipe(json({ __metadata: metadata }))
+            .pipe(packageJsonFilter.restore);
+    }
+    // --- End Positron ---
 }
 // --- Start PWB: Bundle PWB extension ---
 function fromPositUrl({ name: extensionName, version, sha256, positUrl, metadata }) {
@@ -348,6 +365,7 @@ const marketplaceWebExtensionsExclude = new Set([
 ]);
 const productJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../../product.json'), 'utf8'));
 const builtInExtensions = productJson.builtInExtensions || [];
+const bootstrapExtensions = productJson.bootstrapExtensions || [];
 const webBuiltInExtensions = productJson.webBuiltInExtensions || [];
 /**
  * Loosely based on `getExtensionKind` from `src/vs/workbench/services/extensions/common/extensionManifestPropertiesService.ts`
@@ -479,6 +497,15 @@ function packageMarketplaceExtensionsStream(forWeb) {
     })));
     return (marketplaceExtensionsStream
         .pipe(util2.setExecutableBit(['**/*.sh'])));
+}
+function packageBootstrapExtensionsStream() {
+    return es.merge(...bootstrapExtensions
+        .map(extension => {
+        const src = (0, builtInExtensions_1.getExtensionStream)(extension, true).pipe(rename(p => {
+            p.dirname = `extensions/bootstrap`;
+        }));
+        return src;
+    }));
 }
 function scanBuiltinExtensions(extensionsRoot, exclude = []) {
     const scannedExtensions = [];

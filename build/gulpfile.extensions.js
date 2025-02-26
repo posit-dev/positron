@@ -300,12 +300,21 @@ exports.cleanExtensionsBuildTask = cleanExtensionsBuildTask;
  */
 const bundleMarketplaceExtensionsBuildTask = task.define('bundle-marketplace-extensions-build', () => ext.packageMarketplaceExtensionsStream(false).pipe(gulp.dest('.build')));
 
+// --- Start Positron ---
+
+const bundleBootstrapExtensionsBuildTask = task.define('bundle-bootstrap-extensions-build', () => ext.packageBootstrapExtensionsStream().pipe(gulp.dest('.build')));
+
+// --- End Positron ---
+
 /**
  * Compiles the non-native extensions for the build
  * @note this does not clean the directory ahead of it. See {@link cleanExtensionsBuildTask} for that.
  */
 const compileNonNativeExtensionsBuildTask = task.define('compile-non-native-extensions-build', task.series(
 	bundleMarketplaceExtensionsBuildTask,
+	// --- Start Positron ---
+	bundleBootstrapExtensionsBuildTask,
+	// --- End Positron ---
 	task.define('bundle-non-native-extensions-build', () => ext.packageNonNativeLocalExtensionsStream().pipe(gulp.dest('.build')))
 ));
 gulp.task(compileNonNativeExtensionsBuildTask);
@@ -326,6 +335,9 @@ exports.compileNativeExtensionsBuildTask = compileNativeExtensionsBuildTask;
 const compileAllExtensionsBuildTask = task.define('compile-extensions-build', task.series(
 	cleanExtensionsBuildTask,
 	bundleMarketplaceExtensionsBuildTask,
+	// --- Start Positron ---
+	bundleBootstrapExtensionsBuildTask,
+	// --- End Positron ---
 	task.define('bundle-extensions-build', () => ext.packageAllLocalExtensionsStream(false, false).pipe(gulp.dest('.build'))),
 	// --- Start Positron ---
 	copyExtensionBinariesTask
@@ -341,6 +353,9 @@ gulp.task(task.define('extensions-ci', task.series(compileNonNativeExtensionsBui
 const compileExtensionsBuildPullRequestTask = task.define('compile-extensions-build-pr', task.series(
 	cleanExtensionsBuildTask,
 	bundleMarketplaceExtensionsBuildTask,
+	// --- Start Positron ---
+	bundleBootstrapExtensionsBuildTask,
+	// --- End Positron ---
 	task.define('bundle-extensions-build-pr', () => ext.packageAllLocalExtensionsStream(false, true).pipe(gulp.dest('.build'))),
 ));
 gulp.task(compileExtensionsBuildPullRequestTask);

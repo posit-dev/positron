@@ -209,6 +209,18 @@
 			}
 		},
 		{
+			"name": "rstudio.rstudio-workbench",
+			"version": "1.5.28",
+			"positUrl": "https://cdn.posit.co/pwb-components/extension",
+			"type": "reh-web",
+			"sha256": "a1052e6cf884977b68883950360d29b394acdbdd2a84f0b17a7cc9887436918f",
+			"metadata": {
+				"publisherDisplayName": "Posit Software, PBC"
+			}
+		}
+	],
+	"bootstrapExtensions": [
+		{
 			"name": "quarto.quarto",
 			"version": "1.118.0",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
@@ -224,15 +236,18 @@
 			}
 		},
 		{
-			"name": "rstudio.rstudio-workbench",
-			"version": "1.5.28",
-			"positUrl": "https://cdn.posit.co/pwb-components/extension",
-			"type": "reh-web",
-			"sha256": "a1052e6cf884977b68883950360d29b394acdbdd2a84f0b17a7cc9887436918f",
+			"name": "posit.publisher",
+			"version": "1.8.0",
+			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
-				"publisherDisplayName": "Posit PBC"
-			}
+				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
+				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
+				"displayName": "Posit Publisher",
+				"multiPlatformServiceUrl": "https://open-vsx.org/api"
+			},
+			"publisherDisplayName": "Posit Software, PBC"
 		}
+
 	],
 	"extensionsGallery": {
 		"serviceUrl": "https://open-vsx.org/vscode/gallery",
