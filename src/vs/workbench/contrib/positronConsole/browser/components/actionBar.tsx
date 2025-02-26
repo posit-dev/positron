@@ -392,14 +392,16 @@ export const ActionBar = (props: ActionBarProps) => {
 						{interruptible &&
 							<ActionBarSeparator fadeIn={true} />
 						}
-						<ActionBarButton
-							align='right'
-							ariaLabel={canStart ? positronStartConsole : positronShutdownConsole}
-							disabled={!(canShutdown || canStart)}
-							iconId='positron-power-button-thin'
-							tooltip={canStart ? positronStartConsole : positronShutdownConsole}
-							onPressed={powerCycleConsoleHandler}
-						/>
+						{!multiSessionsEnabled &&
+							<ActionBarButton
+								align='right'
+								ariaLabel={canStart ? positronStartConsole : positronShutdownConsole}
+								disabled={!(canShutdown || canStart)}
+								iconId='positron-power-button-thin'
+								tooltip={canStart ? positronStartConsole : positronShutdownConsole}
+								onPressed={powerCycleConsoleHandler}
+							/>
+						}
 						<ActionBarButton
 							align='right'
 							ariaLabel={positronRestartConsole}

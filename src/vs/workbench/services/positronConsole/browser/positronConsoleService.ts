@@ -270,20 +270,32 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				}
 			} else {
 				/**
-				 * Reuse an instance for the same runtime if we have one.
+				 * Reuse an instance for the same runtime if we have one. This can happen when
+				 * - the extension host was disconnected and we have disconnected sessions that need to be
+				 * restored.
+				 * - A user initiated a shutdown for a console session and then started a session. A session
+				 * can be started again by (1) clicking the shutdown button again (known as "power-cycling")
+				 * or (2) creating a new session via another UI gesture.
 				 *
-				 * NOTE: This logic for re-using a console instance has issues in the scenario where there
-				 * are multiple console sessions which have been shutdown/disconnected.
-				 *
-				 * If a user attempts to start up a session for a specific console instance there is no gaurantee
-				 * the console instance we attach the session to is the one used for the dead session.
+				 * NOTE: This logic for re-using a console instance has issues!
+				 * - If a user attempts to start up a session for a specific console instance there is no
+				 * gaurantee the session will be attached to that console instance.
+				 * - If a user attempts to create a new console session while there is a console instance
+				 * whose session has exited, that console instance will be repurposed instead of creating
+				 * a new one. This is problematic because the user's intention was to creat a new console
+				 * instance for the new session.
 				 *
 				 * TODO: @dhruvisompura
-				 * Add a separate listener to handle this power-cycle scenario that returns the old session id
-				 * for the console instance we want to use. This allows us to find the console instance that needs to be replaced.
+				 * Track the different user gestures that can create a session and use that to determine
+				 * the user's intention.
+				 * - If the user is "power-cycling" we can include the old session id to identify the
+				 * console instance for that session id we want to replace
 				 */
 				const positronConsoleInstances = this._positronConsoleInstancesByRuntimeId.get(e.session.runtimeMetadata.runtimeId);
-				const positronConsoleInstance = positronConsoleInstances?.find(console => console.state === PositronConsoleState.Exited);
+
+				const positronConsoleInstance = positronConsoleInstances?.find(
+					console => console.session.sessionId === e.session.sessionId);
+
 				if (positronConsoleInstance) {
 					this._positronConsoleInstancesBySessionId.delete(positronConsoleInstance.session.sessionId);
 					positronConsoleInstance.setRuntimeSession(e.session, attachMode);
