@@ -428,12 +428,18 @@ export class TreeSitterParseResult implements IDisposable, ITreeSitterParseResul
 			// So long as this isn't the initial parse, even if the model changes and edits are applied, the tree parsing will continue correctly after the await.
 			await new Promise<void>(resolve => setTimeout0(resolve));
 
-			if (model.isDisposed() || this.isDisposed) {
-				return;
-			}
-		} while (!tree && !this._newEdits); // exit if there a new edits, as anhy parsing done while there are new edits is throw away work
-		this.sendParseTimeTelemetry(parseType, language, time, passes);
-		return tree;
+		} while (!model.isDisposed() && !this.isDisposed && !newTree && inProgressVersion === model.getVersionId());
+		// --- Start Positron ---
+		// Disable telemetry (which leaks into tests and causes failures) by
+		// effectively surrounding it with `if false`; we don't just comment it
+		// out because that results in a TS error due to the unused method.
+		//
+		// this.sendParseTimeTelemetry(parseType, language, time, passes);
+		if (!model) {
+			this.sendParseTimeTelemetry(parseType, language, time, passes);
+		}
+		// --- End Positron ---
+		return (newTree && (inProgressVersion === model.getVersionId())) ? newTree : undefined;
 	}
 
 	private _parseCallback(textModel: ITextModel, index: number): string | null {

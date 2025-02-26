@@ -3068,22 +3068,23 @@ class LayoutStateModel extends Disposable {
 
 		// Set dynamic defaults: part sizing and side bar visibility
 		LayoutStateKeys.PANEL_POSITION.defaultValue = positionFromString(this.configurationService.getValue(WorkbenchLayoutSettings.PANEL_POSITION) ?? 'bottom');
-		LayoutStateKeys.GRID_SIZE.defaultValue = { height: workbenchDimensions.height, width: workbenchDimensions.width };
-		LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
+		LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(300, mainContainerDimension.width / 4);
+		LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.min(300, mainContainerDimension.width / 4);
+
 		// --- Start Positron ---
 		// Override LayoutStateKeys.SIDEBAR_SIZE.defaultValue and LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue.
-		LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(SIDEBAR_PART_MINIMUM_WIDTH, Math.round(workbenchDimensions.width / 4)); // 170 mirrors minimumWidth in sidebarPart.ts.
-		LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.round(workbenchDimensions.width * 0.45);
+		LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.min(SIDEBAR_PART_MINIMUM_WIDTH, Math.round(mainContainerDimension.width / 4)); // 170 mirrors minimumWidth in sidebarPart.ts.
+		LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.round(mainContainerDimension.width * 0.45);
 		// --- End Positron ---
-		LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.min(300, workbenchDimensions.width / 4);
-		LayoutStateKeys.PANEL_SIZE.defaultValue = (this.stateCache.get(LayoutStateKeys.PANEL_POSITION.name) ?? isHorizontal(LayoutStateKeys.PANEL_POSITION.defaultValue)) ? workbenchDimensions.height / 3 : workbenchDimensions.width / 4;
+		LayoutStateKeys.PANEL_SIZE.defaultValue = (this.stateCache.get(LayoutStateKeys.PANEL_POSITION.name) ?? isHorizontal(LayoutStateKeys.PANEL_POSITION.defaultValue)) ? mainContainerDimension.height / 3 : mainContainerDimension.width / 4;
 		LayoutStateKeys.SIDEBAR_HIDDEN.defaultValue = this.contextService.getWorkbenchState() === WorkbenchState.EMPTY;
+
 		// --- Start Positron ---
 		// In Positron, the auxiliary bar and panel are not hidden by default and the panel defaults
 		// to 50% height.
 		LayoutStateKeys.AUXILIARYBAR_HIDDEN.defaultValue = false;
 		LayoutStateKeys.PANEL_HIDDEN.defaultValue = false;
-		LayoutStateKeys.PANEL_SIZE.defaultValue = workbenchDimensions.height / 2;
+		LayoutStateKeys.PANEL_SIZE.defaultValue = mainContainerDimension.height / 2;
 
 		// Initialize layout settings for the first startup.
 		// See positronCustomViews.ts -> positronFourPaneDsLayout
@@ -3094,9 +3095,9 @@ class LayoutStateModel extends Disposable {
 			LayoutStateKeys.SIDEBAR_HIDDEN.defaultValue = false;
 			LayoutStateKeys.PANEL_HIDDEN.defaultValue = false;
 			LayoutStateKeys.AUXILIARYBAR_HIDDEN.defaultValue = false;
-			LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.round(workbenchDimensions.width * 0.15);
-			LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT.defaultValue = Math.round(workbenchDimensions.height * 0.4);
-			LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.round(workbenchDimensions.width * 0.3);
+			LayoutStateKeys.SIDEBAR_SIZE.defaultValue = Math.round(mainContainerDimension.width * 0.15);
+			LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT.defaultValue = Math.round(mainContainerDimension.height * 0.4);
+			LayoutStateKeys.AUXILIARYBAR_SIZE.defaultValue = Math.round(mainContainerDimension.width * 0.3);
 			this.storageService.store(Layout.LAYOUT_INITIALIZED_STORAGE_KEY, true, StorageScope.PROFILE, StorageTarget.USER);
 		}
 		// --- End Positron ---
