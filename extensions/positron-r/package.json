@@ -208,6 +208,15 @@
             "default": [],
             "markdownDescription": "%r.configuration.customBinaries.markdownDescription%"
           },
+          "positron.r.interpreters.exclude": {
+            "scope": "window",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "markdownDescription": "%r.configuration.interpreters.exclude.markdownDescription%"
+          },
           "positron.r.kernel.path": {
             "scope": "window",
             "type": "string",
