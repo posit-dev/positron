@@ -12,7 +12,7 @@ import { log, ProxyServerStyles } from './extension';
 // eslint-disable-next-line no-duplicate-imports
 import { Disposable, ExtensionContext } from 'vscode';
 // TODO: switch to using createProxyMiddleware when new options format is fixed
-import { legacyCreateProxyMiddleware as createProxyMiddleware, responseInterceptor } from 'http-proxy-middleware';
+import { createProxyMiddleware, responseInterceptor } from 'http-proxy-middleware';
 import { HtmlProxyServer } from './htmlProxy';
 import { helpContentRewriter, htmlContentRewriter } from './util';
 import { ContentRewriter, isAddressInfo, MaybeAddressInfo, PendingProxyServer, ProxyServerHtml, ProxyServerHtmlConfig, ProxyServerType } from './types';
