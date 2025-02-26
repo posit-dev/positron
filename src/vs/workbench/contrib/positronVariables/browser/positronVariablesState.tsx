@@ -64,6 +64,11 @@ export const usePositronVariablesState = (services: PositronVariablesServices): 
 			setPositronVariablesInstances(positronVariablesInstances => [...positronVariablesInstances, positronVariablesInstance]);
 		}));
 
+		// Add the onDidStopPositronVariablesInstance event handler.
+		disposableStore.add(services.positronVariablesService.onDidStopPositronVariablesInstance(positronVariablesInstance => {
+			setPositronVariablesInstances(positronVariablesInstances => positronVariablesInstances.filter(i => i !== positronVariablesInstance));
+		}));
+
 		// Add the onDidChangeActivePositronVariablesInstance event handler.
 		disposableStore.add(services.positronVariablesService.onDidChangeActivePositronVariablesInstance(positronVariablesInstance => {
 			setActivePositronVariablesInstance(positronVariablesInstance);
