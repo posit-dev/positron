@@ -41,7 +41,11 @@ export class SCM {
 	}
 
 	async openChange(name: string): Promise<void> {
-		await this.code.driver.page.locator(SCM_RESOURCE_CLICK(name)).last().click({ force: true });
+		await this.layout.enterLayout('fullSizedSidebar');
+
+		await this.code.driver.page.locator(SCM_RESOURCE_CLICK(name)).last().click();
+
+		await this.layout.enterLayout('stacked');
 	}
 
 	async stage(name: string): Promise<void> {
