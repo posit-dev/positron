@@ -269,10 +269,15 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         }
     }
 
-    const fileName = `Positron-${version}${suffix}`;
-    const url = new URL(`https://cdn.posit.co/positron/prereleases/mac/universal/${fileName}`);
-    if (!url) {
-        throw new Error(`Failed to parse URL: ${url}`);
+    let fileName: string;
+    let url: URL | undefined;
+    switch (platform) {
+        case 'darwin':
+            fileName = `Positron-${version}${suffix}`;
+            url = new URL(`https://cdn.posit.co/positron/prereleases/mac/universal/${fileName}`);
+            break;
+        default:
+            throw new Error(`Unsupported platform: ${platform}`);
     }
 
     console.log(`Downloading Positron for ${platform} from ${url.href}`);
