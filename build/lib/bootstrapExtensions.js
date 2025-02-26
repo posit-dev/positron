@@ -82,20 +82,14 @@ function syncExtension(extension, controlState) {
             log(ansiColors.blue('[disabled]'), ansiColors.gray(extension.name));
             return es.readArray([]);
         case 'marketplace':
-            // --- Start Positron ---
             return syncMarketplaceExtension(extension);
-        // --- End Positron ---
         default:
             if (!fs.existsSync(controlState)) {
-                // --- Start Positron ---
                 log(ansiColors.red(`Error: Bootstrap extension '${extension.name}' is configured to run from '${controlState}' but that path does not exist.`));
-                // --- End Positron ---
                 return es.readArray([]);
             }
             else if (!fs.existsSync(path.join(controlState, 'package.json'))) {
-                // --- Start Positron ---
                 log(ansiColors.red(`Error: Bootstrap extension '${extension.name}' is configured to run from '${controlState}' but there is no 'package.json' file in that directory.`));
-                // --- End Positron ---
                 return es.readArray([]);
             }
             log(ansiColors.blue('[local]'), `${extension.name}: ${ansiColors.cyan(controlState)}`, ansiColors.green('✔︎'));
@@ -120,6 +114,13 @@ function getBootstrapExtensions() {
     for (const extension of [...bootstrapExtensions]) {
         const controlState = control[extension.name] || 'marketplace';
         control[extension.name] = controlState;
+        // Discard extensions intended for the web. The 'type' field isn't a
+        // formal part of the extension definition but a custom field we use to
+        // filter out web-only extensions (i.e. Posit Workbench)
+        // @ts-ignore
+        if (extension.type === 'reh-web') {
+            continue;
+        }
         streams.push(syncExtension(extension, controlState));
     }
     writeControlFile(control, controlFilePath);
