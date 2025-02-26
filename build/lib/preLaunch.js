@@ -46,6 +46,8 @@ async function main() {
     // Can't require this until after dependencies are installed
     const { getBuiltInExtensions } = require('./builtInExtensions');
     await getBuiltInExtensions();
+    const { getBootstrapExtensions } = require('./bootstrapExtensions');
+    await getBootstrapExtensions();
 }
 if (require.main === module) {
     main().catch(err => {

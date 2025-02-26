@@ -88,18 +88,45 @@
 			}
 		},
 		{
-			"name": "ms-toolsai.jupyter-keymap",
-			"version": "1.1.2",
-			"repo": "https://github.com/Microsoft/vscode-jupyter-keymap",
+			"name": "ms-toolsai.jupyter-renderers",
+			"version": "1.0.19",
+			"repo": "https://github.com/Microsoft/vscode-notebook-renderers",
 			"metadata": {
-				"id": "9f6dc8db-620c-4844-b8c5-e74914f1be27",
+				"id": "b15c72f8-d5fe-421a-a4f7-27ed9f6addbf",
 				"publisherId": {
 					"publisherId": "ac8eb7c9-3e59-4b39-8040-f0484d8170ce",
 					"publisherName": "ms-toolsai",
-					"displayName": "Jupyter Keymap",
+					"displayName": "Jupyter Notebook Renderers",
 					"flags": "verified"
 				},
 				"publisherDisplayName": "ms-toolsai"
+			}
+		},
+		{
+			"name": "rstudio.rstudio-workbench",
+			"version": "1.5.28",
+			"positUrl": "https://cdn.posit.co/pwb-components/extension",
+			"type": "reh-web",
+			"sha256": "a1052e6cf884977b68883950360d29b394acdbdd2a84f0b17a7cc9887436918f",
+			"metadata": {
+				"publisherDisplayName": "Posit Software, PBC"
+			}
+		}
+	],
+	"bootstrapExtensions": [
+		{
+			"name": "ms-python.black-formatter",
+			"version": "2024.2.0",
+			"repo": "https://github.com/microsoft/vscode-black-formatter",
+			"metadata": {
+				"id": "859e640c-c157-47da-8699-9080b81c8371",
+				"publisherId": {
+					"publisherId": "998b010b-e2af-44a5-a6cd-0b5fd3b9b6f8",
+					"publisherName": "ms-python",
+					"displayName": "Black Formatter",
+					"flags": "verified"
+				},
+				"publisherDisplayName": "ms-python"
 			}
 		},
 		{
@@ -112,6 +139,21 @@
 					"publisherId": "ac8eb7c9-3e59-4b39-8040-f0484d8170ce",
 					"publisherName": "ms-toolsai",
 					"displayName": "Jupyter Cell Tags",
+					"flags": "verified"
+				},
+				"publisherDisplayName": "ms-toolsai"
+			}
+		},
+		{
+			"name": "ms-toolsai.jupyter-keymap",
+			"version": "1.1.2",
+			"repo": "https://github.com/Microsoft/vscode-jupyter-keymap",
+			"metadata": {
+				"id": "9f6dc8db-620c-4844-b8c5-e74914f1be27",
+				"publisherId": {
+					"publisherId": "ac8eb7c9-3e59-4b39-8040-f0484d8170ce",
+					"publisherName": "ms-toolsai",
+					"displayName": "Jupyter Keymap",
 					"flags": "verified"
 				},
 				"publisherDisplayName": "ms-toolsai"
@@ -132,21 +174,7 @@
 				"publisherDisplayName": "ms-toolsai"
 			}
 		},
-		{
-			"name": "ms-toolsai.jupyter-renderers",
-			"version": "1.0.19",
-			"repo": "https://github.com/Microsoft/vscode-notebook-renderers",
-			"metadata": {
-				"id": "b15c72f8-d5fe-421a-a4f7-27ed9f6addbf",
-				"publisherId": {
-					"publisherId": "ac8eb7c9-3e59-4b39-8040-f0484d8170ce",
-					"publisherName": "ms-toolsai",
-					"displayName": "Jupyter Notebook Renderers",
-					"flags": "verified"
-				},
-				"publisherDisplayName": "ms-toolsai"
-			}
-		},
+
 		{
 			"name": "ms-toolsai.jupyter",
 			"version": "2024.8.1",
@@ -178,33 +206,42 @@
 			}
 		},
 		{
-			"name": "ms-python.black-formatter",
-			"version": "2024.2.0",
-			"repo": "https://github.com/microsoft/vscode-black-formatter",
-			"metadata": {
-				"id": "859e640c-c157-47da-8699-9080b81c8371",
-				"publisherId": {
-					"publisherId": "998b010b-e2af-44a5-a6cd-0b5fd3b9b6f8",
-					"publisherName": "ms-python",
-					"displayName": "Black Formatter",
-					"flags": "verified"
-				},
-				"publisherDisplayName": "ms-python"
-			}
-		},
-		{
 			"name": "ms-python.debugpy",
 			"version": "2024.8.0",
 			"repo": "https://github.com/microsoft/vscode-python-debugger",
 			"metadata": {
 				"id": "4bd5d2c9-9d65-401a-b0b2-7498d9f17615",
-				"publisherId": {
-					"publisherId": "998b010b-e2af-44a5-a6cd-0b5fd3b9b6f8",
-					"publisherName": "ms-python",
-					"displayName": "Python Debugger",
+				"publisherid": {
+					"publisherid": "998b010b-e2af-44a5-a6cd-0b5fd3b9b6f8",
+					"publishername": "ms-python",
+					"displayname": "python debugger",
 					"flags": "verified"
 				},
-				"publisherDisplayName": "ms-python",
+				"publisherdisplayname": "ms-python",
+				"multiPlatformServiceUrl": "https://open-vsx.org/api"
+			}
+		},
+		{
+			"name": "posit.publisher",
+			"version": "1.10.0",
+			"repo": "https://github.com/posit-dev/publisher",
+			"metadata": {
+				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
+				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
+				"displayName": "Posit Publisher",
+				"multiPlatformServiceUrl": "https://open-vsx.org/api"
+			},
+			"publisherDisplayName": "Posit Software, PBC"
+		},
+		{
+			"name": "posit.shiny",
+			"version": "1.1.2",
+			"repo": "http://github.com/posit-dev/shiny-vscode",
+			"type": "reh-web",
+			"metadata": {
+				"id": "f1b3b3b4-3b3b-4b3b-8b3b-3b3b3b3b3b3b",
+				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
+				"displayName": "Shiny",
 				"multiPlatformServiceUrl": "https://open-vsx.org/api"
 			}
 		},
@@ -221,16 +258,6 @@
 					"flags": "verified"
 				},
 				"publisherDisplayName": "Quarto"
-			}
-		},
-		{
-			"name": "rstudio.rstudio-workbench",
-			"version": "1.5.28",
-			"positUrl": "https://cdn.posit.co/pwb-components/extension",
-			"type": "reh-web",
-			"sha256": "a1052e6cf884977b68883950360d29b394acdbdd2a84f0b17a7cc9887436918f",
-			"metadata": {
-				"publisherDisplayName": "Posit PBC"
 			}
 		}
 	],
