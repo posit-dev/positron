@@ -88,6 +88,21 @@
 			}
 		},
 		{
+			"name": "ms-toolsai.jupyter-renderers",
+			"version": "1.0.19",
+			"repo": "https://github.com/Microsoft/vscode-notebook-renderers",
+			"metadata": {
+				"id": "b15c72f8-d5fe-421a-a4f7-27ed9f6addbf",
+				"publisherId": {
+					"publisherId": "ac8eb7c9-3e59-4b39-8040-f0484d8170ce",
+					"publisherName": "ms-toolsai",
+					"displayName": "Jupyter Notebook Renderers",
+					"flags": "verified"
+				},
+				"publisherDisplayName": "ms-toolsai"
+			}
+		},
+		{
 			"name": "rstudio.rstudio-workbench",
 			"version": "1.5.28",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
@@ -159,21 +174,7 @@
 				"publisherDisplayName": "ms-toolsai"
 			}
 		},
-		{
-			"name": "ms-toolsai.jupyter-renderers",
-			"version": "1.0.19",
-			"repo": "https://github.com/Microsoft/vscode-notebook-renderers",
-			"metadata": {
-				"id": "b15c72f8-d5fe-421a-a4f7-27ed9f6addbf",
-				"publisherId": {
-					"publisherId": "ac8eb7c9-3e59-4b39-8040-f0484d8170ce",
-					"publisherName": "ms-toolsai",
-					"displayName": "Jupyter Notebook Renderers",
-					"flags": "verified"
-				},
-				"publisherDisplayName": "ms-toolsai"
-			}
-		},
+
 		{
 			"name": "ms-toolsai.jupyter",
 			"version": "2024.8.1",
