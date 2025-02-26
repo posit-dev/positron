@@ -88,7 +88,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 			message.isTrusted = true;
 
 			return {
-				icon: new vscode.ThemeIcon('positron-posit-logo'),
+				icon: new vscode.ThemeIcon('positron-assistant'),
 				title: 'Positron Assistant',
 				message,
 			};
