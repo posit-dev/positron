@@ -21,7 +21,7 @@ runs:
       shell: bash
       run: |
         curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-        uv pip install --break-system-packages -r requirements.txt
+        uv pip install --break-system-packages --system -r requirements.txt
 
     - name: Verify Python Version
       shell: bash
