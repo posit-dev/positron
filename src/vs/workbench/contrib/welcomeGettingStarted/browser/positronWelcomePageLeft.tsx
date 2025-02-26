@@ -20,12 +20,14 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
 export interface PositronWelcomePageLeftProps {
 	openerService: IOpenerService;
 	keybindingService: IKeybindingService;
 	layoutService: ILayoutService;
 	commandService: ICommandService;
+	configurationService: IConfigurationService;
 	runtimesSessionService: IRuntimeSessionService;
 	languageRuntimeService: ILanguageRuntimeService;
 	runtimeStartupService: IRuntimeStartupService;
@@ -37,6 +39,7 @@ export const PositronWelcomePageLeft = (props: PropsWithChildren<PositronWelcome
 		<>
 			<PositronWelcomePageStart
 				commandService={props.commandService}
+				configurationService={props.configurationService}
 				keybindingService={props.keybindingService}
 				languageRuntimeService={props.languageRuntimeService}
 				layoutService={props.layoutService}
@@ -54,6 +57,7 @@ export const createWelcomePageLeft = (
 	keybindingService: IKeybindingService,
 	layoutService: ILayoutService,
 	commandService: ICommandService,
+	configurationService: IConfigurationService,
 	runtimeSessionService: IRuntimeSessionService,
 	runtimeStartupService: IRuntimeStartupService,
 	languageRuntimeService: ILanguageRuntimeService
@@ -62,6 +66,7 @@ export const createWelcomePageLeft = (
 	renderer.render(
 		<PositronWelcomePageLeft
 			commandService={commandService}
+			configurationService={configurationService}
 			keybindingService={keybindingService}
 			languageRuntimeService={languageRuntimeService}
 			layoutService={layoutService}

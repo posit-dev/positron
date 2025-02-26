@@ -605,7 +605,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	return (
 		<div
 			ref={consoleInstanceRef}
-			aria-controls={`panel-${positronConsoleContext.activePositronConsoleInstance?.session.sessionId}`}
+			aria-controls={`panel-${props.positronConsoleInstance.session.sessionId}`}
 			className='console-instance'
 			style={{
 				width: adjustedWidth,
