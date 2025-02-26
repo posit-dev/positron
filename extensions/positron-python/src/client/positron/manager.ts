@@ -101,7 +101,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
     async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
         const recommended = await recommendInterpreter(this.serviceContainer);
         if (recommended) {
-            traceInfo(`Recommended interpreter found: ${recommended}`);
+            traceInfo(`Recommended interpreter found: ${recommended.path}`);
             return createPythonRuntimeMetadata(recommended, this.serviceContainer, true);
         }
         traceInfo(`No recommended interpreter found.`);
