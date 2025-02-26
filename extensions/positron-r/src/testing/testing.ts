@@ -22,7 +22,7 @@ export const onDidDiscoverTestFiles = _onDidDiscoverTestFiles.event;
 
 
 export async function setupTestExplorer(context: vscode.ExtensionContext) {
-	context.workspaceState.update('testExplorerSetUp', false);
+	context.workspaceState.update('positron.r.testExplorerSetUp', false);
 	if (testExplorerEnabled()) {
 		return discoverTests(context);
 	}
@@ -97,7 +97,7 @@ export async function discoverTests(context: vscode.ExtensionContext) {
 				context.subscriptions.push(watcher);
 			}
 			_onDidDiscoverTestFiles.fire();
-			context.workspaceState.update('testExplorerSetUp', true);
+			context.workspaceState.update('positron.r.testExplorerSetUp', true);
 			LOGGER.info('Testthat file watchers are in place.');
 		}
 	};

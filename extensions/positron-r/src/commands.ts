@@ -130,7 +130,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		vscode.commands.registerCommand('r.packageTestExplorer', async () => {
 			vscode.commands.executeCommand('workbench.view.testing.focus');
 
-			if (context.workspaceState.get('testExplorerSetUp') === true) {
+			if (context.workspaceState.get('positron.r.testExplorerSetUp') === true) {
 				vscode.commands.executeCommand('testing.runAll');
 			} else {
 				// if this is first time opening the test explorer, wait for tests to be discovered
