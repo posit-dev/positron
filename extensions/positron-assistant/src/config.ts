@@ -12,6 +12,38 @@ interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKe
 	id: string;
 }
 
+export interface SecretStorage {
+	store(key: string, value: string): Thenable<void>;
+	get(key: string): Thenable<string | undefined>;
+	delete(key: string): Thenable<void>;
+}
+
+export class EncryptedSecretStorage implements SecretStorage {
+	constructor(private context: vscode.ExtensionContext) { }
+	store(key: string, value: string): Thenable<void> {
+		return this.context.secrets.store(key, value);
+	}
+	get(key: string): Thenable<string | undefined> {
+		return this.context.secrets.get(key);
+	}
+	delete(key: string): Thenable<void> {
+		return this.context.secrets.delete(key);
+	}
+}
+
+export class GlobalSecretStorage implements SecretStorage {
+	constructor(private context: vscode.ExtensionContext) { }
+	store(key: string, value: string): Thenable<void> {
+		return this.context.globalState.update(key, value);
+	}
+	get(key: string): Thenable<string | undefined> {
+		return Promise.resolve(this.context.globalState.get(key));
+	}
+	delete(key: string): Thenable<void> {
+		return this.context.globalState.update(key, undefined);
+	}
+}
+
 export interface ModelConfig extends StoredModelConfig {
 	apiKey: string;
 }
@@ -22,12 +54,12 @@ export function getStoredModels(): StoredModelConfig[] {
 	return storedConfigs;
 }
 
-export async function getModelConfigurations(context: vscode.ExtensionContext): Promise<ModelConfig[]> {
+export async function getModelConfigurations(storage: SecretStorage): Promise<ModelConfig[]> {
 	const storedConfigs = getStoredModels();
 
 	const fullConfigs: ModelConfig[] = await Promise.all(
 		storedConfigs.map(async (config) => {
-			const apiKey = await context.secrets.get(`apiKey-${config.id}`);
+			const apiKey = await storage.get(`apiKey-${config.id}`);
 			return {
 				...config,
 				apiKey: apiKey || ''
@@ -38,7 +70,7 @@ export async function getModelConfigurations(context: vscode.ExtensionContext): 
 	return fullConfigs;
 }
 
-export async function showConfigurationDialog(context: vscode.ExtensionContext) {
+export async function showConfigurationDialog(storage: SecretStorage) {
 	// Gather model sources
 	const sources = [...languageModels, ...completionModels].map((provider) => provider.source);
 
@@ -67,7 +99,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext) 
 
 		// Store API key in secret storage
 		if (apiKey) {
-			await context.secrets.store(`apiKey-${id}`, apiKey);
+			await storage.store(`apiKey-${id}`, apiKey);
 		}
 
 		// Get existing configurations
@@ -97,7 +129,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext) 
 
 }
 
-export async function deleteConfiguration(context: vscode.ExtensionContext, id: string) {
+export async function deleteConfiguration(storage: SecretStorage, id: string) {
 	const config = vscode.workspace.getConfiguration('positron.assistant');
 	const existingConfigs = config.get<StoredModelConfig[]>('models') || [];
 	const updatedConfigs = existingConfigs.filter(config => config.id !== id);
@@ -108,5 +140,5 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, id: 
 		vscode.ConfigurationTarget.Global
 	);
 
-	await context.secrets.delete(`apiKey-${id}`);
+	await storage.delete(`apiKey-${id}`);
 }

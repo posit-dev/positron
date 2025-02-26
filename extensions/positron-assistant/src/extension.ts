@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { getModelConfigurations, showConfigurationDialog } from './config';
+import { EncryptedSecretStorage, getModelConfigurations, GlobalSecretStorage, SecretStorage, showConfigurationDialog } from './config';
 import { newLanguageModel } from './models';
 import participants from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
@@ -27,12 +27,12 @@ function disposeParticipants() {
 	participantDisposables = [];
 }
 
-async function registerModels(context: vscode.ExtensionContext) {
+async function registerModels(context: vscode.ExtensionContext, storage: SecretStorage) {
 	// Dispose of existing models
 	disposeModels();
 
 	try {
-		const modelConfigs = await getModelConfigurations(context);
+		const modelConfigs = await getModelConfigurations(storage);
 		// Register with Language Model API
 		modelConfigs.filter(config => config.type === 'chat').forEach((config, idx) => {
 			// We need at least one default and one non-default model for the dropdown to appear.
@@ -86,10 +86,10 @@ function registerParticipants(context: vscode.ExtensionContext) {
 	});
 }
 
-function registerAddModelConfigurationCommand(context: vscode.ExtensionContext) {
+function registerAddModelConfigurationCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.addModelConfiguration', () => {
-			showConfigurationDialog(context);
+			showConfigurationDialog(storage);
 		})
 	);
 }
@@ -101,17 +101,21 @@ function registerMappedEditsProvider(context: vscode.ExtensionContext) {
 }
 
 function registerAssistant(context: vscode.ExtensionContext) {
+
+	// Initialize secret storage. In web mode, use global storage; otherwise, use encrypted storage.
+	const storage = vscode.env.uiKind === vscode.UIKind.Web ? new GlobalSecretStorage(context) : new EncryptedSecretStorage(context);
+
 	// Register chat participants
 	registerParticipants(context);
 
 	// Register configured language models
-	registerModels(context);
+	registerModels(context, storage);
 
 	// Track opened files for completion context
 	registerHistoryTracking(context);
 
 	// Configuration modal command
-	registerAddModelConfigurationCommand(context);
+	registerAddModelConfigurationCommand(context, storage);
 
 	// Register mapped edits provider
 	registerMappedEditsProvider(context);
@@ -120,7 +124,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('positron.assistant.models')) {
-				registerModels(context);
+				registerModels(context, storage);
 			}
 		})
 	);
