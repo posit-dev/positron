@@ -176,19 +176,24 @@ export async function recommendInterpreter(
     // if there is no workspace and a default interpreter is set, use that
     if (!workspaceUri && getUserDefaultInterpreter()) {
         recommendedInterpreter = await interpreterService.getInterpreterDetails(getUserDefaultInterpreter());
-        traceInfo(`pythonRuntimeDiscoverer: using default interpreter ${recommendedInterpreter?.path}`);
+        if (recommendedInterpreter) {
+            traceInfo(`pythonRuntimeDiscoverer: using default interpreter ${recommendedInterpreter?.path}`);
+            return recommendedInterpreter;
+        }
     }
 
     // if no interpreter found yet, try to get recommended interpreter
-    if (!recommendedInterpreter) {
-        recommendedInterpreter = interpreterSelector.getRecommendedSuggestion(suggestions, workspaceUri)?.interpreter;
+    recommendedInterpreter = interpreterSelector.getRecommendedSuggestion(suggestions, workspaceUri)?.interpreter;
+    if (recommendedInterpreter) {
         traceInfo(`pythonRuntimeDiscoverer: using recommended suggestion ${recommendedInterpreter?.path}`);
+        return recommendedInterpreter;
     }
 
     // if still no interpreter, use the active one
-    if (!recommendedInterpreter) {
-        recommendedInterpreter = await interpreterService.getActiveInterpreter(workspaceUri);
+    recommendedInterpreter = await interpreterService.getActiveInterpreter(workspaceUri);
+    if (recommendedInterpreter) {
         traceInfo(`pythonRuntimeDiscoverer: falling back to active interpreter ${recommendedInterpreter?.path}`);
+        return recommendedInterpreter;
     }
 
     return recommendedInterpreter;
