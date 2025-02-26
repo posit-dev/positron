@@ -120,6 +120,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private readonly _onDidChangeForegroundSessionEmitter =
 		this._register(new Emitter<ILanguageRuntimeSession | undefined>);
 
+	// The event emitter for the onDidDeleteRuntime event.
+	private readonly _onDidDeleteRuntimeEmitter =
+		this._register(new Emitter<string>);
+
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -197,6 +201,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			if (e.scope === StorageScope.APPLICATION && this._disconnectedSessions.size > 0) {
 				this._logService.debug(`Application storage scope changed; ` +
 					`discarding ${this._disconnectedSessions.size} disconnected sessions`);
+
+				// TODO @samclark2015: Trash console instances as well.
+				// What is app storage scope and how can I test it?
+
+				// Clear map and fire deletion events to update
+				// console session service consumers.
+				this._disconnectedSessions.forEach(value => {
+					this._onDidDeleteRuntimeEmitter.fire(value.sessionId);
+				});
 				this._disconnectedSessions.clear();
 			}
 		}));
@@ -223,6 +236,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	// An event that fires when the active runtime changes.
 	readonly onDidChangeForegroundSession = this._onDidChangeForegroundSessionEmitter.event;
+
+	// An event that fires when a runtime is deleted.
+	readonly onDidDeleteRuntime = this._onDidDeleteRuntimeEmitter.event;
 
 	/**
 	 * Registers a session manager with the service.
@@ -796,6 +812,46 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 
 		return shutdownPromise.p;
+	}
+
+	/**
+	 * Shutdown a runtime session if active, and delete it.
+	 * Cleans up the session and removes it from the active sessions list.
+	 * @param sessionId The session ID of the runtime to delete.
+	 */
+	async deleteSession(sessionId: string): Promise<void> {
+		if (this._disconnectedSessions.has(sessionId)) {
+			throw new Error(`Cannot delete session because it is disconnected.`);
+		}
+
+		const session = this.getSession(sessionId);
+		if (!session) {
+			throw new Error(`Cannot delete session because its runtime was not found.`);
+		}
+
+		const runtimeState = session.getRuntimeState();
+		if (runtimeState !== RuntimeState.Exited) {
+			if (runtimeState === RuntimeState.Busy ||
+				runtimeState === RuntimeState.Idle ||
+				runtimeState === RuntimeState.Ready) {
+				// If the runtime is in a state where it can be shut down, do so.
+				await this.shutdownRuntimeSession(session, RuntimeExitReason.Shutdown);
+			} else {
+				// Otherwise throw error.
+				throw new Error(`Cannot delete session because it is in state '${runtimeState}'`);
+			}
+		}
+
+		if (this._activeSessionsBySessionId.delete(sessionId)) {
+			// Clean up if necessary (should already by done once the runtime is exited).
+			this._consoleSessionsByLanguageId.delete(session.runtimeMetadata.languageId);
+
+			// Dispose of the session.
+			session.dispose();
+
+			// Fire the onDidDeleteRuntime event only if the session was actually deleted.
+			this._onDidDeleteRuntimeEmitter.fire(sessionId);
+		}
 	}
 
 	/**

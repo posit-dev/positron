@@ -64,8 +64,8 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 
 	// Console Width Effect
 	useEffect(() => {
-		// The maximum tab list width is 2/5 of the total available width
-		const MAXIMUM_CONSOLE_TAB_LIST_WIDTH = Math.trunc(2 * props.width / 5);
+		// The maximum tab list width is 1/5 of the total available width
+		const MAXIMUM_CONSOLE_TAB_LIST_WIDTH = Math.trunc(1 * props.width / 5);
 
 		// Initialize the width for the console pane and console tab list if it hasn't been
 		if (consoleWidth === 0) {
