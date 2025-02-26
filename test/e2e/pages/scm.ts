@@ -41,7 +41,7 @@ export class SCM {
 	}
 
 	async openChange(name: string): Promise<void> {
-		await this.code.driver.page.locator(SCM_RESOURCE_CLICK(name)).last().click();
+		await this.code.driver.page.locator(SCM_RESOURCE_CLICK(name)).last().click({ force: true });
 	}
 
 	async stage(name: string): Promise<void> {
