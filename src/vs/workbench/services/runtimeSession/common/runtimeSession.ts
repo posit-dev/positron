@@ -25,6 +25,8 @@ import { ActiveRuntimeSession } from './activeRuntimeSession.js';
 import { basename } from '../../../../base/common/resources.js';
 import { IUpdateService } from '../../../../platform/update/common/update.js';
 import { multipleConsoleSessionsFeatureEnabled } from './positronMultipleConsoleSessionsFeatureFlag.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { localize } from '../../../../nls.js';
 
 /**
  * The maximum number of active sessions a user can have running at a time.
@@ -154,6 +156,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@ILogService private readonly _logService: ILogService,
+		@INotificationService private readonly _notificationService: INotificationService,
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
@@ -1598,6 +1601,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				// This value is arbitrary and should be made a configuration setting
 				// in the future for users once this feature has stabilized!
 				if (this._activeSessionsBySessionId.size >= MAX_CONCURRENT_SESSIONS) {
+
+					this._notificationService.notify({
+						severity: Severity.Info,
+						message: localize('positron.console.maxError', "Cannot start console session.\
+							The maximum number of consoles ({0}) has been reached", MAX_CONCURRENT_SESSIONS)
+					});
+
 					throw new Error(`Session for language runtime ` +
 						`${formatLanguageRuntimeMetadata(languageRuntime)} ` +
 						`cannot be started because the maximum number of ` +
