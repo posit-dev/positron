@@ -59,7 +59,7 @@ export enum ReasonRejected {
 	invalid = "invalid",
 	unsupported = "unsupported",
 	nonOrthogonal = "nonOrthogonal",
-	userExcluded = "userExcluded",
+	excluded = "excluded",
 }
 
 export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null): string {
@@ -88,7 +88,7 @@ export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null)
 				return `Unsupported version, i.e. version is less than ${MINIMUM_R_VERSION}`;
 			case ReasonRejected.nonOrthogonal:
 				return 'Non-orthogonal installation that is also not the current version';
-			case ReasonRejected.userExcluded:
+			case ReasonRejected.excluded:
 				return 'Installation path was excluded via settings';
 		}
 	}
@@ -197,11 +197,11 @@ export class RInstallation {
 			if (!this.usable) {
 				this.reasonRejected = ReasonRejected.nonOrthogonal;
 			} else {
-				// Check if the user has excluded this installation via settings
-				const userExcluded = isUserExcludedInstallation(this.binpath);
-				if (userExcluded) {
-					LOGGER.info(`User has excluded R installation at ${this.binpath}`);
-					this.reasonRejected = ReasonRejected.userExcluded;
+				// Check if this installation has been excluded via settings
+				const excluded = isExcludedInstallation(this.binpath);
+				if (excluded) {
+					LOGGER.info(`R installation excluded via settings: ${this.binpath}`);
+					this.reasonRejected = ReasonRejected.excluded;
 					this.usable = false;
 				}
 			}
@@ -298,11 +298,11 @@ function getRHomePathWindows(binpath: string): string | undefined {
 }
 
 /**
- * Gets the list of R installations that the user has specified to exclude via settings.
+ * Gets the list of R installations excluded via settings.
  * Converts aliased paths to absolute paths. Relative paths are ignored.
  * @returns List of installation paths to exclude.
  */
-function getUserExcludedInstallations(): string[] {
+function getExcludedInstallations(): string[] {
 	const config = vscode.workspace.getConfiguration('positron.r');
 	const interpretersExclude = config.get<string[]>('interpreters.exclude') ?? [];
 	if (interpretersExclude.length > 0) {
@@ -312,29 +312,29 @@ function getUserExcludedInstallations(): string[] {
 				if (path.isAbsolute(item)) {
 					return true;
 				}
-				LOGGER.info(`User-specified R installation path to exclude ${item} is not absolute...ignoring`);
+				LOGGER.info(`R installation path to exclude ${item} is not absolute...ignoring`);
 				return false;
 			});
 		const formattedPaths = JSON.stringify(excludedPaths, null, 2);
-		LOGGER.info(`User-specified R installation paths to exclude:\n${formattedPaths}`);
+		LOGGER.info(` R installation paths to exclude:\n${formattedPaths}`);
 		return excludedPaths;
 	}
-	LOGGER.debug('No installation paths specified by the user to exclude via settings');
+	LOGGER.debug('No installation paths specified to exclude via settings');
 	return [];
 }
 
 /**
- * Checks if the given binary path is excluded by the user via settings.
+ * Checks if the given binary path is excluded via settings.
  * @param binpath The binary path to check
  * @returns True if the binary path is excluded, false if it is not excluded, and undefined if the
- * user has not specified any exclusions.
+ * no exclusions have been specified.
  */
-function isUserExcludedInstallation(binpath: string): boolean | undefined {
-	const userExcludedInstallations = getUserExcludedInstallations();
-	if (userExcludedInstallations.length === 0) {
+function isExcludedInstallation(binpath: string): boolean | undefined {
+	const excludedInstallations = getExcludedInstallations();
+	if (excludedInstallations.length === 0) {
 		return undefined;
 	}
-	return userExcludedInstallations.some(
+	return excludedInstallations.some(
 		excluded => isParentPath(binpath, excluded) || arePathsSame(binpath, excluded)
 	);
 }
