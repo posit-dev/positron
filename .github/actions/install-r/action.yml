@@ -84,10 +84,6 @@ runs:
         # Extract the tarball into ~/scratch/R-4.4.1
         tar -xzf R-${R_VERSION}-${OS_IDENTIFIER}.tar.gz -C $INSTALL_DIR --strip-components=1
 
-        # Debug: Check the extracted contents
-        echo "Extracted directory structure:"
-        ls -R $INSTALL_DIR
-
         # Force R to use the correct installation path
         export R_HOME="$INSTALL_DIR/lib/R"
         export PATH="$INSTALL_DIR/bin:$PATH"
