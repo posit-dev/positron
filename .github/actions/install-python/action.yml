@@ -12,12 +12,16 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Install `uv`
+      shell: bash
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+
     - name: Install Python dependencies
       shell: bash
       run: |
         curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-        python3 -m pip install --upgrade pip
-        python3 -m pip install -r requirements.txt
+        uv pip install -r requirements.txt
 
     - name: Verify Python Version
       shell: bash
