@@ -199,9 +199,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				this._logService.debug(`Application storage scope changed; ` +
 					`discarding ${this._disconnectedSessions.size} disconnected sessions`);
 
-				// TODO @samclark2015: Trash console instances as well.
-				// What is app storage scope and how can I test it?
-
 				// Clear map and fire deletion events to update
 				// console session service consumers.
 				this._disconnectedSessions.forEach(value => {
