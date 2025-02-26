@@ -5,6 +5,10 @@ inputs:
     description: "The alternate version of Python to install (e.g., 3.13.0)"
     required: true
     default: "3.13.0"
+  install_undetectable_interpreters:
+    description: "Install undetectable interpreters"
+    required: true
+    type: boolean
 runs:
   using: "composite"
   steps:
@@ -64,3 +68,48 @@ runs:
 
         # Verify that Python is reset
         python --version
+
+    - name: Install Prebuilt Python 3.12.7 in ~/scratch (Ubuntu Only)
+      if: ${{ inputs.install_undetectable_interpreters == 'true' }}
+      shell: bash
+      run: |
+        echo "Installing Python 3.12.7 (minimal) in ~/scratch..."
+
+        # Set installation path
+        INSTALL_DIR="$HOME/scratch/python-custom"
+        mkdir -p $INSTALL_DIR
+
+        # Download the correct Python 3.12.7 minimal package from Ubuntu archive
+        DEB_URL="http://archive.ubuntu.com/ubuntu/pool/main/p/python3.12/python3.12-minimal_3.12.7-1ubuntu2_amd64.deb"
+        curl -fLO "$DEB_URL"
+
+        # Verify the file format before extracting
+        if file python3.12-minimal_3.12.7-1ubuntu2_amd64.deb | grep -q "Debian binary package"; then
+            echo "Valid Debian package detected."
+        else
+            echo "Error: Downloaded file is not a valid .deb package!"
+            exit 1
+        fi
+
+        # Extract the .deb package manually (without sudo)
+        dpkg-deb -x python3.12-minimal_3.12.7-1ubuntu2_amd64.deb $INSTALL_DIR
+
+        # Set the correct path for Python binary
+        PYTHON_BIN="$INSTALL_DIR/usr/bin/python3.12"
+
+        # Verify Python installation
+        if [[ -x "$PYTHON_BIN" ]]; then
+            echo "Python successfully extracted."
+            $PYTHON_BIN --version
+        else
+            echo "Error: Python binary not found in extracted directory."
+            exit 1
+        fi
+
+        # Manually install pip since `ensurepip` is disabled
+        echo "Installing pip manually..."
+        curl -sS https://bootstrap.pypa.io/get-pip.py | $PYTHON_BIN
+
+        # Verify pip installation
+        $PYTHON_BIN -m pip --version
+
