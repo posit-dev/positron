@@ -341,20 +341,24 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 			this._onDidDeletePositronConsoleInstanceEmitter.fire(consoleInstance);
 
+			let runtimeSession = this._runtimeSessionService.getConsoleSessionForRuntime(
+				consoleInstance.session.runtimeMetadata.runtimeId
+			);
+			if (!runtimeSession) {
+				// Otherwise, select the next available runtime session.
+				const sessions = Array.from(this._positronConsoleInstancesBySessionId.values());
+				const currentIndex = sessions.indexOf(consoleInstance);
+				if (currentIndex !== -1) {
+					const nextSession = sessions[currentIndex + 1] || sessions[currentIndex - 1];
+					runtimeSession = nextSession?.session;
+				}
+			}
+			this._runtimeSessionService.foregroundSession = runtimeSession;
+
 			this._positronConsoleInstancesByLanguageId.delete(
 				consoleInstance.session.runtimeMetadata.languageId
 			);
 			this._positronConsoleInstancesBySessionId.delete(sessionId);
-
-			if (this._positronConsoleInstancesBySessionId.size === 0) {
-				this._runtimeSessionService.foregroundSession = undefined;
-			} else {
-				const runtimeSession = this._runtimeSessionService.getConsoleSessionForRuntime(
-					consoleInstance.session.runtimeMetadata.runtimeId
-				);
-				this._runtimeSessionService.foregroundSession = runtimeSession;
-			}
-
 
 			consoleInstance.dispose();
 		}));
