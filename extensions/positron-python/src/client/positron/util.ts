@@ -38,5 +38,6 @@ export async function whenTimeout<T>(ms: number, fn: () => T): Promise<T> {
 export function getUserDefaultInterpreter(): string {
     const configuration = vscode.workspace.getConfiguration('python');
     const defaultInterpreterPath = configuration?.get<string>('defaultInterpreterPath');
+    // 'python' is the default for this setting, so we'll only use the setting if it has been changed
     return !defaultInterpreterPath || defaultInterpreterPath === 'python' ? '' : defaultInterpreterPath;
 }
