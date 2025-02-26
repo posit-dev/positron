@@ -17,7 +17,7 @@ const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
 class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 	readonly id = 'positron.positron-assistant';
-	readonly iconPath = new vscode.ThemeIcon('positron-posit-logo');
+	readonly iconPath = new vscode.ThemeIcon('positron-assistant');
 	readonly agentData: positron.ai.ChatAgentData = {
 		id: this.id,
 		name: 'positron-assistant',
