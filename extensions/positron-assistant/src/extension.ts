@@ -7,9 +7,9 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { EncryptedSecretStorage, getModelConfigurations, GlobalSecretStorage, SecretStorage, showConfigurationDialog } from './config';
 import { newLanguageModel } from './models';
-import participants from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { editsProvider } from './edits';
+import { createParticipants } from './participants';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -32,7 +32,7 @@ async function registerModels(context: vscode.ExtensionContext, storage: SecretS
 	disposeModels();
 
 	try {
-		const modelConfigs = await getModelConfigurations(storage);
+		const modelConfigs = await getModelConfigurations(context, storage);
 		// Register with Language Model API
 		modelConfigs.filter(config => config.type === 'chat').forEach((config, idx) => {
 			// We need at least one default and one non-default model for the dropdown to appear.
@@ -72,6 +72,7 @@ async function registerModels(context: vscode.ExtensionContext, storage: SecretS
 }
 
 function registerParticipants(context: vscode.ExtensionContext) {
+	const participants = createParticipants(context);
 	Object.keys(participants).forEach(async (key) => {
 		// Register agent with Positron Assistant API
 		// Note: This is an alternative to a `package.json` definition that allows dynamic commands
@@ -89,7 +90,7 @@ function registerParticipants(context: vscode.ExtensionContext) {
 function registerAddModelConfigurationCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.addModelConfiguration', () => {
-			showConfigurationDialog(storage);
+			showConfigurationDialog(context, storage);
 		})
 	);
 }

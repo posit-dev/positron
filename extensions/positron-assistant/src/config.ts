@@ -48,14 +48,12 @@ export interface ModelConfig extends StoredModelConfig {
 	apiKey: string;
 }
 
-export function getStoredModels(): StoredModelConfig[] {
-	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const storedConfigs = config.get<StoredModelConfig[]>('models') || [];
-	return storedConfigs;
+export function getStoredModels(context: vscode.ExtensionContext): StoredModelConfig[] {
+	return context.globalState.get('positron.assistant.models') || [];
 }
 
-export async function getModelConfigurations(storage: SecretStorage): Promise<ModelConfig[]> {
-	const storedConfigs = getStoredModels();
+export async function getModelConfigurations(context: vscode.ExtensionContext, storage: SecretStorage): Promise<ModelConfig[]> {
+	const storedConfigs = getStoredModels(context);
 
 	const fullConfigs: ModelConfig[] = await Promise.all(
 		storedConfigs.map(async (config) => {
@@ -70,7 +68,7 @@ export async function getModelConfigurations(storage: SecretStorage): Promise<Mo
 	return fullConfigs;
 }
 
-export async function showConfigurationDialog(storage: SecretStorage) {
+export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {
 	// Gather model sources
 	const sources = [...languageModels, ...completionModels].map((provider) => provider.source);
 
@@ -103,8 +101,7 @@ export async function showConfigurationDialog(storage: SecretStorage) {
 		}
 
 		// Get existing configurations
-		const config = vscode.workspace.getConfiguration('positron.assistant');
-		const existingConfigs = config.get<StoredModelConfig[]>('models') || [];
+		const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
 
 		// Add new configuration
 		const newConfig: StoredModelConfig = {
@@ -115,11 +112,10 @@ export async function showConfigurationDialog(storage: SecretStorage) {
 			...otherConfig,
 		};
 
-		// Update settings.json
-		await config.update(
-			'models',
-			[...existingConfigs, newConfig],
-			vscode.ConfigurationTarget.Global
+		// Update global state
+		await context.globalState.update(
+			'positron.assistant.models',
+			[...existingConfigs, newConfig]
 		);
 
 		vscode.window.showInformationMessage(
@@ -129,15 +125,13 @@ export async function showConfigurationDialog(storage: SecretStorage) {
 
 }
 
-export async function deleteConfiguration(storage: SecretStorage, id: string) {
-	const config = vscode.workspace.getConfiguration('positron.assistant');
-	const existingConfigs = config.get<StoredModelConfig[]>('models') || [];
+export async function deleteConfiguration(context: vscode.ExtensionContext, storage: SecretStorage, id: string) {
+	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
 	const updatedConfigs = existingConfigs.filter(config => config.id !== id);
 
-	await config.update(
-		'models',
-		updatedConfigs,
-		vscode.ConfigurationTarget.Global
+	await context.globalState.update(
+		'positron.assistant.models',
+		updatedConfigs
 	);
 
 	await storage.delete(`apiKey-${id}`);
