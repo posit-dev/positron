@@ -33,11 +33,13 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 		try {
 			await positronConsoleContext.runtimeSessionService.deleteSession(consoleInstance.session.sessionId);
 		} catch (error) {
+			// Show an error notification if the session could not be deleted.
 			positronConsoleContext.notificationService.error(
 				localize('positronDeleteSessionError', "Failed to delete session: {0}", error)
 			);
-		} finally {
-			// Re-enable the button when done deleting (should not exist anymore)
+			// Re-enable the button if the session could not be deleted.
+			// If it is deleted, the component is destroyed and the
+			// button is no longer clickable anyway.
 			setDeleteDisabled(false);
 		}
 	}
