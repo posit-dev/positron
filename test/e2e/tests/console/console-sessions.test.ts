@@ -21,7 +21,7 @@ test.use({
 });
 
 test.describe('Console: Sessions', {
-	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL]
+	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
