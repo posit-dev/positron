@@ -21,6 +21,9 @@ export enum EnvironmentType {
     Poetry = 'Poetry',
     Hatch = 'Hatch',
     Pixi = 'Pixi',
+    // --- Start Positron ---
+    Uv = 'Uv',
+    // --- End Positron ---
     VirtualEnvWrapper = 'VirtualEnvWrapper',
     ActiveState = 'ActiveState',
     Global = 'Global',
