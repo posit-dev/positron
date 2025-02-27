@@ -3486,3 +3486,26 @@ public licenses.
 
 Creative Commons may be contacted at creativecommons.org.
 =======================================================================
+---------------------------------------------------------
+
+---------------------------------------------------------
+
+SQLite is in the Public Domain
+
+https://www.sqlite.org/copyright.html
+---------------------------------------------------------
+
+---------------------------------------------------------
+
+Postgres, PostgreSQL and the Slonik Logo are trademarks or registered trademarks of the PostgreSQL
+Community Association of Canada, and used with their permission.
+
+https://www.postgresql.org/about/policies/trademarks/
+---------------------------------------------------------
+
+---------------------------------------------------------
+Apache Spark and its logo are trademarks of The Apache Software Foundation.
+
+https://spark.apache.org/trademarks.html
+---------------------------------------------------------
+
