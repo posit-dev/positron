@@ -55,6 +55,8 @@ export interface PositronActionBarState extends PositronActionBarServices {
 	menuShowing: boolean;
 	setMenuShowing(menuShowing: boolean): void;
 	focusableComponents: Set<HTMLElement>;
+	conserveSpace: boolean;
+	setConserveSpace(conserveSpace: boolean): void;
 }
 
 /**
@@ -66,6 +68,7 @@ export const usePositronActionBarState = (
 	services: PositronActionBarServices
 ): PositronActionBarState => {
 	const [menuShowing, setMenuShowing] = useState(false);
+	const [conserveSpace, setConserveSpace] = useState(false);
 	const [focusableComponents] = useState(new Set<HTMLElement>());
 	const [hoverManager, setHoverManager] = useState<IHoverManager>(undefined!);
 
@@ -152,6 +155,8 @@ export const usePositronActionBarState = (
 		hoverManager,
 		menuShowing,
 		setMenuShowing,
-		focusableComponents
+		focusableComponents,
+		conserveSpace,
+		setConserveSpace
 	};
 };

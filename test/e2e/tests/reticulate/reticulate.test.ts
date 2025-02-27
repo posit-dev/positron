@@ -13,10 +13,8 @@ test.use({
 // RETICULATE_PYTHON
 // to the installed python path
 
-// Re-add WEB tag when https://github.com/posit-dev/positron/issues/6397 is fixed
 test.describe('Reticulate', {
 	tag: [tags.RETICULATE, tags.WEB],
-	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6397' }]
 }, () => {
 	test.beforeAll(async function ({ app, userSettings }) {
 		try {

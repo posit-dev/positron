@@ -7,7 +7,7 @@
 import './actionBar.css';
 
 // React.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -20,7 +20,7 @@ import { ActionBarRegion } from '../../../../../platform/positronActionBar/brows
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
-import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { PositronActionBarContextProvider, usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, RuntimeStartMode } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -61,6 +61,7 @@ const positronClearConsole = localize('positronClearConsole', "Clear console");
 const positronRestartConsole = localize('positronRestartConsole', "Restart console");
 const positronShutdownConsole = localize('positronShutdownConsole', "Shutdown console");
 const positronStartConsole = localize('positronStartConsole', "Start console");
+const positronCurrentWorkingDirectory = localize('positronCurrentWorkingDirectory', "Current Working Directory");
 
 /**
  * Provides a localized label for the given runtime state. Only the transient
@@ -326,6 +327,60 @@ export const ActionBar = (props: ActionBarProps) => {
 			'User-requested restart from console action bar');
 	};
 
+	/**
+	 * CurrentWorkingDirectoryProps interface.
+	 */
+	interface CurrentWorkingDirectoryProps {
+		readonly directoryLabel: string;
+	}
+
+	/**
+	 * The current working directory component.
+	 * @returns The rendered component.
+	 */
+	const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => {
+		// Context hooks.
+		const context = usePositronActionBarContext();
+
+		// Reference hooks.
+		const ref = useRef<HTMLDivElement>(undefined!);
+
+		// State hooks.
+		const [mouseInside, setMouseInside] = useState(false);
+
+		// Hover useEffect.
+		useEffect(() => {
+			// If the mouse is inside, show the hover. This has the effect of showing the hover when
+			// mouseInside is set to true and updating the hover when the tooltip changes.
+			if (mouseInside) {
+				context.hoverManager.showHover(ref.current, props.directoryLabel);
+			}
+		}, [context.hoverManager, mouseInside, props.directoryLabel]);
+
+		// Render.
+		return (
+			<div
+				ref={ref}
+				aria-label={positronCurrentWorkingDirectory}
+				className='directory-label'
+				onMouseEnter={() => {
+					// Set the mouse inside state.
+					setMouseInside(true);
+				}}
+				onMouseLeave={() => {
+					// Clear the mouse inside state.
+					setMouseInside(false);
+
+					// Hide the hover.
+					context.hoverManager?.hideHover();
+				}}
+			>
+				<span className='codicon codicon-folder' role='presentation'></span>
+				<span className='label'>{!context.conserveSpace ? directoryLabel : '...'}</span>
+			</div>
+		);
+	};
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...positronConsoleContext}>
@@ -337,38 +392,15 @@ export const ActionBar = (props: ActionBarProps) => {
 					paddingRight={kPaddingRight}
 					size='small'
 				>
-					{!multiSessionsEnabled &&
-						<ActionBarRegion location='left'>
-							<ConsoleInstanceMenuButton {...props} />
-							<div className='action-bar-separator' />
-							{directoryLabel &&
-								<div aria-label={(() => localize(
-									'directoryLabel',
-									"Current Working Directory"
-								))()}
-									className='directory-label'
-								>
-									<span className='codicon codicon-folder' role='presentation'></span>
-									<span className='label' title={directoryLabel}>{directoryLabel}</span>
-								</div>
-							}
-						</ActionBarRegion>
-					}
-					{multiSessionsEnabled &&
-						<div>
-							{directoryLabel &&
-								<div aria-label={(() => localize(
-									'directoryLabel',
-									"Current Working Directory"
-								))()}
-									className='directory-label'
-								>
-									<span className='codicon codicon-folder' role='presentation'></span>
-									<span className='label' title={directoryLabel}>{directoryLabel}</span>
-								</div>
-							}
-						</div>
-					}
+					<ActionBarRegion location='left'>
+						{!multiSessionsEnabled &&
+							<>
+								<ConsoleInstanceMenuButton {...props} />
+								<ActionBarSeparator />
+							</>
+						}
+						<CurrentWorkingDirectory directoryLabel={directoryLabel} />
+					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<div className='state-label'>{stateLabel}</div>
 						{interruptible &&

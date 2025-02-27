@@ -233,7 +233,10 @@ function compareVersionRelease(left: PythonVersion, right: PythonVersion): [numb
  * Convert Python version to semver like version object.
  *
  * Remarks: primarily used to convert to old type of environment info.
- * @deprecated
+ * // --- Start Positron ---
+ *  This is used in environment discovery.
+ *  Upstream has deprecated, but do not remove.
+ * // --- End Positron ---
  */
 export function toSemverLikeVersion(
     version: PythonVersion,

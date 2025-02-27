@@ -78,6 +78,7 @@ from ._vendor.lsprotocol.types import (
     Hover,
     InitializeParams,
     InitializeResult,
+    InsertReplaceEdit,
     InsertTextFormat,
     Location,
     MessageType,
@@ -89,7 +90,6 @@ from ._vendor.lsprotocol.types import (
     SymbolInformation,
     TextDocumentIdentifier,
     TextDocumentPositionParams,
-    TextEdit,
     WorkspaceEdit,
     WorkspaceSymbolParams,
 )
@@ -522,15 +522,24 @@ def positron_completion(
                 )
 
                 # If Jedi knows how to complete the expression, use its suggestion.
-                if completion.complete is not None:
+                new_text = completion.complete
+                if new_text is not None:
                     # Using the text_edit attribute (instead of insert_text used in
-                    # lsp_completion_item) notifies the client to use the text as is.
+                    # lsp_completion_item) notifies the client to use the text as is,
+                    # which is required to complete paths across `-` symbols,
+                    # since the client may treat them as word boundaries.
                     # See https://github.com/posit-dev/positron/issues/5193.
-                    jedi_completion_item.text_edit = TextEdit(
+                    #
+                    # Use InsertReplaceEdit instead of TextEdit since the latter ends up
+                    # setting the deprecated vscode.CompletionItem.textEdit property
+                    # in the client. Quarto also doesn't support the textEdit property.
+                    # See https://github.com/posit-dev/positron/issues/6444.
+                    jedi_completion_item.text_edit = InsertReplaceEdit(
+                        new_text=new_text,
                         # Use a range that starts and ends at the cursor position to insert
                         # text at the cursor.
-                        Range(params.position, params.position),
-                        completion.complete,
+                        insert=Range(params.position, params.position),
+                        replace=Range(params.position, params.position),
                     )
                 completion_items.append(jedi_completion_item)
 

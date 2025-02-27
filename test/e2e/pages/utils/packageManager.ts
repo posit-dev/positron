@@ -51,8 +51,8 @@ export class PackageManager {
 	private getCommand(language: 'R' | 'Python', packageName: PackageName, action: PackageAction): string {
 		if (language === 'Python') {
 			return action === 'install'
-				? `pip install ${packageName}`
-				: `pip uninstall -y ${packageName}`;
+				? `uv pip install ${packageName}`
+				: `uv pip uninstall -y ${packageName}`;
 		} else {
 			return action === 'install'
 				? `install.packages("${packageName}")`
@@ -69,10 +69,10 @@ export class PackageManager {
 		switch (packageName) {
 			case 'ipykernel':
 				return action === 'install'
-					? /Note: you may need to restart the kernel to use updated packages/
+					? /uv pip install completed successfully|Requirement already satisfied/
 					: /Successfully uninstalled ipykernel|Skipping ipykernel as it is not installed/;
 			default:
-				return action === 'install' ? /Installing/ : /Removing/;
+				return action === 'install' ? /Installing|Downloading|Fetched/ : /Removing|Uninstalling/;
 		}
 	}
 }
