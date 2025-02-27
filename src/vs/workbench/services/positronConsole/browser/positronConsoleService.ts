@@ -484,10 +484,13 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				// Return the active console instance for the language if there is one
 				positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(this._activePositronConsoleInstance?.session.sessionId);
 			} else {
-				// Otherwise find a session for the languageId that is ready to use
-				positronConsoleInstance = Array.from(this._positronConsoleInstancesBySessionId.values()).find(consoleInstance => {
-					return consoleInstance.session.runtimeMetadata.languageId === languageId && consoleInstance.state === PositronConsoleState.Ready;
-				});
+				// Otherwise find the newest session for the languageId that is ready to use
+				positronConsoleInstance = Array.from(this._positronConsoleInstancesBySessionId.values())
+					.sort((a, b) => b.session.metadata.createdTimestamp - a.session.metadata.createdTimestamp)
+					.find(consoleInstance => {
+						return consoleInstance.session.runtimeMetadata.languageId === languageId &&
+							consoleInstance.state === PositronConsoleState.Ready;
+					});
 			}
 		}
 
