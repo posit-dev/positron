@@ -31,13 +31,13 @@ test.describe('Top Action Bar: Session Button', {
 
 	test('Python - Verify session starts and displays as running', async function ({ app }) {
 		pythonSession.id = await app.workbench.sessions.launch({ ...pythonSession, triggerMode: 'session-picker' });
-		await app.workbench.sessions.verifySessionPickerValue(pythonSession);
-		await app.workbench.sessions.checkStatus(pythonSession.id, 'idle');
+		await app.workbench.sessions.expectSessionPickerToBe(pythonSession);
+		await app.workbench.sessions.expectStatusToBe(pythonSession.id, 'idle');
 	});
 
 	test('R - Verify session starts and displays as running', async function ({ app }) {
 		rSession.id = await app.workbench.sessions.launch({ ...rSession, triggerMode: 'session-picker' });
-		await app.workbench.sessions.verifySessionPickerValue(rSession);
-		await app.workbench.sessions.checkStatus(rSession.id, 'idle');
+		await app.workbench.sessions.expectSessionPickerToBe(rSession);
+		await app.workbench.sessions.expectStatusToBe(rSession.id, 'idle');
 	});
 });

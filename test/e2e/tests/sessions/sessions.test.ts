@@ -5,7 +5,7 @@
 
 import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
-import { Application, SessionInfo } from '../../infra';
+import { SessionInfo } from '../../infra';
 
 const pythonSession: SessionInfo = {
 	name: `Python ${process.env.POSITRON_PY_VER_SEL || ''}`,
@@ -42,39 +42,39 @@ test.describe('Sessions', {
 		pythonSession.id = await app.workbench.sessions.launch({ ...pythonSession, waitForReady: false });
 
 		// Verify Python session is visible and transitions from active --> idle
-		await sessions.checkStatus(pythonSession.id, 'active');
-		await sessions.checkStatus(pythonSession.id, 'idle');
+		await sessions.expectStatusToBe(pythonSession.id, 'active');
+		await sessions.expectStatusToBe(pythonSession.id, 'idle');
 
 		// Restart Python session and confirm state returns to active --> idle
 		await sessions.restart(pythonSession.id, false);
-		await sessions.checkStatus(pythonSession.id, 'active');
-		await sessions.checkStatus(pythonSession.id, 'idle');
+		await sessions.expectStatusToBe(pythonSession.id, 'active');
+		await sessions.expectStatusToBe(pythonSession.id, 'idle');
 
 		// Start R session
 		rSession.id = await app.workbench.sessions.launch({ ...rSession, waitForReady: false });
 
 		// Verify R session transitions from active --> idle while Python session remains idle
-		await sessions.checkStatus(rSession.id, 'active');
-		await sessions.checkStatus(rSession.id, 'idle');
-		await sessions.checkStatus(pythonSession.id, 'idle');
+		await sessions.expectStatusToBe(rSession.id, 'active');
+		await sessions.expectStatusToBe(rSession.id, 'idle');
+		await sessions.expectStatusToBe(pythonSession.id, 'idle');
 
 		// Shutdown Python session, verify Python transitions to disconnected while R remains idle
 		await sessions.select(pythonSession.id);
 		await console.typeToConsole('exit()', true);
-		await sessions.checkStatus(pythonSession.id, 'disconnected');
-		await sessions.checkStatus(rSession.id, 'idle');
+		await sessions.expectStatusToBe(pythonSession.id, 'disconnected');
+		await sessions.expectStatusToBe(rSession.id, 'idle');
 
 		// Restart R session, verify R to returns to active --> idle and Python remains disconnected
 		await sessions.restart(rSession.id, false);
-		await sessions.checkStatus(rSession.id, 'active');
-		await sessions.checkStatus(rSession.id, 'idle');
+		await sessions.expectStatusToBe(rSession.id, 'active');
+		await sessions.expectStatusToBe(rSession.id, 'idle');
 		// await sessions.checkStatus(pythonSession.id, 'disconnected');
 
 		// Shutdown R, verify both Python and R in disconnected state
 		await sessions.select(rSession.id);
 		await console.typeToConsole('q()', true);
-		await sessions.checkStatus(rSession.id, 'disconnected');
-		await sessions.checkStatus(pythonSession.id, 'disconnected');
+		await sessions.expectStatusToBe(rSession.id, 'disconnected');
+		await sessions.expectStatusToBe(pythonSession.id, 'disconnected');
 	});
 
 	test('Validate session state displays as active when executing code', async function ({ app }) {
@@ -89,16 +89,16 @@ test.describe('Sessions', {
 		await sessions.select(pythonSession.name);
 		await console.typeToConsole('import time', true);
 		await console.typeToConsole('time.sleep(3)', true);
-		await sessions.checkStatus(pythonSession.name, 'active');
+		await sessions.expectStatusToBe(pythonSession.name, 'active');
 
 		// Verify R session transitions to active when executing code
 		// Verify Python session continues to run and transitions to idle when finished
 		await sessions.select(rSession.name);
 		await console.typeToConsole('Sys.sleep(1)', true);
-		await sessions.checkStatus(rSession.name, 'active');
-		await sessions.checkStatus(rSession.name, 'idle');
-		await sessions.checkStatus(pythonSession.name, 'active');
-		await sessions.checkStatus(pythonSession.name, 'idle');
+		await sessions.expectStatusToBe(rSession.name, 'active');
+		await sessions.expectStatusToBe(rSession.name, 'idle');
+		await sessions.expectStatusToBe(pythonSession.name, 'active');
+		await sessions.expectStatusToBe(pythonSession.name, 'idle');
 	});
 
 	test('Validate metadata between sessions', {
@@ -113,18 +113,18 @@ test.describe('Sessions', {
 		rSession.id = await sessions.reuseSessionIfExists(rSession);
 
 		// Verify Python session metadata
-		await sessions.checkMetadata({ ...pythonSession, state: 'idle' });
-		await sessions.checkMetadata({ ...rSession, state: 'idle' });
+		await sessions.expectMetaDataToBe({ ...pythonSession, state: 'idle' });
+		await sessions.expectMetaDataToBe({ ...rSession, state: 'idle' });
 
 		// Shutdown Python session and verify metadata
 		await sessions.select(pythonSession.name);
 		await console.typeToConsole('exit()', true);
-		await sessions.checkMetadata({ ...pythonSession, state: 'exited' });
+		await sessions.expectMetaDataToBe({ ...pythonSession, state: 'exited' });
 
 		// Shutdown R session and verify metadata
 		await sessions.select(rSession.name);
 		await console.typeToConsole('q()', true);
-		await sessions.checkMetadata({ ...rSession, state: 'exited' });
+		await sessions.expectMetaDataToBe({ ...rSession, state: 'exited' });
 	});
 
 	test('Validate variables between sessions', {
@@ -142,30 +142,30 @@ test.describe('Sessions', {
 		await sessions.select(pythonSession.name);
 		await console.typeToConsole('x = 1', true);
 		await console.typeToConsole('y = 2', true);
-		await variables.checkRuntime(pythonSession.name);
-		await variables.checkVariableValue('x', '1');
-		await variables.checkVariableValue('y', '2');
+		await variables.expectRuntimeToBe(pythonSession.name);
+		await variables.expectVariableToBe('x', '1');
+		await variables.expectVariableToBe('y', '2');
 
 		// Set and verify variables in R
 		await sessions.select(rSession.name);
 		await console.typeToConsole('x <- 3', true);
 		await console.typeToConsole('z <- 4', true);
-		await variables.checkRuntime(rSession.name);
-		await variables.checkVariableValue('x', '3');
-		await variables.checkVariableValue('z', '4');
+		await variables.expectRuntimeToBe(rSession.name);
+		await variables.expectVariableToBe('x', '3');
+		await variables.expectVariableToBe('z', '4');
 
 		// Switch back to Python, update variables, and verify
 		await sessions.select(pythonSession.name);
 		await console.typeToConsole('x = 0', true);
-		await variables.checkRuntime(pythonSession.name);
-		await variables.checkVariableValue('x', '0');
-		await variables.checkVariableValue('y', '2');
+		await variables.expectRuntimeToBe(pythonSession.name);
+		await variables.expectVariableToBe('x', '0');
+		await variables.expectVariableToBe('y', '2');
 
 		// Switch back to R, verify variables remain unchanged
 		await sessions.select(rSession.name);
-		await variables.checkRuntime(rSession.name);
-		await variables.checkVariableValue('x', '3');
-		await variables.checkVariableValue('z', '4');
+		await variables.expectRuntimeToBe(rSession.name);
+		await variables.expectVariableToBe('x', '3');
+		await variables.expectVariableToBe('z', '4');
 	});
 
 	test('Validate active session list in console matches active session list in session picker', {
@@ -178,25 +178,30 @@ test.describe('Sessions', {
 		// Start sessions and verify active sessions: order matters!
 		pythonSession.id = await sessions.reuseSessionIfExists(pythonSession);
 		rSession.id = await sessions.reuseSessionIfExists(rSession);
-		await verifySessionList(app, 2);
+		await sessions.expectSessionCountToBe(2, 'active');
+		await sessions.expectSessionListsToMatch();
 
 		// Shutdown Python session and verify active sessions
 		await sessions.select(pythonSession.name);
 		await app.workbench.console.typeToConsole('exit()', true);
-		await verifySessionList(app, 1);
+		await sessions.expectSessionCountToBe(1, 'active');
+		await sessions.expectSessionListsToMatch();
 
 		// Shutdown R session and verify active sessions
 		await sessions.select(rSession.name);
 		await app.workbench.console.typeToConsole('q()', true);
-		await verifySessionList(app, 0);
+		await sessions.expectSessionCountToBe(0, 'active');
+		await sessions.expectSessionListsToMatch();
 
 		// Start Python session (again) and verify active sessions
 		await sessions.start(pythonSession.name);
-		await verifySessionList(app, 1);
+		await sessions.expectSessionCountToBe(1, 'active');
+		await sessions.expectSessionListsToMatch();
 
 		// Restart Python session and verify active sessions
 		await sessions.restart(pythonSession.name);
-		await verifySessionList(app, 1);
+		await sessions.expectSessionCountToBe(1, 'active');
+		await sessions.expectSessionListsToMatch();
 	});
 
 	test('Validate can delete sessions', async function ({ app }) {
@@ -209,29 +214,17 @@ test.describe('Sessions', {
 
 		// Delete 1st session and verify active sessions and runtime in session picker
 		await sessions.delete(pythonSession.name);
-		await expect(sessions.allSessionTabs).toHaveCount(1);
-		await variables.checkRuntime(rSession.name);
-		await verifySessionList(app, 1);
+		await sessions.expectSessionCountToBe(1);
+		await sessions.expectSessionListsToMatch();
+		await variables.expectRuntimeToBe(rSession.name);
 
 		// Delete 2nd session and verify no active sessions or runtime in session picker
 		await sessions.delete(rSession.name);
-		await expect(sessions.allSessionTabs).not.toBeVisible();
 		await expect(sessions.chooseSessionButton).toHaveText('Choose Session');
-		await variables.checkRuntime('None');
-		await verifySessionList(app, 0);
+		await sessions.expectSessionCountToBe(0);
+		await sessions.expectSessionListsToMatch();
+		await variables.expectRuntimeToBe('None');
 	});
 });
 
-async function verifySessionList(app: Application, count?: number) {
-	await test.step('Verify active sessions match between console and session picker', async () => {
-		await expect(async () => {
-			const activeSessionsFromConsole = await app.workbench.sessions.getActiveSessions();
-			const activeSessionsFromPicker = await app.workbench.sessions.quickPick.getActiveSessions();
 
-			expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
-			if (count) {
-				expect(activeSessionsFromConsole).toHaveLength(count);
-			}
-		}).toPass({ timeout: 10000 });
-	});
-}

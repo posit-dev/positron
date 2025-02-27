@@ -173,7 +173,7 @@ export class Sessions {
 			await this.startButton.click();
 
 			if (waitForIdle) {
-				await this.checkStatus(sessionIdOrName, 'idle');
+				await this.expectStatusToBe(sessionIdOrName, 'idle');
 			}
 		});
 
@@ -197,7 +197,7 @@ export class Sessions {
 			await this.restartButton.click();
 
 			if (waitForIdle) {
-				this.checkStatus(sessionIdOrName, 'idle');
+				this.expectStatusToBe(sessionIdOrName, 'idle');
 			}
 		});
 	}
@@ -215,7 +215,7 @@ export class Sessions {
 			await this.shutDownButton.click();
 
 			if (waitForDisconnected) {
-				await this.checkStatus(sessionIdOrName, 'disconnected');
+				await this.expectStatusToBe(sessionIdOrName, 'disconnected');
 			}
 		});
 	}
@@ -465,7 +465,7 @@ export class Sessions {
 	 * @param sessionIdOrName the id or name of the session
 	 * @param expectedStatus the expected status of the session: 'active', 'idle', or 'disconnected'
 	 */
-	async checkStatus(sessionIdOrName: string, expectedStatus: 'active' | 'idle' | 'disconnected') {
+	async expectStatusToBe(sessionIdOrName: string, expectedStatus: 'active' | 'idle' | 'disconnected') {
 		const isSessionId = await this.isSessionId(sessionIdOrName);
 
 		await test.step(`Verify ${sessionIdOrName} session status: ${expectedStatus}`, async () => {
@@ -484,7 +484,7 @@ export class Sessions {
 	 * Verify: Check the metadata of the session dialog
 	 * @param session the expected session info to verify
 	 */
-	async checkMetadata(session: SessionInfo & { state: 'active' | 'idle' | 'disconnected' | 'exited' }) {
+	async expectMetaDataToBe(session: SessionInfo & { state: 'active' | 'idle' | 'disconnected' | 'exited' }) {
 		await test.step(`Verify ${session.language} ${session.version} metadata`, async () => {
 
 			// Click metadata button for desired session
@@ -520,7 +520,7 @@ export class Sessions {
 	 * Verify: the selected runtime matches the runtime in the Session Picker button
 	 * @param version The descriptive string of the runtime to verify.
 	 */
-	async verifySessionPickerValue(
+	async expectSessionPickerToBe(
 		options: { language?: 'Python' | 'R'; version?: string } = {}
 	) {
 		if (!DESIRED_PYTHON || !DESIRED_R) {
@@ -535,6 +535,34 @@ export class Sessions {
 			const runtimeInfo = await this.quickPick.getSelectedSessionInfo();
 			expect(runtimeInfo.language).toContain(language);
 			expect(runtimeInfo.version).toContain(version);
+		});
+	}
+
+	async expectSessionCountToBe(count: number, sessionType: 'all' | 'active' = 'all') {
+		await test.step(`Verify session count: ${count}`, async () => {
+			await expect(async () => {
+				if (sessionType === 'active') {
+					const activeSessionsFromConsole = await this.getActiveSessions();
+					expect(activeSessionsFromConsole).toHaveLength(count);
+				} else {
+					await expect(this.allSessionTabs).toHaveCount(count);
+				}
+			}).toPass({ timeout: 5000 });
+		});
+	}
+
+	/**
+	 * Verify: the active sessions match between console and session picker
+	 * @param count the expected number of active sessions
+	 */
+	async expectSessionListsToMatch() {
+		await test.step('Verify active sessions match between console and session picker', async () => {
+			await expect(async () => {
+				const activeSessionsFromConsole = await this.getActiveSessions();
+				const activeSessionsFromPicker = await this.quickPick.getActiveSessions();
+
+				expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
+			}).toPass({ timeout: 10000 });
 		});
 	}
 }

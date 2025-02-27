@@ -191,7 +191,7 @@ export class Variables {
 	 * @param language the language of the runtime: Python or R
 	 * @param version the version of the runtime: e.g. 3.10.15
 	 */
-	async checkRuntime(sessionName: string) {
+	async expectRuntimeToBe(sessionName: string) {
 		await test.step(`Verify runtime: ${sessionName}`, async () => {
 			await this.togglePane('show');
 			await expect(this.variablesRuntime(sessionName)).toBeVisible();
@@ -203,7 +203,7 @@ export class Variables {
 	 * @param variableName the name of the variable to check
 	 * @param value the expected value of the variable
 	 */
-	async checkVariableValue(variableName: string, value: string) {
+	async expectVariableToBe(variableName: string, value: string) {
 		await test.step(`Verify variable: ${variableName} with value: ${value}`, async () => {
 			await this.togglePane('show');
 			const row = this.code.driver.page.locator('.variables-instance[style*="z-index: 1"] .variable-item').filter({ hasText: variableName });
