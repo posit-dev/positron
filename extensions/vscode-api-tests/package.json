@@ -74,6 +74,7 @@
         "id": "api-test.participant",
         "name": "participant",
         "description": "test",
+        "isDefault": true,
         "commands": [
           {
             "name": "hello",

@@ -46,7 +46,9 @@ export class EncryptedSecretStorage implements SecretStorage {
  * It is used in web mode, where there is no durable secret storage.
  *
  * This class should be replaced with one that uses a secure storage mechanism,
- * or just removed altogether when Positron gains secure storage capabilities.
+ * or just removed altogether when Positron gains secure storage capabilities in web mode.
+ *
+ * https://github.com/rstudio/vscode-server/issues/174
  */
 export class GlobalSecretStorage implements SecretStorage {
 	constructor(private context: vscode.ExtensionContext) { }

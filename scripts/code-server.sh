@@ -23,9 +23,17 @@ function code() {
 
 	popd
 
+	# --- Start Positron ---
+	DISABLE_TEST_EXTENSION="--disable-extension=vscode.vscode-api-tests"
+	if [[ "$@" == *"--extensionTestsPath"* ]]; then
+		DISABLE_TEST_EXTENSION=""
+	fi
+
+	# Modified from upstream to add DISABLE_TEST_EXTENSION
 	NODE_ENV=development \
 	VSCODE_DEV=1 \
-	$NODE $ROOT/scripts/code-server.js "$@"
+	$NODE $ROOT/scripts/code-server.js "$@" $DISABLE_TEST_EXTENSION
+	# --- End Positron ---
 }
 
 code "$@"
