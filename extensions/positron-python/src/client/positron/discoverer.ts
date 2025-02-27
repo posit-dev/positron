@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 
-import { IInterpreterSelector } from '../interpreter/configuration/types';
+import { IInterpreterComparer, IInterpreterSelector } from '../interpreter/configuration/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
@@ -32,11 +32,11 @@ export async function* pythonRuntimeDiscoverer(
 ): AsyncGenerator<positron.LanguageRuntimeMetadata> {
     try {
         traceInfo('pythonRuntimeDiscoverer: Starting Python runtime discoverer');
-        const recommendedInterpreter = await recommendInterpreter(serviceContainer);
         const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
 
         // Discover Python interpreters
         let interpreters = interpreterService.getInterpreters();
+        const recommendedInterpreter = await recommendInterpreter(serviceContainer, interpreters);
 
         traceInfo(`pythonRuntimeDiscoverer: discovered ${interpreters.length} Python interpreters`);
 
@@ -162,14 +162,14 @@ async function hasFiles(includes: string[]): Promise<boolean> {
  */
 export async function recommendInterpreter(
     serviceContainer: IServiceContainer,
+    interpreters: PythonEnvironment[],
 ): Promise<PythonEnvironment | undefined> {
     const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
-    const interpreterSelector = serviceContainer.get<IInterpreterSelector>(IInterpreterSelector);
+    const interpreterComparer = serviceContainer.get<IInterpreterComparer>(IInterpreterComparer);
 
     // Get the recommended interpreter
     // NOTE: We may need to pass a resource to getSettings to support multi-root workspaces
     const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
-    const suggestions = interpreterSelector.getSuggestions(workspaceUri);
 
     let recommendedInterpreter: PythonEnvironment | undefined;
 
@@ -183,7 +183,7 @@ export async function recommendInterpreter(
     }
 
     // if no interpreter found yet, try to get recommended interpreter
-    recommendedInterpreter = interpreterSelector.getRecommendedSuggestion(suggestions, workspaceUri)?.interpreter;
+    recommendedInterpreter = interpreterComparer.getRecommended(interpreters, workspaceUri);
     if (recommendedInterpreter) {
         traceInfo(`pythonRuntimeDiscoverer: using recommended suggestion ${recommendedInterpreter?.path}`);
         return recommendedInterpreter;
