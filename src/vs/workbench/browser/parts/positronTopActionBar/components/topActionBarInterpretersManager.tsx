@@ -82,6 +82,8 @@ export const TopActionBarInterpretersManager_Legacy = (props: TopActionBarInterp
 				if (session?.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 					setActiveSession(
 						context.runtimeSessionService.foregroundSession);
+				} else if (!session) {
+					setActiveSession(undefined);
 				}
 			})
 		);
@@ -164,6 +166,8 @@ export const TopActionBarInterpretersManager_New = (props: TopActionBarInterpret
 				if (session?.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 					setActiveSession(
 						context.runtimeSessionService.foregroundSession);
+				} else if (!session) {
+					setActiveSession(undefined);
 				}
 			})
 		);
