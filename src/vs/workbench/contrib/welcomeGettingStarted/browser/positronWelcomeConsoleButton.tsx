@@ -20,7 +20,7 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { multipleConsoleSessionsFeatureEnabled } from '../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
-import { LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
+import { LANGUAGE_RUNTIME_START_SESSION_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
 
 interface WelcomeConsoleButtonProps {
 	commandService: ICommandService;
@@ -90,10 +90,10 @@ export function WelcomeConsoleButton(props: WelcomeConsoleButtonProps) {
 	};
 
 	const handlePressed = () => {
-		if (!multiSessionsEnabled) {
-			showPopup();
+		if (multiSessionsEnabled) {
+			props.commandService.executeCommand(LANGUAGE_RUNTIME_START_SESSION_ID);
 		} else {
-			props.commandService.executeCommand(LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID);
+			showPopup();
 		}
 	}
 
