@@ -622,7 +622,7 @@ class SQLAlchemyConnection(Connection):
     def __init__(self, conn: sqlalchemy.Engine):
         self.conn = conn
         self.display_name = f"SQLAlchemy ({conn.name})"
-        self.host = conn.url.render_as_string()
+        self.host = conn.url.render_as_string(hide_password=False)
         self.type = "SQLAlchemy"
         self.code = (
             "import sqlalchemy\n"
