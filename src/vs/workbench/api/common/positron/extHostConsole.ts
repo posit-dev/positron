@@ -41,5 +41,9 @@ export class ExtHostConsole {
 	getConsole(): positron.Console {
 		return this._value;
 	}
+
+	getLanguageId(): string {
+		return this.getLanguageId();
+	}
 }
 

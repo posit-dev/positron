@@ -12,11 +12,16 @@ import { dispose } from '../../../../base/common/lifecycle.js';
 
 export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServiceShape {
 
-	// Map of language `id` to console.
-	// Assumes each language `id` maps to at most 1 console,
-	// which may need to be relaxed in the future.
-	// Kept in sync with consoles in `MainThreadConsoleService`.
-	private readonly _extHostConsolesByLanguageId = new Map<string, ExtHostConsole>;
+	/**
+	 * A Map of session ids to the respective console.
+	 * Each session id maps to a single console.
+	 * Multiple sessions could map to the same console, this happens
+	 * when a user power-cycles the session for a console instance
+	 * (i.e. shutdown session for console instance, then start a session for console instance)
+	 *
+	 * Kept in sync with consoles in `MainThreadConsoleService`
+	 */
+	private readonly _extHostConsolesBySessionId = new Map<string, ExtHostConsole>();
 
 	private readonly _onDidChangeConsoleWidth = new Emitter<number>();
 
@@ -40,8 +45,11 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 		return this._proxy.$getConsoleWidth();
 	}
 
+	// TODO: Update to return a valid console
 	getConsoleForLanguage(id: string): positron.Console | undefined {
-		const extHostConsole = this._extHostConsolesByLanguageId.get(id);
+		// find a console for this langauge id
+		const extHostConsole = Array.from(this._extHostConsolesBySessionId.values())
+			.find(extHostConsole => extHostConsole.getLanguageId() === id);
 
 		if (!extHostConsole) {
 			// Console for this language `id` doesn't exist yet
@@ -62,14 +70,13 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 	// Called when a new console instance is started
 	$addConsole(id: string): void {
 		const extHostConsole = new ExtHostConsole(id, this._proxy, this._logService);
-		this._extHostConsolesByLanguageId.set(id, extHostConsole);
+		this._extHostConsolesBySessionId.set(id, extHostConsole);
 	}
 
 	// Called when a console instance is removed
 	$removeConsole(id: string): void {
-		const extHostConsole = this._extHostConsolesByLanguageId.get(id);
-		this._extHostConsolesByLanguageId.delete(id);
-
+		const extHostConsole = this._extHostConsolesBySessionId.get(id);
+		this._extHostConsolesBySessionId.delete(id);
 		// "Dispose" of an `ExtHostConsole`, ensuring that future API calls warn / error
 		dispose(extHostConsole);
 	}
