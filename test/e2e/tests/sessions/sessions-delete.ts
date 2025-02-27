@@ -44,13 +44,13 @@ test.describe('Sessions', {
 
 		// Delete 1st session and verify active sessions
 		await sessions.delete(sessionIds[0]);
-		await expect(sessions.allSessionTabs).toHaveCount(1);
+		await expect(sessions.sessionTabs).toHaveCount(1);
 		await verifySessionList(app, 1);
 
 		// Delete 2nd session and verify no active sessions
 		await sessions.delete(sessionIds[1]);
 		await expect(sessions.chooseSessionButton).toBeVisible();
-		await expect(sessions.allSessionTabs).not.toBeVisible();
+		await expect(sessions.sessionTabs).not.toBeVisible();
 
 		// Verify no variables
 		await app.workbench.variables.togglePane('show');
