@@ -333,13 +333,24 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	/**
 	 * Selects and starts a new runtime session, after shutting down any currently active
-	 * sessions for the console (unless multiple console sessions is enabled) or notebook.
+	 * sessions for the console or notebook.
+	 *
+	 * If `console.multipleConsoleSessions` is enabled this function works as decribed below:
+	 *
+	 * Starts a runtime session for the provided runtime if there isn't one.
+	 *
+	 * For notebooks, only one runtime session for a notebook URI is allowed. Starts a session for the
+	 * new runtime after shutting down the session for the previous runtime. Do nothing if the runtime
+	 * matches the active runtime for the notebook session.
+	 *
+	 * For consoles, we can have multiple sessions for a given runtime. Starts a session for the new
+	 * runtime if there isn't one. Do nothing if there is an active console session for the runtime.
 	 *
 	 * @param runtimeId The ID of the runtime to select
 	 * @param source The source of the selection
 	 * @param notebookUri The URI of the notebook selecting the runtime, if any
 	 *
-	 * @returns A promise that resolves to the session ID when the runtime is started
+	 * @returns A promise that resolves to the session ID if a runtime session was started
 	 */
 	async selectRuntime(runtimeId: string, source: string, notebookUri?: URI): Promise<void> {
 		const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
@@ -349,7 +360,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			throw new Error(`No language runtime with id '${runtimeId}' was found.`);
 		}
 
-		const sessionMode = notebookUri ? LanguageRuntimeSessionMode.Notebook : LanguageRuntimeSessionMode.Console;
+		// Determine some session metadata values based off the session type (console vs notebook)
+		const sessionMode = notebookUri
+			? LanguageRuntimeSessionMode.Notebook
+			: LanguageRuntimeSessionMode.Console;
+		const sessionName = notebookUri ? basename(notebookUri) : runtime.runtimeName;
+		const startMode = notebookUri
+			? RuntimeStartMode.Switching
+			: multiSessionsEnabled ? RuntimeStartMode.Starting : RuntimeStartMode.Switching;
+
 
 		// If a start request is already in progress, wait for it to complete.
 		const startingPromise = this._startingSessionsBySessionMapKey.get(
@@ -379,19 +398,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 				await this.shutdownRuntimeSession(activeSession, RuntimeExitReason.SwitchRuntime);
 			}
-
-			// Wait for the selected runtime to start.
-			await this.startNewRuntimeSession(runtime.runtimeId,
-				basename(notebookUri),
-				sessionMode,
-				notebookUri,
-				source,
-				RuntimeStartMode.Switching,
-				true);
 		} else {
-			// For multiple console session support we do not want to shutdown
-			// any existing sessions that match the requested runtimeId.
-			if (!multiSessionsEnabled) {
+			if (multiSessionsEnabled) {
+				// Check if there is a console session for this runtime already
+				const activeSession = this.getConsoleSessionForRuntime(runtimeId);
+				if (activeSession) {
+					return;
+				}
+			} else {
 				// Shut down any other runtime consoles for the language.
 				const activeSession =
 					this.getConsoleSessionForLanguage(runtime.languageId);
@@ -406,18 +420,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					await this.shutdownRuntimeSession(activeSession, RuntimeExitReason.SwitchRuntime);
 				}
 			}
-
-			// Wait for the selected runtime to start.
-			await this.startNewRuntimeSession(
-				runtime.runtimeId,
-				runtime.runtimeName,
-				sessionMode,
-				undefined, // No notebook URI (console session)
-				source,
-				multiSessionsEnabled ? RuntimeStartMode.Starting : RuntimeStartMode.Switching,
-				true
-			);
 		}
+
+		// Wait for the selected runtime to start.
+		await this.startNewRuntimeSession(
+			runtime.runtimeId,
+			sessionName,
+			sessionMode,
+			notebookUri,
+			source,
+			startMode,
+			true
+		);
 	}
 
 	/**
