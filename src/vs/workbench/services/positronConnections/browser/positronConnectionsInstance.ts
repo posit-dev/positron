@@ -467,7 +467,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 
 	private async getIcon() {
 		const icon = await this.instance.client.getIcon(this.path);
-		if (!icon || icon === '') {
+		if (!icon) {
 			return undefined;
 		} else {
 			return FileAccess.uriToBrowserUri(URI.file(icon)).toString();
