@@ -37,6 +37,11 @@ function toEnvironmentType(pythonEnv: PythonEnvironment): EnvironmentType {
     if (pythonEnv.envId.managerId.toLowerCase().endsWith('hatch')) {
         return EnvironmentType.Hatch;
     }
+    // --- Start Positron ---
+    if (pythonEnv.envId.managerId.toLowerCase().endsWith('uv')) {
+        return EnvironmentType.Uv;
+    }
+    // --- End Positron ---
     if (pythonEnv.envId.managerId.toLowerCase().endsWith('pixi')) {
         return EnvironmentType.Pixi;
     }
