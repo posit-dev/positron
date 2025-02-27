@@ -18,6 +18,8 @@ const rmrf = require('rimraf');
 
 const COMPLETE_FILE_NAME = 'is-complete';
 
+const USER_AGENT = 'positron-python-tests';
+
 // Create a promisified version of https.get. We can't use the built-in promisify
 // because the callback doesn't follow the promise convention of (error, result).
 const httpsGetAsync = (opts: string | https.RequestOptions) =>
@@ -143,7 +145,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
 
     const headers: Record<string, string> = {
         Accept: 'application/vnd.github.v3.raw', // eslint-disable-line
-        'User-Agent': 'positron-python-tests', // eslint-disable-line
+        'User-Agent': USER_AGENT, // eslint-disable-line
     };
     // If we have a githubPat, set it for better rate limiting.
     if (githubPat) {
@@ -281,10 +283,13 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     }
 
     console.log(`Downloading Positron for ${platform} from ${url.href}`);
-    // Reset the Accept header to download the asset.
-    headers.Accept = 'application/octet-stream';
+    // Use separate headers for downloading the Positron binary.
+    const dlHeaders: Record<string, string> = {
+        Accept: 'application/octet-stream',
+        'User-Agent': USER_AGENT,
+    };
     const dlRequestOptions: https.RequestOptions = {
-        headers,
+        headers: dlHeaders,
         method: 'GET',
         protocol: url.protocol,
         hostname: url.hostname,
