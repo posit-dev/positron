@@ -9,7 +9,7 @@ import { QuickInput } from './quickInput';
 
 const DESIRED_PYTHON = process.env.POSITRON_PY_VER_SEL;
 const DESIRED_R = process.env.POSITRON_R_VER_SEL;
-
+const sessionIdPattern = /^(python|r)-[a-zA-Z0-9]+$/i;
 
 /**
  * Class to manage console sessions
@@ -19,54 +19,38 @@ export class Sessions {
 	private activeStatus: (session: Locator) => Locator;
 	private idleStatus: (session: Locator) => Locator;
 	private disconnectedStatus: (session: Locator) => Locator;
-	sessions: Locator;
-	metadataButton: Locator;
-	metadataDialog: Locator;
+	private metadataButton: Locator;
+	private metadataDialog: Locator;
 	chooseSessionButton: Locator;
-	quickPick: SessionQuickPick;
-	allSessionTabs: Locator;
-	currentSessionTab: Locator;
+	private quickPick: SessionQuickPick;
 	private sessionTabById: (sessionId: string) => Locator;
 	private trashButtonById: (sessionId: string) => Locator;
 	private trashButtonByName: (sessionName: string) => Locator;
 	private startButton: Locator;
 	private restartButton: Locator;
 	private shutDownButton: Locator;
+	sessionTabs: Locator;
+	currentSessionTab: Locator;
 
 	constructor(private code: Code, private console: Console, private quickaccess: QuickAccess, private quickinput: QuickInput) {
 		this.page = this.code.driver.page;
 		this.activeStatus = (session: Locator) => session.locator('.codicon-positron-status-active');
 		this.idleStatus = (session: Locator) => session.locator('.codicon-positron-status-idle');
 		this.disconnectedStatus = (session: Locator) => session.locator('.codicon-positron-status-disconnected');
-		this.sessions = this.page.getByTestId(/console-tab/);
 		this.metadataButton = this.page.getByRole('button', { name: 'Console information' });
 		this.metadataDialog = this.page.getByRole('dialog');
 		this.quickPick = new SessionQuickPick(this.code, this);
 		this.chooseSessionButton = this.page.getByRole('button', { name: 'Open Active Session Picker' });
-		this.allSessionTabs = this.page.locator('[data-testid^="console-tab-"].tab-button');
-		this.currentSessionTab = this.page.locator('[data-testid^="console-tab-"].tab-button--active');
 		this.sessionTabById = (sessionId: string) => this.page.getByTestId(`console-tab-${sessionId}`);
 		this.trashButtonById = (sessionId: string) => this.sessionTabById(sessionId).getByTestId('trash-session');
 		this.trashButtonByName = (sessionName: string) => this.sessionTabByName(sessionName).getByTestId('trash-session');
 		this.startButton = this.page.getByLabel('Start console', { exact: true });
 		this.restartButton = this.page.getByLabel('Restart console', { exact: true });
 		this.shutDownButton = this.page.getByLabel('Shutdown console', { exact: true });
+		this.sessionTabs = this.page.getByTestId(/console-tab/);
+		this.currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 	}
 
-	async validateSessionId(sessionId: string): Promise<boolean> {
-		const isValid = /^(python|r)-[a-zA-Z0-9]+$/i.test(sessionId);
-		if (!isValid) {
-			throw new Error(`Session ID is invalid: ${sessionId}`);
-		}
-		return isValid;
-	}
-
-	async isSessionId(sessionId: string): Promise<boolean> {
-		if (!sessionId) {
-			throw new Error('Session name/id is required');
-		}
-		return /^(python|r)-[a-zA-Z0-9]+$/i.test(sessionId);
-	}
 
 	// -- Actions --
 
@@ -145,7 +129,7 @@ export class Sessions {
 	 */
 	async delete(sessionIdOrName: string): Promise<void> {
 		await test.step(`Delete session: ${sessionIdOrName}`, async () => {
-			const isSessionId = await this.isSessionId(sessionIdOrName);
+			const isSessionId = sessionIdPattern.test(sessionIdOrName);
 			const sessionTab = await this.getSessionTab(sessionIdOrName);
 
 			await sessionTab.click();
@@ -224,7 +208,7 @@ export class Sessions {
 	 * Action: Open the metadata dialog and select the desired menu item
 	 * @param menuItem the menu item to click on the metadata dialog
 	 */
-	async clickMetadataOption(menuItem: 'Show Kernel Output Channel' | 'Show Console Output Channel' | 'Show LSP Output Channel') {
+	async selectMetadataOption(menuItem: 'Show Kernel Output Channel' | 'Show Console Output Channel' | 'Show LSP Output Channel') {
 		await this.console.clickConsoleTab();
 		await this.metadataButton.click();
 		await this.metadataDialog.getByText(menuItem).click();
@@ -243,9 +227,9 @@ export class Sessions {
 	 * @returns locator for the session tab
 	 */
 	private async getSessionTab(sessionIdOrName: string): Promise<Locator> {
-		return (await this.isSessionId(sessionIdOrName)
+		return sessionIdPattern.test(sessionIdOrName)
 			? this.page.getByTestId(`console-tab-${sessionIdOrName}`)
-			: this.allSessionTabs.getByText(sessionIdOrName).locator('..'));
+			: this.sessionTabs.getByText(sessionIdOrName).locator('..');
 	}
 
 	/**
@@ -257,7 +241,7 @@ export class Sessions {
 		if (!sessionName) {
 			throw new Error('Session name is required');
 		}
-		return this.allSessionTabs.getByText(sessionName).locator('..');
+		return this.sessionTabs.getByText(sessionName).locator('..');
 	}
 
 	/**
@@ -332,13 +316,13 @@ export class Sessions {
 	 */
 	async getAllSessionIds(): Promise<string[]> {
 
-		if (await this.allSessionTabs.count() === 0) {
+		if (await this.sessionTabs.count() === 0) {
 			return []; // No active sessions found
 		}
 
 		const sessionIds: string[] = [];
 
-		for (const tab of await this.allSessionTabs.all()) {
+		for (const tab of await this.sessionTabs.all()) {
 			await tab.click();
 			const { id } = await this.getMetadata();
 			sessionIds.push(id);
@@ -412,7 +396,7 @@ export class Sessions {
 	 * Note: Sessions that are disconnected are filtered out
 	 */
 	async getActiveSessions(): Promise<QuickPickSessionInfo[]> {
-		const allSessions = await this.sessions.all();
+		const allSessions = await this.sessionTabs.all();
 
 		const activeSessions = (
 			await Promise.all(
@@ -450,11 +434,11 @@ export class Sessions {
 	 * @returns 'active', 'idle', 'disconnected', or 'unknown'
 	 */
 	async getStatusByName(sessionName: string): Promise<'active' | 'idle' | 'disconnected' | 'unknown'> {
-		const expectedSession = this.sessionTabByName(sessionName);
+		const session = this.sessionTabByName(sessionName);
 
-		if (await this.activeStatus(expectedSession).isVisible()) { return 'active'; }
-		if (await this.idleStatus(expectedSession).isVisible()) { return 'idle'; }
-		if (await this.disconnectedStatus(expectedSession).isVisible()) { return 'disconnected'; }
+		if (await this.activeStatus(session).isVisible()) { return 'active'; }
+		if (await this.idleStatus(session).isVisible()) { return 'idle'; }
+		if (await this.disconnectedStatus(session).isVisible()) { return 'disconnected'; }
 		return 'unknown';
 	}
 
@@ -466,7 +450,7 @@ export class Sessions {
 	 * @param expectedStatus the expected status of the session: 'active', 'idle', or 'disconnected'
 	 */
 	async expectStatusToBe(sessionIdOrName: string, expectedStatus: 'active' | 'idle' | 'disconnected') {
-		const isSessionId = await this.isSessionId(sessionIdOrName);
+		const isSessionId = sessionIdPattern.test(sessionIdOrName);
 
 		await test.step(`Verify ${sessionIdOrName} session status: ${expectedStatus}`, async () => {
 			const sessionLocator = isSessionId
@@ -500,15 +484,15 @@ export class Sessions {
 			await this.page.keyboard.press('Escape');
 
 			// Verify Language Console
-			await this.clickMetadataOption('Show Console Output Channel');
+			await this.selectMetadataOption('Show Console Output Channel');
 			await expect(this.page.getByRole('combobox')).toHaveValue(new RegExp(`^${session.language} ${session.version}.*: Console$`));
 
 			// Verify Output Channel
-			await this.clickMetadataOption('Show Kernel Output Channel');
+			await this.selectMetadataOption('Show Kernel Output Channel');
 			await expect(this.page.getByRole('combobox')).toHaveValue(new RegExp(`^${session.language} ${session.version}.*: Kernel$`));
 
 			// Verify LSP Output Channel
-			await this.clickMetadataOption('Show LSP Output Channel');
+			await this.selectMetadataOption('Show LSP Output Channel');
 			await expect(this.page.getByRole('combobox')).toHaveValue(/Language Server \(Console\)$/);
 
 			// Go back to console when done
@@ -545,7 +529,7 @@ export class Sessions {
 					const activeSessionsFromConsole = await this.getActiveSessions();
 					expect(activeSessionsFromConsole).toHaveLength(count);
 				} else {
-					await expect(this.allSessionTabs).toHaveCount(count);
+					await expect(this.sessionTabs).toHaveCount(count);
 				}
 			}).toPass({ timeout: 5000 });
 		});
