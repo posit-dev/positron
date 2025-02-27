@@ -32,6 +32,13 @@ test.describe('Console: Sessions', {
 		await app.workbench.variables.togglePane('hide');
 	});
 
+	/**
+	 * NOTE: updated by @dhruvisompura
+	 *
+	 * These tests need to be updated to shutdown a session via a different method
+	 * The shutdown console button is no longer displayed to users in the multiple
+	 * console sesison world
+	 */
 	test('Validate state between sessions (active, idle, disconnect) ', async function ({ app }) {
 		const sessions = app.workbench.sessions;
 
@@ -56,20 +63,20 @@ test.describe('Console: Sessions', {
 		await sessions.checkStatus(pythonSession, 'idle');
 
 		// Shutdown Python session, verify Python transitions to disconnected while R remains idle
-		await sessions.shutdown(pythonSession, false);
-		await sessions.checkStatus(pythonSession, 'disconnected');
-		await sessions.checkStatus(rSession, 'idle');
+		//await sessions.shutdown(pythonSession, false);
+		//await sessions.checkStatus(pythonSession, 'disconnected');
+		//await sessions.checkStatus(rSession, 'idle');
 
-		// Restart R session, verify R to returns to active --> idle and Python remains disconnected
+		// Restart R session, verify R to returns to active --> idle and Python remains idle
 		await sessions.restart(rSession, false);
 		await sessions.checkStatus(rSession, 'active');
 		await sessions.checkStatus(rSession, 'idle');
-		await sessions.checkStatus(pythonSession, 'disconnected');
+		await sessions.checkStatus(pythonSession, 'idle');
 
 		// Shutdown R, verify both Python and R in disconnected state
-		await sessions.shutdown(rSession, false);
-		await sessions.checkStatus(rSession, 'disconnected');
-		await sessions.checkStatus(pythonSession, 'disconnected');
+		//await sessions.shutdown(rSession, false);
+		//await sessions.checkStatus(rSession, 'disconnected');
+		//await sessions.checkStatus(pythonSession, 'disconnected');
 	});
 
 	test('Validate session state displays as active when executing code', async function ({ app }) {
@@ -94,28 +101,35 @@ test.describe('Console: Sessions', {
 		await sessions.checkStatus(rSession, 'idle');
 	});
 
-	test('Validate metadata between sessions', {
-		annotation: [
-			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6389' }]
-	}, async function ({ app }) {
-		const sessions = app.workbench.sessions;
+	/**
+	 * NOTE: commented out by @dhruvisompura
+	 *
+	 * These tests need to be updated to shutdown a session via a different method
+	 * The shutdown console button is no longer displayed to users in the multiple
+	 * console sesison world
+	 */
+	// test('Validate metadata between sessions', {
+	// 	annotation: [
+	// 		{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6389' }]
+	// }, async function ({ app }) {
+	// 	const sessions = app.workbench.sessions;
 
-		// Ensure sessions exist and are idle
-		await sessions.ensureStartedAndIdle(pythonSession);
-		await sessions.ensureStartedAndIdle(rSession);
+	// 	// Ensure sessions exist and are idle
+	// 	await sessions.ensureStartedAndIdle(pythonSession);
+	// 	await sessions.ensureStartedAndIdle(rSession);
 
-		// Verify Python session metadata
-		await sessions.checkMetadata({ ...pythonSession, state: 'idle' });
-		await sessions.checkMetadata({ ...rSession, state: 'idle' });
+	// 	// Verify Python session metadata
+	// 	await sessions.checkMetadata({ ...pythonSession, state: 'idle' });
+	// 	await sessions.checkMetadata({ ...rSession, state: 'idle' });
 
-		// Shutdown Python session and verify metadata
-		await sessions.shutdown(pythonSession);
-		await sessions.checkMetadata({ ...pythonSession, state: 'exited' });
+	// 	// Shutdown Python session and verify metadata
+	// 	await sessions.shutdown(pythonSession);
+	// 	await sessions.checkMetadata({ ...pythonSession, state: 'exited' });
 
-		// Shutdown R session and verify metadata
-		await sessions.shutdown(rSession);
-		await sessions.checkMetadata({ ...rSession, state: 'exited' });
-	});
+	// 	// Shutdown R session and verify metadata
+	// 	await sessions.shutdown(rSession);
+	// 	await sessions.checkMetadata({ ...rSession, state: 'exited' });
+	// });
 
 	test('Validate variables between sessions', {
 		tag: [tags.VARIABLES]
@@ -158,6 +172,13 @@ test.describe('Console: Sessions', {
 		await variables.checkVariableValue('z', '4');
 	});
 
+	/**
+	 * NOTE: updated by @dhruvisompura
+	 *
+	 * These tests need to be updated to shutdown a session via a different method
+	 * The shutdown console button is no longer displayed to users in the multiple
+	 * console sesison world
+	 */
 	test('Validate active session list in console matches active session list in session picker', {
 		annotation: [
 			{ type: 'issue', description: 'sessions are not correctly sorted atm. see line 174.' }
@@ -176,22 +197,22 @@ test.describe('Console: Sessions', {
 		expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
 
 		// Shutdown Python session and verify active sessions
-		await sessions.shutdown(pythonSession);
-		activeSessionsFromConsole = await sessions.getActiveSessions();
-		activeSessionsFromPicker = await interpreter.getActiveSessions();
-		expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
+		// await sessions.shutdown(pythonSession);
+		// activeSessionsFromConsole = await sessions.getActiveSessions();
+		// activeSessionsFromPicker = await interpreter.getActiveSessions();
+		// expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
 
 		// Shutdown R session and verify active sessions
-		await sessions.shutdown(rSession);
-		activeSessionsFromConsole = await sessions.getActiveSessions();
-		activeSessionsFromPicker = await interpreter.getActiveSessions();
-		expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
+		// await sessions.shutdown(rSession);
+		// activeSessionsFromConsole = await sessions.getActiveSessions();
+		// activeSessionsFromPicker = await interpreter.getActiveSessions();
+		// expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
 
 		// Start Python session (again) and verify active sessions
-		await sessions.start(pythonSession);
-		activeSessionsFromConsole = await sessions.getActiveSessions();
-		activeSessionsFromPicker = await interpreter.getActiveSessions();
-		expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
+		// await sessions.start(pythonSession);
+		// activeSessionsFromConsole = await sessions.getActiveSessions();
+		// activeSessionsFromPicker = await interpreter.getActiveSessions();
+		// expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
 
 		// Restart Python session and verify active sessions
 		await sessions.restart(pythonSession);
