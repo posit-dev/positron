@@ -45,7 +45,6 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 		return this._proxy.$getConsoleWidth();
 	}
 
-	// TODO: Update to return a valid console
 	getConsoleForLanguage(id: string): positron.Console | undefined {
 		// find a console for this langauge id
 		const extHostConsole = Array.from(this._extHostConsolesBySessionId.values())

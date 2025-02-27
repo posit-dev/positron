@@ -284,12 +284,6 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				 * whose session has exited, that console instance will be repurposed instead of creating
 				 * a new one. This is problematic because the user's intention was to creat a new console
 				 * instance for the new session.
-				 *
-				 * TODO: @dhruvisompura
-				 * Track the different user gestures that can create a session and use that to determine
-				 * the user's intention.
-				 * - If the user is "power-cycling" we can include the old session id to identify the
-				 * console instance for that session id we want to replace
 				 */
 				const positronConsoleInstances = this._positronConsoleInstancesByRuntimeId.get(e.session.runtimeMetadata.runtimeId);
 
