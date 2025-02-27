@@ -12,8 +12,8 @@ import React, { useState } from 'react';
 // Other dependencies.
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { ConsoleInstanceState } from './consoleInstanceState.js';
-import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService';
-import { localize } from '../../../../../nls';
+import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { localize } from '../../../../../nls.js';
 
 
 interface ConsoleTabProps {
