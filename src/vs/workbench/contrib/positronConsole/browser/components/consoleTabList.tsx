@@ -60,7 +60,7 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 		<p className='session-name'>
 			{positronConsoleInstance.session.metadata.sessionName}
 		</p>
-		<button className='close-button' disabled={deleteDisabled} onClick={evt => handleTabDeleteClick(evt, positronConsoleInstance)}>
+		<button className='delete-button' disabled={deleteDisabled} onClick={evt => handleTabDeleteClick(evt, positronConsoleInstance)}>
 			<span className='codicon codicon-trash' />
 		</button>
 	</div>)

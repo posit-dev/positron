@@ -68,7 +68,7 @@
 	flex: 1;
 }
 
-.tabs-container .tab-button .close-button {
+.tabs-container .tab-button .delete-button {
 	display: none;
 
 	background-color: transparent;
@@ -80,17 +80,17 @@
 	border-radius: 5px;
 }
 
-.tabs-container .tab-button:hover .close-button {
+.tabs-container .tab-button:hover .delete-button {
 	display: unset;
 }
 
-.tabs-container .tab-button .close-button .codicon {
+.tabs-container .tab-button .delete-button .codicon {
 	height: 15px;
 	width: 15px;
 
 	vertical-align: middle;
 }
 
-.tabs-container .tab-button .close-button:hover {
+.tabs-container .tab-button .delete-button:hover {
 	background-color: var(--vscode-toolbar-hoverBackground);
 }
