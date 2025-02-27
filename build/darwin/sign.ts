@@ -63,15 +63,13 @@ async function main(buildDir?: string): Promise<void> {
 				filePath.includes(pluginHelperAppName);
 		},
 		// --- Start Positron ---
-		optionsForFile: (filePath: string) => {
+		'signature-flags': (filePath: string) => {
 			// Bundled VSIX files need to be deep-signed
 			if (filePath.endsWith('.vsix')) {
-				return {
-					additionalArguments: ['--deep']
-				};
+				return ['--deep']
 			}
 			// Use the default options for all other files
-			return null;
+			return [];
 		}
 		// --- End Positron ---
 	};
