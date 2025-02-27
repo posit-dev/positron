@@ -306,15 +306,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	getConsoleSessionForLanguage(languageId: string): ILanguageRuntimeSession | undefined {
 		const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
 
-		if (!multiSessionsEnabled) {
-			return this._consoleSessionsByLanguageId.get(languageId);
-		} else {
+		if (multiSessionsEnabled) {
 			// Return the foreground session if the languageId matches
 			if (this._foregroundSession?.runtimeMetadata.languageId === languageId) {
 				return this.foregroundSession;
 			}
 			// Otherwise, return the last active session for the languageId if there is one
 			return this._lastActiveConsoleSessionByLanguageId.get(languageId);
+		} else {
+			return this._consoleSessionsByLanguageId.get(languageId);
 		}
 	}
 
@@ -408,13 +408,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 
 			// Wait for the selected runtime to start.
-			await this.startNewRuntimeSession(runtime.runtimeId,
+			await this.startNewRuntimeSession(
+				runtime.runtimeId,
 				runtime.runtimeName,
 				sessionMode,
 				undefined, // No notebook URI (console session)
 				source,
-				!multiSessionsEnabled ? RuntimeStartMode.Switching : RuntimeStartMode.Starting,
-				true);
+				multiSessionsEnabled ? RuntimeStartMode.Starting : RuntimeStartMode.Switching,
+				true
+			);
 		}
 	}
 
@@ -923,34 +925,37 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	hasStartingOrRunningConsole(languageId?: string | undefined) {
 		const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
 
-		if (!multiSessionsEnabled) {
+		if (multiSessionsEnabled) {
+			let hasRunningConsole = false;
+			const hasRunningConsoleForLanguageId = Array.from(this._consoleSessionsByRuntimeId.values())
+				.some((sessions) => {
+					// Check if this runtime has any console sessions
+					if (sessions.length > 0) {
+						hasRunningConsole = true;
+						// Does this runtime belong to the language we are interested in?
+						if (sessions[0].runtimeMetadata.languageId === languageId) {
+							return true;
+						}
+					}
+					return false;
+				});
+
+			const hasStartingConsoleForLanguageId = Array.from(this._startingConsolesByRuntimeId.values())
+				.some(
+					runtime => runtime.languageId === languageId);
+
+			if (languageId) {
+				return hasStartingConsoleForLanguageId || hasRunningConsoleForLanguageId;
+			} else {
+				return this._startingConsolesByRuntimeId.size > 0 || hasRunningConsole;
+			}
+		} else {
 			if (languageId) {
 				return this._startingConsolesByLanguageId.has(languageId) ||
 					this._consoleSessionsByLanguageId.has(languageId);
 			} else {
 				return this._startingConsolesByLanguageId.size > 0 ||
 					this._consoleSessionsByLanguageId.size > 0;
-			}
-		} else {
-			let hasRunningConsole = false;
-			const hasRunningConsoleForLanguageId = Array.from(this._consoleSessionsByRuntimeId.values()).some((sessions) => {
-				// Check if this runtime has any console sessions
-				if (sessions.length > 0) {
-					hasRunningConsole = true;
-					// Does this runtime belong to the language we are interested in?
-					if (sessions[0].runtimeMetadata.languageId === languageId) {
-						return true;
-					}
-				}
-				return false;
-			});
-
-			if (languageId) {
-				return Array.from(this._startingConsolesByRuntimeId.values()).some(
-					runtime => runtime.languageId === languageId) || hasRunningConsoleForLanguageId;
-
-			} else {
-				return this._startingConsolesByRuntimeId.size > 0 || hasRunningConsole;
 			}
 		}
 	}
@@ -1033,9 +1038,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return false;
 		}
 
-		if (!multiSessionsEnabled) {
-			// Enumerate the active sessions and attempt to open the resource.
-			for (const session of this._consoleSessionsByLanguageId.values()) {
+		if (multiSessionsEnabled) {
+			// Enumerate the last known active console sessions per language and attempt to open
+			// the resource.
+			for (const session of this._lastActiveConsoleSessionByLanguageId.values()) {
 				try {
 					if (await session.openResource(resource)) {
 						return true;
@@ -1044,23 +1050,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					this._logService.error(`Error opening resource "${resource.toString()}". Reason: ${reason}`);
 				}
 			}
+
 		} else {
-			/**
-			 * TODO:
-			 * from @dhruvisompura
-			 * Can the sessions be filtered to improve efficiency of search by languageId/runtimeId?
-			 * Iterating through all the active sessions won't scale well.
-			 */
 			// Enumerate the active sessions and attempt to open the resource.
-			for (const sessions of this._consoleSessionsByRuntimeId.values()) {
-				for (const session of sessions) {
-					try {
-						if (await session.openResource(resource)) {
-							return true;
-						}
-					} catch (reason) {
-						this._logService.error(`Error opening resource "${resource.toString()}". Reason: ${reason}`);
+			for (const session of this._consoleSessionsByLanguageId.values()) {
+				try {
+					if (await session.openResource(resource)) {
+						return true;
 					}
+				} catch (reason) {
+					this._logService.error(`Error opening resource "${resource.toString()}". Reason: ${reason}`);
 				}
 			}
 		}
@@ -1110,9 +1109,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Before attempting to validate the runtime, add it to the set of
 		// starting consoles.
-		this._startingConsolesByLanguageId.set(metadata.languageId, metadata);
 		if (multiSessionsEnabled) {
 			this._startingConsolesByRuntimeId.set(metadata.runtimeId, metadata);
+		} else {
+			this._startingConsolesByLanguageId.set(metadata.languageId, metadata);
 		}
 
 		// Create a promise that resolves when the runtime is ready to use.
@@ -1179,16 +1179,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 				// Replace the metadata we were given with the validated metadata.
 				metadata = validated;
-				this._startingConsolesByLanguageId.set(metadata.languageId, validated);
 				if (multiSessionsEnabled) {
 					this._startingConsolesByRuntimeId.set(metadata.runtimeId, validated);
+				} else {
+					this._startingConsolesByLanguageId.set(metadata.languageId, validated);
 				}
 
 			} catch (err) {
 				// Clear this from the set of starting consoles.
-				this._startingConsolesByLanguageId.delete(metadata.languageId);
 				if (multiSessionsEnabled) {
 					this._startingConsolesByRuntimeId.delete(metadata.runtimeId);
+				} else {
+					this._startingConsolesByLanguageId.delete(metadata.languageId);
 				}
 
 				// Log the error and re-throw it.
@@ -1313,24 +1315,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// Attempt to start, or reconnect to, the session.
 			await session.start();
 
-			// The runtime started. Move it from the starting runtimes to the
+			// The session has started. Move it from the starting runtimes to the
 			// running runtimes.
 			this.clearStartingSessionMaps(
 				session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
+
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 				const languageId = session.runtimeMetadata.languageId;
-				if (!multiSessionsEnabled) {
-					this._consoleSessionsByLanguageId.set(languageId, session);
-				} else {
+				if (multiSessionsEnabled) {
 					// Append the new session to the list of existing sessions if it hasn't been added
-					const runtimeId = session.runtimeMetadata.runtimeId;
-					const consoleSessionsByRuntimeId = this._consoleSessionsByRuntimeId.get(runtimeId) || [];
-
-					const foundSession = consoleSessionsByRuntimeId?.some(s => s.sessionId === session.sessionId);
-					if (!foundSession) {
-						consoleSessionsByRuntimeId.push(session);
-						this._consoleSessionsByRuntimeId.set(runtimeId, consoleSessionsByRuntimeId);
-					}
+					this.addSessionToConsoleSessionMap(session);
+				} else {
+					this._consoleSessionsByLanguageId.set(languageId, session);
 				}
 			} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 				if (session.metadata.notebookUri) {
@@ -1427,17 +1423,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 					// Restore the session in the case of a restart.
 					if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-						if (!multiSessionsEnabled) {
+						if (multiSessionsEnabled) {
+							this.addSessionToConsoleSessionMap(session);
+						} else {
 							if (!this._consoleSessionsByLanguageId.has(session.runtimeMetadata.languageId)) {
 								this._consoleSessionsByLanguageId.set(session.runtimeMetadata.languageId,
 									session);
-							}
-						} else {
-							const runtimeId = session.runtimeMetadata.runtimeId;
-							const runtimeSessions = this._consoleSessionsByRuntimeId.get(runtimeId) || [];
-							const foundSession = runtimeSessions?.some(s => s.sessionId === session.sessionId);
-							if (!foundSession) {
-								this._consoleSessionsByRuntimeId.set(runtimeId, [...runtimeSessions, session]);
 							}
 						}
 					} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook &&
@@ -1543,22 +1534,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
 
 		if (sessionMode === LanguageRuntimeSessionMode.Console) {
-			// If there is already a runtime starting for the language, throw an error.
-			if (!multiSessionsEnabled) {
-				// In the multiple console session world, we can have multiple runtimes
-				// starting for the same language. Thus, we can skip this check unless
-				// we have multiple console sessions disabled.
-				const startingLanguageRuntime = this._startingConsolesByLanguageId.get(
-					languageRuntime.languageId);
-				if (startingLanguageRuntime) {
-					throw new Error(`Session for language runtime ` +
-						`${formatLanguageRuntimeMetadata(languageRuntime)} ` +
-						`cannot be started because language runtime ` +
-						`${formatLanguageRuntimeMetadata(startingLanguageRuntime)} ` +
-						`is already starting for the language.` +
-						(source ? ` Request source: ${source}` : ``));
-				}
-			} else {
+
+			if (multiSessionsEnabled) {
 				// The current runtime session for the language must complete startup before another
 				// session for the same runtime can be requested to start. This is required
 				// because sessions that are starting get tracked using a key created from
@@ -1574,9 +1551,41 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						`is already starting for the language.` +
 						(source ? ` Request source: ${source}` : ``));
 				}
+			} else {
+				// If there is already a runtime starting for the language, throw an error.
+				// In the multiple console session world, we can have multiple runtimes
+				// starting for the same language. Thus, we can skip this check unless
+				// we have multiple console sessions disabled.
+				const startingLanguageRuntime = this._startingConsolesByLanguageId.get(
+					languageRuntime.languageId);
+				if (startingLanguageRuntime) {
+					throw new Error(`Session for language runtime ` +
+						`${formatLanguageRuntimeMetadata(languageRuntime)} ` +
+						`cannot be started because language runtime ` +
+						`${formatLanguageRuntimeMetadata(startingLanguageRuntime)} ` +
+						`is already starting for the language.` +
+						(source ? ` Request source: ${source}` : ``));
+				}
 			}
 
-			if (!multiSessionsEnabled) {
+			if (multiSessionsEnabled) {
+				// Restrict the number of console sessions that can be created to 15.
+				// This value is arbitrary and should be made a configuration setting
+				// in the future for users once this feature has stabilized!
+				if (this._activeSessionsBySessionId.size >= MAX_CONCURRENT_SESSIONS) {
+					this._notificationService.notify({
+						severity: Severity.Info,
+						message: localize('positron.console.maxError', "Cannot start console session.\
+							The maximum number of consoles ({0}) has been reached", MAX_CONCURRENT_SESSIONS)
+					});
+
+					throw new Error(`Session for language runtime ` +
+						`${formatLanguageRuntimeMetadata(languageRuntime)} ` +
+						`cannot be started because the maximum number of ` +
+						`runtime sessions has been reached.`
+					);
+				}
+			} else {
 				// If there is already a runtime running for the language, throw an error.
 				const runningLanguageRuntime =
 					this._consoleSessionsByLanguageId.get(languageRuntime.languageId);
@@ -1595,24 +1604,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 							`for the ${metadata.languageName} language.` +
 							(source ? ` Request source: ${source}` : ``));
 					}
-				}
-			} else {
-				// Restrict the number of console sessions that can be created to 15.
-				// This value is arbitrary and should be made a configuration setting
-				// in the future for users once this feature has stabilized!
-				if (this._activeSessionsBySessionId.size >= MAX_CONCURRENT_SESSIONS) {
-
-					this._notificationService.notify({
-						severity: Severity.Info,
-						message: localize('positron.console.maxError', "Cannot start console session.\
-							The maximum number of consoles ({0}) has been reached", MAX_CONCURRENT_SESSIONS)
-					});
-
-					throw new Error(`Session for language runtime ` +
-						`${formatLanguageRuntimeMetadata(languageRuntime)} ` +
-						`cannot be started because the maximum number of ` +
-						`runtime sessions has been reached.`
-					);
 				}
 			}
 		} else if (sessionMode === LanguageRuntimeSessionMode.Notebook) {
@@ -1669,9 +1660,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
 
 		if (sessionMode === LanguageRuntimeSessionMode.Console) {
-			this._startingConsolesByLanguageId.set(runtimeMetadata.languageId, runtimeMetadata);
 			if (multiSessionsEnabled) {
 				this._startingConsolesByRuntimeId.set(runtimeMetadata.runtimeId, runtimeMetadata);
+			} else {
+				this._startingConsolesByLanguageId.set(runtimeMetadata.languageId, runtimeMetadata);
 			}
 		} else if (sessionMode === LanguageRuntimeSessionMode.Notebook && notebookUri) {
 			this._startingNotebooksByNotebookUri.set(notebookUri, runtimeMetadata);
@@ -1693,9 +1685,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const sessionMapKey = getSessionMapKey(sessionMode, runtimeMetadata.runtimeId, notebookUri);
 		this._startingSessionsBySessionMapKey.delete(sessionMapKey);
 		if (sessionMode === LanguageRuntimeSessionMode.Console) {
-			this._startingConsolesByLanguageId.delete(runtimeMetadata.languageId);
 			if (multiSessionsEnabled) {
 				this._startingConsolesByRuntimeId.delete(runtimeMetadata.runtimeId);
+			} else {
+				this._startingConsolesByLanguageId.delete(runtimeMetadata.languageId);
 			}
 		} else if (sessionMode === LanguageRuntimeSessionMode.Notebook && notebookUri) {
 			this._startingNotebooksByNotebookUri.delete(notebookUri);
@@ -1712,21 +1705,24 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
 
 		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-			// The session is no longer running, so if it's the active console session, clear it.
-			if (!multiSessionsEnabled) {
-				const consoleSession = this._consoleSessionsByLanguageId.get(session.runtimeMetadata.languageId);
-				if (consoleSession?.sessionId === session.sessionId) {
-					this._consoleSessionsByLanguageId.delete(session.runtimeMetadata.languageId);
-				}
-			} else {
-				const runtimeConsoleSessions = this._consoleSessionsByRuntimeId.get(session.runtimeMetadata.runtimeId) || [];
+			if (multiSessionsEnabled) {
+				const runtimeConsoleSessions = this._consoleSessionsByRuntimeId.
+					get(session.runtimeMetadata.runtimeId) || [];
+
 				// Filter out the session that is no longer running
 				const newRuntimeConsoleSessions = runtimeConsoleSessions.filter(s => s.sessionId !== session.sessionId);
+
 				if (newRuntimeConsoleSessions.length > 0) {
 					this._consoleSessionsByRuntimeId.set(session.runtimeMetadata.runtimeId, newRuntimeConsoleSessions);
 				} else {
-					// Remove the key from the map since there are no sessions for the runtime
+					// Remove the key entirely from the map since there are no sessions for the runtime
 					this._consoleSessionsByRuntimeId.delete(session.runtimeMetadata.runtimeId);
+				}
+			} else {
+				// The session is no longer running, so if it's the active console session, clear it.
+				const consoleSession = this._consoleSessionsByLanguageId.get(session.runtimeMetadata.languageId);
+				if (consoleSession?.sessionId === session.sessionId) {
+					this._consoleSessionsByLanguageId.delete(session.runtimeMetadata.languageId);
 				}
 			}
 		} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
@@ -1737,6 +1733,23 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
 					`does not have a notebook URI.`);
 			}
+		}
+	}
+
+	/**
+	 * Adds a session to the _consoleSessionsByRuntimeId if it hasn't been added
+	 *
+	 * @param session The session to remove
+	 */
+	private addSessionToConsoleSessionMap(session: ILanguageRuntimeSession) {
+		const runtimeId = session.runtimeMetadata.runtimeId;
+		const runtimeSessions = this._consoleSessionsByRuntimeId.get(runtimeId) || [];
+
+		// Has the session already been added?
+		const foundSession = runtimeSessions?.some(s => s.sessionId === session.sessionId);
+
+		if (!foundSession) {
+			this._consoleSessionsByRuntimeId.set(runtimeId, [...runtimeSessions, session]);
 		}
 	}
 
