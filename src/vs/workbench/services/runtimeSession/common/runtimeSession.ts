@@ -346,6 +346,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * For consoles, we can have multiple sessions for a given runtime. Starts a session for the new
 	 * runtime if there isn't one. Do nothing if there is an active console session for the runtime.
 	 *
+	 * This should not be used to create new console sessions unless the goal is to limit session
+	 * creation to one per runtime.
+	 *
 	 * @param runtimeId The ID of the runtime to select
 	 * @param source The source of the selection
 	 * @param notebookUri The URI of the notebook selecting the runtime, if any
