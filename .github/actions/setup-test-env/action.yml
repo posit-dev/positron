@@ -10,6 +10,10 @@ inputs:
   github-token:
     description: "GitHub Token for accessing private repositories or APIs"
     required: true
+  install_undetectable_interpreters:
+    description: "Install undetectable interpreters"
+    required: true
+    type: boolean
 
 runs:
   using: "composite"
@@ -46,9 +50,11 @@ runs:
       uses: ./.github/actions/install-python
       with:
         alternate_version: "3.13.0"
+        install_undetectable_interpreters: ${{ inputs.install_undetectable_interpreters }}
 
     - name: Setup R
       uses: ./.github/actions/install-r
       with:
         version: "4.4.0"
         alternate_version: "4.4.2"
+        install_undetectable_interpreters: ${{ inputs.install_undetectable_interpreters }}

@@ -20,6 +20,7 @@ import { createAzure } from '@ai-sdk/azure';
 
 import { loadSetting } from '@ai-sdk/provider-utils';
 import { GoogleAuth } from 'google-auth-library';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
@@ -548,6 +549,33 @@ class VertexCompletion extends FimPromptCompletion {
 	}
 }
 
+class GoogleCompletion extends FimPromptCompletion {
+	protected model: ai.LanguageModelV1;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Completion,
+		provider: {
+			id: 'google',
+			displayName: 'Google Generative AI'
+		},
+		supportedOptions: ['baseUrl', 'apiKey'],
+		defaults: {
+			name: 'Gemini 2.0 Flash-Lite',
+			model: 'gemini-2.0-flash-lite',
+			baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+			apiKey: undefined,
+		},
+	};
+
+	constructor(_config: ModelConfig) {
+		super(_config);
+		this.model = createGoogleGenerativeAI({
+			apiKey: this._config.apiKey,
+			baseURL: this._config.baseUrl,
+		})(this._config.model);
+	}
+}
+
 class AzureCompletion extends FimPromptCompletion {
 	protected model: ai.LanguageModelV1;
 
@@ -583,6 +611,7 @@ export function newCompletionProvider(config: ModelConfig): vscode.InlineComplet
 		'azure': AzureCompletion,
 		'bedrock': AWSCompletion,
 		'deepseek': DeepSeekCompletion,
+		'google': GoogleCompletion,
 		'mistral': MistralCompletion,
 		'ollama': OllamaCompletion,
 		'openai': OpenAICompletion,
@@ -605,6 +634,7 @@ export const completionModels = [
 	AzureCompletion,
 	DeepSeekCompletion,
 	MistralCompletion,
+	GoogleCompletion,
 	OllamaCompletion,
 	OpenAICompletion,
 	OpenAILegacyCompletion,

@@ -122,6 +122,9 @@ import { IEphemeralStateService } from '../../../platform/ephemeralState/common/
 import { EphemeralStateService } from '../../../platform/ephemeralState/common/ephemeralStateService.js';
 import { DefaultExtensionsInitializer } from './contrib/defaultExtensionsInitializer.js';
 import { AllowedExtensionsService } from '../../../platform/extensionManagement/common/allowedExtensionsService.js';
+// --- Start Positron ---
+import { PositronBootstrapExtensionsInitializer } from '../../../platform/extensionManagement/node/positronBootstrapExtensionsInitializer.js';
+// --- End Positron ---
 
 class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 
@@ -192,7 +195,10 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 			instantiationService.createInstance(LocalizationsUpdater),
 			instantiationService.createInstance(ExtensionsContributions),
 			instantiationService.createInstance(UserDataProfilesCleaner),
-			instantiationService.createInstance(DefaultExtensionsInitializer)
+			// --- Start Positron ---
+			instantiationService.createInstance(DefaultExtensionsInitializer),
+			instantiationService.createInstance(PositronBootstrapExtensionsInitializer)
+			// --- End Positron ---
 		));
 	}
 

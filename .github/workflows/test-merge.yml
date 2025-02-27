@@ -9,12 +9,12 @@ on:
 jobs:
   e2e-electron:
     name: e2e
-    uses: ./.github/workflows/test-e2e-linux.yml
+    uses: ./.github/workflows/test-e2e-ubuntu.yml
     with:
       grep: ""
       project: "e2e-electron"
-      display_name: "electron (linux)"
-      currents_tags: "merge,electron/linux"
+      display_name: "electron (ubuntu)"
+      currents_tags: "merge,electron/ubuntu"
     secrets: inherit
 
   e2e-windows-electron:
@@ -29,12 +29,12 @@ jobs:
 
   e2e-linux-browser:
     name: e2e
-    uses: ./.github/workflows/test-e2e-linux.yml
+    uses: ./.github/workflows/test-e2e-ubuntu.yml
     with:
       grep: ""
-      display_name: "browser (linux)"
+      display_name: "browser (ubuntu)"
       project: "e2e-browser"
-      currents_tags: "merge,browser/linux"
+      currents_tags: "merge,browser/ubuntu"
       report_testrail: false
     secrets: inherit
 

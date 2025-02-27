@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as nls from '../../../../nls.js';
-import { DeferredPromise, disposableTimeout, timeout } from '../../../../base/common/async.js';
+import { DeferredPromise, disposableTimeout } from '../../../../base/common/async.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -1672,14 +1672,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		return id;
 	}
 
-	private async scheduleUpdateActiveLanguages(delay = 60 * 60 * 1000): Promise<void> {
-		return timeout(delay)
-			.then(() => {
-				this.updateActiveLanguages();
-			})
-			.then(() => {
-				return this.scheduleUpdateActiveLanguages();
-			});
+	private async scheduleUpdateActiveLanguages(delay = 60 * 60 * 1000): Promise<IDisposable> {
+		const updateLanguagesDisposable = disposableTimeout(() => {
+			this.updateActiveLanguages();
+
+			// Schedule the next update with default delay after the first update during service startup
+			this.scheduleUpdateActiveLanguages();
+		}, delay);
+
+		this._register(updateLanguagesDisposable);
+		return updateLanguagesDisposable;
 	}
 
 	public updateActiveLanguages(): void {

@@ -6,9 +6,11 @@
 import * as semver from 'semver';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as vscode from 'vscode';
 import { extractValue, readLines, removeSurroundingQuotes } from './util';
 import { LOGGER } from './extension';
 import { MINIMUM_R_VERSION } from './constants';
+import { arePathsSame, isParentPath, untildify } from './path-utils';
 
 /**
  * Extra metadata included in the LanguageRuntimeMetadata for R installations.
@@ -56,7 +58,8 @@ export enum ReasonDiscovered {
 export enum ReasonRejected {
 	invalid = "invalid",
 	unsupported = "unsupported",
-	nonOrthogonal = "nonOrthogonal"
+	nonOrthogonal = "nonOrthogonal",
+	excluded = "excluded",
 }
 
 export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null): string {
@@ -85,6 +88,8 @@ export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null)
 				return `Unsupported version, i.e. version is less than ${MINIMUM_R_VERSION}`;
 			case ReasonRejected.nonOrthogonal:
 				return 'Non-orthogonal installation that is also not the current version';
+			case ReasonRejected.excluded:
+				return 'Installation path was excluded via settings';
 		}
 	}
 
@@ -191,6 +196,14 @@ export class RInstallation {
 			this.usable = this.current || this.orthogonal;
 			if (!this.usable) {
 				this.reasonRejected = ReasonRejected.nonOrthogonal;
+			} else {
+				// Check if this installation has been excluded via settings
+				const excluded = isExcludedInstallation(this.binpath);
+				if (excluded) {
+					LOGGER.info(`R installation excluded via settings: ${this.binpath}`);
+					this.reasonRejected = ReasonRejected.excluded;
+					this.usable = false;
+				}
 			}
 		} else {
 			this.reasonRejected = ReasonRejected.unsupported;
@@ -282,4 +295,46 @@ function getRHomePathWindows(binpath: string): string | undefined {
 		return pathUpToBin;
 	}
 
+}
+
+/**
+ * Gets the list of R installations excluded via settings.
+ * Converts aliased paths to absolute paths. Relative paths are ignored.
+ * @returns List of installation paths to exclude.
+ */
+function getExcludedInstallations(): string[] {
+	const config = vscode.workspace.getConfiguration('positron.r');
+	const interpretersExclude = config.get<string[]>('interpreters.exclude') ?? [];
+	if (interpretersExclude.length > 0) {
+		const excludedPaths = interpretersExclude
+			.map((item) => untildify(item))
+			.filter((item) => {
+				if (path.isAbsolute(item)) {
+					return true;
+				}
+				LOGGER.info(`R installation path to exclude ${item} is not absolute...ignoring`);
+				return false;
+			});
+		const formattedPaths = JSON.stringify(excludedPaths, null, 2);
+		LOGGER.info(` R installation paths to exclude:\n${formattedPaths}`);
+		return excludedPaths;
+	}
+	LOGGER.debug('No installation paths specified to exclude via settings');
+	return [];
+}
+
+/**
+ * Checks if the given binary path is excluded via settings.
+ * @param binpath The binary path to check
+ * @returns True if the binary path is excluded, false if it is not excluded, and undefined if the
+ * no exclusions have been specified.
+ */
+function isExcludedInstallation(binpath: string): boolean | undefined {
+	const excludedInstallations = getExcludedInstallations();
+	if (excludedInstallations.length === 0) {
+		return undefined;
+	}
+	return excludedInstallations.some(
+		excluded => isParentPath(binpath, excluded) || arePathsSame(binpath, excluded)
+	);
 }

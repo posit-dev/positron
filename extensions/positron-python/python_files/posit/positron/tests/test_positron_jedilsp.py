@@ -32,6 +32,7 @@ from positron._vendor.lsprotocol.types import (
     Hover,
     HoverParams,
     InitializeParams,
+    InsertReplaceEdit,
     Location,
     MarkupContent,
     MarkupKind,
@@ -444,8 +445,11 @@ def assert_has_path_completion(
     assert len(completions) == 1
 
     expected_position = Position(0, character)
-    assert completions[0].text_edit == TextEdit(
-        Range(expected_position, expected_position), expected_completion
+    expected_range = Range(expected_position, expected_position)
+    assert completions[0].text_edit == InsertReplaceEdit(
+        new_text=expected_completion,
+        insert=expected_range,
+        replace=expected_range,
     )
 
 

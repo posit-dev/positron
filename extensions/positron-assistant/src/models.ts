@@ -10,6 +10,7 @@ import { ModelConfig } from './config';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createAzure } from '@ai-sdk/azure';
 import { createVertex } from '@ai-sdk/google-vertex';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createMistral } from '@ai-sdk/mistral';
 import { createOllama } from 'ollama-ai-provider';
@@ -202,7 +203,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 }
 
 class AnthropicLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
-	protected model;
+	protected model: ai.LanguageModelV1;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -425,6 +426,7 @@ export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModel
 		'anthropic': AnthropicLanguageModel,
 		'azure': AzureLanguageModel,
 		'bedrock': AWSLanguageModel,
+		'google': GoogleLanguageModel,
 		'mistral': MistralLanguageModel,
 		'ollama': OllamaLanguageModel,
 		'openai': OpenAILanguageModel,
@@ -439,13 +441,42 @@ export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModel
 	return new providerClasses[config.provider as keyof typeof providerClasses](config);
 }
 
+class GoogleLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
+	protected model: ai.LanguageModelV1;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Chat,
+		provider: {
+			id: 'google',
+			displayName: 'Google Generative AI'
+		},
+		supportedOptions: ['baseUrl', 'apiKey'],
+		defaults: {
+			name: 'Gemini 2.0 Flash',
+			model: 'gemini-2.0-flash-exp',
+			baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+			apiKey: undefined,
+		},
+	};
+
+	constructor(_config: ModelConfig) {
+		super(_config);
+		this.model = createGoogleGenerativeAI({
+			apiKey: this._config.apiKey,
+			baseURL: this._config.baseUrl,
+		})(this._config.model);
+	}
+}
+
+
 export const languageModels = [
+	AWSLanguageModel,
 	AnthropicLanguageModel,
 	AzureLanguageModel,
-	AWSLanguageModel,
+	GoogleLanguageModel,
 	MistralLanguageModel,
+	OllamaLanguageModel,
 	OpenAILanguageModel,
 	OpenRouterLanguageModel,
-	OllamaLanguageModel,
-	VertexLanguageModel
+	VertexLanguageModel,
 ];

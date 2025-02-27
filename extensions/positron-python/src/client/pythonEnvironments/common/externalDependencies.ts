@@ -73,6 +73,9 @@ export function readFileSync(filePath: string): string {
  * @param filePath File path to check for
  * @param parentPath The potential parent path to check for
  */
+// --- Start Positron ---
+// Please port any updates to this function to the copy in extensions/positron-r/src/path-utils.ts!
+// --- End Positron ---
 export function isParentPath(filePath: string, parentPath: string): boolean {
     if (!parentPath.endsWith(path.sep)) {
         parentPath += path.sep;
@@ -96,10 +99,16 @@ export function resolvePath(filename: string): string {
     return path.resolve(filename);
 }
 
+// --- Start Positron ---
+// Please port any updates to this function to the copy in extensions/positron-r/src/path-utils.ts!
+// --- End Positron ---
 export function normCasePath(filePath: string): string {
     return getOSType() === OSType.Windows ? path.normalize(filePath).toUpperCase() : path.normalize(filePath);
 }
 
+// --- Start Positron ---
+// Please port any updates to this function to the copy in extensions/positron-r/src/path-utils.ts!
+// --- End Positron ---
 export function arePathsSame(path1: string, path2: string): boolean {
     return normCasePath(path1) === normCasePath(path2);
 }
