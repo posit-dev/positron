@@ -120,7 +120,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._register(new Emitter<ILanguageRuntimeSession | undefined>);
 
 	// The event emitter for the onDidDeleteRuntime event.
-	private readonly _onDidDeleteRuntimeEmitter =
+	private readonly _onDidDeleteRuntimeSessionEmitter =
 		this._register(new Emitter<string>);
 
 	constructor(
@@ -202,7 +202,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				// Clear map and fire deletion events to update
 				// console session service consumers.
 				this._disconnectedSessions.forEach(value => {
-					this._onDidDeleteRuntimeEmitter.fire(value.sessionId);
+					this._onDidDeleteRuntimeSessionEmitter.fire(value.sessionId);
 				});
 				this._disconnectedSessions.clear();
 			}
@@ -230,7 +230,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	readonly onDidChangeForegroundSession = this._onDidChangeForegroundSessionEmitter.event;
 
 	// An event that fires when a runtime is deleted.
-	readonly onDidDeleteRuntime = this._onDidDeleteRuntimeEmitter.event;
+	readonly onDidDeleteRuntimeSession = this._onDidDeleteRuntimeSessionEmitter.event;
 
 	/**
 	 * Registers a session manager with the service.
@@ -812,6 +812,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param sessionId The session ID of the runtime to delete.
 	 */
 	async deleteSession(sessionId: string): Promise<void> {
+		// If the session is disconnected, we preserve the console session
+		// in the case that the extension host comes back online.
 		if (this._disconnectedSessions.has(sessionId)) {
 			throw new Error(`Cannot delete session because it is disconnected.`);
 		}
@@ -842,7 +844,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			session.dispose();
 
 			// Fire the onDidDeleteRuntime event only if the session was actually deleted.
-			this._onDidDeleteRuntimeEmitter.fire(sessionId);
+			this._onDidDeleteRuntimeSessionEmitter.fire(sessionId);
 		}
 	}
 

@@ -333,7 +333,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			}
 		}));
 
-		this._register(this._runtimeSessionService.onDidDeleteRuntime(sessionId => {
+		this._register(this._runtimeSessionService.onDidDeleteRuntimeSession(sessionId => {
 			const consoleInstance = this._positronConsoleInstancesBySessionId.get(sessionId);
 			if (!consoleInstance) {
 				return;

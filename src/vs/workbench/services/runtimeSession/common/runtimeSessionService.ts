@@ -310,7 +310,7 @@ export interface IRuntimeSessionService {
 	// An event that fires when the active runtime changes.
 	readonly onDidChangeForegroundSession: Event<ILanguageRuntimeSession | undefined>;
 
-	readonly onDidDeleteRuntime: Event<string>;
+	readonly onDidDeleteRuntimeSession: Event<string>;
 
 	/**
 	 * Gets the active runtime sessions
