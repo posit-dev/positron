@@ -72,20 +72,62 @@ export async function showModelList(context: vscode.ExtensionContext, storage: S
 	// Create a quickpick with all configured models
 	const modelConfigs = await getModelConfigurations(context, storage);
 	const quickPick = vscode.window.createQuickPick();
-	quickPick.items = [
-		...modelConfigs.map((config) => ({
+
+	// Create sections for chat and completion models
+	const chatModels = modelConfigs.filter(config =>
+		config.type === 'chat'
+	);
+	const completionModels = modelConfigs.filter(config =>
+		config.type === 'completion'
+	);
+
+	const items: Array<vscode.QuickPickItem> = [
+		{
+			label: vscode.l10n.t('Chat Models'),
+			kind: vscode.QuickPickItemKind.Separator
+		},
+		...chatModels.map((config) => ({
 			label: config.name,
-			detail: config.model,
-			description: config.baseUrl,
+			detail: config.model
 		})),
 		{
-			label: vscode.l10n.t('Add New Model...'),
+			label: vscode.l10n.t('Completion Models'),
+			kind: vscode.QuickPickItemKind.Separator
+		},
+		...completionModels.map((config) => ({
+			label: config.name,
+			detail: config.model,
+			description: config.baseUrl
+		})),
+		{
+			label: '',
+			kind: vscode.QuickPickItemKind.Separator
+		},
+		{
+			label: vscode.l10n.t('Add a Language Model'),
 			description: vscode.l10n.t('Add a new language model configuration'),
 		}
 	];
 
-	// Show the quickpick
-	quickPick.show();
+	vscode.window.showQuickPick(items, {
+		placeHolder: vscode.l10n.t('Select a language model'),
+		canPickMany: false,
+
+	}).then(async (selected) => {
+		if (!selected) {
+			return;
+		}
+		if (selected.description === vscode.l10n.t('Add a new language model configuration')) {
+			showConfigurationDialog(context, storage);
+		} else {
+			const selectedConfig = modelConfigs.find((config) => config.name === selected.label);
+			if (selectedConfig) {
+				vscode.window.showInformationMessage(
+					vscode.l10n.t(`Selected language model: {0}`, selectedConfig.name)
+				);
+			}
+		}
+	});
 }
 
 export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {
