@@ -1,4 +1,4 @@
-name: "Test: E2E (Linux)"
+name: "Test: E2E (Ubuntu)"
 
 on:
   workflow_call:
@@ -26,7 +26,7 @@ on:
       currents_tags:
         required: false
         description: "The tags to use for Currents recording."
-        default: "@linux"
+        default: "@ubuntu"
         type: string
       report_testrail:
         required: false
@@ -38,6 +38,11 @@ on:
         description: "Whether or not to report results to Currents."
         type: boolean
         default: true
+      install_undetectable_interpreters:
+        required: false
+        description: "Whether or not to install undetectable interpreters."
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -122,6 +127,7 @@ jobs:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          install_undetectable_interpreters: ${{ inputs.install_undetectable_interpreters }}
 
       # Preloading ensures the Node.js binary is fully built and ready before
       # any parallel processes start, preventing runtime conflicts
@@ -138,7 +144,7 @@ jobs:
 
       - name: Run Playwright Tests (Electron)
         env:
-          POSITRON_PY_VER_SEL: 3.12.3
+          POSITRON_PY_VER_SEL: 3.12.6
           POSITRON_R_VER_SEL: 4.4.0
           POSITRON_PY_ALT_VER_SEL: "3.13.0 (Pyenv)"
           POSITRON_R_ALT_VER_SEL: 4.4.2
@@ -146,7 +152,7 @@ jobs:
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/linux' }}
+          CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/ubuntu' }}
           ENABLE_CURRENTS_REPORTER: ${{ inputs.enable_currents_reporter }}
         run: |
           if [ "${{ inputs.project }}" == "e2e-electron" ]; then

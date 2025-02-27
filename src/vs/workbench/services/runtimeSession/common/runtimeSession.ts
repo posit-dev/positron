@@ -23,6 +23,7 @@ import { IStorageService, StorageScope } from '../../../../platform/storage/comm
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
 import { basename } from '../../../../base/common/resources.js';
+import { IUpdateService } from '../../../../platform/update/common/update.js';
 
 /**
  * Get a map key corresponding to a session.
@@ -133,7 +134,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
-		@IStorageService private readonly _storageService: IStorageService) {
+		@IStorageService private readonly _storageService: IStorageService,
+		@IUpdateService private readonly _updateService: IUpdateService
+	) {
 
 		super();
 
@@ -207,6 +210,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				this._disconnectedSessions.clear();
 			}
 		}));
+
+		this.scheduleUpdateActiveLanguages(25 * 1000);
 	}
 
 	//#region ILanguageRuntimeService Implementation
@@ -1722,6 +1727,32 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		return id;
 	}
 
+	private async scheduleUpdateActiveLanguages(delay = 60 * 60 * 1000): Promise<IDisposable> {
+		const updateLanguagesDisposable = disposableTimeout(() => {
+			this.updateActiveLanguages();
+
+			// Schedule the next update with default delay after the first update during service startup
+			this.scheduleUpdateActiveLanguages();
+		}, delay);
+
+		this._register(updateLanguagesDisposable);
+		return updateLanguagesDisposable;
+	}
+
+	public updateActiveLanguages(): void {
+		const languages = new Set<string>();
+		this._activeSessionsBySessionId.forEach(activeSession => {
+			// get the beginning of the day in UTC so that usage is the same 24-hour period across time zones
+			const startUTC = new Date(Date.now()).setUTCHours(0, 0, 0, 0);
+			const lastUsed = activeSession.session.lastUsed;
+
+			// only update the active languages if the session was used today
+			if (lastUsed > startUTC && activeSession.session.getRuntimeState() !== RuntimeState.Exited) {
+				languages.add(activeSession.session.runtimeMetadata.languageId);
+			}
+		});
+		this._updateService.updateActiveLanguages([...languages]);
+	}
 
 }
 registerSingleton(IRuntimeSessionService, RuntimeSessionService, InstantiationType.Eager);

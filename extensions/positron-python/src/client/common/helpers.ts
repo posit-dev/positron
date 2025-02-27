@@ -21,6 +21,9 @@ export function isNotInstalledError(error: Error): boolean {
     return errorObj.code === 'ENOENT' || errorObj.code === 127 || isModuleNoInstalledError;
 }
 
+// --- Start Positron ---
+// Please port any updates to this function to the copy in extensions/positron-r/src/path-utils.ts!
+// --- End Positron ---
 export function untildify(path: string): string {
     return path.replace(/^~($|\/|\\)/, `${os.homedir()}$1`);
 }
