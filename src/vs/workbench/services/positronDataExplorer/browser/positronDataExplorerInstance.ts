@@ -23,6 +23,7 @@ import { TableSummaryDataGridInstance } from './tableSummaryDataGridInstance.js'
 import { PositronDataExplorerLayout } from './interfaces/positronDataExplorerService.js';
 import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
 import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
+import { DataExplorerSummaryCollapseEnabled } from "../common/positronDataExplorerSummary.js";
 
 /**
  * Constants.
@@ -53,7 +54,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	/**
 	 * Gets or sets a value which indicates whether the summary is collapsed.
 	 */
-	private _isSummaryCollapsed = false;
+	private _isSummaryCollapsed = DataExplorerSummaryCollapseEnabled(this._configurationService);
 
 	/**
 	 * Gets or sets the columns width percent.
