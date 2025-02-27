@@ -124,7 +124,8 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
         if (!isVersionSupported(pythonVersion, MINIMUM_PYTHON_VERSION)) {
             traceInfo(`Not registering runtime ${extraData.pythonPath} as it is not a supported version.`);
             return;
-        } // Check if the interpreter should be included in the list of registered runtimes
+        }
+
         if (shouldIncludeInterpreter(extraData.pythonPath)) {
             // Save the runtime for later use
             this.registeredPythonRuntimes.set(extraData.pythonPath, runtime);
