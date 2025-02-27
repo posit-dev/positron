@@ -54,7 +54,19 @@ async function main(buildDir) {
             return filePath.includes(gpuHelperAppName) ||
                 filePath.includes(rendererHelperAppName) ||
                 filePath.includes(pluginHelperAppName);
+        },
+        // --- Start Positron ---
+        optionsForFile: (filePath) => {
+            // Bundled VSIX files need to be deep-signed
+            if (filePath.endsWith('.vsix')) {
+                return {
+                    additionalArguments: ['--deep']
+                };
+            }
+            // Use the default options for all other files
+            return null;
         }
+        // --- End Positron ---
     };
     const gpuHelperOpts = {
         ...defaultOpts,
