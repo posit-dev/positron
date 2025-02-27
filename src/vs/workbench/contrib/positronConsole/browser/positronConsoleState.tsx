@@ -87,9 +87,22 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 			setActivePositronConsoleInstance(positronConsoleInstance);
 		}));
 
+		// Add the onDidDeletePositronConsoleInstance event handler.
+		disposableStore.add(services.positronConsoleService.onDidDeletePositronConsoleInstance(positronConsoleInstance => {
+			setPositronConsoleInstances(positronConsoleInstances => {
+				const instances = [...positronConsoleInstances];
+				// Remove the instance from the array.
+				const idx = instances.indexOf(positronConsoleInstance);
+				if (idx !== -1) {
+					instances.splice(idx, 1);
+				}
+				return instances;
+			});
+		}));
+
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, [services.positronConsoleService]);
+	}, [services.positronConsoleService, services.runtimeSessionService, setActivePositronConsoleInstance]);
 
 	// Return the Positron console state.
 	return {
