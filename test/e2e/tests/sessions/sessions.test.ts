@@ -5,14 +5,14 @@
 
 import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
-import { Application, SessionName } from '../../infra';
+import { Application, SessionInfo } from '../../infra';
 
-const pythonSession: SessionName = {
+const pythonSession: SessionInfo = {
 	name: `Python ${process.env.POSITRON_PY_VER_SEL || ''}`,
 	language: 'Python',
 	version: process.env.POSITRON_PY_VER_SEL || ''
 };
-const rSession: SessionName = {
+const rSession: SessionInfo = {
 	name: `R ${process.env.POSITRON_R_VER_SEL || ''}`,
 	language: 'R',
 	version: process.env.POSITRON_R_VER_SEL || ''
@@ -42,39 +42,39 @@ test.describe('Sessions', {
 		pythonSession.id = await app.workbench.sessions.launch({ ...pythonSession, waitForReady: false });
 
 		// Verify Python session is visible and transitions from active --> idle
-		await sessions.checkStatusById(pythonSession.id, 'active');
-		await sessions.checkStatusById(pythonSession.id, 'idle');
+		await sessions.checkStatus(pythonSession.id, 'active');
+		await sessions.checkStatus(pythonSession.id, 'idle');
 
 		// Restart Python session and confirm state returns to active --> idle
 		await sessions.restart(pythonSession.id, false);
-		await sessions.checkStatusById(pythonSession.id, 'active');
-		await sessions.checkStatusById(pythonSession.id, 'idle');
+		await sessions.checkStatus(pythonSession.id, 'active');
+		await sessions.checkStatus(pythonSession.id, 'idle');
 
 		// Start R session
 		rSession.id = await app.workbench.sessions.launch({ ...rSession, waitForReady: false });
 
 		// Verify R session transitions from active --> idle while Python session remains idle
-		await sessions.checkStatusById(rSession.id, 'active');
-		await sessions.checkStatusById(rSession.id, 'idle');
-		await sessions.checkStatusById(pythonSession.id, 'idle');
+		await sessions.checkStatus(rSession.id, 'active');
+		await sessions.checkStatus(rSession.id, 'idle');
+		await sessions.checkStatus(pythonSession.id, 'idle');
 
 		// Shutdown Python session, verify Python transitions to disconnected while R remains idle
-		await sessions.selectById(pythonSession.id);
+		await sessions.select(pythonSession.id);
 		await console.typeToConsole('exit()', true);
-		await sessions.checkStatusById(pythonSession.id, 'disconnected');
-		await sessions.checkStatusById(rSession.id, 'idle');
+		await sessions.checkStatus(pythonSession.id, 'disconnected');
+		await sessions.checkStatus(rSession.id, 'idle');
 
 		// Restart R session, verify R to returns to active --> idle and Python remains disconnected
 		await sessions.restart(rSession.id, false);
-		await sessions.checkStatusById(rSession.id, 'active');
-		await sessions.checkStatusById(rSession.id, 'idle');
+		await sessions.checkStatus(rSession.id, 'active');
+		await sessions.checkStatus(rSession.id, 'idle');
 		// await sessions.checkStatus(pythonSession.id, 'disconnected');
 
 		// Shutdown R, verify both Python and R in disconnected state
-		await sessions.selectById(rSession.id);
+		await sessions.select(rSession.id);
 		await console.typeToConsole('q()', true);
-		await sessions.checkStatusById(rSession.id, 'disconnected');
-		await sessions.checkStatusById(pythonSession.id, 'disconnected');
+		await sessions.checkStatus(rSession.id, 'disconnected');
+		await sessions.checkStatus(pythonSession.id, 'disconnected');
 	});
 
 	test('Validate session state displays as active when executing code', async function ({ app }) {
@@ -86,19 +86,19 @@ test.describe('Sessions', {
 		rSession.id = await app.workbench.sessions.reuseSessionIfExists(rSession);
 
 		// Verify Python session transitions to active when executing code
-		await sessions.selectByName(pythonSession.name);
+		await sessions.select(pythonSession.name);
 		await console.typeToConsole('import time', true);
 		await console.typeToConsole('time.sleep(3)', true);
-		await sessions.checkStatusByName(pythonSession.name, 'active');
+		await sessions.checkStatus(pythonSession.name, 'active');
 
 		// Verify R session transitions to active when executing code
 		// Verify Python session continues to run and transitions to idle when finished
-		await sessions.selectByName(rSession.name);
+		await sessions.select(rSession.name);
 		await console.typeToConsole('Sys.sleep(1)', true);
-		await sessions.checkStatusByName(rSession.name, 'active');
-		await sessions.checkStatusByName(rSession.name, 'idle');
-		await sessions.checkStatusByName(pythonSession.name, 'active');
-		await sessions.checkStatusByName(pythonSession.name, 'idle');
+		await sessions.checkStatus(rSession.name, 'active');
+		await sessions.checkStatus(rSession.name, 'idle');
+		await sessions.checkStatus(pythonSession.name, 'active');
+		await sessions.checkStatus(pythonSession.name, 'idle');
 	});
 
 	test('Validate metadata between sessions', {
@@ -117,12 +117,12 @@ test.describe('Sessions', {
 		await sessions.checkMetadata({ ...rSession, state: 'idle' });
 
 		// Shutdown Python session and verify metadata
-		await sessions.selectByName(pythonSession.name);
+		await sessions.select(pythonSession.name);
 		await console.typeToConsole('exit()', true);
 		await sessions.checkMetadata({ ...pythonSession, state: 'exited' });
 
 		// Shutdown R session and verify metadata
-		await sessions.selectByName(rSession.name);
+		await sessions.select(rSession.name);
 		await console.typeToConsole('q()', true);
 		await sessions.checkMetadata({ ...rSession, state: 'exited' });
 	});
@@ -139,7 +139,7 @@ test.describe('Sessions', {
 		rSession.id = await sessions.reuseSessionIfExists(rSession);
 
 		// Set and verify variables in Python
-		await sessions.selectByName(pythonSession.name);
+		await sessions.select(pythonSession.name);
 		await console.typeToConsole('x = 1', true);
 		await console.typeToConsole('y = 2', true);
 		await variables.checkRuntime(pythonSession.name);
@@ -147,7 +147,7 @@ test.describe('Sessions', {
 		await variables.checkVariableValue('y', '2');
 
 		// Set and verify variables in R
-		await sessions.selectByName(rSession.name);
+		await sessions.select(rSession.name);
 		await console.typeToConsole('x <- 3', true);
 		await console.typeToConsole('z <- 4', true);
 		await variables.checkRuntime(rSession.name);
@@ -155,14 +155,14 @@ test.describe('Sessions', {
 		await variables.checkVariableValue('z', '4');
 
 		// Switch back to Python, update variables, and verify
-		await sessions.selectByName(pythonSession.name);
+		await sessions.select(pythonSession.name);
 		await console.typeToConsole('x = 0', true);
 		await variables.checkRuntime(pythonSession.name);
 		await variables.checkVariableValue('x', '0');
 		await variables.checkVariableValue('y', '2');
 
 		// Switch back to R, verify variables remain unchanged
-		await sessions.selectByName(rSession.name);
+		await sessions.select(rSession.name);
 		await variables.checkRuntime(rSession.name);
 		await variables.checkVariableValue('x', '3');
 		await variables.checkVariableValue('z', '4');
@@ -181,17 +181,17 @@ test.describe('Sessions', {
 		await verifySessionList(app, 2);
 
 		// Shutdown Python session and verify active sessions
-		await sessions.selectByName(pythonSession.name);
+		await sessions.select(pythonSession.name);
 		await app.workbench.console.typeToConsole('exit()', true);
 		await verifySessionList(app, 1);
 
 		// Shutdown R session and verify active sessions
-		await sessions.selectByName(rSession.name);
+		await sessions.select(rSession.name);
 		await app.workbench.console.typeToConsole('q()', true);
 		await verifySessionList(app, 0);
 
 		// Start Python session (again) and verify active sessions
-		await sessions.startByName(pythonSession.name);
+		await sessions.start(pythonSession.name);
 		await verifySessionList(app, 1);
 
 		// Restart Python session and verify active sessions
@@ -207,13 +207,13 @@ test.describe('Sessions', {
 		await sessions.reuseSessionIfExists(pythonSession);
 		await sessions.reuseSessionIfExists(rSession);
 
-		// Delete 1st session and verify active sessions
+		// Delete 1st session and verify active sessions and runtime in session picker
 		await sessions.delete(pythonSession.name);
 		await expect(sessions.allSessionTabs).toHaveCount(1);
-		await verifySessionList(app, 1);
 		await variables.checkRuntime(rSession.name);
+		await verifySessionList(app, 1);
 
-		// Delete 2nd session and verify no active sessions
+		// Delete 2nd session and verify no active sessions or runtime in session picker
 		await sessions.delete(rSession.name);
 		await expect(sessions.allSessionTabs).not.toBeVisible();
 		await expect(sessions.chooseSessionButton).toHaveText('Choose Session');
