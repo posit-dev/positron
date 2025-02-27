@@ -19,11 +19,11 @@ import { PythonVersion } from '../pythonEnvironments/info/pythonVersion';
 import { comparePythonVersionDescending } from '../interpreter/configuration/environmentTypeComparer';
 
 /**
- * Gets the list of interpreters that the user has explicitly included in the settings.
+ * Gets the list of interpreters included in the settings.
  * Converts aliased paths to absolute paths. Relative paths are not included.
- * @returns List of interpreters that the user has explicitly included in the settings.
+ * @returns List of interpreters included in the settings.
  */
-export function getUserIncludedInterpreters(): string[] {
+export function getIncludedInterpreters(): string[] {
     const interpretersInclude = getConfiguration('python').get<string[]>(INTERPRETERS_INCLUDE_SETTING_KEY) ?? [];
     if (interpretersInclude.length > 0) {
         return interpretersInclude
@@ -41,11 +41,11 @@ export function getUserIncludedInterpreters(): string[] {
 }
 
 /**
- * Gets the list of interpreters that the user has explicitly excluded in the settings.
+ * Gets the list of interpreters excluded in the settings.
  * Converts aliased paths to absolute paths. Relative paths are not included.
- * @returns List of interpreters that the user has explicitly excluded in the settings.
+ * @returns List of interpreters excluded in the settings.
  */
-export function getUserExcludedInterpreters(): string[] {
+export function getExcludedInterpreters(): string[] {
     const interpretersExclude = getConfiguration('python').get<string[]>(INTERPRETERS_EXCLUDE_SETTING_KEY) ?? [];
     if (interpretersExclude.length > 0) {
         return interpretersExclude
@@ -71,8 +71,8 @@ export function getUserExcludedInterpreters(): string[] {
 export function shouldIncludeInterpreter(interpreterPath: string): boolean {
     // If the settings exclude the interpreter, exclude it. Excluding an interpreter takes
     // precedence over including it, so we return right away if the interpreter is excluded.
-    const userExcluded = userExcludedInterpreter(interpreterPath);
-    if (userExcluded === true) {
+    const excluded = isExcludedInterpreter(interpreterPath);
+    if (excluded === true) {
         traceInfo(
             `[shouldIncludeInterpreter] Interpreter ${interpreterPath} excluded via ${INTERPRETERS_EXCLUDE_SETTING_KEY} setting`,
         );
@@ -80,8 +80,8 @@ export function shouldIncludeInterpreter(interpreterPath: string): boolean {
     }
 
     // If the settings include the interpreter, include it.
-    const userIncluded = userIncludedInterpreter(interpreterPath);
-    if (userIncluded === true) {
+    const included = isIncludedInterpreter(interpreterPath);
+    if (included === true) {
         traceInfo(
             `[shouldIncludeInterpreter] Interpreter ${interpreterPath} included via ${INTERPRETERS_INCLUDE_SETTING_KEY} setting`,
         );
@@ -94,13 +94,13 @@ export function shouldIncludeInterpreter(interpreterPath: string): boolean {
 }
 
 /**
- * Checks if an interpreter path is included in the user's settings.
+ * Checks if an interpreter path is included in the settings.
  * @param interpreterPath The interpreter path to check
- * @returns True if the interpreter is included in the user's settings, false if it is not included
- * in the user's settings, and undefined if the user has not specified any included interpreters.
+ * @returns True if the interpreter is included in the settings, false if it is not included
+ * in the settings, and undefined if included interpreters have not been specified.
  */
-function userIncludedInterpreter(interpreterPath: string): boolean | undefined {
-    const interpretersInclude = getUserIncludedInterpreters();
+function isIncludedInterpreter(interpreterPath: string): boolean | undefined {
+    const interpretersInclude = getIncludedInterpreters();
     if (interpretersInclude.length === 0) {
         return undefined;
     }
@@ -110,13 +110,13 @@ function userIncludedInterpreter(interpreterPath: string): boolean | undefined {
 }
 
 /**
- * Checks if an interpreter path is excluded in the user's settings.
+ * Checks if an interpreter path is excluded in the settings.
  * @param interpreterPath The interpreter path to check
- * @returns True if the interpreter is excluded in the user's settings, false if it is not excluded
- * in the user's settings, and undefined if the user has not specified any excluded interpreters.
+ * @returns True if the interpreter is excluded in the settings, false if it is not excluded
+ * in the settings, and undefined if excluded interpreters have not been specified.
  */
-function userExcludedInterpreter(interpreterPath: string): boolean | undefined {
-    const interpretersExclude = getUserExcludedInterpreters();
+function isExcludedInterpreter(interpreterPath: string): boolean | undefined {
+    const interpretersExclude = getExcludedInterpreters();
     if (interpretersExclude.length === 0) {
         return undefined;
     }
@@ -165,8 +165,8 @@ export function printInterpreterDebugInfo(interpreters: PythonEnvironment[]): vo
     // Construct interpreter setting information
     const interpreterSettingInfo = {
         defaultInterpreterPath: getConfiguration('python').get<string>('defaultInterpreterPath'),
-        'interpreters.include': getUserIncludedInterpreters(),
-        'interpreters.exclude': getUserExcludedInterpreters(),
+        'interpreters.include': getIncludedInterpreters(),
+        'interpreters.exclude': getExcludedInterpreters(),
     };
 
     // Construct debug information about each interpreter
@@ -193,8 +193,8 @@ export function printInterpreterDebugInfo(interpreters: PythonEnvironment[]): vo
                 },
                 enablementInfo: {
                     visibleInUI: shouldIncludeInterpreter(interpreter.path),
-                    includedInSettings: userIncludedInterpreter(interpreter.path),
-                    excludedInSettings: userExcludedInterpreter(interpreter.path),
+                    includedInSettings: isIncludedInterpreter(interpreter.path),
+                    excludedInSettings: isExcludedInterpreter(interpreter.path),
                 },
             }),
         );
