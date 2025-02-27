@@ -5,3 +5,4 @@
 
 // Identifiers.
 export const POSITRON_HELP_COPY = 'positron.help.copy';
+export const POSITRON_HELP_FIND = 'positron.help.find';
