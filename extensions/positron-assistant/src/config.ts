@@ -12,12 +12,20 @@ interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKe
 	id: string;
 }
 
+/**
+ * Interface for storing and retrieving secrets.
+ */
 export interface SecretStorage {
 	store(key: string, value: string): Thenable<void>;
 	get(key: string): Thenable<string | undefined>;
 	delete(key: string): Thenable<void>;
 }
 
+/**
+ * Implementation of SecretStorage that uses VS Code's secret storage API.
+ *
+ * This class should be used in desktop mode to store secrets securely.
+ */
 export class EncryptedSecretStorage implements SecretStorage {
 	constructor(private context: vscode.ExtensionContext) { }
 	store(key: string, value: string): Thenable<void> {
@@ -31,6 +39,15 @@ export class EncryptedSecretStorage implements SecretStorage {
 	}
 }
 
+/**
+ * Implementation of SecretStorage that uses VS Code's global storage API.
+ *
+ * This class stores secrets **insecurely** using VS Code's global storage API.
+ * It is used in web mode, where there is no durable secret storage.
+ *
+ * This class should be replaced with one that uses a secure storage mechanism,
+ * or just removed altogether when Positron gains secure storage capabilities.
+ */
 export class GlobalSecretStorage implements SecretStorage {
 	constructor(private context: vscode.ExtensionContext) { }
 	store(key: string, value: string): Thenable<void> {

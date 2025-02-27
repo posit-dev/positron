@@ -112,8 +112,11 @@ function registerMappedEditsProvider(context: vscode.ExtensionContext) {
 
 function registerAssistant(context: vscode.ExtensionContext) {
 
-	// Initialize secret storage. In web mode, use global storage; otherwise, use encrypted storage.
-	const storage = vscode.env.uiKind === vscode.UIKind.Web ? new GlobalSecretStorage(context) : new EncryptedSecretStorage(context);
+	// Initialize secret storage. In web mode, we currently need to use global
+	// secret storage since encrypted storage is not available.
+	const storage = vscode.env.uiKind === vscode.UIKind.Web ?
+		new GlobalSecretStorage(context) :
+		new EncryptedSecretStorage(context);
 
 	// Register chat participants
 	registerParticipants(context);
