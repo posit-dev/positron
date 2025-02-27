@@ -16,7 +16,8 @@
 	font-size: 12px;
 	overflow: hidden;
 	display: flex;
-	max-width: 300px;
+	max-width: 200px;
+	align-items: center;
 }
 
 .positron-console .directory-label .codicon {
