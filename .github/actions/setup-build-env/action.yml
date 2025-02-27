@@ -53,3 +53,7 @@ runs:
         sudo chmod +x /etc/init.d/xvfb
         sudo update-rc.d xvfb defaults
         sudo service xvfb start
+
+    # Download Builtin Extensions (needed for integration & e2e testing)
+    - shell: bash
+      run: node build/lib/preLaunch.js
