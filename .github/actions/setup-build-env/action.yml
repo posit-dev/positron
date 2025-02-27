@@ -54,6 +54,6 @@ runs:
         sudo update-rc.d xvfb defaults
         sudo service xvfb start
 
-    # Download Builtin Extensions (needed for integration & e2e testing)
+    # Downloads Builtin Extensions (needed for integration & e2e testing)
     - shell: bash
-      run: node build/lib/preLaunch.js
+      run: npm run prelaunch

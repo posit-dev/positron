@@ -6,7 +6,6 @@
     "compile": "node ../../node_modules/typescript/bin/tsc",
     "watch-e2e": "npm run compile -- --watch --preserveWatchOutput",
     "watch": "npm-run-all -lp watch-e2e",
-    "prelaunch": "node build/lib/preLaunch.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.722.0",
