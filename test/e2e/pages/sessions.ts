@@ -24,6 +24,12 @@ export class Sessions {
 	metadataDialog: Locator;
 	chooseSessionButton: Locator;
 	quickPick: SessionQuickPick;
+	allSessionTabs: Locator;
+	currentSessionTab: Locator;
+	sessionTabById: (sessionId: string) => Locator;
+	sessionTrashButton: Locator;
+	sessionTrashButtonById: (sessionId: string) => Locator;
+	sessionTrashButtonByName: (sessionName: string) => Locator;
 
 	constructor(private code: Code, private console: Console, private quickaccess: QuickAccess, private quickinput: QuickInput) {
 		this.page = this.code.driver.page;
@@ -35,24 +41,42 @@ export class Sessions {
 		this.metadataDialog = this.page.getByRole('dialog');
 		this.quickPick = new SessionQuickPick(this.code, this);
 		this.chooseSessionButton = this.page.getByRole('button', { name: 'Open Active Session Picker' });
+		this.allSessionTabs = this.page.locator('[data-testid^="console-tab-"].tab-button');
+		this.currentSessionTab = this.page.locator('[data-testid^="console-tab-"].tab-button--active');
+		this.sessionTabById = (sessionId: string) => this.page.getByTestId(`console-tab-${sessionId}`);
+		this.sessionTrashButton = this.page.getByTestId('trash-session');
+		this.sessionTrashButtonById = (sessionId: string) => this.sessionTabById(sessionId).getByTestId('trash-session');
+		this.sessionTrashButtonByName = (sessionName: string) => this.sessionTabByName(sessionName).getByTestId('trash-session');
+	}
+
+	async validateSessionId(sessionId: string): Promise<boolean> {
+		const isValid = /^(python|r)-[a-zA-Z0-9]+$/i.test(sessionId);
+		if (!isValid) {
+			throw new Error(`Session ID is invalid: ${sessionId}`);
+		}
+		return isValid;
+	}
+
+	async isSessionId(sessionId: string): Promise<boolean> {
+		return /^(python|r)-[a-zA-Z0-9]+$/i.test(sessionId);
 	}
 
 	// -- Actions --
 
 	/**
-	 * Action: Start a session via the top action bar button or quickaccess.
-	 * @param options - Configuration options for selecting the interpreter.
+	 * Action: Start a session via the session picker button or quickaccess.
+	 * @param options - Configuration options for selecting the runtime session.
 	 * @param options.language the programming language interpreter to select.
 	 * @param options.version the specific version of the interpreter to select (e.g., "3.10.15").
-	 * @param options.triggerMode the method used to trigger the selection: top-action-bar or quickaccess.
+	 * @param options.triggerMode the method used to trigger the selection: session-picker or quickaccess.
 	 * @param options.waitForReady whether to wait for the console to be ready after selecting the interpreter.
 	 */
 	async launch(options: {
 		language: 'Python' | 'R';
 		version?: string;
-		triggerMode?: 'top-action-bar' | 'quickaccess';
+		triggerMode?: 'session-picker' | 'quickaccess';
 		waitForReady?: boolean;
-	}): Promise<void> {
+	}): Promise<string> {
 
 		if (!DESIRED_PYTHON || !DESIRED_R) {
 			throw new Error('Please set env vars: POSITRON_PY_VER_SEL, POSITRON_R_VER_SEL');
@@ -69,7 +93,7 @@ export class Sessions {
 			// Don't try to start a new runtime if one is currently starting up
 			await this.waitForReadyOrNoSessions();
 
-			// Start the runtime via the dropdown or quickaccess
+			// Start the runtime via the session picker button or quickaccess
 			const command = language === 'Python' ? 'python.setInterpreter' : 'r.selectInterpreter';
 			triggerMode === 'quickaccess'
 				? await this.quickaccess.runCommand(command, { keepOpen: true })
@@ -92,16 +116,49 @@ export class Sessions {
 					: await this.console.waitForReadyAndStarted('>', 40000);
 			}
 		});
+
+		return this.getCurrentSessionId();
 	}
 
 	/**
 	 * Action: Select the session
 	 * @param session details of the session (language and version)
 	 */
-	async select(session: SessionName): Promise<void> {
-		await test.step(`Select session: ${session.language} ${session.version}`, async () => {
-			const sessionLocator = this.getSessionLocator(session);
-			await sessionLocator.click();
+	async selectByName(sessionName: string): Promise<void> {
+		await test.step(`Select session: ${sessionName}`, async () => {
+			await this.sessionTabByName(sessionName).click();
+		});
+	}
+
+
+	async selectById(sessionId: string): Promise<void> {
+		await this.validateSessionId(sessionId);
+
+		await test.step(`Select session by ID: ${sessionId}`, async () => {
+			await this.sessionTabById(sessionId).click();
+		});
+	}
+
+	/**
+	 * Action: Delete the session via trash button
+	 * @param sessionId the id of the session
+	 */
+	async delete(sessionIdOrName: string): Promise<void> {
+		const isSessionId = await this.isSessionId(sessionIdOrName);
+
+		await test.step(`Delete session: ${sessionIdOrName}`, async () => {
+
+			if (isSessionId) {
+				await this.sessionTabById(sessionIdOrName).click();
+				await this.sessionTabById(sessionIdOrName).hover();
+				await this.sessionTrashButtonById(sessionIdOrName).click();
+			} else {
+				await this.sessionTabByName(sessionIdOrName).click();
+				await this.sessionTabByName(sessionIdOrName).hover();
+				await this.sessionTrashButtonByName(sessionIdOrName).click();
+			}
+
+			await expect(this.page.getByText('Shutting down')).not.toBeVisible();
 		});
 	}
 
@@ -110,31 +167,70 @@ export class Sessions {
 	 * @param session details of the session (language and version)
 	 * @param waitForIdle wait for the session to display as "idle" (ready)
 	 */
-	async start(session: SessionName, waitForIdle = true): Promise<void> {
-		await test.step(`Start session: ${session.language} ${session.version}`, async () => {
-			const sessionLocator = this.getSessionLocator(session);
-			await sessionLocator.click();
+	async startByName(sessionName: string, waitForIdle = true): Promise<string> {
+		await test.step(`Start session: ${sessionName}`,
+			async () => {
+
+				await this.sessionTabByName(sessionName).click();
+				await this.page.getByLabel('Start console', { exact: true }).click();
+
+				if (waitForIdle) {
+					await this.checkStatusByName(sessionName, 'idle');
+				}
+			});
+
+		// bug: this session id isn't updating in dom, but is correct in meta data dialog
+		return this.getCurrentSessionId();
+		// return (await this.getMetadata()).id;
+	}
+
+	/**
+	 * Action: Start the session
+	 * @param sessionId the id of the session
+	 * @param waitForIdle wait for the session to display as "idle" (ready)
+	 * @returns the session ID
+	 */
+	async startById(sessionId: string, waitForIdle = true): Promise<string> {
+		await this.validateSessionId(sessionId);
+
+		await test.step(`Start session: ${sessionId}`, async () => {
+			await this.sessionTabById(sessionId).click();
 			await this.page.getByLabel('Start console', { exact: true }).click();
 
 			if (waitForIdle) {
-				await this.checkStatus(session, 'idle');
+				await this.checkStatusById(sessionId, 'idle');
 			}
 		});
+
+		// bug: this session id isn't updating in dom, but is correct in meta data dialog
+		return this.getCurrentSessionId();
+		// return (await this.getMetadata()).id;
 	}
 
 	/**
 	 * Action: Restart the session
-	 * @param session details of the session (language and version)
+	 * @param sessionId the id of the session
 	 * @param waitForIdle wait for the session to display as "idle" (ready)
 	 */
-	async restart(session: SessionName, waitForIdle = true): Promise<void> {
-		await test.step(`Restart session: ${session.language} ${session.version}`, async () => {
-			const sessionLocator = this.getSessionLocator(session);
-			await sessionLocator.click();
+	async restart(session: string, waitForIdle = true, clearConsole = true): Promise<void> {
+		const isSessionId = await this.isSessionId(session);
+
+		await test.step(`Restart session:`, async () => {
+			await (isSessionId
+				? this.sessionTabById(session)
+				: this.sessionTabByName(session)
+			).click();
+
+			if (clearConsole) {
+				await this.console.barClearButton.click();
+			}
+
 			await this.page.getByLabel('Restart console', { exact: true }).click();
 
 			if (waitForIdle) {
-				await this.checkStatus(session, 'idle');
+				isSessionId
+					? await this.checkStatusById(session, 'idle')
+					: await this.checkStatusByName(session, 'idle');
 			}
 		});
 	}
@@ -144,14 +240,32 @@ export class Sessions {
 	 * @param session details of the session (language and version)
 	 * @param waitForDisconnected wait for the session to display as disconnected
 	 */
-	async shutdown(session: SessionName, waitForDisconnected = true): Promise<void> {
-		await test.step(`Shutdown session: ${session.language} ${session.version}`, async () => {
-			const sessionLocator = this.getSessionLocator(session);
+	async shutdownByName(sessionName: string, waitForDisconnected = true): Promise<void> {
+		await test.step(`Shutdown session: ${sessionName}`, async () => {
+			const sessionLocator = this.sessionTabByName(sessionName);
 			await sessionLocator.click();
 			await this.page.getByLabel('Shutdown console', { exact: true }).click();
 
 			if (waitForDisconnected) {
-				await this.checkStatus(session, 'disconnected');
+				await this.checkStatusByName(sessionName, 'disconnected');
+			}
+		});
+	}
+
+	/**
+ * Action: Shutdown the session
+ * @param sessionId the id of the session
+ * @param waitForDisconnected wait for the session to display as disconnected
+ */
+	async shutdownById(sessionId: string, waitForDisconnected = true): Promise<void> {
+		await this.validateSessionId(sessionId);
+
+		await test.step(`Shutdown session: ${sessionId}`, async () => {
+			await this.sessionTabById(sessionId).click();
+			await this.page.getByLabel('Shutdown console', { exact: true }).click();
+
+			if (waitForDisconnected) {
+				await this.checkStatusById(sessionId, 'disconnected');
 			}
 		});
 	}
@@ -174,24 +288,32 @@ export class Sessions {
 	// -- Helpers --
 
 	/**
-	 * Helper: Ensure the session is started and idle (ready)
-	 * @param session details of the session (language and version)
+	 * Helper: Launch a session if it doesn't exist, otherwise reuse the existing session
+	 * @param session the session to reuse
+	 * @returns id of the session
 	 */
-	async ensureStartedAndIdle(session: SessionName): Promise<void> {
-		await test.step(`Ensure ${session.language} ${session.version} session is started and idle`, async () => {
+	async reuseSessionIfExists(session: SessionName): Promise<string> {
+		const sessionLocator = this.sessionTabByName(session.name);
+		const sessionExists = await this.sessionTabByName(session.name).isVisible();
+		// try by id await this.sessionTab(sessionId).click();
+		// try by text
 
-			// Start Session if it does not exist
-			const sessionExists = await this.getSessionLocator(session).isVisible({ timeout: 30000 });
-			if (!sessionExists) {
-				await this.launch(session);
-			}
+		if (sessionExists) {
+			await sessionLocator.click();
+			const status = await this.getStatusByName(session.name);
+			let sessionId = await this.getCurrentSessionId();
+			// let sessionId = (await this.getMetadata()).id;
 
-			// Ensure session is idle (ready)
-			const status = await this.getStatus(session);
-			if (status !== 'idle') {
-				await this.start(session);
+			if (status === 'idle') {
+				return sessionId;
+			} else if (status === 'disconnected') {
+				sessionId = await this.startByName(session.name);
+				return sessionId;
 			}
-		});
+		}
+
+		// Create a new session if none exists
+		return await this.launch(session);
 	}
 
 	/**
@@ -235,35 +357,96 @@ export class Sessions {
 	}
 
 	/**
-	 * Helper: Get the session ID from the session name
-	 * @param sessionName the session name to get the ID for
-	 * @returns the session ID
-	 */
-	async getSessionId(sessionName: string): Promise<string> {
-		const testId = await this.getTestIdFromSessionName(sessionName);
-		return testId.match(/-(\S+)$/)?.[1] || '';
+ * Helper: Get all session IDs for sessions in the console
+ * @returns the list of session IDs
+ */
+	async getAllSessionIds(): Promise<string[]> {
+
+		if (await this.allSessionTabs.count() === 0) {
+			return []; // No active sessions found
+		}
+
+		const sessionIds: string[] = [];
+
+		for (const tab of await this.allSessionTabs.all()) {
+			await tab.click();
+			const { id } = await this.getMetadata();
+			sessionIds.push(id);
+			// const testId = await tab.getAttribute('data-testid');
+			// if (!testId) { continue; }
+
+			// const match = testId.match(/^console-tab-(python|r)-(.+)$/);
+			// if (match) {
+			// 	sessionIds.push(`${match[1]}-${match[2]}`);
+			// }
+		}
+
+		return sessionIds;
 	}
 
 	/**
-	 * Helper: Get the test ID from the session name
-	 * @param sessionName the session name to get the ID for
-	 * @returns the session ID
+	 * Helper: Get the session ID for the currently selected session in tab list
+	 * @returns the session ID or undefined if no session is selected
 	 */
-	async getTestIdFromSessionName(sessionName: string): Promise<string> {
-		const session = this.getSessionLocator(sessionName);
-		const testId = await session.getAttribute('data-testid');
-		const match = testId?.match(/console-tab-(\S+)/);
-		return match ? match[1] : '';
+	async getCurrentSessionId(): Promise<string> {
+
+		// bug: this session id isn't updating in dom, but is correct in meta data dialog
+		return (await this.getMetadata()).id;
+
+		// if (await this.currentSessionTab.count() === 0) {
+		// 	return ''; // No active session found
+		// }
+
+		// const testId = await this.currentSessionTab.getAttribute('data-testid');
+		// if (!testId) { return ''; }
+
+		// // Extract the session ID from `data-testid="console-tab-python-<some-id>"` or `console-tab-r-<some-id>`
+		// const match = testId.match(/^console-tab-(python|r)-(.+)$/);
+		// return match ? `${match[1]}-${match[2]}` : '';
 	}
+
+	async getCurrentSessionName(): Promise<string> {
+		if (await this.currentSessionTab.count() === 0) {
+			return ''; // No active session found
+		}
+
+		return await this.currentSessionTab.textContent() || '';
+	}
+
+
+
+
+	// /**
+	//  * Helper: Get the session ID from the session name
+	//  * @param sessionName the session name to get the ID for
+	//  * @returns the session ID
+	//  */
+	// async getSessionId(sessionName: string): Promise<string> {
+	// 	const testId = await this.getTestIdFromSessionName(sessionName);
+	// 	return testId.match(/-(\S+)$/)?.[1] || '';
+	// }
+
+	// /**
+	//  * Helper: Get the test ID from the session name
+	//  * @param sessionName the session name to get the ID for
+	//  * @returns the session ID
+	//  */
+	// async getTestIdFromSessionName(sessionName: string): Promise<string> {
+	// 	const session = this.getSessionLocator(sessionName);
+	// 	const testId = await session.getAttribute('data-testid');
+	// 	const match = testId?.match(/console-tab-(\S+)/);
+	// 	return match ? match[1] : '';
+	// }
 
 	/**
 	 * Helper: Get the metadata of the session
 	 * @param sessionId the session ID to get metadata for
 	 * @returns the metadata of the session
 	 */
-	async getMetadata(sessionId: string): Promise<SessionMetaData> {
-		// select the session tab and open the metadata dialog
-		await this.page.getByTestId(`console-tab-${sessionId}`).click();
+	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
+		if (sessionId) {
+			await this.page.getByTestId(`console-tab-${sessionId}`).click();
+		}
 		await this.metadataButton.click();
 
 		// get metadata
@@ -321,12 +504,11 @@ export class Sessions {
 	 * @param session Either a session object (language and version) or a string representing the session name.
 	 * @returns The locator for the session tab.
 	 */
-	private getSessionLocator(session: SessionName | string): Locator {
-		const sessionName = typeof session === 'string'
-			? session
-			: `${session.language} ${session.version}`;
-
-		return this.page.getByRole('tab', { name: new RegExp(sessionName) });
+	private sessionTabByName(sessionName: string): Locator {
+		if (!sessionName) {
+			throw new Error('Session name is required');
+		}
+		return this.allSessionTabs.getByText(sessionName).locator('..');
 	}
 
 	/**
@@ -334,8 +516,8 @@ export class Sessions {
 	 * @param session Either a session object (language and version) or a string representing the session name.
 	 * @returns 'active', 'idle', 'disconnected', or 'unknown'
 	 */
-	async getStatus(session: SessionName | string): Promise<'active' | 'idle' | 'disconnected' | 'unknown'> {
-		const expectedSession = this.getSessionLocator(session);
+	async getStatusByName(sessionName: string): Promise<'active' | 'idle' | 'disconnected' | 'unknown'> {
+		const expectedSession = this.sessionTabByName(sessionName);
 
 		if (await this.activeStatus(expectedSession).isVisible()) { return 'active'; }
 		if (await this.idleStatus(expectedSession).isVisible()) { return 'idle'; }
@@ -350,17 +532,30 @@ export class Sessions {
 	 * @param session Either a session object (language and version) or a string representing the session name.
 	 * @param expectedStatus status to check for ('active', 'idle', 'disconnected')
 	 */
-	async checkStatus(session: SessionName | string, expectedStatus: 'active' | 'idle' | 'disconnected') {
-		const stepTitle = session instanceof Object
-			? `Verify ${session.language} ${session.version} session status: ${expectedStatus}`
-			: `Verify ${session} session status: ${expectedStatus}`;
-
-		await test.step(stepTitle, async () => {
-			const sessionLocator = this.getSessionLocator(session);
+	async checkStatusByName(sessionName: string, expectedStatus: 'active' | 'idle' | 'disconnected') {
+		await test.step(`Verify ${sessionName} session status: ${expectedStatus}`, async () => {
+			const sessionLocator = this.sessionTabByName(sessionName);
 			const statusClass = `.codicon-positron-status-${expectedStatus}`;
 
 			await expect(sessionLocator).toBeVisible();
 			await expect(sessionLocator.locator(statusClass)).toBeVisible({ timeout: 30000 });
+		});
+	}
+
+	/**
+ * Verify: Check the status of the session tab
+ * @param sessionId the session ID to check status for
+ * @param expectedStatus status to check for ('active', 'idle', 'disconnected')
+ */
+	async checkStatusById(sessionId: string, expectedStatus: 'active' | 'idle' | 'disconnected') {
+		await this.validateSessionId(sessionId);
+
+		await test.step(`Verify ${sessionId} session status: ${expectedStatus}`, async () => {
+			const sessionTabLocator = this.sessionTabById(sessionId);
+			const statusClass = `.codicon-positron-status-${expectedStatus}`;
+
+			await expect(sessionTabLocator).toBeVisible();
+			await expect(sessionTabLocator.locator(statusClass)).toBeVisible({ timeout: 30000 });
 		});
 	}
 
@@ -373,8 +568,7 @@ export class Sessions {
 		await test.step(`Verify ${data.language} ${data.version} metadata`, async () => {
 
 			// Click metadata button for desired session
-			const sessionLocator = this.getSessionLocator({ language: data.language, version: data.version });
-			await sessionLocator.click();
+			await this.sessionTabByName(`${data.language} ${data.version}`).click();
 			await this.metadataButton.click();
 
 			// Verify metadata
@@ -509,6 +703,7 @@ export class SessionQuickPick {
 		await this.closeSessionQuickPickMenu();
 
 		return {
+			name: `${language} ${version}`,
 			language: language as 'Python' | 'R',
 			version,
 			source,
@@ -549,8 +744,10 @@ export type QuickPickSessionInfo = {
 
 
 export type SessionName = {
+	name: string;
 	language: 'Python' | 'R';
 	version: string; // e.g. '3.10.15'
+	id?: string;
 };
 
 

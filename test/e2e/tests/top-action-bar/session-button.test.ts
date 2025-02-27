@@ -11,10 +11,12 @@ test.use({
 });
 
 const pythonSession: SessionName = {
+	name: `Python ${process.env.POSITRON_PY_VER_SEL || ''}`,
 	language: 'Python',
 	version: process.env.POSITRON_PY_VER_SEL || ''
 };
 const rSession: SessionName = {
+	name: `R ${process.env.POSITRON_R_VER_SEL || ''}`,
 	language: 'R',
 	version: process.env.POSITRON_R_VER_SEL || ''
 };
@@ -28,14 +30,14 @@ test.describe('Top Action Bar: Session Button', {
 	});
 
 	test('Python - Verify session starts and displays as running', async function ({ app }) {
-		await app.workbench.sessions.launch({ ...pythonSession, triggerMode: 'top-action-bar' });
+		pythonSession.id = await app.workbench.sessions.launch({ ...pythonSession, triggerMode: 'session-picker' });
 		await app.workbench.sessions.verifySessionPickerValue(pythonSession);
-		await app.workbench.sessions.checkStatus(pythonSession, 'idle');
+		await app.workbench.sessions.checkStatusById(pythonSession.id, 'idle');
 	});
 
 	test('R - Verify session starts and displays as running', async function ({ app }) {
-		await app.workbench.sessions.launch({ ...rSession, triggerMode: 'top-action-bar' });
+		rSession.id = await app.workbench.sessions.launch({ ...rSession, triggerMode: 'session-picker' });
 		await app.workbench.sessions.verifySessionPickerValue(rSession);
-		await app.workbench.sessions.checkStatus(rSession, 'idle');
+		await app.workbench.sessions.checkStatusById(rSession.id, 'idle');
 	});
 });
