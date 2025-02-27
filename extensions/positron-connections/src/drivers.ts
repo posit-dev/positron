@@ -3,11 +3,22 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { readFileSync } from 'fs';
+import path = require('path');
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 
 export function registerConnectionDrivers(context: vscode.ExtensionContext) {
-	for (const driver of [new RSQLiteDriver(), new RPostgreSQLDriver(), new PythonSQLiteDriver()]) {
+
+	const drivers = [
+		new RSQLiteDriver(context),
+		new RPostgreSQLDriver(context),
+		new PythonSQLiteDriver(context),
+		new RSparkDriver(context),
+		new PythonPostgreSQLDriver(context),
+	];
+
+	for (const driver of drivers) {
 		context.subscriptions.push(
 			positron.connections.registerConnectionDriver(driver)
 		);
@@ -104,8 +115,12 @@ class RDriver implements positron.ConnectionsDriver {
 
 class RPostgreSQLDriver extends RDriver implements positron.ConnectionsDriver {
 
-	constructor() {
-		super(['RPostgres', 'DBI']);
+	constructor(context: vscode.ExtensionContext) {
+		super(['RPostgres', 'DBI', 'connections']);
+		// See the top-level ThirdPartyNotices.txt file for attribution and license details.
+		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'postgre.svg');
+		const iconData = readFileSync(iconPath, 'base64');
+		this.metadata.base64EncodedIconSvg = iconData;
 	}
 
 	driverId: string = 'postgres';
@@ -176,14 +191,19 @@ con <- dbConnect(
 	password = '${password ?? ''}',
 	bigint = '${bigint ?? ''}'
 )
+connections::connection_view(con)
 `;
 	}
 }
 
 class RSQLiteDriver extends RDriver implements positron.ConnectionsDriver {
 
-	constructor() {
+	constructor(context: vscode.ExtensionContext) {
 		super(['RSQLite', 'DBI', 'connections']);
+		// See the top-level ThirdPartyNotices.txt file for attribution and license details.
+		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'sqlite.svg');
+		const iconData = readFileSync(iconPath, 'base64');
+		this.metadata.base64EncodedIconSvg = iconData;
 	}
 
 	driverId: string = 'sqlite';
@@ -227,6 +247,52 @@ connections::connection_view(con)
 	}
 }
 
+class RSparkDriver extends RDriver implements positron.ConnectionsDriver {
+	constructor(context: vscode.ExtensionContext) {
+		super(['sparklyr']);
+		// See the top-level ThirdPartyNotices.txt file for attribution and license details.
+		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'spark.svg');
+		const iconData = readFileSync(iconPath, 'base64');
+		this.metadata.base64EncodedIconSvg = iconData;
+	}
+
+	driverId: string = 'spark';
+	metadata: positron.ConnectionsDriverMetadata = {
+		languageId: 'r',
+		name: 'Spark',
+		inputs: [
+			{
+				'id': 'master',
+				'label': 'Master',
+				'type': 'string',
+				'value': 'local'
+			},
+			{
+				'id': 'method',
+				'label': 'Method',
+				'type': 'option',
+				'options': [
+					{ 'identifier': 'shell', 'title': 'Shell' },
+					{ 'identifier': 'livy', 'title': 'Livy' },
+					{ 'identifier': 'databricks', 'title': 'Databricks' },
+					{ 'identifier': 'qubole', 'title': 'Qubole' },
+					{ 'identifier': 'synapse', 'title': 'Synapse' }
+				],
+				'value': 'shell'
+			},
+		]
+	};
+
+	generateCode(inputs: positron.ConnectionsInput[]) {
+		return `library(sparklyr)
+sc <- spark_connect(
+	master = ${JSON.stringify(inputs.find(input => input.id === 'master')?.value)},
+	method = ${JSON.stringify(inputs.find(input => input.id === 'method')?.value)}
+)
+`;
+	}
+}
+
 class PythonDriver implements positron.ConnectionsDriver {
 	driverId: string = 'python';
 	metadata: positron.ConnectionsDriverMetadata = {
@@ -252,6 +318,15 @@ class PythonDriver implements positron.ConnectionsDriver {
 }
 
 class PythonSQLiteDriver extends PythonDriver implements positron.ConnectionsDriver {
+
+	constructor(context: vscode.ExtensionContext) {
+		super();
+		// See the top-level ThirdPartyNotices.txt file for attribution and license details.
+		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'sqlite.svg');
+		const iconData = readFileSync(iconPath, 'base64');
+		this.metadata.base64EncodedIconSvg = iconData;
+	}
+
 	driverId: string = 'py-sqlite';
 	metadata: positron.ConnectionsDriverMetadata = {
 		languageId: 'python',
@@ -277,6 +352,77 @@ class PythonSQLiteDriver extends PythonDriver implements positron.ConnectionsDri
 
 		return `import sqlite3
 conn = sqlite3.connect(${JSON.stringify(dbname) ?? JSON.stringify('')})
+%connection_show conn
+`;
+	}
+}
+
+class PythonPostgreSQLDriver extends PythonDriver implements positron.ConnectionsDriver {
+
+	constructor(context: vscode.ExtensionContext) {
+		super();
+		// See the top-level ThirdPartyNotices.txt file for attribution and license details.
+		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'postgre.svg');
+		const iconData = readFileSync(iconPath, 'base64');
+		this.metadata.base64EncodedIconSvg = iconData;
+	}
+
+	driverId: string = 'py-postgres';
+	metadata: positron.ConnectionsDriverMetadata = {
+		languageId: 'python',
+		name: 'PostgresSQL',
+		inputs: [
+			{
+				'id': 'dbname',
+				'label': 'Database Name',
+				'type': 'string',
+				'value': 'localhost'
+			},
+			{
+				'id': 'host',
+				'label': 'Host',
+				'type': 'string',
+				'value': 'localhost'
+			},
+			{
+				'id': 'port',
+				'label': 'Port',
+				'type': 'number',
+				'value': '5432'
+			},
+			{
+				'id': 'user',
+				'label': 'User',
+				'type': 'string',
+				'value': 'postgres'
+			},
+			{
+				'id': 'password',
+				'label': 'Password',
+				'type': 'string',
+				'value': 'password'
+			},
+		]
+	};
+
+	generateCode(inputs: positron.ConnectionsInput[]) {
+		const dbname = inputs.find(input => input.id === 'dbname')?.value;
+		const host = inputs.find(input => input.id === 'host')?.value;
+		const port = inputs.find(input => input.id === 'port')?.value;
+		const user = inputs.find(input => input.id === 'user')?.value;
+		const password = inputs.find(input => input.id === 'password')?.value;
+
+		const connection_string = `postgresql+psycopg2://${user}:${password}@${host}:${port}/${dbname}`;
+
+		return `import sqlalchemy
+conn = sqlalchemy.create_engine(sqlalchemy.URL.create(
+	"postgresql+psycopg2",
+	username=${JSON.stringify(user)},
+	password=${JSON.stringify(password)},
+	host=${JSON.stringify(host)},
+	database=${JSON.stringify(dbname)},
+	port=${JSON.stringify(port)}
+))
 %connection_show conn
 `;
 	}

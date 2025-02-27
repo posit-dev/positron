@@ -52,6 +52,10 @@ import { MandatoryServerConnectionToken } from './serverConnectionToken.js';
 // --- Start PWB: Server proxy support ---
 import { kProxyRegex, kSessionUrl } from './pwbConstants.js';
 import { IPwbHeartbeatService } from './pwbHeartbeat.js';
+import { PositronBootstrapExtensionsInitializer } from '../../platform/extensionManagement/node/positronBootstrapExtensionsInitializer.js';
+import { INativeEnvironmentService } from '../../platform/environment/common/environment.js';
+import { IExtensionManagementService } from '../../platform/extensionManagement/common/extensionManagement.js';
+import { IFileService } from '../../platform/files/common/files.js';
 // --- End PWB ---
 
 const SHUTDOWN_TIMEOUT = 5 * 60 * 1000;
@@ -777,6 +781,18 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 
 	const disposables = new DisposableStore();
 	const { socketServer, instantiationService } = await setupServerServices(connectionToken, args, REMOTE_DATA_FOLDER, disposables);
+
+	// --- Start Positron ---
+	instantiationService.invokeFunction((accessor) => {
+		const environmentService = accessor.get(INativeEnvironmentService);
+		const extensionManagementService = accessor.get(IExtensionManagementService);
+		const fileService = accessor.get(IFileService);
+		const productService = accessor.get(IProductService);
+		const logService = accessor.get(ILogService);
+		new PositronBootstrapExtensionsInitializer(environmentService, extensionManagementService, fileService, productService, logService);
+	});
+	// --- End Positron ---
+
 
 	// Set the unexpected error handler after the services have been initialized, to avoid having
 	// the telemetry service overwrite our handler

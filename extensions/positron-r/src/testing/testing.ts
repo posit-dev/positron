@@ -13,7 +13,16 @@ import { detectRPackage, getRPackageName } from '../contexts';
 
 let controller: vscode.TestController | undefined;
 
+const _onDidDiscoverTestFiles = new vscode.EventEmitter<void>();
+
+/**
+ * An event that fires after the test files are discovered.
+ */
+export const onDidDiscoverTestFiles = _onDidDiscoverTestFiles.event;
+
+
 export async function setupTestExplorer(context: vscode.ExtensionContext) {
+	context.workspaceState.update('positron.r.testExplorerSetUp', false);
 	if (testExplorerEnabled()) {
 		return discoverTests(context);
 	}
@@ -64,6 +73,7 @@ export async function discoverTests(context: vscode.ExtensionContext) {
 		'R Package Test Explorer'
 	);
 	context.subscriptions.push(controller);
+	context.subscriptions.push(_onDidDiscoverTestFiles);
 
 	const testItemData = new WeakMap<vscode.TestItem, ItemType>();
 	const testingTools: TestingTools = {
@@ -86,6 +96,8 @@ export async function discoverTests(context: vscode.ExtensionContext) {
 			for (const watcher of watchers) {
 				context.subscriptions.push(watcher);
 			}
+			_onDidDiscoverTestFiles.fire();
+			context.workspaceState.update('positron.r.testExplorerSetUp', true);
 			LOGGER.info('Testthat file watchers are in place.');
 		}
 	};

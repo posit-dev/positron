@@ -20,6 +20,7 @@
 	margin: 8px 0;
 	overflow-wrap: break-word;
 	padding: 0 8px;
+	user-select: text;
 }
 
 .console-instance-info .actions .link {

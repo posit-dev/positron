@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { PromiseHandles, timeout } from './util';
+import { PromiseHandles } from './util';
 import { checkInstalled } from './session';
 import { getRPackageName } from './contexts';
 import { getRPackageTasks } from './tasks';
@@ -15,6 +15,7 @@ import { quickPickRuntime } from './runtime-quickpick';
 import { MINIMUM_RENV_VERSION, MINIMUM_R_VERSION } from './constants';
 import { RRuntimeManager } from './runtime-manager';
 import { RMetadataExtra } from './r-installation';
+import { onDidDiscoverTestFiles } from './testing/testing';
 
 export async function registerCommands(context: vscode.ExtensionContext, runtimeManager: RRuntimeManager) {
 
@@ -123,6 +124,19 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			const isInstalled = await checkInstalled(task.definition.pkg);
 			if (isInstalled) {
 				vscode.tasks.executeTask(task);
+			}
+		}),
+
+		vscode.commands.registerCommand('r.packageTestExplorer', async () => {
+			vscode.commands.executeCommand('workbench.view.testing.focus');
+
+			if (context.workspaceState.get('positron.r.testExplorerSetUp') === true) {
+				vscode.commands.executeCommand('testing.runAll');
+			} else {
+				// if this is first time opening the test explorer, wait for tests to be discovered
+				onDidDiscoverTestFiles(() => {
+					vscode.commands.executeCommand('testing.runAll');
+				});
 			}
 		}),
 

@@ -88,9 +88,10 @@ async function verifyPlainTextButtonInActionBar(app: Application, isVisible: boo
 }
 
 async function verifyCopyFromCell(app: Application, value: string) {
-	await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
-	await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+C' : 'Control+C');
-	const clipboardText = await app.workbench.clipboard.getClipboardText();
-	expect(clipboardText).toBe(value);
-
+	await expect(async () => {
+		await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
+		await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+C' : 'Control+C');
+		const clipboardText = await app.workbench.clipboard.getClipboardText();
+		expect(clipboardText).toBe(value);
+	}).toPass();
 }
