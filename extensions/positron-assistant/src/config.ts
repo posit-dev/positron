@@ -68,6 +68,26 @@ export async function getModelConfigurations(context: vscode.ExtensionContext, s
 	return fullConfigs;
 }
 
+export async function showModelList(context: vscode.ExtensionContext, storage: SecretStorage) {
+	// Create a quickpick with all configured models
+	const modelConfigs = await getModelConfigurations(context, storage);
+	const quickPick = vscode.window.createQuickPick();
+	quickPick.items = [
+		...modelConfigs.map((config) => ({
+			label: config.name,
+			detail: config.model,
+			description: config.baseUrl,
+		})),
+		{
+			label: vscode.l10n.t('Add New Model...'),
+			description: vscode.l10n.t('Add a new language model configuration'),
+		}
+	];
+
+	// Show the quickpick
+	quickPick.show();
+}
+
 export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {
 	// Gather model sources
 	const sources = [...languageModels, ...completionModels].map((provider) => provider.source);

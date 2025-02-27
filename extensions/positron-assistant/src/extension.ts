@@ -5,11 +5,12 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { EncryptedSecretStorage, getModelConfigurations, GlobalSecretStorage, SecretStorage, showConfigurationDialog } from './config';
+import { EncryptedSecretStorage, getModelConfigurations, GlobalSecretStorage, SecretStorage, showConfigurationDialog, showModelList } from './config';
 import { newLanguageModel } from './models';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { editsProvider } from './edits';
 import { createParticipants } from './participants';
+import { register } from 'node:module';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -95,6 +96,14 @@ function registerAddModelConfigurationCommand(context: vscode.ExtensionContext, 
 	);
 }
 
+function registerConfigureModelsCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron-assistant.configureModels', () => {
+			showModelList(context, storage);
+		})
+	);
+}
+
 function registerMappedEditsProvider(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.chat.registerMappedEditsProvider({ pattern: '**/*' }, editsProvider)
@@ -115,8 +124,9 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	// Track opened files for completion context
 	registerHistoryTracking(context);
 
-	// Configuration modal command
+	// Commands
 	registerAddModelConfigurationCommand(context, storage);
+	registerConfigureModelsCommand(context, storage);
 
 	// Register mapped edits provider
 	registerMappedEditsProvider(context);
