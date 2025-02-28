@@ -49,7 +49,6 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 	const [consoleWidth, setConsoleWidth] = useState(0);
 	const [consolePaneWidth, setConsolePaneWidth] = useState(0);
 	const [consoleTabListWidth, setConsoleTabListWidth] = useState(0);
-	const [consoleTabListHidden, setConsoleTabListHidden] = useState(true);
 	const [startupPhase, setStartupPhase] = useState(
 		positronConsoleContext.languageRuntimeService.startupPhase);
 
@@ -68,7 +67,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 		// The maximum tab list width is 1/5 of the total available width
 		const MAXIMUM_CONSOLE_TAB_LIST_WIDTH = Math.trunc(props.width / 5);
 
-		if (consoleTabListHidden) {
+		if (positronConsoleContext.consoleSessionListCollapsed) {
 			setConsolePaneWidth(props.width);
 			return;
 		}
@@ -94,17 +93,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 
 		// Track the console width to accurately resize in future
 		setConsoleWidth(props.width)
-	}, [consolePaneWidth, consoleTabListHidden, consoleTabListWidth, consoleWidth, props.width])
-
-	useEffect(() => {
-		if (multiSessionsEnabled) {
-			if (positronConsoleContext.positronConsoleInstances.length > 1) {
-				setConsoleTabListHidden(false);
-			} else {
-				setConsoleTabListHidden(true);
-			}
-		}
-	}, [multiSessionsEnabled, positronConsoleContext.positronConsoleInstances.length]);
+	}, [consolePaneWidth, consoleTabListWidth, consoleWidth, props.width, positronConsoleContext.consoleSessionListCollapsed])
 
 	/**
 	 * onBeginResize handler.
@@ -146,7 +135,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 						<div
 							style={{ height: props.height, width: consolePaneWidth }}
 						>
-							<ActionBar {...props} showDeleteButton={consoleTabListHidden} />
+							<ActionBar {...props} showDeleteButton={positronConsoleContext.consoleSessionListCollapsed} />
 							<div className='console-instances-container'>
 								{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
 									<ConsoleInstance
@@ -165,7 +154,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 							onBeginResize={handleBeginResize}
 							onResize={handleResize}
 						/>
-						{!consoleTabListHidden && <ConsoleTabList height={props.height} width={consoleTabListWidth} />}
+						{!positronConsoleContext.consoleSessionListCollapsed && <ConsoleTabList height={props.height} width={consoleTabListWidth} />}
 					</>
 					: <>
 						<ActionBar {...props} />
