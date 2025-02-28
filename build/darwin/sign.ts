@@ -40,6 +40,10 @@ async function main(buildDir?: string): Promise<void> {
 	const pluginHelperAppName = helperAppBaseName + ' Helper (Plugin).app';
 	const infoPlistPath = path.resolve(appRoot, appName, 'Contents', 'Info.plist');
 
+	// --- Start Positron ---
+	const bootstrapExtDir = path.join(appRoot, appName, 'Contents', 'Resources', 'app', 'extensions', 'bootstrap');
+	// --- End Positron ---
+
 	const defaultOpts: codesign.SignOptions = {
 		app: path.join(appRoot, appName),
 		platform: 'darwin',
@@ -59,20 +63,23 @@ async function main(buildDir?: string): Promise<void> {
 		// TODO(deepak1556): Incorrectly declared type in electron-osx-sign
 		ignore: (filePath: string) => {
 			return filePath.includes(gpuHelperAppName) ||
+				/// --- Start Positron ---
+				// Ignore VSIX files; we'll sign them separately
+				filePath.endsWith('.vsix') ||
+				// --- End Positron ---
 				filePath.includes(rendererHelperAppName) ||
 				filePath.includes(pluginHelperAppName);
 		},
-		// --- Start Positron ---
-		'signature-flags': (filePath: string) => {
-			// Bundled VSIX files need to be deep-signed
-			if (filePath.endsWith('.vsix')) {
-				return ['--deep']
-			}
-			// Use the default options for all other files
-			return [];
-		}
-		// --- End Positron ---
 	};
+
+	// --- Start Positron ---
+	// Signing options for the bootstrap extension
+	const bootstrapExtOpts = {
+		...defaultOpts,
+		app: bootstrapExtDir,
+		'signature-flags': ['--deep']
+	};
+	// --- End Positron ---
 
 	const gpuHelperOpts: codesign.SignOptions = {
 		...defaultOpts,
@@ -120,6 +127,12 @@ async function main(buildDir?: string): Promise<void> {
 			`${infoPlistPath}`
 		]);
 	}
+
+	// --- Start Positron ---
+	// Sign the bootstrapped extensions. These need to be signed separately
+	// since they use different code signing flags than the main app.
+	await codesign.signAsync(bootstrapExtOpts);
+	// --- End Positron ---
 
 	await codesign.signAsync(gpuHelperOpts);
 	await codesign.signAsync(rendererHelperOpts);

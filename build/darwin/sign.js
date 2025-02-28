@@ -34,6 +34,9 @@ async function main(buildDir) {
     const rendererHelperAppName = helperAppBaseName + ' Helper (Renderer).app';
     const pluginHelperAppName = helperAppBaseName + ' Helper (Plugin).app';
     const infoPlistPath = path.resolve(appRoot, appName, 'Contents', 'Info.plist');
+    // --- Start Positron ---
+    const bootstrapExtDir = path.join(appRoot, appName, 'Contents', 'Resources', 'app', 'extensions', 'bootstrap');
+    // --- End Positron ---
     const defaultOpts = {
         app: path.join(appRoot, appName),
         platform: 'darwin',
@@ -52,20 +55,22 @@ async function main(buildDir) {
         // TODO(deepak1556): Incorrectly declared type in electron-osx-sign
         ignore: (filePath) => {
             return filePath.includes(gpuHelperAppName) ||
+                /// --- Start Positron ---
+                // Ignore VSIX files; we'll sign them separately
+                filePath.endsWith('.vsix') ||
+                // --- End Positron ---
                 filePath.includes(rendererHelperAppName) ||
                 filePath.includes(pluginHelperAppName);
         },
-        // --- Start Positron ---
-        'signature-flags': (filePath) => {
-            // Bundled VSIX files need to be deep-signed
-            if (filePath.endsWith('.vsix')) {
-                return ['--deep'];
-            }
-            // Use the default options for all other files
-            return [];
-        }
-        // --- End Positron ---
     };
+    // --- Start Positron ---
+    // Signing options for the bootstrap extension
+    const bootstrapExtOpts = {
+        ...defaultOpts,
+        app: bootstrapExtDir,
+        'signature-flags': ['--deep']
+    };
+    // --- End Positron ---
     const gpuHelperOpts = {
         ...defaultOpts,
         app: path.join(appFrameworkPath, gpuHelperAppName),
@@ -109,6 +114,11 @@ async function main(buildDir) {
             `${infoPlistPath}`
         ]);
     }
+    // --- Start Positron ---
+    // Sign the bootstrapped extensions. These need to be signed separately
+    // since they use different code signing flags than the main app.
+    await codesign.signAsync(bootstrapExtOpts);
+    // --- End Positron ---
     await codesign.signAsync(gpuHelperOpts);
     await codesign.signAsync(rendererHelperOpts);
     await codesign.signAsync(pluginHelperOpts);
