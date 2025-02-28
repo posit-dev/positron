@@ -60,7 +60,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 					setStartupPhase(e);
 				});
 		return () => disposables.dispose();
-	});
+	}, [positronConsoleContext.languageRuntimeService]);
 
 	// Console Width Effect
 	useEffect(() => {
@@ -134,8 +134,8 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 							<div className='console-instances-container'>
 								{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
 									<ConsoleInstance
-										key={positronConsoleInstance.session.runtimeMetadata.languageId}
-										active={positronConsoleInstance === positronConsoleContext.activePositronConsoleInstance}
+										key={positronConsoleInstance.session.sessionId}
+										active={positronConsoleInstance.session.sessionId === positronConsoleContext.activePositronConsoleInstance?.session.sessionId}
 										height={adjustedHeight}
 										positronConsoleInstance={positronConsoleInstance}
 										reactComponentContainer={props.reactComponentContainer}

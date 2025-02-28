@@ -23,11 +23,13 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { WelcomeConsoleButton } from './positronWelcomeConsoleButton.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
 export interface PositronWelcomePageStartProps {
 	keybindingService: IKeybindingService;
 	layoutService: ILayoutService;
 	commandService: ICommandService;
+	configurationService: IConfigurationService;
 	runtimeSessionService: IRuntimeSessionService;
 	runtimeStartupService: IRuntimeStartupService;
 	languageRuntimeService: ILanguageRuntimeService;
@@ -69,7 +71,9 @@ export const PositronWelcomePageStart = (props: PropsWithChildren<PositronWelcom
 					label={(() => localize('positron.welcome.newFile', "New File"))()}
 					onPressed={() => props.commandService.executeCommand('welcome.showNewFileEntries')}
 				/>
-				<WelcomeConsoleButton commandService={props.commandService}
+				<WelcomeConsoleButton
+					commandService={props.commandService}
+					configurationService={props.configurationService}
 					keybindingService={props.keybindingService}
 					languageRuntimeService={props.languageRuntimeService}
 					layoutService={props.layoutService}

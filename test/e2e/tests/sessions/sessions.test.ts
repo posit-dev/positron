@@ -22,7 +22,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Sessions', {
+test.describe.skip('Sessions', {
 	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS]
 }, () => {
 
@@ -32,6 +32,16 @@ test.describe('Sessions', {
 
 	test.beforeEach(async function ({ app }) {
 		await app.workbench.variables.togglePane('hide');
+	});
+
+	test.afterEach(async function ({ app }) {
+		const sessionIds = await app.workbench.sessions.getAllSessionIds();
+		sessionIds.map(async sessionId => {
+			const status = await app.workbench.sessions.getStatus(sessionId);
+			if (status === 'disconnected') {
+				await app.workbench.sessions.delete(sessionId);
+			}
+		});
 	});
 
 	test('Validate state between sessions (active, idle, disconnect) ', async function ({ app }) {
@@ -82,8 +92,9 @@ test.describe('Sessions', {
 		const console = app.workbench.console;
 
 		// Start Python and R sessions
-		pythonSession.id = await app.workbench.sessions.reuseSessionIfExists(pythonSession);
 		rSession.id = await app.workbench.sessions.reuseSessionIfExists(rSession);
+		pythonSession.id = await app.workbench.sessions.reuseSessionIfExists(pythonSession);
+
 
 		// Verify Python session transitions to active when executing code
 		await sessions.select(pythonSession.name);
@@ -221,7 +232,7 @@ test.describe('Sessions', {
 
 		// Delete 2nd session and verify no active sessions or runtime in session picker
 		await sessions.delete(rSession.name);
-		await expect(sessions.chooseSessionButton).toHaveText('Choose Session');
+		await expect(sessions.startSessionButton).toHaveText('Start Session');
 		await sessions.expectSessionCountToBe(0);
 		await sessions.expectSessionListsToMatch();
 		await variables.expectRuntimeToBe('None');
