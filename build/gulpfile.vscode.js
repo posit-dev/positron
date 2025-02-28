@@ -536,7 +536,7 @@ function patchWin32DependenciesTask(cwd) {
 		await rcedit(path.join(cwd, executablePath), {
 			'file-version': product.positronVersion,
 			'version-string': {
-				'CompanyName': 'Posit',
+				'CompanyName': 'Posit Software, PBC',
 				'FileDescription': product.nameLong,
 				'FileVersion': product.positronVersion,
 				'InternalName': executablePath,
