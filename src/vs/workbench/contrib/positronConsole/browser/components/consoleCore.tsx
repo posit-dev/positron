@@ -60,7 +60,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 					setStartupPhase(e);
 				});
 		return () => disposables.dispose();
-	});
+	}, [positronConsoleContext.languageRuntimeService]);
 
 	// Console Width Effect
 	useEffect(() => {
