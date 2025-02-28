@@ -25,14 +25,14 @@ const NewConsoleEnvironmentLabelText = localize('positron.console.new.other.labe
 
 export const CreateConsoleInstanceButton = () => {
 	// Context hooks.
-	const positronConsoleContext = usePositronConsoleContext();
+	const context = usePositronConsoleContext();
 
 	// Reference hooks.
 	const contextMenuButtonRef = useRef<HTMLButtonElement>(undefined!);
 
 	const createNewConsoleInstance = async (runtimeId: string, runtimeName: string) => {
 		// Start a new session that is a duplicate of the active session
-		await positronConsoleContext.runtimeSessionService.startNewRuntimeSession(
+		await context.runtimeSessionService.startNewRuntimeSession(
 			runtimeId,
 			runtimeName,
 			LanguageRuntimeSessionMode.Console,
@@ -44,7 +44,7 @@ export const CreateConsoleInstanceButton = () => {
 	}
 
 	const createDuplicateConsoleHandler = async () => {
-		const activeSession = positronConsoleContext.activePositronConsoleInstance?.session;
+		const activeSession = context.activePositronConsoleInstance?.session;
 		if (!activeSession) {
 			return;
 		}
@@ -53,7 +53,7 @@ export const CreateConsoleInstanceButton = () => {
 
 	const createNewConsoleHandler = async () => {
 		const uniqueActiveRuntimes = new Map<string, ILanguageRuntimeMetadata>();
-		positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance => {
+		context.positronConsoleInstances.map(positronConsoleInstance => {
 			if (!uniqueActiveRuntimes.has(positronConsoleInstance.session.runtimeMetadata.runtimeId)) {
 				uniqueActiveRuntimes.set(
 					positronConsoleInstance.session.runtimeMetadata.runtimeId,
@@ -72,14 +72,14 @@ export const CreateConsoleInstanceButton = () => {
 		})
 		entries.push(new CustomContextMenuItem({
 			label: NewConsoleEnvironmentLabelText,
-			onSelected: () => positronConsoleContext.commandService.executeCommand(LANGUAGE_RUNTIME_START_SESSION_ID)
+			onSelected: () => context.commandService.executeCommand(LANGUAGE_RUNTIME_START_SESSION_ID)
 		}));
 
 		// Show the context menu.
 		await showCustomContextMenu({
-			commandService: positronConsoleContext.commandService,
-			keybindingService: positronConsoleContext.keybindingService,
-			layoutService: positronConsoleContext.workbenchLayoutService,
+			commandService: context.commandService,
+			keybindingService: context.keybindingService,
+			layoutService: context.workbenchLayoutService,
 			anchorElement: contextMenuButtonRef.current,
 			popupPosition: 'auto',
 			popupAlignment: 'auto',
@@ -93,7 +93,7 @@ export const CreateConsoleInstanceButton = () => {
 			ref={contextMenuButtonRef}
 			align='right'
 			ariaLabel={NewConsoleLabelText}
-			disabled={!positronConsoleContext.activePositronConsoleInstance?.session}
+			disabled={!context.activePositronConsoleInstance?.session}
 			dropdownAriaLabel={NewConsoleEnvironmentLabelText}
 			dropdownIndicator='enabled-split'
 			dropdownTooltip={NewConsoleEnvironmentLabelText}
