@@ -21,10 +21,10 @@ export class Sessions {
 	private disconnectedStatus: (session: Locator) => Locator;
 	private metadataButton: Locator;
 	private metadataDialog: Locator;
-	chooseSessionButton: Locator;
+	startSessionButton: Locator;
 	private quickPick: SessionQuickPick;
 	private trashButton: (sessionId: string) => Locator;
-	private startButton: Locator;
+	private newConsoleButton: Locator;
 	private restartButton: Locator;
 	private shutDownButton: Locator;
 	sessionTabs: Locator;
@@ -38,9 +38,9 @@ export class Sessions {
 		this.metadataButton = this.page.getByRole('button', { name: 'Console information' });
 		this.metadataDialog = this.page.getByRole('dialog');
 		this.quickPick = new SessionQuickPick(this.code, this);
-		this.chooseSessionButton = this.page.getByRole('button', { name: 'Open Active Session Picker' });
+		this.startSessionButton = this.page.getByRole('button', { name: 'Open Active Session Picker' });
 		this.trashButton = (sessionId: string) => this.getSessionTab(sessionId).getByTestId('trash-session');
-		this.startButton = this.page.getByLabel('Start console', { exact: true });
+		this.newConsoleButton = this.page.getByRole('button', { name: 'New Console', exact: true });
 		this.restartButton = this.page.getByLabel('Restart console', { exact: true });
 		this.shutDownButton = this.page.getByLabel('Shutdown console', { exact: true });
 		this.sessionTabs = this.page.getByTestId(/console-tab/);
@@ -143,7 +143,7 @@ export class Sessions {
 	async start(sessionIdOrName: string, waitForIdle = true): Promise<string> {
 		await test.step(`Start session: ${sessionIdOrName}`, async () => {
 			await this.getSessionTab(sessionIdOrName).click();
-			await this.startButton.click();
+			await this.newConsoleButton.click();
 
 			if (waitForIdle) {
 				await this.expectStatusToBe(sessionIdOrName, 'idle');
@@ -229,7 +229,7 @@ export class Sessions {
 
 		if (sessionExists) {
 			await sessionLocator.click();
-			const status = await this.getStatusByName(session.name);
+			const status = await this.getStatus(session.name);
 			let sessionId = await this.getCurrentSessionId();
 
 			if (status === 'idle') {
@@ -265,17 +265,17 @@ export class Sessions {
 			// Move mouse to prevent tooltip hover
 			await this.code.driver.page.mouse.move(0, 0);
 
-			// wait for the dropdown to contain R, Python, or Choose Session.
-			const currentSession = await this.chooseSessionButton.textContent() || '';
+			// wait for the dropdown to contain R, Python, or Start Session.
+			const currentSession = await this.startSessionButton.textContent() || '';
 
 			if (currentSession.includes('Python')) {
 				await expect(this.page.getByRole('code').getByText('>>>')).toBeVisible({ timeout: 30000 });
 				return;
-			} else if (currentSession.includes('R') && !currentSession.includes('Choose Session')) {
+			} else if (currentSession.includes('R') && !currentSession.includes('Start Session')) {
 				await expect(this.page.getByRole('code').getByText('>')).toBeVisible({ timeout: 30000 });
 				return;
-			} else if (currentSession.includes('Choose Session')) {
-				await expect(this.page.getByText('Choose Session')).toBeVisible();
+			} else if (currentSession.includes('Start Session')) {
+				await expect(this.page.getByRole('button', { name: 'Start Session' })).toBeVisible();
 				return;
 			}
 
@@ -405,11 +405,11 @@ export class Sessions {
 
 	/**
 	 * Helper: Get the status of the session tab
-	 * @param session Either a session object (language and version) or a string representing the session name.
+	 * @param sessionIdOrName A string representing the session name or id.
 	 * @returns 'active', 'idle', 'disconnected', or 'unknown'
 	 */
-	async getStatusByName(sessionName: string): Promise<'active' | 'idle' | 'disconnected' | 'unknown'> {
-		const session = this.getSessionTab(sessionName);
+	async getStatus(sessionIdOrName: string): Promise<'active' | 'idle' | 'disconnected' | 'unknown'> {
+		const session = this.getSessionTab(sessionIdOrName);
 
 		if (await this.activeStatus(session).isVisible()) { return 'active'; }
 		if (await this.idleStatus(session).isVisible()) { return 'idle'; }
@@ -535,11 +535,11 @@ export class SessionQuickPick {
 	// -- Actions --
 
 	/**
-	 * Action: Open the session quickpick menu via the "Choose Session" button in top action bar.
+	 * Action: Open the session quickpick menu via the "Start Session" button in top action bar.
 	 */
 	async openSessionQuickPickMenu(viewAllRuntimes = true) {
 		if (!await this.sessionQuickMenu.isVisible()) {
-			await this.sessions.chooseSessionButton.click();
+			await this.sessions.startSessionButton.click();
 		}
 
 		if (viewAllRuntimes) {
