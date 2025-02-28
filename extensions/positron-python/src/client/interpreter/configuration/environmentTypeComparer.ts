@@ -56,21 +56,39 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
      * Return 0 if both environments are equal, -1 if a should be closer to the beginning of the list, or 1 if a comes after b.
      *
      * The comparison guidelines are:
-     * 1. Local environments first (same path as the workspace root);
-     * 2. Interpreters defined in the setting defaultInterpreterPath (Positron);
-     * 3. Global environments next (anything not local), with conda environments at a lower priority, and "base" being last;
-     * 4. Globally-installed interpreters (/usr/bin/python3, Microsoft Store).
+     * 1. Interpreters defined in the setting defaultInterpreterPath at a workspace level (Added by Positron);
+     * 2. Local environments first (same path as the workspace root);
+     * 3. Interpreters defined in the setting defaultInterpreterPath at a global level (Added by Positron);
+     * 4. Global environments next (anything not local), with conda environments at a lower priority, and "base" being last;
+     * 5. Globally-installed interpreters (/usr/bin/python3, Microsoft Store).
      *
      * Always sort with newest version of Python first within each subgroup.
      */
-    // --- End Positron ---
-    public compare(a: PythonEnvironment, b: PythonEnvironment): number {
+    // add in scope to determine correct default interpreter
+    public compare(a: PythonEnvironment, b: PythonEnvironment, scope?: Resource): number {
+        const userDefaultInterpreter = getUserDefaultInterpreter(scope);
+        const workspaceDefaultInterpreter =
+            userDefaultInterpreter.workspaceValue || userDefaultInterpreter.workspaceFolderValue;
+        const globalUserDefault = userDefaultInterpreter.globalValue;
+        // --- End Positron ---
         if (isProblematicCondaEnvironment(a)) {
             return 1;
         }
         if (isProblematicCondaEnvironment(b)) {
             return -1;
         }
+
+        // --- Start Positron ---
+        if (workspaceDefaultInterpreter) {
+            if (a.path && arePathsSame(workspaceDefaultInterpreter, a.path)) {
+                return -1;
+            }
+            if (b.path && arePathsSame(workspaceDefaultInterpreter, b.path)) {
+                return 1;
+            }
+        }
+        // --- End Positron ---
+
         // Check environment location.
         const envLocationComparison = compareEnvironmentLocation(a, b, this.workspaceFolderPath);
         if (envLocationComparison !== 0) {
@@ -90,11 +108,13 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
         }
 
         // --- Start Positron ---
-        if (a.path && arePathsSame(getUserDefaultInterpreter(), a.path)) {
-            return -1;
-        }
-        if (b.path && arePathsSame(getUserDefaultInterpreter(), b.path)) {
-            return 1;
+        if (globalUserDefault) {
+            if (a.path && arePathsSame(globalUserDefault, a.path)) {
+                return -1;
+            }
+            if (b.path && arePathsSame(globalUserDefault, b.path)) {
+                return 1;
+            }
         }
         // --- End Positron ---
 
@@ -185,7 +205,10 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
             // --- End Positron ---
             return true;
         });
-        filteredInterpreters.sort(this.compare.bind(this));
+        // --- Start Positron ---
+        // pass in resource to determine workspace or user level settings
+        filteredInterpreters.sort((a, b) => this.compare(a, b, resource));
+        // --- End Positron ---
         return filteredInterpreters.length ? filteredInterpreters[0] : undefined;
     }
 }

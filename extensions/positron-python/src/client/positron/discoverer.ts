@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 
-import { IInterpreterComparer, IInterpreterSelector } from '../interpreter/configuration/types';
+import { IInterpreterComparer } from '../interpreter/configuration/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
 import { traceError, traceInfo } from '../logging';
@@ -174,11 +174,14 @@ export async function recommendInterpreter(
     let recommendedInterpreter: PythonEnvironment | undefined;
 
     // if there is no workspace and a default interpreter is set, use that
-    if (!workspaceUri && getUserDefaultInterpreter()) {
-        recommendedInterpreter = await interpreterService.getInterpreterDetails(getUserDefaultInterpreter());
-        if (recommendedInterpreter) {
-            traceInfo(`pythonRuntimeDiscoverer: using default interpreter ${recommendedInterpreter?.path}`);
-            return recommendedInterpreter;
+    if (!workspaceUri) {
+        const globalUserDefault = getUserDefaultInterpreter().globalValue;
+        if (globalUserDefault) {
+            recommendedInterpreter = await interpreterService.getInterpreterDetails(globalUserDefault);
+            if (recommendedInterpreter) {
+                traceInfo(`pythonRuntimeDiscoverer: using default interpreter ${recommendedInterpreter?.path}`);
+                return recommendedInterpreter;
+            }
         }
     }
 

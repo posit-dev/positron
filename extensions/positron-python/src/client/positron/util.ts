@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { Resource, InspectInterpreterSettingType } from '../common/types';
 
 export class PromiseHandles<T> {
     resolve!: (value: T | Promise<T>) => void;
@@ -35,9 +36,20 @@ export async function whenTimeout<T>(ms: number, fn: () => T): Promise<T> {
  * @returns The configured Python interpreter path if it exists and is not 'python',
  *          otherwise returns an empty string
  */
-export function getUserDefaultInterpreter(): string {
-    const configuration = vscode.workspace.getConfiguration('python');
-    const defaultInterpreterPath = configuration?.get<string>('defaultInterpreterPath');
-    // 'python' is the default for this setting, so we'll only use the setting if it has been changed
-    return !defaultInterpreterPath || defaultInterpreterPath === 'python' ? '' : defaultInterpreterPath;
+export function getUserDefaultInterpreter(scope?: Resource): InspectInterpreterSettingType {
+    const configuration = vscode.workspace.getConfiguration('python', scope);
+    const defaultInterpreterPath: InspectInterpreterSettingType =
+        configuration?.inspect<string>('defaultInterpreterPath') ?? {};
+
+    // 'python' is the default for this setting. we only want to know if it has changed
+    if (defaultInterpreterPath.globalValue === 'python') {
+        defaultInterpreterPath.globalValue = '';
+    }
+    if (defaultInterpreterPath.workspaceValue === 'python') {
+        defaultInterpreterPath.workspaceValue = '';
+    }
+    if (defaultInterpreterPath.workspaceFolderValue === 'python') {
+        defaultInterpreterPath.workspaceFolderValue = '';
+    }
+    return defaultInterpreterPath;
 }

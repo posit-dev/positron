@@ -327,7 +327,7 @@ suite('Python envs locator - Environments Collection', async () => {
         expect(events.length).to.equal(0, 'Do not fire additional events as envs have not updated');
     });
 
-    test('triggerRefresh() refreshes the collection with any new envs & removes cached envs if not relevant', async () => {
+    test('triggerRefresh() refreshes the collection with any new envs & removes ÷cached envs if not relevant', async () => {
         const onUpdated = new EventEmitter<PythonEnvUpdatedEvent | ProgressNotificationEvent>();
         const locatedEnvs = getLocatorEnvs();
         const cachedEnvs = getCachedEnvs();
