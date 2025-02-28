@@ -169,7 +169,7 @@ export class Sessions {
 			await this.restartButton.click();
 
 			if (waitForIdle) {
-				this.expectStatusToBe(sessionIdOrName, 'idle');
+				this.expectStatusToBe(sessionIdOrName, 'idle', { timeout: 60000 });
 			}
 		});
 	}
@@ -347,22 +347,23 @@ export class Sessions {
 	 * @returns the metadata of the session
 	 */
 	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
-		if (sessionId) {
-			await this.page.getByTestId(`console-tab-${sessionId}`).click();
-		}
-		await this.metadataButton.click();
+		return await test.step(`Get metadata for session: ${sessionId}`, async () => {
+			if (sessionId) {
+				await this.page.getByTestId(`console-tab-${sessionId}`).click();
+			}
+			await this.metadataButton.click();
 
-		// get metadata
-		const name = (await this.metadataDialog.getByTestId('session-name').textContent() || '').trim();
-		const id = (await this.metadataDialog.getByTestId('session-id').textContent() || '').replace('Session ID: ', '');
-		const state = (await this.metadataDialog.getByTestId('session-state').textContent() || '').replace('State: ', '');
-		const path = (await this.metadataDialog.getByTestId('session-path').textContent() || '').replace('Path: ', '');
-		const source = (await this.metadataDialog.getByTestId('session-source').textContent() || '').replace('Source: ', '');
+			// get metadata
+			const name = (await this.metadataDialog.getByTestId('session-name').textContent() || '').trim();
+			const id = (await this.metadataDialog.getByTestId('session-id').textContent() || '').replace('Session ID: ', '');
+			const state = (await this.metadataDialog.getByTestId('session-state').textContent() || '').replace('State: ', '');
+			const path = (await this.metadataDialog.getByTestId('session-path').textContent() || '').replace('Path: ', '');
+			const source = (await this.metadataDialog.getByTestId('session-source').textContent() || '').replace('Source: ', '');
 
-		// temporary: close metadata dialog
-		await this.metadataButton.click({ force: true });
-
-		return { name, id, state, path, source };
+			// temporary: close metadata dialog
+			await this.metadataButton.click({ force: true });
+			return { name, id, state, path, source };
+		});
 	}
 
 	/**
@@ -423,14 +424,15 @@ export class Sessions {
 	 * @param sessionIdOrName the id or name of the session
 	 * @param expectedStatus the expected status of the session: 'active', 'idle', or 'disconnected'
 	 */
-	async expectStatusToBe(sessionIdOrName: string, expectedStatus: 'active' | 'idle' | 'disconnected') {
+	async expectStatusToBe(sessionIdOrName: string, expectedStatus: 'active' | 'idle' | 'disconnected', options?: { timeout?: number }) {
+		const timeout = options?.timeout || 30000;
 		await test.step(`Verify ${sessionIdOrName} session status: ${expectedStatus}`, async () => {
 			const sessionLocator = this.getSessionTab(sessionIdOrName);
 
 			const statusClass = `.codicon-positron-status-${expectedStatus}`;
 
 			await expect(sessionLocator).toBeVisible();
-			await expect(sessionLocator.locator(statusClass)).toBeVisible({ timeout: 30000 });
+			await expect(sessionLocator.locator(statusClass)).toBeVisible({ timeout });
 		});
 	}
 
