@@ -252,9 +252,9 @@ export interface IWorkbenchConstructionOptions {
 
 	// --- Start Positron ---
 	/**
-	 * List of extensions to be disabled.
+	 * List of extensions to be disabled, or a boolean to disable all extensions.
 	 */
-	readonly disableExtensions?: readonly ExtensionId[];
+	readonly disableExtension?: boolean | string[];
 	// --- End Positron ---
 
 	/**
