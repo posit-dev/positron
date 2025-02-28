@@ -34,9 +34,6 @@ async function main(buildDir) {
     const rendererHelperAppName = helperAppBaseName + ' Helper (Renderer).app';
     const pluginHelperAppName = helperAppBaseName + ' Helper (Plugin).app';
     const infoPlistPath = path.resolve(appRoot, appName, 'Contents', 'Info.plist');
-    // --- Start Positron ---
-    const bootstrapExtDir = path.join(appRoot, appName, 'Contents', 'Resources', 'app', 'extensions', 'bootstrap');
-    // --- End Positron ---
     const defaultOpts = {
         app: path.join(appRoot, appName),
         platform: 'darwin',
@@ -64,10 +61,13 @@ async function main(buildDir) {
         },
     };
     // --- Start Positron ---
-    // Signing options for the bootstrap extension
+    // Signing options for the bootstrap extension; we ignore everything except
+    // .vsix files in this step.
     const bootstrapExtOpts = {
         ...defaultOpts,
-        app: bootstrapExtDir,
+        ignore: (filePath) => {
+            return !filePath.endsWith('.vsix');
+        },
         'signature-flags': ['--deep']
     };
     // --- End Positron ---

@@ -40,10 +40,6 @@ async function main(buildDir?: string): Promise<void> {
 	const pluginHelperAppName = helperAppBaseName + ' Helper (Plugin).app';
 	const infoPlistPath = path.resolve(appRoot, appName, 'Contents', 'Info.plist');
 
-	// --- Start Positron ---
-	const bootstrapExtDir = path.join(appRoot, appName, 'Contents', 'Resources', 'app', 'extensions', 'bootstrap');
-	// --- End Positron ---
-
 	const defaultOpts: codesign.SignOptions = {
 		app: path.join(appRoot, appName),
 		platform: 'darwin',
@@ -73,10 +69,13 @@ async function main(buildDir?: string): Promise<void> {
 	};
 
 	// --- Start Positron ---
-	// Signing options for the bootstrap extension
+	// Signing options for the bootstrap extension; we ignore everything except
+	// .vsix files in this step.
 	const bootstrapExtOpts = {
 		...defaultOpts,
-		app: bootstrapExtDir,
+		ignore: (filePath: string) => {
+			return !filePath.endsWith('.vsix');
+		},
 		'signature-flags': ['--deep']
 	};
 	// --- End Positron ---
@@ -131,7 +130,7 @@ async function main(buildDir?: string): Promise<void> {
 	// --- Start Positron ---
 	// Sign the bootstrapped extensions. These need to be signed separately
 	// since they use different code signing flags than the main app.
-	await codesign.signAsync(bootstrapExtOpts);
+	await codesign.signAsync(bootstrapExtOpts as any);
 	// --- End Positron ---
 
 	await codesign.signAsync(gpuHelperOpts);
