@@ -39,6 +39,7 @@ const kPaddingRight = 8;
  */
 interface ActionBarProps {
 	readonly reactComponentContainer: IReactComponentContainer;
+	readonly showDeleteButton?: boolean;
 }
 
 /**
@@ -60,6 +61,7 @@ const positronClearConsole = localize('positronClearConsole', "Clear console");
 const positronRestartConsole = localize('positronRestartConsole', "Restart console");
 const positronShutdownConsole = localize('positronShutdownConsole', "Shutdown console");
 const positronStartConsole = localize('positronStartConsole', "Start console");
+const positronDeleteConsole = localize('positronDeleteConsole', "Delete console");
 const positronCurrentWorkingDirectory = localize('positronCurrentWorkingDirectory', "Current Working Directory");
 
 /**
@@ -326,6 +328,14 @@ export const ActionBar = (props: ActionBarProps) => {
 			'User-requested restart from console action bar');
 	};
 
+	const deleteSessionHandler = async () => {
+		if (!positronConsoleContext.activePositronConsoleInstance) {
+			return;
+		}
+
+		await positronConsoleContext.runtimeSessionService.deleteSession(positronConsoleContext.activePositronConsoleInstance.session.sessionId);
+	};
+
 	/**
 	 * CurrentWorkingDirectoryProps interface.
 	 */
@@ -439,6 +449,16 @@ export const ActionBar = (props: ActionBarProps) => {
 							tooltip={positronRestartConsole}
 							onPressed={restartConsoleHandler}
 						/>
+						{props.showDeleteButton &&
+							<ActionBarButton
+								align='right'
+								ariaLabel={positronDeleteConsole}
+								disabled={!(canShutdown || canStart)}
+								iconId='trash'
+								tooltip={positronDeleteConsole}
+								onPressed={deleteSessionHandler}
+							/>
+						}
 						{multiSessionsEnabled && <ConsoleInstanceInfoButton />}
 						<ActionBarSeparator />
 						{showDeveloperUI &&
