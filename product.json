@@ -234,18 +234,6 @@
 			"publisherDisplayName": "Posit Software, PBC"
 		},
 		{
-			"name": "posit.shiny",
-			"version": "1.1.2",
-			"repo": "http://github.com/posit-dev/shiny-vscode",
-			"type": "reh-web",
-			"metadata": {
-				"id": "f1b3b3b4-3b3b-4b3b-8b3b-3b3b3b3b3b3b",
-				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
-				"displayName": "Shiny",
-				"multiPlatformServiceUrl": "https://open-vsx.org/api"
-			}
-		},
-		{
 			"name": "quarto.quarto",
 			"version": "1.118.0",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
