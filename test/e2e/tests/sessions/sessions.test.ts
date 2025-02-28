@@ -226,5 +226,3 @@ test.describe('Sessions', {
 		await variables.expectRuntimeToBe('None');
 	});
 });
-
-
