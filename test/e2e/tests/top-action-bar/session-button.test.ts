@@ -3,18 +3,20 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { SessionName } from '../../infra';
+import { SessionInfo } from '../../infra';
 import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-const pythonSession: SessionName = {
+const pythonSession: SessionInfo = {
+	name: `Python ${process.env.POSITRON_PY_VER_SEL || ''}`,
 	language: 'Python',
 	version: process.env.POSITRON_PY_VER_SEL || ''
 };
-const rSession: SessionName = {
+const rSession: SessionInfo = {
+	name: `R ${process.env.POSITRON_R_VER_SEL || ''}`,
 	language: 'R',
 	version: process.env.POSITRON_R_VER_SEL || ''
 };
@@ -28,14 +30,14 @@ test.describe('Top Action Bar: Session Button', {
 	});
 
 	test('Python - Verify session starts and displays as running', async function ({ app }) {
-		await app.workbench.sessions.launch({ ...pythonSession, triggerMode: 'top-action-bar' });
-		await app.workbench.sessions.verifySessionPickerValue(pythonSession);
-		await app.workbench.sessions.checkStatus(pythonSession, 'idle');
+		pythonSession.id = await app.workbench.sessions.launch({ ...pythonSession, triggerMode: 'session-picker' });
+		await app.workbench.sessions.expectSessionPickerToBe(pythonSession);
+		await app.workbench.sessions.expectStatusToBe(pythonSession.id, 'idle');
 	});
 
 	test('R - Verify session starts and displays as running', async function ({ app }) {
-		await app.workbench.sessions.launch({ ...rSession, triggerMode: 'top-action-bar' });
-		await app.workbench.sessions.verifySessionPickerValue(rSession);
-		await app.workbench.sessions.checkStatus(rSession, 'idle');
+		rSession.id = await app.workbench.sessions.launch({ ...rSession, triggerMode: 'session-picker' });
+		await app.workbench.sessions.expectSessionPickerToBe(rSession);
+		await app.workbench.sessions.expectStatusToBe(rSession.id, 'idle');
 	});
 });
