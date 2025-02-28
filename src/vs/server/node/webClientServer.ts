@@ -393,6 +393,9 @@ export class WebClientServer {
 			enableWorkspaceTrust: !this._environmentService.args['disable-workspace-trust'],
 			folderUri: resolveWorkspaceURI(this._environmentService.args['default-folder']),
 			workspaceUri: resolveWorkspaceURI(this._environmentService.args['default-workspace']),
+			// --- Start Positron ---
+			disableExtension: this._environmentService.args['disable-extension'],
+			// --- End Positron ---
 			productConfiguration,
 			callbackRoute: this._callbackRoute
 		};

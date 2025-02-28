@@ -59,6 +59,24 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 
 	declare readonly _serviceBrand: undefined;
 
+	// --- Start Positron ---
+	get disableExtensions(): boolean | string[] {
+		console.log('disableExtensions');
+		// if we have a payload, we prefer that
+		if (this.payload) {
+			console.log('disableExtensions - using payload: ' + !!this.payload.get('disableExtensions'));
+			return this.payload.get('disableExtensions') === 'true';
+		}
+		console.log('disableExtensions - using options: ' + JSON.stringify(this.options.disableExtensions));
+		// If this is an array of strings, return a copy of the array
+		if (Array.isArray(this.options.disableExtensions)) {
+			return this.options.disableExtensions.slice();
+		}
+		// Otherwise, coerce the value to boolean
+		return !!this.options.disableExtensions;
+	}
+	// --- End Positron ---
+
 	@memoize
 	get remoteAuthority(): string | undefined { return this.options.remoteAuthority; }
 
@@ -257,8 +275,12 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 	@memoize
 	get enableSmokeTestDriver() { return this.options.developmentOptions?.enableSmokeTestDriver; }
 
+	// --- Start Positron ---
+	/*
 	@memoize
 	get disableExtensions() { return this.payload?.get('disableExtensions') === 'true'; }
+	*/
+	// --- End Positron ---
 
 	@memoize
 	get enableExtensions() { return this.options.enabledExtensions; }
