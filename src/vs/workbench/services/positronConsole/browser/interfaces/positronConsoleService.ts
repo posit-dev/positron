@@ -63,6 +63,12 @@ export interface IPositronConsoleService {
 	 */
 	readonly onDidStartPositronConsoleInstance: Event<IPositronConsoleInstance>;
 
+
+	/**
+	 * The onDidDeletePositronConsoleInstance event.
+	 */
+	readonly onDidDeletePositronConsoleInstance: Event<IPositronConsoleInstance>;
+
 	/**
 	 * The onDidChangeActivePositronConsoleInstance event.
 	 */

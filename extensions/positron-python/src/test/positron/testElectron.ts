@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -17,6 +17,8 @@ import { getUserDataDir } from './constants';
 const rmrf = require('rimraf');
 
 const COMPLETE_FILE_NAME = 'is-complete';
+
+const USER_AGENT = 'positron-python-tests';
 
 // Create a promisified version of https.get. We can't use the built-in promisify
 // because the callback doesn't follow the promise convention of (error, result).
@@ -143,7 +145,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
 
     const headers: Record<string, string> = {
         Accept: 'application/vnd.github.v3.raw', // eslint-disable-line
-        'User-Agent': 'positron-python-tests', // eslint-disable-line
+        'User-Agent': USER_AGENT, // eslint-disable-line
     };
     // If we have a githubPat, set it for better rate limiting.
     if (githubPat) {
@@ -240,22 +242,11 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         case 'darwin':
             suffix = '.dmg';
             break;
-        case 'linux':
-            suffix = '.deb';
-            break;
-        case 'win32':
-            suffix = '.exe';
-            break;
         default: {
             throw new Error(`Unsupported platform: ${platform}.`);
         }
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const asset = release.assets.find((a: any) => a.name.endsWith(suffix));
-    if (!asset) {
-        throw new Error(`No asset found with suffix ${suffix} for platform ${platform}`);
-    }
     const version = release.tag_name;
     console.log(`Using ${version} build of Positron`);
 
@@ -280,12 +271,25 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
         }
     }
 
-    console.log(`Downloading Positron for ${platform} from ${asset.url}`);
-    const url = new URL(asset.url);
-    // Reset the Accept header to download the asset.
-    headers.Accept = 'application/octet-stream';
+    let fileName: string;
+    let url: URL | undefined;
+    switch (platform) {
+        case 'darwin':
+            fileName = `Positron-${version}${suffix}`;
+            url = new URL(`https://cdn.posit.co/positron/prereleases/mac/universal/${fileName}`);
+            break;
+        default:
+            throw new Error(`Unsupported platform: ${platform}`);
+    }
+
+    console.log(`Downloading Positron for ${platform} from ${url.href}`);
+    // Use separate headers for downloading the Positron binary.
+    const dlHeaders: Record<string, string> = {
+        Accept: 'application/octet-stream',
+        'User-Agent': USER_AGENT,
+    };
     const dlRequestOptions: https.RequestOptions = {
-        headers,
+        headers: dlHeaders,
         method: 'GET',
         protocol: url.protocol,
         hostname: url.hostname,
@@ -300,7 +304,6 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
 
     // Download to a temporary file.
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'positron-'));
-    const fileName = asset.name;
     const downloadPath = path.join(tempDir, fileName);
     try {
         const writer = fs.createWriteStream(downloadPath);
