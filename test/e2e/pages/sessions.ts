@@ -23,9 +23,7 @@ export class Sessions {
 	private metadataDialog: Locator;
 	chooseSessionButton: Locator;
 	private quickPick: SessionQuickPick;
-	private sessionTabById: (sessionId: string) => Locator;
-	private trashButtonById: (sessionId: string) => Locator;
-	private trashButtonByName: (sessionName: string) => Locator;
+	private trashButton: (sessionId: string) => Locator;
 	private startButton: Locator;
 	private restartButton: Locator;
 	private shutDownButton: Locator;
@@ -41,9 +39,7 @@ export class Sessions {
 		this.metadataDialog = this.page.getByRole('dialog');
 		this.quickPick = new SessionQuickPick(this.code, this);
 		this.chooseSessionButton = this.page.getByRole('button', { name: 'Open Active Session Picker' });
-		this.sessionTabById = (sessionId: string) => this.page.getByTestId(`console-tab-${sessionId}`);
-		this.trashButtonById = (sessionId: string) => this.sessionTabById(sessionId).getByTestId('trash-session');
-		this.trashButtonByName = (sessionName: string) => this.sessionTabByName(sessionName).getByTestId('trash-session');
+		this.trashButton = (sessionId: string) => this.getSessionTab(sessionId).getByTestId('trash-session');
 		this.startButton = this.page.getByLabel('Start console', { exact: true });
 		this.restartButton = this.page.getByLabel('Restart console', { exact: true });
 		this.shutDownButton = this.page.getByLabel('Shutdown console', { exact: true });
@@ -118,26 +114,21 @@ export class Sessions {
 	 */
 	async select(sessionIdOrName: string): Promise<void> {
 		await test.step(`Select session: ${sessionIdOrName}`, async () => {
-			const sessionTab = await this.getSessionTab(sessionIdOrName);
-			await sessionTab.click();
+			await this.getSessionTab(sessionIdOrName).click();
 		});
 	}
 
 	/**
 	 * Action: Delete the session via trash button
-	 * @param sessionId the id or name of the session
+	 * @param sessionIdOrName the id or name of the session
 	 */
 	async delete(sessionIdOrName: string): Promise<void> {
 		await test.step(`Delete session: ${sessionIdOrName}`, async () => {
-			const isSessionId = sessionIdPattern.test(sessionIdOrName);
-			const sessionTab = await this.getSessionTab(sessionIdOrName);
+			const sessionTab = this.getSessionTab(sessionIdOrName);
 
 			await sessionTab.click();
 			await sessionTab.hover();
-
-			isSessionId
-				? await this.trashButtonById(sessionIdOrName).click()
-				: await this.trashButtonByName(sessionIdOrName).click();
+			await this.trashButton(sessionIdOrName).click();
 
 			await expect(this.page.getByText('Shutting down')).not.toBeVisible();
 		});
@@ -151,9 +142,7 @@ export class Sessions {
 	 */
 	async start(sessionIdOrName: string, waitForIdle = true): Promise<string> {
 		await test.step(`Start session: ${sessionIdOrName}`, async () => {
-			const sessionTab = await this.getSessionTab(sessionIdOrName);
-			await sessionTab.click();
-
+			await this.getSessionTab(sessionIdOrName).click();
 			await this.startButton.click();
 
 			if (waitForIdle) {
@@ -171,8 +160,7 @@ export class Sessions {
 	 */
 	async restart(sessionIdOrName: string, waitForIdle = true, clearConsole = true): Promise<void> {
 		await test.step(`Restart session:`, async () => {
-			const sessionTab = await this.getSessionTab(sessionIdOrName);
-			await sessionTab.click();
+			await this.getSessionTab(sessionIdOrName).click();
 
 			if (clearConsole) {
 				await this.console.barClearButton.click();
@@ -193,9 +181,7 @@ export class Sessions {
 	 */
 	async shutdown(sessionIdOrName: string, waitForDisconnected = true): Promise<void> {
 		await test.step(`Shutdown session: ${sessionIdOrName}`, async () => {
-			const sessionTab = await this.getSessionTab(sessionIdOrName);
-			await sessionTab.click();
-
+			await this.getSessionTab(sessionIdOrName).click();
 			await this.shutDownButton.click();
 
 			if (waitForDisconnected) {
@@ -226,22 +212,10 @@ export class Sessions {
 	 * @param sessionIdOrName id or name of the session
 	 * @returns locator for the session tab
 	 */
-	private async getSessionTab(sessionIdOrName: string): Promise<Locator> {
+	private getSessionTab(sessionIdOrName: string): Locator {
 		return sessionIdPattern.test(sessionIdOrName)
 			? this.page.getByTestId(`console-tab-${sessionIdOrName}`)
 			: this.sessionTabs.getByText(sessionIdOrName).locator('..');
-	}
-
-	/**
-	 * Helper: Get the locator for the session tab.
-	 * @param session Either a session object (language and version) or a string representing the session name.
-	 * @returns The locator for the session tab.
-	 */
-	private sessionTabByName(sessionName: string): Locator {
-		if (!sessionName) {
-			throw new Error('Session name is required');
-		}
-		return this.sessionTabs.getByText(sessionName).locator('..');
 	}
 
 	/**
@@ -250,8 +224,8 @@ export class Sessions {
 	 * @returns id of the session
 	 */
 	async reuseSessionIfExists(session: SessionInfo): Promise<string> {
-		const sessionLocator = await this.getSessionTab(session.name);
-		const sessionExists = await this.sessionTabByName(session.name).isVisible();
+		const sessionLocator = this.getSessionTab(session.name);
+		const sessionExists = await sessionLocator.isVisible();
 
 		if (sessionExists) {
 			await sessionLocator.click();
@@ -369,7 +343,7 @@ export class Sessions {
 
 	/**
 	 * Helper: Get the metadata of the session
-	 * @param sessionId the session ID to get metadata for
+	 * @param sessionId the session ID to get metadata for, otherwise will use the current session
 	 * @returns the metadata of the session
 	 */
 	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
@@ -434,7 +408,7 @@ export class Sessions {
 	 * @returns 'active', 'idle', 'disconnected', or 'unknown'
 	 */
 	async getStatusByName(sessionName: string): Promise<'active' | 'idle' | 'disconnected' | 'unknown'> {
-		const session = this.sessionTabByName(sessionName);
+		const session = this.getSessionTab(sessionName);
 
 		if (await this.activeStatus(session).isVisible()) { return 'active'; }
 		if (await this.idleStatus(session).isVisible()) { return 'idle'; }
@@ -450,12 +424,8 @@ export class Sessions {
 	 * @param expectedStatus the expected status of the session: 'active', 'idle', or 'disconnected'
 	 */
 	async expectStatusToBe(sessionIdOrName: string, expectedStatus: 'active' | 'idle' | 'disconnected') {
-		const isSessionId = sessionIdPattern.test(sessionIdOrName);
-
 		await test.step(`Verify ${sessionIdOrName} session status: ${expectedStatus}`, async () => {
-			const sessionLocator = isSessionId
-				? this.sessionTabById(sessionIdOrName)
-				: this.sessionTabByName(sessionIdOrName);
+			const sessionLocator = this.getSessionTab(sessionIdOrName);
 
 			const statusClass = `.codicon-positron-status-${expectedStatus}`;
 
@@ -472,7 +442,7 @@ export class Sessions {
 		await test.step(`Verify ${session.language} ${session.version} metadata`, async () => {
 
 			// Click metadata button for desired session
-			await this.sessionTabByName(`${session.language} ${session.version}`).click();
+			await this.getSessionTab(session.name).click();
 			await this.metadataButton.click();
 
 			// Verify metadata

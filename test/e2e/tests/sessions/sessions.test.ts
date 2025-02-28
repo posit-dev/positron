@@ -174,6 +174,7 @@ test.describe('Sessions', {
 		]
 	}, async function ({ app }) {
 		const sessions = app.workbench.sessions;
+		const console = app.workbench.console;
 
 		// Start sessions and verify active sessions: order matters!
 		pythonSession.id = await sessions.reuseSessionIfExists(pythonSession);
@@ -183,13 +184,13 @@ test.describe('Sessions', {
 
 		// Shutdown Python session and verify active sessions
 		await sessions.select(pythonSession.name);
-		await app.workbench.console.typeToConsole('exit()', true);
+		await console.typeToConsole('exit()', true);
 		await sessions.expectSessionCountToBe(1, 'active');
 		await sessions.expectSessionListsToMatch();
 
 		// Shutdown R session and verify active sessions
 		await sessions.select(rSession.name);
-		await app.workbench.console.typeToConsole('q()', true);
+		await console.typeToConsole('q()', true);
 		await sessions.expectSessionCountToBe(0, 'active');
 		await sessions.expectSessionListsToMatch();
 
