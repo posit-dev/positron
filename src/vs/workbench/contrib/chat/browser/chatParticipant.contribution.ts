@@ -47,7 +47,7 @@ const chatViewContainer: ViewContainer = Registry.as<IViewContainersRegistry>(Vi
 	// but that's where all Positron's views are too (plots, variables,
 	// etc.) Put the Chat view in the Sidebar instead so that it doesn't
 	// obscure the other views.
-}, ViewContainerLocation.Sidebar, { isDefault: true, doNotRegisterOpenCommand: true });
+}, ViewContainerLocation.Sidebar, { isDefault: false, doNotRegisterOpenCommand: true });
 // --- End Positron ---
 
 const chatViewDescriptor: IViewDescriptor[] = [{
