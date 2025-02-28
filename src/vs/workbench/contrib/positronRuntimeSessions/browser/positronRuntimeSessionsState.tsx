@@ -45,6 +45,14 @@ export const usePositronRuntimeSessionsState = (services: PositronSessionsServic
 			setPositronSessions(positronSessions => new Map(positronSessions).set(session.sessionId, session));
 		}));
 
+		disposableStore.add(services.runtimeSessionService.onDidDeleteRuntimeSession(sessionId => {
+			setPositronSessions(positronSessions => {
+				const map = new Map(positronSessions)
+				map.delete(sessionId)
+				return map;
+			});
+		}));
+
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
 	}, [services.runtimeSessionService]);
