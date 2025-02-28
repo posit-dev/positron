@@ -21,11 +21,13 @@ import { traceError, traceInfo } from '../logging';
 import { IConfigurationService, IDisposable } from '../common/types';
 import { PythonRuntimeSession } from './session';
 import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
-import { EXTENSION_ROOT_DIR } from '../common/constants';
+import { EXTENSION_ROOT_DIR, MINIMUM_PYTHON_VERSION } from '../common/constants';
 import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { checkAndInstallPython } from './extension';
-import { shouldIncludeInterpreter } from './interpreterSettings';
+import { shouldIncludeInterpreter, isVersionSupported } from './interpreterSettings';
+import { parseVersion, toSemverLikeVersion } from '../pythonEnvironments/base/info/pythonVersion';
+import { PythonVersion } from '../pythonEnvironments/info/pythonVersion';
 
 export const IPythonRuntimeManager = Symbol('IPythonRuntimeManager');
 
@@ -116,7 +118,14 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
      */
     public registerLanguageRuntime(runtime: positron.LanguageRuntimeMetadata): void {
         const extraData = runtime.extraRuntimeData as PythonRuntimeExtraData;
+        const pythonVersion: PythonVersion = toSemverLikeVersion(parseVersion(runtime.languageVersion));
+
         // Check if the interpreter should be included in the list of registered runtimes
+        if (!isVersionSupported(pythonVersion, MINIMUM_PYTHON_VERSION)) {
+            traceInfo(`Not registering runtime ${extraData.pythonPath} as it is not a supported version.`);
+            return;
+        }
+
         if (shouldIncludeInterpreter(extraData.pythonPath)) {
             // Save the runtime for later use
             this.registeredPythonRuntimes.set(extraData.pythonPath, runtime);

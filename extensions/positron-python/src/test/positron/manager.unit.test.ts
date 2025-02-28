@@ -15,6 +15,7 @@ import * as fs from '../../client/common/platform/fs-paths';
 import * as runtime from '../../client/positron/runtime';
 import * as session from '../../client/positron/session';
 import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
+import * as interpreterSettings from '../../client/positron/interpreterSettings';
 import { IEnvironmentVariablesProvider } from '../../client/common/variables/types';
 import { IConfigurationService, IDisposable } from '../../client/common/types';
 import { IServiceContainer } from '../../client/ioc/types';
@@ -36,6 +37,7 @@ suite('Python runtime manager', () => {
     let workspaceConfig: TypeMoq.IMock<WorkspaceConfiguration>;
 
     let getConfigurationStub: sinon.SinonStub;
+    let isVersionSupportedStub: sinon.SinonStub;
 
     let pythonRuntimeManager: PythonRuntimeManager;
     let disposables: IDisposable[];
@@ -67,6 +69,9 @@ suite('Python runtime manager', () => {
             }
             return undefined;
         });
+
+        isVersionSupportedStub = sinon.stub(interpreterSettings, 'isVersionSupported');
+        isVersionSupportedStub.returns(true);
 
         pythonRuntimeManager = new PythonRuntimeManager(serviceContainer.object, interpreterService.object);
         disposables = [];
