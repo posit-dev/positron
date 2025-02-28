@@ -41,10 +41,15 @@ export const ConsoleInstanceInfoButton = () => {
 	// Reference hooks.
 	const ref = useRef<HTMLButtonElement>(undefined!);
 
-	const handlePressed = () => {
+	const handlePressed = async () => {
 		if (!positronConsoleContext.activePositronConsoleInstance) {
 			return;
 		}
+
+		// Get the channels from the session.
+		const channels = intersectionOutputChannels(
+			await positronConsoleContext.activePositronConsoleInstance.session.listOutputChannels()
+		);
 
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
@@ -57,6 +62,7 @@ export const ConsoleInstanceInfoButton = () => {
 		renderer.render(
 			<ConsoleInstanceInfoModalPopup
 				anchorElement={ref.current}
+				channels={channels}
 				renderer={renderer}
 				session={positronConsoleContext.activePositronConsoleInstance.session}
 			/>
@@ -80,24 +86,19 @@ interface ConsoleInstanceInfoModalPopupProps {
 	anchorElement: HTMLElement;
 	renderer: PositronModalReactRenderer;
 	session: ILanguageRuntimeSession;
+	channels: LanguageRuntimeSessionChannel[];
 }
 
 const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps) => {
 	const [sessionState, setSessionState] = useState(() => props.session.getRuntimeState());
-	const [availableChannels, setAvailableChannels] = useState<LanguageRuntimeSessionChannel[]>([]);
 
 	// Main useEffect hook.
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
+
 		disposableStore.add(props.session.onDidChangeRuntimeState(state => {
 			setSessionState(state);
 		}));
-
-		// Fetch available channels from current session.
-		props.session.listOutputChannels().then(availableChannels => {
-			const channels = intersectionOutputChannels(availableChannels);
-			setAvailableChannels(channels);
-		});
 
 		return () => disposableStore.dispose();
 	}, [props.session, props.renderer]);
@@ -110,6 +111,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 	return (
 		<PositronModalPopup
 			anchorElement={props.anchorElement}
+			fixedHeight={true}
 			height='min-content'
 			keyboardNavigationStyle='menu'
 			popupAlignment='auto'
@@ -144,8 +146,12 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 					</div>
 				</div>
 				<div className='top-separator actions'>
-					{availableChannels.map(channel => (
-						<PositronButton className='link' onPressed={() => showKernelOutputChannelClickHandler(channel)}>
+					{props.channels.map((channel, index) => (
+						<PositronButton
+							key={`channel-${index}`}
+							className='link'
+							onPressed={() => showKernelOutputChannelClickHandler(channel)}
+						>
 							{localizeShowKernelOutputChannel(OutputChannelNames[channel])}
 						</PositronButton>
 					))}

@@ -310,6 +310,8 @@ export interface IRuntimeSessionService {
 	// An event that fires when the active runtime changes.
 	readonly onDidChangeForegroundSession: Event<ILanguageRuntimeSession | undefined>;
 
+	readonly onDidDeleteRuntimeSession: Event<string>;
+
 	/**
 	 * Gets the active runtime sessions
 	 */
@@ -425,6 +427,8 @@ export interface IRuntimeSessionService {
 	 * @param notebookUri The URI of the notebook selecting the runtime, if any.
 	 */
 	selectRuntime(runtimeId: string, source: string, notebookUri?: URI): Promise<void>;
+
+	deleteSession(sessionId: string): Promise<void>;
 
 	/**
 	 * Restart a runtime session.
