@@ -129,7 +129,7 @@ export async function showModelList(context: vscode.ExtensionContext, storage: S
 	];
 
 	vscode.window.showQuickPick(items, {
-		placeHolder: vscode.l10n.t('Select a language model'),
+		placeHolder: vscode.l10n.t('Select a language model configuration to remove'),
 		canPickMany: false,
 
 	}).then(async (selected) => {
@@ -141,12 +141,32 @@ export async function showModelList(context: vscode.ExtensionContext, storage: S
 		} else {
 			const selectedConfig = modelConfigs.find((config) => config.name === selected.label);
 			if (selectedConfig) {
-				vscode.window.showInformationMessage(
-					vscode.l10n.t(`Selected language model: {0}`, selectedConfig.name)
-				);
+				confirmModelDeletion(context, storage, selectedConfig);
 			}
 		}
 	});
+}
+
+async function confirmModelDeletion(context: vscode.ExtensionContext, storage: SecretStorage, config: ModelConfig) {
+	const confirmed = await positron.window.showSimpleModalDialogPrompt(
+		vscode.l10n.t('Remove {0}', config.name),
+		vscode.l10n.t('Are you sure you want to remove the {0} model {1}?', config.type, config.name),
+		vscode.l10n.t('Remove'));
+
+	if (!confirmed) {
+		return;
+	}
+
+	try {
+		await deleteConfiguration(context, storage, config.id);
+		vscode.window.showInformationMessage(
+			vscode.l10n.t(`Language Model {0} has been removed successfully.`, config.name)
+		);
+	} catch (err) {
+		vscode.window.showErrorMessage(
+			vscode.l10n.t(`Failed to remove language model {0}: {1}`, config.name, JSON.stringify(err))
+		);
+	}
 }
 
 export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {
