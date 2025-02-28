@@ -68,7 +68,7 @@ test.describe('Sessions', {
 		await sessions.restart(rSession.id, false);
 		await sessions.expectStatusToBe(rSession.id, 'active');
 		await sessions.expectStatusToBe(rSession.id, 'idle');
-		// await sessions.checkStatus(pythonSession.id, 'disconnected');
+		await sessions.expectStatusToBe(pythonSession.id, 'disconnected');
 
 		// Shutdown R, verify both Python and R in disconnected state
 		await sessions.select(rSession.id);
