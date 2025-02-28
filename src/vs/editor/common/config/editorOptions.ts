@@ -16,7 +16,10 @@ import { USUAL_WORD_SEPARATORS } from '../core/wordHelper.js';
 import * as nls from '../../../nls.js';
 import { AccessibilitySupport } from '../../../platform/accessibility/common/accessibility.js';
 import { IConfigurationPropertySchema } from '../../../platform/configuration/common/configurationRegistry.js';
-import product from '../../../platform/product/common/product.js';
+// --- Start Positron ---
+// Avoid "Unused import" error from commented code below
+// import product from '../../../platform/product/common/product.js';
+// --- End Positron ---
 
 //#region typed options
 
@@ -5951,7 +5954,12 @@ export const EditorOptions = {
 	emptySelectionClipboard: register(new EditorEmptySelectionClipboard()),
 	dropIntoEditor: register(new EditorDropIntoEditor()),
 	experimentalEditContextEnabled: register(new EditorBooleanOption(
-		EditorOption.experimentalEditContextEnabled, 'experimentalEditContextEnabled', product.quality !== 'stable',
+		// --- Start Positron ---
+		// Disable the experimental edit context which is normally enabled in dev builds.
+		// It causes test failures due to changes in the DOM.
+		// https://positpbc.slack.com/archives/C04FPQK3H9C/p1740750244836859
+		EditorOption.experimentalEditContextEnabled, 'experimentalEditContextEnabled', false,
+		// --- End Positron ---
 		{
 			description: nls.localize('experimentalEditContextEnabled', "Sets whether the new experimental edit context should be used instead of the text area."),
 			included: platform.isChrome || platform.isEdge || platform.isNative
