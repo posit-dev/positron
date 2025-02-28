@@ -15,7 +15,6 @@ import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { Disposable } from '../../../base/common/lifecycle.js';
 
 export class PositronBootstrapExtensionsInitializer extends Disposable {
-	private readonly storageFilePath: string;
 
 	constructor(
 		@INativeEnvironmentService private readonly environmentService: INativeEnvironmentService,
@@ -26,19 +25,19 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 	) {
 		super();
 
-		this.storageFilePath = join(this.getVSIXPath().fsPath, '.version');
+		const storageFilePath = join(this.environmentService.extensionsPath, '.version');
 		const currentVersion = this.productService.positronVersion;
 
-		const lastKnownVersion = existsSync(this.storageFilePath) ? readFileSync(this.storageFilePath, 'utf8').trim() : '';
+		const lastKnownVersion = existsSync(storageFilePath) ? readFileSync(storageFilePath, 'utf8').trim() : '';
 
 		if (lastKnownVersion !== currentVersion) {
 			this.logService.info('First launch after first install, upgrade, or downgrade. Installing bootstrapped extensions');
 			this.installVSIXOnStartup()
 				.then(() => {
 					try {
-						writeFileSync(this.storageFilePath, currentVersion);
+						writeFileSync(storageFilePath, currentVersion);
 					} catch (error) {
-						this.logService.error('Error writing bootstrapped extension storage file', this.storageFilePath, getErrorMessage(error));
+						this.logService.error('Error writing bootstrapped extension storage file', storageFilePath, getErrorMessage(error));
 					}
 				})
 				.catch(error => {
