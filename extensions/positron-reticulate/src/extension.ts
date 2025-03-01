@@ -775,7 +775,7 @@ export class ReticulateProvider {
 		this.context.subscriptions.push(positron.runtime.registerLanguageRuntimeManager('python', this.manager));
 	}
 
-	async registerClient(client: positron.RuntimeClientInstance) {
+	async registerClient(client: positron.RuntimeClientInstance, input?: string) {
 		if (this._client) {
 			this._client.dispose();
 		}
@@ -786,15 +786,23 @@ export class ReticulateProvider {
 		await this.manager.maybeRegisterReticulateRuntime();
 		await positron.runtime.selectLanguageRuntime('reticulate');
 
+		if (input) {
+			await positron.runtime.executeCode('python', input, true, true);
+		}
+
 		this.manager._session?.onDidEndSession(() => {
 			this._client?.dispose();
 			this._client = undefined;
 		});
 
-		this._client.onDidSendEvent((e) => {
+		this._client.onDidSendEvent(async (e) => {
 			const event = e.data as any;
 			if (event.method === 'focus') {
-				this.focusReticulateConsole();
+				let input;
+				if (event.params && event.params.input) {
+					input = event.params.input;
+				}
+				await this.focusReticulateConsole(input);
 			}
 		});
 
@@ -807,12 +815,12 @@ export class ReticulateProvider {
 		);
 	}
 
-	focusReticulateConsole() {
+	async focusReticulateConsole(input?: string) {
 		// if this session is already active, this is a no-op that just
 		// brings focus.
-		positron.runtime.selectLanguageRuntime('reticulate');
-		// Execute an empty code block to focus the console
-		positron.runtime.executeCode('python', '', true, true);
+		await positron.runtime.selectLanguageRuntime('reticulate');
+		// Execute an empty code block if input is null to focus the console.
+		await positron.runtime.executeCode('python', input ?? '', true, true);
 	}
 
 	dispose() {
@@ -837,7 +845,7 @@ export function activate(context: vscode.ExtensionContext) {
 		positron.runtime.registerClientHandler({
 			clientType: 'positron.reticulate',
 			callback: (client, params: any) => {
-				reticulateProvider.registerClient(client);
+				reticulateProvider.registerClient(client, params.input);
 				return true;
 			}
 		}));
