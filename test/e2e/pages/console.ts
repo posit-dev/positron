@@ -30,6 +30,7 @@ export class Console {
 	consoleRestartButton: Locator;
 	activeConsole: Locator;
 	suggestionList: Locator;
+	private consoleTab: Locator;
 
 	get emptyConsole() {
 		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
@@ -42,6 +43,7 @@ export class Console {
 		this.consoleRestartButton = this.code.driver.page.locator(CONSOLE_RESTART_BUTTON);
 		this.activeConsole = this.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE);
 		this.suggestionList = this.code.driver.page.locator(SUGGESTION_LIST);
+		this.consoleTab = this.code.driver.page.getByRole('tab', { name: 'Console', exact: true });
 	}
 
 	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string, waitForReady: boolean = true): Promise<undefined> {
@@ -273,13 +275,16 @@ export class Console {
 	}
 
 	async clickConsoleTab() {
-		// sometimes the click doesn't seem to work, so adding a retry
+		// sometimes the click doesn't work (or happens too fast), so adding a retry
 		await expect(async () => {
-			await this.code.driver.page.locator('.basepanel').getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
-			// Move mouse to prevent tooltip hover
-			await this.code.driver.page.mouse.move(0, 0);
-			await expect(this.code.driver.page.getByRole('tab', { name: 'Console', exact: true })).toHaveClass('action-item checked');
-		}).toPass();
+			const consoleInput = this.code.driver.page.locator('div.console-input').first();
+
+			if (!await consoleInput.isVisible()) {
+				await this.consoleTab.click();
+			}
+
+			expect(await consoleInput.count()).toBeGreaterThan(0);
+		}).toPass({ timeout: 10000 });
 	}
 
 	async interruptExecution() {

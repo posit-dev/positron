@@ -27,6 +27,7 @@ import { ILanguageRuntimeSession, RuntimeStartMode } from '../../../../services/
 import { ConsoleInstanceMenuButton } from './consoleInstanceMenuButton.js';
 import { multipleConsoleSessionsFeatureEnabled } from '../../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
 import { ConsoleInstanceInfoButton } from './consoleInstanceInfoButton.js';
+import { CreateConsoleInstanceButton } from './createConsoleInstanceButton.js';
 
 /**
  * Constants.
@@ -423,14 +424,16 @@ export const ActionBar = (props: ActionBarProps) => {
 						{interruptible &&
 							<ActionBarSeparator fadeIn={true} />
 						}
-						<ActionBarButton
-							align='right'
-							ariaLabel={canStart ? positronStartConsole : positronShutdownConsole}
-							disabled={!(canShutdown || canStart)}
-							iconId='positron-power-button-thin'
-							tooltip={canStart ? positronStartConsole : positronShutdownConsole}
-							onPressed={powerCycleConsoleHandler}
-						/>
+						{!multiSessionsEnabled &&
+							<ActionBarButton
+								align='right'
+								ariaLabel={canStart ? positronStartConsole : positronShutdownConsole}
+								disabled={!(canShutdown || canStart)}
+								iconId='positron-power-button-thin'
+								tooltip={canStart ? positronStartConsole : positronShutdownConsole}
+								onPressed={powerCycleConsoleHandler}
+							/>
+						}
 						<ActionBarButton
 							align='right'
 							ariaLabel={positronRestartConsole}
@@ -439,7 +442,13 @@ export const ActionBar = (props: ActionBarProps) => {
 							tooltip={positronRestartConsole}
 							onPressed={restartConsoleHandler}
 						/>
-						{multiSessionsEnabled && <ConsoleInstanceInfoButton />}
+						{multiSessionsEnabled &&
+							<>
+								<ConsoleInstanceInfoButton />
+								<CreateConsoleInstanceButton />
+							</>
+
+						}
 						<ActionBarSeparator />
 						{showDeveloperUI &&
 							<ActionBarButton

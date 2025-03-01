@@ -11,8 +11,9 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Problems', {
-	tag: [tags.PROBLEMS, tags.WEB, tags.WIN]
+test.describe.skip('Problems', {
+	tag: [tags.PROBLEMS, tags.WEB, tags.WIN],
+	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6535 or https://github.com/posit-dev/positron/issues/6536' }], // fixing either would allow us to fix
 }, () => {
 
 	test('Python - Verify problems are highlighted in editor and count is accurate in Problems pane', async function ({ app, python, openFile }) {

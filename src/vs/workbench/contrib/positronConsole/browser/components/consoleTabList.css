@@ -21,6 +21,11 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+
+	/* Use this property to take padding into account when sizing (prevents overflow) */
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
 }
 
 .tabs-container .tab-button:focus {
@@ -44,11 +49,6 @@
 	background-color: var(--vscode-list-inactiveSelectionBackground);
 }
 
-.tabs-container .tab-button {
-	display: flex;
-	align-items: center;
-}
-
 .tabs-container .tab-button .icon {
 	height: 15px;
 	width: 15px;
@@ -61,4 +61,45 @@
 	overflow: hidden;
 	min-width: 0;
 	text-overflow: ellipsis;
+}
+
+/* Grow second to last item to fill available space */
+.tabs-container .tab-button :nth-last-child(2) {
+	flex: 1;
+}
+
+.tabs-container .tab-button .delete-button {
+	display: none;
+
+	background-color: transparent;
+	border: none;
+	cursor: pointer;
+	height: 22px;
+	padding: 2px;
+
+	border-radius: 5px;
+}
+
+.tabs-container .tab-button .delete-button:focus {
+	outline: none;
+}
+
+.tabs-container .tab-button .delete-button:focus-visible {
+	border-radius: 3px;
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.tabs-container .tab-button:hover .delete-button {
+	display: unset;
+}
+
+.tabs-container .tab-button .delete-button .codicon {
+	height: 15px;
+	width: 15px;
+
+	vertical-align: middle;
+}
+
+.tabs-container .tab-button .delete-button:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
 }
