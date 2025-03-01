@@ -205,6 +205,21 @@ export class Sessions {
 		await this.page.keyboard.press('Escape');
 	}
 
+	/**
+	 * Action: Delete all disconnected sessions
+	 */
+	async deleteDisconnectedSessions() {
+		await test.step('Delete all disconnected sessions', async () => {
+			const sessionIds = await this.getAllSessionIds();
+			for (const sessionId of sessionIds) {
+				const status = await this.getStatus(sessionId);
+				if (status === 'disconnected') {
+					await this.delete(sessionId);
+				}
+			}
+		});
+	}
+
 	// -- Helpers --
 
 	/**
@@ -230,13 +245,9 @@ export class Sessions {
 		if (sessionExists) {
 			await sessionLocator.click();
 			const status = await this.getStatus(session.name);
-			let sessionId = await this.getCurrentSessionId();
 
 			if (status === 'idle') {
-				return sessionId;
-			} else if (status === 'disconnected') {
-				sessionId = await this.start(session.name);
-				return sessionId;
+				return await this.getCurrentSessionId();
 			}
 		}
 

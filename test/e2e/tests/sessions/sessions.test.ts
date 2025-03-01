@@ -22,7 +22,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe.skip('Sessions', {
+test.describe('Sessions', {
 	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS]
 }, () => {
 
@@ -35,13 +35,7 @@ test.describe.skip('Sessions', {
 	});
 
 	test.afterEach(async function ({ app }) {
-		const sessionIds = await app.workbench.sessions.getAllSessionIds();
-		sessionIds.map(async sessionId => {
-			const status = await app.workbench.sessions.getStatus(sessionId);
-			if (status === 'disconnected') {
-				await app.workbench.sessions.delete(sessionId);
-			}
-		});
+		await app.workbench.sessions.deleteDisconnectedSessions();
 	});
 
 	test('Validate state between sessions (active, idle, disconnect) ', async function ({ app }) {
@@ -49,7 +43,7 @@ test.describe.skip('Sessions', {
 		const console = app.workbench.console;
 
 		// Start Python session
-		pythonSession.id = await app.workbench.sessions.launch({ ...pythonSession, waitForReady: false });
+		pythonSession.id = await sessions.launch({ ...pythonSession, waitForReady: false });
 
 		// Verify Python session is visible and transitions from active --> idle
 		await sessions.expectStatusToBe(pythonSession.id, 'active');
@@ -61,7 +55,7 @@ test.describe.skip('Sessions', {
 		await sessions.expectStatusToBe(pythonSession.id, 'idle');
 
 		// Start R session
-		rSession.id = await app.workbench.sessions.launch({ ...rSession, waitForReady: false });
+		rSession.id = await sessions.launch({ ...rSession, waitForReady: false });
 
 		// Verify R session transitions from active --> idle while Python session remains idle
 		await sessions.expectStatusToBe(rSession.id, 'active');
@@ -92,9 +86,8 @@ test.describe.skip('Sessions', {
 		const console = app.workbench.console;
 
 		// Start Python and R sessions
-		rSession.id = await app.workbench.sessions.reuseSessionIfExists(rSession);
 		pythonSession.id = await app.workbench.sessions.reuseSessionIfExists(pythonSession);
-
+		rSession.id = await app.workbench.sessions.reuseSessionIfExists(rSession);
 
 		// Verify Python session transitions to active when executing code
 		await sessions.select(pythonSession.name);
@@ -205,8 +198,9 @@ test.describe.skip('Sessions', {
 		await sessions.expectSessionCountToBe(0, 'active');
 		await sessions.expectSessionListsToMatch();
 
-		// Start Python session (again) and verify active sessions
-		await sessions.start(pythonSession.name);
+		// Launch Python session (again) and verify active sessions
+		await sessions.deleteDisconnectedSessions();
+		await sessions.launch(pythonSession);
 		await sessions.expectSessionCountToBe(1, 'active');
 		await sessions.expectSessionListsToMatch();
 
