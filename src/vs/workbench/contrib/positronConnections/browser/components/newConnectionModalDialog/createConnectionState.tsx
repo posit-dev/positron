@@ -172,7 +172,15 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 const Form = (props: PropsWithChildren<{ inputs: Input[], onInputsChange: (inputs: Input[]) => void }>) => {
 	const { inputs, onInputsChange } = props;
 
-	return <form className='create-connection-inputs'>
+	// On web, there's a global window event handler that captures the wheel event and prevents it
+	// from being captured by the form div.
+	// We need to stop the event propagation so we can actually scroll the form.
+	// See https://github.com/posit-dev/positron/blob/58c02080130dc80e08fd319573e05a57073491aa/src/vs/workbench/services/auxiliaryWindow/browser/auxiliaryWindowService.ts#L135
+	const handleWheel = (e: any) => {
+		e.stopPropagation();
+	};
+
+	return <form onWheel={handleWheel} className='create-connection-inputs'>
 		{
 			inputs.map((input) => {
 				return <FormElement key={input.id} input={input} onChange={(value) => {
@@ -209,7 +217,7 @@ const FormElement = (props: PropsWithChildren<FormElementProps>) => {
 				></LabeledTextInput>
 			</div>;
 		case 'option':
-			return <div className='labeled-input'><label>
+			return <div className='labeled-input'><label className='label'>
 				<span className='label-text'>{label}</span>
 				{
 					options && options.length > 0 ?

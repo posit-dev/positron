@@ -71,7 +71,7 @@
 	padding: 2px;
 }
 
-.create-connection-inputs > .labeled-input label {
+.create-connection-inputs > .labeled-input label.label {
 	display: flex;
 	flex-direction: row;
 	align-items: center;
