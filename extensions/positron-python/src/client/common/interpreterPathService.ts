@@ -111,11 +111,15 @@ export class InterpreterPathService implements IInterpreterPathService {
     ): Promise<void> {
         resource = PythonSettings.getSettingsUriAndTarget(resource, this.workspaceService).uri;
         if (configTarget === ConfigurationTarget.Global) {
-            const pythonConfig = this.workspaceService.getConfiguration('python');
-            const globalValue = pythonConfig.inspect<string>('defaultInterpreterPath')!.globalValue;
-            if (globalValue !== pythonPath) {
-                await pythonConfig.update('defaultInterpreterPath', pythonPath, true);
-            }
+            // --- Start Positron ---
+            // Do not update path to current interpreter in workspaceless scenarios
+            //
+            // const pythonConfig = this.workspaceService.getConfiguration('python');
+            // const globalValue = pythonConfig.inspect<string>('defaultInterpreterPath')!.globalValue;
+            // if (globalValue !== pythonPath) {
+            //     await pythonConfig.update('defaultInterpreterPath', pythonPath, true);
+            // }
+            // --- End Positron ---
             return;
         }
         if (!resource) {
