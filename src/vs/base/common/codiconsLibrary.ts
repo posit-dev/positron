@@ -585,6 +585,7 @@ export const codiconsLibrary = {
 	python: register('python', 0xec39),
 	copilotLarge: register('copilot-large', 0xec3a),
 	copilotWarningLarge: register('copilot-warning-large', 0xec3b),
+	keyboardTab: register('keyboard-tab', 0xec3c),
 	positronNew: register('positron-new', 0xf230),
 	positronOpen: register('positron-open', 0xf231),
 	positronSave: register('positron-save', 0xf232),

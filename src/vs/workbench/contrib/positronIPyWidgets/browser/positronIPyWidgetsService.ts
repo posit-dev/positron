@@ -10,7 +10,7 @@ import { IPositronIPyWidgetsService } from '../../../services/positronIPyWidgets
 import { INotebookEditorService } from '../../notebook/browser/services/notebookEditorService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { FromWebviewMessage, ICommOpenFromWebview, IGetPreferredRendererFromWebview, ToWebviewMessage } from '../../../services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
+import { FromWebviewMessage, ICommOpenFromWebview, IGetPreferredRendererFromWebview, ToWebviewMessage } from '../../../services/languageRuntime/common/positronIPyWidgetsWebviewMessages.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IIPyWidgetsWebviewMessaging, IPyWidgetClientInstance } from '../../../services/languageRuntime/common/languageRuntimeIPyWidgetClient.js';
 import { INotebookRendererMessagingService } from '../../notebook/common/notebookRendererMessagingService.js';
