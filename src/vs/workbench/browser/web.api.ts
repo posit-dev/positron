@@ -250,6 +250,13 @@ export interface IWorkbenchConstructionOptions {
 	 */
 	readonly enabledExtensions?: readonly ExtensionId[];
 
+	// --- Start Positron ---
+	/**
+	 * List of extensions to be disabled, or a boolean to disable all extensions.
+	 */
+	readonly disableExtension?: boolean | string[];
+	// --- End Positron ---
+
 	/**
 	 * Additional domains allowed to open from the workbench without the
 	 * link protection popup.
