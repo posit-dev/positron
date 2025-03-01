@@ -86,8 +86,8 @@ test.describe('Sessions', {
 		const console = app.workbench.console;
 
 		// Start Python and R sessions
-		pythonSession.id = await app.workbench.sessions.reuseSessionIfExists(pythonSession);
-		rSession.id = await app.workbench.sessions.reuseSessionIfExists(rSession);
+		pythonSession.id = await sessions.reuseSessionIfExists(pythonSession);
+		rSession.id = await sessions.reuseSessionIfExists(rSession);
 
 		// Verify Python session transitions to active when executing code
 		await sessions.select(pythonSession.name);
@@ -172,11 +172,7 @@ test.describe('Sessions', {
 		await variables.expectVariableToBe('z', '4');
 	});
 
-	test('Validate active session list in console matches active session list in session picker', {
-		annotation: [
-			{ type: 'issue', description: 'sessions are not correctly sorted atm. see line 174.' }
-		]
-	}, async function ({ app }) {
+	test('Validate active session list in console matches active session list in session picker', async function ({ app }) {
 		const sessions = app.workbench.sessions;
 		const console = app.workbench.console;
 
