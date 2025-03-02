@@ -61,7 +61,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as zlib from 'zlib';
 import Worker from 'web-worker';
-import { Schema, StructRow, Table, Vector } from 'apache-arrow';
+import { Table, Vector } from 'apache-arrow';
 import { pathToFileURL } from 'url';
 
 // Set to true when doing development for better console logging
@@ -184,7 +184,8 @@ const SCHEMA_TYPE_MAPPING = new Map<string, ColumnDisplayType>([
 	['TIMESTAMP_NS', ColumnDisplayType.Datetime],
 	['TIMESTAMP WITH TIME ZONE', ColumnDisplayType.Datetime],
 	['TIMESTAMP_NS WITH TIME ZONE', ColumnDisplayType.Datetime],
-	['TIME', ColumnDisplayType.Time]
+	['TIME', ColumnDisplayType.Time],
+	['DECIMAL', ColumnDisplayType.Number]
 ]);
 
 function formatLiteral(value: string, schema: ColumnSchema) {
@@ -740,6 +741,12 @@ export class DuckDBTableView {
 				if (type_display === undefined) {
 					type_display = ColumnDisplayType.Unknown;
 				}
+
+				// If entry.column_type is like DECIMAL($p,$s), set type_display to Number
+				if (entry.column_type.startsWith('DECIMAL')) {
+					type_display = ColumnDisplayType.Number;
+				}
+
 				return {
 					column_name: entry.column_name,
 					column_index: index,
