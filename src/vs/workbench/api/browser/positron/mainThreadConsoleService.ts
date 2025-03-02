@@ -14,17 +14,22 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 
 	private readonly _disposables = new DisposableStore();
 
-	// Map of language `id` to console.
-	// Assumes each language `id` maps to at most 1 console,
-	// which may need to be relaxed in the future.
-	// Kept in sync with consoles in `ExtHostConsoleService`.
-	private readonly _mainThreadConsolesByLanguageId = new Map<string, MainThreadConsole>();
+	/**
+	 * A Map of session ids to the respective console.
+	 * Each session id maps to a single console.
+	 * Multiple sessions could map to the same console, this happens
+	 * when a user power-cycles the session for a console instance
+	 * (i.e. shutdown session for console instance, then start a session for console instance)
+	 *
+	 * Kept in sync with consoles in `ExtHostConsoleService`
+	 */
+	private readonly _mainThreadConsolesBySessionId = new Map<string, MainThreadConsole>();
 
 	private readonly _proxy: ExtHostConsoleServiceShape;
 
 	constructor(
 		extHostContext: IExtHostContext,
-		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
+		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService
 	) {
 		// Create the proxy for the extension host.
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostConsoleService);
@@ -37,17 +42,17 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 				this._proxy.$onDidChangeConsoleWidth(newWidth);
 			}));
 
-		// Forward new positron console language id to the extension host, and then register it
+		// Forward new positron console session id to the extension host, and then register it
 		// in the main thread too
 		this._disposables.add(
 			this._positronConsoleService.onDidStartPositronConsoleInstance((console) => {
-				const id = console.session.runtimeMetadata.languageId;
+				const sessionId = console.session.sessionId;
 
 				// First update ext host
-				this._proxy.$addConsole(id);
+				this._proxy.$addConsole(sessionId);
 
 				// Then update main thread
-				this.addConsole(id, console);
+				this.addConsole(sessionId, console);
 			})
 		);
 
@@ -60,7 +65,7 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		//
 		// this._disposables.add(
 		// 	this._positronConsoleService.onDidRemovePositronConsoleInstance((console) => {
-		// 		const id = console.runtime.metadata.languageId;
+		// 		const id = console.session.sessionId;
 		//
 		// 		// First update ext host
 		// 		this._proxy.$removeConsole(id);
@@ -76,12 +81,13 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 	}
 
 	private getConsoleForLanguage(id: string): MainThreadConsole | undefined {
-		return this._mainThreadConsolesByLanguageId.get(id);
+		return Array.from(this._mainThreadConsolesBySessionId.values())
+			.find(console => console.getLanguageId() === id);
 	}
 
-	private addConsole(id: string, console: IPositronConsoleInstance) {
+	private addConsole(sessionId: string, console: IPositronConsoleInstance) {
 		const mainThreadConsole = new MainThreadConsole(console);
-		this._mainThreadConsolesByLanguageId.set(id, mainThreadConsole);
+		this._mainThreadConsolesBySessionId.set(sessionId, mainThreadConsole);
 	}
 
 	// TODO:
