@@ -40,7 +40,7 @@ const DEFAULT_DOWNLOAD_URL_TEMPLATE = 'https://cdn.posit.co/positron/dailies/reh
 export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTemplate: string | undefined, extensionIds: string[], envVariables: string[], platform: string | undefined, useSocketPath: boolean, logger: Log): Promise<ServerInstallResult> {
     let shell = 'powershell';
 
-    // detect plaform and shell for windows
+	// detect platform and shell for windows
     if (!platform || platform === 'windows') {
         const result = await conn.exec('uname -s');
 
@@ -394,7 +394,7 @@ if [[ -f $SERVER_LOGFILE ]]; then
     done
 
     if [[ -z $LISTENING_ON ]]; then
-        echo "Error server did not start sucessfully"
+        echo "Error server did not start successfully"
         print_install_results_and_exit 1
     fi
 else
