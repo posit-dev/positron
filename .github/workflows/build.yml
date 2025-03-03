@@ -1,0 +1,33 @@
+name: Build Positron
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Yarn
+        run: npm install -g yarn
+
+      - name: Install Dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build VS Code
+        run: yarn run gulp vscode-win32-x64-min
+
+      - name: Package Installer
+        run: yarn run gulp vscode-win32-x64-system-setup
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Positron-Windows-Installer
+          path: .build/win32-x64/*.exe
