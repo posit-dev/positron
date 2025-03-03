@@ -17,14 +17,24 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Build VS Code
-        run: npm run gulp vscode-win32-x64-min
+      # - name: Build VS Code
+      #   run: npm run gulp vscode-win32-x64-min
 
       - name: Package Installer
         run: npm run gulp vscode-win32-x64-system-setup
+
+      - name: Locate Build Output
+        run: |
+          echo "Checking possible build directories..."
+          ls -lah ..
+          ls -lah ../p64 || echo "p64 folder not found"
+          ls -lah ../VSCode-win32-x64 || echo "VSCode-win32-x64 folder not found"
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Positron-Windows-Installer
-          path: .build/win32-x64/*.exe
+          path: |
+            ../p64/*.exe
+            ../VSCode-win32-x64/*.exe
+            .build/win32-x64/*.exe
