@@ -1285,7 +1285,7 @@ END`;
 				return {
 					data: result.toArray()[0][result.schema.names[0]],
 					format: params.format
-				}
+				};
 			}
 			case TableSelectionKind.CellRange: {
 				const selection = params.selection.selection as DataSelectionCellRange;
