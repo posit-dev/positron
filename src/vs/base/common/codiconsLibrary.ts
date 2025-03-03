@@ -680,4 +680,5 @@ export const codiconsLibrary = {
 	positronStatusActive: register('positron-status-active', 0xf28c),
 	positronStatusDisconnected: register('positron-status-disconnected', 0xf28d),
 	positronStatusIdle: register('positron-status-idle', 0xf28e),
+	positronAssistant: register('positron-assistant', 0xf28f),
 } as const;

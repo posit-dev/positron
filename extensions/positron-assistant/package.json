@@ -37,8 +37,12 @@
       {
         "command": "positron-assistant.addModelConfiguration",
         "title": "%commands.addModelConfiguration.title%",
-        "category": "%commands.addModelConfiguration.category%",
-        "enablement": "isDevelopment"
+        "category": "%commands.category%"
+      },
+      {
+        "command": "positron-assistant.configureModels",
+        "title": "%commands.configureModels.title%",
+        "category": "%commands.category%"
       }
     ],
     "languageModels": [
@@ -53,82 +57,6 @@
           "type": "boolean",
           "default": false,
           "description": "%configuration.enable.description%"
-        },
-        "positron.assistant.models": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string",
-                "description": "%configuration.models.id.description%"
-              },
-              "name": {
-                "type": "string",
-                "description": "%configuration.models.name.description%"
-              },
-              "model": {
-                "type": "string",
-                "description": "%configuration.models.model.description%"
-              },
-              "baseUrl": {
-                "type": "string",
-                "description": "%configuration.models.baseUrl.description%"
-              },
-              "numCtx": {
-                "type": "number",
-                "description": "%configuration.models.numCtx.description%"
-              },
-              "toolCalls": {
-                "type": "boolean",
-                "description": "%configuration.models.toolCalls.description%"
-              },
-              "project": {
-                "type": "string",
-                "description": "%configuration.models.project.description%"
-              },
-              "location": {
-                "type": "string",
-                "description": "%configuration.models.location.description%"
-              },
-              "resourceName": {
-                "type": "string",
-                "description": "%configuration.models.resourceName.description%"
-              },
-              "provider": {
-                "type": "string",
-                "enum": [
-                  "anthropic",
-                  "azure",
-                  "echo",
-                  "error",
-                  "google",
-                  "mistral",
-                  "ollama",
-                  "openai",
-                  "openai-legacy",
-                  "openrouter",
-                  "bedrock",
-                  "vertex",
-                  "vertex-legacy"
-                ],
-                "description": "%configuration.models.provider.description%"
-              },
-              "type": {
-                "enum": [
-                  "chat",
-                  "completion"
-                ],
-                "description": "%configuration.models.type.description%"
-              }
-            },
-            "required": [
-              "name",
-              "provider"
-            ],
-            "additionalProperties": false
-          },
-          "description": "%configuration.models.description%"
         }
       }
     }
