@@ -15,12 +15,12 @@ test.use({
 // export POSITRON_HIDDEN_R='4.2.3'
 
 test.describe('Interpreter Includes/Excludes', {
-	tag: [tags.WEB, tags.INTERPRETER]
+	tag: [tags.INTERPRETER]
 }, () => {
 
 	test('Python - Can Include an Interpreter', async function ({ app, python, userSettings }) {
 
-		await userSettings.set([['python.interpreters.include', '[\"~/scratch\"]']], true);
+		await userSettings.set([['python.interpreters.include', '["/home/runner/scratch"]']], true);
 
 		const hiddenPython = process.env.POSITRON_HIDDEN_PY;
 
@@ -33,7 +33,7 @@ test.describe('Interpreter Includes/Excludes', {
 
 	test('R - Can Include an Interpreter', async function ({ app, r, userSettings }) {
 
-		await userSettings.set([['positron.r.customRootFolders', '[\"~/scratch\"]']], true);
+		await userSettings.set([['positron.r.customRootFolders', '["/home/runner/scratch"]']], true);
 
 		const hiddenR = process.env.POSITRON_HIDDEN_R;
 
