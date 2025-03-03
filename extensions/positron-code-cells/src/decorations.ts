@@ -22,9 +22,33 @@ function defaultSetDecorations(
 	editor.setDecorations(decorationType, ranges);
 }
 
-export const cellDecorationType = vscode.window.createTextEditorDecorationType({
-	light: { backgroundColor: '#E1E1E166' },
-	dark: { backgroundColor: '#40404066' },
+// Create decoration types for focused cell borders
+export const focusedCellTopDecorationType = vscode.window.createTextEditorDecorationType({
+	borderColor: new vscode.ThemeColor('interactive.activeCodeBorder'),
+	borderWidth: '2px 0px 0px 0px',
+	borderStyle: 'solid',
+	isWholeLine: true,
+});
+
+export const focusedCellBottomDecorationType = vscode.window.createTextEditorDecorationType({
+	borderColor: new vscode.ThemeColor('interactive.activeCodeBorder'),
+	borderWidth: '0px 0px 1px 0px',
+	borderStyle: 'solid',
+	isWholeLine: true,
+});
+
+// Create decoration types for unfocused cell borders
+export const unfocusedCellTopDecorationType = vscode.window.createTextEditorDecorationType({
+	borderColor: new vscode.ThemeColor('interactive.inactiveCodeBorder'),
+	borderWidth: '2px 0px 0px 0px',
+	borderStyle: 'solid',
+	isWholeLine: true,
+});
+
+export const unfocusedCellBottomDecorationType = vscode.window.createTextEditorDecorationType({
+	borderColor: new vscode.ThemeColor('interactive.inactiveCodeBorder'),
+	borderWidth: '0px 0px 1px 0px',
+	borderStyle: 'solid',
 	isWholeLine: true,
 });
 
@@ -44,15 +68,48 @@ export function activateDecorations(
 
 		// Get the relevant decoration ranges.
 		const cells = docManager.getCells();
-		const activeCellRanges: vscode.Range[] = [];
+		const focusedCellTopRanges: vscode.Range[] = [];
+		const focusedCellBottomRanges: vscode.Range[] = [];
+		const unfocusedCellTopRanges: vscode.Range[] = [];
+		const unfocusedCellBottomRanges: vscode.Range[] = [];
+
+		// Get the currently selected position
+		const selectionPosition = activeEditor.selection.active;
+
 		for (const cell of cells) {
-			if (cell.range.contains(activeEditor.selection.active)) {
-				activeCellRanges.push(cell.range);
+			// Determine if the cell is focused (contains the current selection)
+			const isFocused = cell.range.contains(selectionPosition);
+
+			// Create ranges for the top and bottom lines of the cell
+			const topLineRange = new vscode.Range(
+				cell.range.start.line,
+				0,
+				cell.range.start.line,
+				0
+			);
+
+			const bottomLineRange = new vscode.Range(
+				cell.range.end.line,
+				0,
+				cell.range.end.line,
+				0
+			);
+
+			// Add to the appropriate collection based on focus state
+			if (isFocused) {
+				focusedCellTopRanges.push(topLineRange);
+				focusedCellBottomRanges.push(bottomLineRange);
+			} else {
+				unfocusedCellTopRanges.push(topLineRange);
+				unfocusedCellBottomRanges.push(bottomLineRange);
 			}
 		}
 
-		// Set decorations depending on the language configuration.
-		setDecorations(activeEditor, cellDecorationType, activeCellRanges);
+		// Set decorations for focused and unfocused cells
+		setDecorations(activeEditor, focusedCellTopDecorationType, focusedCellTopRanges);
+		setDecorations(activeEditor, focusedCellBottomDecorationType, focusedCellBottomRanges);
+		setDecorations(activeEditor, unfocusedCellTopDecorationType, unfocusedCellTopRanges);
+		setDecorations(activeEditor, unfocusedCellBottomDecorationType, unfocusedCellBottomRanges);
 	}
 
 	// Trigger an update of the active editor's cell decorations, with optional throttling.
