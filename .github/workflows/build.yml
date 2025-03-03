@@ -17,8 +17,8 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      - name: Build VS Code
-        run: npm run gulp vscode-win32-x64-min
+      # - name: Build VS Code
+      #   run: npm run gulp vscode-win32-x64-min
 
       - name: Package Installer
         run: npm run gulp vscode-win32-x64-system-setup
