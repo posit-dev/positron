@@ -25,7 +25,7 @@ export class Sessions {
 	private quickPick: SessionQuickPick;
 	private trashButton: (sessionId: string) => Locator;
 	private newConsoleButton: Locator;
-	private restartButton: Locator;
+	restartButton: Locator;
 	private shutDownButton: Locator;
 	sessionTabs: Locator;
 	currentSessionTab: Locator;
@@ -211,12 +211,27 @@ export class Sessions {
 	async deleteDisconnectedSessions() {
 		await test.step('Delete all disconnected sessions', async () => {
 			const sessionIds = await this.getAllSessionIds();
+			const disconnectedSessions: string[] = [];
 
+			// Collect all disconnected session IDs
 			for (const sessionId of sessionIds) {
 				const status = await this.getStatus(sessionId);
 				if (status === 'disconnected') {
-					await this.delete(sessionId);
+					disconnectedSessions.push(sessionId);
 				}
+			}
+
+			if (disconnectedSessions.length === 0) { return; } // Nothing to delete
+
+			// Delete all but the last one
+			for (let i = 0; i < disconnectedSessions.length - 1; i++) {
+				await this.delete(disconnectedSessions[i]);
+			}
+
+			// Handle the last one separately because there is no tab list trash icon to click on
+			const { state } = await this.getMetadata();
+			if (state === 'disconnected' || state === 'exited') {
+				await this.console.barTrashButton.click();
 			}
 		});
 	}
@@ -385,11 +400,22 @@ export class Sessions {
 	 * Note: Sessions that are disconnected are filtered out
 	 */
 	async getActiveSessions(): Promise<QuickPickSessionInfo[]> {
-		const allSessions = await this.sessionTabs.all();
+		const allSessionTabs = await this.sessionTabs.all();
+		const metadataButtonExists = await this.metadataButton.isVisible();
 
+		if (allSessionTabs.length === 0) {
+			// No active sessions
+			if (!metadataButtonExists) { return []; }
+
+			// One session exists but the tab list is hidden
+			const { path, name, state } = await this.getMetadata();
+			return state === 'disconnected' || state === 'exited' ? [] : [{ path, name }];
+		}
+
+		// Multiple sessions are present
 		const activeSessions = (
 			await Promise.all(
-				allSessions.map(async session => {
+				allSessionTabs.map(async session => {
 					const isDisconnected = await session.locator('.codicon-positron-status-disconnected').isVisible();
 					if (isDisconnected) { return null; }
 
@@ -515,9 +541,17 @@ export class Sessions {
 					const activeSessionsFromConsole = await this.getActiveSessions();
 					expect(activeSessionsFromConsole).toHaveLength(count);
 				} else {
-					await expect(this.sessionTabs).toHaveCount(count);
+					if (count === 0) {
+						await expect(this.sessionTabs).not.toBeVisible();
+						await expect(this.metadataButton).not.toBeVisible();
+					} else if (count === 1) {
+						await expect(this.sessionTabs).not.toBeVisible();
+						await expect(this.metadataButton).toBeVisible();
+					} else {
+						await expect(this.sessionTabs).toHaveCount(count);
+					}
 				}
-			}).toPass({ timeout: 5000 });
+			}).toPass({ timeout: 45000 });
 		});
 	}
 

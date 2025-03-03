@@ -57,6 +57,8 @@ export interface PositronConsoleServices extends PositronActionBarServices {
 export interface PositronConsoleState extends PositronConsoleServices {
 	readonly positronConsoleInstances: IPositronConsoleInstance[];
 	readonly activePositronConsoleInstance?: IPositronConsoleInstance;
+
+	readonly consoleSessionListCollapsed: boolean;
 }
 
 /**
@@ -71,6 +73,7 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 	const [activePositronConsoleInstance, setActivePositronConsoleInstance] = useState<IPositronConsoleInstance | undefined>(
 		services.positronConsoleService.activePositronConsoleInstance
 	);
+	const [consoleSessionListCollapsed, setConsoleSessionListCollapsed] = useState<boolean>(positronConsoleInstances.length <= 1);
 
 	// Add event handlers.
 	useEffect(() => {
@@ -104,10 +107,16 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 		return () => disposableStore.dispose();
 	}, [services.positronConsoleService, services.runtimeSessionService, setActivePositronConsoleInstance]);
 
+	useEffect(() => {
+		setConsoleSessionListCollapsed(positronConsoleInstances.length <= 1);
+	}, [positronConsoleInstances]);
+
+
 	// Return the Positron console state.
 	return {
 		...services,
+		consoleSessionListCollapsed,
 		positronConsoleInstances,
-		activePositronConsoleInstance: activePositronConsoleInstance
+		activePositronConsoleInstance: activePositronConsoleInstance,
 	};
 };
