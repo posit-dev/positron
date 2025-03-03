@@ -115,10 +115,18 @@ runs:
             exit 1
         fi
 
+        # Create symlinks for python and python3
+        ln -sf "$PYTHON_BIN" "$INSTALL_DIR/usr/bin/python"
+        ln -sf "$PYTHON_BIN" "$INSTALL_DIR/usr/bin/python3"
+
         # Manually install pip since `ensurepip` is disabled
         echo "Installing pip manually..."
         curl -sS https://bootstrap.pypa.io/get-pip.py | $PYTHON_BIN
 
         # Verify pip installation
         $PYTHON_BIN -m pip --version
+
+        # Print symlink verification
+        ls -l $INSTALL_DIR/usr/bin/python*
+
 
