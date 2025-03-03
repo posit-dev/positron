@@ -132,6 +132,8 @@ function validEnv(nativeEnv: NativeEnvInfo): boolean {
 
 function getEnvType(kind: PythonEnvKind): PythonEnvType | undefined {
     switch (kind) {
+        // --- Start Positron ---
+        // The only Positron change here is adding uv, but this fence can't be in the middle
         case PythonEnvKind.Poetry:
         case PythonEnvKind.Pyenv:
         case PythonEnvKind.VirtualEnv:
@@ -142,6 +144,8 @@ function getEnvType(kind: PythonEnvKind): PythonEnvType | undefined {
         case PythonEnvKind.ActiveState:
         case PythonEnvKind.Hatch:
         case PythonEnvKind.Pixi:
+        case PythonEnvKind.Uv:
+            // --- End Positron ---
             return PythonEnvType.Virtual;
 
         case PythonEnvKind.Conda:
