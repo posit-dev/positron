@@ -105,6 +105,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 
 	const showKernelOutputChannelClickHandler = (channel: LanguageRuntimeSessionChannel) => {
 		props.session.showOutput(channel);
+		props.renderer.dispose();
 	}
 
 	// Render.
