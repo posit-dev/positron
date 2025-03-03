@@ -6,7 +6,7 @@
 import * as playwright from '@playwright/test';
 // eslint-disable-next-line local/code-import-patterns
 import type { Protocol } from 'playwright-core/types/protocol';
-import { dirname, join } from 'path';
+import path, { dirname, join } from 'path';
 import { promises } from 'fs';
 import { IWindowDriver } from './driver';
 // eslint-disable-next-line local/code-import-patterns
@@ -186,6 +186,23 @@ export class PlaywrightDriver {
 
 		// Desktop: exit via `driver.exitApplication`
 		else {
+
+			// Log all files in extensionsPath
+			const extensionsPath = this.options.extensionsPath;
+			this.options.logger.log(`Listing files in: ${extensionsPath}`);
+
+			const files = await promises.readdir(extensionsPath);
+			this.options.logger.log(`Files in extensionsPath: ${files.join(', ')}`);
+
+			// Read and log contents of extensions.json (if it exists)
+			const extensionsJsonPath = path.join(extensionsPath, 'extensions.json');
+			try {
+				const extensionsJsonContent = await promises.readFile(extensionsJsonPath, 'utf-8');
+				this.options.logger.log(`Contents of extensions.json:\n${extensionsJsonContent}`);
+			} catch (jsonError) {
+				this.options.logger.log(`extensions.json not found or cannot be read: ${jsonError}`);
+			}
+
 			try {
 				await measureAndLog(() => this.evaluateWithDriver(([driver]) => driver.exitApplication()), 'driver.exitApplication()', this.options.logger);
 			} catch (error) {
