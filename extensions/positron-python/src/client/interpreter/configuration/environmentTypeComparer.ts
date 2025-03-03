@@ -316,6 +316,9 @@ function compareEnvironmentType(a: PythonEnvironment, b: PythonEnvironment): num
 function getPrioritizedEnvironmentType(): EnvironmentType[] {
     return [
         // Prioritize non-Conda environments.
+        // --- Start Positron ---
+        EnvironmentType.Uv,
+        // --- End Positron ---
         EnvironmentType.Poetry,
         EnvironmentType.Pipenv,
         EnvironmentType.VirtualEnvWrapper,
