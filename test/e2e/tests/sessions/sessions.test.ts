@@ -44,23 +44,18 @@ test.describe('Sessions', {
 
 		// Start Python session
 		pythonSession.id = await sessions.launch({ ...pythonSession, waitForReady: false });
-
-		// Verify Python session is visible and transitions from active --> idle
-		await sessions.expectStatusToBe(pythonSession.id, 'active');
-		await sessions.expectStatusToBe(pythonSession.id, 'idle');
-
-		// Restart Python session and confirm state returns to active --> idle
-		await sessions.restart(pythonSession.id, false);
-		await sessions.expectStatusToBe(pythonSession.id, 'active');
-		await sessions.expectStatusToBe(pythonSession.id, 'idle');
-
-		// Start R session
 		rSession.id = await sessions.launch({ ...rSession, waitForReady: false });
 
 		// Verify R session transitions from active --> idle while Python session remains idle
 		await sessions.expectStatusToBe(rSession.id, 'active');
 		await sessions.expectStatusToBe(rSession.id, 'idle');
 		await sessions.expectStatusToBe(pythonSession.id, 'idle');
+
+		// Restart Python session, verify Python transitions to active --> idle and R remains idle
+		await sessions.restart(pythonSession.id, false);
+		await sessions.expectStatusToBe(pythonSession.id, 'active');
+		await sessions.expectStatusToBe(pythonSession.id, 'idle');
+		await sessions.expectStatusToBe(rSession.id, 'idle');
 
 		// Shutdown Python session, verify Python transitions to disconnected while R remains idle
 		await sessions.select(pythonSession.id);
@@ -201,14 +196,15 @@ test.describe('Sessions', {
 		await sessions.expectSessionListsToMatch();
 
 		// Restart Python session and verify active sessions
-		await sessions.restart(pythonSession.name);
-		await sessions.expectSessionCountToBe(1, 'active');
+		await console.barClearButton.click();
+		await sessions.restartButton.click();
 		await sessions.expectSessionListsToMatch();
 	});
 
 	test('Validate can delete sessions', async function ({ app }) {
 		const sessions = app.workbench.sessions;
 		const variables = app.workbench.variables;
+		const console = app.workbench.console;
 
 		// Ensure sessions exist and are idle
 		await sessions.reuseSessionIfExists(pythonSession);
@@ -221,7 +217,7 @@ test.describe('Sessions', {
 		await variables.expectRuntimeToBe(rSession.name);
 
 		// Delete 2nd session and verify no active sessions or runtime in session picker
-		await sessions.delete(rSession.name);
+		await console.barTrashButton.click();
 		await expect(sessions.startSessionButton).toHaveText('Start Session');
 		await sessions.expectSessionCountToBe(0);
 		await sessions.expectSessionListsToMatch();

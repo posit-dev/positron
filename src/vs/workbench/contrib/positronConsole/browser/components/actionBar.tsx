@@ -456,6 +456,7 @@ export const ActionBar = (props: ActionBarProps) => {
 							<ActionBarButton
 								align='right'
 								ariaLabel={positronDeleteConsole}
+								dataTestId='trash-session'
 								disabled={!(canShutdown || canStart)}
 								iconId='trash'
 								tooltip={positronDeleteConsole}

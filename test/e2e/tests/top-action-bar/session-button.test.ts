@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import { SessionInfo } from '../../infra';
 import { test, tags } from '../_test.setup';
 
@@ -30,14 +31,20 @@ test.describe('Top Action Bar: Session Button', {
 	});
 
 	test('Python - Verify session starts and displays as running', async function ({ app }) {
-		pythonSession.id = await app.workbench.sessions.launch({ ...pythonSession, triggerMode: 'session-picker' });
-		await app.workbench.sessions.expectSessionPickerToBe(pythonSession);
-		await app.workbench.sessions.expectStatusToBe(pythonSession.id, 'idle');
+		const sessions = app.workbench.sessions;
+
+		pythonSession.id = await sessions.launch({ ...pythonSession, triggerMode: 'session-picker' });
+		await sessions.expectSessionPickerToBe(pythonSession);
+		const { state } = await sessions.getMetadata();
+		expect(state).toBe('idle');
 	});
 
 	test('R - Verify session starts and displays as running', async function ({ app }) {
-		rSession.id = await app.workbench.sessions.launch({ ...rSession, triggerMode: 'session-picker' });
-		await app.workbench.sessions.expectSessionPickerToBe(rSession);
-		await app.workbench.sessions.expectStatusToBe(rSession.id, 'idle');
+		const sessions = app.workbench.sessions;
+
+		rSession.id = await sessions.launch({ ...rSession, triggerMode: 'session-picker' });
+		await sessions.expectSessionPickerToBe(rSession);
+		const { state } = await sessions.getMetadata();
+		expect(state).toBe('idle');
 	});
 });

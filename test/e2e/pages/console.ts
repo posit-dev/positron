@@ -27,6 +27,7 @@ export class Console {
 	barPowerButton: Locator;
 	barRestartButton: Locator;
 	barClearButton: Locator;
+	barTrashButton: Locator;
 	consoleRestartButton: Locator;
 	activeConsole: Locator;
 	suggestionList: Locator;
@@ -40,6 +41,7 @@ export class Console {
 		this.barPowerButton = this.code.driver.page.getByLabel('Shutdown console');
 		this.barRestartButton = this.code.driver.page.getByLabel('Restart console');
 		this.barClearButton = this.code.driver.page.getByLabel('Clear console');
+		this.barTrashButton = this.code.driver.page.getByTestId('trash-session');
 		this.consoleRestartButton = this.code.driver.page.locator(CONSOLE_RESTART_BUTTON);
 		this.activeConsole = this.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE);
 		this.suggestionList = this.code.driver.page.locator(SUGGESTION_LIST);
