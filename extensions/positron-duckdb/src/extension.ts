@@ -371,6 +371,11 @@ class ColumnProfileEvaluator {
 			this.statsExprs.add(`AVG("${fieldName}") AS "mean_${fieldName}"`);
 			this.statsExprs.add(`STDDEV_SAMP("${fieldName}") AS "stdev_${fieldName}"`);
 			this.statsExprs.add(`MEDIAN("${fieldName}") AS "median_${fieldName}"`);
+		} else if (columnSchema.column_type.startsWith('DECIMAL')) {
+			this.addMinMaxStringified(fieldName);
+			this.statsExprs.add(`AVG("${fieldName}"::DOUBLE) AS "mean_${fieldName}"`);
+			this.statsExprs.add(`STDDEV_SAMP("${fieldName}"::DOUBLE) AS "stdev_${fieldName}"`);
+			this.statsExprs.add(`MEDIAN("${fieldName}"::DOUBLE) AS "median_${fieldName}"`);
 		} else if (columnSchema.column_type === 'VARCHAR') {
 			this.addNumUnique(fieldName);
 
@@ -628,7 +633,7 @@ class ColumnProfileEvaluator {
 			const columnSchema = this.fullSchema[request.column_index];
 			const field = columnSchema.column_name;
 
-			const numRows = Number(stats.get('num_rows'));
+			// const numRows = Number(stats.get('num_rows'));
 
 			const result: ColumnProfileResult = {};
 			for (const spec of request.profiles) {
@@ -675,7 +680,11 @@ function isInteger(duckdbName: string) {
 }
 
 function isNumeric(duckdbName: string) {
-	return isInteger(duckdbName) || duckdbName === 'FLOAT' || duckdbName === 'DOUBLE';
+	return (
+		isInteger(duckdbName) ||
+		duckdbName === 'FLOAT' ||
+		duckdbName === 'DOUBLE'
+	);
 }
 
 /**
