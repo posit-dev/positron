@@ -18,17 +18,23 @@ import { ActionButton } from '../../positronNotebook/browser/utilityComponents/A
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { multipleConsoleSessionsFeatureEnabled } from '../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
+import { LANGUAGE_RUNTIME_START_SESSION_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
 
 interface WelcomeConsoleButtonProps {
+	commandService: ICommandService;
+	configurationService: IConfigurationService;
 	keybindingService: IKeybindingService;
 	layoutService: ILayoutService;
 	languageRuntimeService: ILanguageRuntimeService;
 	runtimeSessionService: IRuntimeSessionService;
 	runtimeStartupService: IRuntimeStartupService;
-	commandService: ICommandService;
 }
 
 export function WelcomeConsoleButton(props: WelcomeConsoleButtonProps) {
+	const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(props.configurationService);
+
 	const ref = React.createRef<HTMLDivElement>();
 	const showPopup = () => {
 		const startRuntime = (runtime: ILanguageRuntimeMetadata) => {
@@ -36,6 +42,7 @@ export function WelcomeConsoleButton(props: WelcomeConsoleButtonProps) {
 			props.runtimeSessionService.selectRuntime(runtime.runtimeId, 'User-requested startup from the welcome page');
 			renderer.dispose();
 		};
+
 		const activateRuntime = async (runtime: ILanguageRuntimeMetadata) => {
 			const session = props.runtimeSessionService.getConsoleSessionForRuntime(runtime.runtimeId);
 
@@ -47,15 +54,18 @@ export function WelcomeConsoleButton(props: WelcomeConsoleButtonProps) {
 				startRuntime(runtime);
 			}
 		};
+
 		if (ref.current === null) {
 			return;
 		}
+
 		const renderer = new PositronModalReactRenderer({
 			keybindingService: props.keybindingService,
 			layoutService: props.layoutService,
 			container: props.layoutService.getContainer(ref.current.ownerDocument.defaultView!),
 			parent: ref.current
 		});
+
 		renderer.render(
 			<PositronModalPopup
 				anchorElement={ref.current}
@@ -79,12 +89,20 @@ export function WelcomeConsoleButton(props: WelcomeConsoleButtonProps) {
 		);
 	};
 
+	const handlePressed = () => {
+		if (multiSessionsEnabled) {
+			props.commandService.executeCommand(LANGUAGE_RUNTIME_START_SESSION_ID);
+		} else {
+			showPopup();
+		}
+	}
+
 	// Render.
 	return (
 		<ActionButton
 			ariaLabel={(() => localize('positron.welcome.newConsoleDescription', "Create a new console"))()}
 			className='positron-welcome-button'
-			onPressed={showPopup}
+			onPressed={handlePressed}
 		>
 			<div ref={ref} className='button-container'>
 				<div className={`button-icon codicon codicon-positron-new-console`} />
