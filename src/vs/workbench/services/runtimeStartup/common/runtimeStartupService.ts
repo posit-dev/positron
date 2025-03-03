@@ -64,7 +64,7 @@ export interface IRuntimeStartupService {
 	clearAffiliatedRuntime(languageId: string): void;
 
 	/**
-	 * An event that is emitted when a runtime about to be automatically
+	 * An event that is emitted when a runtime is about to be automatically
 	 * started or resumed in a new Positron window.
 	 *
 	 * This event is intended to help communicate startup information to the

@@ -11,7 +11,7 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { PositronHelpFocused } from '../../../common/contextkeys.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { isLocalhost } from './utils.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { KeyEvent } from '../../webview/browser/webviewMessages.js';
@@ -271,6 +271,11 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	private _claimTimeout?: NodeJS.Timeout;
 
 	/**
+	 * The helpFocusedContextKey to track when the help overlay webview is focused.
+	 */
+	private helpFocusedContextKey: IContextKey<boolean>;
+
+	/**
 	 * Gets or sets the dispose timeout. This timeout is used to schedule the disposal of the help
 	 * overlay webview.
 	 */
@@ -349,6 +354,8 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 			// Reload the help overlay webview.
 			this._helpOverlayWebview?.reload();
 		}));
+
+		this.helpFocusedContextKey = PositronHelpFocused.bindTo(this._contextKeyService);
 	}
 
 	/**
@@ -619,6 +626,14 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		// cases like dragging the help window larger or opening in an already expanded view.
 		helpOverlayWebview.claim(element, DOM.getWindow(element), undefined);
 		helpOverlayWebview.layoutWebviewOverElement(element);
+
+		helpOverlayWebview.onDidFocus(() => {
+			this.helpFocusedContextKey.set(true);
+		});
+
+		helpOverlayWebview.onDidBlur(() => {
+			this.helpFocusedContextKey.set(false);
+		});
 
 		// Run logic for animating cases.
 		ensureWebviewSizeCorrectWhenAnimating();

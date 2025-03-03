@@ -7,7 +7,6 @@
 import { Code } from '../infra/code';
 import * as os from 'os';
 import test, { expect, Locator } from '@playwright/test';
-import { SessionName } from '../infra';
 
 interface FlatVariables {
 	value: string;
@@ -29,8 +28,13 @@ const VARIABLES_GROUP_SELECTOR = '.positron-variables-container .action-bar-butt
  */
 export class Variables {
 	interpreterLocator = this.code.driver.page.locator(VARIABLES_INTERPRETER);
+	variablesPane: Locator;
+	variablesRuntime: (name: string) => Locator;
 
-	constructor(private code: Code) { }
+	constructor(private code: Code) {
+		this.variablesPane = this.code.driver.page.locator('[id="workbench.panel.positronSession"]');
+		this.variablesRuntime = (name: string) => this.variablesPane.getByRole('button', { name });
+	}
 
 	async getFlatVariables(): Promise<Map<string, FlatVariables>> {
 		const variables = new Map<string, FlatVariables>();
@@ -183,27 +187,14 @@ export class Variables {
 	}
 
 	/**
-	 * Action: Select the runtime in the variables pane.
-	 * @param language the language of the runtime: Python or R
-	 * @param version the version of the runtime: e.g. 3.10.15
-	 */
-	async selectRuntime(session: SessionName) {
-		await test.step(`Select runtime: ${session.language} ${session.version}`, async () => {
-			await this.togglePane('show');
-			await this.code.driver.page.locator('[id="workbench.panel.positronSession"]').getByLabel(/^(?!Refresh objects$)(Python|R)/).click();
-			await this.code.driver.page.locator('[id="workbench.panel.positronSession"]').getByLabel(new RegExp(`${session.language}.*${session.version}`)).click();
-		});
-	}
-
-	/**
 	 * Verify: Confirm the runtime is visible in the variables pane.
 	 * @param language the language of the runtime: Python or R
 	 * @param version the version of the runtime: e.g. 3.10.15
 	 */
-	async checkRuntime(session: SessionName) {
-		await test.step(`Verify runtime: ${session.language} ${session.version}`, async () => {
+	async expectRuntimeToBe(sessionName: string) {
+		await test.step(`Verify runtime: ${sessionName}`, async () => {
 			await this.togglePane('show');
-			await expect(this.code.driver.page.locator('[id="workbench.panel.positronSession"]').getByLabel(new RegExp(`${session.language}.*${session.version}`))).toBeVisible();
+			await expect(this.variablesRuntime(sessionName)).toBeVisible();
 		});
 	}
 
@@ -212,7 +203,7 @@ export class Variables {
 	 * @param variableName the name of the variable to check
 	 * @param value the expected value of the variable
 	 */
-	async checkVariableValue(variableName: string, value: string) {
+	async expectVariableToBe(variableName: string, value: string) {
 		await test.step(`Verify variable: ${variableName} with value: ${value}`, async () => {
 			await this.togglePane('show');
 			const row = this.code.driver.page.locator('.variables-instance[style*="z-index: 1"] .variable-item').filter({ hasText: variableName });

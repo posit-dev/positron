@@ -340,7 +340,11 @@ export const DataExplorer = () => {
 					onBeginResize={beginResizeHandler}
 					onCollapsedChanged={collapsed => {
 						setAnimateColumnsWidth(!context.accessibilityService.isMotionReduced());
-						setColumnsCollapsed(collapsed);
+						if (collapsed) {
+							context.instance.collapseSummary();
+						} else {
+							context.instance.expandSummary();
+						}
 					}}
 					onResize={resizeHandler}
 				/>

@@ -13,8 +13,8 @@ import { IQuickInputService, IQuickPickItem, IQuickPickSeparator, QuickPickItem 
 import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { groupBy } from '../../../../base/common/collections.js';
@@ -34,6 +34,10 @@ interface LanguageRuntimeSessionQuickPickItem extends IQuickPickItem { session: 
 interface LanguageRuntimeQuickPickItem extends IQuickPickItem { runtime: ILanguageRuntimeMetadata }
 interface RuntimeClientTypeQuickPickItem extends IQuickPickItem { runtimeClientType: RuntimeClientType }
 interface RuntimeClientInstanceQuickPickItem extends IQuickPickItem { runtimeClientInstance: IRuntimeClientInstance<any, any> }
+
+// Action IDs
+export const LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID = 'workbench.action.language.runtime.openActivePicker';
+export const LANGUAGE_RUNTIME_START_SESSION_ID = 'workbench.action.language.runtime.openStartPicker';
 
 /**
  * Helper function that askses the user to select a language from the list of registered language
@@ -592,7 +596,8 @@ export function registerLanguageRuntimeActions() {
 		}
 	});
 
-	registerLanguageRuntimeAction('workbench.action.language.runtime.openActivePicker', 'Open Active Session Picker', async accessor => {
+
+	registerLanguageRuntimeAction(LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID, 'Open Active Session Picker', async accessor => {
 		// Constants
 		const startNewId = 'sessions-start-new';
 
@@ -601,8 +606,10 @@ export function registerLanguageRuntimeActions() {
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 		const commandService = accessor.get(ICommandService);
 
-		// Create quick pick items for active runtimes sorted by creation time, oldest to newest.
-		const sortedActiveSessions = [...runtimeSessionService.activeSessions].sort((a, b) => a.metadata.createdTimestamp - b.metadata.createdTimestamp);
+		// Create quick pick items for active console sessions sorted by creation time, oldest to newest.
+		const sortedActiveSessions = [...runtimeSessionService.activeSessions]
+			.filter(session => session.metadata.sessionMode === LanguageRuntimeSessionMode.Console)
+			.sort((a, b) => a.metadata.createdTimestamp - b.metadata.createdTimestamp);
 
 		const activeRuntimeItems: IQuickPickItem[] = sortedActiveSessions.filter(
 			(session) => {
@@ -622,15 +629,16 @@ export function registerLanguageRuntimeActions() {
 				}
 			}
 		).map(
-			({ runtimeMetadata }) => {
-				const isForegroundSession = (runtimeMetadata.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId);
+			(session) => {
+				const isForegroundSession =
+					session.sessionId === runtimeSessionService.foregroundSession?.sessionId;
 				return {
-					id: runtimeMetadata.runtimeId,
-					label: runtimeMetadata.runtimeName,
-					detail: runtimeMetadata.runtimePath,
+					id: session.sessionId,
+					label: session.runtimeMetadata.runtimeName,
+					detail: session.runtimeMetadata.runtimePath,
 					description: isForegroundSession ? 'Currently Selected' : undefined,
 					iconPath: {
-						dark: URI.parse(`data:image/svg+xml;base64, ${runtimeMetadata.base64EncodedIconSvg}`),
+						dark: URI.parse(`data:image/svg+xml;base64, ${session.runtimeMetadata.base64EncodedIconSvg}`),
 					},
 					picked: isForegroundSession,
 				};
@@ -661,14 +669,19 @@ export function registerLanguageRuntimeActions() {
 		// Handle the user's selection.
 		if (result?.id === startNewId) {
 			// If the user selected "All Runtimes...", execute the command to show all runtimes.
-			await commandService.executeCommand('workbench.action.language.runtime.openStartPicker');
+			await commandService.executeCommand(LANGUAGE_RUNTIME_START_SESSION_ID);
 		} else if (result?.id) {
-			// If the user selected a specific runtime, set it as the active runtime.
-			runtimeSessionService.selectRuntime(result.id, 'User selected runtime');
+			const newActiveSession = runtimeSessionService.activeSessions
+				.find(session => session.sessionId === result.id);
+
+			// If the user selected a specific session, set it as the active session if it still exists
+			if (newActiveSession) {
+				runtimeSessionService.foregroundSession = newActiveSession;
+			}
 		}
 	});
 
-	registerLanguageRuntimeAction('workbench.action.language.runtime.openStartPicker', 'Open Start Session Picker', async accessor => {
+	registerLanguageRuntimeAction(LANGUAGE_RUNTIME_START_SESSION_ID, 'Open Start Session Picker', async accessor => {
 		// Access services.
 		const quickInputService = accessor.get(IQuickInputService);
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
@@ -717,7 +730,15 @@ export function registerLanguageRuntimeActions() {
 
 		// If the user selected a runtime, set it as the active runtime
 		if (selectedRuntime?.id) {
-			runtimeSessionService.selectRuntime(selectedRuntime.id, 'User selected runtime');
+			runtimeSessionService.startNewRuntimeSession(
+				selectedRuntime.id,
+				selectedRuntime.label,
+				LanguageRuntimeSessionMode.Console,
+				undefined,
+				'User selected runtime',
+				RuntimeStartMode.Starting,
+				true
+			);
 		}
 	});
 
