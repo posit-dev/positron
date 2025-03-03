@@ -205,6 +205,22 @@ export class Sessions {
 		await this.page.keyboard.press('Escape');
 	}
 
+	/**
+	 * Action: Delete all disconnected sessions
+	 */
+	async deleteDisconnectedSessions() {
+		await test.step('Delete all disconnected sessions', async () => {
+			const sessionIds = await this.getAllSessionIds();
+
+			for (const sessionId of sessionIds) {
+				const status = await this.getStatus(sessionId);
+				if (status === 'disconnected') {
+					await this.delete(sessionId);
+				}
+			}
+		});
+	}
+
 	// -- Helpers --
 
 	/**
@@ -224,24 +240,22 @@ export class Sessions {
 	 * @returns id of the session
 	 */
 	async reuseSessionIfExists(session: SessionInfo): Promise<string> {
-		const sessionLocator = this.getSessionTab(session.name);
-		const sessionExists = await sessionLocator.isVisible();
+		return await test.step(`Reuse session: ${session.name}`, async () => {
+			const sessionLocator = this.getSessionTab(session.name);
+			const sessionExists = await sessionLocator.isVisible();
 
-		if (sessionExists) {
-			await sessionLocator.click();
-			const status = await this.getStatus(session.name);
-			let sessionId = await this.getCurrentSessionId();
+			if (sessionExists) {
+				await sessionLocator.click();
+				const status = await this.getStatus(session.name);
 
-			if (status === 'idle') {
-				return sessionId;
-			} else if (status === 'disconnected') {
-				sessionId = await this.start(session.name);
-				return sessionId;
+				if (status === 'idle') {
+					return await this.getCurrentSessionId();
+				}
 			}
-		}
 
-		// Create a new session if none exists
-		return await this.launch(session);
+			// Create a new session if none exists
+			return await this.launch(session);
+		});
 	}
 
 	/**
@@ -347,7 +361,7 @@ export class Sessions {
 	 * @returns the metadata of the session
 	 */
 	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
-		return await test.step(`Get metadata for session: ${sessionId}`, async () => {
+		return await test.step(`Get metadata for session: ${sessionId ?? 'current tab'}`, async () => {
 			if (sessionId) {
 				await this.page.getByTestId(`console-tab-${sessionId}`).click();
 			}
