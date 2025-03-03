@@ -21,6 +21,9 @@ export enum EnvironmentType {
     Poetry = 'Poetry',
     Hatch = 'Hatch',
     Pixi = 'Pixi',
+    // --- Start Positron ---
+    Uv = 'Uv',
+    // --- End Positron ---
     VirtualEnvWrapper = 'VirtualEnvWrapper',
     ActiveState = 'ActiveState',
     Global = 'Global',
@@ -131,6 +134,11 @@ export function getEnvironmentTypeName(environmentType: EnvironmentType): string
         case EnvironmentType.Pixi: {
             return 'pixi';
         }
+        // --- Start Positron ---
+        case EnvironmentType.Uv: {
+            return 'uv';
+        }
+        // --- End Positron ---
         case EnvironmentType.VirtualEnvWrapper: {
             return 'virtualenvwrapper';
         }
