@@ -7,7 +7,6 @@ import { URI } from '../../../base/common/uri.js';
 import { MainThreadDiaglogsShape, MainContext, MainThreadDialogOpenOptions, MainThreadDialogSaveOptions } from '../common/extHost.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
 import { IFileDialogService, IOpenDialogOptions, ISaveDialogOptions } from '../../../platform/dialogs/common/dialogs.js';
-import { Schemas } from '../../../base/common/network.js';
 
 @extHostNamedCustomer(MainContext.MainThreadDialogs)
 export class MainThreadDialogs implements MainThreadDiaglogsShape {
@@ -48,9 +47,9 @@ export class MainThreadDialogs implements MainThreadDiaglogsShape {
 			defaultUri: options?.defaultUri ? URI.revive(options.defaultUri) : undefined,
 			title: options?.title || undefined,
 			// --- Start Positron ---
-			availableFileSystems: options?.allowUIResources ? [Schemas.vscodeRemote, Schemas.file] : [],
 			resolveSymlinks: options?.resolveSymlinks ?? true,
 			// --- End Positron ---
+			availableFileSystems: []
 		};
 		if (options?.filters) {
 			result.filters = [];
