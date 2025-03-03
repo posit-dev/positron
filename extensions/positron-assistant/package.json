@@ -1,0 +1,162 @@
+{
+  "name": "positron-assistant",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.0.1",
+  "publisher": "positron",
+  "engines": {
+    "vscode": "^1.65.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "enabledApiProposals": [
+    "defaultChatParticipant",
+    "inlineCompletionsAdditions"
+  ],
+  "contributes": {
+    "menus": {
+      "chat/input": [
+        {
+          "command": "positron-assistant.addModelConfiguration",
+          "group": "navigation@10",
+          "when": "!positron-assistant.hasChatModels"
+        },
+        {
+          "command": "positron-assistant.addModelConfiguration",
+          "group": "inline",
+          "when": "positron-assistant.hasChatModels"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "positron-assistant.addModelConfiguration",
+        "title": "%commands.addModelConfiguration.title%",
+        "category": "%commands.addModelConfiguration.category%",
+        "enablement": "isDevelopment"
+      }
+    ],
+    "languageModels": [
+      {
+        "vendor": "positron"
+      }
+    ],
+    "configuration": {
+      "title": "Positron Assistant",
+      "properties": {
+        "positron.assistant.enable": {
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.enable.description%"
+        },
+        "positron.assistant.models": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "%configuration.models.id.description%"
+              },
+              "name": {
+                "type": "string",
+                "description": "%configuration.models.name.description%"
+              },
+              "model": {
+                "type": "string",
+                "description": "%configuration.models.model.description%"
+              },
+              "baseUrl": {
+                "type": "string",
+                "description": "%configuration.models.baseUrl.description%"
+              },
+              "numCtx": {
+                "type": "number",
+                "description": "%configuration.models.numCtx.description%"
+              },
+              "toolCalls": {
+                "type": "boolean",
+                "description": "%configuration.models.toolCalls.description%"
+              },
+              "project": {
+                "type": "string",
+                "description": "%configuration.models.project.description%"
+              },
+              "location": {
+                "type": "string",
+                "description": "%configuration.models.location.description%"
+              },
+              "resourceName": {
+                "type": "string",
+                "description": "%configuration.models.resourceName.description%"
+              },
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "anthropic",
+                  "azure",
+                  "echo",
+                  "error",
+                  "google",
+                  "mistral",
+                  "ollama",
+                  "openai",
+                  "openai-legacy",
+                  "openrouter",
+                  "bedrock",
+                  "vertex",
+                  "vertex-legacy"
+                ],
+                "description": "%configuration.models.provider.description%"
+              },
+              "type": {
+                "enum": [
+                  "chat",
+                  "completion"
+                ],
+                "description": "%configuration.models.type.description%"
+              }
+            },
+            "required": [
+              "name",
+              "provider"
+            ],
+            "additionalProperties": false
+          },
+          "description": "%configuration.models.description%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@ai-sdk/amazon-bedrock": "^1.1.6",
+    "@ai-sdk/anthropic": "^1.0.5",
+    "@ai-sdk/azure": "^1.1.9",
+    "@ai-sdk/google": "^1.1.17",
+    "@ai-sdk/google-vertex": "^2.1.8",
+    "@ai-sdk/mistral": "^1.1.6",
+    "@ai-sdk/openai": "^1.0.8",
+    "@aws-sdk/credential-providers": "^3.734.0",
+    "@eslint/js": "^9.13.0",
+    "@openrouter/ai-sdk-provider": "^0.0.6",
+    "@stylistic/eslint-plugin": "^2.9.0",
+    "@types/node": "^20",
+    "ai": "^4.1.46",
+    "eslint": "^9.13.0",
+    "google-auth-library": "^9.15.1",
+    "ollama-ai-provider": "^1.1.0",
+    "typescript": "^5.6.2",
+    "typescript-eslint": "^8.11.0",
+    "zod": "^3.24.1"
+  }
+}

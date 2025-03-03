@@ -39,6 +39,9 @@ suite('getInterpreterInfo()', () => {
             sysPrefix: '/path/of/sysprefix/versions/3.7.5rc1',
             version: '3.7.5rc1 (default, Oct 18 2019, 14:48:48) \n[Clang 11.0.0 (clang-1100.0.33.8)]',
             is64Bit: true,
+            // --- Start Positron ---
+            implementation: 'cpython',
+            // --- End Positron ---
         };
         const cmd = `"${python.command}" "${script}"`;
         deps
@@ -62,6 +65,9 @@ suite('getInterpreterInfo()', () => {
             sysPrefix: '/path/of/sysprefix/versions/3.7.5rc1',
             version: '3.7.5rc1 (default, Oct 18 2019, 14:48:48) \n[Clang 11.0.0 (clang-1100.0.33.8)]',
             is64Bit: true,
+            // --- Start Positron ---
+            implementation: 'cpython',
+            // --- End Positron ---
         };
         const _python = buildPythonExecInfo(' path to /my python ');
         const cmd = `" path to /my python " "${script}"`;
@@ -86,6 +92,9 @@ suite('getInterpreterInfo()', () => {
             sysPrefix: '/path/of/sysprefix/versions/3.7.5rc1',
             version: '3.7.5rc1 (default, Oct 18 2019, 14:48:48) \n[Clang 11.0.0 (clang-1100.0.33.8)]',
             is64Bit: true,
+            // --- Start Positron ---
+            implementation: 'cpython',
+            // --- End Positron ---
         };
         const _python = buildPythonExecInfo(['path/to/conda', 'run', '-n', 'my-env', 'python']);
         const cmd = `"path/to/conda" "run" "-n" "my-env" "python" "${script}"`;
@@ -111,12 +120,18 @@ suite('getInterpreterInfo()', () => {
             version: new SemVer('3.7.5-candidate1'),
             sysPrefix: '/path/of/sysprefix/versions/3.7.5rc1',
             sysVersion: undefined,
+            // --- Start Positron ---
+            implementation: 'cpython',
+            // --- End Positron ---
         };
         const json = {
             versionInfo: [3, 7, 5, 'candidate', 1],
             sysPrefix: expected.sysPrefix,
             version: '3.7.5rc1 (default, Oct 18 2019, 14:48:48) \n[Clang 11.0.0 (clang-1100.0.33.8)]',
             is64Bit: true,
+            // --- Start Positron ---
+            implementation: expected.implementation,
+            // --- End Positron ---
         };
         deps
             // We check the args in other tests.
@@ -141,12 +156,18 @@ suite('getInterpreterInfo()', () => {
             version: new SemVer('3.7.5'),
             sysPrefix: '/path/of/sysprefix/versions/3.7.5rc1',
             sysVersion: undefined,
+            // --- Start Positron ---
+            implementation: 'cpython',
+            // --- End Positron ---
         };
         const json = {
             versionInfo: [3, 7, 5],
             sysPrefix: expected.sysPrefix,
             version: '3.7.5rc1 (default, Oct 18 2019, 14:48:48) \n[Clang 11.0.0 (clang-1100.0.33.8)]',
             is64Bit: true,
+            // --- Start Positron ---
+            implementation: expected.implementation,
+            // --- End Positron ---
         };
         deps
             // We check the args in other tests.
@@ -171,12 +192,18 @@ suite('getInterpreterInfo()', () => {
             version: new SemVer('3.7.5-candidate'),
             sysPrefix: '/path/of/sysprefix/versions/3.7.5rc1',
             sysVersion: undefined,
+            // --- Start Positron ---
+            implementation: 'cpython',
+            // --- End Positron ---
         };
         const json = {
             versionInfo: [3, 7, 5, 'candidate'],
             sysPrefix: expected.sysPrefix,
             version: '3.7.5rc1 (default, Oct 18 2019, 14:48:48) \n[Clang 11.0.0 (clang-1100.0.33.8)]',
             is64Bit: false,
+            // --- Start Positron ---
+            implementation: expected.implementation,
+            // --- End Positron ---
         };
         deps
             // We check the args in other tests.

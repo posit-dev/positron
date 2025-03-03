@@ -27,7 +27,7 @@ const File = require('vinyl');
 const fs = require('fs');
 const glob = require('glob');
 const { compileBuildTask } = require('./gulpfile.compile');
-const { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask } = require('./gulpfile.extensions');
+const { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask, copyExtensionBinariesTask } = require('./gulpfile.extensions');
 // --- Start Positron ---
 const { vscodeWebEntryPoints, vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } = require('./gulpfile.vscode.web');
 const { positronBuildNumber } = require('./utils');
@@ -288,6 +288,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 			'vscode-test-resolver',
 			'positron-zed',
 			'positron-javascript',
+			'positron-assistant',
 		];
 		// --- End Positron ---
 		const localWorkspaceExtensions = glob.sync('extensions/*/package.json')
@@ -319,7 +320,20 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		const extensionPaths = [...localWorkspaceExtensions, ...marketplaceExtensions]
 			.map(name => `.build/extensions/${name}/**`);
 
-		const extensions = gulp.src(extensionPaths, { base: '.build', dot: true });
+		//const extensions = gulp.src(extensionPaths, { base: '.build', dot: true });
+		// --- Start Positron ---
+
+		const bootstrapExtensions = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'product.json'), 'utf8')).bootstrapExtensions
+			.filter(entry => !entry.platforms || new Set(entry.platforms).has(platform))
+			.filter(entry => !entry.type || entry.type === type)
+			.map(entry => entry.name);
+		const bootstrapExtensionPaths = [...bootstrapExtensions]
+			.map(name => `.build/extensions/bootstrap/${name}*.vsix`);
+
+		const extensions = gulp.src([...extensionPaths, ...bootstrapExtensionPaths], { base: '.build', dot: true });
+
+		// --- End Positron ---
+
 		const extensionsCommonDependencies = gulp.src('.build/extensions/node_modules/**', { base: '.build', dot: true });
 		const sources = es.merge(src, extensions, extensionsCommonDependencies)
 			.pipe(filter(['**', '!**/*.js.map'], { dot: true }));
@@ -550,6 +564,9 @@ function tweakProductForServerWeb(product) {
 				cleanExtensionsBuildTask,
 				compileNonNativeExtensionsBuildTask,
 				compileExtensionMediaBuildTask,
+				// --- Start Positron ---
+				copyExtensionBinariesTask,
+				// --- End Positron ---
 				minified ? minifyTask : bundleTask,
 				serverTaskCI
 			));

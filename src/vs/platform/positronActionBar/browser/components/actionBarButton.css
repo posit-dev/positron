@@ -32,6 +32,12 @@
 	background: var(--positronActionBar-hoverBackground);
 }
 
+.action-bar-button.border {
+	height: 26px;
+	background-color: var(--positronActionBar-textInputBackground);
+	border: 1px solid var(--positronActionBar-border);
+}
+
 .action-bar-button:hover {
 	background: var(--positronActionBar-hoverBackground);
 }
@@ -66,6 +72,10 @@
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
+}
+
+.action-bar-button.border .action-bar-button-text {
+	margin-right: 6px;
 }
 
 .disabled .action-bar-button-text {

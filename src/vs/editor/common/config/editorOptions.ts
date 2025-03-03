@@ -3180,7 +3180,7 @@ class EditorActionBar extends BaseEditorOption<EditorOption.actionBar, IEditorAc
 		 * Default options for the editor action bar.
 		 */
 		const defaults: EditorActionBarOptions = {
-			enabled: false,
+			enabled: true,
 		};
 
 		// Call the base class's constructor.

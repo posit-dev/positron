@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,13 +10,13 @@ import './outputRun.css';
 import React, { CSSProperties, MouseEvent } from 'react';
 
 // Other dependencies.
-import * as platform from '../../../base/common/platform.js';
 import { localize } from '../../../nls.js';
-import { ANSIColor, ANSIOutputRun, ANSIStyle } from '../../../base/common/ansiOutput.js';
 import { Schemas } from '../../../base/common/network.js';
-import { OutputRunWithLinks } from '../../contrib/positronConsole/browser/components/outputRunWithLinks.js';
+import * as platform from '../../../base/common/platform.js';
 import { IOpenerService } from '../../../platform/opener/common/opener.js';
+import { ANSIColor, ANSIOutputRun, ANSIStyle } from '../../../base/common/ansiOutput.js';
 import { INotificationService } from '../../../platform/notification/common/notification.js';
+import { OutputRunWithLinks } from '../../contrib/positronConsole/browser/components/outputRunWithLinks.js';
 
 /**
  * Constants.
@@ -33,6 +33,13 @@ export interface OutputRunProps {
 	readonly notificationService: INotificationService;
 }
 
+/**
+ * ColorType enumeration.
+ */
+enum ColorType {
+	Foreground,
+	Background
+}
 
 /**
  * OutputRun component.
@@ -40,15 +47,6 @@ export interface OutputRunProps {
  * @returns The rendered component.
  */
 export const OutputRun = (props: OutputRunProps) => {
-
-	/**
-	 * ColorType enumeration.
-	 */
-	enum ColorType {
-		Foreground,
-		Background
-	}
-
 	/**
 	 * Builds the hyperlink URL for the output run.
 	 * @returns The hyperlink URL for the output run. Returns undefined if the output run's
@@ -349,20 +347,26 @@ export const OutputRun = (props: OutputRunProps) => {
 		if (props.outputRun.text.indexOf('http') === -1) {
 			// There's no link in this text; we can render it directly.
 			return (
-				<span style={computeCSSProperties(props.outputRun)}>{props.outputRun.text}</span>
+				<span className='output-run' style={computeCSSProperties(props.outputRun)}>
+					{props.outputRun.text}
+				</span>
 			);
 		} else {
 			// Use a component that scans for hyperlink(s). This is a little
 			// more expensive (currently uses a regex), so we only do it if the
 			// text contains http.
 			return (
-				<span style={computeCSSProperties(props.outputRun)}><OutputRunWithLinks text={props.outputRun.text}></OutputRunWithLinks></span>
+				<span className='output-run' style={computeCSSProperties(props.outputRun)}>
+					<OutputRunWithLinks text={props.outputRun.text} />
+				</span>
 			);
 		}
 	} else {
 		return (
 			<a className='output-run-hyperlink' href='#' onClick={hyperlinkClickHandler}>
-				<span style={computeCSSProperties(props.outputRun)}>{props.outputRun.text}</span>
+				<span className='output-run' style={computeCSSProperties(props.outputRun)}>
+					{props.outputRun.text}
+				</span>
 			</a>
 		);
 	}

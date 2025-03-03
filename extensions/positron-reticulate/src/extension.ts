@@ -261,8 +261,24 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 				// Make sure the R session has the necessary packages installed.
 				progress.report({ increment: 10, message: 'Checking prerequisites' });
-				const config = await ReticulateRuntimeSession.checkRSession(rSession);
-				const metadata = await ReticulateRuntimeSession.fixInterpreterPath(runtimeMetadata, config.python);
+
+				// This may take a while if reticulate >= 1.41 installed and it triggered a large
+				// installation of python packages using `uv`. In this case we'll update the message
+				// to inform the user that this might take a while.
+				const has_uv_support = await rSession.callMethod?.('is_installed', 'reticulate', '1.40.0.9000');
+				const config = ReticulateRuntimeSession.checkRSession(rSession);
+
+				if (has_uv_support) {
+					const timeout = setTimeout(
+						() => {
+							progress.report({ increment: 2, message: 'Installing dependencies. This may take a while.' })
+						},
+						5000
+					);
+					config.finally(() => clearTimeout(timeout));
+				}
+
+				const metadata = await ReticulateRuntimeSession.fixInterpreterPath(runtimeMetadata, (await config).python);
 
 				// Create the session itself.
 				session = new ReticulateRuntimeSession(
@@ -313,7 +329,36 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			}
 		}
 
-		const config: ReticulateConfig = await rSession.callMethod?.('reticulate_check_prerequisites');
+		let config: ReticulateConfig = {};
+		try {
+			config = await rSession.callMethod?.('reticulate_check_prerequisites');
+		} catch (err: any) {
+			// If this times out and reticulate >= 1.41 is installed, it's likely that `uv` wasn't
+			// able to install the necessary python packages. We'll throw an initialization error
+			// that nicely informs the user to initialize `uv` once.
+			if (await rSession.callMethod?.('is_installed', 'reticulate', '1.41')) {
+				throw new InitializationError(
+					vscode.l10n.t('Timed out setting a Python environment.'),
+					[
+						{
+							title: 'reticulate::py_config()',
+							execute: () => {
+								positron.runtime.executeCode(
+									'r',
+									'reticulate::py_config() # This will trigger environment setup',
+									true,
+									false
+								);
+							}
+						},
+					]
+				);
+			} else {
+				throw new InitializationError(
+					vscode.l10n.t('Timed out checking that a Python environment is available.'),
+				)
+			}
+		}
 
 		// An error happened, raise it
 		if (config.error) {
@@ -561,7 +606,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		return this.pythonSession.interrupt();
 	}
 
-	public async restart() {
+	public async restart(workingDirectory: string | undefined) {
 		// Sending a restart to the python session will not work simply, because it's
 		// tied to the R session.
 		// We have to send a restart to the R session, and send a reticulate::repl_python()
@@ -582,7 +627,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		// 2. restart the attached R session
 		// 3. start a new reticulate session.
 		this.pythonSession.onDidEndSession((sess) => {
-			this.rSession.restart();
+			this.rSession.restart(workingDirectory);
 		});
 
 		const disposeListener = this.rSession.onDidChangeRuntimeState(async (e) => {
@@ -730,7 +775,7 @@ export class ReticulateProvider {
 		this.context.subscriptions.push(positron.runtime.registerLanguageRuntimeManager('python', this.manager));
 	}
 
-	async registerClient(client: positron.RuntimeClientInstance) {
+	async registerClient(client: positron.RuntimeClientInstance, input?: string) {
 		if (this._client) {
 			this._client.dispose();
 		}
@@ -741,15 +786,23 @@ export class ReticulateProvider {
 		await this.manager.maybeRegisterReticulateRuntime();
 		await positron.runtime.selectLanguageRuntime('reticulate');
 
+		if (input) {
+			await positron.runtime.executeCode('python', input, true, true);
+		}
+
 		this.manager._session?.onDidEndSession(() => {
 			this._client?.dispose();
 			this._client = undefined;
 		});
 
-		this._client.onDidSendEvent((e) => {
+		this._client.onDidSendEvent(async (e) => {
 			const event = e.data as any;
 			if (event.method === 'focus') {
-				this.focusReticulateConsole();
+				let input;
+				if (event.params && event.params.input) {
+					input = event.params.input;
+				}
+				await this.focusReticulateConsole(input);
 			}
 		});
 
@@ -762,12 +815,12 @@ export class ReticulateProvider {
 		);
 	}
 
-	focusReticulateConsole() {
+	async focusReticulateConsole(input?: string) {
 		// if this session is already active, this is a no-op that just
 		// brings focus.
-		positron.runtime.selectLanguageRuntime('reticulate');
-		// Execute an empty code block to focus the console
-		positron.runtime.executeCode('python', '', true, true);
+		await positron.runtime.selectLanguageRuntime('reticulate');
+		// Execute an empty code block if input is null to focus the console.
+		await positron.runtime.executeCode('python', input ?? '', true, true);
 	}
 
 	dispose() {
@@ -792,7 +845,7 @@ export function activate(context: vscode.ExtensionContext) {
 		positron.runtime.registerClientHandler({
 			clientType: 'positron.reticulate',
 			callback: (client, params: any) => {
-				reticulateProvider.registerClient(client);
+				reticulateProvider.registerClient(client, params.input);
 				return true;
 			}
 		}));

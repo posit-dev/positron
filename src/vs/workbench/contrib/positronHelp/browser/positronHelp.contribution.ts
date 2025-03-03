@@ -14,8 +14,8 @@ import { SyncDescriptor } from '../../../../platform/instantiation/common/descri
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
 import { PositronHelpView } from './positronHelpView.js';
-import { POSITRON_HELP_VIEW_ID } from './positronHelpService.js';
-import { POSITRON_HELP_COPY } from './positronHelpIdentifiers.js';
+import { IPositronHelpService, POSITRON_HELP_VIEW_ID } from './positronHelpService.js';
+import { POSITRON_HELP_COPY, POSITRON_HELP_FIND } from './positronHelpIdentifiers.js';
 import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
@@ -77,7 +77,15 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 	handler: accessor => { }
 } satisfies ICommandAndKeybindingRule);
 
-
+KeybindingsRegistry.registerCommandAndKeybindingRule({
+	id: POSITRON_HELP_FIND,
+	weight: KeybindingWeight.WorkbenchContrib,
+	primary: KeyMod.CtrlCmd | KeyCode.KeyF,
+	when: PositronHelpFocused,
+	handler: accessor => {
+		accessor.get(IPositronHelpService).find();
+	}
+} satisfies ICommandAndKeybindingRule);
 
 class PositronHelpContribution extends Disposable implements IWorkbenchContribution {
 

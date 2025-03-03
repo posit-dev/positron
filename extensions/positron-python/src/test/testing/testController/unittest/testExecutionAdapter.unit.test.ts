@@ -2,7 +2,7 @@
 //  Copyright (c) Microsoft Corporation. All rights reserved.
 //  Licensed under the MIT License.
 import * as assert from 'assert';
-import { TestRun, TestRunProfileKind, Uri } from 'vscode';
+import { DebugSessionOptions, TestRun, TestRunProfileKind, Uri } from 'vscode';
 import * as typeMoq from 'typemoq';
 import * as sinon from 'sinon';
 import * as path from 'path';
@@ -21,6 +21,7 @@ import { EXTENSION_ROOT_DIR } from '../../../../client/constants';
 import { MockChildProcess } from '../../../mocks/mockChildProcess';
 import { traceInfo } from '../../../../client/logging';
 import { UnittestTestExecutionAdapter } from '../../../../client/testing/testController/unittest/testExecutionAdapter';
+import * as extapi from '../../../../client/envExt/api.internal';
 
 suite('Unittest test execution adapter', () => {
     let configService: IConfigurationService;
@@ -35,7 +36,10 @@ suite('Unittest test execution adapter', () => {
     let mockProc: MockChildProcess;
     let utilsWriteTestIdsFileStub: sinon.SinonStub;
     let utilsStartRunResultNamedPipeStub: sinon.SinonStub;
+    let useEnvExtensionStub: sinon.SinonStub;
     setup(() => {
+        useEnvExtensionStub = sinon.stub(extapi, 'useEnvExtension');
+        useEnvExtensionStub.returns(false);
         configService = ({
             getSettings: () => ({
                 testing: { unittestArgs: ['.'] },
@@ -83,14 +87,7 @@ suite('Unittest test execution adapter', () => {
         myTestPath = path.join('/', 'my', 'test', 'path', '/');
 
         utilsStartRunResultNamedPipeStub = sinon.stub(util, 'startRunResultNamedPipe');
-        utilsStartRunResultNamedPipeStub.callsFake(() =>
-            Promise.resolve({
-                name: 'runResultPipe-mockName',
-                dispose: () => {
-                    /* no-op */
-                },
-            }),
-        );
+        utilsStartRunResultNamedPipeStub.callsFake(() => Promise.resolve('runResultPipe-mockName'));
     });
     teardown(() => {
         sinon.restore();
@@ -244,7 +241,7 @@ suite('Unittest test execution adapter', () => {
         const deferred3 = createDeferred();
         utilsWriteTestIdsFileStub.callsFake(() => Promise.resolve('testIdPipe-mockName'));
         debugLauncher
-            .setup((dl) => dl.launchDebugger(typeMoq.It.isAny(), typeMoq.It.isAny()))
+            .setup((dl) => dl.launchDebugger(typeMoq.It.isAny(), typeMoq.It.isAny(), typeMoq.It.isAny()))
             .returns(async (_opts, callback) => {
                 traceInfo('stubs launch debugger');
                 if (typeof callback === 'function') {
@@ -278,6 +275,10 @@ suite('Unittest test execution adapter', () => {
                         return true;
                     }),
                     typeMoq.It.isAny(),
+                    typeMoq.It.is<DebugSessionOptions>((sessionOptions) => {
+                        assert.equal(sessionOptions.testRun, testRun.object);
+                        return true;
+                    }),
                 ),
             typeMoq.Times.once(),
         );

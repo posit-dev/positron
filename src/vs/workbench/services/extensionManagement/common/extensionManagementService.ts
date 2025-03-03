@@ -886,6 +886,7 @@ const kPositronDuplicativeExtensions = [
 	'mikhail-arkhipov.r',
 	'vscode.r',
 	'jeanp413.open-remote-ssh',
+	'ms-python.python',
 ];
 
 interface PositronExtensionCompatibilty {

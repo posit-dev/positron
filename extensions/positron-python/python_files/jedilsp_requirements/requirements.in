@@ -1,18 +1,15 @@
 # This file is used to generate requirements.txt.
 # To update requirements.txt, run the following commands.
 # Use Python 3.8 when creating the environment or using pip-tools
-# 1) pip install pip-tools
-# 2) pip-compile --generate-hashes --upgrade python_files\jedilsp_requirements\requirements.in
+# 1) Install `uv` https://docs.astral.sh/uv/getting-started/installation/
+# 2) uv pip compile --generate-hashes --upgrade python_files\jedilsp_requirements\requirements.in > python_files\jedilsp_requirements\requirements.txt
 
 jedi-language-server>=0.34.3
 pygls>=0.10.3
 # --- Start Positron ---
 docstring-to-markdown==0.13
 markdown-it-py
-# TODO(seem): We're sticking to pydantic v1 since v2 depends on pydantic-core, which only ships
-# wheels for CPython and PyPy, and we require impementation-agnostic wheels (via the 'pip install
-# --implementation py' arg in scripts/vendoring.py). We inherited that requirement from upstream,
-# but we could revisit it.
+# Stick to pydantic v1 since it has a pure Python implementation which is much easy to vendor.
 pydantic==1.10.17
 pygments
 # typing-extensions>=4.11.0 causes torch._dynamo to fail to import. We're not yet sure why,

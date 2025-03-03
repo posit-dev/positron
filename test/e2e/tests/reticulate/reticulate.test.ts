@@ -14,8 +14,7 @@ test.use({
 // to the installed python path
 
 test.describe('Reticulate', {
-	tag: [tags.WEB, tags.RETICULATE],
-	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5226' }]
+	tag: [tags.RETICULATE, tags.WEB],
 }, () => {
 	test.beforeAll(async function ({ app, userSettings }) {
 		try {
@@ -46,6 +45,8 @@ test.describe('Reticulate', {
 			// Prompt did not appear
 		}
 
+		await app.workbench.popups.installIPyKernel();
+
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 
 		await verifyReticulateFunctionality(app, interpreter, false);
@@ -54,14 +55,17 @@ test.describe('Reticulate', {
 
 	});
 
-	test('R - Verify Reticulate Stop/Restart Functionality', async function ({ app, interpreter }) {
+	test('R - Verify Reticulate Stop/Restart Functionality', {
+		tag: [tags.WEB_ONLY]
+	}, async function ({ app, interpreter }) {
 
-		// web only test but we don't have another way to skip electron tests
-		if (!app.web) {
-			return;
+		await app.workbench.interpreter.selectInterpreter('Python', 'Python (reticulate)', false);
+
+		await app.workbench.popups.installIPyKernel();
+
+		if (!sequential) {
+			app.workbench.console.waitForReadyAndStarted('>>>', 30000);
 		}
-
-		await app.workbench.interpreter.selectInterpreter('Python', 'Python (reticulate)', !sequential);
 
 		await verifyReticulateFunctionality(app, interpreter, sequential);
 

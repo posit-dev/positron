@@ -36,6 +36,9 @@ export type InterpreterInfoJson = {
     sysPrefix: string;
     sysVersion: string;
     is64Bit: boolean;
+    // --- Start Positron ---
+    implementation: string;
+    // --- End Positron ---
 };
 
 export const OUTPUT_MARKER_SCRIPT = path.join(_SCRIPTS_DIR, 'get_output_via_markers.py');

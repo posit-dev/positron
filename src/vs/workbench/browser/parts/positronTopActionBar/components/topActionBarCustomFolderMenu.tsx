@@ -26,7 +26,7 @@ const positronFolderMenu = localize('positron.folderCommands', "Folder Commands"
  * TopActionBarCustonFolderMenu component.
  * @returns The rendered component.
  */
-export const TopActionBarCustonFolderMenu = () => {
+export const TopActionBarCustomFolderMenu = () => {
 	// Context hooks.
 	const context = usePositronTopActionBarContext();
 

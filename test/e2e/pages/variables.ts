@@ -28,8 +28,13 @@ const VARIABLES_GROUP_SELECTOR = '.positron-variables-container .action-bar-butt
  */
 export class Variables {
 	interpreterLocator = this.code.driver.page.locator(VARIABLES_INTERPRETER);
+	variablesPane: Locator;
+	variablesRuntime: (name: string) => Locator;
 
-	constructor(private code: Code) { }
+	constructor(private code: Code) {
+		this.variablesPane = this.code.driver.page.locator('[id="workbench.panel.positronSession"]');
+		this.variablesRuntime = (name: string) => this.variablesPane.getByRole('button', { name });
+	}
 
 	async getFlatVariables(): Promise<Map<string, FlatVariables>> {
 		const variables = new Map<string, FlatVariables>();
@@ -74,11 +79,18 @@ export class Variables {
 		});
 	}
 
-	async toggleVariablesView() {
-		const isMac = os.platform() === 'darwin';
-		const modifier = isMac ? 'Meta' : 'Control';
+	/**
+	 * Action: Show or hide the secondary side bar (variables pane).
+	 * @param action show or hide the secondary side bar
+	 */
+	async togglePane(action: 'show' | 'hide') {
+		await test.step(`Toggle variables pane: ${action}`, async () => {
+			const variablesSectionIsVisible = await this.code.driver.page.getByRole('button', { name: 'Variables Section' }).isVisible();
 
-		await this.code.driver.page.keyboard.press(`${modifier}+Alt+B`);
+			if (action === 'show' && !variablesSectionIsVisible || action === 'hide' && variablesSectionIsVisible) {
+				await this.code.driver.page.keyboard.press(os.platform() === 'darwin' ? 'Meta+Alt+B' : 'Control+Alt+B');
+			}
+		});
 	}
 
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
@@ -172,5 +184,32 @@ export class Variables {
 
 	async clickSessionLink() {
 		await this.code.driver.page.getByLabel('Active View Switcher').getByText('Session').click();
+	}
+
+	/**
+	 * Verify: Confirm the runtime is visible in the variables pane.
+	 * @param language the language of the runtime: Python or R
+	 * @param version the version of the runtime: e.g. 3.10.15
+	 */
+	async expectRuntimeToBe(sessionName: string) {
+		await test.step(`Verify runtime: ${sessionName}`, async () => {
+			await this.togglePane('show');
+			await expect(this.variablesRuntime(sessionName)).toBeVisible();
+		});
+	}
+
+	/**
+	 * Verify: Confirm the variable is visible and has the expected value.
+	 * @param variableName the name of the variable to check
+	 * @param value the expected value of the variable
+	 */
+	async expectVariableToBe(variableName: string, value: string) {
+		await test.step(`Verify variable: ${variableName} with value: ${value}`, async () => {
+			await this.togglePane('show');
+			const row = this.code.driver.page.locator('.variables-instance[style*="z-index: 1"] .variable-item').filter({ hasText: variableName });
+
+			await expect(row).toBeVisible();
+			await expect(row.locator('.details-column .value')).toHaveText(value);
+		});
 	}
 }

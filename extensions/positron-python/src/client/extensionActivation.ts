@@ -55,6 +55,7 @@ import { registerReplCommands, registerReplExecuteOnEnter, registerStartNativeRe
 import { registerTriggerForTerminalREPL } from './terminals/codeExecution/terminalReplWatcher';
 import { registerPythonStartup } from './terminals/pythonStartup';
 import { registerPixiFeatures } from './pythonEnvironments/common/environmentManagers/pixi';
+import { registerCustomTerminalLinkProvider } from './terminals/pythonStartupLinkProvider';
 
 // --- Start Positron ---
 import { IPythonRuntimeManager } from './positron/manager';
@@ -131,6 +132,7 @@ export function activateFeatures(ext: ExtensionState, _components: Components): 
     registerStartNativeReplCommand(ext.disposables, interpreterService);
     registerReplCommands(ext.disposables, interpreterService, executionHelper, commandManager);
     registerReplExecuteOnEnter(ext.disposables, interpreterService, commandManager);
+    registerCustomTerminalLinkProvider(ext.disposables);
 }
 
 /// //////////////////////////

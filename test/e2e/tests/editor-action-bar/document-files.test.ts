@@ -18,9 +18,8 @@ test.describe('Editor Action Bar: Document Files', {
 	tag: [tags.WEB, tags.WIN, tags.EDITOR_ACTION_BAR, tags.EDITOR]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings, app }) {
+	test.beforeAll(async function ({ app }) {
 		editorActionBar = app.workbench.editorActionBar;
-		await userSettings.set([['editor.actionBar.enabled', 'true']], false);
 	});
 
 	test.afterEach(async function ({ runCommand }) {
@@ -99,7 +98,7 @@ async function verifyOpenChanges(page: Page) {
 		}
 
 		// make change & save
-		await page.getByText('date', { exact: true }).click();
+		await page.locator('[id="workbench\\.parts\\.editor"]').getByText('date').click();
 		await page.keyboard.press('X');
 		await bindPlatformHotkey(page, 'S');
 

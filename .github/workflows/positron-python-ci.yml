@@ -1,15 +1,18 @@
 name: 'Positron Python CI'
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
+      - 'prerelease/**'
     paths:
       - '.github/workflows/positron-python-ci.yml'
       - 'extensions/positron-python/**'
   pull_request:
     branches:
       - main
+      - 'prerelease/**'
     paths:
       - '.github/workflows/positron-python-ci.yml'
       - 'extensions/positron-python/**'

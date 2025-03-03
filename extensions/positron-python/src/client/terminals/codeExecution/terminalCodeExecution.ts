@@ -62,7 +62,7 @@ export class TerminalCodeExecutionProvider implements ICodeExecutionService {
                 // --- End Positron ---
             }
         } else {
-            await this.getTerminalService(resource).executeCommand(code);
+            await this.getTerminalService(resource).executeCommand(code, true);
         }
     }
 

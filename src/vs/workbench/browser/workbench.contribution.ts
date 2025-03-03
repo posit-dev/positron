@@ -65,7 +65,10 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 					localize('workbench.editor.editorActionsLocation.hidden', "Editor actions are not shown."),
 				],
 				'markdownDescription': localize('editorActionsLocation', "Controls where the editor actions are shown."),
-				'default': 'default'
+				// --- Start Positron ---
+				'default': 'hidden'
+				// 'default': 'default'
+				// --- End Positron ---
 			},
 			'workbench.editor.alwaysShowEditorActions': {
 				'type': 'boolean',

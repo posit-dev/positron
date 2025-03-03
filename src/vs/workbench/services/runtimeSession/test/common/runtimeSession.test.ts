@@ -19,6 +19,7 @@ import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageR
 import { createRuntimeServices, createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
 import { TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
+import { USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY } from '../../common/positronMultipleConsoleSessionsFeatureFlag.js';
 
 type IStartSessionTask = (runtimeMetadata?: ILanguageRuntimeMetadata) => Promise<TestLanguageRuntimeSession>;
 
@@ -683,7 +684,12 @@ suite('Positron - RuntimeSessionService', () => {
 		);
 	});
 
+	// Update this test to support multiple console sessions once the feature flag is on
+	// selectRuntime creates a new session under the hood when called so it is guaranteed
+	// the sessions will be different for the test
 	test('select console to the same runtime sets the foreground session', async () => {
+		configService.setUserConfiguration(USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY, false);
+
 		const session1 = await startConsole();
 
 		runtimeSessionService.foregroundSession = undefined;
@@ -990,5 +996,35 @@ suite('Positron - RuntimeSessionService', () => {
 		// We should still have exactly one UI comm
 		const uiCommsAfter = await session.listClients(RuntimeClientType.Ui);
 		assert.strictEqual(uiCommsAfter.length, 1);
+	});
+
+	test(`can set the working directory`, async () => {
+		// Create the session
+		const session = await startConsole();
+		await timeout(0);
+
+		const dir = '/foo/bar/baz';
+		session.setWorkingDirectory(dir);
+
+		assert.strictEqual(session.getWorkingDirectory(), dir);
+	});
+
+	test(`working directory sticks after a restart`, async () => {
+		// Create the session
+		const session = await startConsole();
+		await timeout(0);
+
+		const dir = '/baz/bar/foo';
+		session.setWorkingDirectory(dir);
+
+		// Clear the working directory. This clears the state w/o firing an event.
+		session.clearWorkingDirectory();
+
+		// This should restore the working directory to the last state Positron
+		// saw.
+		await runtimeSessionService.restartSession(session.sessionId, startReason);
+		await timeout(0);
+
+		assert.strictEqual(session.getWorkingDirectory(), dir);
 	});
 });

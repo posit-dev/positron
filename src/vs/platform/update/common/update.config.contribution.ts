@@ -36,7 +36,7 @@ configurationRegistry.registerConfiguration({
 		},
 		'update.autoUpdate': {
 			type: 'boolean',
-			default: false,
+			default: true,
 			scope: ConfigurationScope.APPLICATION,
 			description: localize('autoUpdateEnable', "Enable automatic updates. Requires a restart after change to take effect."),
 			tags: ['usesOnlineServices'],
@@ -48,6 +48,14 @@ configurationRegistry.registerConfiguration({
 			scope: ConfigurationScope.APPLICATION,
 			description: localize('updateMode', "Configure whether you receive automatic updates. Requires a restart after change to take effect."),
 			deprecationMessage: localize('deprecated', "This setting is deprecated, please use '{0}' instead.", 'update.mode')
+		},
+		'update.primaryLanguageReporting': {
+			type: 'boolean',
+			default: true,
+			scope: ConfigurationScope.APPLICATION,
+			description: localize('update.primaryLanguageReporting', "Share the primary data science languages in use, such as Python and R, to help us improve Positron."),
+			tags: ['usesOnlineServices'],
+			included: !isWeb
 		},
 		'update.enableWindowsBackgroundUpdates': {
 			type: 'boolean',

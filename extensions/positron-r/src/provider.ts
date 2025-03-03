@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -83,11 +83,16 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	updateBinaries(moreBinaries);
 
 	// Optional, user-specified root directories or binaries
-	const userHqBinaries = discoverHQBinaries(userRHeadquarters());
-	updateBinaries(userHqBinaries);
+	const userBinaries = discoverUserSpecifiedBinaries();
+	updateBinaries(userBinaries);
 
-	const userMoreBinaries = discoverAdHocBinaries(userRBinaries());
-	updateBinaries(userMoreBinaries);
+	// Search locations for R binaries that are conventional on servers. These locations are also
+	// searched by RStudio/Posit Workbench on POSIX platforms, such as Linux and macOS.
+	// See https://github.com/rstudio/rstudio/blob/bb8cbf17bb415467f87d6e415f9e3777fa46e583/src/cpp/core/r_util/RVersionsPosix.cpp#L121-L147
+	if (os.platform() !== 'win32') {
+		const serverBinaries = discoverServerBinaries();
+		updateBinaries(serverBinaries);
+	}
 
 	// (Try to) promote each RBinary to a proper RInstallation
 	let rInstallations: Array<RInstallation> = [];
@@ -190,6 +195,11 @@ export async function makeMetadata(
 		path.join('~', rInst.binpath.substring(homedir.length)) :
 		rInst.binpath;
 
+	// Create the Rscript path.
+	// The Rscript path is the same as the R binary path, but with the 'R' or 'R.exe' executable
+	// replaced with 'Rscript' or 'Rscript.exe, respectively.
+	const scriptPath = rInst.binpath.replace(/R(\.exe)?$/, 'Rscript$1');
+
 	// Does the runtime path have 'homebrew' as a component? (we assume that
 	// it's a Homebrew installation if it does)
 	const isHomebrewInstallation = rInst.binpath.includes('/homebrew/');
@@ -216,11 +226,12 @@ export async function makeMetadata(
 	digest.update(rVersion);
 	const runtimeId = digest.digest('hex').substring(0, 32);
 
-	// Save the R home path and binary path as extra data.
+	// Save the R home path, binary path and Rscript path as extra data.
 	// Also, whether this R installation is the "current" R version.
 	const extraRuntimeData: RMetadataExtra = {
 		homepath: rInst.homepath,
 		binpath: rInst.binpath,
+		scriptpath: scriptPath,
 		current: rInst.current,
 		reasonDiscovered: rInst.reasonDiscovered,
 	};
@@ -524,6 +535,39 @@ function discoverAdHocBinaries(paths: string[]): RBinary[] {
 		.filter(b => fs.existsSync(b))
 		.map(b => fs.realpathSync(b))
 		.map(b => ({ path: b, reasons: [ReasonDiscovered.adHoc] }));
+}
+
+/**
+ * Discovers optional, user-specified root directories or binaries.
+ * @returns R binaries that the user has specified.
+ */
+function discoverUserSpecifiedBinaries(): RBinary[] {
+	const userHqBinaries = discoverHQBinaries(userRHeadquarters());
+	const userMoreBinaries = discoverAdHocBinaries(userRBinaries());
+	const userBinaries = userHqBinaries.concat(userMoreBinaries);
+	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.user
+	return userBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.user] }));
+}
+
+/**
+ * Discovers R binaries that are installed in conventional locations on servers, such as Posit
+ * Workbench.
+ * Paths are from: https://docs.posit.co/ide/server-pro/r/using_multiple_versions_of_r.html
+ * @returns R binaries that are installed in conventional locations on servers.
+ */
+function discoverServerBinaries(): RBinary[] {
+	const serverBinaries = discoverHQBinaries([
+		'/usr/lib/R',
+		'/usr/lib64/R',
+		'/usr/local/lib/R',
+		'/usr/local/lib64/R',
+		'/opt/local/lib/R',
+		'/opt/local/lib64/R',
+		// '/opt/R', // Already checked for in rHeadquarters
+		'/opt/local/R'
+	]);
+	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.server
+	return serverBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.server] }));
 }
 
 // R discovery helpers

@@ -28,18 +28,12 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 		}
 	});
 
-	test('R - Verify Basic Test Explorer Functionality', async function ({ app }) {
-		await expect(async () => {
-			// Navigate to https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
-			// This is an R package embedded in qa-example-content
-			await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
-			await app.workbench.quickInput.waitForQuickInputOpened();
-			await app.workbench.quickInput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
-			await app.workbench.quickInput.clickOkOnQuickInput();
-			await app.workbench.console.waitForReadyAndStarted('>', 10000);
-		}).toPass({ timeout: 50000 });
+	test('R - Verify Basic Test Explorer Functionality', async function ({ app, openFolder }) {
+		// Open R package embedded in qa-example-content
+		await openFolder(path.join('qa-example-content/workspaces/r_testing'));
 
 		await app.workbench.testExplorer.clickTestExplorerIcon();
+		await app.workbench.console.waitForInterpretersToFinishLoading();
 		await app.workbench.testExplorer.verifyTestFilesExist(['test-mathstuff.R']);
 
 		await app.workbench.testExplorer.runAllTests();

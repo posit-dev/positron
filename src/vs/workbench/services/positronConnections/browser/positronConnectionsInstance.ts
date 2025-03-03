@@ -15,6 +15,9 @@ import { Severity } from '../../../../platform/notification/common/notification.
 import { IPositronConnectionsService } from '../common/interfaces/positronConnectionsService.js';
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { localize } from '../../../../nls.js';
+import { FileAccess } from '../../../../base/common/network.js';
+import { URI } from '../../../../base/common/uri.js';
+
 
 interface PathSchema extends ObjectSchema {
 	dtype?: string;
@@ -72,7 +75,13 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 			try {
 				// Failing to acquire the icon is fine
 				// We just log the error
-				object.metadata.icon = await object.getIcon();
+				let icon: string | undefined = await object.getIcon();
+				if (!icon || icon === '') {
+					icon = undefined;
+				} else {
+					icon = FileAccess.uriToBrowserUri(URI.file(icon)).toString();
+				}
+				object.metadata.icon = icon;
 			} catch (err: any) {
 				service.log(`Failed to get icon for ${object.id}: ${err.message}`);
 			}
@@ -458,10 +467,10 @@ class PositronConnectionItem implements IPositronConnectionItem {
 
 	private async getIcon() {
 		const icon = await this.instance.client.getIcon(this.path);
-		if (icon === '') {
+		if (!icon) {
 			return undefined;
 		} else {
-			return icon;
+			return FileAccess.uriToBrowserUri(URI.file(icon)).toString();
 		}
 	}
 

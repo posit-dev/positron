@@ -24,7 +24,7 @@ runs:
           vim curl build-essential clang make cmake git \
           libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb \
           libgtk-3-0 libgbm1 libnss3 libnspr4 libkrb5-dev libcairo-dev \
-          libsdl-pango-dev libjpeg-dev libgif-dev pandoc
+          libsdl-pango-dev libjpeg-dev libgif-dev pandoc libgtk-4-1
 
     - name: Install Node packages
       shell: bash
@@ -43,7 +43,7 @@ runs:
 
     - name: Compile and Download
       shell: bash
-      run: npm exec -- npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+      run: npm exec -- npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install
 
     # Although not directly part of the build environment, this configuration is essential for running unit, integration, and e2e tests.
     - name: Configure xvfb Service
@@ -53,3 +53,7 @@ runs:
         sudo chmod +x /etc/init.d/xvfb
         sudo update-rc.d xvfb defaults
         sudo service xvfb start
+
+    # Downloads Builtin Extensions (needed for integration & e2e testing)
+    - shell: bash
+      run: npm run prelaunch

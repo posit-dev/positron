@@ -48,6 +48,7 @@
     "e2e-failed": "npx playwright test --last-failed",
     "e2e-summary": "python test/e2e/create-test-summary.py test/e2e/tests",
     "e2e-ui": "PW_UI_MODE=true npx playwright test --ui",
+    "prelaunch": "node build/lib/preLaunch.js",
     "download-builtin-extensions": "node build/lib/builtInExtensions.js",
     "download-builtin-extensions-cg": "node build/lib/builtInExtensionsCG.js",
     "download-quarto": "node build/lib/quarto.js",
@@ -75,7 +76,8 @@
     "extensions-ci": "node ./node_modules/gulp/bin/gulp.js extensions-ci",
     "extensions-ci-pr": "node ./node_modules/gulp/bin/gulp.js extensions-ci-pr",
     "perf": "node scripts/code-perf.js",
-    "update-build-ts-version": "npm install typescript@next && tsc -p ./build/tsconfig.build.json"
+    "update-build-ts-version": "npm install typescript@next && tsc -p ./build/tsconfig.build.json",
+    "rebuild:": "nvm use && ./rebuild.sh"
   },
   "dependencies": {
     "@microsoft/1ds-core-js": "^3.2.13",
@@ -131,9 +133,9 @@
     "yazl": "^2.4.3"
   },
   "devDependencies": {
-    "@currents/playwright": "^1.9.1",
+    "@currents/playwright": "^1.9.4",
     "@midleman/github-actions-reporter": "^1.9.5",
-    "@playwright/test": "^1.49.1",
+    "@playwright/test": "^1.50.1",
     "@stylistic/eslint-plugin-ts": "^2.8.0",
     "@swc/core": "1.3.62",
     "@types/cookie": "^0.3.3",

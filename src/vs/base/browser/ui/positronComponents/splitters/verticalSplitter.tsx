@@ -42,9 +42,11 @@ type VerticalSplitterBaseProps = | {
  */
 type VerticalSplitterCollapseProps = | {
 	readonly collapsible?: false;
+	readonly isCollapsed?: never;
 	readonly onCollapsedChanged?: never;
 } | {
 	readonly collapsible: true;
+	readonly isCollapsed: boolean;
 	readonly onCollapsedChanged: (collapsed: boolean) => void;
 };
 
@@ -134,6 +136,7 @@ export const VerticalSplitter = ({
 	invert,
 	showSash,
 	collapsible,
+	isCollapsed,
 	onCollapsedChanged,
 	onBeginResize,
 	onResize,
@@ -154,7 +157,7 @@ export const VerticalSplitter = ({
 	const [hovering, setHovering] = useState(false);
 	const [highlightExpandCollapse, setHighlightExpandCollapse] = useState(false);
 	const [hoveringDelayer, setHoveringDelayer] = useState<Delayer<void>>(undefined!);
-	const [collapsed, setCollapsed, collapsedRef] = useStateRef(false);
+	const [collapsed, setCollapsed, collapsedRef] = useStateRef(isCollapsed);
 	const [resizing, setResizing] = useState(false);
 
 	// Main useEffect.
@@ -188,6 +191,11 @@ export const VerticalSplitter = ({
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
 	}, [collapsible, configurationService]);
+
+	// Collapsed useEffect.
+	useEffect(() => {
+		setCollapsed(isCollapsed);
+	}, [isCollapsed, setCollapsed]);
 
 	/**
 	 * Sash onPointerEnter handler.

@@ -1,5 +1,9 @@
 'use strict';
 
+// --- Start Positron ---
+/* eslint-disable import/no-duplicates */
+// --- End Positron ---
+
 // eslint-disable-next-line camelcase
 import * as path from 'path';
 import * as fs from 'fs';
@@ -30,15 +34,17 @@ import {
     IInterpreterSettings,
     IPythonSettings,
     IREPLSettings,
-    ITensorBoardSettings,
     ITerminalSettings,
     Resource,
 } from './types';
 import { debounceSync } from './utils/decorators';
 import { SystemVariables } from './variables/systemVariables';
-import { getOSType, OSType } from './utils/platform';
-import { isWindows } from './platform/platformService';
+import { getOSType, OSType, isWindows } from './utils/platform';
 import { untildify } from './helpers';
+
+// --- Start Positron ---
+import { INTERPRETERS_EXCLUDE_SETTING_KEY, INTERPRETERS_INCLUDE_SETTING_KEY } from './constants';
+// --- End Positron ---
 
 export class PythonSettings implements IPythonSettings {
     private get onDidChange(): Event<ConfigurationChangeEvent | undefined> {
@@ -84,6 +90,16 @@ export class PythonSettings implements IPythonSettings {
         }
     }
 
+    // --- Start Positron ---
+    public get interpretersInclude(): string[] {
+        return this._interpretersInclude;
+    }
+
+    public get interpretersExclude(): string[] {
+        return this._interpretersExclude;
+    }
+    // --- End Positron ---
+
     private static pythonSettings: Map<string, PythonSettings> = new Map<string, PythonSettings>();
 
     public envFile = '';
@@ -107,8 +123,6 @@ export class PythonSettings implements IPythonSettings {
     public devOptions: string[] = [];
 
     public autoComplete!: IAutoCompleteSettings;
-
-    public tensorBoard: ITensorBoardSettings | undefined;
 
     public testing!: ITestingSettings;
 
@@ -146,6 +160,12 @@ export class PythonSettings implements IPythonSettings {
     private _pythonPath = 'python';
 
     private _defaultInterpreterPath = '';
+
+    // --- Start Positron ---
+    private _interpretersInclude: string[] = [];
+
+    private _interpretersExclude: string[] = [];
+    // --- End Positron ---
 
     private readonly workspace: IWorkspaceService;
 
@@ -314,6 +334,12 @@ export class PythonSettings implements IPythonSettings {
 
         // Whether to suppress the banner on startup of the IPython shell
         this.quietMode = pythonSettings.get<boolean>('quietMode') === true;
+
+        // User-specified interpreter paths to include in discovery
+        this._interpretersInclude = pythonSettings.get<string[]>(INTERPRETERS_INCLUDE_SETTING_KEY) ?? [];
+
+        // User-specified interpreter paths to exclude from available interpreters
+        this._interpretersExclude = pythonSettings.get<string[]>(INTERPRETERS_EXCLUDE_SETTING_KEY) ?? [];
         // --- End Positron ---
 
         const autoCompleteSettings = systemVariables.resolveAny(
@@ -413,14 +439,6 @@ export class PythonSettings implements IPythonSettings {
                   optInto: [],
                   optOutFrom: [],
               };
-
-        const tensorBoardSettings = systemVariables.resolveAny(
-            pythonSettings.get<ITensorBoardSettings>('tensorBoard'),
-        )!;
-        this.tensorBoard = tensorBoardSettings || { logDirectory: '' };
-        if (this.tensorBoard.logDirectory) {
-            this.tensorBoard.logDirectory = getAbsolutePath(this.tensorBoard.logDirectory, workspaceRoot);
-        }
     }
 
     // eslint-disable-next-line class-methods-use-this

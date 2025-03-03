@@ -36,6 +36,9 @@ suite('Environment Info Service', () => {
                 mtime: -1,
                 ctime: -1,
             },
+            // --- Start Positron ---
+            implementation: 'cpython',
+            // --- End Positron ---
         };
     }
 
@@ -46,7 +49,10 @@ suite('Environment Info Service', () => {
             new Promise<ExecutionResult<string>>((resolve) => {
                 resolve({
                     stdout:
-                        '{"versionInfo": [3, 8, 3, "final", 0], "sysPrefix": "path", "sysVersion": "3.8.3 (tags/v3.8.3:6f8c832, May 13 2020, 22:37:02) [MSC v.1924 64 bit (AMD64)]", "is64Bit": true}',
+                        // --- Start Positron ---
+                        // Add the "implementation" key to the JSON object.
+                        '{"versionInfo": [3, 8, 3, "final", 0], "sysPrefix": "path", "sysVersion": "3.8.3 (tags/v3.8.3:6f8c832, May 13 2020, 22:37:02) [MSC v.1924 64 bit (AMD64)]", "is64Bit": true, "implementation": "cpython"}',
+                    // --- End Positron ---
                     stderr: 'Some std error', // This should be ignored.
                 });
             }),

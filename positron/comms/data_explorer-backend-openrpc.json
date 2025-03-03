@@ -37,19 +37,19 @@
 			"name": "get_schema",
 			"summary": "Request schema",
 			"description": "Request subset of column schemas for a table-like object",
-            "params": [
-                {
-                    "name": "column_indices",
-                    "description": "The column indices (relative to the filtered/selected columns) to fetch",
-                    "required": true,
-                    "schema": {
-                        "type": "array",
-                        "items": {
-                            "type": "integer"
-                        }
-                    }
-                }
-            ],
+			"params": [
+				{
+					"name": "column_indices",
+					"description": "The column indices (relative to the filtered/selected columns) to fetch",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "integer"
+						}
+					}
+				}
+			],
 			"result": {
 				"schema": {
 					"$ref": "#/components/schemas/table_schema"
@@ -1014,6 +1014,10 @@
 					"datetime_stats": {
 						"description": "Statistics for a datetime data type",
 						"$ref": "#/components/schemas/summary_stats_datetime"
+					},
+					"other_stats": {
+						"description": "Summary statistics for any other data types",
+						"$ref": "#/components/schemas/summary_stats_other"
 					}
 				}
 			},
@@ -1057,6 +1061,16 @@
 					"false_count": {
 						"type": "integer",
 						"description": "The number of non-null false values"
+					}
+				}
+			},
+			"summary_stats_other": {
+				"type": "object",
+				"required": [],
+				"properties": {
+					"num_unique": {
+						"type": "integer",
+						"description": "The number of unique values"
 					}
 				}
 			},

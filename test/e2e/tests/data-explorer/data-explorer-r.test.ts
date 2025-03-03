@@ -38,6 +38,13 @@ test.describe('Data Explorer - R ', {
 		// Verify the summary column data
 		await app.workbench.dataExplorer.expandSummary();
 		await verifyColumnData(app);
+
+		await test.step('Verify copy to clipboard', async () => {
+			await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
+			await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+C' : 'Control+C');
+			const clipboardText = await app.workbench.clipboard.getClipboardText();
+			expect(clipboardText).toBe('Strength');
+		});
 	});
 
 	test('R - Verify opening Data Explorer for the second time brings focus back', {

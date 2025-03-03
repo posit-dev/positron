@@ -189,15 +189,12 @@ export interface IPythonSettings {
     readonly languageServerDebug: boolean;
     readonly languageServerLogLevel: string;
     readonly quietMode: boolean;
+    readonly interpretersInclude: string[];
+    readonly interpretersExclude: string[];
     // --- End Positron ---
     readonly defaultInterpreterPath: string;
-    readonly tensorBoard: ITensorBoardSettings | undefined;
     readonly REPL: IREPLSettings;
     register(): void;
-}
-
-export interface ITensorBoardSettings {
-    logDirectory: string | undefined;
 }
 
 export interface IInterpreterSettings {

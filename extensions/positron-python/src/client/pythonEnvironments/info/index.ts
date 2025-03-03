@@ -69,6 +69,9 @@ export type InterpreterInformation = {
     architecture: Architecture;
     sysPrefix: string;
     pipEnvWorkspaceFolder?: string;
+    // --- Start Positron ---
+    implementation?: string;
+    // --- End Positron ---
 };
 
 /**

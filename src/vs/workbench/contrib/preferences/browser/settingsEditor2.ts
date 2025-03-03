@@ -131,6 +131,9 @@ export class SettingsEditor2 extends EditorPane {
 		`@${FEATURE_SETTING_TAG}search`,
 		`@${FEATURE_SETTING_TAG}debug`,
 		`@${FEATURE_SETTING_TAG}extensions`,
+		// --- Start Positron ---
+		`@${FEATURE_SETTING_TAG}console`,
+		// --- End Positron ---
 		`@${FEATURE_SETTING_TAG}terminal`,
 		`@${FEATURE_SETTING_TAG}task`,
 		`@${FEATURE_SETTING_TAG}problems`,

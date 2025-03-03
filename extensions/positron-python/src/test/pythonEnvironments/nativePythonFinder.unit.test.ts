@@ -17,6 +17,7 @@ import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 
 // --- Start Positron ---
 // re-enable when Native Finder is used for discovery
+// TODO: add test for python.interpreters.include here once we switch to Native Finder
 suite.skip('Native Python Finder', () => {
     // --- Find Positron ---
     let finder: NativePythonFinder;

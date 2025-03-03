@@ -1738,6 +1738,30 @@ export const POSITRON_CONSOLE_TRACE_BACKGROUND_COLOR = registerColor('positronCo
 	hcLight: '#e5e5e5'
 }, localize('positronConsole.traceBackground', "Positron console trace background color."));
 
+// Positron console active state icon color.
+export const POSITRON_CONSOLE_STATE_ICON_ACTIVE = registerColor('positronConsole.stateIconActive', {
+	dark: '#3a79b2',
+	light: '#3a79b2',
+	hcDark: '#3a79b2',
+	hcLight: '#3a79b2'
+}, localize('positronConsole.stateIconActive', "Positron console active state icon color."));
+
+// Positron console disconnected state icon color.
+export const POSITRON_CONSOLE_STATE_ICON_DISCONNECTED = registerColor('positronConsole.stateIconDisconnected', {
+	dark: '#d93939',
+	light: '#d93939',
+	hcDark: '#d93939',
+	hcLight: '#d93939'
+}, localize('positronConsole.stateIconDisconnected', "Positron console disconnected state icon color."));
+
+// Positron console idle state icon color.
+export const POSITRON_CONSOLE_STATE_ICON_IDLE = registerColor('positronConsole.stateIconIdle', {
+	dark: '#2eb77c',
+	light: '#2eb77c',
+	hcDark: '#2eb77c',
+	hcLight: '#2eb77c'
+}, localize('positronConsole.stateIconIdle', "Positron console idle state icon color."));
+
 //  < --- Positron Data Grid --- >
 
 // Positron data grid background color.

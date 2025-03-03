@@ -47,7 +47,6 @@ export namespace Commands {
     export const Create_Environment_Check = 'python.createEnvironmentCheck';
     export const Create_Terminal = 'python.createTerminal';
     export const Debug_In_Terminal = 'python.debugInTerminal';
-    export const Enable_SourceMap_Support = 'python.enableSourceMapSupport';
     export const Exec_In_Terminal = 'python.execInTerminal';
     export const Exec_In_Terminal_Icon = 'python.execInTerminal-icon';
     export const Exec_In_Separate_Terminal = 'python.execInDedicatedTerminal';
@@ -82,14 +81,13 @@ export namespace Commands {
     export const Is_Conda_Installed = 'python.isCondaInstalled';
     export const Get_Conda_Python_Versions = 'python.getCondaPythonVersions';
     export const Is_Global_Python = 'python.isGlobalPython';
+    export const Show_Interpreter_Debug_Info = 'python.interpreters.debugInfo';
     // --- End Positron ---
     export const InstallJupyter = 'python.installJupyter';
     export const InstallPython = 'python.installPython';
     export const InstallPythonOnLinux = 'python.installPythonOnLinux';
     export const InstallPythonOnMac = 'python.installPythonOnMac';
-    export const LaunchTensorBoard = 'python.launchTensorBoard';
     export const PickLocalProcess = 'python.pickLocalProcess';
-    export const RefreshTensorBoard = 'python.refreshTensorBoard';
     export const ReportIssue = 'python.reportIssue';
     export const Set_Interpreter = 'python.setInterpreter';
     export const Set_ShebangInterpreter = 'python.setShebangInterpreter';
@@ -152,6 +150,8 @@ export const UseProposedApi = Symbol('USE_VSC_PROPOSED_API');
 // --- Start Positron ---
 export const IPYKERNEL_VERSION = '>=6.19.1';
 export const MINIMUM_PYTHON_VERSION = { major: 3, minor: 8, patch: 0, raw: '3.8.0' } as PythonVersion;
+export const INTERPRETERS_INCLUDE_SETTING_KEY = 'interpreters.include';
+export const INTERPRETERS_EXCLUDE_SETTING_KEY = 'interpreters.exclude';
 // --- End Positron
 
 export * from '../constants';

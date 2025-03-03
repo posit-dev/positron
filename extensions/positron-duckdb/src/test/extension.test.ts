@@ -16,6 +16,7 @@ import {
 	DataExplorerBackendRequest,
 	DataExplorerResponse,
 	DataExplorerRpc,
+	ExportFormat,
 	FilterComparisonOp,
 	FormatOptions,
 	GetDataValuesParams,
@@ -24,13 +25,16 @@ import {
 	RowFilterCondition,
 	RowFilterParams,
 	RowFilterType,
+	Selection,
 	SetRowFiltersParams,
 	SupportStatus,
 	TableData,
 	TableSchema,
+	TableSelection,
+	TableSelectionKind,
 	TextSearchType
 } from '../interfaces';
-import { randomUUID } from 'crypto';
+import { randomBytes, randomUUID } from 'crypto';
 
 const DEFAULT_FORMAT_OPTIONS: FormatOptions = {
 	large_num_digits: 2,
@@ -126,6 +130,13 @@ async function getSchema(tableName: string, formatOptions?: FormatOptions) {
 	}) as Promise<TableSchema>;
 }
 
+function generateRandomString(length: number) {
+	return randomBytes(length)
+		.toString('base64')
+		.replace(/[^a-zA-Z0-9]/g, '')
+		.slice(0, length);
+}
+
 async function getAllDataValues(tableName: string, formatOptions?: FormatOptions) {
 	const uri = `duckdb://${tableName}`;
 	const state = await getState(uri);
@@ -209,8 +220,12 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				},
 				set_sort_columns: { support_status: SupportStatus.Supported, },
 				export_data_selection: {
-					support_status: SupportStatus.Unsupported,
-					supported_formats: []
+					support_status: SupportStatus.Supported,
+					supported_formats: [
+						ExportFormat.Csv,
+						ExportFormat.Tsv,
+						ExportFormat.Html
+					]
 				}
 			}
 		} satisfies BackendState);
@@ -453,6 +468,205 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				}
 			);
 		}
+	});
+
+	test('export_data_selection works correctly', async () => {
+		const tableName = makeTempTableName();
+
+		const longString = generateRandomString(1000);
+
+		// Create a test table with mixed data types for comprehensive testing
+		await createTempTable(tableName, [
+			{
+				name: 'int_col',
+				type: 'INTEGER',
+				values: ['1', '2', '3', '4', 'NULL']
+			},
+			{
+				name: 'str_col',
+				type: 'VARCHAR',
+				values: ['\'a\'', '\'b\'', '\'c\'', 'NULL', '\'' + longString + '\'']
+			},
+			{
+				name: 'float_col',
+				type: 'DOUBLE',
+				values: ['1.1', '2.2', '3.3', 'NULL', '5.5E20']
+			},
+			{
+				name: 'date0',
+				type: 'DATE',
+				values: ['\'2023-10-20\'', '\'2024-01-01\'', 'NULL', '\'2024-01-02\'', 'NULL']
+			},
+			{
+				name: 'timestamp0',
+				type: 'TIMESTAMP',
+				values: ['\'2023-10-20 15:30:00\'', '\'2024-01-01 08:00:00\'', 'NULL',
+					'\'2024-01-02 12:00:00\'', 'NULL']
+			},
+			{
+				name: 'timestamptz0',
+				type: 'TIMESTAMP WITH TIME ZONE',
+				values: ['\'2023-10-20 15:30:00+00\'', '\'2024-01-01 08:00:00-05\'', 'NULL',
+					'\'2024-01-02 12:00:00+01\'', 'NULL']
+			},
+			{
+				name: 'time0',
+				type: 'TIME',
+				values: ['\'13:30:00\'', '\'07:12:34.567\'', 'NULL', '\'12:00:00\'', 'NULL']
+			}
+		]);
+
+		const uri = `duckdb://${tableName}`;
+
+		const testSelection = async (kind: TableSelectionKind, selection: Selection, expected: string,
+			format: ExportFormat = ExportFormat.Csv
+		) => {
+			const result = await dxExec({
+				method: DataExplorerBackendRequest.ExportDataSelection,
+				uri,
+				params: {
+					selection: {
+						kind,
+						selection
+					},
+					format
+				}
+			});
+			assert.strictEqual(result.data, expected);
+		};
+
+		const testSingleCell = async (row: number, col: number, expected: string) => {
+			await testSelection(TableSelectionKind.SingleCell,
+				{
+					row_index: row,
+					column_index: col
+				}, expected
+			);
+		};
+
+
+		const cellTestCases = [
+			// INTEGER
+			{ row: 0, col: 0, expected: '1' },
+			{ row: 1, col: 0, expected: '2' },
+			{ row: 4, col: 0, expected: 'NULL' },
+
+			// VARCHAR
+			{ row: 2, col: 1, expected: 'c' },
+			{ row: 3, col: 1, expected: 'NULL' },
+			{ row: 4, col: 1, expected: longString },
+
+			// DOUBLE
+			{ row: 3, col: 2, expected: 'NULL' },
+			{ row: 4, col: 2, expected: '5.5e+20' },
+
+			// Date type
+			{ row: 0, col: 3, expected: '2023-10-20' },
+			{ row: 1, col: 3, expected: '2024-01-01' },
+			{ row: 2, col: 3, expected: 'NULL' },
+
+			// Timestamp type
+			{ row: 0, col: 4, expected: '2023-10-20 15:30:00' },
+			{ row: 1, col: 4, expected: '2024-01-01 08:00:00' },
+			{ row: 2, col: 4, expected: 'NULL' },
+
+			// Timestamp with timezone type
+			{ row: 0, col: 5, expected: '2023-10-20 15:30:00+00' },
+			{ row: 1, col: 5, expected: '2024-01-01 13:00:00+00' },
+			{ row: 2, col: 5, expected: 'NULL' },
+
+			// Time type
+			{ row: 0, col: 6, expected: '13:30:00' },
+			{ row: 1, col: 6, expected: '07:12:34.567' },
+			{ row: 2, col: 6, expected: 'NULL' }
+		];
+
+		// Run all test cases
+		for (const { row, col, expected } of cellTestCases) {
+			await testSingleCell(row, col, expected);
+		}
+
+		const testCellRange = async (firstRow: number, lastRow: number, firstCol: number,
+			lastCol: number, expected: string) => {
+			await testSelection(TableSelectionKind.CellRange,
+				{
+					first_row_index: firstRow,
+					last_row_index: lastRow,
+					first_column_index: firstCol,
+					last_column_index: lastCol
+				},
+				expected
+			);
+		};
+
+		await testCellRange(0, 1, 0, 1, 'int_col,str_col\n1,a\n2,b');
+		await testCellRange(0, 2, 0, 2, 'int_col,str_col,float_col\n1,a,1.1\n2,b,2.2\n3,c,3.3');
+
+		// Test RowRange selection
+		const testRowRange = async (firstRow: number, lastRow: number, expected: string) => {
+			await testSelection(TableSelectionKind.RowRange,
+				{
+					first_index: firstRow,
+					last_index: lastRow
+				},
+				expected
+			);
+		};
+
+		await testRowRange(1, 2, `int_col,str_col,float_col,date0,timestamp0,timestamptz0,time0
+2,b,2.2,2024-01-01,2024-01-01 08:00:00,2024-01-01 13:00:00+00,07:12:34.567
+3,c,3.3,NULL,NULL,NULL,NULL`);
+
+		// Test ColumnRange selection
+		const testColRange = async (firstCol: number, lastCol: number, expected: string) => {
+			await testSelection(TableSelectionKind.ColumnRange,
+				{
+					first_index: firstCol,
+					last_index: lastCol
+				},
+				expected
+			);
+		};
+
+		await testColRange(0, 1, `int_col,str_col\n1,a\n2,b\n3,c\n4,NULL\nNULL,${longString}`);
+
+		// Test RowIndices selection
+		const testRowIndices = async (indices: number[], expected: string) => {
+			await testSelection(TableSelectionKind.RowIndices, { indices }, expected);
+		};
+		await testRowIndices([1, 3], `int_col,str_col,float_col,date0,timestamp0,timestamptz0,time0
+2,b,2.2,2024-01-01,2024-01-01 08:00:00,2024-01-01 13:00:00+00,07:12:34.567
+4,NULL,NULL,2024-01-02,2024-01-02 12:00:00,2024-01-02 11:00:00+00,12:00:00`);
+
+		// Test ColumnIndices selection
+		const testColumnIndices = async (indices: number[], expected: string) => {
+			await testSelection(TableSelectionKind.ColumnIndices, { indices }, expected);
+		};
+		await testColumnIndices([0, 2], 'int_col,float_col\n1,1.1\n2,2.2\n3,3.3\n4,NULL\nNULL,5.5e+20');
+
+		// Test TSV format
+		await testSelection(TableSelectionKind.CellRange,
+			{
+				first_row_index: 0,
+				last_row_index: 1,
+				first_column_index: 0,
+				last_column_index: 1
+			},
+			'int_col\tstr_col\n1\ta\n2\tb',
+			ExportFormat.Tsv
+		)
+
+		// Test HTML format
+		await testSelection(TableSelectionKind.CellRange,
+			{
+				first_row_index: 0,
+				last_row_index: 1,
+				first_column_index: 0,
+				last_column_index: 1
+			},
+			'<tr><td>int_col</td><td>str_col</td></tr>\n<tr><td>1</td><td>a</td></tr>\n<tr><td>2</td><td>b</td></tr>',
+			ExportFormat.Html
+		);
 	});
 
 	test('set_row_filters works correctly', async () => {

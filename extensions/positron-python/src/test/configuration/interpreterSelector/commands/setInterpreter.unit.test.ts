@@ -1,6 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+// --- Start Positron ---
+/* eslint-disable import/no-duplicates */
+/* eslint-disable import/order */
+// --- End Positron ---
+
 import * as assert from 'assert';
 import { expect } from 'chai';
 import * as path from 'path';
@@ -48,9 +53,12 @@ import { IInterpreterService, PythonEnvironmentsChangedEvent } from '../../../..
 import { createDeferred, sleep } from '../../../../client/common/utils/async';
 import { SystemVariables } from '../../../../client/common/variables/systemVariables';
 import { untildify } from '../../../../client/common/helpers';
+import * as extapi from '../../../../client/envExt/api.internal';
 // --- Start Positron ---
 import * as windowApis from '../../../../client/common/vscodeApis/windowApis';
+import * as workspaceApis from '../../../../client/common/vscodeApis/workspaceApis';
 import { IPythonRuntimeManager } from '../../../../client/positron/manager';
+import { WorkspaceConfiguration } from 'vscode';
 // --- End Positron ---
 
 type TelemetryEventType = { eventName: EventName; properties: unknown };
@@ -67,14 +75,20 @@ suite('Set Interpreter Command', () => {
     let multiStepInputFactory: TypeMoq.IMock<IMultiStepInputFactory>;
     // --- Start Positron ---
     let pythonRuntimeManager: TypeMoq.IMock<IPythonRuntimeManager>;
+    let workspaceConfig: TypeMoq.IMock<WorkspaceConfiguration>;
+    let getConfigurationStub: sinon.SinonStub;
     // --- End Positron ---
     let interpreterService: IInterpreterService;
+    let useEnvExtensionStub: sinon.SinonStub;
     const folder1 = { name: 'one', uri: Uri.parse('one'), index: 1 };
     const folder2 = { name: 'two', uri: Uri.parse('two'), index: 2 };
 
     let setInterpreterCommand: SetInterpreterCommand;
 
     setup(() => {
+        useEnvExtensionStub = sinon.stub(extapi, 'useEnvExtension');
+        useEnvExtensionStub.returns(false);
+
         interpreterSelector = TypeMoq.Mock.ofType<IInterpreterSelector>();
         multiStepInputFactory = TypeMoq.Mock.ofType<IMultiStepInputFactory>();
         platformService = TypeMoq.Mock.ofType<IPlatformService>();
@@ -88,6 +102,15 @@ suite('Set Interpreter Command', () => {
         pythonRuntimeManager
             .setup((p) => p.selectLanguageRuntimeFromPath(TypeMoq.It.isAny()))
             .returns(() => Promise.resolve());
+        workspaceConfig = TypeMoq.Mock.ofType<WorkspaceConfiguration>();
+
+        getConfigurationStub = sinon.stub(workspaceApis, 'getConfiguration');
+        getConfigurationStub.callsFake((section?: string) => {
+            if (section === 'python') {
+                return workspaceConfig.object;
+            }
+            return undefined;
+        });
         // --- End Positron ---
 
         workspace = TypeMoq.Mock.ofType<IWorkspaceService>();

@@ -88,6 +88,11 @@
         "shortTitle": "%r.menu.packageTest.title%"
       },
       {
+        "command": "r.packageTestExplorer",
+        "category": "R",
+        "title": "%r.command.packageTestExplorer.title%"
+      },
+      {
         "command": "r.useTestthat",
         "category": "R",
         "title": "%r.command.useTestthat.title%"
@@ -202,6 +207,15 @@
             },
             "default": [],
             "markdownDescription": "%r.configuration.customBinaries.markdownDescription%"
+          },
+          "positron.r.interpreters.exclude": {
+            "scope": "window",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "markdownDescription": "%r.configuration.interpreters.exclude.markdownDescription%"
           },
           "positron.r.kernel.path": {
             "scope": "window",
@@ -415,7 +429,7 @@
         "when": "isRPackage"
       },
       {
-        "command": "r.packageTest",
+        "command": "r.packageTestExplorer",
         "key": "ctrl+shift+t",
         "mac": "cmd+shift+t",
         "when": "isRPackage"
@@ -518,6 +532,11 @@
         {
           "category": "R",
           "command": "r.packageTest",
+          "when": "isRPackage"
+        },
+        {
+          "category": "R",
+          "command": "r.packageTestExplorer",
           "when": "isRPackage"
         },
         {
@@ -683,7 +702,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.164"
+      "ark": "0.1.170"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

@@ -17,6 +17,14 @@ import { PositronModalReactRenderer } from '../../../positronModalReactRenderer/
 import { usePositronTopActionBarContext } from '../positronTopActionBarContext.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { InterpretersManagerModalPopup } from '../interpretersManagerModalPopup/interpretersManagerModalPopup.js';
+import { multipleConsoleSessionsFeatureEnabled, USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY } from '../../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
+import { ActionBarCommandButton } from '../../../../../platform/positronActionBar/browser/components/actionBarCommandButton.js';
+import { CommandCenter } from '../../../../../platform/commandCenter/common/commandCenter.js';
+import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { localize } from '../../../../../nls.js';
+
+const startInterpreter = localize('positron.startInterpreter', "Start Interpreter");
+const startSession = localize('positron.console.startSession', "Start Session");
 
 /**
  * TopActionBarInterpretersManagerProps interface.
@@ -30,7 +38,7 @@ interface TopActionBarInterpretersManagerProps {
  * TopActionBarInterpretersManager component.
  * @returns The rendered component.
  */
-export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersManagerProps) => {
+export const TopActionBarInterpretersManager_Legacy = (props: TopActionBarInterpretersManagerProps) => {
 	// Context hooks.
 	const context = usePositronTopActionBarContext();
 
@@ -40,6 +48,8 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 	// State hooks.
 	const [activeSession, setActiveSession] =
 		useState(context.runtimeSessionService.foregroundSession);
+
+	const label = !activeSession ? startInterpreter : activeSession.metadata.sessionName;
 
 	/**
 	 * Shows the interpreters manager modal popup.
@@ -75,6 +85,8 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 				if (session?.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 					setActiveSession(
 						context.runtimeSessionService.foregroundSession);
+				} else if (!session) {
+					setActiveSession(undefined);
 				}
 			})
 		);
@@ -112,8 +124,6 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 		showPopup();
 	};
 
-	const label = !activeSession ? 'Start Interpreter' : activeSession.metadata.sessionName;
-
 	// Render.
 	return (
 		<div
@@ -140,3 +150,77 @@ export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersM
 		</div>
 	);
 };
+
+export const TopActionBarInterpretersManager_New = (props: TopActionBarInterpretersManagerProps) => {
+	const context = usePositronTopActionBarContext();
+
+	const [activeSession, setActiveSession] = useState<ILanguageRuntimeSession>();
+
+	const labelText = activeSession?.runtimeMetadata?.runtimeName ?? startSession;
+
+	// Main useEffect.
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Add the onDidChangeForegroundSession event handler.
+		disposableStore.add(
+			context.runtimeSessionService.onDidChangeForegroundSession(session => {
+				if (session?.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+					setActiveSession(
+						context.runtimeSessionService.foregroundSession);
+				} else if (!session) {
+					setActiveSession(undefined);
+				}
+			})
+		);
+
+		// Return the cleanup function that will dispose of the disposables.
+		return () => disposableStore.dispose();
+	}, [context.runtimeSessionService]);
+
+	return (
+		<ActionBarCommandButton
+			ariaLabel={CommandCenter.title('workbench.action.language.runtime.openActivePicker')}
+			border={true}
+			commandId={'workbench.action.language.runtime.openActivePicker'}
+			text={labelText}
+			{
+			...(
+				activeSession
+					? { iconImageSrc: `data:image/svg+xml;base64,${activeSession?.runtimeMetadata.base64EncodedIconSvg}` }
+					: { iconId: 'arrow-swap' }
+			)
+			}
+		/>
+	);
+}
+
+export const TopActionBarInterpretersManager = (props: TopActionBarInterpretersManagerProps) => {
+	const context = usePositronTopActionBarContext();
+
+	const [newInterpretersManager, setNewInterpretersManager] = useState(
+		multipleConsoleSessionsFeatureEnabled(context.configurationService)
+	);
+
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+		disposableStore.add(
+			context.configurationService.onDidChangeConfiguration((e) => {
+				if (e.affectedKeys.has(USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY)) {
+					setNewInterpretersManager(
+						multipleConsoleSessionsFeatureEnabled(context.configurationService)
+					);
+				}
+			})
+		);
+
+		return () => disposableStore.dispose();
+	}, [context.configurationService]);
+
+	return (
+		newInterpretersManager
+			? <TopActionBarInterpretersManager_New {...props} />
+			: <TopActionBarInterpretersManager_Legacy {...props} />
+	);
+}

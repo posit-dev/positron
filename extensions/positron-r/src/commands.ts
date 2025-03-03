@@ -1,11 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { PromiseHandles, timeout } from './util';
+import { PromiseHandles } from './util';
 import { checkInstalled } from './session';
 import { getRPackageName } from './contexts';
 import { getRPackageTasks } from './tasks';
@@ -14,6 +14,8 @@ import { RSessionManager } from './session-manager';
 import { quickPickRuntime } from './runtime-quickpick';
 import { MINIMUM_RENV_VERSION, MINIMUM_R_VERSION } from './constants';
 import { RRuntimeManager } from './runtime-manager';
+import { RMetadataExtra } from './r-installation';
+import { onDidDiscoverTestFiles } from './testing/testing';
 
 export async function registerCommands(context: vscode.ExtensionContext, runtimeManager: RRuntimeManager) {
 
@@ -125,6 +127,19 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			}
 		}),
 
+		vscode.commands.registerCommand('r.packageTestExplorer', async () => {
+			vscode.commands.executeCommand('workbench.view.testing.focus');
+
+			if (context.workspaceState.get('positron.r.testExplorerSetUp') === true) {
+				vscode.commands.executeCommand('testing.runAll');
+			} else {
+				// if this is first time opening the test explorer, wait for tests to be discovered
+				onDidDiscoverTestFiles(() => {
+					vscode.commands.executeCommand('testing.runAll');
+				});
+			}
+		}),
+
 		vscode.commands.registerCommand('r.useTestthat', async () => {
 			executeCodeForCommand('usethis', 'usethis::use_testthat()');
 		}),
@@ -148,6 +163,18 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 
 		vscode.commands.registerCommand('r.selectInterpreter', async () => {
 			await quickPickRuntime(runtimeManager);
+		}),
+
+		vscode.commands.registerCommand('r.scriptPath', async () => {
+			const session = RSessionManager.instance.getConsoleSession();
+			if (!session) {
+				throw new Error(`Cannot get Rscript path; no R session available`);
+			}
+			const scriptPath = (session.runtimeMetadata.extraRuntimeData as RMetadataExtra).scriptpath;
+			if (!scriptPath) {
+				throw new Error(`Cannot get Rscript path; no Rscript path available`);
+			}
+			return scriptPath;
 		}),
 
 		// Commands used to source the current file

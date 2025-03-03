@@ -110,7 +110,7 @@ export class ActivityItemStream {
 		this.processActivityItemStreams();
 
 		// Update the terminated flag.
-		this.terminated = this.ansiOutput.isBuffering;
+		this.terminated = !this.ansiOutput.isBuffering;
 
 		// If there is no remainder text, return undefined, indicating that there is no remainder
 		// ActivityItemStream to be processed.

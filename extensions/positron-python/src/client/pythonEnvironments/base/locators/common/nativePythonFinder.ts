@@ -1,13 +1,17 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+// --- Start Positron ---
+/* eslint-disable import/no-duplicates */
+// --- End Positron ---
+
 import { Disposable, EventEmitter, Event, Uri } from 'vscode';
 import * as ch from 'child_process';
 import * as path from 'path';
 import * as rpc from 'vscode-jsonrpc/node';
 import { PassThrough } from 'stream';
 import * as fs from '../../../../common/platform/fs-paths';
-import { isWindows } from '../../../../common/platform/platformService';
+import { isWindows, getUserHomeDir } from '../../../../common/utils/platform';
 import { EXTENSION_ROOT_DIR } from '../../../../constants';
 import { createDeferred, createDeferredFrom } from '../../../../common/utils/async';
 import { DisposableBase, DisposableStore } from '../../../../common/utils/resourceLifecycle';
@@ -15,7 +19,6 @@ import { noop } from '../../../../common/utils/misc';
 import { getConfiguration, getWorkspaceFolderPaths, isTrusted } from '../../../../common/vscodeApis/workspaceApis';
 import { CONDAPATH_SETTING_KEY } from '../../../common/environmentManagers/conda';
 import { VENVFOLDERS_SETTING_KEY, VENVPATH_SETTING_KEY } from '../lowLevel/customVirtualEnvLocator';
-import { getUserHomeDir } from '../../../../common/utils/platform';
 import { createLogOutputChannel } from '../../../../common/vscodeApis/windowApis';
 import { sendNativeTelemetry, NativePythonTelemetry } from './nativePythonTelemetry';
 import { NativePythonEnvironmentKind } from './nativePythonUtils';
@@ -23,6 +26,11 @@ import type { IExtensionContext } from '../../../../common/types';
 import { StopWatch } from '../../../../common/utils/stopWatch';
 import { untildify } from '../../../../common/helpers';
 import { traceError } from '../../../../logging';
+
+// --- Start Positron ---
+import { getIncludedInterpreters } from '../../../../positron/interpreterSettings';
+import { traceVerbose } from '../../../../logging';
+// --- End Positron ---
 
 const PYTHON_ENV_TOOLS_PATH = isWindows()
     ? // --- Start Positron ---
@@ -457,14 +465,26 @@ function getEnvironmentDirs(): string[] {
  */
 function getAdditionalEnvDirs(): string[] {
     const additionalDirs: string[] = [];
+
+    // Add additional dirs to search for Python environments on non-Windows platforms.
     if (!isWindows()) {
         // /opt/python is a recommended Python installation location on Posit Workbench.
         // see: https://docs.posit.co/ide/server-pro/python/installing_python.html
         additionalDirs.push('/opt/python');
     }
-    // TODO: add user-specified additional directories to include in discovery
-    // see: https://github.com/posit-dev/positron/issues/3574
-    return additionalDirs;
+
+    // Add user-specified Python search directories.
+    const userIncludedDirs = getIncludedInterpreters();
+    additionalDirs.push(...userIncludedDirs);
+
+    // Return the list of additional directories.
+    const uniqueDirs = Array.from(new Set(additionalDirs));
+    traceVerbose(
+        `[getAdditionalEnvDirs] Found ${
+            uniqueDirs.length
+        } additional directories to search for Python environments: ${uniqueDirs.map((dir) => `"${dir}"`).join(', ')}`,
+    );
+    return uniqueDirs;
 }
 // --- End Positron ---
 
@@ -500,6 +520,9 @@ export function getNativePythonFinder(context?: IExtensionContext): NativePython
     if (!_finder) {
         const cacheDirectory = context ? getCacheDirectory(context) : undefined;
         _finder = new NativePythonFinderImpl(cacheDirectory);
+        if (context) {
+            context.subscriptions.push(_finder);
+        }
     }
     return _finder;
 }

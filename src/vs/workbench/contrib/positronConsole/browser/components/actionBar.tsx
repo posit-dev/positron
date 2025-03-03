@@ -7,7 +7,7 @@
 import './actionBar.css';
 
 // React.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -20,13 +20,14 @@ import { ActionBarRegion } from '../../../../../platform/positronActionBar/brows
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
-import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { PositronActionBarContextProvider, usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, RuntimeStartMode } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ConsoleInstanceMenuButton } from './consoleInstanceMenuButton.js';
 import { multipleConsoleSessionsFeatureEnabled } from '../../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
 import { ConsoleInstanceInfoButton } from './consoleInstanceInfoButton.js';
+import { CreateConsoleInstanceButton } from './createConsoleInstanceButton.js';
 
 /**
  * Constants.
@@ -60,6 +61,7 @@ const positronClearConsole = localize('positronClearConsole', "Clear console");
 const positronRestartConsole = localize('positronRestartConsole', "Restart console");
 const positronShutdownConsole = localize('positronShutdownConsole', "Shutdown console");
 const positronStartConsole = localize('positronStartConsole', "Start console");
+const positronCurrentWorkingDirectory = localize('positronCurrentWorkingDirectory', "Current Working Directory");
 
 /**
  * Provides a localized label for the given runtime state. Only the transient
@@ -317,7 +319,66 @@ export const ActionBar = (props: ActionBarProps) => {
 
 	// Restart console event handler.
 	const restartConsoleHandler = async () => {
-		positronConsoleContext.activePositronConsoleInstance?.session.restart();
+		if (!positronConsoleContext.activePositronConsoleInstance) {
+			return;
+		}
+		positronConsoleContext.runtimeSessionService.restartSession(
+			activePositronConsoleInstance!.session.sessionId,
+			'User-requested restart from console action bar');
+	};
+
+	/**
+	 * CurrentWorkingDirectoryProps interface.
+	 */
+	interface CurrentWorkingDirectoryProps {
+		readonly directoryLabel: string;
+	}
+
+	/**
+	 * The current working directory component.
+	 * @returns The rendered component.
+	 */
+	const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => {
+		// Context hooks.
+		const context = usePositronActionBarContext();
+
+		// Reference hooks.
+		const ref = useRef<HTMLDivElement>(undefined!);
+
+		// State hooks.
+		const [mouseInside, setMouseInside] = useState(false);
+
+		// Hover useEffect.
+		useEffect(() => {
+			// If the mouse is inside, show the hover. This has the effect of showing the hover when
+			// mouseInside is set to true and updating the hover when the tooltip changes.
+			if (mouseInside) {
+				context.hoverManager.showHover(ref.current, props.directoryLabel);
+			}
+		}, [context.hoverManager, mouseInside, props.directoryLabel]);
+
+		// Render.
+		return (
+			<div
+				ref={ref}
+				aria-label={positronCurrentWorkingDirectory}
+				className='directory-label'
+				onMouseEnter={() => {
+					// Set the mouse inside state.
+					setMouseInside(true);
+				}}
+				onMouseLeave={() => {
+					// Clear the mouse inside state.
+					setMouseInside(false);
+
+					// Hide the hover.
+					context.hoverManager?.hideHover();
+				}}
+			>
+				<span className='codicon codicon-folder' role='presentation'></span>
+				<span className='label'>{!context.conserveSpace ? directoryLabel : '...'}</span>
+			</div>
+		);
 	};
 
 	// Render.
@@ -332,19 +393,13 @@ export const ActionBar = (props: ActionBarProps) => {
 					size='small'
 				>
 					<ActionBarRegion location='left'>
-						<ConsoleInstanceMenuButton {...props} />
-						<div className='action-bar-separator' />
-						{directoryLabel &&
-							<div aria-label={(() => localize(
-								'directoryLabel',
-								"Current Working Directory"
-							))()}
-								className='directory-label'
-							>
-								<span className='codicon codicon-folder' role='presentation'></span>
-								<span className='label' title={directoryLabel}>{directoryLabel}</span>
-							</div>
+						{!multiSessionsEnabled &&
+							<>
+								<ConsoleInstanceMenuButton {...props} />
+								<ActionBarSeparator />
+							</>
 						}
+						<CurrentWorkingDirectory directoryLabel={directoryLabel} />
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<div className='state-label'>{stateLabel}</div>
@@ -369,14 +424,16 @@ export const ActionBar = (props: ActionBarProps) => {
 						{interruptible &&
 							<ActionBarSeparator fadeIn={true} />
 						}
-						<ActionBarButton
-							align='right'
-							ariaLabel={canStart ? positronStartConsole : positronShutdownConsole}
-							disabled={!(canShutdown || canStart)}
-							iconId='positron-power-button-thin'
-							tooltip={canStart ? positronStartConsole : positronShutdownConsole}
-							onPressed={powerCycleConsoleHandler}
-						/>
+						{!multiSessionsEnabled &&
+							<ActionBarButton
+								align='right'
+								ariaLabel={canStart ? positronStartConsole : positronShutdownConsole}
+								disabled={!(canShutdown || canStart)}
+								iconId='positron-power-button-thin'
+								tooltip={canStart ? positronStartConsole : positronShutdownConsole}
+								onPressed={powerCycleConsoleHandler}
+							/>
+						}
 						<ActionBarButton
 							align='right'
 							ariaLabel={positronRestartConsole}
@@ -385,7 +442,13 @@ export const ActionBar = (props: ActionBarProps) => {
 							tooltip={positronRestartConsole}
 							onPressed={restartConsoleHandler}
 						/>
-						{multiSessionsEnabled && <ConsoleInstanceInfoButton />}
+						{multiSessionsEnabled &&
+							<>
+								<ConsoleInstanceInfoButton />
+								<CreateConsoleInstanceButton />
+							</>
+
+						}
 						<ActionBarSeparator />
 						{showDeveloperUI &&
 							<ActionBarButton

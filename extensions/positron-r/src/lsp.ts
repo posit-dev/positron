@@ -300,4 +300,12 @@ export class ArkLsp implements vscode.Disposable {
 		this.activationDisposables.forEach(d => d.dispose());
 		await this.deactivate(false);
 	}
+
+	public showOutput() {
+		const outputChannel = RLspOutputChannelManager.instance.getOutputChannel(
+			this._metadata.sessionName,
+			this._metadata.sessionMode
+		);
+		outputChannel.show();
+	}
 }

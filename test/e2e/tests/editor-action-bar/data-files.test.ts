@@ -41,9 +41,8 @@ test.describe('Editor Action Bar: Data Files', {
 	tag: [tags.WEB, tags.WIN, tags.EDITOR_ACTION_BAR, tags.DATA_EXPLORER]
 }, () => {
 
-	test.beforeAll(async function ({ app, userSettings }) {
+	test.beforeAll(async function ({ app }) {
 		editorActionBar = app.workbench.editorActionBar;
-		await userSettings.set([['editor.actionBar.enabled', 'true']], false);
 	});
 
 	test.afterEach(async function ({ runCommand }) {

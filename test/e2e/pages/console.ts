@@ -3,12 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
-import { InterpreterType } from '../infra';
+import { InterpreterType } from '../infra/fixtures/interpreter';
 
 const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
@@ -31,6 +30,7 @@ export class Console {
 	consoleRestartButton: Locator;
 	activeConsole: Locator;
 	suggestionList: Locator;
+	private consoleTab: Locator;
 
 	get emptyConsole() {
 		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
@@ -43,6 +43,7 @@ export class Console {
 		this.consoleRestartButton = this.code.driver.page.locator(CONSOLE_RESTART_BUTTON);
 		this.activeConsole = this.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE);
 		this.suggestionList = this.code.driver.page.locator(SUGGESTION_LIST);
+		this.consoleTab = this.code.driver.page.getByRole('tab', { name: 'Console', exact: true });
 	}
 
 	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string, waitForReady: boolean = true): Promise<undefined> {
@@ -68,6 +69,9 @@ export class Console {
 		// may include additional items above the desired interpreter string.
 		await this.quickinput.selectQuickInputElementContaining(desiredInterpreterString);
 		await this.quickinput.waitForQuickInputClosed();
+
+		// Move mouse to prevent tooltip hover
+		await this.code.driver.page.mouse.move(0, 0);
 
 		if (waitForReady) {
 			desiredInterpreterType === InterpreterType.Python
@@ -107,20 +111,24 @@ export class Console {
 	}
 
 	async logConsoleContents() {
-		this.code.logger.log('---- START: Console Contents ----');
-		const contents = await this.code.driver.page.locator(CONSOLE_LINES).allTextContents();
-		contents.forEach(line => this.code.logger.log(line));
-		this.code.logger.log('---- END: Console Contents ----');
+		await test.step('Log console contents', async () => {
+			this.code.logger.log('---- START: Console Contents ----');
+			const contents = await this.code.driver.page.locator(CONSOLE_LINES).allTextContents();
+			contents.forEach(line => this.code.logger.log(line));
+			this.code.logger.log('---- END: Console Contents ----');
+		});
 	}
 
-	async typeToConsole(text: string, delay = 30, pressEnter = false) {
-		await this.code.driver.page.waitForTimeout(500);
-		await this.activeConsole.click();
-		await this.code.driver.page.keyboard.type(text, { delay });
+	async typeToConsole(text: string, pressEnter = false, delay = 10) {
+		await test.step(`Type to console: ${text}`, async () => {
+			await this.code.driver.page.waitForTimeout(500);
+			await this.activeConsole.click();
+			await this.code.driver.page.keyboard.type(text, { delay });
 
-		if (pressEnter) {
-			await this.code.driver.page.keyboard.press('Enter');
-		}
+			if (pressEnter) {
+				await this.code.driver.page.keyboard.press('Enter');
+			}
+		});
 	}
 
 	async sendEnterKey() {
@@ -134,13 +142,22 @@ export class Console {
 	}
 
 	async waitForReadyAndStarted(prompt: string, timeout = 30000): Promise<void> {
-		await this.waitForReady(prompt, timeout);
-		await this.waitForConsoleContents('started', { timeout });
+		await test.step('Wait for console to be ready and started', async () => {
+			await this.waitForReady(prompt, timeout);
+			await this.waitForConsoleContents('started', { timeout });
+		});
 	}
 
 	async waitForReadyAndRestarted(prompt: string, timeout = 30000): Promise<void> {
-		await this.waitForReady(prompt, timeout);
-		await this.waitForConsoleContents('restarted', { timeout });
+		await test.step('Wait for console to be ready and restarted', async () => {
+			await this.waitForReady(prompt, timeout);
+			await this.waitForConsoleContents('restarted', { timeout });
+		});
+	}
+
+	async waitForInterpretersToFinishLoading() {
+		// ensure interpreter(s) containing starting/discovering do not exist in DOM
+		await expect(this.code.driver.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 80000 });
 	}
 
 	/**
@@ -150,11 +167,13 @@ export class Console {
 	async waitForReadyOrNoInterpreter() {
 		const page = this.code.driver.page;
 
-		// ensure interpreter(s) containing starting/discovering do not exist in DOM
-		await expect(page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 50000 });
+		await this.waitForInterpretersToFinishLoading();
 
 		// ensure we are on Console tab
 		await page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
+
+		// Move mouse to prevent tooltip hover
+		await this.code.driver.page.mouse.move(0, 0);
 
 		// wait for the dropdown to contain R, Python, or No Interpreter.
 		const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
@@ -256,10 +275,20 @@ export class Console {
 	}
 
 	async clickConsoleTab() {
-		await this.code.driver.page.locator('.basepanel').getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
+		// sometimes the click doesn't work (or happens too fast), so adding a retry
+		await expect(async () => {
+			const consoleInput = this.code.driver.page.locator('div.console-input').first();
+
+			if (!await consoleInput.isVisible()) {
+				await this.consoleTab.click();
+			}
+
+			expect(await consoleInput.count()).toBeGreaterThan(0);
+		}).toPass({ timeout: 10000 });
 	}
 
 	async interruptExecution() {
 		await this.code.driver.page.getByLabel('Interrupt execution').click();
 	}
 }
+

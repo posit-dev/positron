@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession } from './positron-supervisor';
-import { ActiveSession, ConnectionInfo, DefaultApi, HttpError, InterruptMode, NewSession, Status } from './kcclient/api';
+import { ActiveSession, ConnectionInfo, DefaultApi, HttpError, InterruptMode, NewSession, RestartSession, Status } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoReply, KernelInfoRequest } from './jupyter/KernelInfoRequest';
@@ -375,8 +375,31 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
 	 * Reveals the output channel for this kernel.
 	 */
-	showOutput(): void {
-		this._kernelChannel?.show();
+	showOutput(channel?: positron.LanguageRuntimeSessionChannel): void {
+		switch (channel) {
+			case positron.LanguageRuntimeSessionChannel.Kernel:
+				this._kernelChannel?.show();
+				break;
+			case positron.LanguageRuntimeSessionChannel.Console:
+				this._consoleChannel.show();
+				break;
+			case undefined:
+				this._kernelChannel.show();
+				break;
+			default:
+				throw new Error(`Unknown output channel ${channel}`);
+		}
+	}
+
+
+	/**
+	 * Get a list of output channels
+	 * @returns A list of output channels available on this runtime
+	 */
+	listOutputChannels(): positron.LanguageRuntimeSessionChannel[] {
+		// We always have a console channel and a kernel channel
+		const channels = [positron.LanguageRuntimeSessionChannel.Console, positron.LanguageRuntimeSessionChannel.Kernel];
+		return channels;
 	}
 
 	/**
@@ -632,8 +655,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	removeClient(id: string): void {
-		const commOpen = new CommCloseCommand(id);
-		this.sendCommand(commOpen);
+		// Ignore this if the session is already exited; an exited session has
+		// no clients
+		if (this._runtimeState === positron.RuntimeState.Exited) {
+			this.log(`Ignoring request to close comm ${id}; kernel has already exited`, vscode.LogLevel.Debug);
+			return;
+		}
+		const commClose = new CommCloseCommand(id);
+		this.sendCommand(commClose);
 	}
 
 	/**
@@ -1092,7 +1121,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * stopping the process and starting a new one; we just need to listen for
 	 * the events and update our state.
 	 */
-	async restart(): Promise<void> {
+	async restart(workingDirectory?: string): Promise<void> {
 		// Remember that we're restarting so that when the exit event arrives,
 		// we can label it as such
 		this._exitReason = positron.RuntimeExitReason.Restart;
@@ -1100,8 +1129,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Perform the restart
 		this._restarting = true;
 		try {
-			// Perform the restart on the server
-			await this._api.restartSession(this.metadata.sessionId);
+			// Perform the restart on the server, supplying the working
+			// directory if known
+			if (workingDirectory) {
+				const restart: RestartSession = {
+					workingDirectory
+				};
+				await this._api.restartSession(this.metadata.sessionId, restart);
+			} else {
+				await this._api.restartSession(this.metadata.sessionId);
+			}
 
 			// Mark ready after a successful restart
 			this.markReady('restart complete');

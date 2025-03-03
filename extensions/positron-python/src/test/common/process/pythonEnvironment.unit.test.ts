@@ -53,6 +53,9 @@ suite('PythonEnvironment', () => {
             version: new SemVer('3.7.5-candidate1'),
             sysPrefix: json.sysPrefix,
             sysVersion: undefined,
+            // --- Start Positron ---
+            implementation: undefined,
+            // --- End Positron ---
         };
 
         expect(result).to.deep.equal(expectedResult, 'Incorrect value returned by getInterpreterInformation().');
@@ -82,6 +85,9 @@ suite('PythonEnvironment', () => {
             version: new SemVer('3.7.5-alpha'),
             sysPrefix: json.sysPrefix,
             sysVersion: undefined,
+            // --- Start Positron ---
+            implementation: undefined,
+            // --- End Positron ---
         };
 
         expect(result).to.deep.equal(
@@ -114,6 +120,9 @@ suite('PythonEnvironment', () => {
             version: new SemVer('3.7.5'),
             sysPrefix: json.sysPrefix,
             sysVersion: undefined,
+            // --- Start Positron ---
+            implementation: undefined,
+            // --- End Positron ---
         };
 
         expect(result).to.deep.equal(
@@ -146,6 +155,9 @@ suite('PythonEnvironment', () => {
             version: new SemVer('3.7.5-candidate'),
             sysPrefix: json.sysPrefix,
             sysVersion: undefined,
+            // --- Start Positron ---
+            implementation: undefined,
+            // --- End Positron ---
         };
 
         expect(result).to.deep.equal(

@@ -44,6 +44,9 @@ function extractInterpreterInfo(python: string, raw: InterpreterInfoJson): Inter
         version: new SemVer(rawVersion),
         sysVersion: raw.sysVersion,
         sysPrefix: raw.sysPrefix,
+        // --- Start Positron ---
+        implementation: raw.implementation,
+        // --- End Positron ---
     };
 }
 

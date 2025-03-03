@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -559,6 +559,11 @@ export interface ColumnSummaryStats {
 	 */
 	datetime_stats?: SummaryStatsDatetime;
 
+	/**
+	 * Summary statistics for any other data types
+	 */
+	other_stats?: SummaryStatsOther;
+
 }
 
 /**
@@ -605,6 +610,17 @@ export interface SummaryStatsBoolean {
 	 * The number of non-null false values
 	 */
 	false_count: number;
+
+}
+
+/**
+ * SummaryStatsOther in Schemas
+ */
+export interface SummaryStatsOther {
+	/**
+	 * The number of unique values
+	 */
+	num_unique?: number;
 
 }
 
