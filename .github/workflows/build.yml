@@ -37,4 +37,6 @@ jobs:
           path: |
             ../p64/*.exe
             ../VSCode-win32-x64/*.exe
+            ../VSCode-win32-x64-system-setup/*.exe
             .build/win32-x64/*.exe
+            .build/win32-x64-system-setup/*.exe
