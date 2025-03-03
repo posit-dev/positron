@@ -129,7 +129,7 @@ export async function showModelList(context: vscode.ExtensionContext, storage: S
 	];
 
 	vscode.window.showQuickPick(items, {
-		placeHolder: vscode.l10n.t('Select a language model configuration to remove'),
+		placeHolder: vscode.l10n.t('Remove a language model configuration'),
 		canPickMany: false,
 
 	}).then(async (selected) => {
