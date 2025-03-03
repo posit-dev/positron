@@ -80,6 +80,15 @@
 	border-radius: 5px;
 }
 
+.tabs-container .tab-button .delete-button:focus {
+	outline: none;
+}
+
+.tabs-container .tab-button .delete-button:focus-visible {
+	border-radius: 3px;
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
 .tabs-container .tab-button:hover .delete-button {
 	display: unset;
 }
