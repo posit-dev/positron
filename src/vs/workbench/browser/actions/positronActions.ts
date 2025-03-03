@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from '../../../nls.js';
+import { localize, localize2 } from '../../../nls.js';
 import { ITelemetryData } from '../../../base/common/actions.js';
 import { IFileService } from '../../../platform/files/common/files.js';
 import { ServicesAccessor } from '../../../editor/browser/editorExtensions.js';
@@ -14,7 +14,7 @@ import { IPathService } from '../../services/path/common/pathService.js';
 import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
 import { workspacesCategory } from './workspaceActions.js';
 import { Action2, MenuId, registerAction2 } from '../../../platform/actions/common/actions.js';
-import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { ConfigurationTarget, IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { EnterMultiRootWorkspaceSupportContext } from '../../common/contextkeys.js';
 import { IWorkbenchLayoutService } from '../../services/layout/browser/layoutService.js';
 import { showNewFolderModalDialog } from '../positronModalDialogs/newFolderModalDialog.js';
@@ -28,6 +28,11 @@ import { IOpenerService } from '../../../platform/opener/common/opener.js';
 import { IPositronNewProjectService } from '../../services/positronNewProject/common/positronNewProject.js';
 import { IWorkspaceTrustManagementService } from '../../../platform/workspace/common/workspaceTrust.js';
 import { ILabelService } from '../../../platform/label/common/label.js';
+import { URI } from '../../../base/common/uri.js';
+import { IPreferencesService } from '../../services/preferences/common/preferences.js';
+import { INotificationService } from '../../../platform/notification/common/notification.js';
+import { IQuickInputService } from '../../../platform/quickinput/common/quickInput.js';
+// import { IEditorService } from '../../services/editor/common/editorService.js';
 
 /**
  * The PositronNewProjectAction.
@@ -229,8 +234,40 @@ export class PositronOpenFolderInNewWindowAction extends Action2 {
 	}
 }
 
+export class ImportSettingsAction extends Action2 {
+	constructor() {
+		super({
+			id: 'positron.workbench.action.importSettings',
+			title: localize2('positronImportSettings', "Import VSCode Settings"),
+			category: workspacesCategory,
+			f1: true
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const preferencesService = accessor.get(IPreferencesService);
+		const fileService = accessor.get(IFileService);
+		const notificationService = accessor.get(INotificationService);
+
+		const positronUri = await preferencesService.getEditableSettingsURI(ConfigurationTarget.USER);
+		if (!positronUri) {
+			notificationService.error('Unable to find Positron settings file');
+			return;
+		}
+
+		const codeUri = URI.parse('file:///Users/sclark/Library/Application Support/Code/User/settings.json');
+
+		if (!await fileService.exists(positronUri) || confirm(`This will overwrite existing Positron settings. Continue?`)) {
+			fileService.copy(codeUri, positronUri, true);
+		}
+		notificationService.info('Settings imported');
+	}
+
+}
+
 // Register the actions defined above.
 registerAction2(PositronNewProjectAction);
 registerAction2(PositronNewFolderAction);
 registerAction2(PositronNewFolderFromGitAction);
 registerAction2(PositronOpenFolderInNewWindowAction);
+registerAction2(ImportSettingsAction);
