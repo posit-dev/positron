@@ -373,7 +373,7 @@ class ColumnProfileEvaluator {
 			this.statsExprs.add(`MEDIAN("${fieldName}") AS "median_${fieldName}"`);
 		} else if (columnSchema.column_type.startsWith('DECIMAL')) {
 			this.addMinMaxStringified(fieldName);
-			this.statsExprs.add(`AVG("${fieldName}"::DOUBLE) AS "mean_${fieldName}"`);
+			this.statsExprs.add(`AVG("${fieldName}")::DOUBLE AS "mean_${fieldName}"`);
 			this.statsExprs.add(`STDDEV_SAMP("${fieldName}"::DOUBLE) AS "stdev_${fieldName}"`);
 			this.statsExprs.add(`MEDIAN("${fieldName}"::DOUBLE) AS "median_${fieldName}"`);
 		} else if (columnSchema.column_type === 'VARCHAR') {
@@ -1230,10 +1230,6 @@ END`;
 				format: params.format,
 			};
 		};
-
-		const formatColumnNames = (columns: Array<SchemaEntry>) => {
-			return columns.map(s => quoteIdentifier(s.column_name)).join(', ');
-		}
 
 		const getColumnSelectors = (columns: Array<SchemaEntry>) => {
 			const columnSelectors = [];
