@@ -40,7 +40,7 @@ export class Sessions {
 		this.quickPick = new SessionQuickPick(this.code, this);
 		this.startSessionButton = this.page.getByRole('button', { name: 'Open Active Session Picker' });
 		this.trashButton = (sessionId: string) => this.getSessionTab(sessionId).getByTestId('trash-session');
-		this.newConsoleButton = this.page.getByRole('button', { name: 'New Console', exact: true });
+		this.newConsoleButton = this.page.getByRole('button', { name: 'Open Start Session Picker', exact: true });
 		this.restartButton = this.page.getByLabel('Restart console', { exact: true });
 		this.shutDownButton = this.page.getByLabel('Shutdown console', { exact: true });
 		this.sessionTabs = this.page.getByTestId(/console-tab/);
@@ -289,7 +289,7 @@ export class Sessions {
 				await expect(this.page.getByRole('code').getByText('>')).toBeVisible({ timeout: 30000 });
 				return;
 			} else if (currentSession.includes('Start Session')) {
-				await expect(this.page.getByRole('button', { name: 'Start Session' })).toBeVisible();
+				await expect(this.page.getByRole('button', { name: 'Start Session', exact: true })).toBeVisible();
 				return;
 			}
 
@@ -466,7 +466,7 @@ export class Sessions {
 			await expect(this.metadataDialog.getByText(new RegExp(`Session ID: ${session.language.toLowerCase()}-[a-zA-Z0-9]+`))).toBeVisible();
 			await expect(this.metadataDialog.getByText(`State: ${session.state}`)).toBeVisible();
 			await expect(this.metadataDialog.getByText(/^Path: [\/~a-zA-Z0-9.]+/)).toBeVisible();
-			await expect(this.metadataDialog.getByText(/^Source: (Pyenv|System|Global)$/)).toBeVisible();
+			await expect(this.metadataDialog.getByText(/^Source: (Pyenv|System|Global|VirtualEnv)$/)).toBeVisible();
 			await this.page.keyboard.press('Escape');
 
 			// Verify Language Console
