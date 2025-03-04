@@ -48,7 +48,7 @@ function isUpToDate(extension: IExtensionDefinition): boolean {
 	try {
 		const match = vsixPath.match(regex);
 		const diskVersion = match ? match[1] : null;
-		return (diskVersion !== extension.version);
+		return (diskVersion === extension.version);
 	} catch (err) {
 		return false;
 	}
