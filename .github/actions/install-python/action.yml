@@ -109,20 +109,11 @@ runs:
             exit 1
         fi
 
-        # Install pip (just in case)
-        echo "Ensuring pip is installed..."
-        conda install -y pip
-
         # Verify Python modules are working
         echo "Checking if Python modules work..."
         $PYTHON_BIN -c "import venv, distutils, sys; print(f'Python {sys.version} modules are working!')"
 
-        # Create symlinks for easy access
-        echo "Creating symlinks..."
-        ln -sf "$PYTHON_BIN" "$HOME/scratch/python-env/bin/python"
-        ln -sf "$PYTHON_BIN" "$HOME/scratch/python-env/bin/python3"
-
-        # Verify Python works after setup
+        # Final verification
         echo "Final Python check..."
         $PYTHON_BIN -c "import sys; print(f'Python {sys.version} is working!')"
 
