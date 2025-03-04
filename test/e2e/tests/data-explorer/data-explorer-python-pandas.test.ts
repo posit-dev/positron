@@ -205,7 +205,7 @@ Data_Frame = pd.DataFrame({
 		await app.workbench.variables.focusVariablesView();
 	});
 
-	test('Python Pandas - Verify blank spaces in data explorer', async function ({ app, python }) {
+	test('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, python }) {
 
 		const script = `import pandas as pd
 df = pd.DataFrame({'x': ["a ", "a", "   ", ""]})`;
@@ -222,6 +222,14 @@ df = pd.DataFrame({'x': ["a ", "a", "   ", ""]})`;
 			expect(tableData[3]).toStrictEqual({ 'x': '<empty>' });
 			expect(tableData.length).toBe(4);
 		}).toPass({ timeout: 60000 });
+
+		if (app.web) {
+			await test.step('Verify disconnect dialog', async () => {
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+				await app.workbench.console.barPowerButton.click();
+				await expect(app.code.driver.page.locator('.dialog-box .message')).toHaveText('Connection Closed');
+			});
+		}
 
 		await app.workbench.dataExplorer.closeDataExplorer();
 	});
