@@ -253,6 +253,7 @@ function createWorkspaceLocator(ext: ExtensionState): WorkspaceLocators {
             new HatchLocator(root.fsPath),
             new PixiLocator(root.fsPath),
             new CustomWorkspaceLocator(root.fsPath),
+            // TODO: uv?
         ],
         // Add an ILocator factory func here for each kind of workspace-rooted locator.
     ]);

@@ -27,6 +27,9 @@ export enum PythonEnvKind {
     Pipenv = 'virt-pipenv',
     Conda = 'virt-conda',
     OtherVirtual = 'virt-other',
+    // --- Start Positron ---
+    Uv = 'uv',
+    // --- End Positron ---
 }
 
 export enum PythonEnvType {
@@ -53,6 +56,9 @@ export const virtualEnvKinds = [
     PythonEnvKind.VirtualEnvWrapper,
     PythonEnvKind.Conda,
     PythonEnvKind.VirtualEnv,
+    // --- Start Positron ---
+    PythonEnvKind.Uv,
+    // --- End Positron ---
 ];
 
 export const globallyInstalledEnvKinds = [
