@@ -79,7 +79,7 @@ export const CreateConsoleInstanceButton = () => {
 		await showCustomContextMenu({
 			commandService: context.commandService,
 			keybindingService: context.keybindingService,
-			layoutService: context.workbenchLayoutService,
+			layoutService: context.layoutService,
 			anchorElement: contextMenuButtonRef.current,
 			popupPosition: 'auto',
 			popupAlignment: 'auto',
