@@ -10,14 +10,11 @@ test.use({
 	suiteId: __filename
 });
 
-// export POSITRON_HIDDEN_PY='3.12.7'
-// export POSITRON_HIDDEN_R='4.2.3'
-
+// these are CI only tests; its not recommended to try and get your local machine to run these tests
 test.describe('Interpreter Includes/Excludes', {
-	tag: [tags.INTERPRETER]
+	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
 
-	// this is a CI only test
 	test('Python - Can Include an Interpreter', async function ({ app, python, userSettings, logger }) {
 
 		const hiddenPython = process.env.POSITRON_HIDDEN_PY;
