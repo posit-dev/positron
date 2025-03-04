@@ -224,6 +224,9 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 		vscode.window.showInformationMessage(
 			vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
 		);
+
+		// Register the new model
+		await registerModels(context, storage);
 	});
 
 }
@@ -239,5 +242,5 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, stor
 
 	await storage.delete(`apiKey-${id}`);
 
-	registerModels(context, storage);
+	await registerModels(context, storage);
 }
