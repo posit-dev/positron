@@ -21,7 +21,7 @@ export class Sessions {
 	private disconnectedStatus: (session: Locator) => Locator;
 	private metadataButton: Locator;
 	private metadataDialog: Locator;
-	startSessionButton: Locator;
+	activeSessionPicker: Locator;
 	private quickPick: SessionQuickPick;
 	private trashButton: (sessionId: string) => Locator;
 	private newConsoleButton: Locator;
@@ -29,6 +29,7 @@ export class Sessions {
 	private shutDownButton: Locator;
 	sessionTabs: Locator;
 	currentSessionTab: Locator;
+	consoleInstance: (sessionId: string) => Locator;
 
 	constructor(private code: Code, private console: Console, private quickaccess: QuickAccess, private quickinput: QuickInput) {
 		this.page = this.code.driver.page;
@@ -38,30 +39,31 @@ export class Sessions {
 		this.metadataButton = this.page.getByRole('button', { name: 'Console information' });
 		this.metadataDialog = this.page.getByRole('dialog');
 		this.quickPick = new SessionQuickPick(this.code, this);
-		this.startSessionButton = this.page.getByRole('button', { name: 'Open Active Session Picker' });
+		this.activeSessionPicker = this.page.getByRole('button', { name: 'Open Active Session Picker' });
 		this.trashButton = (sessionId: string) => this.getSessionTab(sessionId).getByTestId('trash-session');
 		this.newConsoleButton = this.page.getByRole('button', { name: 'Open Start Session Picker', exact: true });
 		this.restartButton = this.page.getByLabel('Restart console', { exact: true });
 		this.shutDownButton = this.page.getByLabel('Shutdown console', { exact: true });
 		this.sessionTabs = this.page.getByTestId(/console-tab/);
 		this.currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
+		this.consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
 	}
 
 
 	// -- Actions --
 
 	/**
-	 * Action: Start a session via the session picker button or quickaccess.
+	 * Action: Start a session via the session picker button, quickaccess, or console session button.
 	 * @param options - Configuration options for selecting the runtime session.
 	 * @param options.language the runtime language to select (e.g., "Python" or "R").
 	 * @param options.version the specific version of runtime to select (e.g., "3.10.15").
-	 * @param options.triggerMode the method used to trigger the selection: session-picker or quickaccess.
+	 * @param options.triggerMode the method used to trigger the selection: session-picker, quickaccess, or console.
 	 * @param options.waitForReady whether to wait for the console to be ready after selecting the runtime.
 	 */
 	async launch(options: {
 		language: 'Python' | 'R';
 		version?: string;
-		triggerMode?: 'session-picker' | 'quickaccess';
+		triggerMode?: 'session-picker' | 'quickaccess' | 'console';
 		waitForReady?: boolean;
 	}): Promise<string> {
 
@@ -81,11 +83,15 @@ export class Sessions {
 			// Don't try to start a new runtime if one is currently starting up
 			await this.waitForReadyOrNoSessions();
 
-			// Start the runtime via the session picker button or quickaccess
-			const command = language === 'Python' ? 'python.setInterpreter' : 'r.selectInterpreter';
-			triggerMode === 'quickaccess'
-				? await this.quickaccess.runCommand(command, { keepOpen: true })
-				: await this.quickPick.openSessionQuickPickMenu();
+			// Start the runtime via the session picker button, quickaccess or console session button
+			if (triggerMode === 'quickaccess') {
+				const command = language === 'Python' ? 'python.setInterpreter' : 'r.selectInterpreter';
+				await this.quickaccess.runCommand(command, { keepOpen: true });
+			} else if (triggerMode === 'session-picker') {
+				await this.quickPick.openSessionQuickPickMenu();
+			} else {
+				await this.newConsoleButton.click();
+			}
 
 			await this.quickinput.type(`${language} ${version}`);
 
@@ -131,6 +137,7 @@ export class Sessions {
 			await this.trashButton(sessionIdOrName).click();
 
 			await expect(this.page.getByText('Shutting down')).not.toBeVisible();
+			await expect(sessionTab).not.toBeVisible();
 		});
 	}
 
@@ -216,7 +223,7 @@ export class Sessions {
 			// Collect all disconnected session IDs
 			for (const sessionId of sessionIds) {
 				const status = await this.getStatus(sessionId);
-				if (status === 'disconnected') {
+				if (status === 'disconnected' || 'exited') {
 					disconnectedSessions.push(sessionId);
 				}
 			}
@@ -234,6 +241,21 @@ export class Sessions {
 				await this.console.barTrashButton.click();
 			}
 		});
+	}
+
+	/**
+	 * Action: Widen the session tab list
+	 */
+	async widenSessionTabList() {
+		const sash = this.page.locator('.sash');
+		const box = await sash.boundingBox();
+
+		if (box) {
+			await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+			await this.page.mouse.down();
+			await this.page.mouse.move(box.x + box.width / 2 - 100, box.y + box.height / 2);
+			await this.page.mouse.up();
+		}
 	}
 
 	// -- Helpers --
@@ -256,14 +278,21 @@ export class Sessions {
 	 */
 	async reuseSessionIfExists(session: SessionInfo): Promise<string> {
 		return await test.step(`Reuse session: ${session.name}`, async () => {
-			const sessionLocator = this.getSessionTab(session.name);
-			const sessionExists = await sessionLocator.isVisible();
 
-			if (sessionExists) {
-				await sessionLocator.click();
+			const metadataButtonIsVisible = await this.metadataButton.isVisible();
+			const sessionTab = this.getSessionTab(session.name);
+			const sessionTabExists = await sessionTab.isVisible();
+
+			if (sessionTabExists) {
+				await sessionTab.click();
 				const status = await this.getStatus(session.name);
 
 				if (status === 'idle') {
+					return await this.getCurrentSessionId();
+				}
+			} else if (!sessionTabExists && metadataButtonIsVisible) {
+				const { name, state } = await this.getMetadata();
+				if (name.includes(session.name) && state === 'idle') {
 					return await this.getCurrentSessionId();
 				}
 			}
@@ -295,13 +324,11 @@ export class Sessions {
 			await this.code.driver.page.mouse.move(0, 0);
 
 			// wait for the dropdown to contain R, Python, or Start Session.
-			const currentSession = await this.startSessionButton.textContent() || '';
+			const currentSession = await this.activeSessionPicker.textContent() || '';
 
-			if (currentSession.includes('Python')) {
-				await expect(this.page.getByRole('code').getByText('>>>')).toBeVisible({ timeout: 30000 });
-				return;
-			} else if (currentSession.includes('R') && !currentSession.includes('Start Session')) {
-				await expect(this.page.getByRole('code').getByText('>')).toBeVisible({ timeout: 30000 });
+			if (currentSession.includes('Python') || currentSession.includes('R')) {
+				const currentSessionId = await this.getCurrentSessionId();
+				await expect(this.consoleInstance(currentSessionId).locator('.current-line')).toBeVisible({ timeout: 30000 });
 				return;
 			} else if (currentSession.includes('Start Session')) {
 				await expect(this.page.getByRole('button', { name: 'Start Session', exact: true })).toBeVisible();
@@ -391,6 +418,10 @@ export class Sessions {
 
 			// temporary: close metadata dialog
 			await this.metadataButton.click({ force: true });
+
+			// Move mouse to prevent tooltip hover
+			await this.code.driver.page.mouse.move(0, 0);
+
 			return { name, id, state, path, source };
 		});
 	}
@@ -460,19 +491,29 @@ export class Sessions {
 	// -- Verifications --
 
 	/**
-	 * Verify: Check the status of the session tab
+	 * Verify: Check the status of the session
 	 * @param sessionIdOrName the id or name of the session
 	 * @param expectedStatus the expected status of the session: 'active', 'idle', or 'disconnected'
 	 */
-	async expectStatusToBe(sessionIdOrName: string, expectedStatus: 'active' | 'idle' | 'disconnected', options?: { timeout?: number }) {
+	async expectStatusToBe(sessionIdOrName: string, expectedStatus: 'active' | 'starting' | 'idle' | 'disconnected' | 'exited', options?: { timeout?: number }) {
 		const timeout = options?.timeout || 30000;
+
 		await test.step(`Verify ${sessionIdOrName} session status: ${expectedStatus}`, async () => {
-			const sessionLocator = this.getSessionTab(sessionIdOrName);
+			const numberOfSessions = await this.sessionTabs.all();
+			if (numberOfSessions.length > 1) {
+				// get status from icon in tab list view
+				const sessionLocator = this.getSessionTab(sessionIdOrName);
+				const statusClass = `.codicon-positron-status-${expectedStatus}`;
 
-			const statusClass = `.codicon-positron-status-${expectedStatus}`;
-
-			await expect(sessionLocator).toBeVisible();
-			await expect(sessionLocator.locator(statusClass)).toBeVisible({ timeout });
+				await expect(sessionLocator).toBeVisible();
+				await expect(sessionLocator.locator(statusClass)).toBeVisible({ timeout });
+			} else {
+				// get status from metadata dialog because there is no tab list view
+				await expect(async () => {
+					const { state } = await this.getMetadata();
+					expect(state).toBe(expectedStatus);
+				}).toPass({ timeout });
+			}
 		});
 	}
 
@@ -587,7 +628,7 @@ export class SessionQuickPick {
 	 */
 	async openSessionQuickPickMenu(viewAllRuntimes = true) {
 		if (!await this.sessionQuickMenu.isVisible()) {
-			await this.sessions.startSessionButton.click();
+			await this.sessions.activeSessionPicker.click();
 		}
 
 		if (viewAllRuntimes) {
@@ -639,7 +680,7 @@ export class SessionQuickPick {
 	 * Helper: Get the interpreter info for the currently selected runtime via the quickpick menu.
 	 * @returns The interpreter info for the selected interpreter if found, otherwise undefined.
 	 */
-	async getSelectedSessionInfo(): Promise<ExtendedSessionInfo> {
+	async getSelectedSessionInfo(): Promise<Omit<ExtendedSessionInfo, 'id'>> {
 		await this.openSessionQuickPickMenu(false);
 		const selectedInterpreter = this.code.driver.page.locator('.quick-input-list-entry').filter({ hasText: 'Currently Selected' });
 
@@ -699,9 +740,10 @@ export type SessionInfo = {
 	name: string;
 	language: 'Python' | 'R';
 	version: string; // e.g. '3.10.15'
-	id?: string;
+	id: string;
+	triggerMode?: 'session-picker' | 'quickaccess' | 'console';
+	waitForReady?: boolean;
 };
-
 
 export interface ExtendedSessionInfo extends SessionInfo {
 	path: string;    // e.g. /usr/local/bin/python3
@@ -714,4 +756,44 @@ export type SessionMetaData = {
 	state: string;
 	source: string;
 	path: string;
+};
+
+// Use this session object to manage default python env in the test
+export const pythonSession: SessionInfo = {
+	name: `Python ${process.env.POSITRON_PY_VER_SEL || ''}`,
+	language: 'Python',
+	version: process.env.POSITRON_PY_VER_SEL || '',
+	triggerMode: 'session-picker',
+	id: '',
+	waitForReady: true
+};
+
+// Use this session object to manage alternate python env in the test
+export const pythonSessionAlt: SessionInfo = {
+	name: `Python ${process.env.POSITRON_PY_ALT_VER_SEL || ''}`,
+	language: 'Python',
+	version: process.env.POSITRON_PY_ALT_VER_SEL || '',
+	triggerMode: 'session-picker',
+	id: '',
+	waitForReady: true
+};
+
+// Use this session object to manage default R env in the test
+export const rSession: SessionInfo = {
+	name: `R ${process.env.POSITRON_R_VER_SEL || ''}`,
+	language: 'R',
+	version: process.env.POSITRON_R_VER_SEL || '',
+	triggerMode: 'session-picker',
+	id: '',
+	waitForReady: true
+};
+
+// Use this session object to manage alternate R env in the test
+export const rSessionAlt: SessionInfo = {
+	name: `R ${process.env.POSITRON_R_ALT_VER_SEL || ''}`,
+	language: 'R',
+	version: process.env.POSITRON_R_ALT_VER_SEL || '',
+	triggerMode: 'session-picker',
+	id: '',
+	waitForReady: true
 };
