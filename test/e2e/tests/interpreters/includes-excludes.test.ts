@@ -20,7 +20,7 @@ test.describe('Interpreter Includes/Excludes', {
 
 	test('Python - Can Include an Interpreter', async function ({ app, python, userSettings }) {
 
-		await userSettings.set([['python.interpreters.include', '["/home/runner/scratch/python-custom/usr/bin"]']], true);
+		await userSettings.set([['python.interpreters.include', '["/home/runner/scratch/python-custom/usr/bin/"]']], true);
 
 		const hiddenPython = process.env.POSITRON_HIDDEN_PY;
 
@@ -33,7 +33,7 @@ test.describe('Interpreter Includes/Excludes', {
 
 	test('R - Can Include an Interpreter', async function ({ app, r, userSettings }) {
 
-		await userSettings.set([['positron.r.customRootFolders', '["/home/runner/scratch/R-4.4.1/bin"]']], true);
+		await userSettings.set([['positron.r.customRootFolders', '["/home/runner/scratch/R-4.4.1/bin/"]']], true);
 
 		const hiddenR = process.env.POSITRON_HIDDEN_R;
 
