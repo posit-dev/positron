@@ -82,6 +82,12 @@ runs:
       if: ${{ inputs.install_undetectable_interpreters == 'true' }}
       shell: bash
       run: |
+        set -e  # Exit immediately if any command fails
+
+        echo "Updating system and installing dependencies..."
+        sudo apt update && sudo apt install -y \
+          libpython3.12 python3.12-venv python3.12-distutils python3.12-lib2to3 || { echo "Failed to install dependencies"; exit 1; }
+
         echo "Installing Python 3.12.7 (minimal) in ~/scratch..."
 
         # Set installation path
@@ -127,3 +133,10 @@ runs:
         # Final verification of symlinks
         echo "Symlink verification:"
         ls -l "$INSTALL_DIR/usr/bin/python" "$INSTALL_DIR/usr/bin/python3"
+
+        # Verify Python works after dependency installation
+        echo "Final Python check..."
+        $PYTHON_BIN -c "import sys; print(f'Python {sys.version} is working!')"
+
+        echo "Installation complete!"
+
