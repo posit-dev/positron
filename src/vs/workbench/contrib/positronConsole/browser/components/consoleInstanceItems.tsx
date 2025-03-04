@@ -8,7 +8,7 @@ import './consoleInstanceItems.css';
 
 // React.
 import { flushSync } from 'react-dom';
-import React, { Component } from 'react';
+import React, { useReducer } from 'react';
 
 // Other dependencies.
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
@@ -36,6 +36,8 @@ import { RuntimeItemRestartButton } from '../../../../services/positronConsole/b
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { RuntimeItemStartupFailure } from '../../../../services/positronConsole/browser/classes/runtimeItemStartupFailure.js';
 import { localize } from '../../../../../nls.js';
+import { multipleConsoleSessionsFeatureEnabled } from '../../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
 
 /**
  * ConsoleInstanceItemsProps interface.
@@ -51,82 +53,69 @@ interface ConsoleInstanceItemsProps {
 /**
  * ConsoleInstanceItems component.
  */
-export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
-	/**
-	 * Constructor.
-	 * @param props
-	 */
-	constructor(props: ConsoleInstanceItemsProps) {
-		super(props);
-	}
+export const ConsoleInstanceItems = (props: ConsoleInstanceItemsProps) => {
+	const context = usePositronConsoleContext();
+	const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(context.configurationService);
 
-	/**
-	 * Renders the component.
-	 * @returns The rendered component.
-	 */
-	override render() {
+	let extensionHostDisconnected = false;
 
-		let extensionHostDisconnected = false;
+	const [, forceUpdate] = useReducer(x => x + 1, 0);
 
-		return (
-			<>
-				<div className='top-spacer' />
-				{this.props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
-					if (runtimeItem instanceof RuntimeItemActivity) {
-						return <RuntimeActivity key={runtimeItem.id} fontInfo={this.props.editorFontInfo} positronConsoleInstance={this.props.positronConsoleInstance} runtimeItemActivity={runtimeItem} />;
-					} else if (runtimeItem instanceof RuntimeItemPendingInput) {
-						return <RuntimePendingInput key={runtimeItem.id} fontInfo={this.props.editorFontInfo} runtimeItemPendingInput={runtimeItem} />;
-					} else if (runtimeItem instanceof RuntimeItemStartup) {
-						extensionHostDisconnected = false;
-						return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
-					} else if (runtimeItem instanceof RuntimeItemReconnected) {
-						extensionHostDisconnected = false;
-						return null;
-					} else if (runtimeItem instanceof RuntimeItemStarting) {
-						return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
-					} else if (runtimeItem instanceof RuntimeItemStarted) {
-						return <RuntimeStarted key={runtimeItem.id} runtimeItemStarted={runtimeItem} />;
-					} else if (runtimeItem instanceof RuntimeItemOffline) {
-						return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
-					} else if (runtimeItem instanceof RuntimeItemExited) {
-						if (runtimeItem.reason === 'extensionHost') {
-							extensionHostDisconnected = true;
-							return null;
-						}
-						return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
-					} else if (runtimeItem instanceof RuntimeItemRestartButton) {
-						return <RuntimeRestartButton key={runtimeItem.id} positronConsoleInstance={this.props.positronConsoleInstance} runtimeItemRestartButton={runtimeItem} />;
-					} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
-						return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
-					} else if (runtimeItem instanceof RuntimeItemTrace) {
-						return this.props.trace && <RuntimeTrace key={runtimeItem.id} runtimeItemTrace={runtimeItem} />;
-					} else {
-						// This indicates a bug.
+	return (
+		<>
+			<div className='top-spacer' />
+			{props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
+				if (runtimeItem instanceof RuntimeItemActivity) {
+					return <RuntimeActivity key={runtimeItem.id} fontInfo={props.editorFontInfo} positronConsoleInstance={props.positronConsoleInstance} runtimeItemActivity={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemPendingInput) {
+					return <RuntimePendingInput key={runtimeItem.id} fontInfo={props.editorFontInfo} runtimeItemPendingInput={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemStartup) {
+					extensionHostDisconnected = false;
+					return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemReconnected) {
+					extensionHostDisconnected = false;
+					return null;
+				} else if (runtimeItem instanceof RuntimeItemStarting) {
+					return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemStarted) {
+					return <RuntimeStarted key={runtimeItem.id} runtimeItemStarted={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemOffline) {
+					return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemExited) {
+					if (runtimeItem.reason === 'extensionHost') {
+						extensionHostDisconnected = true;
 						return null;
 					}
-				})}
-				{extensionHostDisconnected ?
-					(<div className='console-item-reconnecting'>
-						<span className='codicon codicon-loading codicon-modifier-spin'></span>
-						<span>{localize(
-							"positron.console.extensionsRestarting",
-							"Extensions restarting..."
-						)}</span>
-					</div>) :
-					null
+					return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemRestartButton && !multiSessionsEnabled) {
+					return <RuntimeRestartButton key={runtimeItem.id} positronConsoleInstance={props.positronConsoleInstance} runtimeItemRestartButton={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemStartupFailure) {
+					return <RuntimeStartupFailure key={runtimeItem.id} runtimeItemStartupFailure={runtimeItem} />;
+				} else if (runtimeItem instanceof RuntimeItemTrace) {
+					return props.trace && <RuntimeTrace key={runtimeItem.id} runtimeItemTrace={runtimeItem} />;
+				} else {
+					// This indicates a bug.
+					return null;
 				}
+			})}
+			{extensionHostDisconnected ?
+				(<div className='console-item-reconnecting'>
+					<span className='codicon codicon-loading codicon-modifier-spin'></span>
+					<span>{localize(
+						"positron.console.extensionsRestarting",
+						"Extensions restarting..."
+					)}</span>
+				</div>) :
+				null
+			}
 
-				<ConsoleInput
-					hidden={this.props.positronConsoleInstance.promptActive || !this.props.runtimeAttached}
-					positronConsoleInstance={this.props.positronConsoleInstance}
-					width={this.props.consoleInputWidth}
-					onCodeExecuted={() =>
-						// Update the component to eliminate flickering.
-						flushSync(() => this.forceUpdate()
-						)}
-					onSelectAll={this.props.onSelectAll}
-				/>
-			</>
-		);
-	}
+			<ConsoleInput
+				hidden={props.positronConsoleInstance.promptActive || !props.runtimeAttached}
+				positronConsoleInstance={props.positronConsoleInstance}
+				width={props.consoleInputWidth}
+				onCodeExecuted={() => flushSync(() => forceUpdate())} // Update the component to eliminate flickering.
+				onSelectAll={props.onSelectAll}
+			/>
+		</>
+	);
 }
