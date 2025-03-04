@@ -171,7 +171,7 @@ async function confirmModelDeletion(context: vscode.ExtensionContext, storage: S
 	}
 }
 
-export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {
+export function getEnabledProviders(): string[] {
 	// Get the configuration option listing enabled providers
 	let enabledProviders: string[] =
 		vscode.workspace.getConfiguration('positron.assistant').get('enabledProviders') || [];
@@ -192,11 +192,18 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 		}
 	}
 
-	// Gather model sources
+	return enabledProviders;
+}
+
+export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {
+
+	// Gather model sources; ignore disabled providers
+	const enabledProviders = getEnabledProviders();
 	const sources = [...languageModels, ...completionModels]
 		.map((provider) => provider.source)
 		.filter((source) => {
-			enabledProviders.includes(source.provider.id);
+			// If no specific set of providers was specified, include all
+			return enabledProviders.length === 0 || enabledProviders.includes(source.provider.id);
 		});
 
 	// Show a modal asking user for configuration details
