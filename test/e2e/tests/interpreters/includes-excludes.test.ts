@@ -20,7 +20,7 @@ test.describe('Interpreter Includes/Excludes', {
 
 	test('Python - Can Include an Interpreter', async function ({ app, python, userSettings }) {
 
-		await userSettings.set([['python.interpreters.include', '["/home/runner/scratch/python-custom"]']], true);
+		await userSettings.set([['python.interpreters.include', '["/home/runner/scratch/python-env"]']], true);
 
 		const hiddenPython = process.env.POSITRON_HIDDEN_PY;
 

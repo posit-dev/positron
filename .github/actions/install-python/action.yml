@@ -78,65 +78,52 @@ runs:
         # Verify that Python is reset
         python --version
 
-    - name: Install Prebuilt Python 3.12.7 in ~/scratch (Ubuntu Only)
+    - name: Create Conda Environment with Python 3.12 in ~/scratch
       if: ${{ inputs.install_undetectable_interpreters == 'true' }}
       shell: bash
       run: |
         set -e  # Exit immediately if any command fails
 
-        echo "Updating system and installing dependencies..."
-        sudo apt update && sudo apt install -y \
-          libpython3.12 python3.12-venv python3.12-distutils python3.12-lib2to3 || { echo "Failed to install dependencies"; exit 1; }
+        echo "Setting up Conda environment with Python 3.12..."
 
-        echo "Installing Python 3.12.7 (minimal) in ~/scratch..."
+        # Ensure conda is available
+        source "${HOME}/conda/etc/profile.d/conda.sh"
 
-        # Set installation path
-        INSTALL_DIR="$HOME/scratch/python-custom"
-        mkdir -p "$INSTALL_DIR"
+        # Define environment path
+        CONDA_ENV_DIR="$HOME/scratch/python-env"
 
-        # List of required Python packages
-        PYTHON_PKGS=("python3.12" "python3.12-minimal" "python3.12-dev")
+        # Create a new Conda environment with Python 3.12
+        conda create -y -p "$CONDA_ENV_DIR" python=3.12
 
-        # Download and extract packages
-        for pkg in "${PYTHON_PKGS[@]}"; do
-            DEB_FILE="${pkg}_3.12.7-1ubuntu2_amd64.deb"
-            DEB_URL="http://archive.ubuntu.com/ubuntu/pool/main/p/python3.12/$DEB_FILE"
-
-            echo "Downloading $pkg..."
-            if curl -fLO "$DEB_URL"; then
-                echo "Extracting $DEB_FILE..."
-                dpkg-deb -x "$DEB_FILE" "$INSTALL_DIR" || { echo "Error extracting $DEB_FILE"; exit 1; }
-                rm -f "$DEB_FILE"  # Clean up after extraction
-            else
-                echo "Error: Failed to download $DEB_URL"
-                exit 1
-            fi
-        done
-
-        # Set Python binary path
-        PYTHON_BIN="$INSTALL_DIR/usr/bin/python3.12"
+        # Activate environment
+        conda activate "$CONDA_ENV_DIR"
 
         # Verify Python installation
+        PYTHON_BIN="$CONDA_ENV_DIR/bin/python"
+
         if [[ -x "$PYTHON_BIN" ]]; then
-            echo "Python successfully installed at $PYTHON_BIN"
+            echo "Python successfully installed in Conda environment at $PYTHON_BIN"
             $PYTHON_BIN --version
         else
-            echo "Error: Python binary not found!"
+            echo "Error: Python binary not found in Conda environment!"
             exit 1
         fi
 
-        # Create symlinks for easier access
+        # Install pip inside Conda environment
+        echo "Installing pip..."
+        conda install -y pip
+
+        # Install additional dependencies (optional)
+        echo "Installing additional dependencies..."
+        conda install -y python-venv python-distutils
+
+        # Create symlinks for easy access
         echo "Creating symlinks..."
-        ln -sf "$PYTHON_BIN" "$INSTALL_DIR/usr/bin/python"
-        ln -sf "$PYTHON_BIN" "$INSTALL_DIR/usr/bin/python3"
+        ln -sf "$PYTHON_BIN" "$HOME/scratch/python-env/bin/python"
+        ln -sf "$PYTHON_BIN" "$HOME/scratch/python-env/bin/python3"
 
-        # Final verification of symlinks
-        echo "Symlink verification:"
-        ls -l "$INSTALL_DIR/usr/bin/python" "$INSTALL_DIR/usr/bin/python3"
-
-        # Verify Python works after dependency installation
+        # Verify Python works after setup
         echo "Final Python check..."
         $PYTHON_BIN -c "import sys; print(f'Python {sys.version} is working!')"
 
-        echo "Installation complete!"
-
+        echo "Miniconda-based Python 3.12 setup complete!"
