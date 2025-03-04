@@ -901,7 +901,10 @@ class ExtensionsContributions extends Disposable implements IWorkbenchContributi
 				if (requireReload) {
 					notificationService.prompt(
 						Severity.Info,
-						localize('InstallVSIXAction.successReload', "Completed installing extension from VSIX. Please reload Visual Studio Code to enable it."),
+						// --- Start Positron ---
+						// localize('InstallVSIXAction.successReload', "Completed installing extension from VSIX. Please reload Visual Studio Code to enable it."),
+						localize('InstallVSIXAction.successReload', "Completed installing extension from VSIX. Please reload Positron to enable it."),
+						// --- End Positron ---
 						[{
 							label: localize('InstallVSIXAction.reloadNow', "Reload Now"),
 							run: () => hostService.reload()
