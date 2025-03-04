@@ -131,7 +131,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
         if (interpreterPath) {
             const interpreter = await this.interpreterService.getInterpreterDetails(interpreterPath, workspaceUri);
             if (interpreter) {
-                const metadata = createPythonRuntimeMetadata(interpreter, this.serviceContainer, isImmediate);
+                const metadata = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, isImmediate);
                 traceInfo(`Recommended runtime for workspace: ${interpreter.path}`);
 
                 return metadata;
