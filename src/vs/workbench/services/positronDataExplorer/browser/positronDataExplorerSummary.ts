@@ -15,7 +15,7 @@ import { positronConfigurationNodeBase } from '../../languageRuntime/common/lang
 import { PositronDataExplorerLayout } from './interfaces/positronDataExplorerService.js';
 
 // Key for the configuration setting
-export const USE_POSITRON_DATA_EXPLORER_SUMMARY_COLLAPSE_KEY =
+export const USE_POSITRON_DATA_EXPLORER_SUMMARY_COLLAPSED_KEY =
 	'positron.dataExplorerSummaryCollapsed';
 export const USE_POSITRON_DATA_EXPLORER_SUMMARY_LAYOUT_KEY =
 	'positron.dataExplorerSummaryLayout';
@@ -24,7 +24,7 @@ export function DataExplorerSummaryCollapseEnabled(
 	configurationService: IConfigurationService
 ) {
 	return Boolean(
-		configurationService.getValue(USE_POSITRON_DATA_EXPLORER_SUMMARY_COLLAPSE_KEY)
+		configurationService.getValue(USE_POSITRON_DATA_EXPLORER_SUMMARY_COLLAPSED_KEY)
 	);
 }
 
@@ -48,7 +48,7 @@ configurationRegistry.registerConfiguration({ // for summary collapse
 	...positronConfigurationNodeBase,
 	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
 	properties: {
-		[USE_POSITRON_DATA_EXPLORER_SUMMARY_COLLAPSE_KEY]: {
+		[USE_POSITRON_DATA_EXPLORER_SUMMARY_COLLAPSED_KEY]: {
 			type: 'boolean',
 			default: false,
 			markdownDescription: localize(
