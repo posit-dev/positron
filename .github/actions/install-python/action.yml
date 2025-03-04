@@ -86,14 +86,14 @@ runs:
 
         echo "Setting up Conda environment with Python 3.12..."
 
-        # Ensure conda is available
+        # Ensure Conda is available
         source "${HOME}/conda/etc/profile.d/conda.sh"
 
         # Define environment path
         CONDA_ENV_DIR="$HOME/scratch/python-env"
 
         # Create a new Conda environment with Python 3.12
-        conda create -y -p "$CONDA_ENV_DIR" python=3.12
+        conda create -y -p "$CONDA_ENV_DIR" python=3.12 pip setuptools
 
         # Activate environment
         conda activate "$CONDA_ENV_DIR"
@@ -109,13 +109,13 @@ runs:
             exit 1
         fi
 
-        # Install pip inside Conda environment
-        echo "Installing pip..."
+        # Install pip (just in case)
+        echo "Ensuring pip is installed..."
         conda install -y pip
 
-        # Install additional dependencies (optional)
-        echo "Installing additional dependencies..."
-        conda install -y python-venv python-distutils
+        # Verify Python modules are working
+        echo "Checking if Python modules work..."
+        $PYTHON_BIN -c "import venv, distutils, sys; print(f'Python {sys.version} modules are working!')"
 
         # Create symlinks for easy access
         echo "Creating symlinks..."
