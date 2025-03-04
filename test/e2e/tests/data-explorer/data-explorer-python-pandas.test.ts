@@ -223,13 +223,11 @@ df = pd.DataFrame({'x': ["a ", "a", "   ", ""]})`;
 			expect(tableData.length).toBe(4);
 		}).toPass({ timeout: 60000 });
 
-		if (app.web) {
-			await test.step('Verify disconnect dialog', async () => {
-				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-				await app.workbench.console.barPowerButton.click();
-				await expect(app.code.driver.page.locator('.dialog-box .message')).toHaveText('Connection Closed');
-			});
-		}
+		await test.step('Verify disconnect dialog', async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+			await app.workbench.console.barPowerButton.click();
+			await expect(app.code.driver.page.locator('.dialog-box .message')).toHaveText('Connection Closed');
+		});
 
 		await app.workbench.dataExplorer.closeDataExplorer();
 	});
