@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -16,17 +16,10 @@ import { PositronDataExplorerLayout } from '../browser/interfaces/positronDataEx
 
 // Key for the configuration setting
 export const USE_POSITRON_DATA_EXPLORER_SUMMARY_COLLAPSE_KEY =
-	'positron.dataExplorerSummaryCollapse';
+	'positron.dataExplorerSummaryCollapsed';
 export const USE_POSITRON_DATA_EXPLORER_SUMMARY_LAYOUT_KEY =
 	'positron.dataExplorerSummaryLayout';
 
-/**
- * Retrieves the value of the configuration setting that determines whether to enable
- * experimental features in the Positron Data Explorer.
- *
- * @param configurationService The configuration service
- * @returns Whether to enable experimental Positron Data Explorer features
- */
 export function DataExplorerSummaryCollapseEnabled(
 	configurationService: IConfigurationService
 ) {
@@ -40,7 +33,7 @@ export function DefaultDataExplorerSummaryLayout(
 ) {
 	if (String(
 		configurationService.getValue(USE_POSITRON_DATA_EXPLORER_SUMMARY_LAYOUT_KEY)
-	) === 'Left') {
+	) === 'left') {
 		return PositronDataExplorerLayout.SummaryOnLeft;
 	} else {
 		return PositronDataExplorerLayout.SummaryOnRight;
@@ -71,8 +64,8 @@ configurationRegistry.registerConfiguration({ // for summary layout
 	properties: {
 		[USE_POSITRON_DATA_EXPLORER_SUMMARY_LAYOUT_KEY]: {
 			type: 'string',
-			default: 'Left', // Default value (can be "left" or "right")
-			enum: ['Left', 'Right'], // Define possible values
+			default: 'left', // Default value (can be "left" or "right")
+			enum: ['left', 'right'], // Define possible values
 			markdownDescription: localize(
 				'positron.dataExplorerSummaryLayout',
 				'Select the position of the Data Explorer Summary Panel (left or right).'
