@@ -35,6 +35,11 @@ export interface IPositronVariablesService {
 	readonly onDidStartPositronVariablesInstance: Event<IPositronVariablesInstance>;
 
 	/**
+	 * The onDidStopPositronVariablesInstance event.
+	 */
+	readonly onDidStopPositronVariablesInstance: Event<IPositronVariablesInstance>;
+
+	/**
 	 * The onDidChangeActivePositronVariablesInstance event.
 	 */
 	readonly onDidChangeActivePositronVariablesInstance: Event<IPositronVariablesInstance | undefined>;

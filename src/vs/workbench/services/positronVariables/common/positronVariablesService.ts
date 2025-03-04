@@ -47,6 +47,12 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 		this._register(new Emitter<IPositronVariablesInstance>);
 
 	/**
+	 * The onDidStopPositronVariablesInstance event emitter.
+	 */
+	private readonly _onDidStopPositronVariablesInstanceEmitter =
+		this._register(new Emitter<IPositronVariablesInstance>());
+
+	/**
 	 * The onDidChangeActivePositronVariablesInstance event emitter.
 	 */
 	private readonly _onDidChangeActivePositronVariablesInstanceEmitter =
@@ -141,6 +147,10 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	readonly onDidStartPositronVariablesInstance =
 		this._onDidStartPositronVariablesInstanceEmitter.event;
 
+	// An event that is fired when a REPL instance is stopped.
+	readonly onDidStopPositronVariablesInstance =
+		this._onDidStopPositronVariablesInstanceEmitter.event;
+
 	// An event that is fired when the active REPL instance changes.
 	readonly onDidChangeActivePositronVariablesInstance =
 		this._onDidChangeActivePositronVariablesInstanceEmitter.event;
@@ -197,9 +207,9 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 				this._setActivePositronVariablesInstance(undefined);
 			}
 
-
 			// Dispose the instance and remove it from our map
 			this._positronVariablesInstancesBySessionId.deleteAndDispose(sessionId);
+			this._onDidStopPositronVariablesInstanceEmitter.fire(instance);
 		}
 	}
 
