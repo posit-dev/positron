@@ -20,7 +20,7 @@ import { OutputRun } from '../../../../browser/positronAnsiRenderer/outputRun.js
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { RenderLineInput, renderViewLine2 } from '../../../../../editor/common/viewLayout/viewLineRenderer.js';
 import { ILanguageIdCodec, ITokenizationSupport, TokenizationRegistry } from '../../../../../editor/common/languages.js';
-import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService';
+import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ActivityItemInput, ActivityItemInputState } from '../../../../services/positronConsole/browser/classes/activityItemInput.js';
 
 /**
