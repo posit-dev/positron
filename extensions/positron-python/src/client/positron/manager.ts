@@ -111,12 +111,11 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
         if (!workspaceUri) {
             if (userInterpreterSettings.globalValue) {
                 interpreterPath = userInterpreterSettings.globalValue;
+            } else {
+                traceInfo('No recommended runtime for workspace.');
+                return;
             }
-            traceInfo('No recommended runtime for workspace.');
-            return;
-        }
-
-        if (await hasFiles(['.venv/**/*'])) {
+        } else if (await hasFiles(['.venv/**/*'])) {
             interpreterPath = path.join(workspaceUri.fsPath, '.venv', 'bin', 'python');
             isImmediate = true;
         } else if (await hasFiles(['.conda/**/*'])) {
