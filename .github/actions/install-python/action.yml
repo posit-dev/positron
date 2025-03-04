@@ -129,4 +129,11 @@ runs:
         # Print symlink verification
         ls -l $INSTALL_DIR/usr/bin/python*
 
+        # Install Black formatter
+        echo "Installing Black..."
+        $PYTHON_BIN -m pip install black --no-cache-dir
+
+        # Verify Black installation
+        $PYTHON_BIN -m black --version
+
 
