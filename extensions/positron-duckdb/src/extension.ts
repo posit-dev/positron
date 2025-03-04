@@ -345,6 +345,7 @@ class ColumnProfileEvaluator {
 	}
 
 	private addIqr(fieldName: string) {
+		// TODO: This will be imprecise / lossy for out-of-range int64 or decimal values
 		this.statsExprs.add(
 			`APPROX_QUANTILE("${fieldName}", 0.75)::DOUBLE - APPROX_QUANTILE("${fieldName}", 0.25)::DOUBLE
 			AS "iqr_${fieldName}"`
@@ -352,7 +353,7 @@ class ColumnProfileEvaluator {
 	}
 
 	private addHistogramStats(fieldName: string, params: ColumnHistogramParams) {
-		this.addMinMax(fieldName);
+		this.addMinMaxStringified(fieldName);
 		switch (params.method) {
 			case ColumnHistogramParamsMethod.FreedmanDiaconis:
 				this.addIqr(fieldName);
@@ -373,9 +374,9 @@ class ColumnProfileEvaluator {
 			this.statsExprs.add(`MEDIAN("${fieldName}") AS "median_${fieldName}"`);
 		} else if (columnSchema.column_type.startsWith('DECIMAL')) {
 			this.addMinMaxStringified(fieldName);
-			this.statsExprs.add(`AVG("${fieldName}")::DOUBLE AS "mean_${fieldName}"`);
-			this.statsExprs.add(`STDDEV_SAMP("${fieldName}"::DOUBLE) AS "stdev_${fieldName}"`);
-			this.statsExprs.add(`MEDIAN("${fieldName}"::DOUBLE) AS "median_${fieldName}"`);
+			this.statsExprs.add(`AVG("${fieldName}")::DOUBLE AS "f64_mean_${fieldName}"`);
+			this.statsExprs.add(`STDDEV_SAMP("${fieldName}"::DOUBLE) AS "f64_stdev_${fieldName}"`);
+			this.statsExprs.add(`MEDIAN("${fieldName}"::DOUBLE) AS "f64_median_${fieldName}"`);
 		} else if (columnSchema.column_type === 'VARCHAR') {
 			this.addNumUnique(fieldName);
 
@@ -446,9 +447,11 @@ class ColumnProfileEvaluator {
 		// potentially better performance
 		const numRows = Number(stats.get('num_rows'));
 
-		// This may be lossy for very large INT64 values
-		const minValue = Number(stats.get(`min_${field}`));
-		const maxValue = Number(stats.get(`max_${field}`));
+		// TODO: This may be lossy for very large INT64 values
+		// We used strings here to temporarily support decimal type data that fits in float64.
+		// We will need to return later to support broader-spectrum decimals
+		const minValue = Number(stats.get(`string_min_${field}`));
+		const maxValue = Number(stats.get(`string_max_${field}`));
 
 		// Exceptional cases to worry about
 		// - Inf/-Inf values in min/max/iqr
@@ -573,6 +576,17 @@ class ColumnProfileEvaluator {
 					mean: formatNumber(stats.get(`mean_${columnSchema.column_name}`)),
 					stdev: formatNumber(stats.get(`stdev_${columnSchema.column_name}`)),
 					median: formatNumber(stats.get(`median_${columnSchema.column_name}`))
+				}
+			};
+		} else if (columnSchema.column_type.startsWith('DECIMAL')) {
+			return {
+				type_display: ColumnDisplayType.Number,
+				number_stats: {
+					min_value: formatNumber(Number(stats.get(`string_min_${columnSchema.column_name}`))),
+					max_value: formatNumber(Number(stats.get(`string_max_${columnSchema.column_name}`))),
+					mean: formatNumber(stats.get(`f64_mean_${columnSchema.column_name}`)),
+					stdev: formatNumber(stats.get(`f64_stdev_${columnSchema.column_name}`)),
+					median: formatNumber(stats.get(`f64_median_${columnSchema.column_name}`))
 				}
 			};
 		} else if (columnSchema.column_type === 'VARCHAR') {
