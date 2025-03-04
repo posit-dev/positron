@@ -16,7 +16,6 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { PositronActionBarServices } from '../../../../platform/positronActionBar/browser/positronActionBarState.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -26,6 +25,7 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 
 /**
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron
@@ -33,9 +33,12 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
  */
 export interface PositronConsoleServices extends PositronActionBarServices {
 	readonly clipboardService: IClipboardService;
+	readonly commandService: ICommandService;
+	readonly contextKeyService: IContextKeyService;
 	readonly executionHistoryService: IExecutionHistoryService;
 	readonly instantiationService: IInstantiationService;
 	readonly languageRuntimeService: ILanguageRuntimeService;
+	readonly layoutService: ILayoutService;
 	readonly runtimeSessionService: IRuntimeSessionService;
 	readonly runtimeStartupService: IRuntimeStartupService;
 	readonly languageService: ILanguageService;
@@ -46,9 +49,6 @@ export interface PositronConsoleServices extends PositronActionBarServices {
 	readonly positronConsoleService: IPositronConsoleService;
 	readonly positronPlotsService: IPositronPlotsService;
 	readonly viewsService: IViewsService;
-	readonly workbenchLayoutService: IWorkbenchLayoutService;
-	readonly contextKeyService: IContextKeyService;
-	readonly commandService: ICommandService;
 }
 
 /**
