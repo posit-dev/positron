@@ -25,9 +25,10 @@ import { EXTENSION_ROOT_DIR, MINIMUM_PYTHON_VERSION } from '../common/constants'
 import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { checkAndInstallPython } from './extension';
-import { shouldIncludeInterpreter, isVersionSupported } from './interpreterSettings';
+import { shouldIncludeInterpreter, isVersionSupported, getUserDefaultInterpreter } from './interpreterSettings';
 import { parseVersion, toSemverLikeVersion } from '../pythonEnvironments/base/info/pythonVersion';
 import { PythonVersion } from '../pythonEnvironments/info/pythonVersion';
+import { hasFiles } from './util';
 
 export const IPythonRuntimeManager = Symbol('IPythonRuntimeManager');
 
@@ -101,9 +102,43 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
      * Recommend a Python language runtime based on the workspace.
      */
     async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
-        // TODO: This is where we could recommend a runtime based on the
-        // workspace, e.g. if it contains a virtualenv
-        return undefined;
+        //
+        const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+        const userInterpreterSettings = getUserDefaultInterpreter(workspaceUri);
+        let interpreterPath: string | undefined;
+        let isImmediate = false;
+
+        if (!workspaceUri) {
+            if (userInterpreterSettings.globalValue) {
+                interpreterPath = userInterpreterSettings.globalValue;
+            }
+            traceInfo('No recommended runtime for workspace.');
+            return;
+        }
+
+        if (await hasFiles(['.venv/**/*'])) {
+            interpreterPath = path.join(workspaceUri.fsPath, '.venv', 'bin', 'python');
+            isImmediate = true;
+        } else if (await hasFiles(['.conda/**/*'])) {
+            interpreterPath = path.join(workspaceUri.fsPath, '.conda', 'bin', 'python');
+            isImmediate = true;
+        } else {
+            interpreterPath =
+                userInterpreterSettings.workspaceValue ||
+                userInterpreterSettings.workspaceFolderValue ||
+                userInterpreterSettings.globalValue;
+        }
+
+        if (interpreterPath) {
+            const interpreter = await this.interpreterService.getInterpreterDetails(interpreterPath, workspaceUri);
+            if (interpreter) {
+                const metadata = createPythonRuntimeMetadata(interpreter, this.serviceContainer, isImmediate);
+                traceInfo(`Recommended runtime for workspace: ${interpreter.path}`);
+
+                return metadata;
+            }
+        }
+        traceInfo('No recommended workspace runtime found.');
     }
 
     /**
