@@ -67,14 +67,13 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 		// If the left mouse button was pressed, show the context menu.
 		if (e.button === 2) {
 			// Build the context menu entries.
-			const entries: CustomContextMenuEntry[] = [];
-			entries.push(new CustomContextMenuItem({
+			const entries: CustomContextMenuEntry[] = [new CustomContextMenuItem({
 				icon: 'copy',
 				label: localize('positron.dataExplorer.copy', "Copy"),
 				onSelected: async () => await positronConsoleContext.clipboardService.writeText(
 					props.directoryLabel
 				)
-			}));
+			})];
 
 			// Show the context menu.
 			await showCustomContextMenu({
