@@ -36,11 +36,13 @@ test.describe('Sessions: State', {
 		// Start Python session
 		pythonSession1.id = await sessions.launch({ ...pythonSession1, waitForReady: false });
 
-		// Verify Python session is visible and transitions from active --> idle
+		// Verify Python session is visible and transitions from starting --> idle
+		// Note displays as 'starting' in metadata dialog and as 'active' in session tab list
 		await sessions.expectStatusToBe(pythonSession1.id, 'starting');
 		await sessions.expectStatusToBe(pythonSession1.id, 'idle');
 
-		// Restart Python session and confirm state returns to active --> idle
+		// Restart Python session and confirm state returns to starting --> idle
+		// Note displays as 'starting' in metadata dialog and as 'active' in session tab list
 		await sessions.restartButton.click();
 		await sessions.expectStatusToBe(pythonSession1.id, 'starting');
 		await sessions.expectStatusToBe(pythonSession1.id, 'idle');

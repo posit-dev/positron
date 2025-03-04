@@ -27,7 +27,7 @@ test.describe('Sessions: Session Picker', {
 	test('Python - Start and verify session via session picker', async function ({ app }) {
 		const sessions = app.workbench.sessions;
 
-		pythonSession.id = await sessions.launch({ ...pythonSession, triggerMode: 'session-picker' });
+		pythonSession.id = await sessions.launch(pythonSession);
 		await sessions.expectSessionPickerToBe(pythonSession);
 		const { state } = await sessions.getMetadata();
 		expect(state).toBe('idle');
@@ -36,7 +36,7 @@ test.describe('Sessions: Session Picker', {
 	test('R - Start and verify session via session picker', async function ({ app }) {
 		const sessions = app.workbench.sessions;
 
-		rSession1.id = await sessions.launch({ ...rSession, triggerMode: 'session-picker' });
+		rSession1.id = await sessions.launch(rSession);
 		await sessions.expectSessionPickerToBe(rSession);
 		const { state } = await sessions.getMetadata();
 		expect(state).toBe('idle');
