@@ -693,8 +693,8 @@ export function registerLanguageRuntimeActions() {
 				icon: Codicon.plus,
 				id: LANGUAGE_RUNTIME_START_SESSION_ID,
 				title: {
-					value: localize('workbench.action.language.runtime.openStartPicker', "Open Start Session Picker"),
-					original: 'Open Start Session Picker'
+					value: localize('workbench.action.language.runtime.openStartPicker', "Start a New Session"),
+					original: 'Start a New Session'
 				},
 				category,
 				menu: [{
