@@ -124,16 +124,6 @@ runs:
         ln -sf "$PYTHON_BIN" "$INSTALL_DIR/usr/bin/python"
         ln -sf "$PYTHON_BIN" "$INSTALL_DIR/usr/bin/python3"
 
-        # Install pip manually
-        echo "Installing pip..."
-        curl -sS https://bootstrap.pypa.io/get-pip.py | "$PYTHON_BIN"
-
-        # Verify pip installation
-        if ! "$PYTHON_BIN" -m pip --version; then
-            echo "Error: Pip installation failed!"
-            exit 1
-        fi
-
         # Final verification of symlinks
         echo "Symlink verification:"
         ls -l "$INSTALL_DIR/usr/bin/python" "$INSTALL_DIR/usr/bin/python3"
