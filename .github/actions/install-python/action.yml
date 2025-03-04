@@ -86,54 +86,54 @@ runs:
 
         # Set installation path
         INSTALL_DIR="$HOME/scratch/python-custom"
-        mkdir -p $INSTALL_DIR
+        mkdir -p "$INSTALL_DIR"
 
-        # Download the correct Python 3.12.7 minimal package from Ubuntu archive
-        DEB_URL="http://archive.ubuntu.com/ubuntu/pool/main/p/python3.12/python3.12-minimal_3.12.7-1ubuntu2_amd64.deb"
-        curl -fLO "$DEB_URL"
+        # List of required Python packages
+        PYTHON_PKGS=("python3.12" "python3.12-minimal" "python3.12-dev")
 
-        # Verify the file format before extracting
-        if file python3.12-minimal_3.12.7-1ubuntu2_amd64.deb | grep -q "Debian binary package"; then
-            echo "Valid Debian package detected."
-        else
-            echo "Error: Downloaded file is not a valid .deb package!"
-            exit 1
-        fi
+        # Download and extract packages
+        for pkg in "${PYTHON_PKGS[@]}"; do
+            DEB_FILE="${pkg}_3.12.7-1ubuntu2_amd64.deb"
+            DEB_URL="http://archive.ubuntu.com/ubuntu/pool/main/p/python3.12/$DEB_FILE"
 
-        # Extract the .deb package manually (without sudo)
-        dpkg-deb -x python3.12-minimal_3.12.7-1ubuntu2_amd64.deb $INSTALL_DIR
+            echo "Downloading $pkg..."
+            if curl -fLO "$DEB_URL"; then
+                echo "Extracting $DEB_FILE..."
+                dpkg-deb -x "$DEB_FILE" "$INSTALL_DIR" || { echo "Error extracting $DEB_FILE"; exit 1; }
+                rm -f "$DEB_FILE"  # Clean up after extraction
+            else
+                echo "Error: Failed to download $DEB_URL"
+                exit 1
+            fi
+        done
 
-        # Set the correct path for Python binary
+        # Set Python binary path
         PYTHON_BIN="$INSTALL_DIR/usr/bin/python3.12"
 
         # Verify Python installation
         if [[ -x "$PYTHON_BIN" ]]; then
-            echo "Python successfully extracted."
+            echo "Python successfully installed at $PYTHON_BIN"
             $PYTHON_BIN --version
         else
-            echo "Error: Python binary not found in extracted directory."
+            echo "Error: Python binary not found!"
             exit 1
         fi
 
-        # Create symlinks for python and python3
+        # Create symlinks for easier access
+        echo "Creating symlinks..."
         ln -sf "$PYTHON_BIN" "$INSTALL_DIR/usr/bin/python"
         ln -sf "$PYTHON_BIN" "$INSTALL_DIR/usr/bin/python3"
 
-        # Manually install pip since `ensurepip` is disabled
-        echo "Installing pip manually..."
-        curl -sS https://bootstrap.pypa.io/get-pip.py | $PYTHON_BIN
+        # Install pip manually
+        echo "Installing pip..."
+        curl -sS https://bootstrap.pypa.io/get-pip.py | "$PYTHON_BIN"
 
         # Verify pip installation
-        $PYTHON_BIN -m pip --version
+        if ! "$PYTHON_BIN" -m pip --version; then
+            echo "Error: Pip installation failed!"
+            exit 1
+        fi
 
-        # Print symlink verification
-        ls -l $INSTALL_DIR/usr/bin/python*
-
-        # Install Black formatter
-        echo "Installing Black..."
-        $PYTHON_BIN -m pip install black --no-cache-dir
-
-        # Verify Black installation
-        $PYTHON_BIN -m black --version
-
-
+        # Final verification of symlinks
+        echo "Symlink verification:"
+        ls -l "$INSTALL_DIR/usr/bin/python" "$INSTALL_DIR/usr/bin/python3"
