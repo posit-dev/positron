@@ -11,7 +11,6 @@ import React from 'react';
 
 // Other dependencies.
 import { IAction } from '../../../../../base/common/actions.js';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { usePositronVariablesContext } from '../positronVariablesContext.js';
@@ -32,21 +31,6 @@ export const VariablesInstanceMenuButton = () => {
 		}
 		return 'None';
 	};
-
-	// State.
-	const [activeRuntimeLabel, setActiveRuntimeLabel] =
-		React.useState(labelForRuntime(
-			positronVariablesContext.activePositronVariablesInstance?.session));
-
-	// useEffect hook to update the runtime label.
-	React.useEffect(() => {
-		const disposables = new DisposableStore();
-		const variablesService = positronVariablesContext.positronVariablesService;
-		disposables.add(variablesService.onDidChangeActivePositronVariablesInstance(e => {
-			setActiveRuntimeLabel(labelForRuntime(e?.session));
-		}));
-		return () => disposables.dispose();
-	}, [positronVariablesContext.activePositronVariablesInstance, positronVariablesContext.positronVariablesService]);
 
 	// Builds the actions.
 	const actions = () => {
@@ -83,7 +67,7 @@ export const VariablesInstanceMenuButton = () => {
 	return (
 		<ActionBarMenuButton
 			actions={actions}
-			text={activeRuntimeLabel}
+			text={labelForRuntime(positronVariablesContext.activePositronVariablesInstance?.session)}
 		/>
 	);
 };
