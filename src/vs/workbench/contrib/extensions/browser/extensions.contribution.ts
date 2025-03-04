@@ -902,6 +902,7 @@ class ExtensionsContributions extends Disposable implements IWorkbenchContributi
 					notificationService.prompt(
 						Severity.Info,
 						// --- Start Positron ---
+						// localize('InstallVSIXAction.successReload', "Completed installing extension from VSIX. Please reload Visual Studio Code to enable it."),
 						localize('InstallVSIXAction.successReload', "Completed installing extension from VSIX. Please reload Positron to enable it."),
 						// --- End Positron ---
 						[{
