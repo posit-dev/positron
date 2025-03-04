@@ -12,7 +12,7 @@ import {
 } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { positronConfigurationNodeBase } from '../../languageRuntime/common/languageRuntime.js';
-import { PositronDataExplorerLayout } from '../browser/interfaces/positronDataExplorerService.js';
+import { PositronDataExplorerLayout } from './interfaces/positronDataExplorerService.js';
 
 // Key for the configuration setting
 export const USE_POSITRON_DATA_EXPLORER_SUMMARY_COLLAPSE_KEY =

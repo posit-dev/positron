@@ -23,7 +23,7 @@ import { TableSummaryDataGridInstance } from './tableSummaryDataGridInstance.js'
 import { PositronDataExplorerLayout } from './interfaces/positronDataExplorerService.js';
 import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
 import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
-import { DataExplorerSummaryCollapseEnabled, DefaultDataExplorerSummaryLayout } from '../common/positronDataExplorerSummary.js';
+import { DataExplorerSummaryCollapseEnabled, DefaultDataExplorerSummaryLayout } from './positronDataExplorerSummary.js';
 
 /**
  * Constants.
