@@ -37,9 +37,8 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
 		// If the default interpreter path is set and the path exists on the filesystem,
 		// recommend it with implicit startup behavior.
-		let defaultInterpreterPath = getDefaultInterpreterPath();
+		const defaultInterpreterPath = getDefaultInterpreterPath();
 		if (defaultInterpreterPath) {
-			defaultInterpreterPath = untildify(defaultInterpreterPath);
 			if (fs.existsSync(defaultInterpreterPath)) {
 				LOGGER.info(`Recommending R runtime from default interpreter path setting: ${defaultInterpreterPath}`);
 				const inst = new RInstallation(defaultInterpreterPath, undefined, [ReasonDiscovered.user]);
