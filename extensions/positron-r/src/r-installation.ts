@@ -338,3 +338,16 @@ function isExcludedInstallation(binpath: string): boolean | undefined {
 		excluded => isParentPath(binpath, excluded) || arePathsSame(binpath, excluded)
 	);
 }
+
+/**
+ * Get the default R interpreter path specified in the settings.
+ * @returns The default R interpreter path specified in the settings, or undefined if not set.
+ */
+export function getDefaultInterpreterPath(): string | undefined {
+	const config = vscode.workspace.getConfiguration('positron.r');
+	const defaultInterpreterPath = config.get<string>('interpreters.default');
+	if (defaultInterpreterPath) {
+		return untildify(defaultInterpreterPath);
+	}
+	return undefined;
+}
