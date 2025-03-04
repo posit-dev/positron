@@ -11,6 +11,7 @@ import logging
 import math
 import operator
 from datetime import datetime
+from decimal import Decimal
 from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
@@ -891,9 +892,13 @@ class NumPyMathHelper:
         return isinstance(value, (float, self.np.floating))
 
     def isnan(self, value):
+        if isinstance(value, Decimal):
+            return False
         return self.np.isnan(value)
 
     def isinf(self, value):
+        if isinstance(value, Decimal):
+            return False
         return self.np.isinf(value)
 
 

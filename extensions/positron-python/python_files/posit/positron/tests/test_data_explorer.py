@@ -2531,8 +2531,19 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             "f10": ["str", 1, 2, None, False] * 20,
             # mixed-integer-float
             "f11": np.array([1.5, 2, 2, None, 3.5] * 20, dtype=object),
+            # decimal
+            "f12": [
+                Decimal("1.5"),
+                Decimal("2"),
+                Decimal("2"),
+                None,
+                Decimal("3.5"),
+            ]
+            * 20,
         }
     )
+
+    f12_f64 = df1["f12"].astype("float64")
 
     df_mixed_tz1 = pd.concat(
         [
@@ -2680,6 +2691,19 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             11,
             {"num_unique": 3},
         ),
+        # decimal
+        (
+            "df1",
+            12,
+            {
+                "min_value": _format_float(f12_f64.min()),
+                "max_value": _format_float(f12_f64.max()),
+                "mean": _format_float(f12_f64.mean()),
+                "stdev": _format_float(f12_f64.std()),
+                "median": _format_float(f12_f64.median()),
+            },
+        ),
+        # mixed types
         (
             "df_mixed_tz1",
             0,
