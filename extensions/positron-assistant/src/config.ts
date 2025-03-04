@@ -172,8 +172,32 @@ async function confirmModelDeletion(context: vscode.ExtensionContext, storage: S
 }
 
 export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {
+	// Get the configuration option listing enabled providers
+	let enabledProviders: string[] =
+		vscode.workspace.getConfiguration('positron.assistant').get('enabledProviders') || [];
+
+	// Ensure an array was specified; coerce other values
+	if (!Array.isArray(enabledProviders)) {
+		if (typeof enabledProviders === 'string') {
+			// Be nice and allow a single string to be used to enable a single provider
+			enabledProviders = [enabledProviders];
+		} else if (enabledProviders) {
+			// Log an error if the value is not a string or array
+			console.log('Invalid value for positron.assistant.enabledProviders, ignoring: ',
+				JSON.stringify(enabledProviders)
+			);
+			enabledProviders = [];
+		} else {
+			enabledProviders = [];
+		}
+	}
+
 	// Gather model sources
-	const sources = [...languageModels, ...completionModels].map((provider) => provider.source);
+	const sources = [...languageModels, ...completionModels]
+		.map((provider) => provider.source)
+		.filter((source) => {
+			enabledProviders.includes(source.provider.id);
+		});
 
 	// Show a modal asking user for configuration details
 	return positron.ai.showLanguageModelConfig(sources, async (userConfig) => {
