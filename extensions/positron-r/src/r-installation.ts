@@ -316,7 +316,7 @@ function getExcludedInstallations(): string[] {
 				return false;
 			});
 		const formattedPaths = JSON.stringify(excludedPaths, null, 2);
-		LOGGER.info(` R installation paths to exclude:\n${formattedPaths}`);
+		LOGGER.info(`R installation paths to exclude:\n${formattedPaths}`);
 		return excludedPaths;
 	}
 	LOGGER.debug('No installation paths specified to exclude via settings');
@@ -341,13 +341,19 @@ function isExcludedInstallation(binpath: string): boolean | undefined {
 
 /**
  * Get the default R interpreter path specified in the settings.
+ * Converts aliased paths to absolute paths. Relative paths are ignored.
  * @returns The default R interpreter path specified in the settings, or undefined if not set.
  */
 export function getDefaultInterpreterPath(): string | undefined {
 	const config = vscode.workspace.getConfiguration('positron.r');
-	const defaultInterpreterPath = config.get<string>('interpreters.default');
+	let defaultInterpreterPath = config.get<string>('interpreters.default');
 	if (defaultInterpreterPath) {
-		return untildify(defaultInterpreterPath);
+		defaultInterpreterPath = untildify(defaultInterpreterPath);
+		if (path.isAbsolute(defaultInterpreterPath)) {
+			return defaultInterpreterPath;
+		}
+		LOGGER.info(`Default R interpreter path ${defaultInterpreterPath} is not absolute...ignoring`);
+		return undefined;
 	}
 	return undefined;
 }
