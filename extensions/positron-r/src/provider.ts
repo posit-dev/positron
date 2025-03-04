@@ -15,6 +15,7 @@ import * as crypto from 'crypto';
 import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
+import { untildify } from './path-utils';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -596,8 +597,17 @@ function rHeadquarters(): string[] {
 // directory(ies) where this user keeps R installations
 function userRHeadquarters(): string[] {
 	const config = vscode.workspace.getConfiguration('positron.r');
-	const userHqDirs = config.get<string[]>('customRootFolders');
-	if (userHqDirs && userHqDirs.length > 0) {
+	const customRootFolders = config.get<string[]>('customRootFolders') ?? [];
+	if (customRootFolders.length > 0) {
+		const userHqDirs = customRootFolders
+			.map((item) => untildify(item))
+			.filter((item) => {
+				if (path.isAbsolute(item)) {
+					return true;
+				}
+				LOGGER.info(`R custom root folder path ${item} is not absolute...ignoring`);
+				return false;
+			});
 		const formattedPaths = JSON.stringify(userHqDirs, null, 2);
 		LOGGER.info(`User-specified directories to scan for R installations:\n${formattedPaths}`);
 		return userHqDirs;
@@ -609,8 +619,17 @@ function userRHeadquarters(): string[] {
 // ad hoc binaries this user wants Positron to know about
 function userRBinaries(): string[] {
 	const config = vscode.workspace.getConfiguration('positron.r');
-	const userBinaries = config.get<string[]>('customBinaries');
-	if (userBinaries && userBinaries.length > 0) {
+	const customBinaries = config.get<string[]>('customBinaries') ?? [];
+	if (customBinaries.length > 0) {
+		const userBinaries = customBinaries
+			.map((item) => untildify(item))
+			.filter((item) => {
+				if (path.isAbsolute(item)) {
+					return true;
+				}
+				LOGGER.info(`R custom binary path ${item} is not absolute...ignoring`);
+				return false;
+			});
 		const formattedPaths = JSON.stringify(userBinaries, null, 2);
 		LOGGER.info(`User-specified R binaries:\n${formattedPaths}`);
 		return userBinaries;
