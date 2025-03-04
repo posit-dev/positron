@@ -37,29 +37,21 @@
       {
         "command": "positron-assistant.addModelConfiguration",
         "title": "%commands.addModelConfiguration.title%",
-        "category": "%commands.category%"
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
       },
       {
         "command": "positron-assistant.configureModels",
         "title": "%commands.configureModels.title%",
-        "category": "%commands.category%"
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
       }
     ],
     "languageModels": [
       {
         "vendor": "positron"
       }
-    ],
-    "configuration": {
-      "title": "Positron Assistant",
-      "properties": {
-        "positron.assistant.enable": {
-          "type": "boolean",
-          "default": false,
-          "description": "%configuration.enable.description%"
-        }
-      }
-    }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
