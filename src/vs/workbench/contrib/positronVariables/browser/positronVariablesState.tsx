@@ -61,12 +61,17 @@ export const usePositronVariablesState = (services: PositronVariablesServices): 
 
 		// Add the onDidStartPositronVariablesInstance event handler.
 		disposableStore.add(services.positronVariablesService.onDidStartPositronVariablesInstance(positronVariablesInstance => {
-			setPositronVariablesInstances(positronVariablesInstances => [...positronVariablesInstances, positronVariablesInstance]);
+			if ((positronVariablesInstances.find(i => i.session.sessionId === positronVariablesInstance.session.sessionId)) === undefined) {
+				// if this instance is already known, it's a restart so activate it
+				// activating through the service ensures all listeners are notified
+				services.positronVariablesService.setActivePositronVariablesSession(positronVariablesInstance.session.sessionId);
+			}
+			setPositronVariablesInstances(services.positronVariablesService.positronVariablesInstances);
 		}));
 
 		// Add the onDidStopPositronVariablesInstance event handler.
-		disposableStore.add(services.positronVariablesService.onDidStopPositronVariablesInstance(positronVariablesInstance => {
-			setPositronVariablesInstances(positronVariablesInstances => positronVariablesInstances.filter(i => i !== positronVariablesInstance));
+		disposableStore.add(services.positronVariablesService.onDidStopPositronVariablesInstance(_positronVariablesInstance => {
+			setPositronVariablesInstances(services.positronVariablesService.positronVariablesInstances);
 		}));
 
 		// Add the onDidChangeActivePositronVariablesInstance event handler.
