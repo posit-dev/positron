@@ -5,10 +5,13 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import { currentRBinary, makeMetadata, rRuntimeDiscoverer } from './provider';
-import { RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason } from './r-installation';
+import { RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason, getDefaultInterpreterPath } from './r-installation';
 import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
+import { untildify } from './path-utils';
+import { LOGGER } from './extension';
 
 export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
@@ -32,8 +35,17 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	}
 
 	async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
-		// TODO: If the workspace contains an R project, we could recommend an
-		// R runtime from e.g. the `DESCRIPTION` file or an renv lockfile.
+		// If the default interpreter path is set and the path exists on the filesystem,
+		// recommend it with implicit startup behavior.
+		let defaultInterpreterPath = getDefaultInterpreterPath();
+		if (defaultInterpreterPath) {
+			defaultInterpreterPath = untildify(defaultInterpreterPath);
+			if (fs.existsSync(defaultInterpreterPath)) {
+				LOGGER.info(`Recommending R runtime from default interpreter path setting: ${defaultInterpreterPath}`);
+				const inst = new RInstallation(defaultInterpreterPath, undefined, [ReasonDiscovered.user]);
+				return makeMetadata(inst, positron.LanguageRuntimeStartupBehavior.Implicit);
+			}
+		}
 		return undefined;
 	}
 
