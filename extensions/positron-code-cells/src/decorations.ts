@@ -22,11 +22,28 @@ function defaultSetDecorations(
 	editor.setDecorations(decorationType, ranges);
 }
 
-export const cellDecorationType = vscode.window.createTextEditorDecorationType({
-	light: { backgroundColor: '#E1E1E166' },
-	dark: { backgroundColor: '#40404066' },
-	isWholeLine: true,
-});
+// Create decoration types for focused cell borders
+export const focusedCellTopDecorationType =
+	vscode.window.createTextEditorDecorationType({
+		borderColor: new vscode.ThemeColor('interactive.activeCodeBorder'),
+		borderWidth: '2px 0px 0px 0px',
+		borderStyle: 'solid',
+		isWholeLine: true,
+	});
+
+export const focusedCellBottomDecorationType =
+	vscode.window.createTextEditorDecorationType({
+		borderColor: new vscode.ThemeColor('interactive.activeCodeBorder'),
+		borderWidth: '0px 0px 1px 0px',
+		borderStyle: 'solid',
+		isWholeLine: true,
+	});
+
+export const focusedCellBackgroundDecorationType =
+	vscode.window.createTextEditorDecorationType({
+		backgroundColor: new vscode.ThemeColor('notebook.selectedCellBackground'),
+		isWholeLine: true,
+	});
 
 export function activateDecorations(
 	disposables: vscode.Disposable[],
@@ -44,15 +61,45 @@ export function activateDecorations(
 
 		// Get the relevant decoration ranges.
 		const cells = docManager.getCells();
-		const activeCellRanges: vscode.Range[] = [];
+
+		// Configurable: cellStyle `background`/`border`/`both`
+		const config = vscode.workspace.getConfiguration('positronCodeCells');
+		const decorationStyle = config.get<string>('cellStyle');
+		const useCellBorders = (decorationStyle === 'border' || decorationStyle === 'both');
+		const useCellBackground = (decorationStyle === 'background' || decorationStyle === 'both');
+
+		const activeCellBackgroundRanges: vscode.Range[] = [];
+		const activeTopBorderRanges: vscode.Range[] = [];
+		const activeBottomBorderRanges: vscode.Range[] = [];
 		for (const cell of cells) {
 			if (cell.range.contains(activeEditor.selection.active)) {
-				activeCellRanges.push(cell.range);
+				if (useCellBackground) {
+					activeCellBackgroundRanges.push(cell.range);
+				}
+				if (useCellBorders) {
+					activeTopBorderRanges.push(new vscode.Range(cell.range.start.line, 0, cell.range.start.line, 0));
+					activeBottomBorderRanges.push(new vscode.Range(cell.range.end.line, 0, cell.range.end.line, 0));
+				}
 			}
 		}
 
-		// Set decorations depending on the language configuration.
-		setDecorations(activeEditor, cellDecorationType, activeCellRanges);
+		setDecorations(
+			activeEditor,
+			focusedCellBackgroundDecorationType,
+			activeCellBackgroundRanges
+		);
+		setDecorations(
+			activeEditor,
+			focusedCellTopDecorationType,
+			activeTopBorderRanges
+		);
+		setDecorations(
+			activeEditor,
+			focusedCellBottomDecorationType,
+			activeBottomBorderRanges
+		);
+
+
 	}
 
 	// Trigger an update of the active editor's cell decorations, with optional throttling.
