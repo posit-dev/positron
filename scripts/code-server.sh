@@ -24,6 +24,10 @@ function code() {
 	popd
 
 	# --- Start Positron ---
+	# The vscode.vscode-api-tests extension takes over the default chat
+	# provider in order to test the chat feature. We disable the extension in
+	# server dev mode so that Positron Assistant can become the default chat
+	# provider.
 	DISABLE_TEST_EXTENSION="--disable-extension=vscode.vscode-api-tests"
 	if [[ "$@" == *"--extensionTestsPath"* ]]; then
 		DISABLE_TEST_EXTENSION=""

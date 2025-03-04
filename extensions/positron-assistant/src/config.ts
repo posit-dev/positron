@@ -7,6 +7,7 @@ import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { languageModels } from './models';
 import { completionModels } from './completion';
+import { registerModels } from './extension';
 
 interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
 	id: string;
@@ -100,6 +101,7 @@ export async function showModelList(context: vscode.ExtensionContext, storage: S
 		config.type === 'completion'
 	);
 
+	const addNewModelLabel = vscode.l10n.t('Add a Language Model');
 	const items: Array<vscode.QuickPickItem> = [
 		{
 			label: vscode.l10n.t('Chat Models'),
@@ -123,7 +125,7 @@ export async function showModelList(context: vscode.ExtensionContext, storage: S
 			kind: vscode.QuickPickItemKind.Separator
 		},
 		{
-			label: vscode.l10n.t('Add a Language Model'),
+			label: addNewModelLabel,
 			description: vscode.l10n.t('Add a new language model configuration'),
 		}
 	];
@@ -136,7 +138,7 @@ export async function showModelList(context: vscode.ExtensionContext, storage: S
 		if (!selected) {
 			return;
 		}
-		if (selected.description === vscode.l10n.t('Add a new language model configuration')) {
+		if (selected.label === addNewModelLabel) {
 			showConfigurationDialog(context, storage);
 		} else {
 			const selectedConfig = modelConfigs.find((config) => config.name === selected.label);
@@ -236,4 +238,6 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, stor
 	);
 
 	await storage.delete(`apiKey-${id}`);
+
+	registerModels(context, storage);
 }

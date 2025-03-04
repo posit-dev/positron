@@ -28,7 +28,7 @@ function disposeParticipants() {
 	participantDisposables = [];
 }
 
-async function registerModels(context: vscode.ExtensionContext, storage: SecretStorage) {
+export async function registerModels(context: vscode.ExtensionContext, storage: SecretStorage) {
 	// Dispose of existing models
 	disposeModels();
 
@@ -133,15 +133,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Register mapped edits provider
 	registerMappedEditsProvider(context);
-
-	// Listen for configuration changes
-	context.subscriptions.push(
-		vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('positron.assistant.models')) {
-				registerModels(context, storage);
-			}
-		})
-	);
 
 	// Dispose cleanup
 	context.subscriptions.push({
