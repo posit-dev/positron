@@ -12,7 +12,7 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { IQuickInputService, IQuickPickItem, IQuickPickSeparator, QuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
-import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
@@ -25,6 +25,9 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { ExplorerFolderContext } from '../../files/common/files.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { localize } from '../../../../nls.js';
+import { USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY } from '../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
@@ -681,64 +684,90 @@ export function registerLanguageRuntimeActions() {
 		}
 	});
 
-	registerLanguageRuntimeAction(LANGUAGE_RUNTIME_START_SESSION_ID, 'Open Start Session Picker', async accessor => {
-		// Access services.
-		const quickInputService = accessor.get(IQuickInputService);
-		const runtimeSessionService = accessor.get(IRuntimeSessionService);
-		const runtimeStartupService = accessor.get(IRuntimeStartupService);
-		const languageRuntimeService = accessor.get(ILanguageRuntimeService);
-
-		// Group runtimes by language.
-		const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService);
-
-		// Generate quick pick items for runtimes.
-		const runtimeItems: QuickPickItem[] = [];
-		interpreterGroups.forEach(group => {
-			const language = group.primaryRuntime.languageName;
-			// Add separator with language name.
-			runtimeItems.push({ type: 'separator', label: language });
-			// Add primary runtime first.
-			runtimeItems.push({
-				id: group.primaryRuntime.runtimeId,
-				label: group.primaryRuntime.runtimeName,
-				detail: group.primaryRuntime.runtimePath,
-				iconPath: {
-					dark: URI.parse(`data:image/svg+xml;base64, ${group.primaryRuntime.base64EncodedIconSvg}`),
+	registerAction2(class extends Action2 {
+		/**
+		 * Constructor.
+		 */
+		constructor() {
+			super({
+				icon: Codicon.plus,
+				id: LANGUAGE_RUNTIME_START_SESSION_ID,
+				title: {
+					value: localize('workbench.action.language.runtime.openStartPicker', "Start a New Session"),
+					original: 'Start a New Session'
 				},
-				picked: (group.primaryRuntime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+				category,
+				menu: [{
+					group: 'navigation',
+					id: MenuId.ViewTitle,
+					order: 1,
+					when: ContextKeyExpr.and(
+						ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
+						ContextKeyExpr.equals(`config.${USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY}`, true),
+					),
+				}],
 			});
-			// Follow with alternate runtimes.
-			group.alternateRuntimes.sort((a, b) => a.runtimeName.localeCompare(b.runtimeName));
-			group.alternateRuntimes.forEach(runtime => {
+		}
+
+		async run(accessor: ServicesAccessor) {
+			// Access services.
+			const quickInputService = accessor.get(IQuickInputService);
+			const runtimeSessionService = accessor.get(IRuntimeSessionService);
+			const runtimeStartupService = accessor.get(IRuntimeStartupService);
+			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+
+			// Group runtimes by language.
+			const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService);
+
+			// Generate quick pick items for runtimes.
+			const runtimeItems: QuickPickItem[] = [];
+			interpreterGroups.forEach(group => {
+				const language = group.primaryRuntime.languageName;
+				// Add separator with language name.
+				runtimeItems.push({ type: 'separator', label: language });
+				// Add primary runtime first.
 				runtimeItems.push({
-					id: runtime.runtimeId,
-					label: runtime.runtimeName,
-					detail: runtime.runtimePath,
+					id: group.primaryRuntime.runtimeId,
+					label: group.primaryRuntime.runtimeName,
+					detail: group.primaryRuntime.runtimePath,
 					iconPath: {
-						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
+						dark: URI.parse(`data:image/svg+xml;base64, ${group.primaryRuntime.base64EncodedIconSvg}`),
 					},
-					picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+					picked: (group.primaryRuntime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+				});
+				// Follow with alternate runtimes.
+				group.alternateRuntimes.sort((a, b) => a.runtimeName.localeCompare(b.runtimeName));
+				group.alternateRuntimes.forEach(runtime => {
+					runtimeItems.push({
+						id: runtime.runtimeId,
+						label: runtime.runtimeName,
+						detail: runtime.runtimePath,
+						iconPath: {
+							dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
+						},
+						picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+					});
 				});
 			});
-		});
 
-		// Prompt the user to select a runtime to start
-		const selectedRuntime = await quickInputService.pick(
-			runtimeItems,
-			{ title: 'Start a New Session', canPickMany: false }
-		);
-
-		// If the user selected a runtime, set it as the active runtime
-		if (selectedRuntime?.id) {
-			runtimeSessionService.startNewRuntimeSession(
-				selectedRuntime.id,
-				selectedRuntime.label,
-				LanguageRuntimeSessionMode.Console,
-				undefined,
-				'User selected runtime',
-				RuntimeStartMode.Starting,
-				true
+			// Prompt the user to select a runtime to start
+			const selectedRuntime = await quickInputService.pick(
+				runtimeItems,
+				{ title: 'Start a New Session', canPickMany: false }
 			);
+
+			// If the user selected a runtime, set it as the active runtime
+			if (selectedRuntime?.id) {
+				runtimeSessionService.startNewRuntimeSession(
+					selectedRuntime.id,
+					selectedRuntime.label,
+					LanguageRuntimeSessionMode.Console,
+					undefined,
+					'User selected runtime',
+					RuntimeStartMode.Starting,
+					true
+				);
+			}
 		}
 	});
 
