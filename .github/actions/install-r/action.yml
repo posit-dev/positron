@@ -106,4 +106,6 @@ runs:
 
         echo "Custom R installed at $INSTALL_DIR"
 
+        ls /home/runner/scratch/R-4.4.1/bin
+
 
