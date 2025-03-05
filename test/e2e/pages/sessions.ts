@@ -384,7 +384,7 @@ export class Sessions {
 	 * @returns the metadata of the session
 	 */
 	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
-		return await test.step(`Get metadata for session: ${sessionId ?? 'current tab'}`, async () => {
+		return await test.step(`Get metadata for: ${sessionId ?? 'current session'}`, async () => {
 			if (sessionId) {
 				await this.page.getByTestId(`console-tab-${sessionId}`).click();
 			}
