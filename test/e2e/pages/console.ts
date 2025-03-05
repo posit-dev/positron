@@ -213,11 +213,36 @@ export class Console {
 	): Promise<string[]> {
 		const { timeout = 15000, expectedCount = 1 } = options;
 
+		if (expectedCount === 0) {
+			const startTime = Date.now();
+			while (Date.now() - startTime < timeout) {
+				const errorMessage = `Expected text "${consoleText}" to not appear, but it did.`;
+				try {
+					const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText);
+					const count = await matchingLines.count();
+
+					if (count > 0) {
+						// Don't catch this error! It should fail the test.
+						throw new Error(errorMessage);
+					}
+				} catch (error) {
+					if (error instanceof Error && error.message.includes(errorMessage)) {
+						throw error;
+					}
+				}
+
+				await new Promise(resolve => setTimeout(resolve, 1000));
+			}
+			return [];
+		}
+
+		// Normal case: waiting for `expectedCount` occurrences
 		const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText);
 
 		await expect(matchingLines).toHaveCount(expectedCount, { timeout });
 		return expectedCount ? matchingLines.allTextContents() : [];
 	}
+
 
 	async waitForCurrentConsoleLineContents(expectedText: string, timeout = 30000): Promise<string> {
 		const locator = this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} .view-line`);

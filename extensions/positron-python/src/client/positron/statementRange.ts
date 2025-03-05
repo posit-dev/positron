@@ -128,10 +128,18 @@ async function provideStatementRangeFromAst(
     const outputRaw = await outputPromise.promise;
     const output = JSON.parse(outputRaw);
 
-    // Unfortunately, the script handles code with a syntax error by returning 'deprecated', and by
-    // only returning the `normalized` key. We use that information to distinguish from the user
-    // trying to actually execute the code 'deprecated' (e.g. if it's a variable in their script).
-    if (Object.keys(output).length === 1 && output.normalized === 'deprecated') {
+    // If any of the required keys are missing, something must have failed in the script.
+    // NOTE: If the upstream script fails to parse the syntax tree, it should end up here,
+    // but with `output.normalized` set to 'deprecated'. We don't check `output.normalized` here
+    // since the user might actually be trying to execute the code 'deprecated'.
+    // See https://github.com/posit-dev/positron/issues/6427.
+    if (
+        !('startLine' in output) ||
+        !('startCharacter' in output) ||
+        !('endLine' in output) ||
+        !('endCharacter' in output) ||
+        !('normalized' in output)
+    ) {
         throw new Error('Failed to parse the Python script.');
     }
 
