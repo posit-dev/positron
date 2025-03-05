@@ -201,10 +201,10 @@ suite('Interpreters Display', () => {
                         (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.path)!),
                         TypeMoq.Times.once(),
                     );
-                    // statusBar.verify(
-                    //     (s) => (s.tooltip = TypeMoq.It.isValue(activeInterpreter.path)!),
-                    //     TypeMoq.Times.atLeastOnce(),
-                    // );
+                    statusBar.verify(
+                        (s) => (s.tooltip = TypeMoq.It.isValue('Select Interpreter')!),
+                        TypeMoq.Times.atLeastOnce(),
+                    );
                     // --- End Positron ---
                 }
             });
@@ -234,7 +234,10 @@ suite('Interpreters Display', () => {
                     activeInterpreter.path,
                 );
             });
-            test('If interpreter is not identified then tooltip should point to python Path', async () => {
+            // --- Start Positron ---
+            // rename test to reflect reality
+            test('Tooltip should point Select Interpreter', async () => {
+                // --- End Positron ---
                 const resource = Uri.file('x');
                 const pythonPath = path.join('user', 'development', 'env', 'bin', 'python');
                 const workspaceFolder = Uri.file('workspace');
@@ -266,7 +269,10 @@ suite('Interpreters Display', () => {
                 } else {
                     // --- Start Positron ---
                     // No tooltip
-                    //statusBar.verify((s) => (s.tooltip = TypeMoq.It.isValue(pythonPath)), TypeMoq.Times.atLeastOnce());
+                    statusBar.verify(
+                        (s) => (s.tooltip = TypeMoq.It.isValue('Select Interpreter')),
+                        TypeMoq.Times.atLeastOnce(),
+                    );
                     // --- End Positron ---
                     statusBar.verify((s) => (s.text = TypeMoq.It.isValue(expectedDisplayName)), TypeMoq.Times.once());
                 }
@@ -354,12 +360,15 @@ suite('Interpreters Display', () => {
                     );
                 } else {
                     // --- Start Positron ---
-                    // Status bar should display path without any tooltip
+                    // Status bar should display path, tooltip should say Select Interpreter
                     statusBar.verify(
                         (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.path)!),
                         TypeMoq.Times.once(),
                     );
-                    // statusBar.verify((s) => (s.tooltip = TypeMoq.It.isValue(pythonPath)!), TypeMoq.Times.atLeastOnce());
+                    statusBar.verify(
+                        (s) => (s.tooltip = TypeMoq.It.isValue('Select Interpreter')!),
+                        TypeMoq.Times.atLeastOnce(),
+                    );
                     // --- End Positron ---
                 }
             });
