@@ -133,7 +133,10 @@ export class InterpreterDisplay implements IInterpreterDisplay, IExtensionSingle
         if (this.statusBar) {
             if (interpreter) {
                 this.statusBar.color = '';
-                this.statusBar.tooltip = this.pathUtils.getDisplayName(interpreter.path, workspaceFolder?.fsPath);
+                // --- Start Positron --
+                // disable tooltip that displays path
+                // this.statusBar.tooltip = this.pathUtils.getDisplayName(interpreter.path, workspaceFolder?.fsPath);
+                // --- End Positron ---
                 if (this.currentlySelectedInterpreterPath !== interpreter.path) {
                     traceLog(
                         l10n.t(
@@ -143,7 +146,10 @@ export class InterpreterDisplay implements IInterpreterDisplay, IExtensionSingle
                     );
                     this.currentlySelectedInterpreterPath = interpreter.path;
                 }
-                let text = interpreter.detailedDisplayName;
+                // --- Start Positron --
+                // status bar text should be interpreter path
+                let text = this.pathUtils.getDisplayName(interpreter.path, workspaceFolder?.fsPath);
+                // --- End Positron ---
                 text = text?.startsWith('Python') ? text?.substring('Python'.length)?.trim() : text;
                 this.statusBar.text = text ?? '';
                 this.statusBar.backgroundColor = undefined;
