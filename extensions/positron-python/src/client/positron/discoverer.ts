@@ -16,6 +16,7 @@ import { createPythonRuntimeMetadata } from './runtime';
 import { comparePythonVersionDescending } from '../interpreter/configuration/environmentTypeComparer';
 import { MINIMUM_PYTHON_VERSION } from '../common/constants';
 import { isVersionSupported, shouldIncludeInterpreter } from './interpreterSettings';
+import { hasFiles } from './util';
 
 /**
  * Provides Python language runtime metadata to Positron; called during the
@@ -150,12 +151,4 @@ function sortInterpreters(
         return comparePythonVersionDescending(a.version, b.version);
     });
     return copy;
-}
-
-// Check if the current workspace contains files matching any of the passed glob ptaterns
-async function hasFiles(includes: string[]): Promise<boolean> {
-    // Create a single glob pattern e.g. ['a', 'b'] => '{a,b}'
-    const include = `{${includes.join(',')}}`;
-    // Exclude node_modules for performance reasons
-    return (await vscode.workspace.findFiles(include, '**/node_modules/**', 1)).length > 0;
 }
