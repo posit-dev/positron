@@ -699,6 +699,13 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			}
 		);
 
+		// This fixes https://github.com/posit-dev/positron/issues/2281 by stopping mouse down
+		// events from propagating to the ConsoleInstance, which has its own context menu that was
+		// showing instead of the CodeEditorWidget's context menu.
+		codeEditorWidget.onMouseDown(e => {
+			e.event.stopPropagation();
+		});
+
 		// Add the code editor widget to the disposables store.
 		disposableStore.add(codeEditorWidget);
 		setCodeEditorWidget(codeEditorWidget);
@@ -953,8 +960,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	 * @param e A FocusEvent<HTMLDivElement, Element> that contains the event data.
 	 */
 	const focusHandler = (e: FocusEvent<HTMLDivElement, Element>) => {
-		// Drive focus into the code editor widget.
-		if (codeEditorWidgetRef.current) {
+		// Drive focus into the code editor widget, if it doesn't already have it. Checking for
+		// hasTextFocus is part of the fix for https://github.com/posit-dev/positron/issues/2281.
+		// Without this check, the CodeEditorWidget's context menu is shown and immediately hidden
+		// by the unnecessary call to focus.
+		if (codeEditorWidgetRef.current && !codeEditorWidgetRef.current.hasTextFocus) {
 			codeEditorWidgetRef.current.focus();
 		}
 	};

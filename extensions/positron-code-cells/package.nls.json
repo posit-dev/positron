@@ -11,5 +11,10 @@
 	"positron.codeCells.command.runCurrentCell.title": "Run Cell",
 	"positron.codeCells.command.runCurrentAndBelow.title": "Run Cell and Below",
 	"positron.codeCells.command.runNextCell.title": "Run Next Cell",
-	"positron.codeCells.command.runPreviousCell.title": "Run Previous Cell"
+	"positron.codeCells.command.runPreviousCell.title": "Run Previous Cell",
+	"positron.codeCells.configuration.title": "Code Cells",
+	"positron.codeCells.configuration.cellStyle": "Controls the style of code cell decorations. Colors are configurable with the `notebook.selectedCellBackground` and `interactive.activeCodeBorder` theme colors. See https://code.visualstudio.com/api/references/theme-color for more information about the available theme colors and how to override them.",
+	"positron.codeCells.configuration.cellStyle.border": "Highlight the active cell's border.",
+	"positron.codeCells.configuration.cellStyle.background": "Highlight the active cell's background.",
+	"positron.codeCells.configuration.cellStyle.both": "Highlight the active cell's border and background."
 }

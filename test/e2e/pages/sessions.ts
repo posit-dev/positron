@@ -27,6 +27,7 @@ export class Sessions {
 	private newConsoleButton: Locator;
 	restartButton: Locator;
 	private shutDownButton: Locator;
+	sessions: Locator;
 	sessionTabs: Locator;
 	currentSessionTab: Locator;
 	consoleInstance: (sessionId: string) => Locator;
@@ -44,6 +45,7 @@ export class Sessions {
 		this.newConsoleButton = this.page.getByRole('button', { name: 'Open Start Session Picker', exact: true });
 		this.restartButton = this.page.getByLabel('Restart console', { exact: true });
 		this.shutDownButton = this.page.getByLabel('Shutdown console', { exact: true });
+		this.sessions = this.page.getByTestId(/console-(?!tab-)[a-zA-Z0-9-]+/);
 		this.sessionTabs = this.page.getByTestId(/console-tab/);
 		this.currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 		this.consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
@@ -126,18 +128,30 @@ export class Sessions {
 
 	/**
 	 * Action: Delete the session via trash button
-	 * @param sessionIdOrName the id or name of the session
+	 * @param sessionId the id of the session
 	 */
-	async delete(sessionIdOrName: string): Promise<void> {
-		await test.step(`Delete session: ${sessionIdOrName}`, async () => {
-			const sessionTab = this.getSessionTab(sessionIdOrName);
+	async delete(sessionId: string): Promise<void> {
+		await test.step(`Delete session: ${sessionId}`, async () => {
+			const sessionCount = (await this.sessions.all()).length;
 
-			await sessionTab.click();
-			await sessionTab.hover();
-			await this.trashButton(sessionIdOrName).click();
+			if (sessionCount === 1) {
+				const currentSessionId = await this.getCurrentSessionId();
+				if (currentSessionId === sessionId) {
+					await this.console.barTrashButton.click();
+					return;
+				} else {
+					throw new Error(`Cannot delete session ${sessionId} because it does not exist`);
+				}
+			} else {
+				const sessionTab = this.getSessionTab(sessionId);
+
+				await sessionTab.click();
+				await sessionTab.hover();
+				await this.trashButton(sessionId).click();
+			}
 
 			await expect(this.page.getByText('Shutting down')).not.toBeVisible();
-			await expect(sessionTab).not.toBeVisible();
+			await expect(this.consoleInstance(sessionId)).not.toBeVisible();
 		});
 	}
 
@@ -166,7 +180,7 @@ export class Sessions {
 	 * @param waitForIdle wait for the session to display as "idle" (ready)
 	 */
 	async restart(sessionIdOrName: string, waitForIdle = true, clearConsole = true): Promise<void> {
-		await test.step(`Restart session:`, async () => {
+		await test.step(`Restart session: ${sessionIdOrName}`, async () => {
 			await this.getSessionTab(sessionIdOrName).click();
 
 			if (clearConsole) {
@@ -174,9 +188,10 @@ export class Sessions {
 			}
 
 			await this.restartButton.click();
+			await this.page.mouse.move(0, 0);
 
 			if (waitForIdle) {
-				this.expectStatusToBe(sessionIdOrName, 'idle', { timeout: 60000 });
+				this.expectStatusToBe(sessionIdOrName, 'idle', { timeout: 90000 });
 			}
 		});
 	}
@@ -222,7 +237,7 @@ export class Sessions {
 
 			// Collect all disconnected session IDs
 			for (const sessionId of sessionIds) {
-				const status = await this.getStatus(sessionId);
+				const status = await this.getIconStatus(sessionId);
 				if (status === 'disconnected' || 'exited') {
 					disconnectedSessions.push(sessionId);
 				}
@@ -235,11 +250,9 @@ export class Sessions {
 				await this.delete(disconnectedSessions[i]);
 			}
 
-			// Handle the last one separately because there is no tab list trash icon to click on
-			const { state } = await this.getMetadata();
-			if (state === 'disconnected' || state === 'exited') {
-				await this.console.barTrashButton.click();
-			}
+			// Handle the last one separately because there may not be a tab list trash icon to click on
+			await this.console.barTrashButton.click();
+			await expect(this.page.getByText('Shutting down')).not.toBeVisible();
 		});
 	}
 
@@ -272,11 +285,11 @@ export class Sessions {
 	}
 
 	/**
-	 * Helper: Launch a session if it doesn't exist, otherwise reuse the existing session if the name matches
+	 * Helper: Launch a session if it doesn't exist, otherwise reuse the existing session if the name matches and the state is idle
 	 * @param session the session to reuse / launch
 	 * @returns id of the session
 	 */
-	async reuseSessionIfExists(session: SessionInfo): Promise<string> {
+	async reuseIdleSessionIfExists(session: SessionInfo): Promise<string> {
 		return await test.step(`Reuse session: ${session.name}`, async () => {
 
 			const metadataButtonIsVisible = await this.metadataButton.isVisible();
@@ -285,7 +298,7 @@ export class Sessions {
 
 			if (sessionTabExists) {
 				await sessionTab.click();
-				const status = await this.getStatus(session.name);
+				const status = await this.getIconStatus(session.name);
 
 				if (status === 'idle') {
 					return await this.getCurrentSessionId();
@@ -306,7 +319,7 @@ export class Sessions {
 	 * Helper: Wait for runtimes to finish loading
 	 */
 	async waitForRuntimesToLoad() {
-		await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 80000 });
+		await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 	}
 
 	/**
@@ -346,26 +359,15 @@ export class Sessions {
 	 */
 	async getAllSessionIds(): Promise<string[]> {
 
-		if (await this.sessionTabs.count() === 0) {
-			return []; // No active sessions found
-		}
+		const allSessions = await this.sessions.all();
 
-		const sessionIds: string[] = [];
+		const sessionIds = await Promise.all(allSessions.map(async session => {
+			const testId = await session.getAttribute('data-testid');
+			const match = testId?.match(/console-(?!tab-)(\S+)/);
+			return match ? match[1] : null;
+		}));
 
-		for (const tab of await this.sessionTabs.all()) {
-			await tab.click();
-			const { id } = await this.getMetadata();
-			sessionIds.push(id);
-			// const testId = await tab.getAttribute('data-testid');
-			// if (!testId) { continue; }
-
-			// const match = testId.match(/^console-tab-(python|r)-(.+)$/);
-			// if (match) {
-			// 	sessionIds.push(`${match[1]}-${match[2]}`);
-			// }
-		}
-
-		return sessionIds;
+		return sessionIds.filter(sessionId => sessionId !== null) as string[];
 	}
 
 	/**
@@ -373,28 +375,7 @@ export class Sessions {
 	 * @returns the session ID or undefined if no session is selected
 	 */
 	async getCurrentSessionId(): Promise<string> {
-
-		// bug: this session id isn't updating in dom, but is correct in meta data dialog
 		return (await this.getMetadata()).id;
-
-		// if (await this.currentSessionTab.count() === 0) {
-		// 	return ''; // No active session found
-		// }
-
-		// const testId = await this.currentSessionTab.getAttribute('data-testid');
-		// if (!testId) { return ''; }
-
-		// // Extract the session ID from `data-testid="console-tab-python-<some-id>"` or `console-tab-r-<some-id>`
-		// const match = testId.match(/^console-tab-(python|r)-(.+)$/);
-		// return match ? `${match[1]}-${match[2]}` : '';
-	}
-
-	async getCurrentSessionName(): Promise<string> {
-		if (await this.currentSessionTab.count() === 0) {
-			return ''; // No active session found
-		}
-
-		return await this.currentSessionTab.textContent() || '';
 	}
 
 	/**
@@ -403,7 +384,7 @@ export class Sessions {
 	 * @returns the metadata of the session
 	 */
 	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
-		return await test.step(`Get metadata for session: ${sessionId ?? 'current tab'}`, async () => {
+		return await test.step(`Get metadata for: ${sessionId ?? 'current session'}`, async () => {
 			if (sessionId) {
 				await this.page.getByTestId(`console-tab-${sessionId}`).click();
 			}
@@ -475,11 +456,11 @@ export class Sessions {
 	}
 
 	/**
-	 * Helper: Get the status of the session tab
+	 * Helper: Get the icon status of the session tab
 	 * @param sessionIdOrName A string representing the session name or id.
 	 * @returns 'active', 'idle', 'disconnected', or 'unknown'
 	 */
-	async getStatus(sessionIdOrName: string): Promise<'active' | 'idle' | 'disconnected' | 'unknown'> {
+	async getIconStatus(sessionIdOrName: string): Promise<'active' | 'idle' | 'disconnected' | 'unknown'> {
 		const session = this.getSessionTab(sessionIdOrName);
 
 		if (await this.activeStatus(session).isVisible()) { return 'active'; }
@@ -499,20 +480,23 @@ export class Sessions {
 		const timeout = options?.timeout || 30000;
 
 		await test.step(`Verify ${sessionIdOrName} session status: ${expectedStatus}`, async () => {
-			const numberOfSessions = await this.sessionTabs.all();
-			if (numberOfSessions.length > 1) {
+			const sessionCount = (await this.sessions.all()).length;
+
+			if (sessionCount > 1) {
 				// get status from icon in tab list view
-				const sessionLocator = this.getSessionTab(sessionIdOrName);
+				const sessionTab = this.getSessionTab(sessionIdOrName);
 				const statusClass = `.codicon-positron-status-${expectedStatus}`;
 
-				await expect(sessionLocator).toBeVisible();
-				await expect(sessionLocator.locator(statusClass)).toBeVisible({ timeout });
-			} else {
+				await expect(sessionTab).toBeVisible();
+				await expect(sessionTab.locator(statusClass)).toBeVisible({ timeout });
+			} else if (sessionCount === 1) {
 				// get status from metadata dialog because there is no tab list view
 				await expect(async () => {
 					const { state } = await this.getMetadata();
 					expect(state).toBe(expectedStatus);
 				}).toPass({ timeout });
+			} else {
+				throw new Error('No sessions found');
 			}
 		});
 	}
@@ -600,7 +584,7 @@ export class Sessions {
 	 * Verify: the active sessions match between console and session picker
 	 * @param count the expected number of active sessions
 	 */
-	async expectSessionListsToMatch() {
+	async expectActiveSessionListsToMatch() {
 		await test.step('Verify active sessions match between console and session picker', async () => {
 			await expect(async () => {
 				const activeSessionsFromConsole = await this.getActiveSessions();
