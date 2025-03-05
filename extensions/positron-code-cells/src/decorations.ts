@@ -63,7 +63,7 @@ export function activateDecorations(
 		const cells = docManager.getCells();
 
 		// Configurable: cellStyle `background`/`border`/`both`
-		const config = vscode.workspace.getConfiguration('positronCodeCells');
+		const config = vscode.workspace.getConfiguration('codeCells');
 		const decorationStyle = config.get<string>('cellStyle');
 		const useCellBorders = (decorationStyle === 'border' || decorationStyle === 'both');
 		const useCellBackground = (decorationStyle === 'background' || decorationStyle === 'both');

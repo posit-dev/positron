@@ -185,9 +185,9 @@
       ]
     },
     "configuration": {
-      "title": "Positron Code Cells",
+      "title": "%positron.codeCells.configuration.title%",
       "properties": {
-        "positronCodeCells.cellStyle": {
+        "codeCells.cellStyle": {
           "type": "string",
           "default": "background",
           "enum": [
@@ -196,11 +196,11 @@
             "both"
           ],
           "enumDescriptions": [
-            "Show only cell borders",
-            "Show only cell backgrounds",
-            "Show both cell borders and backgrounds"
+            "%positron.codeCells.configuration.cellStyle.border%",
+            "%positron.codeCells.configuration.cellStyle.background%",
+            "%positron.codeCells.configuration.cellStyle.both%"
           ],
-          "description": "Controls the style of code cell decorations. Colors are configurable with `notebook.selectedCellBackground` and `interactive.activeCodeBorder`. See https://code.visualstudio.com/api/references/theme-color"
+          "markdownDescription": "%positron.codeCells.configuration.cellStyle%"
         }
       }
     }

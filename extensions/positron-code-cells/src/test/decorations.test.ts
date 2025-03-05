@@ -126,5 +126,5 @@ async function showTextDocument(content?: string): Promise<vscode.TextEditor> {
 
 async function switchCellStyle(cellStyle: string) {
 	const configuration = vscode.workspace.getConfiguration();
-	await configuration.update("positronCodeCells.cellStyle", cellStyle, vscode.ConfigurationTarget.Global);
+	await configuration.update("codeCells.cellStyle", cellStyle, vscode.ConfigurationTarget.Global);
 }
