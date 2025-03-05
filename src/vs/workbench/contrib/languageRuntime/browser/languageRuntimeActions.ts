@@ -755,6 +755,11 @@ export function registerLanguageRuntimeActions() {
 					original: 'Start a New Session'
 				},
 				category,
+				keybinding: {
+					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Backquote,
+					mac: { primary: KeyMod.WinCtrl | KeyMod.Shift | KeyCode.Backquote },
+					weight: KeybindingWeight.WorkbenchContrib
+				},
 				menu: [{
 					group: 'navigation',
 					id: MenuId.ViewTitle,
