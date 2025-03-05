@@ -134,8 +134,8 @@ export class InterpreterDisplay implements IInterpreterDisplay, IExtensionSingle
             if (interpreter) {
                 this.statusBar.color = '';
                 // --- Start Positron --
-                // tooltip is full interpreter path
-                this.statusBar.tooltip = this.pathUtils.getDisplayName(interpreter.path);
+                // remove tooltip
+                // this.statusBar.tooltip = this.pathUtils.getDisplayName(interpreter.path);
                 // --- End Positron ---
                 if (this.currentlySelectedInterpreterPath !== interpreter.path) {
                     traceLog(

@@ -197,15 +197,15 @@ suite('Interpreters Display', () => {
                 } else {
                     // --- Start Positron ---
                     // Status bar value should be the path, not the display name
+                    statusBar.verify(
+                        (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.path)!),
+                        TypeMoq.Times.once(),
+                    );
                     // statusBar.verify(
-                    //     (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.detailedDisplayName)!),
-                    //     TypeMoq.Times.once(),
+                    //     (s) => (s.tooltip = TypeMoq.It.isValue(activeInterpreter.path)!),
+                    //     TypeMoq.Times.atLeastOnce(),
                     // );
                     // --- End Positron ---
-                    statusBar.verify(
-                        (s) => (s.tooltip = TypeMoq.It.isValue(activeInterpreter.path)!),
-                        TypeMoq.Times.atLeastOnce(),
-                    );
                 }
             });
             test('Log the output channel if displayed needs to be updated with a new interpreter', async () => {
@@ -264,7 +264,10 @@ suite('Interpreters Display', () => {
                         TypeMoq.Times.once(),
                     );
                 } else {
-                    statusBar.verify((s) => (s.tooltip = TypeMoq.It.isValue(pythonPath)), TypeMoq.Times.atLeastOnce());
+                    // --- Start Positron ---
+                    // No tooltip
+                    //statusBar.verify((s) => (s.tooltip = TypeMoq.It.isValue(pythonPath)), TypeMoq.Times.atLeastOnce());
+                    // --- End Positron ---
                     statusBar.verify((s) => (s.text = TypeMoq.It.isValue(expectedDisplayName)), TypeMoq.Times.once());
                 }
             });
@@ -351,13 +354,13 @@ suite('Interpreters Display', () => {
                     );
                 } else {
                     // --- Start Positron ---
-                    // Status bar should display path, not display name
-                    // statusBar.verify(
-                    //     (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.detailedDisplayName)!),
-                    //     TypeMoq.Times.once(),
-                    // );
+                    // Status bar should display path without any tooltip
+                    statusBar.verify(
+                        (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.path)!),
+                        TypeMoq.Times.once(),
+                    );
+                    // statusBar.verify((s) => (s.tooltip = TypeMoq.It.isValue(pythonPath)!), TypeMoq.Times.atLeastOnce());
                     // --- End Positron ---
-                    statusBar.verify((s) => (s.tooltip = TypeMoq.It.isValue(pythonPath)!), TypeMoq.Times.atLeastOnce());
                 }
             });
             suite('Visibility', () => {
