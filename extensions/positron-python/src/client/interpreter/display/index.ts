@@ -134,8 +134,8 @@ export class InterpreterDisplay implements IInterpreterDisplay, IExtensionSingle
             if (interpreter) {
                 this.statusBar.color = '';
                 // --- Start Positron --
-                // disable tooltip that displays path
-                // this.statusBar.tooltip = this.pathUtils.getDisplayName(interpreter.path, workspaceFolder?.fsPath);
+                // tooltip is full interpreter path
+                this.statusBar.tooltip = this.pathUtils.getDisplayName(interpreter.path);
                 // --- End Positron ---
                 if (this.currentlySelectedInterpreterPath !== interpreter.path) {
                     traceLog(
@@ -147,7 +147,7 @@ export class InterpreterDisplay implements IInterpreterDisplay, IExtensionSingle
                     this.currentlySelectedInterpreterPath = interpreter.path;
                 }
                 // --- Start Positron --
-                // status bar text should be interpreter path
+                // status bar text should be interpreter path, relative to workspace
                 let text = this.pathUtils.getDisplayName(interpreter.path, workspaceFolder?.fsPath);
                 // --- End Positron ---
                 text = text?.startsWith('Python') ? text?.substring('Python'.length)?.trim() : text;

@@ -183,19 +183,25 @@ suite('Interpreters Display', () => {
                 await interpreterDisplay.refresh(resource);
 
                 if (useLanguageStatus) {
-                    languageStatusItem.verify(
-                        (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.detailedDisplayName)!),
-                        TypeMoq.Times.once(),
-                    );
+                    // --- Start Positron ---
+                    // Status bar value should be the path, not the display name
+                    // languageStatusItem.verify(
+                    //     (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.detailedDisplayName)!),
+                    //     TypeMoq.Times.once(),
+                    // );
+                    // --- End Positron ---
                     languageStatusItem.verify(
                         (s) => (s.detail = TypeMoq.It.isValue(activeInterpreter.path)!),
                         TypeMoq.Times.atLeastOnce(),
                     );
                 } else {
-                    statusBar.verify(
-                        (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.detailedDisplayName)!),
-                        TypeMoq.Times.once(),
-                    );
+                    // --- Start Positron ---
+                    // Status bar value should be the path, not the display name
+                    // statusBar.verify(
+                    //     (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.detailedDisplayName)!),
+                    //     TypeMoq.Times.once(),
+                    // );
+                    // --- End Positron ---
                     statusBar.verify(
                         (s) => (s.tooltip = TypeMoq.It.isValue(activeInterpreter.path)!),
                         TypeMoq.Times.atLeastOnce(),
@@ -233,7 +239,10 @@ suite('Interpreters Display', () => {
                 const pythonPath = path.join('user', 'development', 'env', 'bin', 'python');
                 const workspaceFolder = Uri.file('workspace');
                 const displayName = 'Python 3.10.1';
-                const expectedDisplayName = '3.10.1';
+                // --- Start Positron ---
+                // Status bar value should be the path, not the display name
+                const expectedDisplayName = path.join('user', 'development', 'env', 'bin', 'python');
+                // --- End Positron ---
 
                 setupWorkspaceFolder(resource, workspaceFolder);
                 const pythonInterpreter: PythonEnvironment = ({
@@ -329,19 +338,25 @@ suite('Interpreters Display', () => {
                 interpreterHelper.verifyAll();
                 interpreterService.verifyAll();
                 if (useLanguageStatus) {
-                    languageStatusItem.verify(
-                        (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.detailedDisplayName)!),
-                        TypeMoq.Times.once(),
-                    );
+                    // --- Start Positron ---
+                    // Status bar should display path, not interpreter name
+                    // languageStatusItem.verify(
+                    //     (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.detailedDisplayName)!),
+                    //     TypeMoq.Times.once(),
+                    // );
+                    // --- End Positron ---
                     languageStatusItem.verify(
                         (s) => (s.detail = TypeMoq.It.isValue(pythonPath)!),
                         TypeMoq.Times.atLeastOnce(),
                     );
                 } else {
-                    statusBar.verify(
-                        (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.detailedDisplayName)!),
-                        TypeMoq.Times.once(),
-                    );
+                    // --- Start Positron ---
+                    // Status bar should display path, not display name
+                    // statusBar.verify(
+                    //     (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.detailedDisplayName)!),
+                    //     TypeMoq.Times.once(),
+                    // );
+                    // --- End Positron ---
                     statusBar.verify((s) => (s.tooltip = TypeMoq.It.isValue(pythonPath)!), TypeMoq.Times.atLeastOnce());
                 }
             });
