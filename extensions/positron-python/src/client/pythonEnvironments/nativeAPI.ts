@@ -94,6 +94,10 @@ function kindToShortString(kind: PythonEnvKind): string | undefined {
             return 'hatch';
         case PythonEnvKind.Pixi:
             return 'pixi';
+        // --- Start Positron ---
+        case PythonEnvKind.Uv:
+            return 'uv';
+        // --- End Positron ---
         case PythonEnvKind.System:
         case PythonEnvKind.Unknown:
         case PythonEnvKind.OtherGlobal:
@@ -132,6 +136,9 @@ function validEnv(nativeEnv: NativeEnvInfo): boolean {
 
 function getEnvType(kind: PythonEnvKind): PythonEnvType | undefined {
     switch (kind) {
+        // --- Start Positron ---
+        // The only Positron change here is adding uv, but this fence can't be in the middle
+        case PythonEnvKind.Uv:
         case PythonEnvKind.Poetry:
         case PythonEnvKind.Pyenv:
         case PythonEnvKind.VirtualEnv:
@@ -142,6 +149,7 @@ function getEnvType(kind: PythonEnvKind): PythonEnvType | undefined {
         case PythonEnvKind.ActiveState:
         case PythonEnvKind.Hatch:
         case PythonEnvKind.Pixi:
+            // --- End Positron ---
             return PythonEnvType.Virtual;
 
         case PythonEnvKind.Conda:
