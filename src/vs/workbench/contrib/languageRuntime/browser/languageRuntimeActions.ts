@@ -33,7 +33,6 @@ import { USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY } from '../../../serv
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
 
 // Quick pick item interfaces.
-// interface LanguageRuntimeSessionQuickPickItem extends IQuickPickItem { session: ILanguageRuntimeSession }
 interface LanguageRuntimeQuickPickItem extends IQuickPickItem { runtime: ILanguageRuntimeMetadata }
 interface RuntimeClientTypeQuickPickItem extends IQuickPickItem { runtimeClientType: RuntimeClientType }
 interface RuntimeClientInstanceQuickPickItem extends IQuickPickItem { runtimeClientInstance: IRuntimeClientInstance<any, any> }
@@ -123,7 +122,7 @@ export const selectLanguageRuntimeSession = async (
 	const commandService = accessor.get(ICommandService);
 
 	// Create quick pick items for active console sessions sorted by creation time, oldest to newest.
-	const sortedActiveSessions = [...runtimeSessionService.activeSessions]
+	const sortedActiveSessions = runtimeSessionService.activeSessions
 		.filter(session => session.metadata.sessionMode === LanguageRuntimeSessionMode.Console)
 		.sort((a, b) => a.metadata.createdTimestamp - b.metadata.createdTimestamp);
 
