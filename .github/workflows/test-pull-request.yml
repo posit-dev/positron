@@ -38,7 +38,7 @@ jobs:
       display_name: "electron (ubuntu)"
       currents_tags: "pull-request,electron/ubuntu,${{ needs.pr-tags.outputs.tags }}"
       report_testrail: false
-      enable_currents_reporter: true
+      enable_currents_reporter: false
       install_undetectable_interpreters: true
     secrets: inherit
 
