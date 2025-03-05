@@ -175,4 +175,5 @@
 	"eslint.useFlatConfig": true,
 	"editor.occurrencesHighlightDelay": 0,
 	"typescript.experimental.expandableHover": true,
+	"typescript.preferences.importModuleSpecifierEnding": "js",
 }
