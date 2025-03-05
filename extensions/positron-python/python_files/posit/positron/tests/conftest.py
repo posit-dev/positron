@@ -134,8 +134,7 @@ def shell(kernel) -> Iterable[PositronShell]:
     new_user_ns_keys = set(shell.user_ns.keys()) - user_ns_keys
     for key in new_user_ns_keys:
         del shell.user_ns[key]
-    if "_" in shell.user_ns:
-        del shell.user_ns["_"]
+    shell.user_ns["_"] = ""
 
 
 @pytest.fixture
@@ -212,6 +211,9 @@ def variables_comm(variables_service: VariablesService) -> DummyComm:
 
     # Clear messages due to the comm_open
     variables_comm.messages.clear()
+
+    # Clear the snapshot
+    variables_service._snapshot = None  # noqa: SLF001
 
     return variables_comm
 

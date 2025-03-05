@@ -39,6 +39,12 @@ BIG_ARRAY_LENGTH = 10_000_001
 TARGET_NAME = "target_name"
 
 
+@pytest.fixture(autouse=True)
+def _patch_variables_timestamp(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Patch the timestamp() function to always return 0 for deterministic tests.
+    monkeypatch.setattr(variables_module, "timestamp", lambda: 0)
+
+
 def test_comm_open(kernel: PositronIPyKernel) -> None:
     service = VariablesService(kernel)
 
@@ -62,17 +68,23 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
         #
         # Same types
         #
-        ("import numpy as np", [f" = np.array({x})" for x in [3, [3], [[3]]]]),
-        ("import torch", [f" = torch.tensor({x})" for x in [3, [3], [[3]]]]),
+        pytest.param(
+            "import numpy as np", [f" = np.array({x})" for x in [3, [3], [[3]]]], id="numpy"
+        ),
+        pytest.param(
+            "import torch", [f" = torch.tensor({x})" for x in [3, [3], [[3]]]], id="torch"
+        ),
         pytest.param(
             "import pandas as pd",
             [f" = pd.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
+            id="pandas_series",
         ),
         pytest.param(
             "import polars as pl",
             [f" = pl.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
+            id="polars_series",
         ),
-        (
+        pytest.param(
             "import pandas as pd",
             [
                 f" = pd.DataFrame({x})"
@@ -83,8 +95,9 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
                     {"a": [3], "b": [3]},
                 ]
             ],
+            id="pandas_dataframe",
         ),
-        (
+        pytest.param(
             "import polars as pl",
             [
                 f" = pl.DataFrame({x})"
@@ -95,14 +108,12 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
                     {"a": [3], "b": [3]},
                 ]
             ],
+            id="polars_dataframe",
         ),
-        # Nested mutable types
-        ("", [" = [{}]", "[0]['a'] = 0"]),
-        ("", [" = {'a': []}", "['a'].append(0)"]),
     ],
 )
 @pytest.mark.parametrize("varname", ["x", "_"])
-def test_change_detection(
+def test_update_assigned(
     import_code: str,
     value_codes: list[str],
     varname: str,
@@ -111,60 +122,87 @@ def test_change_detection(
 ) -> None:
     """Test change detection when updating the value of the same name."""
     _import_library(shell, import_code)
+
     for value_code in value_codes:
-        _assert_assigned(shell, varname + value_code, varname, variables_comm)
+        _assert_assigned(shell, value_code, varname, variables_comm, "assigned")
+
+
+@pytest.mark.parametrize(
+    "value_codes",
+    [
+        # Overwrite with the same value.
+        pytest.param([" = []", " = []"], id="mutable_overwrite"),
+        # Updating elements of nested types.
+        pytest.param([" = [{}]", "[0]['a'] = 0"], id="nested_mutable_list_of_dict"),
+        pytest.param([" = {'a': []}", "['a'].append(0)"], id="nested_mutable_dict_of_list"),
+    ],
+)
+@pytest.mark.parametrize("varname", ["x", "_"])
+def test_update_assigned_mutable(
+    value_codes: list[str],
+    varname: str,
+    shell: PositronShell,
+    variables_comm: DummyComm,
+) -> None:
+    assign_code = value_codes[0]
+    _assert_assigned(shell, assign_code, varname, variables_comm, "assigned")
+
+    for value_code in value_codes[1:]:
+        _assert_assigned(shell, value_code, varname, variables_comm, "unevaluated")
+
+
+@pytest.mark.parametrize("varname", ["x", "_"])
+def test_no_update_for_empty_cell(
+    varname: str,
+    shell: PositronShell,
+    variables_comm: DummyComm,
+) -> None:
+    # Assign a value that cannot be evaluated for change detection (e.g. a mutable value),
+    # since we currently send an 'unevaluated' update on every cell execution.
+    # See https://github.com/posit-dev/positron/issues/4277.
+    shell.run_cell(f"{varname} = []")
+    variables_comm.messages.clear()
+
+    # No messages should be sent when an empty cell is executed.
+    shell.run_cell("")
+    assert variables_comm.messages == []
 
 
 def _assert_assigned(
-    shell: PositronShell, value_code: str, varname: str, variables_comm: DummyComm
+    shell: PositronShell, value_code: str, varname: str, variables_comm: DummyComm, update_type: str
 ):
-    # Test that the expected `update` message was sent with the
-    # expected `assigned` value.
-    with patch("positron.variables.timestamp", return_value=0):
-        # Remember if the user namespace had the variable value before the assignment.
-        was_empty = varname not in shell.user_ns
+    # Run the assignment code.
+    shell.run_cell(varname + value_code).raise_error()
 
-        # Assign the value to a variable.
-        shell.run_cell(value_code)
-
-        # Get the summary of the variable.
-        assigned = []
-        unevaluated = []
-        summary = not_none(_summarize_variable(varname, shell.user_ns[varname])).dict()
-
-        # Get an inspector for the variable to determine if the variable is
-        # mutable or if the comparison cost is high. In either case the
-        # variable should be marked as unevaluated.
-        ins = get_inspector(shell.user_ns[varname])
-        copiable = False
-        try:
-            ins.deepcopy()
-            copiable = True
-        except Exception:
-            pass
-        if (
-            (not was_empty)
-            & (ins.is_mutable())
-            & ((not copiable) | (ins.get_comparison_cost() > 1000))
-        ):
-            unevaluated.append(summary)
-        else:
-            assigned.append(summary)
-
-        assert variables_comm.messages == [
-            json_rpc_notification(
-                "update",
-                {
-                    "assigned": assigned,
-                    "removed": [],
-                    "unevaluated": unevaluated,
-                    "version": 0,
-                },
-            )
-        ]
+    # Test that the expected `update` message was sent.
+    assert variables_comm.messages == [update_notification(shell, **{update_type: [varname]})]
 
     # Clear messages for the next assignment.
     variables_comm.messages.clear()
+
+
+def update_notification(
+    shell: PositronShell,
+    assigned: list[str] | None = None,
+    unevaluated: list[str] | None = None,
+    removed: list[str] | None = None,
+):
+    def summarize(names: list[str] | None) -> list[JsonData]:
+        if names is None:
+            return []
+        return [
+            {**not_none(_summarize_variable(name, shell.user_ns[name])).dict()} for name in names
+        ]
+
+    return json_rpc_notification(
+        "update",
+        {
+            "assigned": summarize(assigned),
+            "removed": summarize(removed),
+            "unevaluated": summarize(unevaluated),
+            "version": 0,
+        },
+    )
 
 
 def _import_library(shell: PositronShell, import_code: str):
@@ -179,19 +217,18 @@ def _import_library(shell: PositronShell, import_code: str):
 def test_change_detection_over_limit(shell: PositronShell, variables_comm: DummyComm, varname: str):
     _import_library(shell, "import numpy as np")
 
-    big_array = f"{varname} = np.arange({BIG_ARRAY_LENGTH})"
-    shell.run_cell(big_array)
+    big_array = f" = np.arange({BIG_ARRAY_LENGTH})"
+    shell.run_cell(varname + big_array)
     variables_comm.messages.clear()
 
-    _assert_assigned(shell, big_array, varname, variables_comm)
-    _assert_assigned(shell, big_array, varname, variables_comm)
-    _assert_assigned(shell, big_array, varname, variables_comm)
+    _assert_assigned(shell, big_array, varname, variables_comm, "unevaluated")
+    _assert_assigned(shell, big_array, varname, variables_comm, "unevaluated")
+    _assert_assigned(shell, big_array, varname, variables_comm, "unevaluated")
 
 
 def _do_list(variables_comm: DummyComm):
     msg = json_rpc_request("list", comm_id="dummy_comm_id")
-    with patch("positron.variables.timestamp", return_value=0):
-        variables_comm.handle_msg(msg)
+    variables_comm.handle_msg(msg)
 
     # Check the structure of the message but let the caller verify the contents.
     assert variables_comm.messages == [
@@ -214,7 +251,7 @@ def _do_list(variables_comm: DummyComm):
 
 def test_list_1000(shell: PositronShell, variables_comm: DummyComm) -> None:
     # Create 1000 variables
-    for j in range(0, 999, 1):
+    for j in range(999):
         shell.user_ns[f"var{j}"] = j
     shell.user_ns["_"] = 999
 
@@ -228,9 +265,9 @@ def test_list_1000(shell: PositronShell, variables_comm: DummyComm) -> None:
 
     # Also spot check the first and last two variables
     variables = result_msg.get("data").get("result").get("variables")
-    assert variables[0].get("display_name") == "var0"
-    assert variables[998].get("display_name") == "var998"
-    assert variables[999].get("display_name") == "_"
+    assert variables[0].get("display_name") == "_"
+    assert variables[998].get("display_name") == "var997"
+    assert variables[999].get("display_name") == "var998"
 
 
 @pytest.mark.parametrize("varname", ["x", "_"])
@@ -276,9 +313,10 @@ def test_update_max_children_plus_one(
     assert len(assigned) == n
 
     # Spot check the first and last two variables display values
-    assert assigned[0].get("display_value") == str(add_value)
-    assert assigned[n - 2].get("display_value") == str(n - 2 + add_value)
-    assert assigned[n - 1].get("display_value") == str(n - 1 + add_value)
+    assert assigned[0].get("display_name") == "_"
+    assert assigned[1].get("display_name") == "x0"
+    assert assigned[-2].get("display_name") == "x8"
+    assert assigned[-1].get("display_name") == "x9"
 
 
 def test_update_max_items_plus_one(
@@ -301,10 +339,11 @@ def test_update_max_items_plus_one(
     variables_len = len(variables)
     assert variables_len == max_items
 
-    # Spot check the first and last two variables display values
-    assert variables[0].get("display_value") == str(add_value)
-    assert variables[variables_len - 2].get("display_value") == str(variables_len - 2 + add_value)
-    assert variables[variables_len - 1].get("display_value") == str(variables_len - 1 + add_value)
+    # Spot check the first and last two variables display names
+    assert variables[0].get("display_name") == "_"
+    assert variables[1].get("display_name") == "x0"
+    assert variables[-2].get("display_name") == "x7"
+    assert variables[-1].get("display_name") == "x8"
 
 
 def create_and_update_n_vars(
@@ -312,7 +351,7 @@ def create_and_update_n_vars(
 ) -> Any:
     # Create n variables
     assign_n = ""
-    for j in range(0, n - 1, 1):
+    for j in range(n - 1):
         assign_n += f"x{j} = {j}" + "\n"
     assign_n += f"_ = {n - 1}"
 
@@ -321,7 +360,7 @@ def create_and_update_n_vars(
 
     # Re-assign the variables to trigger an update message
     update_n = ""
-    for j in range(0, n - 1, 1):
+    for j in range(n - 1):
         update_n += f"x{j} = {j + add_value}" + "\n"
     update_n += f"_ = {n - 1 + add_value}"
 
@@ -340,39 +379,36 @@ async def test_clear(
     variables_service: VariablesService,
     variables_comm: DummyComm,
 ) -> None:
-    with patch("positron.variables.timestamp", return_value=0):
-        shell.user_ns.update({"x": 3, "y": 5, "_": 8})
+    shell.user_ns.update({"x": 3, "y": 5, "_": 8})
 
-        msg = json_rpc_request("clear", {"include_hidden_objects": False}, comm_id="dummy_comm_id")
-        variables_comm.handle_msg(msg)
+    msg = json_rpc_request("clear", {"include_hidden_objects": False}, comm_id="dummy_comm_id")
+    variables_comm.handle_msg(msg)
 
-        # Wait until all resulting kernel tasks are processed
-        await asyncio.gather(*variables_service._pending_tasks)  # noqa: SLF001
+    # Wait until all resulting kernel tasks are processed
+    await asyncio.gather(*variables_service._pending_tasks)  # noqa: SLF001
 
-        # We should get a result
-        underscore = not_none(_summarize_variable("_", shell.user_ns["_"])).dict()
-        assert variables_comm.messages == [
-            json_rpc_response({}),
-            json_rpc_notification(
-                "update",
-                {
-                    "assigned": [],
-                    "removed": _encode_path(["x", "y"]),
-                    "unevaluated": [],
-                    "version": 0,
-                },
-            ),
-            json_rpc_notification(
-                "refresh", {"length": 1, "variables": [underscore], "version": 0}
-            ),
-        ]
+    # We should get a result
+    underscore = not_none(_summarize_variable("_", shell.user_ns["_"])).dict()
+    assert variables_comm.messages == [
+        json_rpc_response({}),
+        json_rpc_notification(
+            "update",
+            {
+                "assigned": [],
+                "removed": _encode_path(["x", "y"]),
+                "unevaluated": [],
+                "version": 0,
+            },
+        ),
+        json_rpc_notification("refresh", {"length": 1, "variables": [underscore], "version": 0}),
+    ]
 
-        # All user variables are removed
-        assert "x" not in shell.user_ns
-        assert "y" not in shell.user_ns
+    # All user variables are removed
+    assert "x" not in shell.user_ns
+    assert "y" not in shell.user_ns
 
-        # ...except hidden variables, because %reset -s doesn't touch those
-        assert "_" in shell.user_ns
+    # ...except hidden variables, because %reset -s doesn't touch those
+    assert "_" in shell.user_ns
 
 
 @pytest.mark.parametrize("varname", ["x", "_"])
@@ -410,8 +446,7 @@ def _do_inspect(encoded_path: list[JsonData], variables_comm: DummyComm) -> list
         comm_id="dummy_comm_id",
     )
 
-    with patch("positron.variables.timestamp", return_value=0):
-        variables_comm.handle_msg(msg)
+    variables_comm.handle_msg(msg)
 
     # Check the structure of the message but let the caller verify the contents.
     assert variables_comm.messages == [
@@ -458,24 +493,26 @@ def variable(display_name: str, display_value: str, children: list[dict[str, Any
     ("value", "expected"),
     [
         # Series
-        (
+        pytest.param(
             pd.Series([1, 2]),
             lambda varname: variable(
                 varname,
                 "pandas.Series [1, 2]",
                 children=[variable("0", "1"), variable("1", "2")],
             ),
+            id="pandas_series",
         ),
-        (
+        pytest.param(
             pl.Series([1, 2]),
             lambda varname: variable(
                 varname,
                 "polars.Series [1, 2]",
                 children=[variable("0", "1"), variable("1", "2")],
             ),
+            id="polars_series",
         ),
         # DataFrames
-        (
+        pytest.param(
             pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}),
             lambda varname: variable(
                 varname,
@@ -493,8 +530,9 @@ def variable(display_name: str, display_value: str, children: list[dict[str, Any
                     ),
                 ],
             ),
+            id="pandas_dataframe",
         ),
-        (
+        pytest.param(
             pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}),
             lambda varname: variable(
                 varname,
@@ -512,9 +550,10 @@ def variable(display_name: str, display_value: str, children: list[dict[str, Any
                     ),
                 ],
             ),
+            id="polars_dataframe",
         ),
         # Arrays
-        (
+        pytest.param(
             np.array([[0, 1], [2, 3]]),
             lambda varname: variable(
                 varname,
@@ -532,9 +571,10 @@ def variable(display_name: str, display_value: str, children: list[dict[str, Any
                     ),
                 ],
             ),
+            id="numpy_array",
         ),
         # Objects
-        (
+        pytest.param(
             _test_obj,
             lambda varname: variable(
                 varname,
@@ -544,9 +584,10 @@ def variable(display_name: str, display_value: str, children: list[dict[str, Any
                     variable("x_plus_one", repr(TestClass.x_plus_one)),
                 ],
             ),
+            id="object_with_property",
         ),
         # Children with duplicate keys
-        (
+        pytest.param(
             pd.Series(range(4), index=["a", "b", "a", "b"]),
             lambda varname: variable(
                 varname,
@@ -558,8 +599,9 @@ def variable(display_name: str, display_value: str, children: list[dict[str, Any
                     variable("b", "3"),
                 ],
             ),
+            id="pandas_series_with_duplicate_keys",
         ),
-        (
+        pytest.param(
             pd.DataFrame([range(4)], columns=["a", "b", "a", "b"]),
             lambda varname: variable(
                 varname,
@@ -571,9 +613,10 @@ def variable(display_name: str, display_value: str, children: list[dict[str, Any
                     variable("b", "pandas.Series [3]", children=[variable("0", "3")]),
                 ],
             ),
+            id="pandas_dataframe_with_duplicate_keys",
         ),
         # Children with unique keys that have the same display_name
-        (
+        pytest.param(
             {0: 0, "0": 1},
             lambda varname: variable(
                 varname,
@@ -583,8 +626,9 @@ def variable(display_name: str, display_value: str, children: list[dict[str, Any
                     variable("0", "1"),
                 ],
             ),
+            id="dict_with_duplicate_display_names",
         ),
-        (
+        pytest.param(
             pd.Series({0: 0, "0": 1}),
             lambda varname: variable(
                 varname,
@@ -594,8 +638,9 @@ def variable(display_name: str, display_value: str, children: list[dict[str, Any
                     variable("0", "1"),
                 ],
             ),
+            id="pandas_series_with_duplicate_display_names",
         ),
-        (
+        pytest.param(
             pd.DataFrame({0: [0], "0": [1]}),
             lambda varname: variable(
                 varname,
@@ -613,6 +658,7 @@ def variable(display_name: str, display_value: str, children: list[dict[str, Any
                     ),
                 ],
             ),
+            id="pandas_dataframe_with_duplicate_display_names",
         ),
     ],
 )
@@ -666,7 +712,10 @@ def test_inspect_large_object(
 
 
 @pytest.mark.parametrize("varname", ["x", "_"])
-def test_inspect_error(variables_comm: DummyComm, varname: str) -> None:
+def test_inspect_error(shell: PositronShell, variables_comm: DummyComm, varname: str) -> None:
+    # Ensure that the variable doesn't exist.
+    shell.user_ns.pop(varname, None)
+
     path = _encode_path([varname])
     msg = json_rpc_request("inspect", {"path": path}, comm_id="dummy_comm_id")
 
@@ -701,7 +750,12 @@ def test_clipboard_format(
 
 
 @pytest.mark.parametrize("varname", ["x", "_"])
-def test_clipboard_format_error(variables_comm: DummyComm, varname: str) -> None:
+def test_clipboard_format_error(
+    shell: PositronShell, variables_comm: DummyComm, varname: str
+) -> None:
+    # Ensure that the variable doesn't exist.
+    shell.user_ns.pop(varname, None)
+
     path = _encode_path([varname])
     # TODO(pyright): We shouldn't need to cast; may be a pyright bug
     msg = json_rpc_request(
@@ -768,7 +822,10 @@ def test_view_with_sqlalchemy_v1_3(
 
 
 @pytest.mark.parametrize("varname", ["x", "_"])
-def test_view_error(variables_comm: DummyComm, varname: str) -> None:
+def test_view_error(shell: PositronShell, variables_comm: DummyComm, varname: str) -> None:
+    # Ensure that the variable doesn't exist.
+    shell.user_ns.pop(varname, None)
+
     path = _encode_path([varname])
     msg = json_rpc_request("view", {"path": path}, comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg, raise_errors=False)
