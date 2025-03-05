@@ -103,8 +103,9 @@ export class ActivatedEnvironmentLaunch implements IActivatedEnvironmentLaunch {
         this.wasSelected = true;
         this.inMemorySelection = prefix;
         // --- Start Positron ---
-        if (getUserDefaultInterpreter().globalValue) {
-            return prefix;
+        // prefer user setting defaultInterpreterPath (if set) if no workspace is opened
+        if (getUserDefaultInterpreter().globalValue && !this.workspaceService.workspaceFolders) {
+            return undefined;
         }
         // --- End Positron ---
         traceLog(
