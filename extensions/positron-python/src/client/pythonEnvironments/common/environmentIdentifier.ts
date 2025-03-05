@@ -17,6 +17,9 @@ import {
 import { isMicrosoftStoreEnvironment } from './environmentManagers/microsoftStoreEnv';
 import { isActiveStateEnvironment } from './environmentManagers/activestate';
 import { isPixiEnvironment } from './environmentManagers/pixi';
+// --- Start Positron ---
+import { isUvEnvironment } from './environmentManagers/uv';
+// --- End Positron ---
 
 const notImplemented = () => Promise.resolve(false);
 
@@ -37,6 +40,9 @@ function getIdentifiers(): Map<PythonEnvKind, (path: string) => Promise<boolean>
     identifier.set(PythonEnvKind.VirtualEnvWrapper, isVirtualEnvWrapperEnvironment);
     identifier.set(PythonEnvKind.VirtualEnv, isVirtualEnvEnvironment);
     identifier.set(PythonEnvKind.ActiveState, isActiveStateEnvironment);
+    // --- Start Positron ---
+    identifier.set(PythonEnvKind.Uv, isUvEnvironment);
+    // --- End Positron ---
     identifier.set(PythonEnvKind.Unknown, defaultTrue);
     identifier.set(PythonEnvKind.OtherGlobal, isGloballyInstalledEnv);
     return identifier;

@@ -37,6 +37,11 @@ function toEnvironmentType(pythonEnv: PythonEnvironment): EnvironmentType {
     if (pythonEnv.envId.managerId.toLowerCase().endsWith('hatch')) {
         return EnvironmentType.Hatch;
     }
+    // --- Start Positron ---
+    if (pythonEnv.envId.managerId.toLowerCase().endsWith('uv')) {
+        return EnvironmentType.Uv;
+    }
+    // --- End Positron ---
     if (pythonEnv.envId.managerId.toLowerCase().endsWith('pixi')) {
         return EnvironmentType.Pixi;
     }
@@ -51,6 +56,9 @@ function toEnvironmentType(pythonEnv: PythonEnvironment): EnvironmentType {
 
 function getEnvType(kind: EnvironmentType): PythonEnvType | undefined {
     switch (kind) {
+        // --- Start Positron ---
+        // The only Positron change here is adding uv, but this fence can't be in the middle
+        case EnvironmentType.Uv:
         case EnvironmentType.Pipenv:
         case EnvironmentType.VirtualEnv:
         case EnvironmentType.Pyenv:
@@ -60,6 +68,7 @@ function getEnvType(kind: EnvironmentType): PythonEnvType | undefined {
         case EnvironmentType.Pixi:
         case EnvironmentType.VirtualEnvWrapper:
         case EnvironmentType.ActiveState:
+            // --- End Positron ---
             return PythonEnvType.Virtual;
 
         case EnvironmentType.Conda:
