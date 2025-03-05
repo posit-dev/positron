@@ -222,9 +222,6 @@ export class Sessions {
 		await this.metadataDialog.getByText(menuItem).click();
 
 		await expect(this.page.getByRole('tab', { name: 'Output' })).toHaveClass(/.*checked.*/);
-		// Todo: https://github.com/posit-dev/positron/issues/6389
-		// Todo: remove when menu closes on click as expected
-		await this.page.keyboard.press('Escape');
 	}
 
 	/**
