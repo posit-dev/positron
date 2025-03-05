@@ -45,8 +45,8 @@ test.describe('Sessions: Session Picker', {
 	test('Verify Session Picker updates correctly across multiple active sessions', async function ({ app }) {
 		const sessions = app.workbench.sessions;
 
-		pythonSession1.id = await sessions.reuseSessionIfExists(pythonSession1);
-		rSession1.id = await sessions.reuseSessionIfExists(rSession1);
+		pythonSession1.id = await sessions.reuseIdleSessionIfExists(pythonSession1);
+		rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
 
 		// Widen session tab list to view full runtime names
 		await sessions.widenSessionTabList();

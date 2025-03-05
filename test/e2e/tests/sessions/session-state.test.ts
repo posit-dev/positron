@@ -85,8 +85,8 @@ test.describe('Sessions: State', {
 		const console = app.workbench.console;
 
 		// Start Python and R sessions
-		pythonSession1.id = await sessions.reuseSessionIfExists(pythonSession1);
-		rSession1.id = await sessions.reuseSessionIfExists(rSession1);
+		pythonSession1.id = await sessions.reuseIdleSessionIfExists(pythonSession1);
+		rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
 
 		// Verify Python session transitions to active when executing code
 		await sessions.select(pythonSession1.name);
