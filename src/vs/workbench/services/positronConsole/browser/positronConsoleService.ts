@@ -1850,6 +1850,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}));
 
 		this._runtimeDisposableStore.add(this._session.onDidEndSession((exit) => {
+			const multiSessionsEnabled =
+				multipleConsoleSessionsFeatureEnabled(this._configurationService);
+
 			// If trace is enabled, add a trace runtime item.
 			if (this._trace) {
 				this.addRuntimeItemTrace(`onDidEndSession (code ${exit.exit_code}, reason '${exit.reason}')`);
@@ -1873,10 +1876,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			// code was `0`, we don't attempt to automatically start the runtime again. In this
 			// case, we add an activity item that shows a button the user can use to start the
 			// runtime manually.
-			if (exit.reason === RuntimeExitReason.ForcedQuit ||
+			const showRestartButton = exit.reason === RuntimeExitReason.ForcedQuit ||
 				exit.reason === RuntimeExitReason.Shutdown ||
 				exit.reason === RuntimeExitReason.Unknown ||
-				crashedAndNeedRestartButton) {
+				crashedAndNeedRestartButton;
+
+			if (!multiSessionsEnabled && showRestartButton) {
 				const restartButton = new RuntimeItemRestartButton(generateUuid(),
 					this._session.runtimeMetadata.languageName,
 					() => {
