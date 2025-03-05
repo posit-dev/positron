@@ -60,9 +60,23 @@ interface LanguageModelConfigurationProps {
 const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModelConfigurationProps>) => {
 	const [type, setType] = React.useState<PositronLanguageModelType>(PositronLanguageModelType.Chat);
 
+	const enabledProviders = props.sources.map(source => source.provider.id);
+	const hasAnthropic = enabledProviders.includes('anthropic');
+	const hasMistral = enabledProviders.includes('mistral');
 	const defaultSource = props.sources.find(source => {
-		const defaultProvider = type === 'chat' ? 'anthropic' : 'mistral';
-		return source.provider.id === defaultProvider && source.type.includes(type);
+		// If Anthropic is available, prefer it for chat models
+		if (source.type === type) {
+			if (type === 'chat' && hasAnthropic) {
+				return source.provider.id === 'anthropic';
+			}
+			// If Mistral is available, prefer it for completion models
+			if (type === 'completion' && hasMistral) {
+				return source.provider.id === 'mistral';
+			}
+			// In all other cases, prefer the first available provider
+			return true;
+		}
+		return false;
 	})!;
 
 	const [source, setSource] = React.useState<IPositronLanguageModelSource>(defaultSource);
