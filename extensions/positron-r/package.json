@@ -217,6 +217,15 @@
             "default": [],
             "markdownDescription": "%r.configuration.interpreters.exclude.markdownDescription%"
           },
+          "positron.r.interpreters.override": {
+            "scope": "window",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "markdownDescription": "%r.configuration.interpreters.override.markdownDescription%"
+          },
           "positron.r.interpreters.default": {
             "scope": "window",
             "type": "string",
