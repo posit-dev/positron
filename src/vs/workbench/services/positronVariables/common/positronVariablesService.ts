@@ -246,7 +246,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			this._setActivePositronVariablesBySession(this._runtimeSessionService.foregroundSession);
 		} else {
 			// All else fails, just reset to the default
-			this._setActivePositronVariablesInstance()
+			this._setActivePositronVariablesInstance();
 		}
 	}
 
