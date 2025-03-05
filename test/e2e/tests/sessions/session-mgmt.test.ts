@@ -30,6 +30,29 @@ test.describe('Sessions: Management', {
 		await app.workbench.sessions.deleteDisconnectedSessions();
 	});
 
+	test('Validate can delete sessions', { tag: [tags.VARIABLES] }, async function ({ app }) {
+		const sessions = app.workbench.sessions;
+		const variables = app.workbench.variables;
+		const console = app.workbench.console;
+
+		// Ensure sessions exist and are idle
+		pythonSession1.id = await sessions.reuseSessionIfExists(pythonSession1);
+		rSession1.id = await sessions.reuseSessionIfExists(rSession1);
+
+		// Delete 1st session and verify active sessions and runtime in session picker
+		await sessions.delete(pythonSession1.name);
+		await sessions.expectSessionCountToBe(1);
+		await sessions.expectSessionListsToMatch();
+		await variables.expectRuntimeToBe('visible', rSession1.name);
+
+		// Delete 2nd session and verify no active sessions or runtime in session picker
+		await console.barTrashButton.click();
+		await expect(sessions.activeSessionPicker).toHaveText('Start Session');
+		await sessions.expectSessionCountToBe(0);
+		await sessions.expectSessionListsToMatch();
+		await variables.expectRuntimeToBe('not.visible', `${rSession1.name}|${pythonSession1.name}|None`);
+	});
+
 	test('Validate metadata between sessions', {
 		annotation: [
 			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6389' }]
@@ -129,28 +152,5 @@ test.describe('Sessions: Management', {
 		await console.barClearButton.click();
 		await sessions.restartButton.click();
 		await sessions.expectSessionListsToMatch();
-	});
-
-	test('Validate can delete sessions', { tag: [tags.VARIABLES] }, async function ({ app }) {
-		const sessions = app.workbench.sessions;
-		const variables = app.workbench.variables;
-		const console = app.workbench.console;
-
-		// Ensure sessions exist and are idle
-		pythonSession1.id = await sessions.reuseSessionIfExists(pythonSession1);
-		rSession1.id = await sessions.reuseSessionIfExists(rSession1);
-
-		// Delete 1st session and verify active sessions and runtime in session picker
-		await sessions.delete(pythonSession1.name);
-		await sessions.expectSessionCountToBe(1);
-		await sessions.expectSessionListsToMatch();
-		await variables.expectRuntimeToBe('visible', rSession1.name);
-
-		// Delete 2nd session and verify no active sessions or runtime in session picker
-		await console.barTrashButton.click();
-		await expect(sessions.activeSessionPicker).toHaveText('Start Session');
-		await sessions.expectSessionCountToBe(0);
-		await sessions.expectSessionListsToMatch();
-		await variables.expectRuntimeToBe('not.visible', `${rSession1.name}|${pythonSession1.name}|None`);
 	});
 });
