@@ -81,6 +81,8 @@ suite('Interpreter Path Service', async () => {
         workspaceConfig.verifyAll();
     });
 
+    /// --- Start Positron ---
+    // Do not reset defaultInterpreterPath setting unless the user does
     test('Global settings are correctly updated otherwise', async () => {
         const workspaceConfig = TypeMoq.Mock.ofType<WorkspaceConfiguration>();
         workspaceService.setup((w) => w.getConfiguration('python')).returns(() => workspaceConfig.object);
@@ -95,12 +97,13 @@ suite('Interpreter Path Service', async () => {
         workspaceConfig
             .setup((w) => w.update('defaultInterpreterPath', interpreterPath, true))
             .returns(() => Promise.resolve())
-            .verifiable(TypeMoq.Times.once());
+            .verifiable(TypeMoq.Times.never());
 
         await interpreterPathService.update(resource, ConfigurationTarget.Global, interpreterPath);
 
         workspaceConfig.verifyAll();
     });
+    // --- End Positron ---
 
     test('Workspace settings are not updated if stored value is same as new value', async () => {
         const expectedSettingKey = `WORKSPACE_FOLDER_INTERPRETER_PATH_${resource.fsPath}`;

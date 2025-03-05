@@ -112,8 +112,7 @@ export class InterpreterPathService implements IInterpreterPathService {
         resource = PythonSettings.getSettingsUriAndTarget(resource, this.workspaceService).uri;
         if (configTarget === ConfigurationTarget.Global) {
             // --- Start Positron ---
-            // do not update interpreter path setting in no-workspace scenarios
-            // through the Select Interpreter dropdown
+            // do not update global interpreter path setting via the Select Interpreter dropdown
             // const pythonConfig = this.workspaceService.getConfiguration('python');
             // const globalValue = pythonConfig.inspect<string>('defaultInterpreterPath')!.globalValue;
             // if (globalValue !== pythonPath) {
