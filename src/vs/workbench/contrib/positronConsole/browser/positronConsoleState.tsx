@@ -19,13 +19,13 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { PositronActionBarServices } from '../../../../platform/positronActionBar/browser/positronActionBarState.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IExecutionHistoryService } from '../../executionHistory/common/executionHistoryService.js';
 import { IPositronConsoleInstance, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 
 /**
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron

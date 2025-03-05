@@ -36,7 +36,6 @@ import { EditOperation, ISingleEditOperation } from '../../../../../editor/commo
 import { TabCompletionController } from '../../../snippets/browser/tabCompletion.js';
 import { TerminalContextKeys } from '../../../terminal/common/terminalContextKey.js';
 import { ParameterHintsController } from '../../../../../editor/contrib/parameterHints/browser/parameterHints.js';
-import { IInputHistoryEntry } from '../../../executionHistory/common/executionHistoryService.js';
 import { SelectionClipboardContributionID } from '../../../codeEditor/browser/selectionClipboard.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -46,6 +45,7 @@ import { HistoryPrefixMatchStrategy } from '../../common/historyPrefixMatchStrat
 import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from '../../common/historyMatchStrategy.js';
 import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ContentHoverController } from '../../../../../editor/contrib/hover/browser/contentHoverController.js';
+import { IInputHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
 
 // Position enumeration.
 const enum Position {
