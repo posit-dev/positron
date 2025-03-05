@@ -239,10 +239,7 @@ export class Sessions {
 			}
 
 			// Handle the last one separately because there is no tab list trash icon to click on
-			const { state } = await this.getMetadata();
-			if (state === 'disconnected' || state === 'exited') {
-				await this.console.barTrashButton.click();
-			}
+			await this.console.barTrashButton.click();
 		});
 	}
 

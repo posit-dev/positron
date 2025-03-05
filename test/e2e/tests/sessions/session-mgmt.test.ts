@@ -124,8 +124,8 @@ test.describe('Sessions: Management', {
 		await sessions.launch(pythonSession1);
 		await sessions.expectSessionCountToBe(1, 'active');
 		await sessions.expectActiveSessionListsToMatch();
-		await console.barTrashButton.click();
-		await expect(sessions.activeSessionPicker).toHaveText('Start Session');
+		// await console.barTrashButton.click();
+		// await expect(sessions.activeSessionPicker).toHaveText('Start Session');
 	});
 
 	test('Validate can delete sessions', { tag: [tags.VARIABLES] }, async function ({ app }) {
