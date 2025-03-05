@@ -4,25 +4,24 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { RuntimeItem } from './runtimeItem.js';
+import { ActivityItemStream } from './activityItemStream.js';
 import { ActivityItemPrompt } from './activityItemPrompt.js';
 import { ActivityItemOutputHtml } from './activityItemOutputHtml.js';
 import { ActivityItemOutputPlot } from './activityItemOutputPlot.js';
 import { ActivityItemErrorMessage } from './activityItemErrorMessage.js';
 import { ActivityItemOutputMessage } from './activityItemOutputMessage.js';
 import { ActivityItemInput, ActivityItemInputState } from './activityItemInput.js';
-import { ActivityItemErrorStream, ActivityItemOutputStream, ActivityItemStream } from './activityItemStream.js';
 
 /**
  * The ActivityItem type alias.
  */
 export type ActivityItem =
+	ActivityItemStream |
 	ActivityItemErrorMessage |
-	ActivityItemErrorStream |
 	ActivityItemInput |
 	ActivityItemOutputHtml |
 	ActivityItemOutputMessage |
 	ActivityItemOutputPlot |
-	ActivityItemOutputStream |
 	ActivityItemPrompt;
 
 /**
@@ -35,12 +34,8 @@ const isSameActivityItemStream = (
 	activityItemStream1: ActivityItemStream,
 	activityItemStream2: ActivityItemStream
 ) =>
-	(
-		(activityItemStream1 instanceof ActivityItemOutputStream &&
-			activityItemStream2 instanceof ActivityItemOutputStream) ||
-		(activityItemStream1 instanceof ActivityItemErrorStream &&
-			activityItemStream2 instanceof ActivityItemErrorStream)
-	) && activityItemStream1.parentId === activityItemStream2.parentId;
+	activityItemStream1.type === activityItemStream2.type &&
+	activityItemStream1.parentId === activityItemStream2.parentId;
 
 /**
  * RuntimeItemActivity class.

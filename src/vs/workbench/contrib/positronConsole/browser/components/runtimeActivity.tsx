@@ -27,7 +27,7 @@ import { ActivityOutputMessage } from './activityOutputMessage.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ActivityItemOutputMessage } from '../../../../services/positronConsole/browser/classes/activityItemOutputMessage.js';
-import { ActivityItemErrorStream, ActivityItemOutputStream } from '../../../../services/positronConsole/browser/classes/activityItemStream.js';
+import { ActivityItemStream, ActivityItemStreamType } from '../../../../services/positronConsole/browser/classes/activityItemStream.js';
 
 // RuntimeActivityProps interface.
 export interface RuntimeActivityProps {
@@ -48,10 +48,15 @@ export const RuntimeActivity = (props: RuntimeActivityProps) => {
 			{props.runtimeItemActivity.activityItems.map(activityItem => {
 				if (activityItem instanceof ActivityItemInput) {
 					return <ActivityInput key={activityItem.id} activityItemInput={activityItem} fontInfo={props.fontInfo} positronConsoleInstance={props.positronConsoleInstance} />;
-				} else if (activityItem instanceof ActivityItemOutputStream) {
-					return <ActivityOutputStream key={activityItem.id} activityItemOutputStream={activityItem} />;
-				} else if (activityItem instanceof ActivityItemErrorStream) {
-					return <ActivityErrorStream key={activityItem.id} activityItemErrorStream={activityItem} />;
+				} else if (activityItem instanceof ActivityItemStream) {
+					if (activityItem.type === ActivityItemStreamType.OUTPUT) {
+						return <ActivityOutputStream key={activityItem.id} activityItemStream={activityItem} />;
+					} else if (activityItem.type === ActivityItemStreamType.ERROR) {
+						return <ActivityErrorStream key={activityItem.id} activityItemStream={activityItem} />;
+					} else {
+						// This indicates a bug. A new stream type was added but not handled here.
+						return null;
+					}
 				} else if (activityItem instanceof ActivityItemPrompt) {
 					return <ActivityPrompt key={activityItem.id} activityItemPrompt={activityItem} positronConsoleInstance={props.positronConsoleInstance} />;
 				} else if (activityItem instanceof ActivityItemOutputHtml) {
@@ -63,7 +68,7 @@ export const RuntimeActivity = (props: RuntimeActivityProps) => {
 				} else if (activityItem instanceof ActivityItemErrorMessage) {
 					return <ActivityErrorMessage key={activityItem.id} activityItemErrorMessage={activityItem} />;
 				} else {
-					// This indicates a bug.
+					// This indicates a bug. A new activity item was added but not handled here.
 					return null;
 				}
 			})}

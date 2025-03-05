@@ -34,7 +34,7 @@ import { ActivityItemOutputMessage } from './classes/activityItemOutputMessage.j
 import { RuntimeItemStartupFailure } from './classes/runtimeItemStartupFailure.js';
 import { ActivityItem, RuntimeItemActivity } from './classes/runtimeItemActivity.js';
 import { ActivityItemInput, ActivityItemInputState } from './classes/activityItemInput.js';
-import { ActivityItemErrorStream, ActivityItemOutputStream } from './classes/activityItemStream.js';
+import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
 import { ILanguageRuntimeCodeExecutedEvent, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
@@ -1750,7 +1750,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				if (languageRuntimeMessageStream.name === 'stdout') {
 					this.addOrUpdateUpdateRuntimeItemActivity(
 						languageRuntimeMessageStream.parent_id,
-						new ActivityItemOutputStream(
+						new ActivityItemStream(
+							ActivityItemStreamType.OUTPUT,
 							languageRuntimeMessageStream.id,
 							languageRuntimeMessageStream.parent_id,
 							new Date(languageRuntimeMessageStream.when),
@@ -1760,7 +1761,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				} else if (languageRuntimeMessageStream.name === 'stderr') {
 					this.addOrUpdateUpdateRuntimeItemActivity(
 						languageRuntimeMessageStream.parent_id,
-						new ActivityItemErrorStream(
+						new ActivityItemStream(
+							ActivityItemStreamType.ERROR,
 							languageRuntimeMessageStream.id,
 							languageRuntimeMessageStream.parent_id,
 							new Date(languageRuntimeMessageStream.when),
