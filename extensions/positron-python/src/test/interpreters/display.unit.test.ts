@@ -185,10 +185,10 @@ suite('Interpreters Display', () => {
                 if (useLanguageStatus) {
                     // --- Start Positron ---
                     // Status bar value should be the path, not the display name
-                    // languageStatusItem.verify(
-                    //     (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.detailedDisplayName)!),
-                    //     TypeMoq.Times.once(),
-                    // );
+                    languageStatusItem.verify(
+                        (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.path)!),
+                        TypeMoq.Times.once(),
+                    );
                     // --- End Positron ---
                     languageStatusItem.verify(
                         (s) => (s.detail = TypeMoq.It.isValue(activeInterpreter.path)!),
