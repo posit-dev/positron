@@ -22,10 +22,14 @@ function defaultSetDecorations(
 	editor.setDecorations(decorationType, ranges);
 }
 
+// Theme colors for cell decorations
+const activeCellBorderThemeColor = new vscode.ThemeColor('interactive.activeCodeBorder');
+const activeCellBackgroundThemeColor = new vscode.ThemeColor('notebook.selectedCellBackground');
+
 // Create decoration types for focused cell borders
 export const focusedCellTopDecorationType =
 	vscode.window.createTextEditorDecorationType({
-		borderColor: new vscode.ThemeColor('interactive.activeCodeBorder'),
+		borderColor: activeCellBorderThemeColor,
 		borderWidth: '2px 0px 0px 0px',
 		borderStyle: 'solid',
 		isWholeLine: true,
@@ -33,7 +37,7 @@ export const focusedCellTopDecorationType =
 
 export const focusedCellBottomDecorationType =
 	vscode.window.createTextEditorDecorationType({
-		borderColor: new vscode.ThemeColor('interactive.activeCodeBorder'),
+		borderColor: activeCellBorderThemeColor,
 		borderWidth: '0px 0px 1px 0px',
 		borderStyle: 'solid',
 		isWholeLine: true,
@@ -41,9 +45,21 @@ export const focusedCellBottomDecorationType =
 
 export const focusedCellBackgroundDecorationType =
 	vscode.window.createTextEditorDecorationType({
-		backgroundColor: new vscode.ThemeColor('notebook.selectedCellBackground'),
+		backgroundColor: activeCellBackgroundThemeColor,
 		isWholeLine: true,
 	});
+
+/** The style of code cell decorations. */
+enum CellStyle {
+	/** Highlight the active cell's border. */
+	Background = 'background',
+
+	/** Highlight the active cell's background. */
+	Border = 'border',
+
+	/** Highlight the active cell's border and background. */
+	Both = 'both',
+}
 
 export function activateDecorations(
 	disposables: vscode.Disposable[],
@@ -64,9 +80,9 @@ export function activateDecorations(
 
 		// Configurable: cellStyle `background`/`border`/`both`
 		const config = vscode.workspace.getConfiguration('codeCells');
-		const decorationStyle = config.get<string>('cellStyle');
-		const useCellBorders = (decorationStyle === 'border' || decorationStyle === 'both');
-		const useCellBackground = (decorationStyle === 'background' || decorationStyle === 'both');
+		const decorationStyle = config.get<CellStyle>('cellStyle');
+		const useCellBorders = (decorationStyle === CellStyle.Border || decorationStyle === CellStyle.Both);
+		const useCellBackground = (decorationStyle === CellStyle.Background || decorationStyle === CellStyle.Both);
 
 		const activeCellBackgroundRanges: vscode.Range[] = [];
 		const activeTopBorderRanges: vscode.Range[] = [];
@@ -139,6 +155,13 @@ export function activateDecorations(
 		// Trigger a decorations update when the active editor's selection changes.
 		vscode.window.onDidChangeTextEditorSelection(event => {
 			if (activeEditor && event.textEditor === activeEditor) {
+				triggerUpdateDecorations();
+			}
+		}),
+
+		// Trigger a decorations update when the cell style setting changes.
+		vscode.workspace.onDidChangeConfiguration(event => {
+			if (event.affectsConfiguration('codeCells.cellStyle')) {
 				triggerUpdateDecorations();
 			}
 		}),

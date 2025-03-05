@@ -17,6 +17,9 @@ suite('Decorations', () => {
 	setup(() => {
 		// Activate decorations with a custom setDecorations that stores the decorated ranges.
 		activateDecorations(disposables, setDecorations);
+
+		// Default to background style.
+		switchCellStyle('background');
 	});
 	teardown(async () => {
 		disposeAll(disposables);
@@ -30,7 +33,6 @@ suite('Decorations', () => {
 	}
 
 	test('Opening an empty Python document', async () => {
-		switchCellStyle('background');
 		await showTextDocument('');
 		assertCellDecorationRangesEqual(focusedCellBackgroundDecorationType, []);
 	});
@@ -59,10 +61,11 @@ suite('Decorations', () => {
 		// Move the selection to the second cell
 		editor.selection = new vscode.Selection(1, 0, 1, 0);
 
+		// Decorations do not update immediately
+		assertCellDecorationRangesEqual(focusedCellBackgroundDecorationType, [new vscode.Range(0, 0, 0, 4)]);
+
 		// Decorations update after a delay
-		// --- Start Positron ---
 		await delay(400);
-		// --- End Positron ---
 		assertCellDecorationRangesEqual(focusedCellBackgroundDecorationType, [new vscode.Range(1, 0, 1, 4)]);
 	});
 
@@ -78,9 +81,7 @@ suite('Decorations', () => {
 		assertCellDecorationRangesEqual(focusedCellBackgroundDecorationType, [new vscode.Range(0, 0, 0, 4)]);
 
 		// Decorations update after a delay
-		// --- Start Positron ---
 		await delay(400);
-		// --- End Positron ---
 		assertCellDecorationRangesEqual(focusedCellBackgroundDecorationType, []);
 	});
 
@@ -88,10 +89,9 @@ suite('Decorations', () => {
 		await showTextDocument('# %%');
 		assertCellDecorationRangesEqual(focusedCellBackgroundDecorationType, [new vscode.Range(0, 0, 0, 4)]);
 
+		// Decorations update after a delay
 		await showTextDocument('');
-		// --- Start Positron ---
 		await delay(400);
-		// --- End Positron ---
 		assertCellDecorationRangesEqual(focusedCellBackgroundDecorationType, []);
 	});
 
@@ -102,16 +102,12 @@ suite('Decorations', () => {
 		assertCellDecorationRangesEqual(focusedCellTopDecorationType, []);
 		assertCellDecorationRangesEqual(focusedCellBottomDecorationType, []);
 
-		// Need to open a new document since changing setting does not retrigger setDecorations
 		await switchCellStyle('border');
-		await showTextDocument('# %%\n');
 		assertCellDecorationRangesEqual(focusedCellBackgroundDecorationType, []);
 		assertCellDecorationRangesEqual(focusedCellTopDecorationType, [new vscode.Range(0, 0, 0, 0)]);
 		assertCellDecorationRangesEqual(focusedCellBottomDecorationType, [new vscode.Range(1, 0, 1, 0)]);
 
-		// Need to open a new document since changing setting does not retrigger setDecorations
 		await switchCellStyle('both');
-		await showTextDocument('# %%\n');
 		assertCellDecorationRangesEqual(focusedCellBackgroundDecorationType, [new vscode.Range(0, 0, 1, 0)]);
 		assertCellDecorationRangesEqual(focusedCellTopDecorationType, [new vscode.Range(0, 0, 0, 0)]);
 		assertCellDecorationRangesEqual(focusedCellBottomDecorationType, [new vscode.Range(1, 0, 1, 0)]);
