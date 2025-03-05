@@ -217,6 +217,12 @@
             "default": [],
             "markdownDescription": "%r.configuration.interpreters.exclude.markdownDescription%"
           },
+          "positron.r.interpreters.default": {
+            "scope": "window",
+            "type": "string",
+            "default": null,
+            "markdownDescription": "%r.configuration.interpreters.default.markdownDescription%"
+          },
           "positron.r.kernel.path": {
             "scope": "window",
             "type": "string",
