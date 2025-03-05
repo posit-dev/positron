@@ -268,6 +268,9 @@ export type KnownEnvironmentTools =
     | 'VirtualEnvWrapper'
     | 'Pyenv'
     | 'Hatch'
+    // --- Start Positron ---
+    | 'Uv'
+    // --- End Positron ---
     | 'Unknown';
 
 /**

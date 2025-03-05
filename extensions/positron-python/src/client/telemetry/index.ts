@@ -1430,6 +1430,9 @@ export interface IEventNamePropertyMapping {
          * Number of environments of a specific type
          */
         pyenvEnvs?: number;
+        // --- Start Positron ---
+        uvEnvs?: number;
+        // --- End Positron ---
         /**
          * Number of environments of a specific type
          */
