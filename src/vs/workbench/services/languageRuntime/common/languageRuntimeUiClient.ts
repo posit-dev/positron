@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -13,6 +13,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { isWeb } from '../../../../base/common/platform.js';
 
 export const POSITRON_PREVIEW_PLOTS_IN_VIEWER = 'positron.viewer.interactivePlotsInViewer';
 
@@ -165,7 +166,11 @@ export class UiClientInstance extends Disposable {
 				// Start an HTML proxy server for the file
 				const uri = await this.startHtmlProxyServer(e.path);
 
-				if (e.is_plot) {
+				if (isWeb) {
+					// In Web mode, we can't show interactive plots in the Plots
+					// pane.
+					e.is_plot = false;
+				} else if (e.is_plot) {
 					// Check the configuration to see if we should open the plot
 					// in the Viewer tab. If so, clear the `is_plot` flag so that
 					// we open the file in the Viewer.
