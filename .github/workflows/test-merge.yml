@@ -15,6 +15,8 @@ jobs:
       project: "e2e-electron"
       display_name: "electron (ubuntu)"
       currents_tags: "merge,electron/ubuntu"
+      report_testrail: false
+      install_undetectable_interpreters: true
     secrets: inherit
 
   e2e-windows-electron:
@@ -36,6 +38,7 @@ jobs:
       project: "e2e-browser"
       currents_tags: "merge,browser/ubuntu"
       report_testrail: false
+      install_undetectable_interpreters: true
     secrets: inherit
 
   unit-tests:
