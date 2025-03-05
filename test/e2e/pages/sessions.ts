@@ -128,18 +128,30 @@ export class Sessions {
 
 	/**
 	 * Action: Delete the session via trash button
-	 * @param sessionIdOrName the id or name of the session
+	 * @param sessionId the id of the session
 	 */
-	async delete(sessionIdOrName: string): Promise<void> {
-		await test.step(`Delete session: ${sessionIdOrName}`, async () => {
-			const sessionTab = this.getSessionTab(sessionIdOrName);
+	async delete(sessionId: string): Promise<void> {
+		await test.step(`Delete session: ${sessionId}`, async () => {
+			const sessionCount = (await this.sessions.all()).length;
 
-			await sessionTab.click();
-			await sessionTab.hover();
-			await this.trashButton(sessionIdOrName).click();
+			if (sessionCount === 1) {
+				const currentSessionId = await this.getCurrentSessionId();
+				if (currentSessionId === sessionId) {
+					await this.console.barTrashButton.click();
+					return;
+				} else {
+					throw new Error(`Cannot delete session ${sessionId} because it does not exist`);
+				}
+			} else {
+				const sessionTab = this.getSessionTab(sessionId);
+
+				await sessionTab.click();
+				await sessionTab.hover();
+				await this.trashButton(sessionId).click();
+			}
 
 			await expect(this.page.getByText('Shutting down')).not.toBeVisible();
-			await expect(sessionTab).not.toBeVisible();
+			await expect(this.consoleInstance(sessionId)).not.toBeVisible();
 		});
 	}
 
@@ -238,8 +250,9 @@ export class Sessions {
 				await this.delete(disconnectedSessions[i]);
 			}
 
-			// Handle the last one separately because there is no tab list trash icon to click on
+			// Handle the last one separately because there may not be a tab list trash icon to click on
 			await this.console.barTrashButton.click();
+			await expect(this.page.getByText('Shutting down')).not.toBeVisible();
 		});
 	}
 
@@ -306,7 +319,7 @@ export class Sessions {
 	 * Helper: Wait for runtimes to finish loading
 	 */
 	async waitForRuntimesToLoad() {
-		await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 80000 });
+		await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 	}
 
 	/**
@@ -467,16 +480,16 @@ export class Sessions {
 		const timeout = options?.timeout || 30000;
 
 		await test.step(`Verify ${sessionIdOrName} session status: ${expectedStatus}`, async () => {
-			const numOfSessions = await this.sessions.all();
+			const sessionCount = (await this.sessions.all()).length;
 
-			if (numOfSessions.length > 1) {
+			if (sessionCount > 1) {
 				// get status from icon in tab list view
 				const sessionTab = this.getSessionTab(sessionIdOrName);
 				const statusClass = `.codicon-positron-status-${expectedStatus}`;
 
 				await expect(sessionTab).toBeVisible();
 				await expect(sessionTab.locator(statusClass)).toBeVisible({ timeout });
-			} else if (numOfSessions.length === 1) {
+			} else if (sessionCount === 1) {
 				// get status from metadata dialog because there is no tab list view
 				await expect(async () => {
 					const { state } = await this.getMetadata();

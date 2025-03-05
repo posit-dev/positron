@@ -138,7 +138,7 @@ test.describe('Sessions: Management', {
 		rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
 
 		// Delete 1st session and verify active sessions and runtime in session picker
-		await sessions.delete(pythonSession1.name);
+		await sessions.delete(pythonSession1.id);
 		await sessions.expectSessionCountToBe(1);
 		await sessions.expectActiveSessionListsToMatch();
 		await variables.expectRuntimeToBe('visible', rSession1.name);
