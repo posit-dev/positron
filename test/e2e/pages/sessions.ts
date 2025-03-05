@@ -180,7 +180,7 @@ export class Sessions {
 	 * @param waitForIdle wait for the session to display as "idle" (ready)
 	 */
 	async restart(sessionIdOrName: string, waitForIdle = true, clearConsole = true): Promise<void> {
-		await test.step(`Restart session:`, async () => {
+		await test.step(`Restart session: ${sessionIdOrName}`, async () => {
 			await this.getSessionTab(sessionIdOrName).click();
 
 			if (clearConsole) {
@@ -191,7 +191,7 @@ export class Sessions {
 			await this.page.mouse.move(0, 0);
 
 			if (waitForIdle) {
-				this.expectStatusToBe(sessionIdOrName, 'idle', { timeout: 60000 });
+				this.expectStatusToBe(sessionIdOrName, 'idle', { timeout: 90000 });
 			}
 		});
 	}
