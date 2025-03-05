@@ -163,7 +163,7 @@ export const selectLanguageRuntimeSession = async (
 	// Show quick pick to select an active runtime or show all runtimes.
 	const quickPickItems: QuickPickItem[] = [
 		{
-			label: 'Active Sessions',
+			label: localize('positron.languageRuntime.activeSessions', 'Active Sessions'),
 			type: 'separator',
 		},
 		...activeRuntimeItems,
@@ -174,13 +174,13 @@ export const selectLanguageRuntimeSession = async (
 
 	if (options?.allowStartSession) {
 		quickPickItems.push({
-			label: 'New Session...',
+			label: localize('positron.languageRuntime.newSession', 'New Session...'),
 			id: startNewRuntimeId,
 			alwaysShow: true
 		});
 	}
 	const result = await quickInputService.pick(quickPickItems, {
-		title: 'Select a Session',
+		title: localize('positron.languageRuntime.selectSession', 'Select a Session'),
 		canPickMany: false,
 		activeItem: activeRuntimeItems.filter(item => item.picked)[0]
 	});
@@ -289,8 +289,7 @@ const selectLanguageRuntime = async (
  * Helper function that asks the user to select a running language runtime, if no runtime is
  * currently marked as the active runtime.
  *
- * @param runtimeSessionService The runtime session service.
- * @param quickInputService The quick input service.
+ * @param accessor The service accessor.
  * @param placeholder The placeholder for the quick input.
  * @returns The language runtime the user selected, or undefined, if there are no running language runtimes or the user canceled the operation.
  */
@@ -418,7 +417,10 @@ const selectNewLanguageRuntime = async (
 	// Prompt the user to select a runtime to start
 	const selectedRuntime = await quickInputService.pick(
 		runtimeItems,
-		{ title: 'Start a New Session', canPickMany: false }
+		{
+			title: localize('positron.languageRuntime.startSession', 'Start a New Session'),
+			canPickMany: false
+		}
 	);
 
 	// If the user selected a runtime, set it as the active runtime
@@ -528,7 +530,7 @@ export function registerLanguageRuntimeActions() {
 		// Have the user select the language runtime they wish to set as the active language runtime.
 		const session = await selectRunningLanguageRuntime(
 			accessor,
-			'Set the active language runtime');
+			localize('positron.lanuageRuntime.setActive', 'Set the active language runtime'));
 
 		// If the user selected a language runtime, set it as the active language runtime.
 		if (session) {
@@ -562,7 +564,11 @@ export function registerLanguageRuntimeActions() {
 		if (!session) {
 			session = await selectRunningLanguageRuntime(
 				accessor,
-				'Select the interpreter to restart');
+				localize(
+					'positron.languageRuntime.selectInterpreterRestart',
+					'Select the interpreter to restart'
+				)
+			);
 			if (!session) {
 				throw new Error('No interpreter selected');
 			}
@@ -658,11 +664,13 @@ export function registerLanguageRuntimeActions() {
 
 	registerLanguageRuntimeAction('workbench.action.language.runtime.openClient', 'Create Runtime Client Widget', async accessor => {
 		// Access services.
-		// const runtimeSessionService = accessor.get(IRuntimeSessionService);
 		const quickInputService = accessor.get(IQuickInputService);
 
 		// Ask the user to select a running language runtime.
-		const languageRuntime = await selectRunningLanguageRuntime(accessor, 'Select the language runtime');
+		const languageRuntime = await selectRunningLanguageRuntime(
+			accessor,
+			localize('positron.languageRuntime.selectRuntime', 'Select the language runtime')
+		);
 		if (!languageRuntime) {
 			return;
 		}
