@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -21,6 +21,7 @@ import { registerAction2 } from '../../../../platform/actions/common/actions.js'
 import { PositronOpenUrlInViewerAction } from './positronPreviewActions.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { POSITRON_PREVIEW_PLOTS_IN_VIEWER } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
+import { isWeb } from '../../../../base/common/platform.js';
 
 // The Positron preview view icon.
 const positronPreviewViewIcon = registerIcon('positron-preview-view-icon', Codicon.positronPreviewView, nls.localize('positronPreviewViewIcon', 'View icon of the Positron preview view.'));
@@ -73,19 +74,26 @@ class PositronPreviewContribution extends Disposable implements IWorkbenchContri
 	}
 }
 
-// Register configuration options for the preview service
-const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
-configurationRegistry.registerConfiguration({
-	id: 'positron',
-	properties: {
-		[POSITRON_PREVIEW_PLOTS_IN_VIEWER]: {
-			scope: ConfigurationScope.MACHINE,
-			type: 'boolean',
-			default: false,
-			description: nls.localize('positron.viewer.interactivePlotsInViewer', "When enabled, interactive HTML plots are shown in the Viewer pane rather than in the Plots pane.")
-		},
-	}
-});
-
+if (!isWeb) {
+	// In desktop mode, we can optionally show interactive plots in the Plots
+	// pane. This maneuver requires Electron to generate screen captures to use
+	// as thumbnails.
+	//
+	// In web mode, we can't do this, so we always show interactive plots in
+	// the Viewer pane (i.e. we behave as though this option is always set to
+	// true)
+	const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
+	configurationRegistry.registerConfiguration({
+		id: 'positron',
+		properties: {
+			[POSITRON_PREVIEW_PLOTS_IN_VIEWER]: {
+				scope: ConfigurationScope.MACHINE,
+				type: 'boolean',
+				default: false,
+				description: nls.localize('positron.viewer.interactivePlotsInViewer', "When enabled, interactive HTML plots are shown in the Viewer pane rather than in the Plots pane.")
+			},
+		}
+	});
+}
 
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronPreviewContribution, LifecyclePhase.Restored);

@@ -38,9 +38,9 @@ test.describe('Variables Pane', {
 
 	});
 
-	test.skip('Python - Verify only 1 entry per environment', {
+	test('Python - Verify only 1 entry per environment', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5887' }],
-	}, async function ({ app, logger, python }) {
+	}, async function ({ app, python }) {
 		await app.workbench.console.barClearButton.click();
 		await app.workbench.console.barRestartButton.click();
 		await app.workbench.console.waitForReady('>>>');
@@ -69,9 +69,9 @@ test.describe('Variables Pane', {
 	});
 
 
-	test.skip('R - Verify only 1 entry per environment', {
+	test('R - Verify only 1 entry per environment', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5887' }],
-	}, async function ({ app, logger, r }) {
+	}, async function ({ app, r }) {
 		await app.workbench.console.barClearButton.click();
 		await app.workbench.console.barRestartButton.click();
 		await app.workbench.console.waitForReady('>');

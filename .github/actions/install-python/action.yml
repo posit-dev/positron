@@ -78,47 +78,43 @@ runs:
         # Verify that Python is reset
         python --version
 
-    - name: Install Prebuilt Python 3.12.7 in ~/scratch (Ubuntu Only)
+    - name: Create Conda Environment with Python 3.12 in ~/scratch
       if: ${{ inputs.install_undetectable_interpreters == 'true' }}
       shell: bash
       run: |
-        echo "Installing Python 3.12.7 (minimal) in ~/scratch..."
+        set -e  # Exit immediately if any command fails
 
-        # Set installation path
-        INSTALL_DIR="$HOME/scratch/python-custom"
-        mkdir -p $INSTALL_DIR
+        echo "Setting up Conda environment with Python 3.12..."
 
-        # Download the correct Python 3.12.7 minimal package from Ubuntu archive
-        DEB_URL="http://archive.ubuntu.com/ubuntu/pool/main/p/python3.12/python3.12-minimal_3.12.7-1ubuntu2_amd64.deb"
-        curl -fLO "$DEB_URL"
+        # Ensure Conda is available
+        source "${HOME}/conda/etc/profile.d/conda.sh"
 
-        # Verify the file format before extracting
-        if file python3.12-minimal_3.12.7-1ubuntu2_amd64.deb | grep -q "Debian binary package"; then
-            echo "Valid Debian package detected."
-        else
-            echo "Error: Downloaded file is not a valid .deb package!"
-            exit 1
-        fi
+        # Define environment path
+        CONDA_ENV_DIR="$HOME/scratch/python-env"
 
-        # Extract the .deb package manually (without sudo)
-        dpkg-deb -x python3.12-minimal_3.12.7-1ubuntu2_amd64.deb $INSTALL_DIR
+        # Create a new Conda environment with Python 3.12
+        conda create -y -p "$CONDA_ENV_DIR" python=3.12 pip setuptools
 
-        # Set the correct path for Python binary
-        PYTHON_BIN="$INSTALL_DIR/usr/bin/python3.12"
+        # Activate environment
+        conda activate "$CONDA_ENV_DIR"
 
         # Verify Python installation
+        PYTHON_BIN="$CONDA_ENV_DIR/bin/python"
+
         if [[ -x "$PYTHON_BIN" ]]; then
-            echo "Python successfully extracted."
+            echo "Python successfully installed in Conda environment at $PYTHON_BIN"
             $PYTHON_BIN --version
         else
-            echo "Error: Python binary not found in extracted directory."
+            echo "Error: Python binary not found in Conda environment!"
             exit 1
         fi
 
-        # Manually install pip since `ensurepip` is disabled
-        echo "Installing pip manually..."
-        curl -sS https://bootstrap.pypa.io/get-pip.py | $PYTHON_BIN
+        # Verify Python modules are working
+        echo "Checking if Python modules work..."
+        $PYTHON_BIN -c "import venv, distutils, sys; print(f'Python {sys.version} modules are working!')"
 
-        # Verify pip installation
-        $PYTHON_BIN -m pip --version
+        # Final verification
+        echo "Final Python check..."
+        $PYTHON_BIN -c "import sys; print(f'Python {sys.version} is working!')"
 
+        echo "Miniconda-based Python 3.12 setup complete!"

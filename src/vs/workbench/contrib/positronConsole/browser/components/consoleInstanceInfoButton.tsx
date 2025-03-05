@@ -54,8 +54,8 @@ export const ConsoleInstanceInfoButton = () => {
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
 			keybindingService: positronConsoleContext.keybindingService,
-			layoutService: positronConsoleContext.workbenchLayoutService,
-			container: positronConsoleContext.workbenchLayoutService.getContainer(DOM.getWindow(ref.current)),
+			layoutService: positronConsoleContext.layoutService,
+			container: positronConsoleContext.layoutService.getContainer(DOM.getWindow(ref.current)),
 			parent: ref.current
 		});
 

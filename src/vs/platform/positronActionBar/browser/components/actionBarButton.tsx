@@ -39,6 +39,7 @@ export type ActionBarButtonProps = {
 	readonly maxTextWidth?: number;
 	readonly align?: 'left' | 'right';
 	readonly tooltip?: string | (() => string | undefined);
+	readonly dataTestId?: string;
 	readonly dropdownTooltip?: string | (() => string | undefined);
 	readonly checked?: boolean;
 	readonly disabled?: boolean;
@@ -92,7 +93,7 @@ export const ActionBarButton = forwardRef<
 	 */
 	const ActionBarButtonFace = () => {
 		return (
-			<div aria-hidden='true' className='action-bar-button-face'>
+			<div aria-hidden='true' className='action-bar-button-face' data-testid={props.dataTestId}>
 				{props.iconId && (
 					<div
 						className={positronClassNames(

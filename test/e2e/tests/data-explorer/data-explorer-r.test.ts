@@ -45,6 +45,7 @@ test.describe('Data Explorer - R ', {
 			const clipboardText = await app.workbench.clipboard.getClipboardText();
 			expect(clipboardText).toBe('Strength');
 		});
+
 	});
 
 	test('R - Verify opening Data Explorer for the second time brings focus back', {
@@ -70,7 +71,7 @@ test.describe('Data Explorer - R ', {
 		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: true });
 	});
 
-	test('R - Verify blank spaces in data explorer', async function ({ app, r, executeCode }) {
+	test('R - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, r, executeCode }) {
 		// Execute code to generate data frames
 		await executeCode('R', `df = data.frame(x = c("a ", "a", "   ", ""))`);
 
@@ -92,6 +93,12 @@ test.describe('Data Explorer - R ', {
 			expect(tableData).toStrictEqual(expectedData);
 			expect(tableData).toHaveLength(4);
 		}).toPass({ timeout: 60000 });
+
+		await test.step('Verify disconnect dialog', async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+			await app.workbench.console.barPowerButton.click();
+			await expect(app.code.driver.page.locator('.dialog-box .message')).toHaveText('Connection Closed');
+		});
 	});
 });
 

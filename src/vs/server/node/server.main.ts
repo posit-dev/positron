@@ -18,7 +18,7 @@ import * as perf from '../../base/common/performance.js';
 
 // --- Start PWB ---
 // eslint-disable-next-line no-duplicate-imports
-import { ServerParsedArgs } from './serverEnvironmentService';
+import { ServerParsedArgs } from './serverEnvironmentService.js';
 // --- End PWB ---
 
 perf.mark('code/server/codeLoaded');

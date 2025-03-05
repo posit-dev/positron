@@ -900,7 +900,10 @@ export class UninstallAction extends ExtensionAction {
 
 		try {
 			await this.extensionsWorkbenchService.uninstall(this.extension);
-			alert(localize('uninstallExtensionComplete', "Please reload Visual Studio Code to complete the uninstallation of the extension {0}.", this.extension.displayName));
+			// --- Start Positron ---
+			// alert(localize('uninstallExtensionComplete', "Please reload Visual Studio Code to complete the uninstallation of the extension {0}.", this.extension.displayName));
+			alert(localize('uninstallExtensionComplete', "Please reload Positron to complete the uninstallation of the extension {0}.", this.extension.displayName));
+			// --- End Positron ---
 		} catch (error) {
 			if (!isCancellationError(error)) {
 				this.dialogService.error(getErrorMessage(error));
@@ -2892,7 +2895,10 @@ export class ReinstallAction extends Action {
 				return this.extensionsWorkbenchService.reinstall(extension)
 					.then(extension => {
 						const requireReload = !(extension.local && this.extensionService.canAddExtension(toExtensionDescription(extension.local)));
-						const message = requireReload ? localize('ReinstallAction.successReload', "Please reload Visual Studio Code to complete reinstalling the extension {0}.", extension.identifier.id)
+						// --- Start Positron ---
+						// const message = requireReload ? localize('ReinstallAction.successReload', "Please reload Visual Studio Code to complete reinstalling the extension {0}.", extension.identifier.id)
+						const message = requireReload ? localize('ReinstallAction.successReload', "Please reload Positron to complete reinstalling the extension {0}.", extension.identifier.id)
+							// --- End Positron ---
 							: localize('ReinstallAction.success', "Reinstalling the extension {0} is completed.", extension.identifier.id);
 						const actions = requireReload ? [{
 							label: localize('InstallVSIXAction.reloadNow', "Reload Now"),

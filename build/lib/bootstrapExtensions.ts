@@ -30,20 +30,24 @@ function log(...messages: string[]): void {
 }
 
 function getExtensionPath(extension: IExtensionDefinition): string {
-	return path.join(root, '.build', 'bootstrapExtensions', extension.name);
+	return path.join(root, '.build', 'bootstrapExtensions', `${extension.name}-${extension.version}.vsix`);
 }
 
 function isUpToDate(extension: IExtensionDefinition): boolean {
-	const packagePath = path.join(getExtensionPath(extension), 'package.json');
+	const regex = new RegExp(`^${extension.name}-(\\d+\\.\\d+\\.\\d+)\\.vsix$`);
+	if (!fs.existsSync(path.join(root, '.build', 'bootstrapExtensions'))) {
+		return false;
+	}
+	const files = fs.readdirSync(path.join(root, '.build', 'bootstrapExtensions'));
+	const vsixPath = files.find(f => regex.test(f));
 
-	if (!fs.existsSync(packagePath)) {
+	if (!vsixPath) {
 		return false;
 	}
 
-	const packageContents = fs.readFileSync(packagePath, { encoding: 'utf8' });
-
 	try {
-		const diskVersion = JSON.parse(packageContents).version;
+		const match = vsixPath.match(regex);
+		const diskVersion = match ? match[1] : null;
 		return (diskVersion === extension.version);
 	} catch (err) {
 		return false;
@@ -127,9 +131,9 @@ function readControlFile(): IControlFile {
 	}
 }
 
-function writeControlFile(control: IControlFile, filePath: string): void {
-	fs.mkdirSync(path.dirname(filePath), { recursive: true });
-	fs.writeFileSync(filePath, JSON.stringify(control, null, 2));
+function writeControlFile(control: IControlFile): void {
+	fs.mkdirSync(path.dirname(controlFilePath), { recursive: true });
+	fs.writeFileSync(controlFilePath, JSON.stringify(control, null, 2));
 }
 
 export function getBootstrapExtensions(): Promise<void> {
@@ -144,7 +148,7 @@ export function getBootstrapExtensions(): Promise<void> {
 		streams.push(syncExtension(extension, controlState));
 	}
 
-	writeControlFile(control, controlFilePath);
+	writeControlFile(control);
 
 	return new Promise((resolve, reject) => {
 		es.merge(streams)

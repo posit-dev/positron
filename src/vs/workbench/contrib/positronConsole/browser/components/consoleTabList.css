@@ -7,6 +7,7 @@
 	border-left: 1px solid var(--vscode-terminal-border);
 	background-color: var(--vscode-tab-inactiveBackground);
 	flex-grow: 1;
+	overflow-y: auto;
 }
 
 .tabs-container .tab-button {
