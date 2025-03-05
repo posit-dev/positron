@@ -15,7 +15,7 @@ import { PositronButton } from '../../../../../base/browser/ui/positronComponent
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { PositronShowStartInterpreterAction } from '../../../../browser/parts/positronTopActionBar/positronTopActionBarActions.js';
 import { multipleConsoleSessionsFeatureEnabled } from '../../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
-import { LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID } from '../../../languageRuntime/browser/languageRuntimeActions.js';
+import { LANGUAGE_RUNTIME_START_SESSION_ID } from '../../../languageRuntime/browser/languageRuntimeActions.js';
 
 // Load localized copy for control.
 const noInterpreterRunning = localize('positron.noInterpreterRunning', "There is no interpreter running.");
@@ -43,7 +43,7 @@ export const EmptyConsole = () => {
 	};
 
 	const handlePressed = () => {
-		positronConsoleContext.commandService.executeCommand(LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID);
+		positronConsoleContext.commandService.executeCommand(LANGUAGE_RUNTIME_START_SESSION_ID);
 	};
 
 	const StartSession = () => {
