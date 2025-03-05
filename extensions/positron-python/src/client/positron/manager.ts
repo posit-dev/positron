@@ -102,7 +102,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
      * Recommend a Python language runtime based on the workspace.
      */
     async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
-        //
+        // TODO: may need other handling for multiroot workspaces
         const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
         const userInterpreterSettings = getUserDefaultInterpreter(workspaceUri);
         let interpreterPath: string | undefined;
@@ -113,7 +113,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
                 interpreterPath = userInterpreterSettings.globalValue;
             } else {
                 traceInfo('No recommended runtime for workspace.');
-                return;
+                return undefined;
             }
         } else if (await hasFiles(['.venv/**/*'])) {
             interpreterPath = path.join(workspaceUri.fsPath, '.venv', 'bin', 'python');
@@ -133,11 +133,11 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
             if (interpreter) {
                 const metadata = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, isImmediate);
                 traceInfo(`Recommended runtime for workspace: ${interpreter.path}`);
-
                 return metadata;
             }
         }
         traceInfo('No recommended workspace runtime found.');
+        return undefined;
     }
 
     /**
