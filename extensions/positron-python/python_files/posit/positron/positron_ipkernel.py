@@ -23,7 +23,7 @@ from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
 from IPython.core import magic_arguments, oinspect, page
 from IPython.core.error import UsageError
-from IPython.core.interactiveshell import ExecutionInfo, InteractiveShell
+from IPython.core.interactiveshell import ExecutionInfo, ExecutionResult, InteractiveShell
 from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class
 from IPython.utils import PyColorize
 
@@ -277,20 +277,31 @@ class PositronShell(ZMQInteractiveShell):
             }
         )
 
-    def _handle_pre_run_cell(self, _info: ExecutionInfo) -> None:
+    def _handle_pre_run_cell(self, info: ExecutionInfo) -> None:
         """Prior to execution, reset the user environment watch state."""
+        # If an empty cell is being executed, do nothing.
+        raw_cell = cast(str, info.raw_cell)
+        if not raw_cell or raw_cell.isspace():
+            return
+
         try:
             self.kernel.variables_service.snapshot_user_ns()
         except Exception:
             logger.warning("Failed to snapshot user namespace", exc_info=True)
 
-    def _handle_post_run_cell(self, _info: ExecutionInfo) -> None:
+    def _handle_post_run_cell(self, result: ExecutionResult) -> None:
         """
         Send a msg.
 
         After execution, sends an update message to the client to summarize
         the changes observed to variables in the user's environment.
         """
+        # If an empty cell was executed, do nothing.
+        info = cast(ExecutionInfo, result.info)
+        raw_cell = cast(str, info.raw_cell)
+        if not raw_cell or raw_cell.isspace():
+            return
+
         # TODO: Split these to separate callbacks?
         # Check for changes to the working directory
         try:
