@@ -336,12 +336,51 @@ function getExcludedInstallations(): string[] {
 }
 
 /**
- * Checks if the given binary path is excluded via settings.
+ * Gets the list of R installations to override the installations we make available.
+ * The override setting take precedence over the excluded installations, the custom binaries
+ * and the custom root folders settings.
+ * Converts aliased paths to absolute paths. Relative paths are ignored.
+ * @returns List of installation paths to exclusively include.
+ */
+export function getInterpreterOverridePaths(): string[] {
+	const config = vscode.workspace.getConfiguration('positron.r');
+	const interpretersOverride = config.get<string[]>('interpreters.override') ?? [];
+	if (interpretersOverride.length > 0) {
+		const overridePaths = interpretersOverride
+			.map((item) => untildify(item))
+			.filter((item) => {
+				if (path.isAbsolute(item)) {
+					return true;
+				}
+				LOGGER.info(`R installation path to exclusively include ${item} is not absolute...ignoring`);
+				return false;
+			});
+		const formattedPaths = JSON.stringify(overridePaths, null, 2);
+		LOGGER.info(`R installation paths to exclusively include:\n${formattedPaths}`);
+		return overridePaths;
+	}
+	LOGGER.debug('No installation paths specified to exclusively include via settings');
+	return [];
+}
+
+/**
+ * Checks if the given binary path is excluded via settings. If interpreter override paths are
+ * specified, this method will return true if the binary path is not in the override paths. The
+ * override paths take precedence over the excluded installations.
  * @param binpath The binary path to check
  * @returns True if the binary path is excluded, false if it is not excluded, and undefined if the
  * no exclusions have been specified.
  */
 function isExcludedInstallation(binpath: string): boolean | undefined {
+	const overridePaths = getInterpreterOverridePaths();
+	if (overridePaths.length > 0) {
+		// Override paths are exclusive include paths, so an interpreter is excluded if it is not in
+		// the override paths.
+		return !overridePaths.some(
+			override => isParentPath(binpath, override) || arePathsSame(binpath, override)
+		);
+	}
+
 	const excludedInstallations = getExcludedInstallations();
 	if (excludedInstallations.length === 0) {
 		return undefined;

@@ -12,10 +12,10 @@ import * as which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
 
-import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, getDefaultInterpreterPath } from './r-installation';
+import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, getDefaultInterpreterPath, getInterpreterOverridePaths } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
-import { arePathsSame, untildify } from './path-utils';
+import { isDirectory, isFile, arePathsSame, untildify } from './path-utils';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -609,8 +609,17 @@ function rHeadquarters(): string[] {
 
 // directory(ies) where this user keeps R installations
 function userRHeadquarters(): string[] {
-	const config = vscode.workspace.getConfiguration('positron.r');
-	const customRootFolders = config.get<string[]>('customRootFolders') ?? [];
+	let customRootFolders: string[] = [];
+
+	// Check for user-specified directories to scan for R installations
+	const overridePaths = getInterpreterOverridePaths();
+	if (overridePaths.length > 0) {
+		customRootFolders = overridePaths.filter((item) => isDirectory(item));
+	} else {
+		const config = vscode.workspace.getConfiguration('positron.r');
+		customRootFolders = config.get<string[]>('customRootFolders') ?? [];
+	}
+
 	if (customRootFolders.length > 0) {
 		const userHqDirs = customRootFolders
 			.map((item) => untildify(item))
@@ -631,8 +640,17 @@ function userRHeadquarters(): string[] {
 
 // ad hoc binaries this user wants Positron to know about
 function userRBinaries(): string[] {
-	const config = vscode.workspace.getConfiguration('positron.r');
-	const customBinaries = config.get<string[]>('customBinaries') ?? [];
+	let customBinaries: string[] = [];
+
+	// Check for user-specified directories to scan for R installations
+	const overridePaths = getInterpreterOverridePaths();
+	if (overridePaths.length > 0) {
+		customBinaries = overridePaths.filter((item) => isFile(item));
+	} else {
+		const config = vscode.workspace.getConfiguration('positron.r');
+		customBinaries = config.get<string[]>('customBinaries') ?? [];
+	}
+
 	if (customBinaries.length > 0) {
 		const userBinaries = customBinaries
 			.map((item) => untildify(item))
