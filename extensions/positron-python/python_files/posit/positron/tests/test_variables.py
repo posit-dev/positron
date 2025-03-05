@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import TYPE_CHECKING, Any, cast
-from unittest.mock import ANY, Mock, patch
+from unittest.mock import ANY, Mock
 
 import numpy as np
 import pandas as pd
@@ -16,7 +16,6 @@ import pytest
 
 from positron import variables as variables_module
 from positron.access_keys import encode_access_key
-from positron.inspectors import get_inspector
 from positron.positron_comm import JsonRpcErrorCode
 from positron.utils import JsonData, JsonRecord, not_none
 from positron.variables import VariablesService, _summarize_variable
