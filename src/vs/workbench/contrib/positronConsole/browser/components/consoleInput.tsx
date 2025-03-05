@@ -597,7 +597,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Build the history entries, if there is input history.
 		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(
-			props.positronConsoleInstance.session.runtimeMetadata.languageId
+			props.positronConsoleInstance.session.sessionId
 		);
 		if (inputHistoryEntries.length) {
 			// console.log(`There are input history entries for ${props.positronConsoleInstance.runtime.metadata.languageId}`);

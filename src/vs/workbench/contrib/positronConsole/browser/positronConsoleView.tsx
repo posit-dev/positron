@@ -41,7 +41,7 @@ import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../..
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
-import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService';
+import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 
 /**
  * PositronConsoleViewPane class.

@@ -215,7 +215,7 @@ export function registerPositronConsoleActions() {
 					// execution history service.
 					activePositronConsoleInstance.clearInputHistory();
 					executionHistoryService.clearInputEntries(
-						activePositronConsoleInstance.session.runtimeMetadata.languageId
+						activePositronConsoleInstance.session.sessionId
 					);
 
 					// Let the user know that the history was cleared.

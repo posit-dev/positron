@@ -444,7 +444,6 @@ import './contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor.
 import './contrib/positronConnections/browser/positronConnections.contribution.js';
 import './contrib/positronRuntimeSessions/browser/positronRuntimeSessions.contribution.js';
 import './contrib/languageRuntime/browser/languageRuntime.contribution.js';
-import './contrib/executionHistory/common/executionHistory.js';
 import './contrib/positronIPyWidgets/browser/positronIPyWidgets.contribution.js';
 import './contrib/positronNewProject/browser/positronNewProject.contribution.js';
 
@@ -455,6 +454,7 @@ import './services/runtimeStartup/common/runtimeStartup.js';
 import './contrib/runtimeNotebookKernel/browser/runtimeNotebookKernelService.js';
 import './services/positronConsole/browser/positronConsoleService.js';
 import './contrib/positronHelp/browser/positronHelpService.js';
+import './services/positronHistory/common/executionHistory.js';
 import './services/positronVariables/common/positronVariablesService.js';
 import './services/positronVariables/common/positronVariables.contribution.js';
 import './services/positronDataExplorer/browser/positronDataExplorerService.js';

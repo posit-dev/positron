@@ -10,7 +10,7 @@ import { IStorageService, StorageScope } from '../../../../platform/storage/comm
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { RuntimeExecutionHistory } from './runtimeExecutionHistory.js';
-import { LanguageInputHistory } from './languageInputHistory.js';
+import { SessionInputHistory } from './languageInputHistory.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 
@@ -25,7 +25,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	private readonly _executionHistories: Map<string, RuntimeExecutionHistory> = new Map();
 
 	// Map of language ID to input history
-	private readonly _inputHistories: Map<string, LanguageInputHistory> = new Map();
+	private readonly _inputHistories: Map<string, SessionInputHistory> = new Map();
 
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
@@ -49,35 +49,52 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	}
 
 	/**
-	 * Clear the input history for the given language (remove all entries)
+	 * Clear the input history for the given session
 	 *
-	 * @param languageId Language ID to clear input history for
+	 * @param sessionId Language ID to clear input history for
 	 */
-	clearInputEntries(languageId: string): void {
-		this.getInputHistory(languageId).clear();
+	clearInputEntries(sessionId: string): void {
+		if (this._inputHistories.has(sessionId)) {
+			this._inputHistories.get(sessionId)!.clear();
+		}
 	}
 
 	/**
-	 * Get the input history for the given language.
+	 * Get the input history for the given session.
 	 *
-	 * @param languageId Language ID to get input history for
-	 * @returns Input history for the given language, as an array of input history entries.
+	 * @param sessionId Session ID to get input history for
+	 * @returns Input history for the given session, as an array of input history entries.
 	 */
-	getInputEntries(languageId: string): IInputHistoryEntry[] {
-		return this.getInputHistory(languageId).getInputHistory();
+	getInputEntries(sessionId: string): IInputHistoryEntry[] {
+		if (this._inputHistories.has(sessionId)) {
+			this._inputHistories.get(sessionId)!.getInputHistory();
+		}
+		return [];
 	}
 
-	private beginRecordingHistory(runtime: ILanguageRuntimeSession): void {
+	private beginRecordingHistory(session: ILanguageRuntimeSession): void {
 		// Create a new history for the runtime if we don't already have one
-		if (!this._executionHistories.has(runtime.runtimeMetadata.runtimeId)) {
-			const history = new RuntimeExecutionHistory(runtime, this._storageService, this._logService);
-			this._executionHistories.set(runtime.runtimeMetadata.runtimeId, history);
+		if (!this._executionHistories.has(session.runtimeMetadata.runtimeId)) {
+			const history = new RuntimeExecutionHistory(session, this._storageService, this._logService);
+			this._executionHistories.set(session.runtimeMetadata.runtimeId, history);
 			this._register(history);
 		}
 
-		// Attach the runtime to an input history recorder for the language,
-		// creating one if necessary
-		this.getInputHistory(runtime.runtimeMetadata.languageId).attachToRuntime(runtime);
+		if (!this._inputHistories.has(session.sessionId)) {
+			// If we're in an empty workspace, use the profile storage scope; otherwise,
+			// use the workspace scope.
+			const storageScope =
+				this._workspaceContextService.getWorkbenchState() === WorkbenchState.EMPTY ?
+					StorageScope.PROFILE :
+					StorageScope.WORKSPACE;
+			const history = new SessionInputHistory(session,
+				this._storageService,
+				storageScope,
+				this._logService,
+				this._configurationService);
+			this._inputHistories.set(session.sessionId, history);
+			this._register(history);
+		}
 	}
 
 	getExecutionEntries(runtimeId: string): IExecutionHistoryEntry<any>[] {
@@ -96,33 +113,6 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		} else {
 			throw new Error(`Can't get entries; unknown runtime ID: ${runtimeId}`);
 		}
-	}
-
-	/**
-	 * Gets the input history for the given language ID, creating it if necessary.
-	 *
-	 * @param languageId The language ID for which to get the input history
-	 * @param callback The callback to execute with the input history
-	 */
-	private getInputHistory(languageId: string): LanguageInputHistory {
-		if (this._inputHistories.has(languageId)) {
-			return this._inputHistories.get(languageId)!;
-		}
-
-		// If we're in an empty workspace, use the profile storage scope; otherwise,
-		// use the workspace scope.
-		const storageScope =
-			this._workspaceContextService.getWorkbenchState() === WorkbenchState.EMPTY ?
-				StorageScope.PROFILE :
-				StorageScope.WORKSPACE;
-		const history = new LanguageInputHistory(languageId,
-			this._storageService,
-			storageScope,
-			this._logService,
-			this._configurationService);
-		this._inputHistories.set(languageId, history);
-		this._register(history);
-		return history;
 	}
 }
 
