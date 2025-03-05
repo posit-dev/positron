@@ -71,23 +71,23 @@ export interface IExecutionHistoryService {
 	clearInputEntries(languageId: string): void;
 
 	/**
-	 * Gets the execution history for a given language runtime. This is
+	 * Gets the execution history for a given language runtime session. This is
 	 * effectively the execution history for a specific console tab, so it is
 	 * both workspace and machine scoped.
 	 *
-	 * @param runtimeId The ID of the language runtime for which to retrieve
+	 * @param sessionId The ID of the language runtime for which to retrieve
 	 *   execution history
 	 */
-	getExecutionEntries(runtimeId: string): IExecutionHistoryEntry<any>[];
+	getExecutionEntries(sessionId: string): IExecutionHistoryEntry<any>[];
 
 	/**
-	 * Removes (clears) all the the history entries for a given language
-	 * runtime.
+	 * Removes (clears) all the the history entries for a given
+	 * session
 	 *
-	 * @param runtimeId The ID of the language runtime for which to clear
+	 * @param sessionId The ID of the language runtime session for which to clear
 	 *   history.
 	 */
-	clearExecutionEntries(runtimeId: string): void;
+	clearExecutionEntries(sessionId: string): void;
 }
 
 export const replConfigurationBaseNode = Object.freeze<IConfigurationNode>({

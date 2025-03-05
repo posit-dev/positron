@@ -9,7 +9,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../servic
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { RuntimeExecutionHistory } from './runtimeExecutionHistory.js';
+import { SessionExecutionHistory } from './sessionExecutionHistory.js';
 import { SessionInputHistory } from './languageInputHistory.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
@@ -22,7 +22,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	_serviceBrand: undefined;
 
 	// Map of runtime ID to execution history
-	private readonly _executionHistories: Map<string, RuntimeExecutionHistory> = new Map();
+	private readonly _executionHistories: Map<string, SessionExecutionHistory> = new Map();
 
 	// Map of language ID to input history
 	private readonly _inputHistories: Map<string, SessionInputHistory> = new Map();
@@ -75,7 +75,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	private beginRecordingHistory(session: ILanguageRuntimeSession): void {
 		// Create a new history for the runtime if we don't already have one
 		if (!this._executionHistories.has(session.runtimeMetadata.runtimeId)) {
-			const history = new RuntimeExecutionHistory(session, this._storageService, this._logService);
+			const history = new SessionExecutionHistory(session, this._storageService, this._logService);
 			this._executionHistories.set(session.runtimeMetadata.runtimeId, history);
 			this._register(history);
 		}

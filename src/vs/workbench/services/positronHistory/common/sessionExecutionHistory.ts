@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,15 +7,15 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IExecutionHistoryEntry } from './executionHistoryService.js';
-import { ILanguageRuntimeMessageOutput, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeMessageOutput, RuntimeOnlineState } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
 
 /**
- * Represents a history of executions for a single language runtime. One
- * instance of this class is created for each running language runtime, so that
- * each runtime has its own execution history.
+ * Represents a history of executions for a single language runtime session.
+ * One instance of this class is created for each running session, so that each
+ * runtime has its own execution history.
  */
-export class RuntimeExecutionHistory extends Disposable {
+export class SessionExecutionHistory extends Disposable {
 	/** An in-memory representation of all known entries. */
 	private readonly _entries: IExecutionHistoryEntry<any>[] = [];
 

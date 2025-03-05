@@ -13,8 +13,8 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeAutoStartEvent, IRuntimeStartupService } from './runtimeStartupService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeAutoStartEvent, IRuntimeStartupService, SerializedSessionMetadata } from './runtimeStartupService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { ILifecycleService, ShutdownReason } from '../../lifecycle/common/lifecycle.js';
@@ -25,6 +25,7 @@ import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/w
 import { IPositronNewProjectService } from '../../positronNewProject/common/positronNewProject.js';
 import { isWeb } from '../../../../base/common/platform.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
+import { Barrier } from '../../../../base/common/async.js';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
@@ -37,23 +38,6 @@ interface IAffiliatedRuntimeMetadata {
 	metadata: ILanguageRuntimeMetadata;
 	lastUsed: number;
 	lastStarted: number;
-}
-
-/**
- * Metadata for serialized runtime sessions.
- */
-interface SerializedSessionMetadata {
-	/// The metadata for the runtime session itself.
-	metadata: IRuntimeSessionMetadata;
-
-	/// The state of the runtime, at the time it was serialized.
-	sessionState: RuntimeState;
-
-	/// The time at which the session was last used, in milliseconds since the epoch.
-	lastUsed: number;
-
-	/// The metadata of the runtime associated with the session.
-	runtimeMetadata: ILanguageRuntimeMetadata;
 }
 
 /**
@@ -118,6 +102,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	/// The event emitter for the onWillAutoStartRuntime event.
 	private readonly _onWillAutoStartRuntime: Emitter<IRuntimeAutoStartEvent>;
+
+	private _restoredSessions: SerializedSessionMetadata[] = [];
+	private _foundRestoredSessions: Barrier = new Barrier();
 
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -379,6 +366,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				}
 			}
 		}));
+
+		// Find all the sessions that need to be restored.
+		this.findRestoredSessions().then(() => {
+			this._logService.trace(
+				`[Runtime startup] Found ${this._restoredSessions.length} restored sessions.`);
+		}).finally(() => {
+			this._foundRestoredSessions.open();
+		});
 	}
 
 	onWillAutoStartRuntime: Event<IRuntimeAutoStartEvent>;
@@ -417,6 +412,57 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private setStartupPhase(phase: RuntimeStartupPhase): void {
 		this._startupPhase = phase;
 		this._languageRuntimeService.setStartupPhase(phase);
+	}
+
+	/**
+	 * Finds and populates the set of sessions that need to be restored.
+	 */
+	private async findRestoredSessions() {
+		// Get the set of sessions that were active when the workspace was last open.
+		let storedSessions: Array<SerializedSessionMetadata> = new Array();
+		try {
+			const sessions = await this._ephemeralStateService.getItem<Array<SerializedSessionMetadata>>(this.getEphemeralWorkspaceSessionsKey());
+			if (sessions) {
+				storedSessions = sessions;
+			}
+		} catch (err) {
+			this._logService.warn(`Can't read workspace sessions from ${this.getEphemeralWorkspaceSessionsKey()}: ${err}. No sessions will be restored.`);
+		}
+
+		if (!storedSessions) {
+			this._logService.debug(`[Runtime startup] No sessions to resume found in ephemeral storage.`);
+		}
+
+		// Next, check for any sessions persisted in the workspace storage.
+		const sessions = this._storageService.get(PERSISTENT_WORKSPACE_SESSIONS,
+			StorageScope.WORKSPACE);
+		if (sessions) {
+			try {
+				const stored = JSON.parse(sessions) as Array<SerializedSessionMetadata>;
+				storedSessions.push(...stored);
+			} catch (err) {
+				this._logService.error(`Error parsing persisted workspace sessions: ${err} (sessions: '${sessions}')`);
+			}
+		}
+
+		try {
+			// Revive the URIs in the session metadata.
+			this._restoredSessions = storedSessions.map(session => ({
+				...session,
+				metadata: {
+					...session.metadata,
+					notebookUri: URI.revive(session.metadata.notebookUri),
+				},
+			}));
+		} catch (err) {
+			this._logService.error(`Could not restore workspace sessions: ${err?.stack ?? err} ` +
+				`(data: ${JSON.stringify(storedSessions)})`);
+		}
+	}
+
+	public async getRestoredSessions(): Promise<SerializedSessionMetadata[]> {
+		await this._foundRestoredSessions.wait();
+		return this._restoredSessions;
 	}
 
 	/**
@@ -1078,52 +1124,21 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		this._logService.debug(`[Runtime startup] Session restore; workspace: ${this._workspaceContextService.getWorkspace().id}, workbench state: ${this._workspaceContextService.getWorkbenchState()}, startupKind: ${this._lifecycleService.startupKind}`);
 
-		// Get the set of sessions that were active when the workspace was last
-		// open, and attempt to reconnect to them.
-		let storedSessions: Array<SerializedSessionMetadata> = new Array();
+		// Wait until we've discovered all the sessions that might need to be restored
+		const sessions = await this.getRestoredSessions();
+
+		// No sessions to restore?
+		if (sessions.length === 0) {
+			return;
+		}
+
+		// If this workspace has sessions, attempt to reconnect to
+		// them.
 		try {
-			const sessions = await this._ephemeralStateService.getItem<Array<SerializedSessionMetadata>>(this.getEphemeralWorkspaceSessionsKey());
-			if (sessions) {
-				storedSessions = sessions;
-			}
-		} catch (err) {
-			this._logService.warn(`Can't read workspace sessions from ${this.getEphemeralWorkspaceSessionsKey()}: ${err}. No sessions will be restored.`);
-		}
-
-		if (!storedSessions) {
-			this._logService.debug(`[Runtime startup] No sessions to resume found in ephemeral storage.`);
-		}
-
-		// Next, check for any sessions persisted in the workspace storage.
-		const sessions = this._storageService.get(PERSISTENT_WORKSPACE_SESSIONS,
-			StorageScope.WORKSPACE);
-		if (sessions) {
-			try {
-				const stored = JSON.parse(sessions) as Array<SerializedSessionMetadata>;
-				storedSessions.push(...stored);
-			} catch (err) {
-				this._logService.error(`Error parsing persisted workspace sessions: ${err} (sessions: '${sessions}')`);
-			}
-		}
-
-		try {
-			// Revive the URIs in the session metadata.
-			const sessions: SerializedSessionMetadata[] = storedSessions.map(session => ({
-				...session,
-				metadata: {
-					...session.metadata,
-					notebookUri: URI.revive(session.metadata.notebookUri),
-				},
-			}));
-
-			if (sessions.length > 0) {
-				// If this workspace has sessions, attempt to reconnect to
-				// them.
-				await this.restoreWorkspaceSessions(sessions);
-			}
+			await this.restoreWorkspaceSessions(sessions);
 		} catch (err) {
 			this._logService.error(`Could not restore workspace sessions: ${err?.stack ?? err} ` +
-				`(data: ${JSON.stringify(storedSessions)})`);
+				`(data: ${JSON.stringify(sessions)})`);
 		}
 	}
 
