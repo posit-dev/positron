@@ -33,7 +33,7 @@ import { USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY } from '../../../serv
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
 
 // Quick pick item interfaces.
-interface LanguageRuntimeSessionQuickPickItem extends IQuickPickItem { session: ILanguageRuntimeSession }
+// interface LanguageRuntimeSessionQuickPickItem extends IQuickPickItem { session: ILanguageRuntimeSession }
 interface LanguageRuntimeQuickPickItem extends IQuickPickItem { runtime: ILanguageRuntimeMetadata }
 interface RuntimeClientTypeQuickPickItem extends IQuickPickItem { runtimeClientType: RuntimeClientType }
 interface RuntimeClientInstanceQuickPickItem extends IQuickPickItem { runtimeClientInstance: IRuntimeClientInstance<any, any> }
@@ -108,27 +108,97 @@ async function selectLanguage(accessor: ServicesAccessor) {
  * @returns The runtime session the user selected, or undefined, if the user canceled the operation.
  */
 export const selectLanguageRuntimeSession = async (
-	quickInputService: IQuickInputService,
-	sessions: ILanguageRuntimeSession[],
-	placeHolder: string): Promise<ILanguageRuntimeSession | undefined> => {
+	accessor: ServicesAccessor,
+	options?: {
+		placeholder?: string;
+		allowStartSession?: boolean;
+	}): Promise<ILanguageRuntimeSession | undefined> => {
 
-	// Build the language runtime quick pick items.
-	const sessionQuickPickItems = sessions.map<LanguageRuntimeSessionQuickPickItem>(session => ({
-		id: session.sessionId,
-		label: session.metadata.sessionName,
-		description: session.runtimeMetadata.languageVersion,
-		session
-	} satisfies LanguageRuntimeSessionQuickPickItem));
+	// Constants
+	const startNewRuntimeId = generateUuid();
 
-	// Prompt the user to select a language runtime.
-	const languageRuntimeQuickPickItem = await quickInputService
-		.pick<LanguageRuntimeSessionQuickPickItem>(sessionQuickPickItems, {
-			canPickMany: false,
-			placeHolder
+	// Access services.
+	const quickInputService = accessor.get(IQuickInputService);
+	const runtimeSessionService = accessor.get(IRuntimeSessionService);
+	const commandService = accessor.get(ICommandService);
+
+	// Create quick pick items for active console sessions sorted by creation time, oldest to newest.
+	const sortedActiveSessions = [...runtimeSessionService.activeSessions]
+		.filter(session => session.metadata.sessionMode === LanguageRuntimeSessionMode.Console)
+		.sort((a, b) => a.metadata.createdTimestamp - b.metadata.createdTimestamp);
+
+	const activeRuntimeItems: IQuickPickItem[] = sortedActiveSessions.filter(
+		(session) => {
+			switch (session.getRuntimeState()) {
+				case RuntimeState.Initializing:
+				case RuntimeState.Starting:
+				case RuntimeState.Ready:
+				case RuntimeState.Idle:
+				case RuntimeState.Busy:
+				case RuntimeState.Restarting:
+				case RuntimeState.Exiting:
+				case RuntimeState.Offline:
+				case RuntimeState.Interrupting:
+					return true;
+				default:
+					return false;
+			}
+		}
+	).map(
+		(session) => {
+			const isForegroundSession =
+				session.sessionId === runtimeSessionService.foregroundSession?.sessionId;
+			return {
+				id: session.sessionId,
+				label: session.runtimeMetadata.runtimeName,
+				detail: session.runtimeMetadata.runtimePath,
+				description: isForegroundSession ? 'Currently Selected' : undefined,
+				iconPath: {
+					dark: URI.parse(`data:image/svg+xml;base64, ${session.runtimeMetadata.base64EncodedIconSvg}`),
+				},
+				picked: isForegroundSession,
+			};
+		}
+	);
+
+	// Show quick pick to select an active runtime or show all runtimes.
+	const quickPickItems: QuickPickItem[] = [
+		{
+			label: 'Active Sessions',
+			type: 'separator',
+		},
+		...activeRuntimeItems,
+		{
+			type: 'separator'
+		}
+	];
+
+	if (options?.allowStartSession) {
+		quickPickItems.push({
+			label: 'New Session...',
+			id: startNewRuntimeId,
+			alwaysShow: true
 		});
+	}
+	const result = await quickInputService.pick(quickPickItems, {
+		title: 'Select a Session',
+		canPickMany: false,
+		activeItem: activeRuntimeItems.filter(item => item.picked)[0]
+	});
 
-	// Done.
-	return languageRuntimeQuickPickItem?.session;
+	// Handle the user's selection.
+	if (result?.id === startNewRuntimeId) {
+		// If the user selected "All Runtimes...", execute the command to show all runtimes.
+		const sessionId: string | undefined = await commandService.executeCommand(LANGUAGE_RUNTIME_START_SESSION_ID);
+		if (sessionId) {
+			return runtimeSessionService.activeSessions.find(session => session.sessionId === sessionId);
+		}
+	} else if (result?.id) {
+		const session = runtimeSessionService.activeSessions
+			.find(session => session.sessionId === result.id);
+		return session;
+	}
+	return undefined;
 };
 
 /**
@@ -222,15 +292,17 @@ const selectLanguageRuntime = async (
  *
  * @param runtimeSessionService The runtime session service.
  * @param quickInputService The quick input service.
- * @param placeHolder The placeholder for the quick input.
+ * @param placeholder The placeholder for the quick input.
  * @returns The language runtime the user selected, or undefined, if there are no running language runtimes or the user canceled the operation.
  */
 const selectRunningLanguageRuntime = async (
-	runtimeSessionService: IRuntimeSessionService,
-	quickInputService: IQuickInputService,
-	placeHolder: string): Promise<ILanguageRuntimeSession | undefined> => {
+	accessor: ServicesAccessor,
+	placeholder: string): Promise<ILanguageRuntimeSession | undefined> => {
 
 	// If there's an active language runtime, use that.
+	// NOTE @samclark2015: Does this even do anything with Multisession???
+	// e.g. when would we have sessions running but without an active foreground session?
+	const runtimeSessionService = accessor.get(IRuntimeSessionService);
 	const activeSession = runtimeSessionService.foregroundSession;
 	if (activeSession) {
 		return activeSession;
@@ -245,7 +317,7 @@ const selectRunningLanguageRuntime = async (
 	}
 
 	// As the user to select the running language runtime.
-	return await selectLanguageRuntimeSession(quickInputService, activeSessions, placeHolder);
+	return await selectLanguageRuntimeSession(accessor, { placeholder });
 };
 
 /**
@@ -299,6 +371,63 @@ const createInterpreterGroups = (
 			return 0;
 		}
 	});
+};
+
+const selectNewLanguageRuntime = async (
+	accessor: ServicesAccessor
+): Promise<ILanguageRuntimeMetadata | undefined> => {
+	// Access services.
+	const quickInputService = accessor.get(IQuickInputService);
+	const runtimeSessionService = accessor.get(IRuntimeSessionService);
+	const runtimeStartupService = accessor.get(IRuntimeStartupService);
+	const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+
+	// Group runtimes by language.
+	const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService);
+
+	// Generate quick pick items for runtimes.
+	const runtimeItems: QuickPickItem[] = [];
+	interpreterGroups.forEach(group => {
+		const language = group.primaryRuntime.languageName;
+		// Add separator with language name.
+		runtimeItems.push({ type: 'separator', label: language });
+		// Add primary runtime first.
+		runtimeItems.push({
+			id: group.primaryRuntime.runtimeId,
+			label: group.primaryRuntime.runtimeName,
+			detail: group.primaryRuntime.runtimePath,
+			iconPath: {
+				dark: URI.parse(`data:image/svg+xml;base64, ${group.primaryRuntime.base64EncodedIconSvg}`),
+			},
+			picked: (group.primaryRuntime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+		});
+		// Follow with alternate runtimes.
+		group.alternateRuntimes.sort((a, b) => a.runtimeName.localeCompare(b.runtimeName));
+		group.alternateRuntimes.forEach(runtime => {
+			runtimeItems.push({
+				id: runtime.runtimeId,
+				label: runtime.runtimeName,
+				detail: runtime.runtimePath,
+				iconPath: {
+					dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
+				},
+				picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+			});
+		});
+	});
+
+	// Prompt the user to select a runtime to start
+	const selectedRuntime = await quickInputService.pick(
+		runtimeItems,
+		{ title: 'Start a New Session', canPickMany: false }
+	);
+
+	// If the user selected a runtime, set it as the active runtime
+	if (selectedRuntime?.id) {
+		return languageRuntimeService.getRegisteredRuntime(selectedRuntime.id);
+	}
+
+	return undefined;
 };
 
 /**
@@ -399,8 +528,7 @@ export function registerLanguageRuntimeActions() {
 
 		// Have the user select the language runtime they wish to set as the active language runtime.
 		const session = await selectRunningLanguageRuntime(
-			runtimeSessionService,
-			accessor.get(IQuickInputService),
+			accessor,
 			'Set the active language runtime');
 
 		// If the user selected a language runtime, set it as the active language runtime.
@@ -434,8 +562,7 @@ export function registerLanguageRuntimeActions() {
 		// pick one.
 		if (!session) {
 			session = await selectRunningLanguageRuntime(
-				runtimeSessionService,
-				accessor.get(IQuickInputService),
+				accessor,
 				'Select the interpreter to restart');
 			if (!session) {
 				throw new Error('No interpreter selected');
@@ -462,39 +589,34 @@ export function registerLanguageRuntimeActions() {
 	// Registers the interrupt language runtime action.
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.interrupt', 'Interrupt Interpreter', async accessor => {
 		(await selectRunningLanguageRuntime(
-			accessor.get(IRuntimeSessionService),
-			accessor.get(IQuickInputService),
+			accessor,
 			'Select the interpreter to interrupt'))?.interrupt();
 	});
 
 	// Registers the shutdown language runtime action.
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.shutdown', 'Shutdown Interpreter', async accessor => {
 		(await selectRunningLanguageRuntime(
-			accessor.get(IRuntimeSessionService),
-			accessor.get(IQuickInputService),
+			accessor,
 			'Select the interpreter to shutdown'))?.shutdown();
 	});
 
 	// Registers the force quit language runtime action.
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.forceQuit', 'Force Quit Interpreter', async accessor => {
 		(await selectRunningLanguageRuntime(
-			accessor.get(IRuntimeSessionService),
-			accessor.get(IQuickInputService),
+			accessor,
 			'Select the interpreter to force-quit'))?.forceQuit();
 	});
 
 	// Registers the show output language runtime action.
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.showOutput', 'Show interpreter output', async accessor => {
 		(await selectRunningLanguageRuntime(
-			accessor.get(IRuntimeSessionService),
-			accessor.get(IQuickInputService),
+			accessor,
 			'Select the interpreter for which to show output'))?.showOutput();
 	});
 
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.showProfile', 'Show interpreter profile report', async accessor => {
 		(await selectRunningLanguageRuntime(
-			accessor.get(IRuntimeSessionService),
-			accessor.get(IQuickInputService),
+			accessor,
 			'Select the interpreter for which to show profile output'))?.showProfile();
 	});
 
@@ -537,11 +659,11 @@ export function registerLanguageRuntimeActions() {
 
 	registerLanguageRuntimeAction('workbench.action.language.runtime.openClient', 'Create Runtime Client Widget', async accessor => {
 		// Access services.
-		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+		// const runtimeSessionService = accessor.get(IRuntimeSessionService);
 		const quickInputService = accessor.get(IQuickInputService);
 
 		// Ask the user to select a running language runtime.
-		const languageRuntime = await selectRunningLanguageRuntime(runtimeSessionService, quickInputService, 'Select the language runtime');
+		const languageRuntime = await selectRunningLanguageRuntime(accessor, 'Select the language runtime');
 		if (!languageRuntime) {
 			return;
 		}
@@ -564,11 +686,11 @@ export function registerLanguageRuntimeActions() {
 
 	registerLanguageRuntimeAction('workbench.action.language.runtime.closeClient', 'Close Runtime Client Widget', async accessor => {
 		// Access services.
-		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+		// const runtimeSessionService = accessor.get(IRuntimeSessionService);
 		const quickInputService = accessor.get(IQuickInputService);
 
 		// Ask the user to select a running language runtime.
-		const languageRuntime = await selectRunningLanguageRuntime(runtimeSessionService, quickInputService, 'Select the language runtime');
+		const languageRuntime = await selectRunningLanguageRuntime(accessor, 'Select the language runtime');
 		if (!languageRuntime) {
 			return;
 		}
@@ -601,86 +723,15 @@ export function registerLanguageRuntimeActions() {
 
 
 	registerLanguageRuntimeAction(LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID, 'Open Active Session Picker', async accessor => {
-		// Constants
-		const startNewId = 'sessions-start-new';
-
 		// Access services.
-		const quickInputService = accessor.get(IQuickInputService);
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
-		const commandService = accessor.get(ICommandService);
 
-		// Create quick pick items for active console sessions sorted by creation time, oldest to newest.
-		const sortedActiveSessions = [...runtimeSessionService.activeSessions]
-			.filter(session => session.metadata.sessionMode === LanguageRuntimeSessionMode.Console)
-			.sort((a, b) => a.metadata.createdTimestamp - b.metadata.createdTimestamp);
+		// Prompt the user to select a runtime to use.
+		const newActiveSession = await selectLanguageRuntimeSession(accessor, { allowStartSession: true });
 
-		const activeRuntimeItems: IQuickPickItem[] = sortedActiveSessions.filter(
-			(session) => {
-				switch (session.getRuntimeState()) {
-					case RuntimeState.Initializing:
-					case RuntimeState.Starting:
-					case RuntimeState.Ready:
-					case RuntimeState.Idle:
-					case RuntimeState.Busy:
-					case RuntimeState.Restarting:
-					case RuntimeState.Exiting:
-					case RuntimeState.Offline:
-					case RuntimeState.Interrupting:
-						return true;
-					default:
-						return false;
-				}
-			}
-		).map(
-			(session) => {
-				const isForegroundSession =
-					session.sessionId === runtimeSessionService.foregroundSession?.sessionId;
-				return {
-					id: session.sessionId,
-					label: session.runtimeMetadata.runtimeName,
-					detail: session.runtimeMetadata.runtimePath,
-					description: isForegroundSession ? 'Currently Selected' : undefined,
-					iconPath: {
-						dark: URI.parse(`data:image/svg+xml;base64, ${session.runtimeMetadata.base64EncodedIconSvg}`),
-					},
-					picked: isForegroundSession,
-				};
-			}
-		);
-
-		// Show quick pick to select an active runtime or show all runtimes.
-		const result = await quickInputService.pick([
-			{
-				label: 'Active Sessions',
-				type: 'separator',
-			},
-			...activeRuntimeItems,
-			{
-				type: 'separator'
-			},
-			{
-				label: 'New Session...',
-				id: startNewId,
-				alwaysShow: true
-			},
-		], {
-			title: 'Select a Session',
-			canPickMany: false,
-			activeItem: activeRuntimeItems.filter(item => item.picked)[0]
-		});
-
-		// Handle the user's selection.
-		if (result?.id === startNewId) {
-			// If the user selected "All Runtimes...", execute the command to show all runtimes.
-			await commandService.executeCommand(LANGUAGE_RUNTIME_START_SESSION_ID);
-		} else if (result?.id) {
-			const newActiveSession = runtimeSessionService.activeSessions
-				.find(session => session.sessionId === result.id);
-
-			// If the user selected a specific session, set it as the active session if it still exists
-			if (newActiveSession) {
-				runtimeSessionService.foregroundSession = newActiveSession;
-			}
+		// If the user selected a specific session, set it as the active session if it still exists
+		if (newActiveSession) {
+			runtimeSessionService.foregroundSession = newActiveSession;
 		}
 	});
 
@@ -711,56 +762,16 @@ export function registerLanguageRuntimeActions() {
 
 		async run(accessor: ServicesAccessor) {
 			// Access services.
-			const quickInputService = accessor.get(IQuickInputService);
 			const runtimeSessionService = accessor.get(IRuntimeSessionService);
-			const runtimeStartupService = accessor.get(IRuntimeStartupService);
-			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
-
-			// Group runtimes by language.
-			const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService);
-
-			// Generate quick pick items for runtimes.
-			const runtimeItems: QuickPickItem[] = [];
-			interpreterGroups.forEach(group => {
-				const language = group.primaryRuntime.languageName;
-				// Add separator with language name.
-				runtimeItems.push({ type: 'separator', label: language });
-				// Add primary runtime first.
-				runtimeItems.push({
-					id: group.primaryRuntime.runtimeId,
-					label: group.primaryRuntime.runtimeName,
-					detail: group.primaryRuntime.runtimePath,
-					iconPath: {
-						dark: URI.parse(`data:image/svg+xml;base64, ${group.primaryRuntime.base64EncodedIconSvg}`),
-					},
-					picked: (group.primaryRuntime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
-				});
-				// Follow with alternate runtimes.
-				group.alternateRuntimes.sort((a, b) => a.runtimeName.localeCompare(b.runtimeName));
-				group.alternateRuntimes.forEach(runtime => {
-					runtimeItems.push({
-						id: runtime.runtimeId,
-						label: runtime.runtimeName,
-						detail: runtime.runtimePath,
-						iconPath: {
-							dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
-						},
-						picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
-					});
-				});
-			});
 
 			// Prompt the user to select a runtime to start
-			const selectedRuntime = await quickInputService.pick(
-				runtimeItems,
-				{ title: 'Start a New Session', canPickMany: false }
-			);
+			const selectedRuntime = await selectNewLanguageRuntime(accessor);
 
 			// If the user selected a runtime, set it as the active runtime
-			if (selectedRuntime?.id) {
-				runtimeSessionService.startNewRuntimeSession(
-					selectedRuntime.id,
-					selectedRuntime.label,
+			if (selectedRuntime?.runtimeId) {
+				return await runtimeSessionService.startNewRuntimeSession(
+					selectedRuntime.runtimeId,
+					selectedRuntime.runtimeName,
 					LanguageRuntimeSessionMode.Console,
 					undefined,
 					'User selected runtime',
@@ -768,6 +779,7 @@ export function registerLanguageRuntimeActions() {
 					true
 				);
 			}
+			return undefined;
 		}
 	});
 
