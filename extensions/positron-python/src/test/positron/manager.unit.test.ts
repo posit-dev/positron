@@ -10,14 +10,17 @@ import * as positron from 'positron';
 import * as sinon from 'sinon';
 import { verify } from 'ts-mockito';
 import * as TypeMoq from 'typemoq';
+import * as vscode from 'vscode';
 import { WorkspaceConfiguration } from 'vscode';
+import * as path from 'path';
 import * as fs from '../../client/common/platform/fs-paths';
 import * as runtime from '../../client/positron/runtime';
 import * as session from '../../client/positron/session';
 import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 import * as interpreterSettings from '../../client/positron/interpreterSettings';
+import * as util from '../../client/positron/util';
 import { IEnvironmentVariablesProvider } from '../../client/common/variables/types';
-import { IConfigurationService, IDisposable } from '../../client/common/types';
+import { IConfigurationService, IDisposable, InspectInterpreterSettingType } from '../../client/common/types';
 import { IServiceContainer } from '../../client/ioc/types';
 import { PythonRuntimeManager } from '../../client/positron/manager';
 import { IInterpreterService } from '../../client/interpreter/contracts';
@@ -194,5 +197,224 @@ suite('Python runtime manager', () => {
         await pythonRuntimeManager.selectLanguageRuntimeFromPath(pythonPath);
 
         verify(mockedPositronNamespaces.runtime!.selectLanguageRuntime(runtimeMetadata.object.runtimeId)).once();
+    });
+});
+
+suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
+    let pythonRuntimeManager: PythonRuntimeManager;
+    let serviceContainer: TypeMoq.IMock<IServiceContainer>;
+    let interpreterService: TypeMoq.IMock<IInterpreterService>;
+    let interpreter: TypeMoq.IMock<PythonEnvironment>;
+    let runtimeMetadata: TypeMoq.IMock<positron.LanguageRuntimeMetadata>;
+
+    let getUserDefaultInterpreterStub: sinon.SinonStub;
+    let hasFilesStub: sinon.SinonStub;
+    let createPythonRuntimeMetadataStub: sinon.SinonStub;
+
+    setup(() => {
+        // Create mocks
+        serviceContainer = createTypeMoq<IServiceContainer>();
+        interpreterService = createTypeMoq<IInterpreterService>();
+        interpreter = createTypeMoq<PythonEnvironment>();
+        runtimeMetadata = createTypeMoq<positron.LanguageRuntimeMetadata>();
+
+        // Setup interpreter service
+        serviceContainer.setup((s) => s.get(IInterpreterService)).returns(() => interpreterService.object);
+
+        getUserDefaultInterpreterStub = sinon.stub(interpreterSettings, 'getUserDefaultInterpreter');
+        hasFilesStub = sinon.stub(util, 'hasFiles');
+        createPythonRuntimeMetadataStub = sinon.stub(runtime, 'createPythonRuntimeMetadata');
+
+        pythonRuntimeManager = new PythonRuntimeManager(serviceContainer.object, interpreterService.object);
+    });
+
+    teardown(() => {
+        sinon.restore();
+    });
+
+    test('returns undefined when no workspace folder and no global interpreter setting', async () => {
+        Object.defineProperty(vscode.workspace, 'workspaceFolders', {
+            value: [],
+            configurable: true,
+        });
+        getUserDefaultInterpreterStub.returns({
+            globalValue: undefined,
+            workspaceValue: undefined,
+            workspaceFolderValue: undefined,
+        } as InspectInterpreterSettingType);
+
+        const result = await pythonRuntimeManager.recommendedWorkspaceRuntime();
+        assert.strictEqual(result, undefined);
+    });
+
+    test('uses global interpreter setting when no workspace folder', async () => {
+        Object.defineProperty(vscode.workspace, 'workspaceFolders', {
+            value: [],
+            configurable: true,
+        });
+        const globalInterpreterPath = '/path/to/global/python';
+        getUserDefaultInterpreterStub.returns({
+            globalValue: globalInterpreterPath,
+            workspaceValue: undefined,
+            workspaceFolderValue: undefined,
+        } as InspectInterpreterSettingType);
+
+        interpreterService
+            .setup((i) =>
+                i.getInterpreterDetails(TypeMoq.It.isValue(globalInterpreterPath), TypeMoq.It.isValue(undefined)),
+            )
+            .returns(() => Promise.resolve(interpreter.object));
+        createPythonRuntimeMetadataStub.resolves(runtimeMetadata.object);
+
+        const result = await pythonRuntimeManager.recommendedWorkspaceRuntime();
+        assert.strictEqual(result, runtimeMetadata.object);
+    });
+
+    test('uses .venv interpreter when it exists', async () => {
+        const workspaceUri = {
+            fsPath: '/path/to/workspace',
+            uri: { fsPath: '/path/to/workspace' },
+        } as any;
+        Object.defineProperty(vscode.workspace, 'workspaceFolders', {
+            value: [workspaceUri],
+            configurable: true,
+        });
+        hasFilesStub.withArgs(['.venv/**/*']).resolves(true);
+        hasFilesStub.withArgs(['.conda/**/*']).resolves(false);
+
+        const venvPythonPath = path.join(workspaceUri.fsPath, '.venv', 'bin', 'python');
+        interpreterService
+            .setup((i) =>
+                i.getInterpreterDetails(TypeMoq.It.isValue(venvPythonPath), TypeMoq.It.isValue(workspaceUri.uri)),
+            )
+            .returns(() => Promise.resolve(interpreter.object));
+        createPythonRuntimeMetadataStub.resolves(runtimeMetadata.object);
+
+        const result = await pythonRuntimeManager.recommendedWorkspaceRuntime();
+        assert.strictEqual(result, runtimeMetadata.object);
+    });
+
+    test('uses .conda interpreter when it exists', async () => {
+        // Setup: Workspace folder with .conda directory
+        const workspaceUri = {
+            fsPath: '/path/to/workspace',
+            uri: { fsPath: '/path/to/workspace' },
+        } as any;
+        Object.defineProperty(vscode.workspace, 'workspaceFolders', {
+            value: [workspaceUri],
+            configurable: true,
+        });
+        hasFilesStub.withArgs(['.venv/**/*']).resolves(false);
+        hasFilesStub.withArgs(['.conda/**/*']).resolves(true);
+
+        const condaPythonPath = path.join(workspaceUri.fsPath, '.conda', 'bin', 'python');
+        interpreterService
+            .setup((i) =>
+                i.getInterpreterDetails(TypeMoq.It.isValue(condaPythonPath), TypeMoq.It.isValue(workspaceUri.uri)),
+            )
+            .returns(() => Promise.resolve(interpreter.object));
+        createPythonRuntimeMetadataStub.resolves(runtimeMetadata.object);
+
+        const result = await pythonRuntimeManager.recommendedWorkspaceRuntime();
+        assert.strictEqual(result, runtimeMetadata.object);
+    });
+
+    test('uses workspace interpreter setting when no .venv or .conda', async () => {
+        const workspaceUri = {
+            fsPath: '/path/to/workspace',
+            uri: { fsPath: '/path/to/workspace' },
+        } as any;
+        Object.defineProperty(vscode.workspace, 'workspaceFolders', {
+            value: [workspaceUri],
+            configurable: true,
+        });
+        hasFilesStub.withArgs(['.venv/**/*']).resolves(false);
+        hasFilesStub.withArgs(['.conda/**/*']).resolves(false);
+
+        const workspaceInterpreterPath = '/path/to/workspace/python';
+        getUserDefaultInterpreterStub.returns({
+            globalValue: '/path/to/global/python',
+            workspaceValue: workspaceInterpreterPath,
+            workspaceFolderValue: undefined,
+        } as InspectInterpreterSettingType);
+
+        interpreterService
+            .setup((i) =>
+                i.getInterpreterDetails(
+                    TypeMoq.It.isValue(workspaceInterpreterPath),
+                    TypeMoq.It.isValue(workspaceUri.uri),
+                ),
+            )
+            .returns(() => Promise.resolve(interpreter.object));
+        createPythonRuntimeMetadataStub.resolves(runtimeMetadata.object);
+
+        const result = await pythonRuntimeManager.recommendedWorkspaceRuntime();
+        assert.strictEqual(result, runtimeMetadata.object);
+    });
+
+    test('uses workspace folder interpreter setting when no .venv, .conda, or workspace setting', async () => {
+        const workspaceUri = {
+            fsPath: '/path/to/workspace',
+            uri: { fsPath: '/path/to/workspace' },
+        } as any;
+        Object.defineProperty(vscode.workspace, 'workspaceFolders', {
+            value: [workspaceUri],
+            configurable: true,
+        });
+        hasFilesStub.withArgs(['.venv/**/*']).resolves(false);
+        hasFilesStub.withArgs(['.conda/**/*']).resolves(false);
+
+        const workspaceFolderInterpreterPath = '/path/to/workspace/folder/python';
+        getUserDefaultInterpreterStub.returns({
+            globalValue: '/path/to/global/python',
+            workspaceValue: undefined,
+            workspaceFolderValue: workspaceFolderInterpreterPath,
+        } as InspectInterpreterSettingType);
+
+        interpreterService
+            .setup((i) =>
+                i.getInterpreterDetails(
+                    TypeMoq.It.isValue(workspaceFolderInterpreterPath),
+                    TypeMoq.It.isValue(workspaceUri.uri),
+                ),
+            )
+            .returns(() => Promise.resolve(interpreter.object));
+        createPythonRuntimeMetadataStub.resolves(runtimeMetadata.object);
+
+        const result = await pythonRuntimeManager.recommendedWorkspaceRuntime();
+        assert.strictEqual(result, runtimeMetadata.object);
+    });
+
+    test('uses global interpreter setting when no .venv, .conda, workspace, or workspace folder setting', async () => {
+        const workspaceUri = {
+            fsPath: '/path/to/workspace',
+            uri: { fsPath: '/path/to/workspace' },
+        } as any;
+        Object.defineProperty(vscode.workspace, 'workspaceFolders', {
+            value: [workspaceUri],
+            configurable: true,
+        });
+        hasFilesStub.withArgs(['.venv/**/*']).resolves(false);
+        hasFilesStub.withArgs(['.conda/**/*']).resolves(false);
+
+        const globalInterpreterPath = '/path/to/global/python';
+        getUserDefaultInterpreterStub.returns({
+            globalValue: globalInterpreterPath,
+            workspaceValue: undefined,
+            workspaceFolderValue: undefined,
+        } as InspectInterpreterSettingType);
+
+        interpreterService
+            .setup((i) =>
+                i.getInterpreterDetails(
+                    TypeMoq.It.isValue(globalInterpreterPath),
+                    TypeMoq.It.isValue(workspaceUri.uri),
+                ),
+            )
+            .returns(() => Promise.resolve(interpreter.object));
+        createPythonRuntimeMetadataStub.resolves(runtimeMetadata.object);
+
+        const result = await pythonRuntimeManager.recommendedWorkspaceRuntime();
+        assert.strictEqual(result, runtimeMetadata.object);
     });
 });
