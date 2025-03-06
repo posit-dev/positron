@@ -30,11 +30,12 @@ export class Terminal {
 		options: {
 			timeout?: number;
 			expectedCount?: number;
+			web?: boolean;
 		} = {}
 	): Promise<string[]> {
-		const { timeout = 15000, expectedCount = 1 } = options;
+		const { timeout = 15000, expectedCount = 1, web = false } = options;
 
-		if (process.platform !== 'linux') {
+		if (process.platform === 'darwin' && !web) {
 			const matchingLines = this.code.driver.page.locator(TERMINAL_WRAPPER).getByText(terminalText);
 			await expect(matchingLines).toHaveCount(expectedCount, { timeout });
 
@@ -42,16 +43,25 @@ export class Terminal {
 		} else {
 			await expect(async () => {
 
-				await this.code.driver.page.locator(TERMINAL_WRAPPER).click({ button: 'right' });
+				if (process.platform !== 'darwin') {
+					await this.code.driver.page.locator(TERMINAL_WRAPPER).click({ button: 'right' });
+					const menu = this.code.driver.page.locator('.monaco-menu');
+					await menu.locator('[aria-label="Select All"]').click();
+				} else {
+					await this.code.driver.page.locator(TERMINAL_WRAPPER).click();
+					await this.code.driver.page.keyboard.press('Meta+A');
+				}
 
-				const menu = this.code.driver.page.locator('.monaco-menu');
-				await menu.locator('[aria-label="Select All"]').click();
-
-				await this.code.driver.page.keyboard.press('Control+Shift+C');
+				if (process.platform !== 'darwin') {
+					await this.code.driver.page.keyboard.press('Control+Shift+C');
+				} else {
+					await this.code.driver.page.keyboard.press('Meta+C');
+				}
 
 				const text = await this.clipboard.getClipboardText();
 
-				const matches = text!.match(new RegExp(terminalText, 'gi'));
+				const safeTerminalText = terminalText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+				const matches = text!.match(new RegExp(safeTerminalText, 'gi'));
 
 				expect(matches?.length).toBe(expectedCount);
 
