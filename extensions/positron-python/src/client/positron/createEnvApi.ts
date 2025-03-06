@@ -5,7 +5,6 @@
 
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
-import * as vscode from 'vscode';
 import { CreateEnvironmentOptionsInternal } from '../pythonEnvironments/creation/types';
 import {
     CreateEnvironmentOptions,
@@ -17,6 +16,7 @@ import { IPythonRuntimeManager } from './manager';
 import { getExtension } from '../common/vscodeApis/extensionsApi';
 import { PythonExtension } from '../api/types';
 import { PVSC_EXTENSION_ID } from '../common/constants';
+import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 
 /**
  * A simplified version of an environment provider that can be used in the Positron Project Wizard
@@ -98,6 +98,6 @@ export async function isGlobalPython(interpreterPath: string): Promise<boolean |
  * @returns Whether Conda is enabled as a Python environment provider.
  */
 export function isCondaEnabled(): boolean {
-    const condaEnabled = vscode.workspace.getConfiguration('python').get<boolean>('enableCondaEnvironmentProvider');
+    const condaEnabled = getConfiguration('python').get<boolean>('enableCondaEnvironmentProvider');
     return condaEnabled === true;
 }
