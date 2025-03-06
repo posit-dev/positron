@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IExecutionHistoryEntry } from './executionHistoryService.js';
@@ -31,15 +31,17 @@ export class SessionExecutionHistory extends Disposable {
 	/** A flag indicating whether there are entries that need to be flushed to storage */
 	private _dirty: boolean = false;
 
+	private readonly _sessionDisposables = this._register(new DisposableStore());
+
 	constructor(
-		private readonly _session: ILanguageRuntimeSession,
+		sessionId: string,
 		private readonly _storageService: IStorageService,
 		private readonly _logService: ILogService
 	) {
 		super();
 
 		// Create storage key for this runtime based on its ID
-		this._storageKey = `positron.executionHistory.${_session.sessionId}`;
+		this._storageKey = `positron.executionHistory.${sessionId}`;
 
 		// Load existing history entries
 		const entries = this._storageService.get(this._storageKey, StorageScope.WORKSPACE, '[]');
@@ -48,10 +50,22 @@ export class SessionExecutionHistory extends Disposable {
 				this._entries.push(entry);
 			});
 		} catch (err) {
-			this._logService.warn(`Couldn't load history for ${this._session.metadata.sessionName} ${this._session.runtimeMetadata.runtimeVersion}: ${err}}`);
+			this._logService.warn(`Couldn't load history for ${sessionId}: ${err}}`);
 		}
 
-		this._register(this._session.onDidReceiveRuntimeMessageInput(message => {
+		// Ensure we persist the history on e.g. shutdown
+		this._register(this._storageService.onWillSaveState(() => {
+			this.save();
+		}));
+	}
+
+	/**
+	 * Attaches the session to this history instance.
+	 *
+	 * @param session The session to attach.
+	 */
+	attachSession(session: ILanguageRuntimeSession) {
+		this._sessionDisposables.add(session.onDidReceiveRuntimeMessageInput(message => {
 			// See if there is already a pending execution for the parent ID.
 			// This is possible if an output message arrives before the input
 			// message that caused it.
@@ -59,7 +73,9 @@ export class SessionExecutionHistory extends Disposable {
 			if (pending) {
 				// If this is a duplicate input with different code, warn the user.
 				if (pending.input) {
-					this._logService.warn(`Received duplicate input messages for execution ${message.id}; replacing previous input '${pending.input}' with '${message.code}'.`);
+					this._logService.warn(
+						`Received duplicate input messages for execution ${message.id}; ` +
+						`replacing previous input '${pending.input}' with '${message.code}'.`);
 				}
 
 				// Set the input of the pending execution.
@@ -109,12 +125,14 @@ export class SessionExecutionHistory extends Disposable {
 			}
 		};
 
-		this._register(this._session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
-		this._register(this._session.onDidReceiveRuntimeMessageResult(handleDidReceiveRuntimeMessageOutput));
+		this._sessionDisposables.add(
+			session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
+		this._sessionDisposables.add(
+			session.onDidReceiveRuntimeMessageResult(handleDidReceiveRuntimeMessageOutput));
 
 		// When we receive a message indicating that an execution has completed,
 		// we'll move it from the pending executions map to the history entries.
-		this._register(this._session.onDidReceiveRuntimeMessageState(message => {
+		this._sessionDisposables.add(session.onDidReceiveRuntimeMessageState(message => {
 			if (message.state === RuntimeOnlineState.Idle) {
 				const pending = this._pendingExecutions.get(message.parent_id);
 				if (pending) {
@@ -130,11 +148,6 @@ export class SessionExecutionHistory extends Disposable {
 					this.delayedSave();
 				}
 			}
-		}));
-
-		// Ensure we persist the history on e.g. shutdown
-		this._register(this._storageService.onWillSaveState(() => {
-			this.save();
 		}));
 	}
 

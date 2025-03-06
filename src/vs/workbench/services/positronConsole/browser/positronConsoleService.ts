@@ -39,8 +39,9 @@ import { ILanguageRuntimeCodeExecutedEvent, IPositronConsoleInstance, IPositronC
 import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
-import { IRuntimeStartupService } from '../../runtimeStartup/common/runtimeStartupService.js';
+import { IRuntimeStartupService, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
 import { multipleConsoleSessionsFeatureEnabled } from '../../runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
+import { IExecutionHistoryEntry, IExecutionHistoryService } from '../../positronHistory/common/executionHistoryService.js';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -197,6 +198,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@IExecutionHistoryService private readonly _executionHistoryService: IExecutionHistoryService,
 		@ILogService private readonly _logService: ILogService,
 		@IViewsService private readonly _viewsService: IViewsService,
 	) {
@@ -207,7 +209,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		this._runtimeStartupService.getRestoredSessions().then(restoredSessions => {
 			restoredSessions.forEach(session => {
 				if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-					this.createPositronConsoleInstance(session.metadata, session.runtimeMetadata, false);
+					this.restorePositronConsole(session);
 				}
 			});
 		});
@@ -472,6 +474,20 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	}
 
 	/**
+	 * Restores a Positron console instance.
+	 *
+	 * @param session The session to restore.
+	 */
+	private restorePositronConsole(session: SerializedSessionMetadata) {
+		const sessionId = session.metadata.sessionId;
+		const console = this.createPositronConsoleInstance(
+			session.metadata, session.runtimeMetadata, false);
+		this._executionHistoryService.getExecutionEntries(sessionId).forEach(entry => {
+			console.replayExecution(entry);
+		});
+	}
+
+	/**
 	 * Executes code in a PositronConsoleInstance.
 	 * @param languageId The language ID.
 	 * @param code The code.
@@ -579,7 +595,8 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		attachMode: SessionAttachMode,
 		activate: boolean
 	): IPositronConsoleInstance {
-		const instance = this.createPositronConsoleInstance(session.metadata, session.runtimeMetadata, activate);
+		const instance = this.createPositronConsoleInstance(
+			session.metadata, session.runtimeMetadata, activate);
 		instance.attachRuntimeSession(session, attachMode);
 		return instance;
 	}
@@ -1264,6 +1281,34 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// The code cannot be executed. Set the pending code.
 		this.setPendingCode(code);
+	}
+
+	/**
+	 * Replays an execution history entry.
+	 *
+	 * @param entry The execution history entry to replay.
+	 */
+	replayExecution(entry: IExecutionHistoryEntry<any>): void {
+		this.addOrUpdateUpdateRuntimeItemActivity(
+			entry.id,
+			new ActivityItemInput(
+				ActivityItemInputState.Completed,
+				entry.id + '-input',
+				entry.id,
+				new Date(entry.when),
+				'', // TODO: These need to be filled in. We probably need to serialize the prompt.
+				'',
+				entry.input
+			)
+		);
+		this.addOrUpdateUpdateRuntimeItemActivity(
+			entry.id,
+			new ActivityItemOutputMessage(
+				entry.id + '-output',
+				entry.id,
+				new Date(entry.when),
+				{ 'text/plain': entry.output }
+			));
 	}
 
 	/**

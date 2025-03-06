@@ -11,6 +11,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runti
 import { ActivityItemPrompt } from '../classes/activityItemPrompt.js';
 import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
+import { IExecutionHistoryEntry } from '../../../positronHistory/common/executionHistoryService.js';
 
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
@@ -333,6 +334,13 @@ export interface IPositronConsoleInstance {
 	 * Interrupts the console.
 	 */
 	interrupt(code: string): void;
+
+	/**
+	 * Replays an execution history entry, adding its input and output to the console.
+	 *
+	 * @param entry The entry to replay.
+	 */
+	replayExecution(entry: IExecutionHistoryEntry<any>): void;
 
 	/**
 	 * Enqueues code to be executed.

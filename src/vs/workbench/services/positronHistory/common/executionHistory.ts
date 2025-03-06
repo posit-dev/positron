@@ -21,7 +21,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	// Required for service branding in dependency injector.
 	_serviceBrand: undefined;
 
-	// Map of runtime ID to execution history
+	// Map of session ID to execution history
 	private readonly _executionHistories: Map<string, SessionExecutionHistory> = new Map();
 
 	// Map of language ID to input history
@@ -74,9 +74,16 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 
 	private beginRecordingHistory(session: ILanguageRuntimeSession): void {
 		// Create a new history for the runtime if we don't already have one
-		if (!this._executionHistories.has(session.runtimeMetadata.runtimeId)) {
-			const history = new SessionExecutionHistory(session, this._storageService, this._logService);
-			this._executionHistories.set(session.runtimeMetadata.runtimeId, history);
+		if (this._executionHistories.has(session.sessionId)) {
+			const history = this._executionHistories.get(session.sessionId);
+			history!.attachSession(session);
+		} else {
+			const history = new SessionExecutionHistory(
+				session.metadata.sessionId,
+				this._storageService,
+				this._logService);
+			history.attachSession(session);
+			this._executionHistories.set(session.sessionId, history);
 			this._register(history);
 		}
 
@@ -97,13 +104,20 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		}
 	}
 
-	getExecutionEntries(runtimeId: string): IExecutionHistoryEntry<any>[] {
+	getExecutionEntries(sessionId: string): IExecutionHistoryEntry<any>[] {
 		// Return the history entries for the given runtime, if known.
-		if (this._executionHistories.has(runtimeId)) {
-			return this._executionHistories.get(runtimeId)?.entries!;
-		} else {
-			throw new Error(`Can't get entries; unknown runtime ID: ${runtimeId}`);
+		if (this._executionHistories.has(sessionId)) {
+			return this._executionHistories.get(sessionId)?.entries!;
 		}
+
+		// If we don't have a history for this session, create one.
+		const history = new SessionExecutionHistory(
+			sessionId,
+			this._storageService,
+			this._logService);
+		this._executionHistories.set(sessionId, history);
+		this._register(history);
+		return history.entries;
 	}
 
 	clearExecutionEntries(runtimeId: string): void {
