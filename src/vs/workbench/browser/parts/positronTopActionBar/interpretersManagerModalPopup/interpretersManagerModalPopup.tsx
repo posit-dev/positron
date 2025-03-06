@@ -44,7 +44,7 @@ export const InterpretersManagerModalPopup = (props: InterpretersManagerModalPop
 	return (
 		<PositronModalPopup
 			anchorElement={props.anchorElement}
-			height={'min-content'}
+			height={'auto'}
 			keyboardNavigationStyle='menu'
 			popupAlignment='right'
 			popupPosition='bottom'

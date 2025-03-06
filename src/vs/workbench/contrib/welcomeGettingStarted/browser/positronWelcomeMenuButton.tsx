@@ -49,7 +49,7 @@ export function WelcomeMenuButton(props: WelcomeMenuButtonProps) {
 		renderer.render(
 			<PositronModalPopup
 				anchorElement={ref.current}
-				height={'min-content'}
+				height={'auto'}
 				keyboardNavigationStyle='menu'
 				popupAlignment='left'
 				popupPosition='bottom'
