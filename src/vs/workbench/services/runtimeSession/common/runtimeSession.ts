@@ -1301,6 +1301,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		startMode: RuntimeStartMode,
 		activate: boolean,
 		notebookUri?: URI): Promise<string> {
+		const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
+
 		this.setStartingSessionMaps(sessionMode, runtimeMetadata, notebookUri);
 
 		// Create a promise that resolves when the runtime is ready to use, if there isn't already one.
@@ -1336,11 +1338,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// The first session for a runtime does not append this count to the session name.
 			this._sessionsByRuntimeIdCounter.set(runtimeMetadata.runtimeId, 1);
 		}
-
 		const sessionId = this.generateNewSessionId(runtimeMetadata);
 		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId,
-			sessionName: sessionCount ? `${sessionName} - ${sessionCount}` : sessionName,
+			sessionName: sessionCount && multiSessionsEnabled ? `${sessionName} - ${sessionCount}` : sessionName,
 			sessionMode,
 			notebookUri,
 			createdTimestamp: Date.now(),
