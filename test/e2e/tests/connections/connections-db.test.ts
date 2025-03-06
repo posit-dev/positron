@@ -33,7 +33,7 @@ test.describe('SQLite DB Connection', {
 			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 			// there is a flake of the db connection not displaying in the connections pane after
 			// clicking the db icon. i want to see if waiting for a second will help
-			await app.code.driver.page.waitForTimeout(1000);
+			await app.code.driver.page.waitForTimeout(2000);
 			await app.workbench.variables.clickDatabaseIconForVariableRow('conn');
 			await app.workbench.connections.connectIcon.click();
 		});
