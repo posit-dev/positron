@@ -236,7 +236,7 @@ suite('Interpreters Display', () => {
             });
             // --- Start Positron ---
             // rename test to reflect reality
-            test('Tooltip should point Select Interpreter', async () => {
+            test('Tooltip should be "Select Interpreter"', async () => {
                 // --- End Positron ---
                 const resource = Uri.file('x');
                 const pythonPath = path.join('user', 'development', 'env', 'bin', 'python');
@@ -268,7 +268,7 @@ suite('Interpreters Display', () => {
                     );
                 } else {
                     // --- Start Positron ---
-                    // No tooltip
+                    // Tooltip should be "Select Interpreter"
                     statusBar.verify(
                         (s) => (s.tooltip = TypeMoq.It.isValue('Select Interpreter')),
                         TypeMoq.Times.atLeastOnce(),
