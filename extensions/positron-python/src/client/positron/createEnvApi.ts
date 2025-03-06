@@ -1,10 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
+import * as vscode from 'vscode';
 import { CreateEnvironmentOptionsInternal } from '../pythonEnvironments/creation/types';
 import {
     CreateEnvironmentOptions,
@@ -90,4 +91,13 @@ export async function isGlobalPython(interpreterPath: string): Promise<boolean |
     const interpreterDetails = await extensionApi.environments.resolveEnvironment(interpreterPath);
     const isGlobal = interpreterDetails?.environment === undefined;
     return isGlobal;
+}
+
+/**
+ * Checks if Conda is enabled as a Python environment provider.
+ * @returns Whether Conda is enabled as a Python environment provider.
+ */
+export function isCondaEnabled(): boolean {
+    const condaEnabled = vscode.workspace.getConfiguration('python').get<boolean>('enableCondaEnvironmentProvider');
+    return condaEnabled === true;
 }

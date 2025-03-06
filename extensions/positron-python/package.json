@@ -529,6 +529,12 @@
                     "scope": "machine",
                     "type": "string"
                 },
+                "python.enableCondaEnvironmentProvider": {
+                    "default": true,
+                    "description": "%python.enableCondaEnvironmentProvider.description%",
+                    "scope": "machine",
+                    "type": "boolean"
+                },
                 "python.defaultInterpreterPath": {
                     "default": "python",
                     "markdownDescription": "%python.defaultInterpreterPath.description%",
