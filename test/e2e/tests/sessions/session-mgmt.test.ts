@@ -93,6 +93,9 @@ test.describe('Sessions: Management', {
 		await sessions.resizeSessionList({ y: 250 });
 		await sessions.expectSessionListToBeScrollable({ horizontal: false, vertical: true });
 		await sessions.resizeSessionList({ y: -250 });
+
+		// Cleaning up since next test only needs 2 sessions
+		await sessions.delete(pythonSession2.id);
 	});
 
 	test('Validate active session list in console matches active session list in session picker', async function ({ app }) {

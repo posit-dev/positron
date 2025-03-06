@@ -238,7 +238,7 @@ export class Sessions {
 			// Collect all disconnected session IDs
 			for (const sessionId of sessionIds) {
 				const status = await this.getIconStatus(sessionId);
-				if (status === 'disconnected' || 'exited') {
+				if (status === 'disconnected' || status === 'exited') {
 					disconnectedSessions.push(sessionId);
 				}
 			}
@@ -481,7 +481,7 @@ export class Sessions {
 	 * @param sessionIdOrName A string representing the session name or id.
 	 * @returns 'active', 'idle', 'disconnected', or 'unknown'
 	 */
-	async getIconStatus(sessionIdOrName: string): Promise<'active' | 'idle' | 'disconnected' | 'unknown'> {
+	async getIconStatus(sessionIdOrName: string): Promise<'active' | 'idle' | 'disconnected' | 'exited' | 'unknown'> {
 		const session = this.getSessionTab(sessionIdOrName);
 
 		if (await this.activeStatus(session).isVisible()) { return 'active'; }
