@@ -32,11 +32,10 @@ import { PythonEnvironment } from '../../envExt/types';
 import { getCondaPythonVersions } from './provider/condaUtils';
 import { IPythonRuntimeManager } from '../../positron/manager';
 import { Conda } from '../common/environmentManagers/conda';
-import { CONDA_PROVIDER_ID } from './provider/condaCreationProvider';
 import {
     createEnvironmentAndRegister,
     getCreateEnvironmentProviders,
-    isCondaEnabled,
+    isEnvProviderEnabled,
     isGlobalPython,
 } from '../../positron/createEnvApi';
 import { traceLog } from '../../logging';
@@ -51,8 +50,8 @@ class CreateEnvironmentProviders {
 
     public add(provider: CreateEnvironmentProvider) {
         // --- Start Positron ---
-        if (provider.id === CONDA_PROVIDER_ID && !isCondaEnabled()) {
-            traceLog('Conda is not enabled -- not registering Conda provider');
+        if (!isEnvProviderEnabled(provider.id)) {
+            traceLog(`${provider.id} is not enabled -- not registering ${provider.name} provider`);
             return;
         }
         // --- End Positron ---

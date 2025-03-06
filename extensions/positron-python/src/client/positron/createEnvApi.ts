@@ -17,6 +17,9 @@ import { getExtension } from '../common/vscodeApis/extensionsApi';
 import { PythonExtension } from '../api/types';
 import { PVSC_EXTENSION_ID } from '../common/constants';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
+import { CONDA_PROVIDER_ID } from '../pythonEnvironments/creation/provider/condaCreationProvider';
+import { VENV_PROVIDER_ID } from '../pythonEnvironments/creation/provider/venvCreationProvider';
+import { traceInfo, traceVerbose } from '../logging';
 
 /**
  * A simplified version of an environment provider that can be used in the Positron Project Wizard
@@ -94,10 +97,46 @@ export async function isGlobalPython(interpreterPath: string): Promise<boolean |
 }
 
 /**
- * Checks if Conda is enabled as a Python environment provider.
- * @returns Whether Conda is enabled as a Python environment provider.
+ * A mapping from the environment provider names to their IDs.
+ * The provider names are used in the settings, while the IDs are used in the code.
  */
-export function isCondaEnabled(): boolean {
-    const condaEnabled = getConfiguration('python').get<boolean>('enableCondaEnvironmentProvider');
-    return condaEnabled === true;
+enum EnvProviderToProviderId {
+    'Venv' = VENV_PROVIDER_ID,
+    'Conda' = CONDA_PROVIDER_ID,
+}
+
+/**
+ * Retrieves the list of enabled Python environment providers.
+ * @returns The list of enabled Python environment provider IDs.
+ */
+function getEnabledEnvProviderIds(): string[] {
+    const envProviderConfig = getConfiguration('python').get<Record<string, boolean>>('environmentProviders.enable');
+    if (!envProviderConfig) {
+        // If the config hasn't been set, return the default providers
+        traceInfo('[getEnabledEnvProviderIds] No environment provider settings configured. Using default providers.');
+        return [VENV_PROVIDER_ID, CONDA_PROVIDER_ID];
+    }
+    const enabledProviderIds = Object.entries(envProviderConfig)
+        // filter to include only enabled providers that are supported
+        .filter(([providerName, isEnabled]) => {
+            const includeProvider = isEnabled && Object.keys(EnvProviderToProviderId).includes(providerName);
+            if (!includeProvider) {
+                traceVerbose(`[getEnabledEnvProviderIds] Filtering out provider ${providerName}`);
+            }
+            return includeProvider;
+        })
+        // map the provider names to provider IDs
+        .map(([providerName]) => EnvProviderToProviderId[providerName as keyof typeof EnvProviderToProviderId]);
+    traceVerbose(`[getEnabledEnvProviderIds] Enabled environment providers: ${enabledProviderIds}`);
+    return enabledProviderIds;
+}
+
+/**
+ * Checks if the given provider is enabled.
+ * @param providerId The ID of the provider to check
+ * @returns Whether the given provider is enabled
+ */
+export function isEnvProviderEnabled(providerId: string): boolean {
+    const enabledProviders = getEnabledEnvProviderIds();
+    return enabledProviders.includes(providerId);
 }
