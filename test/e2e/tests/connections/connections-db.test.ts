@@ -38,7 +38,7 @@ test.describe('SQLite DB Connection', {
 				await app.workbench.variables.clickDatabaseIconForVariableRow('conn');
 				await app.workbench.connections.connectIcon.click();
 			} catch (error) {
-				await app.workbench.variables.togglePane('show');
+				await app.workbench.sideBar.openSession();
 				await app.code.driver.page.waitForTimeout(2000);
 				await app.workbench.variables.clickDatabaseIconForVariableRow('conn');
 				await app.workbench.connections.connectIcon.click();
