@@ -31,6 +31,7 @@ export class Sessions {
 	sessionTabs: Locator;
 	currentSessionTab: Locator;
 	consoleInstance: (sessionId: string) => Locator;
+	outputChannel: Locator;
 
 	constructor(private code: Code, private console: Console, private quickaccess: QuickAccess, private quickinput: QuickInput) {
 		this.page = this.code.driver.page;
@@ -49,6 +50,7 @@ export class Sessions {
 		this.sessionTabs = this.page.getByTestId(/console-tab/);
 		this.currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 		this.consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
+		this.outputChannel = this.page.getByRole('combobox');
 	}
 
 
@@ -543,17 +545,19 @@ export class Sessions {
 
 			// Verify Language Console
 			await this.selectMetadataOption('Show Console Output Channel');
-			await expect(this.page.getByRole('combobox')).toHaveValue(new RegExp(`^${session.language} ${session.version}`));
-			await expect(this.page.getByRole('combobox')).toHaveValue(/Console$/);
+			await expect(this.outputChannel).toHaveValue(new RegExp(session.name));
+			await expect(this.outputChannel).toHaveValue(/Console$/);
 
 			// Verify Output Channel
 			await this.selectMetadataOption('Show Kernel Output Channel');
-			await expect(this.page.getByRole('combobox')).toHaveValue(new RegExp(`^${session.language} ${session.version}`));
-			await expect(this.page.getByRole('combobox')).toHaveValue(/Kernel$/);
+			await expect(this.outputChannel).toHaveValue(new RegExp(session.name));
+			await expect(this.outputChannel).toHaveValue(/Kernel$/);
 
 			// Verify LSP Output Channel
 			await this.selectMetadataOption('Show LSP Output Channel');
-			await expect(this.page.getByRole('combobox')).toHaveValue(/Language Server \(Console\)$/);
+			await expect(this.outputChannel).toHaveValue(new RegExp(session.name));
+			await expect(this.outputChannel).toHaveValue(/Language Server \(Console\)$/);
+
 
 			// Go back to console when done
 			await this.console.clickConsoleTab();

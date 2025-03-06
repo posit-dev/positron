@@ -90,9 +90,9 @@ test.describe('Sessions: Management', {
 		rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
 
 		// Resize window to force scrolling
-		await sessions.resizeSessionList({ y: 250 });
+		await sessions.resizeSessionList({ y: 350 });
 		await sessions.expectSessionListToBeScrollable({ horizontal: false, vertical: true });
-		await sessions.resizeSessionList({ y: -250 });
+		await sessions.resizeSessionList({ y: -350 });
 
 		// Cleaning up since next test only needs 2 sessions
 		await sessions.delete(pythonSession2.id);
