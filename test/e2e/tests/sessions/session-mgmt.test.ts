@@ -30,10 +30,7 @@ test.describe('Sessions: Management', {
 		await app.workbench.sessions.deleteDisconnectedSessions();
 	});
 
-	test('Validate metadata between sessions', {
-		annotation: [
-			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6389' }]
-	}, async function ({ app }) {
+	test('Validate metadata between sessions', async function ({ app }) {
 		const sessions = app.workbench.sessions;
 		const console = app.workbench.console;
 
