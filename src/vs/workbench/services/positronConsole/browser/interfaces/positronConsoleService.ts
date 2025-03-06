@@ -268,10 +268,10 @@ export interface IPositronConsoleInstance {
 	readonly onDidRequestRestart: Event<void>;
 
 	/**
-	 * The onDidAttachRuntime event. Fires both when a runtime is attached and
+	 * The onDidAttachSession event. Fires both when a session is attached and
 	 * when one is detached (in which case the parameter is undefined)
 	 */
-	readonly onDidAttachRuntime: Event<ILanguageRuntimeSession | undefined>;
+	readonly onDidAttachSession: Event<ILanguageRuntimeSession | undefined>;
 
 	/**
 	 * The onDidChangeWidthInChars event.
@@ -366,7 +366,15 @@ export interface IPositronConsoleInstance {
 	interruptPrompt(activityItemPrompt: ActivityItemPrompt): void;
 
 	/**
-	 * Sets the currently attached runtime, or undefined if none.
+	 * Attaches a runtime session to the console.
+	 *
+	 * @param session The session to attach.
+	 * @param mode The session attach mode.
+	 */
+	attachRuntimeSession(session: ILanguageRuntimeSession | undefined, mode: SessionAttachMode): void;
+
+	/**
+	 * Gets the currently attached runtime, or undefined if none.
 	 */
 	attachedRuntimeSession: ILanguageRuntimeSession | undefined;
 }

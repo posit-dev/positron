@@ -253,7 +253,7 @@ export const ActionBar = (props: ActionBarProps) => {
 
 			// Register for runtime changes.
 			disposableConsoleStore.add(
-				activePositronConsoleInstance.onDidAttachRuntime(attachRuntime));
+				activePositronConsoleInstance.onDidAttachSession(attachRuntime));
 		}
 
 		// Return the cleanup function that will dispose of the disposables.
@@ -325,7 +325,7 @@ export const ActionBar = (props: ActionBarProps) => {
 			return;
 		}
 		positronConsoleContext.runtimeSessionService.restartSession(
-			activePositronConsoleInstance!.sessionMetadata.sessionId,
+			activePositronConsoleInstance!.sessionId,
 			'User-requested restart from console action bar');
 	};
 
@@ -335,7 +335,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		}
 
 		await positronConsoleContext.runtimeSessionService.deleteSession(
-			positronConsoleContext.activePositronConsoleInstance.sessionMetadata.sessionId);
+			positronConsoleContext.activePositronConsoleInstance.sessionId);
 	};
 
 	// Render.

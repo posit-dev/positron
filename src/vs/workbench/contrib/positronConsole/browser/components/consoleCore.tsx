@@ -139,8 +139,8 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 							<div className='console-instances-container'>
 								{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
 									<ConsoleInstance
-										key={positronConsoleInstance.session.sessionId}
-										active={positronConsoleInstance.session.sessionId === positronConsoleContext.activePositronConsoleInstance?.session.sessionId}
+										key={positronConsoleInstance.sessionId}
+										active={positronConsoleInstance.sessionId === positronConsoleContext.activePositronConsoleInstance?.sessionId}
 										height={adjustedHeight}
 										positronConsoleInstance={positronConsoleInstance}
 										reactComponentContainer={props.reactComponentContainer}
@@ -161,7 +161,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 						<div className='console-instances-container' style={{ width: props.width, height: adjustedHeight }}>
 							{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
 								<ConsoleInstance
-									key={positronConsoleInstance.session.runtimeMetadata.languageId}
+									key={positronConsoleInstance.runtimeMetadata.languageId}
 									active={positronConsoleInstance === positronConsoleContext.activePositronConsoleInstance}
 									height={adjustedHeight}
 									positronConsoleInstance={positronConsoleInstance}

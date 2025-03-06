@@ -337,7 +337,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			selectAllRuntimeItems();
 		}));
 
-		disposableStore.add(props.positronConsoleInstance.onDidAttachRuntime((runtime) => {
+		disposableStore.add(props.positronConsoleInstance.onDidAttachSession((runtime) => {
 			setRuntimeAttached(!!runtime);
 		}));
 
