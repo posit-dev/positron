@@ -112,8 +112,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private readonly _consoleSessionsByRuntimeId = new Map<string, ILanguageRuntimeSession[]>();
 
 	// A map of the number of sessions created per runtime ID. This is used to
-	// make each session name per runtime unique.
-	private readonly _sessionsByRuntimeIdCounter = new Map<string, number>();
+	// make each session name unique.
+	private readonly _consoleSessionCounterByRuntimeId = new Map<string, number>();
 
 	// A map of the last active console session per langauge.
 	// We can have multiple console sessions per language,
@@ -1327,21 +1327,26 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			throw err;
 		}
 
-		// Determine if the session name should be appended with a session count to make it unique.
-		let sessionCount = this._sessionsByRuntimeIdCounter.get(runtimeMetadata.runtimeId);
-		if (sessionCount) {
-			// Increment the session count for the runtime and append it to the session name.
-			sessionCount++;
-			this._sessionsByRuntimeIdCounter.set(runtimeMetadata.runtimeId, sessionCount);
-		} else {
-			// Initialize the session count for the runtime.
-			// The first session for a runtime does not append this count to the session name.
-			this._sessionsByRuntimeIdCounter.set(runtimeMetadata.runtimeId, 1);
+		// Determine if the console session name should be appended with a session count to make it unique.
+		let updatedSessionName = sessionName;
+		if (sessionMode === LanguageRuntimeSessionMode.Console && multiSessionsEnabled) {
+			let sessionCount = this._consoleSessionCounterByRuntimeId.get(runtimeMetadata.runtimeId);
+			if (sessionCount) {
+				// Increment the session count for the runtime and append it to the session name.
+				sessionCount++;
+				this._consoleSessionCounterByRuntimeId.set(runtimeMetadata.runtimeId, sessionCount);
+				updatedSessionName = `${sessionName} - ${sessionCount}`;
+			} else {
+				// Initialize the session count for the runtime.
+				// The first session for a runtime does not append this count to the session name.
+				this._consoleSessionCounterByRuntimeId.set(runtimeMetadata.runtimeId, 1);
+			}
 		}
+
 		const sessionId = this.generateNewSessionId(runtimeMetadata);
 		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId,
-			sessionName: sessionCount && multiSessionsEnabled ? `${sessionName} - ${sessionCount}` : sessionName,
+			sessionName: updatedSessionName,
 			sessionMode,
 			notebookUri,
 			createdTimestamp: Date.now(),
