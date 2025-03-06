@@ -6,7 +6,7 @@
 
 import { Code } from '../infra/code';
 
-const HIDE_SECONDARY_SIDE_BAR = '[aria-label="Hide Secondary Side Bar"]';
+const HIDE_SECONDARY_SIDE_BAR = '[aria-label^="Hide Secondary Side Bar"]';
 
 /*
  *  Reuseable Positron sidebar functionality for tests to leverage.
