@@ -257,7 +257,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 		);
 
 		// Register the new model
-		await registerModels(context, storage);
+		await registerModels(context, storage, id);
 	});
 
 }

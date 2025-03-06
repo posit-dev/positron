@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
 import { ModelConfig } from './config';
-import { createAnthropic } from '@ai-sdk/anthropic';
+import { anthropic, createAnthropic } from '@ai-sdk/anthropic';
 import { createAzure } from '@ai-sdk/azure';
 import { createVertex } from '@ai-sdk/google-vertex';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
@@ -36,6 +36,10 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 	}
 
 	provideTokenCount(): Promise<number> {
+		throw new Error(this._message);
+	}
+
+	resolveConnection(token: vscode.CancellationToken): Thenable<boolean> {
 		throw new Error(this._message);
 	}
 }
@@ -80,6 +84,10 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			return _text.length > 0 ? _text[0].content.length : 0;
 		}
 	}
+
+	resolveConnection(token: vscode.CancellationToken): Thenable<boolean> {
+		return Promise.resolve(true);
+	}
 }
 
 //#endregion
@@ -95,6 +103,24 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		this.identifier = _config.id;
 		this.name = _config.name;
 		this.provider = _config.provider;
+	}
+
+	async resolveConnection(token: vscode.CancellationToken): Promise<boolean> {
+		token.onCancellationRequested(() => {
+			// Cancel the connection
+			return false;
+		});
+
+		try {
+			const { response, text, finishReason } = await ai.generateText({
+				model: this.model,
+				prompt: 'Hello!',
+			});
+
+			return true;
+		} catch (error) {
+			return false;
+		}
 	}
 
 	async provideLanguageModelResponse(

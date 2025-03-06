@@ -11,6 +11,7 @@ import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { editsProvider } from './edits';
 import { createParticipants } from './participants';
 import { register } from 'node:module';
+import { LanguageModel } from 'ai';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -28,7 +29,7 @@ function disposeParticipants() {
 	participantDisposables = [];
 }
 
-export async function registerModels(context: vscode.ExtensionContext, storage: SecretStorage) {
+export async function registerModels(context: vscode.ExtensionContext, storage: SecretStorage, newConfigId?: string) {
 	// Dispose of existing models
 	disposeModels();
 
@@ -62,6 +63,16 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 				const isFirst = idx === 0;
 
 				const languageModel = newLanguageModel(config);
+
+				// If a new model was added, select it and send a test request
+				if (newConfigId === config.id) {
+					console.log('Sending test request for new model: ', languageModel.name);
+					const resolved = languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
+					resolved.then((connectionResolved) => {
+						console.log('Resolved connection: ', connectionResolved, languageModel.name);
+					});
+				}
+
 				const modelDisp = vscode.lm.registerChatModelProvider(languageModel.identifier, languageModel, {
 					name: languageModel.name,
 					family: languageModel.provider,
