@@ -257,17 +257,38 @@ export class Sessions {
 	}
 
 	/**
-	 * Action: Widen the session tab list
+	 * Action: Resize the session tab list by dragging a sash.
+	 * - If `x` is provided, it adjusts width (horizontal sash).
+	 * - If `y` is provided, it adjusts height (vertical sash).
+	 * - If both `x` and `y` are provided, it adjusts width first, then height.
+	 *
+	 * @param options An object with `x` (horizontal offset) and/or `y` (vertical offset).
 	 */
-	async widenSessionTabList() {
-		const sash = this.page.locator('.sash');
-		const box = await sash.boundingBox();
+	async resizeSessionList(options: { x?: number; y?: number }) {
+		const { x, y } = options;
 
-		if (box) {
-			await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-			await this.page.mouse.down();
-			await this.page.mouse.move(box.x + box.width / 2 - 100, box.y + box.height / 2);
-			await this.page.mouse.up();
+		// Adjust width if x is provided
+		if (x !== undefined) {
+			const horizontalSash = this.page.locator('.sash');
+			const box = await horizontalSash.boundingBox();
+			if (box) {
+				await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+				await this.page.mouse.down();
+				await this.page.mouse.move(box.x + box.width / 2 + x, box.y + box.height / 2);
+				await this.page.mouse.up();
+			}
+		}
+
+		// Adjust height if y is provided
+		if (y !== undefined) {
+			const verticalSash = this.page.locator('.split-view-container > div:nth-child(3) > div > div > div > .monaco-sash');
+			const box = await verticalSash.boundingBox();
+			if (box) {
+				await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+				await this.page.mouse.down();
+				await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + y);
+				await this.page.mouse.up();
+			}
 		}
 	}
 
@@ -509,7 +530,7 @@ export class Sessions {
 		await test.step(`Verify ${session.language} ${session.version} metadata`, async () => {
 
 			// Click metadata button for desired session
-			await this.getSessionTab(session.name).click();
+			await this.getSessionTab(session.id).click();
 			await this.metadataButton.click();
 
 			// Verify metadata
@@ -593,6 +614,17 @@ export class Sessions {
 				expect(activeSessionsFromConsole).toStrictEqual(activeSessionsFromPicker);
 			}).toPass({ timeout: 10000 });
 		});
+	}
+
+	async expectSessionListToBeScrollable(options: { horizontal?: boolean; vertical?: boolean } = {}) {
+		const { horizontal = false, vertical = true } = options;
+		const tabsContainer = this.page.locator('.console-tab-list').getByRole('tablist');
+
+		const isHorizontallyScrollable = await tabsContainer.evaluate(el => el.scrollWidth > el.clientWidth);
+		const isVerticallyScrollable = await tabsContainer.evaluate(el => el.scrollHeight > el.clientHeight);
+
+		expect(isHorizontallyScrollable).toBe(horizontal);
+		expect(isVerticallyScrollable).toBe(vertical);
 	}
 }
 

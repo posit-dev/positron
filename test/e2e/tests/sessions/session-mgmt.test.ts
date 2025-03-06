@@ -4,10 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
-import { pythonSession, rSession, SessionInfo } from '../../infra';
+import { pythonSession, pythonSessionAlt, rSession, SessionInfo } from '../../infra';
 import { expect } from '@playwright/test';
 
 const pythonSession1: SessionInfo = { ...pythonSession };
+const pythonSession2: SessionInfo = { ...pythonSessionAlt };
 const rSession1: SessionInfo = { ...rSession };
 
 test.use({
@@ -30,32 +31,6 @@ test.describe('Sessions: Management', {
 		await app.workbench.sessions.deleteDisconnectedSessions();
 	});
 
-	test('Validate metadata between sessions', {
-		annotation: [
-			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6389' }]
-	}, async function ({ app }) {
-		const sessions = app.workbench.sessions;
-		const console = app.workbench.console;
-
-		// Ensure sessions exist and are idle
-		pythonSession1.id = await sessions.reuseIdleSessionIfExists(pythonSession1);
-		rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
-
-		// Verify Python session metadata
-		await sessions.expectMetaDataToBe({ ...pythonSession1, state: 'idle' });
-		await sessions.expectMetaDataToBe({ ...rSession1, state: 'idle' });
-
-		// Shutdown Python session and verify metadata
-		await sessions.select(pythonSession1.name);
-		await console.typeToConsole('exit()', true);
-		await sessions.expectMetaDataToBe({ ...pythonSession1, state: 'exited' });
-
-		// Shutdown R session and verify metadata
-		await sessions.select(rSession1.name);
-		await console.typeToConsole('q()', true);
-		await sessions.expectMetaDataToBe({ ...rSession1, state: 'exited' });
-	});
-
 	test('Validate variables between sessions', {
 		tag: [tags.VARIABLES]
 	}, async function ({ app }) {
@@ -65,18 +40,27 @@ test.describe('Sessions: Management', {
 
 		// Ensure sessions exist and are idle
 		pythonSession1.id = await sessions.reuseIdleSessionIfExists(pythonSession1);
+		pythonSession2.id = await sessions.reuseIdleSessionIfExists(pythonSession2);
 		rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
 
-		// Set and verify variables in Python
-		await sessions.select(pythonSession1.name);
+		// Set and verify variables in Python Session 1
+		await sessions.select(pythonSession1.id);
 		await console.typeToConsole('x = 1', true);
 		await console.typeToConsole('y = 2', true);
 		await variables.expectRuntimeToBe('visible', pythonSession1.name);
 		await variables.expectVariableToBe('x', '1');
 		await variables.expectVariableToBe('y', '2');
 
+		// Set and verify variables in Python Session 2
+		await sessions.select(pythonSession2.id);
+		await console.typeToConsole('x = 11', true);
+		await console.typeToConsole('y = 22', true);
+		await variables.expectRuntimeToBe('visible', pythonSession2.name);
+		await variables.expectVariableToBe('x', '11');
+		await variables.expectVariableToBe('y', '22');
+
 		// Set and verify variables in R
-		await sessions.select(rSession1.name);
+		await sessions.select(rSession1.id);
 		await console.typeToConsole('x <- 3', true);
 		await console.typeToConsole('z <- 4', true);
 		await variables.expectRuntimeToBe('visible', rSession1.name);
@@ -84,17 +68,31 @@ test.describe('Sessions: Management', {
 		await variables.expectVariableToBe('z', '4');
 
 		// Switch back to Python, update variables, and verify
-		await sessions.select(pythonSession1.name);
+		await sessions.select(pythonSession1.id);
 		await console.typeToConsole('x = 0', true);
 		await variables.expectRuntimeToBe('visible', pythonSession1.name);
 		await variables.expectVariableToBe('x', '0');
 		await variables.expectVariableToBe('y', '2');
 
 		// Switch back to R, verify variables remain unchanged
-		await sessions.select(rSession1.name);
+		await sessions.select(rSession1.id);
 		await variables.expectRuntimeToBe('visible', rSession1.name);
 		await variables.expectVariableToBe('x', '3');
 		await variables.expectVariableToBe('z', '4');
+	});
+
+	test('Validate session list is scrollable', async function ({ app }) {
+		const sessions = app.workbench.sessions;
+
+		// Ensure sessions exist and are idle
+		pythonSession1.id = await sessions.reuseIdleSessionIfExists(pythonSession1);
+		pythonSession2.id = await sessions.reuseIdleSessionIfExists(pythonSession2);
+		rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
+
+		// Resize window to force scrolling
+		await sessions.resizeSessionList({ y: 250 });
+		await sessions.expectSessionListToBeScrollable({ horizontal: false, vertical: true });
+		await sessions.resizeSessionList({ y: -250 });
 	});
 
 	test('Validate active session list in console matches active session list in session picker', async function ({ app }) {
