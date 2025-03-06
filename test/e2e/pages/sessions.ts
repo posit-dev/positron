@@ -543,11 +543,13 @@ export class Sessions {
 
 			// Verify Language Console
 			await this.selectMetadataOption('Show Console Output Channel');
-			await expect(this.page.getByRole('combobox')).toHaveValue(new RegExp(`^${session.language} ${session.version}.*Console$`, 's'));
+			await expect(this.page.getByRole('combobox')).toHaveValue(new RegExp(`^${session.language} ${session.version}`));
+			await expect(this.page.getByRole('combobox')).toHaveValue(/Console$/);
 
 			// Verify Output Channel
 			await this.selectMetadataOption('Show Kernel Output Channel');
-			await expect(this.page.getByRole('combobox')).toHaveValue(new RegExp(`^${session.language} ${session.version}.*: Kernel$`));
+			await expect(this.page.getByRole('combobox')).toHaveValue(new RegExp(`^${session.language} ${session.version}`));
+			await expect(this.page.getByRole('combobox')).toHaveValue(/Kernel$/);
 
 			// Verify LSP Output Channel
 			await this.selectMetadataOption('Show LSP Output Channel');
