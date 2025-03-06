@@ -491,7 +491,7 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
         const native = await this.finder.resolve(envPath);
         if (native) {
             // --- Start Positron ---
-            if (native.executable && await isUvEnvironment(native.executable)) {
+            if (native.executable && (await isUvEnvironment(native.executable))) {
                 traceInfo(`Found uv environment: ${native.executable}`);
                 native.kind = NativePythonEnvironmentKind.Uv;
             }
