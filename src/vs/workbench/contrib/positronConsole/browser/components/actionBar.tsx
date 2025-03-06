@@ -126,8 +126,8 @@ export const ActionBar = (props: ActionBarProps) => {
 				setActivePositronConsoleInstance(activePositronConsoleInstance);
 				setInterruptible(activePositronConsoleInstance?.state === PositronConsoleState.Busy);
 				setInterrupting(false);
-				setCanShutdown(activePositronConsoleInstance?.session.getRuntimeState() !== RuntimeState.Exited);
-				setCanStart(activePositronConsoleInstance?.session.getRuntimeState() === RuntimeState.Exited);
+				setCanShutdown(activePositronConsoleInstance?.attachedRuntimeSession?.getRuntimeState() !== RuntimeState.Exited);
+				setCanStart(activePositronConsoleInstance?.attachedRuntimeSession?.getRuntimeState() === RuntimeState.Exited);
 			}
 		);
 	}, [positronConsoleContext.positronConsoleService]);
@@ -269,7 +269,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		setInterrupting(true);
 
 		// Interrupt the active Positron console instance.
-		activePositronConsoleInstance?.session.interrupt();
+		activePositronConsoleInstance?.attachedRuntimeSession?.interrupt();
 	};
 
 	// Toggle trace event handler.
@@ -290,7 +290,8 @@ export const ActionBar = (props: ActionBarProps) => {
 	// Power cycle (start or stop) console event handler.
 	const powerCycleConsoleHandler = async () => {
 		// Get the current session the console is bound to and its state.
-		const session = positronConsoleContext.activePositronConsoleInstance?.session;
+		const session =
+			positronConsoleContext.activePositronConsoleInstance?.attachedRuntimeSession;
 		if (!session) {
 			return;
 		}
@@ -324,7 +325,7 @@ export const ActionBar = (props: ActionBarProps) => {
 			return;
 		}
 		positronConsoleContext.runtimeSessionService.restartSession(
-			activePositronConsoleInstance!.session.sessionId,
+			activePositronConsoleInstance!.sessionMetadata.sessionId,
 			'User-requested restart from console action bar');
 	};
 
@@ -333,7 +334,8 @@ export const ActionBar = (props: ActionBarProps) => {
 			return;
 		}
 
-		await positronConsoleContext.runtimeSessionService.deleteSession(positronConsoleContext.activePositronConsoleInstance.session.sessionId);
+		await positronConsoleContext.runtimeSessionService.deleteSession(
+			positronConsoleContext.activePositronConsoleInstance.sessionMetadata.sessionId);
 	};
 
 	// Render.

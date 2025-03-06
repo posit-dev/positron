@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,9 +7,9 @@ import { Event } from '../../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { RuntimeItem } from '../classes/runtimeItem.js';
-import { ILanguageRuntimeSession } from '../../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { ActivityItemPrompt } from '../classes/activityItemPrompt.js';
-import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 
 // Create the decorator for the Positron console service (used in dependency injection).
@@ -142,14 +142,24 @@ export interface ILanguageRuntimeCodeExecutedEvent {
  */
 export interface IPositronConsoleInstance {
 	/**
-	 * Gets the runtime session for the Positron console instance.
-	 */
-	readonly session: ILanguageRuntimeSession;
-
-	/**
 	 * Gets the state.
 	 */
 	readonly state: PositronConsoleState;
+
+	/**
+	 * Gets the metadata for the runtime session itself.
+	 */
+	readonly sessionMetadata: IRuntimeSessionMetadata;
+
+	/**
+	 * Gets the metadata of the runtime associated with the session.
+	 */
+	readonly runtimeMetadata: ILanguageRuntimeMetadata;
+
+	/**
+	 * Gets the session ID.
+	 */
+	readonly sessionId: string;
 
 	/**
 	 * Gets a value which indicates whether trace is enabled.
