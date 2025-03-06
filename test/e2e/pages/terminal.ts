@@ -6,13 +6,14 @@
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
+import { Clipboard } from './clipboard';
 
 const TERMINAL_WRAPPER = '#terminal .terminal-wrapper';
 
 export class Terminal {
 	terminalTab: Locator;
 
-	constructor(private code: Code, private quickaccess: QuickAccess) {
+	constructor(private code: Code, private quickaccess: QuickAccess, private clipboard: Clipboard) {
 		this.terminalTab = this.code.driver.page.getByRole('tab', { name: 'Terminal' }).locator('a');
 	}
 
@@ -33,10 +34,33 @@ export class Terminal {
 	): Promise<string[]> {
 		const { timeout = 15000, expectedCount = 1 } = options;
 
-		const matchingLines = this.code.driver.page.locator(TERMINAL_WRAPPER).getByText(terminalText);
-		await expect(matchingLines).toHaveCount(expectedCount, { timeout });
+		if (process.platform !== 'linux') {
+			const matchingLines = this.code.driver.page.locator(TERMINAL_WRAPPER).getByText(terminalText);
+			await expect(matchingLines).toHaveCount(expectedCount, { timeout });
 
-		return expectedCount ? matchingLines.allTextContents() : [];
+			return expectedCount ? matchingLines.allTextContents() : [];
+		} else {
+			await expect(async () => {
+
+				await this.code.driver.page.locator(TERMINAL_WRAPPER).click({ button: 'right' });
+
+				const menu = this.code.driver.page.locator('.monaco-menu');
+				await menu.locator('[aria-label="Select All"]').click();
+
+				await this.code.driver.page.keyboard.press('Control+Shift+C');
+
+				const text = await this.clipboard.getClipboardText();
+
+				const matches = text!.match(new RegExp(terminalText, 'gi'));
+
+				expect(matches?.length).toBe(expectedCount);
+
+				return matches;
+
+			}).toPass({ timeout: timeout });
+
+			return [];
+		}
 	}
 
 	async waitForTerminalLines() {
