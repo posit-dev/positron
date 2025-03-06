@@ -36,6 +36,10 @@ import {
 } from './base/locators/common/pythonWatcher';
 import { getWorkspaceFolders, onDidChangeWorkspaceFolders } from '../common/vscodeApis/workspaceApis';
 
+// --- Start Positron ---
+import { isUvEnvironment } from './common/environmentManagers/uv';
+// --- End Positron ---
+
 function makeExecutablePath(prefix?: string): string {
     if (!prefix) {
         return process.platform === 'win32' ? 'python.exe' : 'python';
@@ -486,6 +490,12 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
         }
         const native = await this.finder.resolve(envPath);
         if (native) {
+            // --- Start Positron ---
+            if (native.executable && await isUvEnvironment(native.executable)) {
+                traceInfo(`Found uv environment: ${native.executable}`);
+                native.kind = NativePythonEnvironmentKind.Uv;
+            }
+            // --- End Positron ---
             if (native.kind === NativePythonEnvironmentKind.Conda && this._condaEnvDirs.length === 0) {
                 this._condaEnvDirs = (await getCondaEnvDirs()) ?? [];
             }
