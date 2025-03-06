@@ -38,7 +38,7 @@ export interface CustomContextMenuProps {
 	readonly anchorPoint?: AnchorPoint;
 	readonly popupPosition: PopupPosition;
 	readonly popupAlignment: PopupAlignment;
-	readonly width?: number | 'max-content' | 'auto';
+	readonly width?: number | 'auto';
 	readonly minWidth?: number | 'auto';
 	readonly entries: CustomContextMenuEntry[];
 }
@@ -78,7 +78,7 @@ export const showCustomContextMenu = async ({
 
 	// Supply the default width.
 	if (!width) {
-		width = 'max-content';
+		width = 'auto';
 	}
 
 	// Supply the default min width.
@@ -114,7 +114,7 @@ interface CustomContextMenuModalPopupProps {
 	readonly anchorPoint?: AnchorPoint;
 	readonly popupPosition: PopupPosition;
 	readonly popupAlignment: PopupAlignment;
-	readonly width: number | 'max-content' | 'auto';
+	readonly width: number | 'auto';
 	readonly minWidth: number | 'auto';
 	readonly entries: CustomContextMenuEntry[];
 }
@@ -217,7 +217,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 		<PositronModalPopup
 			anchorElement={props.anchorElement}
 			anchorPoint={props.anchorPoint}
-			height={'min-content'}
+			height={'auto'}
 			keyboardNavigationStyle='menu'
 			minWidth={props.minWidth}
 			popupAlignment={props.popupAlignment}

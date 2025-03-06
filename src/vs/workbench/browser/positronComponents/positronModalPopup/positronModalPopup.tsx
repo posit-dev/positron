@@ -42,8 +42,8 @@ class PopupLayout {
 	right: number | 'auto' = 'auto';
 	bottom: number | 'auto' = 'auto';
 	left: number | 'auto' = 'auto';
-	width: number | 'min-content' = 'min-content';
-	height: number | 'min-content' = 'min-content';
+	width: number | 'auto' = 'auto';
+	height: number | 'auto' = 'auto';
 	maxWidth: number | 'none' = 'none';
 	maxHeight: number | 'none' = 'none';
 	shadow: 'top' | 'bottom' = 'bottom';
@@ -81,9 +81,9 @@ export interface PositronModalPopupProps {
 	readonly anchorPoint?: AnchorPoint;
 	readonly popupPosition: PopupPosition;
 	readonly popupAlignment: PopupAlignment;
-	readonly width: number | 'max-content' | 'auto';
+	readonly width: number | 'auto';
 	readonly minWidth?: number | 'auto';
-	readonly height: number | 'min-content';
+	readonly height: number | 'auto';
 	readonly minHeight?: number | 'auto';
 	readonly maxHeight?: number | 'none';
 	readonly fixedHeight?: boolean;
@@ -184,7 +184,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 			(anchorY + anchorHeight + LAYOUT_OFFSET + LAYOUT_MARGIN);
 
 		// Perform vertical popup layout.
-		if (props.height === 'min-content') {
+		if (props.height === 'auto') {
 			// Set the popup layout height.
 			popupLayout.height = props.height;
 
