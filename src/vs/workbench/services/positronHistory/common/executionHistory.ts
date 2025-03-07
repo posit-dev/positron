@@ -1,18 +1,19 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { IExecutionHistoryEntry, IExecutionHistoryService, IInputHistoryEntry } from './executionHistoryService.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { SessionExecutionHistory } from './sessionExecutionHistory.js';
 import { SessionInputHistory } from './languageInputHistory.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
+import { IRuntimeStartupService, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
 
 /**
  * Service that manages execution histories for all runtimes.
@@ -29,6 +30,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@ILogService private readonly _logService: ILogService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -46,6 +48,11 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		this._register(this._runtimeSessionService.onDidStartRuntime(runtime => {
 			this.beginRecordingHistory(runtime);
 		}));
+
+		// Prune storage for any sessions that are no longer active
+		this._runtimeStartupService.getRestoredSessions().then(sessions => {
+			this.pruneStorage(sessions);
+		});
 	}
 
 	/**
@@ -57,6 +64,43 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		if (this._inputHistories.has(sessionId)) {
 			this._inputHistories.get(sessionId)!.clear();
 		}
+	}
+
+	/**
+	 * Prunes the storage of any history entries that don't have a corresponding session.
+	 *
+	 * @param sessions The set of sessions that have been or will be restored
+	 */
+	pruneStorage(sessions: SerializedSessionMetadata[]): void {
+		// The set of session IDs that we have restored, or will restore
+		const restoredSessionIds = sessions.map(session => session.metadata.sessionId);
+
+		// The set of session IDs that are currently active
+		const activeSessionIds = Array.from(this._executionHistories.keys());
+
+		// All valid session IDs
+		const allSessionIds = new Set([...restoredSessionIds, ...activeSessionIds]);
+
+		// Get the set of all history keys in storage
+		const historyKeys = this._storageService
+			.keys(StorageScope.WORKSPACE, StorageTarget.MACHINE)
+			.filter(key => key.startsWith('positron.executionHistory.'));
+
+		// Prune any history entries that don't have a corresponding session
+		historyKeys.forEach(key => {
+			// Ignore malformed keys (no session ID)
+			const parts = key.split('.');
+			if (parts.length < 3) {
+				return;
+			}
+			// Extract the session ID from the key
+			const sessionId = parts[2];
+			if (!allSessionIds.has(sessionId)) {
+				this._logService.debug(
+					`[Runtime history] Pruning history for expired session ${sessionId}`);
+				this._storageService.remove(key, StorageScope.WORKSPACE);
+			}
+		});
 	}
 
 	/**
