@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import * as vscode from 'vscode';
 import { traceInfo, traceVerbose } from '../logging';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { arePathsSame, isParentPath } from '../pythonEnvironments/common/externalDependencies';

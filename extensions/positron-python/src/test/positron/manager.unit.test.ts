@@ -205,7 +205,7 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
     let serviceContainer: TypeMoq.IMock<IServiceContainer>;
     let interpreterService: TypeMoq.IMock<IInterpreterService>;
     let interpreter: TypeMoq.IMock<PythonEnvironment>;
-    let runtimeMetadata: TypeMoq.IMock<positron.LanguageRuntimeMetadata>;
+    let runtimeMetadata: positron.LanguageRuntimeMetadata;
 
     let getUserDefaultInterpreterStub: sinon.SinonStub;
     let hasFilesStub: sinon.SinonStub;
@@ -216,14 +216,35 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
         serviceContainer = createTypeMoq<IServiceContainer>();
         interpreterService = createTypeMoq<IInterpreterService>();
         interpreter = createTypeMoq<PythonEnvironment>();
-        runtimeMetadata = createTypeMoq<positron.LanguageRuntimeMetadata>();
 
         // Setup interpreter service
         serviceContainer.setup((s) => s.get(IInterpreterService)).returns(() => interpreterService.object);
 
         getUserDefaultInterpreterStub = sinon.stub(interpreterSettings, 'getUserDefaultInterpreter');
         hasFilesStub = sinon.stub(util, 'hasFiles');
+
         createPythonRuntimeMetadataStub = sinon.stub(runtime, 'createPythonRuntimeMetadata');
+        createPythonRuntimeMetadataStub.callsFake((interpreter, _serviceContainer, isImmediate) => {
+            const pythonPath = (interpreter as any).path;
+
+            runtimeMetadata = {
+                runtimeId: 'python-runtime-id',
+                runtimeName: 'Python',
+                runtimeShortName: 'Python',
+                runtimePath: pythonPath,
+                runtimeVersion: '1.0.0',
+                runtimeSource: 'test',
+                languageId: 'python',
+                languageName: 'python',
+                languageVersion: '3.x',
+                base64EncodedIconSvg: 'test-icon-data',
+                startupBehavior: isImmediate ? ('immediate' as any) : ('implicit' as any),
+                sessionLocation: 'workspace' as any,
+                extraRuntimeData: { pythonPath },
+            };
+
+            return Promise.resolve(runtimeMetadata);
+        });
 
         pythonRuntimeManager = new PythonRuntimeManager(serviceContainer.object, interpreterService.object);
     });
@@ -245,6 +266,7 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
 
         const result = await pythonRuntimeManager.recommendedWorkspaceRuntime();
         assert.strictEqual(result, undefined);
+        sinon.assert.notCalled(createPythonRuntimeMetadataStub);
     });
 
     test('uses global interpreter setting when no workspace folder', async () => {
@@ -259,15 +281,20 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
             workspaceFolderValue: undefined,
         } as InspectInterpreterSettingType);
 
+        // Setup the interpreter object with the expected path
+        interpreter.setup((i) => i.path).returns(() => globalInterpreterPath);
         interpreterService
             .setup((i) =>
                 i.getInterpreterDetails(TypeMoq.It.isValue(globalInterpreterPath), TypeMoq.It.isValue(undefined)),
             )
             .returns(() => Promise.resolve(interpreter.object));
-        createPythonRuntimeMetadataStub.resolves(runtimeMetadata.object);
 
         const result = await pythonRuntimeManager.recommendedWorkspaceRuntime();
-        assert.strictEqual(result, runtimeMetadata.object);
+
+        // Verify createPythonRuntimeMetadata was called with the correct interpreter
+        sinon.assert.calledOnce(createPythonRuntimeMetadataStub);
+        assert.strictEqual(createPythonRuntimeMetadataStub.firstCall.args[0], interpreter.object);
+        assert.strictEqual(result?.extraRuntimeData?.pythonPath, globalInterpreterPath);
     });
 
     test('uses .venv interpreter when it exists', async () => {
@@ -280,18 +307,24 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
             configurable: true,
         });
         hasFilesStub.withArgs(['.venv/**/*']).resolves(true);
-        hasFilesStub.withArgs(['.conda/**/*']).resolves(false);
 
         const venvPythonPath = path.join(workspaceUri.fsPath, '.venv', 'bin', 'python');
+        interpreter.setup((i) => i.path).returns(() => venvPythonPath);
         interpreterService
             .setup((i) =>
                 i.getInterpreterDetails(TypeMoq.It.isValue(venvPythonPath), TypeMoq.It.isValue(workspaceUri.uri)),
             )
             .returns(() => Promise.resolve(interpreter.object));
-        createPythonRuntimeMetadataStub.resolves(runtimeMetadata.object);
 
         const result = await pythonRuntimeManager.recommendedWorkspaceRuntime();
-        assert.strictEqual(result, runtimeMetadata.object);
+
+        // Verify createPythonRuntimeMetadata was called with the correct interpreter and isImmediate=true
+        sinon.assert.calledOnce(createPythonRuntimeMetadataStub);
+        assert.strictEqual(createPythonRuntimeMetadataStub.firstCall.args[0], interpreter.object);
+        assert.strictEqual(createPythonRuntimeMetadataStub.firstCall.args[2], true);
+
+        // Verify the result has the correct path
+        assert.strictEqual(result?.extraRuntimeData?.pythonPath, venvPythonPath);
     });
 
     test('uses .conda interpreter when it exists', async () => {
@@ -308,15 +341,22 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
         hasFilesStub.withArgs(['.conda/**/*']).resolves(true);
 
         const condaPythonPath = path.join(workspaceUri.fsPath, '.conda', 'bin', 'python');
+        interpreter.setup((i) => i.path).returns(() => condaPythonPath);
         interpreterService
             .setup((i) =>
                 i.getInterpreterDetails(TypeMoq.It.isValue(condaPythonPath), TypeMoq.It.isValue(workspaceUri.uri)),
             )
             .returns(() => Promise.resolve(interpreter.object));
-        createPythonRuntimeMetadataStub.resolves(runtimeMetadata.object);
 
         const result = await pythonRuntimeManager.recommendedWorkspaceRuntime();
-        assert.strictEqual(result, runtimeMetadata.object);
+
+        // Verify createPythonRuntimeMetadata was called with the correct interpreter and isImmediate=true
+        sinon.assert.calledOnce(createPythonRuntimeMetadataStub);
+        assert.strictEqual(createPythonRuntimeMetadataStub.firstCall.args[0], interpreter.object);
+        assert.strictEqual(createPythonRuntimeMetadataStub.firstCall.args[2], true);
+
+        // Verify the result has the correct path
+        assert.strictEqual(result?.extraRuntimeData?.pythonPath, condaPythonPath);
     });
 
     test('uses workspace interpreter setting when no .venv or .conda', async () => {
@@ -330,6 +370,7 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
         });
         hasFilesStub.withArgs(['.venv/**/*']).resolves(false);
         hasFilesStub.withArgs(['.conda/**/*']).resolves(false);
+        hasFilesStub.withArgs(['*/bin/python']).resolves(false);
 
         const workspaceInterpreterPath = '/path/to/workspace/python';
         getUserDefaultInterpreterStub.returns({
@@ -338,6 +379,7 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
             workspaceFolderValue: undefined,
         } as InspectInterpreterSettingType);
 
+        interpreter.setup((i) => i.path).returns(() => workspaceInterpreterPath);
         interpreterService
             .setup((i) =>
                 i.getInterpreterDetails(
@@ -346,10 +388,15 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
                 ),
             )
             .returns(() => Promise.resolve(interpreter.object));
-        createPythonRuntimeMetadataStub.resolves(runtimeMetadata.object);
 
         const result = await pythonRuntimeManager.recommendedWorkspaceRuntime();
-        assert.strictEqual(result, runtimeMetadata.object);
+
+        // Verify createPythonRuntimeMetadata was called with the correct interpreter
+        sinon.assert.calledOnce(createPythonRuntimeMetadataStub);
+        assert.strictEqual(createPythonRuntimeMetadataStub.firstCall.args[0], interpreter.object);
+
+        // Verify the result has the correct path
+        assert.strictEqual(result?.extraRuntimeData?.pythonPath, workspaceInterpreterPath);
     });
 
     test('uses workspace folder interpreter setting when no .venv, .conda, or workspace setting', async () => {
@@ -363,6 +410,7 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
         });
         hasFilesStub.withArgs(['.venv/**/*']).resolves(false);
         hasFilesStub.withArgs(['.conda/**/*']).resolves(false);
+        hasFilesStub.withArgs(['*/bin/python']).resolves(false);
 
         const workspaceFolderInterpreterPath = '/path/to/workspace/folder/python';
         getUserDefaultInterpreterStub.returns({
@@ -371,6 +419,7 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
             workspaceFolderValue: workspaceFolderInterpreterPath,
         } as InspectInterpreterSettingType);
 
+        interpreter.setup((i) => i.path).returns(() => workspaceFolderInterpreterPath);
         interpreterService
             .setup((i) =>
                 i.getInterpreterDetails(
@@ -379,10 +428,15 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
                 ),
             )
             .returns(() => Promise.resolve(interpreter.object));
-        createPythonRuntimeMetadataStub.resolves(runtimeMetadata.object);
 
         const result = await pythonRuntimeManager.recommendedWorkspaceRuntime();
-        assert.strictEqual(result, runtimeMetadata.object);
+
+        // Verify createPythonRuntimeMetadata was called with the correct interpreter
+        sinon.assert.calledOnce(createPythonRuntimeMetadataStub);
+        assert.strictEqual(createPythonRuntimeMetadataStub.firstCall.args[0], interpreter.object);
+
+        // Verify the result has the correct path
+        assert.strictEqual(result?.extraRuntimeData?.pythonPath, workspaceFolderInterpreterPath);
     });
 
     test('uses global interpreter setting when no .venv, .conda, workspace, or workspace folder setting', async () => {
@@ -396,6 +450,7 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
         });
         hasFilesStub.withArgs(['.venv/**/*']).resolves(false);
         hasFilesStub.withArgs(['.conda/**/*']).resolves(false);
+        hasFilesStub.withArgs(['*/bin/python']).resolves(false);
 
         const globalInterpreterPath = '/path/to/global/python';
         getUserDefaultInterpreterStub.returns({
@@ -404,6 +459,8 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
             workspaceFolderValue: undefined,
         } as InspectInterpreterSettingType);
 
+        // Setup the interpreter object with the expected path
+        interpreter.setup((i) => i.path).returns(() => globalInterpreterPath);
         interpreterService
             .setup((i) =>
                 i.getInterpreterDetails(
@@ -412,9 +469,14 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
                 ),
             )
             .returns(() => Promise.resolve(interpreter.object));
-        createPythonRuntimeMetadataStub.resolves(runtimeMetadata.object);
 
         const result = await pythonRuntimeManager.recommendedWorkspaceRuntime();
-        assert.strictEqual(result, runtimeMetadata.object);
+
+        // Verify createPythonRuntimeMetadata was called with the correct interpreter
+        sinon.assert.calledOnce(createPythonRuntimeMetadataStub);
+        assert.strictEqual(createPythonRuntimeMetadataStub.firstCall.args[0], interpreter.object);
+
+        // Verify the result has the correct path
+        assert.strictEqual(result?.extraRuntimeData?.pythonPath, globalInterpreterPath);
     });
 });

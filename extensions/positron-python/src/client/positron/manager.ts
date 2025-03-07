@@ -99,11 +99,12 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
     }
 
     /**
-     * Recommend a Python language runtime based on the workspace.
+     * Get the recommended Python interpreter path for the workspace.
+     * Returns an object with the path and whether it should be immediately selected.
      */
-    async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
-        // TODO: may need other handling for multiroot workspaces
-        const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+    private async recommendedWorkspaceInterpreterPath(
+        workspaceUri: vscode.Uri | undefined,
+    ): Promise<{ path: string | undefined; isImmediate: boolean }> {
         const userInterpreterSettings = getUserDefaultInterpreter(workspaceUri);
         let interpreterPath: string | undefined;
         let isImmediate = false;
@@ -112,8 +113,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
             if (userInterpreterSettings.globalValue) {
                 interpreterPath = userInterpreterSettings.globalValue;
             } else {
-                traceInfo('No recommended runtime for workspace.');
-                return undefined;
+                return { path: undefined, isImmediate };
             }
         } else if (await hasFiles(['.venv/**/*'])) {
             interpreterPath = path.join(workspaceUri.fsPath, '.venv', 'bin', 'python');
@@ -121,12 +121,30 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
         } else if (await hasFiles(['.conda/**/*'])) {
             interpreterPath = path.join(workspaceUri.fsPath, '.conda', 'bin', 'python');
             isImmediate = true;
+        } else if (await hasFiles(['*/bin/python'])) {
+            // if we found */bin/python but not .venv or .conda, use the first one we find
+            const files = await vscode.workspace.findFiles('*/bin/python', '**/node_modules/**');
+            if (files.length > 0) {
+                interpreterPath = files[0].fsPath;
+                isImmediate = true;
+            }
         } else {
             interpreterPath =
                 userInterpreterSettings.workspaceValue ||
                 userInterpreterSettings.workspaceFolderValue ||
                 userInterpreterSettings.globalValue;
         }
+
+        return { path: interpreterPath, isImmediate };
+    }
+
+    /**
+     * Recommend a Python language runtime based on the workspace.
+     */
+    async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+        // TODO: may need other handling for multiroot workspaces
+        const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+        const { path: interpreterPath, isImmediate } = await this.recommendedWorkspaceInterpreterPath(workspaceUri);
 
         if (interpreterPath) {
             const interpreter = await this.interpreterService.getInterpreterDetails(interpreterPath, workspaceUri);
