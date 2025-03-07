@@ -41,7 +41,7 @@ export class Sessions {
 		this.metadataButton = this.page.getByRole('button', { name: 'Console information' });
 		this.metadataDialog = this.page.getByRole('dialog');
 		this.quickPick = new SessionQuickPick(this.code, this);
-		this.activeSessionPicker = this.page.getByRole('button', { name: 'Open Active Session Picker' });
+		this.activeSessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').getByRole('button', { name: /(Start a New Session)|(Open Active Session Picker)/ });
 		this.trashButton = (sessionId: string) => this.getSessionTab(sessionId).getByTestId('trash-session');
 		this.newConsoleButton = this.page.getByRole('button', { name: 'Open Start Session Picker', exact: true });
 		this.restartButton = this.page.getByLabel('Restart console', { exact: true });
@@ -639,7 +639,6 @@ export class Sessions {
  */
 export class SessionQuickPick {
 	private sessionQuickMenu = this.code.driver.page.getByText(/(Select a Session)|(Start a New Session)/);
-	private newSessionQuickOption = this.code.driver.page.getByText(/New Session.../);
 
 	constructor(private code: Code, private sessions: Sessions) { }
 
@@ -654,7 +653,8 @@ export class SessionQuickPick {
 		}
 
 		if (viewAllRuntimes) {
-			await this.newSessionQuickOption.click();
+			await this.code.driver.page.getByRole('combobox', { name: 'input' }).fill('New Session');
+			await this.code.driver.page.keyboard.press('Enter');
 			await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible();
 		} else {
 			await expect(this.code.driver.page.getByText(/Select a Session/)).toBeVisible();
