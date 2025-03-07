@@ -31,8 +31,18 @@ const LOGS_ROOT_PATH = join(ROOT_PATH, 'test-logs');
 let SPEC_NAME = '';
 let fixtureScreenshot: Buffer;
 
+// Currents fixtures
+import {
+	CurrentsFixtures,
+	CurrentsWorkerFixtures,
+	fixtures as currentsFixtures
+	// eslint-disable-next-line local/code-import-patterns
+} from '@currents/playwright';
+
 // Test fixtures
-export const test = base.extend<TestFixtures, WorkerFixtures>({
+export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures & CurrentsWorkerFixtures>({
+	...currentsFixtures.baseFixtures,
+	...currentsFixtures.actionFixtures,
 	suiteId: ['', { scope: 'worker', option: true }],
 
 	snapshots: [true, { scope: 'worker', auto: true }],
