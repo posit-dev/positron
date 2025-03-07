@@ -40,10 +40,14 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		const defaultInterpreterPath = getDefaultInterpreterPath();
 		if (defaultInterpreterPath) {
 			if (fs.existsSync(defaultInterpreterPath)) {
-				LOGGER.info(`Recommending R runtime from default interpreter path setting: ${defaultInterpreterPath}`);
+				LOGGER.info(`[recommendedWorkspaceRuntime] Recommending R runtime from default interpreter path setting: ${defaultInterpreterPath}`);
 				const inst = new RInstallation(defaultInterpreterPath, undefined, [ReasonDiscovered.userSetting]);
 				return makeMetadata(inst, positron.LanguageRuntimeStartupBehavior.Implicit);
+			} else {
+				LOGGER.info(`[recommendedWorkspaceRuntime] Default interpreter path does not exist: ${defaultInterpreterPath}...cannot recommend R runtime`);
 			}
+		} else {
+			LOGGER.debug('[recommendedWorkspaceRuntime] No default interpreter path set...cannot recommend R runtime');
 		}
 		return undefined;
 	}
