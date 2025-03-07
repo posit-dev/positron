@@ -459,7 +459,13 @@ function currentRBinaryFromHq(hqDirs: string[]): RBinary | undefined {
 
 // Consult various sources of other, perhaps non-current, R binaries
 function discoverHQBinaries(hqDirs: string[]): RBinary[] {
-	const existingHqDirs = hqDirs.filter(dir => fs.existsSync(dir));
+	const existingHqDirs = hqDirs.filter(dir => {
+		if (!fs.existsSync(dir)) {
+			LOGGER.info(`Ignoring R headquarters directory ${dir} because it does not exist.`);
+			return false;
+		}
+		return true;
+	});
 	if (existingHqDirs.length === 0) {
 		return [];
 	}
@@ -533,7 +539,13 @@ async function discoverRegistryBinaries(): Promise<RBinary[]> {
 
 function discoverAdHocBinaries(paths: string[]): RBinary[] {
 	return paths
-		.filter(b => fs.existsSync(b))
+		.filter(b => {
+			if (!fs.existsSync(b)) {
+				LOGGER.info(`Ignoring ad hoc R binary ${b} because it does not exist.`);
+				return false;
+			}
+			return true;
+		})
 		.map(b => fs.realpathSync(b))
 		.map(b => ({ path: b, reasons: [ReasonDiscovered.adHoc] }));
 }
