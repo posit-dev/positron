@@ -529,6 +529,30 @@
                     "scope": "machine",
                     "type": "string"
                 },
+                "python.environmentProviders.enable": {
+                    "default": {
+                        "Venv": true,
+                        "Conda": true
+                    },
+                    "examples": [
+                        {
+                            "Venv": true,
+                            "Conda": true
+                        }
+                    ],
+                    "markdownDescription": "%python.environmentProviders.enable.markdownDescription%",
+                    "scope": "machine",
+                    "type": "object",
+                    "properties": {
+                        "Venv": {
+                            "type": "boolean"
+                        },
+                        "Conda": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "python.defaultInterpreterPath": {
                     "default": "python",
                     "markdownDescription": "%python.defaultInterpreterPath.description%",
