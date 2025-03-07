@@ -15,7 +15,9 @@ import { sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { IPythonPathUpdaterServiceManager } from '../configuration/types';
 import { IActivatedEnvironmentLaunch, IInterpreterService } from '../contracts';
+// --- Start Positron ---
 import { getUserDefaultInterpreter } from '../../positron/interpreterSettings';
+// --- End Positron ---
 
 @injectable()
 export class ActivatedEnvironmentLaunch implements IActivatedEnvironmentLaunch {

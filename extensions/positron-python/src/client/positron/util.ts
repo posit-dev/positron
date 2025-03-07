@@ -40,6 +40,4 @@ export async function hasFiles(includes: string[]): Promise<boolean> {
     console.log(`Found _files_: ${files.map((file) => file.fsPath)}`);
 
     return files.length > 0;
-    // Exclude node_modules for performance reasons
-    return (await vscode.workspace.findFiles(include, '**/node_modules/**', 1)).length > 0;
 }
