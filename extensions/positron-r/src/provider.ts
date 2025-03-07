@@ -12,9 +12,10 @@ import * as which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
 
-import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason } from './r-installation';
+import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, getDefaultInterpreterPath } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
+import { arePathsSame, untildify } from './path-utils';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -233,6 +234,7 @@ export async function makeMetadata(
 		binpath: rInst.binpath,
 		scriptpath: scriptPath,
 		current: rInst.current,
+		default: rInst.default,
 		reasonDiscovered: rInst.reasonDiscovered,
 	};
 
@@ -458,7 +460,13 @@ function currentRBinaryFromHq(hqDirs: string[]): RBinary | undefined {
 
 // Consult various sources of other, perhaps non-current, R binaries
 function discoverHQBinaries(hqDirs: string[]): RBinary[] {
-	const existingHqDirs = hqDirs.filter(dir => fs.existsSync(dir));
+	const existingHqDirs = hqDirs.filter(dir => {
+		if (!fs.existsSync(dir)) {
+			LOGGER.info(`Ignoring R headquarters directory ${dir} because it does not exist.`);
+			return false;
+		}
+		return true;
+	});
 	if (existingHqDirs.length === 0) {
 		return [];
 	}
@@ -532,7 +540,13 @@ async function discoverRegistryBinaries(): Promise<RBinary[]> {
 
 function discoverAdHocBinaries(paths: string[]): RBinary[] {
 	return paths
-		.filter(b => fs.existsSync(b))
+		.filter(b => {
+			if (!fs.existsSync(b)) {
+				LOGGER.info(`Ignoring ad hoc R binary ${b} because it does not exist.`);
+				return false;
+			}
+			return true;
+		})
 		.map(b => fs.realpathSync(b))
 		.map(b => ({ path: b, reasons: [ReasonDiscovered.adHoc] }));
 }
@@ -546,7 +560,7 @@ function discoverUserSpecifiedBinaries(): RBinary[] {
 	const userMoreBinaries = discoverAdHocBinaries(userRBinaries());
 	const userBinaries = userHqBinaries.concat(userMoreBinaries);
 	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.user
-	return userBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.user] }));
+	return userBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.userSetting] }));
 }
 
 /**
@@ -596,8 +610,17 @@ function rHeadquarters(): string[] {
 // directory(ies) where this user keeps R installations
 function userRHeadquarters(): string[] {
 	const config = vscode.workspace.getConfiguration('positron.r');
-	const userHqDirs = config.get<string[]>('customRootFolders');
-	if (userHqDirs && userHqDirs.length > 0) {
+	const customRootFolders = config.get<string[]>('customRootFolders') ?? [];
+	if (customRootFolders.length > 0) {
+		const userHqDirs = customRootFolders
+			.map((item) => untildify(item))
+			.filter((item) => {
+				if (path.isAbsolute(item)) {
+					return true;
+				}
+				LOGGER.info(`R custom root folder path ${item} is not absolute...ignoring`);
+				return false;
+			});
 		const formattedPaths = JSON.stringify(userHqDirs, null, 2);
 		LOGGER.info(`User-specified directories to scan for R installations:\n${formattedPaths}`);
 		return userHqDirs;
@@ -609,8 +632,17 @@ function userRHeadquarters(): string[] {
 // ad hoc binaries this user wants Positron to know about
 function userRBinaries(): string[] {
 	const config = vscode.workspace.getConfiguration('positron.r');
-	const userBinaries = config.get<string[]>('customBinaries');
-	if (userBinaries && userBinaries.length > 0) {
+	const customBinaries = config.get<string[]>('customBinaries') ?? [];
+	if (customBinaries.length > 0) {
+		const userBinaries = customBinaries
+			.map((item) => untildify(item))
+			.filter((item) => {
+				if (path.isAbsolute(item)) {
+					return true;
+				}
+				LOGGER.info(`R custom binary path ${item} is not absolute...ignoring`);
+				return false;
+			});
 		const formattedPaths = JSON.stringify(userBinaries, null, 2);
 		LOGGER.info(`User-specified R binaries:\n${formattedPaths}`);
 		return userBinaries;
