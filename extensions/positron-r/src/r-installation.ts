@@ -48,7 +48,7 @@ export enum ReasonDiscovered {
 	HQ = "HQ",
 	/* eslint-enable @typescript-eslint/naming-convention */
 	adHoc = "adHoc",
-	user = "user",
+	userSetting = "userSetting",
 	server = "server"
 }
 
@@ -75,8 +75,8 @@ export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null)
 				return 'Found in the primary location for R versions on this operating system';
 			case ReasonDiscovered.adHoc:
 				return 'Found in a conventional location for symlinked R binaries';
-			case ReasonDiscovered.user:
-				return 'User-specified location';
+			case ReasonDiscovered.userSetting:
+				return 'Found in a location specified via user settings';
 			case ReasonDiscovered.server:
 				return 'Found in a conventional location for R binaries installed on a server';
 		}
@@ -89,7 +89,7 @@ export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null)
 			case ReasonRejected.nonOrthogonal:
 				return 'Non-orthogonal installation that is also not the current version';
 			case ReasonRejected.excluded:
-				return 'Installation path was excluded via settings';
+				return 'Installation path was excluded via user settings';
 		}
 	}
 

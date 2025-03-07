@@ -559,7 +559,7 @@ function discoverUserSpecifiedBinaries(): RBinary[] {
 	const userMoreBinaries = discoverAdHocBinaries(userRBinaries());
 	const userBinaries = userHqBinaries.concat(userMoreBinaries);
 	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.user
-	return userBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.user] }));
+	return userBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.userSetting] }));
 }
 
 /**
