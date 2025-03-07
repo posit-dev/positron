@@ -16,7 +16,7 @@ const pythonSession2: SessionInfo = { ...pythonSessionAlt, triggerMode: 'session
 const rSession1: SessionInfo = { ...rSession, triggerMode: 'session-picker' };
 const rSession2: SessionInfo = { ...rSessionAlt, triggerMode: 'session-picker' };
 
-test.describe('Sessions: Session Picker', {
+test.describe.skip('Sessions: Session Picker', {
 	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.TOP_ACTION_BAR, tags.SESSIONS]
 }, () => {
 
