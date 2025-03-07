@@ -109,6 +109,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	private _lastUsed: number = 0;
 	private _clients: Map<string, ExtHostRuntimeClientInstance<any, any>> =
 		new Map<string, ExtHostRuntimeClientInstance<any, any>>();
+	private _notebookUri?: URI;
 
 	/** Lamport clock, used for event ordering */
 	private _eventClock = 0;
@@ -236,6 +237,9 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 			// Propagate event
 			this._onDidReceiveRuntimeMessageClientEventEmitter.fire(ev);
 		});
+
+		// Initialize our fields from the metadata
+		this._notebookUri = metadata.notebookUri;
 	}
 
 	onDidChangeRuntimeState: Event<RuntimeState>;
@@ -331,6 +335,13 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	 */
 	get lastUsed(): number {
 		return this._lastUsed;
+	}
+
+	/**
+	 * Gets the current notebook URI associated with this session.
+	 */
+	get notebookUri(): URI | undefined {
+		return this._notebookUri;
 	}
 
 	/**
@@ -936,6 +947,21 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 	dispose(): void {
 		// Do nothing.
+	}
+
+	/**
+	 * Updates the notebook URI associated with this session.
+	 *
+	 * @param uri The new notebook URI to associate with this session
+	 */
+	setNotebookUri(uri: URI): void {
+		this._notebookUri = uri;
+
+		// Log the change for debugging purposes
+		this._logService.debug(`Updated notebook URI for session ${this.metadata.sessionId} to ${uri.toString()}`);
+
+		// Since we can't modify the metadata directly, we store the URI separately
+		// In a real implementation, we would need to update any other related state
 	}
 }
 

@@ -27,6 +27,8 @@ import { IUpdateService } from '../../../../platform/update/common/update.js';
 import { multipleConsoleSessionsFeatureEnabled } from './positronMultipleConsoleSessionsFeatureFlag.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
+// import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
+import { IFileService, FileOperation } from '../../../../platform/files/common/files.js';
 
 /**
  * The maximum number of active sessions a user can have running at a time.
@@ -166,7 +168,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IStorageService private readonly _storageService: IStorageService,
-		@IUpdateService private readonly _updateService: IUpdateService
+		@IUpdateService private readonly _updateService: IUpdateService,
+		@IFileService private readonly _fileService: IFileService
 	) {
 
 		super();
@@ -243,6 +246,34 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}));
 
 		this.scheduleUpdateActiveLanguages(25 * 1000);
+
+		// Listen for file moves (renames) to preserve notebook sessions
+		this._register(this._fileService.onDidRunOperation(e => {
+			// Check if this is a move operation and if e.target exists
+			if (e.operation === FileOperation.MOVE &&
+				e.target &&
+				e.resource.path.toLowerCase().endsWith('.ipynb') &&
+				e.target.resource.path.toLowerCase().endsWith('.ipynb')) {
+
+				// This is a notebook file being renamed/moved
+				const oldUri = e.resource;
+				const newUri = e.target.resource;
+
+				// Get the existing session for the old URI
+				const session = this._notebookSessionsByNotebookUri.get(oldUri);
+				if (!session) {
+					return;
+				}
+
+				this._logService.info(`Preserving runtime session when renaming notebook from ${oldUri.toString()} to ${newUri.toString()}`);
+
+				// Associate the session with the new URI
+				this._notebookSessionsByNotebookUri.set(newUri, session);
+
+				// Remove the old URI association to prevent cleanup on shutdown
+				this._notebookSessionsByNotebookUri.delete(oldUri);
+			}
+		}));
 	}
 
 	//#region ILanguageRuntimeService Implementation
@@ -1984,6 +2015,60 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		});
 		this._updateService.updateActiveLanguages([...languages]);
+	}
+
+	/**
+	 * Updates the notebook session mapping when a notebook URI changes, such as when
+	 * an untitled notebook is saved or a notebook is renamed.
+	 *
+	 * @param oldUri The old notebook URI
+	 * @param newUri The new notebook URI
+	 * @returns true if a session was found and updated, false otherwise
+	 */
+	async updateNotebookSessionUri(oldUri: URI, newUri: URI): Promise<boolean> {
+		this._logService.info(`Updating notebook session mapping from ${oldUri.toString()} to ${newUri.toString()}`);
+
+		// Get the existing session for the old URI
+		const session = this._notebookSessionsByNotebookUri.get(oldUri);
+		if (!session) {
+			this._logService.info(`No session found for notebook URI ${oldUri.toString()}`);
+			return false;
+		}
+
+		// Check if there's already a session for the new URI
+		const existingSessionForNewUri = this._notebookSessionsByNotebookUri.get(newUri);
+		if (existingSessionForNewUri) {
+			this._logService.info(`Session already exists for target URI ${newUri.toString()}, shutting it down`);
+			// Shut down the existing session for the new URI
+			await this.shutdownNotebookSession(newUri, RuntimeExitReason.Shutdown,
+				`Notebook URI changed and another session already exists for the target URI`);
+		}
+
+		// Update any in-progress shutdown tracking
+		const shuttingDownPromise = this._shuttingDownNotebooksByNotebookUri.get(oldUri);
+		if (shuttingDownPromise) {
+			this._shuttingDownNotebooksByNotebookUri.delete(oldUri);
+			this._shuttingDownNotebooksByNotebookUri.set(newUri, shuttingDownPromise);
+		}
+
+		// Update any in-progress startup tracking
+		const startingMetadata = this._startingNotebooksByNotebookUri.get(oldUri);
+		if (startingMetadata) {
+			this._startingNotebooksByNotebookUri.delete(oldUri);
+			this._startingNotebooksByNotebookUri.set(newUri, startingMetadata);
+		}
+
+		// Associate the session with the new URI
+		this._notebookSessionsByNotebookUri.set(newUri, session);
+
+		// Remove the old URI association
+		this._notebookSessionsByNotebookUri.delete(oldUri);
+
+		// Update the notebook URI in the session
+		session.setNotebookUri(newUri);
+
+		this._logService.info(`Successfully updated notebook session mapping from ${oldUri.toString()} to ${newUri.toString()}`);
+		return true;
 	}
 
 }

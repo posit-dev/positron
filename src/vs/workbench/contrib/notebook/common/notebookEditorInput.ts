@@ -31,6 +31,12 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { IMarkdownString } from '../../../../base/common/htmlContent.js';
 import { ITextResourceConfigurationService } from '../../../../editor/common/services/textResourceConfiguration.js';
 import { ICustomEditorLabelService } from '../../../services/editor/common/customEditorLabelService.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { basename } from '../../../../base/common/resources.js';
+// --- End Positron ---
 
 export interface NotebookEditorInputOptions {
 	startDirty?: boolean;
@@ -71,7 +77,8 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 		@IExtensionService extensionService: IExtensionService,
 		@IEditorService editorService: IEditorService,
 		@ITextResourceConfigurationService textResourceConfigurationService: ITextResourceConfigurationService,
-		@ICustomEditorLabelService customEditorLabelService: ICustomEditorLabelService
+		@ICustomEditorLabelService customEditorLabelService: ICustomEditorLabelService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService
 	) {
 		super(resource, preferredResource, labelService, fileService, filesConfigurationService, textResourceConfigurationService, customEditorLabelService);
 		this._defaultDirtyState = !!options.startDirty;
@@ -237,6 +244,39 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 			}).join(', ');
 			throw new Error(`File name ${target} is not supported by ${provider.providerDisplayName}.\n\nPlease make sure the file name matches following patterns:\n${patterns}`);
 		}
+		// --- Start Positron ---
+		// Log when an untitled notebook has been successfully saved
+		if (this.hasCapability(EditorInputCapabilities.Untitled) && target) {
+			// Extract just the filename from the source and target URIs using the basename utility
+			const fromName = basename(this.resource);
+			const toName = basename(target);
+			console.log(`Untitled notebook "${fromName}" successfully saved as: "${toName}"`);
+
+			// --- Start Positron ---
+			// Update the runtime session URI when an untitled notebook is saved
+			this._instantiationService.invokeFunction(accessor => {
+				const runtimeSessionService = accessor.get(IRuntimeSessionService);
+				// Access the method we added to RuntimeSessionService
+				// This is a safe cast because we know the implementation has this method
+				const service = runtimeSessionService as unknown as {
+					updateNotebookSessionUri(oldUri: URI, newUri: URI): Promise<boolean>
+				};
+
+				if (service.updateNotebookSessionUri) {
+					service.updateNotebookSessionUri(this.resource, target)
+						.then((success: boolean) => {
+							if (success) {
+								console.log(`Updated runtime session from ${fromName} to ${toName}`);
+							}
+						})
+						.catch((err: Error) => {
+							console.error(`Failed to update notebook session URI: ${err}`);
+						});
+				}
+			});
+			// --- End Positron ---
+		}
+		// --- End Positron ---
 
 		return await this.editorModelReference.object.saveAs(target);
 	}

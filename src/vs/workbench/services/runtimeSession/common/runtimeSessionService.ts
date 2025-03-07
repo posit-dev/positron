@@ -164,6 +164,13 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	clientInstances: IRuntimeClientInstance<any, any>[];
 
 	/**
+	 * Updates the notebook URI associated with this session.
+	 *
+	 * @param uri The new notebook URI to associate with this session
+	 */
+	setNotebookUri(uri: URI): void;
+
+	/**
 	 * Opens a resource in the runtime.
 	 * @param resource The resource to open.
 	 * @returns true if the resource was opened; otherwise, false.

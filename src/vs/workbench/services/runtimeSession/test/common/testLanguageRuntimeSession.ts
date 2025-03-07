@@ -40,6 +40,8 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 
 	private _uiClient: TestUiClientInstance | undefined;
 
+	private _notebookUri?: URI;
+
 	onDidChangeRuntimeState = this._onDidChangeRuntimeState.event;
 	onDidCompleteStartup = this._onDidCompleteStartup.event;
 	onDidEncounterStartupFailure = this._onDidEncounterStartupFailure.event;
@@ -87,6 +89,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		super();
 
 		this.sessionId = this.metadata.sessionId;
+		this._notebookUri = this.metadata.notebookUri;
 
 		// Track the runtime state.
 		this._register(this.onDidChangeRuntimeState(state => this._currentState = state));
@@ -97,7 +100,14 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	}
 
 	get lastUsed(): number {
-		return 0;
+		return Date.now();
+	}
+
+	/**
+	 * Gets the current notebook URI associated with this session.
+	 */
+	get notebookUri(): URI | undefined {
+		return this._notebookUri;
 	}
 
 	openResource(_resource: URI | string): Promise<boolean> {
@@ -446,6 +456,18 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			reason: exit?.reason ?? RuntimeExitReason.Unknown,
 			runtime_name: this.runtimeMetadata.runtimeName,
 		});
+	}
+
+	/**
+	 * Updates the notebook URI associated with this session.
+	 *
+	 * @param uri The new notebook URI to associate with this session
+	 */
+	setNotebookUri(uri: URI): void {
+		this._notebookUri = uri;
+
+		// In a real implementation, we would need to update related state
+		// Since metadata is readonly, we're tracking the URI separately
 	}
 }
 
