@@ -455,6 +455,16 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		return Promise.resolve(client);
 	}
 
+	removeClient(id: string): void {
+		const client = this._clients.get(id);
+		if (client) {
+			this._clients.delete(id);
+			client.setClientState(RuntimeClientState.Closing);
+			this._proxy.$removeClient(this.handle, id);
+			client.setClientState(RuntimeClientState.Closed);
+		}
+	}
+
 	/** List active clients */
 	listClients(type?: RuntimeClientType): Thenable<IRuntimeClientInstance<any, any>[]> {
 		return new Promise((resolve, reject) => {

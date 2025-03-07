@@ -195,10 +195,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             name: positron.LanguageRuntimeStreamName.Stdout,
             text: vscode.l10n.t(
                 'Cannot uninstall the following packages:\n\n{0}\n\n' +
-                    'These packages are bundled with Positron, ' +
-                    "and removing them would break Positron's Python functionality.\n\n" +
-                    'If you would like to uninstall these packages from the active environment, ' +
-                    'please rerun `{1}` in a terminal.',
+                'These packages are bundled with Positron, ' +
+                "and removing them would break Positron's Python functionality.\n\n" +
+                'If you would like to uninstall these packages from the active environment, ' +
+                'please rerun `{1}` in a terminal.',
                 protectedPackagesStr,
                 code,
             ),
@@ -233,7 +233,16 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     createClient(id: string, type: positron.RuntimeClientType, params: any, metadata?: any): Thenable<void> {
         if (this._kernel) {
-            return this._kernel.createClient(id, type, params, metadata);
+            if (type === positron.RuntimeClientType.Lsp) {
+                return (async () => {
+                    const port = await this.adapterApi!.findAvailablePort([], 25);
+                    this._kernel?.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
+                    await this._kernel?.startPositronLsp(`127.0.0.1:${port}`);
+                    this._lsp?.activate(port);
+                })();
+            } else {
+                return this._kernel.createClient(id, type, params, metadata);
+            }
         } else {
             throw new Error(`Cannot create client of type '${type}'; kernel not started`);
         }
@@ -250,6 +259,12 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     removeClient(id: string): void {
         if (this._kernel) {
             this._kernel.removeClient(id);
+
+            this._kernel.listClients(positron.RuntimeClientType.Lsp).then((client) => {
+                if (client[id] === positron.RuntimeClientType.Lsp) {
+                    this._lsp?.deactivate(true);
+                }
+            });
         } else {
             throw new Error(`Cannot remove client ${id}; kernel not started`);
         }
@@ -614,15 +629,15 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this.adapterApi = ext?.exports as PositronSupervisorApi;
         const kernel = this.kernelSpec
             ? // We have a kernel spec, so we're creating a new session
-              await this.adapterApi.createSession(
-                  this.runtimeMetadata,
-                  this.metadata,
-                  this.kernelSpec,
-                  this.dynState,
-                  createJupyterKernelExtra(),
-              )
+            await this.adapterApi.createSession(
+                this.runtimeMetadata,
+                this.metadata,
+                this.kernelSpec,
+                this.dynState,
+                createJupyterKernelExtra(),
+            )
             : // We don't have a kernel spec, so we're restoring a session
-              await this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata);
+            await this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata);
 
         kernel.onDidChangeRuntimeState((state) => {
             this._stateEmitter.fire(state);
@@ -745,10 +760,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             const regex = /^(\w*Error|Exception)\b/m;
             const errortext = regex.test(logFileContent)
                 ? vscode.l10n.t(
-                      '{0} exited unexpectedly with error: {1}',
-                      kernel.runtimeMetadata.runtimeName,
-                      logFileContent,
-                  )
+                    '{0} exited unexpectedly with error: {1}',
+                    kernel.runtimeMetadata.runtimeName,
+                    logFileContent,
+                )
                 : Console.consoleExitGeneric;
 
             const res = await showErrorMessage(errortext, vscode.l10n.t('Open Logs'));
