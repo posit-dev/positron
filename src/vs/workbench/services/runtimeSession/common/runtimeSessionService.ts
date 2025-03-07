@@ -190,6 +190,8 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	 */
 	createClient<T, U>(type: RuntimeClientType, params: any, metadata?: any, id?: string): Thenable<IRuntimeClientInstance<T, U>>;
 
+	removeClient(id: string): void;
+
 	/** Get a list of all known clients */
 	listClients(type?: RuntimeClientType): Thenable<Array<IRuntimeClientInstance<any, any>>>;
 
