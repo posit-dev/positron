@@ -123,6 +123,18 @@ body.web {
 	font-size: 100%;
 }
 
+/* --- Start Positron --- */
+/*
+ * On Safari, we need to override the User Agent Style Sheet for buttons
+ * elements just like .monaco-workbench input does above for input elements.
+ */
+.monaco-workbench button {
+	color: inherit;
+	font-family: inherit;
+	font-size: 100%;
+}
+/* --- End Positron --- */
+
 .monaco-workbench table {
 	/*
 	 * Somehow this is required when tables show in floating windows

@@ -89,7 +89,7 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 				},
 				popupPosition: 'auto',
 				popupAlignment: 'auto',
-				width: 'max-content',
+				width: 'auto',
 				entries
 			});
 		}

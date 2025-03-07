@@ -19,9 +19,9 @@ import { IAccessibilityService } from '../../../../platform/accessibility/common
 import { IEditorService } from '../../editor/common/editorService.js';
 import { NotebookEditorInput } from '../../../contrib/notebook/common/notebookEditorInput.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IPositronConsoleService } from '../../positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronConsoleInstance, IPositronConsoleService } from '../../positronConsole/browser/interfaces/positronConsoleService.js';
 import { PositronNotebookEditorInput } from '../../../contrib/positronNotebook/browser/PositronNotebookEditorInput.js';
-import { IPositronConsoleInstance } from '../../positronConsole/browser/interfaces/positronConsoleService.js';
+import { multipleConsoleSessionsFeatureEnabled } from '../../runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
 
 /**
  * PositronVariablesService class.
@@ -247,7 +247,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 				this._runtimeSessionService.foregroundSession.sessionId);
 		} else {
 			// All else fails, just reset to the default
-			this._setActivePositronVariablesInstance()
+			this._setActivePositronVariablesInstance();
 		}
 	}
 
@@ -275,6 +275,8 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	private createOrAssignPositronVariablesInstance(
 		session: ILanguageRuntimeSession,
 		activate: boolean) {
+		const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
+
 		// Ignore background sessions
 		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Background) {
 			return;
@@ -286,48 +288,74 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 		);
 
 		if (positronVariablesInstance) {
-
 			const state = positronVariablesInstance.state;
-
 			if (state === RuntimeClientState.Closed || state === RuntimeClientState.Uninitialized) {
 				// The Positron variables instance has exited, so attach it to
-				// this new session instance. (This is most likely a restart of
+				// this session instance. (This is most likely a restart of
 				// the runtime session.)
 				positronVariablesInstance.setRuntimeSession(session);
-				return;
-
-			} else {
-				// The Positron variables instance is still running, so we don't
-				// need to do anything.
-				return;
 			}
+			// The Positron variables instance is still running,
+			// so we don't need to do anything else.
+			return;
 		}
 
-		// Look for an old variables instance that has the same runtime ID and
-		// notebook URI (can be empty) as the one we're starting. We recycle the
-		// old instance, if we have one, instead of creating a new one.
-		const allInstances = Array.from(this._positronVariablesInstancesBySessionId.values());
-		const existingInstance = allInstances.find(
-			positronVariablesInstance => {
-				// Check the runtime ID and notebook URI for a match.
-				return positronVariablesInstance.session.runtimeMetadata.runtimeId ===
-					session.runtimeMetadata.runtimeId &&
-					isEqual(positronVariablesInstance.session.metadata.notebookUri, session.metadata.notebookUri);
-			});
+		if (multiSessionsEnabled) {
+			// Reuse variable instances for notebook sessions ONLY instead of creating new ones
+			// by finding old instances for the same runtime ID and notebook URI.
+			if (session.metadata.notebookUri) {
+				const allInstances = Array.from(this._positronVariablesInstancesBySessionId.values());
+				const existingInstance = allInstances.find(variableInstance => {
+					// Check the runtime ID and notebook URI for a match.
+					return variableInstance.session.runtimeMetadata.runtimeId ===
+						session.runtimeMetadata.runtimeId &&
+						isEqual(variableInstance.session.metadata.notebookUri, session.metadata.notebookUri);
+				});
 
-		if (existingInstance) {
-			// Clean up the old session ID mapping
-			this._positronVariablesInstancesBySessionId.deleteAndDispose(existingInstance.session.sessionId);
+				if (existingInstance) {
+					// Clean up the old session ID mapping
+					this._positronVariablesInstancesBySessionId.deleteAndDispose(
+						existingInstance.session.sessionId
+					);
 
-			// Update the map of Positron variables instances by session ID.
-			this._positronVariablesInstancesBySessionId.set(
-				session.sessionId,
-				existingInstance
-			);
+					// Update the map of Positron variables instances by session ID.
+					this._positronVariablesInstancesBySessionId.set(
+						session.sessionId,
+						existingInstance
+					);
 
-			// Attach the new session to the existing instance.
-			existingInstance.setRuntimeSession(session);
-			return;
+					// Attach the new session to the existing instance.
+					existingInstance.setRuntimeSession(session);
+					return;
+				}
+			}
+		} else {
+			// Look for an old variables instance that has the same runtime ID and
+			// notebook URI (can be empty) as the one we're starting. We recycle the
+			// old instance, if we have one, instead of creating a new one.
+			const allInstances = Array.from(this._positronVariablesInstancesBySessionId.values());
+			const existingInstance = allInstances.find(
+				positronVariablesInstance => {
+					// Check the runtime ID and notebook URI for a match.
+					return positronVariablesInstance.session.runtimeMetadata.runtimeId ===
+						session.runtimeMetadata.runtimeId &&
+						isEqual(positronVariablesInstance.session.metadata.notebookUri, session.metadata.notebookUri);
+				});
+
+			if (existingInstance) {
+				// Clean up the old session ID mapping
+				this._positronVariablesInstancesBySessionId.deleteAndDispose(existingInstance.session.sessionId);
+
+				// Update the map of Positron variables instances by session ID.
+				this._positronVariablesInstancesBySessionId.set(
+					session.sessionId,
+					existingInstance
+				);
+
+				// Attach the new session to the existing instance.
+				existingInstance.setRuntimeSession(session);
+				return;
+			}
 		}
 
 		// If we got here, we need to start a new Positron variables instance.

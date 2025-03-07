@@ -177,7 +177,7 @@ const DropDownListBoxModalPopup = <T, V,>(props: DropDownListBoxModalPopupProps<
 	return (
 		<PositronModalPopup
 			anchorElement={props.anchorElement}
-			height={'min-content'}
+			height={'auto'}
 			keyboardNavigationStyle='menu'
 			minWidth={props.anchorElement.offsetWidth}
 			popupAlignment='left'
