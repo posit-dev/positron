@@ -336,11 +336,12 @@ export interface IPositronConsoleInstance {
 	interrupt(code: string): void;
 
 	/**
-	 * Replays an execution history entry, adding its input and output to the console.
+	 * Replays execution history entries, adding their input and output to the
+	 * console and preparing the console to reconnect to the runtime.
 	 *
 	 * @param entry The entry to replay.
 	 */
-	replayExecution(entry: IExecutionHistoryEntry<any>): void;
+	replayExecutions(entries: IExecutionHistoryEntry<any>[]): void;
 
 	/**
 	 * Gets or sets the initial working directory displayed in the console.

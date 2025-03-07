@@ -490,9 +490,8 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		const console = this.createPositronConsoleInstance(
 			session.metadata, session.runtimeMetadata, activate);
 		console.initialWorkingDirectory = session.workingDirectory;
-		this._executionHistoryService.getExecutionEntries(sessionId).forEach(entry => {
-			console.replayExecution(entry);
-		});
+		const entries = this._executionHistoryService.getExecutionEntries(sessionId);
+		console.replayExecutions(entries);
 	}
 
 	/**
@@ -1297,31 +1296,44 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
-	 * Replays an execution history entry.
+	 * Replays execution history.
 	 *
-	 * @param entry The execution history entry to replay.
+	 * @param entries The execution history entries to replay.
 	 */
-	replayExecution(entry: IExecutionHistoryEntry<any>): void {
-		this.addOrUpdateUpdateRuntimeItemActivity(
-			entry.id,
-			new ActivityItemInput(
-				ActivityItemInputState.Completed,
-				entry.id + '-input',
-				entry.id,
-				new Date(entry.when),
-				entry.prompt,
-				' '.repeat(entry.prompt.length),
-				entry.input
-			)
-		);
-		this.addOrUpdateUpdateRuntimeItemActivity(
-			entry.id,
-			new ActivityItemOutputMessage(
-				entry.id + '-output',
-				entry.id,
-				new Date(entry.when),
-				{ 'text/plain': entry.output }
-			));
+	replayExecutions(entries: IExecutionHistoryEntry<any>[]): void {
+		for (const entry of entries) {
+			// Create the activity and the first item (the input)
+			const inputActivityItem =
+				new ActivityItemInput(
+					ActivityItemInputState.Completed,
+					entry.id + '-input',
+					entry.id,
+					new Date(entry.when),
+					entry.prompt,
+					' '.repeat(entry.prompt.length),
+					entry.input
+				);
+
+			const inputItem = new RuntimeItemActivity(entry.id, inputActivityItem);
+			this._runtimeItemActivities.set(entry.id, inputItem);
+			this._runtimeItems.push(inputItem);
+
+			// Add the second item (the output)
+			const outputActivityItem =
+				new ActivityItemOutputMessage(
+					entry.id + '-output',
+					entry.id,
+					new Date(entry.when),
+					{ 'text/plain': entry.output }
+				);
+			inputItem.addActivityItem(outputActivityItem);
+		}
+
+		// Trim items.
+		this.trimItems();
+
+		// Let UI know to update.
+		this._onDidChangeRuntimeItemsEmitter.fire();
 	}
 
 	/**
