@@ -107,16 +107,17 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 	async resolveConnection(token: vscode.CancellationToken): Promise<boolean> {
 		token.onCancellationRequested(() => {
-			// Cancel the connection
 			return false;
 		});
 
 		try {
-			const { response, text, finishReason } = await ai.generateText({
+			// send a test message to the model
+			await ai.generateText({
 				model: this.model,
 				prompt: 'Hello!',
 			});
 
+			// if the model responds, the config works
 			return true;
 		} catch (error) {
 			return false;

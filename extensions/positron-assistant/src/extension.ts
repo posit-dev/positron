@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { EncryptedSecretStorage, getEnabledProviders, getModelConfigurations, GlobalSecretStorage, ModelConfig, SecretStorage, showConfigurationDialog, showModelList } from './config';
+import { EncryptedSecretStorage, getEnabledProviders, getModelConfiguration, getModelConfigurations, GlobalSecretStorage, ModelConfig, SecretStorage, showConfigurationDialog, showModelList, StoredModelConfig } from './config';
 import { newLanguageModel } from './models';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { editsProvider } from './edits';
@@ -29,7 +29,65 @@ function disposeParticipants() {
 	participantDisposables = [];
 }
 
-export async function registerModels(context: vscode.ExtensionContext, storage: SecretStorage, newConfigId?: string) {
+export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage): Promise<boolean> {
+	try {
+		const modelConfig = await getModelConfiguration(config.id, context, storage);
+
+		if (!modelConfig) {
+			vscode.window.showErrorMessage(
+				vscode.l10n.t('Positron Assistant: Failed to register model configuration. The model configuration could not be found.')
+			);
+			return false;
+		}
+
+		const enabledProviders = getEnabledProviders();
+		const enabled = enabledProviders.length === 0 || enabledProviders.includes(modelConfig.provider);
+		if (!enabled) {
+			vscode.window.showErrorMessage(
+				vscode.l10n.t('Positron Assistant: Failed to register model configuration. The provider is disabled.')
+			);
+			return false;
+		}
+
+		const languageModel = newLanguageModel(modelConfig);
+		const resolved = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
+
+		if (!resolved) {
+			vscode.window.showErrorMessage(
+				vscode.l10n.t('Positron Assistant: Failed to register model configuration. The model could not be connected.')
+			);
+			return false;
+		}
+
+		const modelDisp = vscode.lm.registerChatModelProvider(languageModel.identifier, languageModel, {
+			name: languageModel.name,
+			family: languageModel.provider,
+			vendor: context.extension.packageJSON.publisher,
+			version: context.extension.packageJSON.version,
+			maxInputTokens: 0,
+			maxOutputTokens: 0,
+			isUserSelectable: true,
+			isDefault: true,
+		});
+		modelDisposables.push(modelDisp);
+
+		const completionProvider = newCompletionProvider(modelConfig);
+		const complDisp = vscode.languages.registerInlineCompletionItemProvider({ pattern: '**/*.*' }, completionProvider);
+		modelDisposables.push(complDisp);
+
+		const hasChatModels = modelConfig.type === 'chat';
+		vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
+
+		return true;
+	} catch (e) {
+		vscode.window.showErrorMessage(
+			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', [e])
+		);
+		return false;
+	}
+}
+
+export async function registerModels(context: vscode.ExtensionContext, storage: SecretStorage) {
 	// Dispose of existing models
 	disposeModels();
 
@@ -63,16 +121,6 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 				const isFirst = idx === 0;
 
 				const languageModel = newLanguageModel(config);
-
-				// If a new model was added, select it and send a test request
-				if (newConfigId === config.id) {
-					console.log('Sending test request for new model: ', languageModel.name);
-					const resolved = languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
-					resolved.then((connectionResolved) => {
-						console.log('Resolved connection: ', connectionResolved, languageModel.name);
-					});
-				}
-
 				const modelDisp = vscode.lm.registerChatModelProvider(languageModel.identifier, languageModel, {
 					name: languageModel.name,
 					family: languageModel.provider,
