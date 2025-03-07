@@ -541,20 +541,20 @@ export class Sessions {
 			await this.page.keyboard.press('Escape');
 
 			// Verify Language Console
+			const escapedSessionName = new RegExp(session.name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
 			await this.selectMetadataOption('Show Console Output Channel');
-			await expect(this.outputChannel).toHaveValue(new RegExp(session.name));
+			await expect(this.outputChannel).toHaveValue(escapedSessionName);
 			await expect(this.outputChannel).toHaveValue(/Console$/);
 
 			// Verify Output Channel
 			await this.selectMetadataOption('Show Kernel Output Channel');
-			await expect(this.outputChannel).toHaveValue(new RegExp(session.name));
+			await expect(this.outputChannel).toHaveValue(escapedSessionName);
 			await expect(this.outputChannel).toHaveValue(/Kernel$/);
 
 			// Verify LSP Output Channel
 			await this.selectMetadataOption('Show LSP Output Channel');
-			await expect(this.outputChannel).toHaveValue(new RegExp(session.name));
+			await expect(this.outputChannel).toHaveValue(escapedSessionName);
 			await expect(this.outputChannel).toHaveValue(/Language Server \(Console\)$/);
-
 
 			// Go back to console when done
 			await this.console.clickConsoleTab();
