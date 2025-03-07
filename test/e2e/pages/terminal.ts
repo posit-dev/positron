@@ -8,7 +8,7 @@ import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { Clipboard } from './clipboard';
 
-const TERMINAL_WRAPPER = '#terminal .terminal-wrapper';
+const TERMINAL_WRAPPER = '#terminal .terminal-wrapper.active';
 
 export class Terminal {
 	terminalTab: Locator;
@@ -43,24 +43,52 @@ export class Terminal {
 		} else {
 			await expect(async () => {
 
+				// since we are interacting with right click menus, don't poll too fast
+				await this.code.wait(2000);
+
 				if (process.platform !== 'darwin') {
 					await this.code.driver.page.locator(TERMINAL_WRAPPER).click({ button: 'right' });
 					const menu = this.code.driver.page.locator('.monaco-menu');
-					await menu.locator('[aria-label="Select All"]').click();
+
+					// dismissing dialog can be erratic, allow retries
+					for (let i = 0; i < 4; i++) {
+						try {
+							await menu.locator('[aria-label="Select All"]').click();
+							await expect(menu).toBeHidden({ timeout: 2000 });
+							break;
+						} catch {
+						}
+					}
 				} else {
 					await this.code.driver.page.locator(TERMINAL_WRAPPER).click();
 					await this.code.driver.page.keyboard.press('Meta+A');
 				}
 
+				// wait a little between selection and copy
+				await this.code.wait(1000);
+
 				if (process.platform !== 'darwin') {
-					await this.code.driver.page.keyboard.press('Control+Shift+C');
+					await this.code.driver.page.locator(TERMINAL_WRAPPER).click({ button: 'right' });
+					const menu = this.code.driver.page.locator('.monaco-menu');
+
+					// dismissing dialog can be erratic, allow retries
+					for (let i = 0; i < 4; i++) {
+						try {
+							await menu.locator('[aria-label="Copy"]').click();
+							await expect(menu).toBeHidden({ timeout: 2000 });
+							break;
+						} catch {
+						}
+					}
 				} else {
 					await this.code.driver.page.keyboard.press('Meta+C');
 				}
 
 				const text = await this.clipboard.getClipboardText();
 
+				// clean up regex text
 				const safeTerminalText = terminalText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+				// allow case insensitive matches
 				const matches = text!.match(new RegExp(safeTerminalText, 'gi'));
 
 				expect(matches?.length).toBe(expectedCount);
