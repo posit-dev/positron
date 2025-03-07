@@ -105,6 +105,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 
 	const showKernelOutputChannelClickHandler = (channel: LanguageRuntimeSessionChannel) => {
 		props.session.showOutput(channel);
+		props.renderer.dispose();
 	}
 
 	// Render.
@@ -112,7 +113,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 		<PositronModalPopup
 			anchorElement={props.anchorElement}
 			fixedHeight={true}
-			height='min-content'
+			height='auto'
 			keyboardNavigationStyle='menu'
 			popupAlignment='auto'
 			popupPosition='auto'
