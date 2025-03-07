@@ -51,7 +51,7 @@ class CreateEnvironmentProviders {
     public add(provider: CreateEnvironmentProvider) {
         // --- Start Positron ---
         if (!isEnvProviderEnabled(provider.id)) {
-            traceLog(`${provider.id} is not enabled -- not registering ${provider.name} provider`);
+            traceLog(`${provider.name} environment provider ${provider.id} is not enabled...skipping registration`);
             return;
         }
         // --- End Positron ---
