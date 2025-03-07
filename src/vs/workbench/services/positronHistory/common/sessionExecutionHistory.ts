@@ -7,7 +7,7 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IExecutionHistoryEntry } from './executionHistoryService.js';
-import { ILanguageRuntimeMessageOutput, RuntimeOnlineState } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, RuntimeOnlineState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
 
 /**
@@ -100,28 +100,16 @@ export class SessionExecutionHistory extends Disposable {
 		const handleDidReceiveRuntimeMessageOutput = (message: ILanguageRuntimeMessageOutput) => {
 			// Get the output.
 			const output = message.data['text/plain'];
+			if (output) {
+				this.recordOutput(message, output);
+			}
+		};
 
-			// Get the pending execution and set its output.
-			const pending = this._pendingExecutions.get(message.parent_id);
-			if (pending) {
-				// Append the output.
-				if (output) {
-					pending.output += output;
-				}
-			} else {
-				// This is the first time we've seen this execution; create
-				// a new entry.
-				const entry: IExecutionHistoryEntry<string> = {
-					id: message.parent_id,
-					when: Date.parse(message.when),
-					input: '',
-					outputType: 'text/plain',
-					output: output || '',
-					durationMs: 0
-				};
-
-				// Add the entry to the pending executions map
-				this._pendingExecutions.set(message.parent_id, entry);
+		const handleDidReceiveRuntimeMessageStream = (message: ILanguageRuntimeMessageStream) => {
+			// Get the output.
+			const output = message.text;
+			if (output) {
+				this.recordOutput(message, output);
 			}
 		};
 
@@ -129,6 +117,8 @@ export class SessionExecutionHistory extends Disposable {
 			session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
 		this._sessionDisposables.add(
 			session.onDidReceiveRuntimeMessageResult(handleDidReceiveRuntimeMessageOutput));
+		this._sessionDisposables.add(
+			session.onDidReceiveRuntimeMessageStream(handleDidReceiveRuntimeMessageStream));
 
 		// When we receive a message indicating that an execution has completed,
 		// we'll move it from the pending executions map to the history entries.
@@ -149,6 +139,27 @@ export class SessionExecutionHistory extends Disposable {
 				}
 			}
 		}));
+	}
+
+	private recordOutput(message: ILanguageRuntimeMessage, output: string) {
+		// Get the pending execution and set its output.
+		const pending = this._pendingExecutions.get(message.parent_id);
+		if (pending) {
+			pending.output += output;
+		} else {
+			// This is the first time we've seen this execution; create
+			// a new entry.
+			const entry: IExecutionHistoryEntry<string> = {
+				id: message.parent_id,
+				when: Date.parse(message.when),
+				input: '',
+				outputType: 'text/plain',
+				output,
+				durationMs: 0
+			};
+			// Add the entry to the pending executions map
+			this._pendingExecutions.set(message.parent_id, entry);
+		}
 	}
 
 	public override dispose() {
