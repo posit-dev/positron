@@ -111,7 +111,13 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 			role='tablist'
 			style={{ height: props.height, width: props.width }}
 		>
-			{consoleInstances.map((positronConsoleInstance) => <ConsoleTab key={positronConsoleInstance.session.sessionId} positronConsoleInstance={positronConsoleInstance} onClick={() => handleTabClick(positronConsoleInstance.session.sessionId)} />)}
+			{consoleInstances.map((positronConsoleInstance) =>
+				<ConsoleTab
+					key={positronConsoleInstance.session.sessionId}
+					positronConsoleInstance={positronConsoleInstance}
+					onClick={() => handleTabClick(positronConsoleInstance.session.sessionId)}
+				/>
+			)}
 		</div>
 	)
 }

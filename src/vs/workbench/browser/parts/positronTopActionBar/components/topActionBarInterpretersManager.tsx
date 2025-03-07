@@ -158,6 +158,15 @@ export const TopActionBarInterpretersManager_New = (props: TopActionBarInterpret
 
 	const labelText = activeSession?.runtimeMetadata?.runtimeName ?? startSession;
 
+	// Check if there are any active console sessions to determine
+	// if the active session picker or the create session pikcer
+	// should be shown.
+	const hasActiveConsoleSessions = context.runtimeSessionService.activeSessions.find(
+		session => session.metadata.sessionMode === LanguageRuntimeSessionMode.Console);
+	const command = hasActiveConsoleSessions
+		? 'workbench.action.language.runtime.openActivePicker'
+		: 'workbench.action.language.runtime.openStartPicker';
+
 	// Main useEffect.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -181,9 +190,9 @@ export const TopActionBarInterpretersManager_New = (props: TopActionBarInterpret
 
 	return (
 		<ActionBarCommandButton
-			ariaLabel={CommandCenter.title('workbench.action.language.runtime.openActivePicker')}
+			ariaLabel={CommandCenter.title(command)}
 			border={true}
-			commandId={'workbench.action.language.runtime.openActivePicker'}
+			commandId={command}
 			text={labelText}
 			{
 			...(
