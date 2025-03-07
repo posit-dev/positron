@@ -543,9 +543,15 @@
                     "markdownDescription": "%python.environmentProviders.enable.markdownDescription%",
                     "scope": "machine",
                     "type": "object",
-                    "additionalProperties": {
-                        "type": "boolean"
-                    }
+                    "properties": {
+                        "Venv": {
+                            "type": "boolean"
+                        },
+                        "Conda": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "python.defaultInterpreterPath": {
                     "default": "python",
