@@ -1301,10 +1301,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				session.getRuntimeState() !== RuntimeState.Exited
 			)
 			.map(session => {
+				const activeSession =
+					this._runtimeSessionService.getActiveSession(session.metadata.sessionId);
 				const metadata: SerializedSessionMetadata = {
 					metadata: session.metadata,
 					sessionState: session.getRuntimeState(),
 					runtimeMetadata: session.runtimeMetadata,
+					workingDirectory: activeSession?.workingDirectory || '',
 					lastUsed: session.lastUsed,
 				};
 				return metadata;

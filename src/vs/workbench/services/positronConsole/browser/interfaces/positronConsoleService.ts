@@ -343,6 +343,13 @@ export interface IPositronConsoleInstance {
 	replayExecution(entry: IExecutionHistoryEntry<any>): void;
 
 	/**
+	 * Gets or sets the initial working directory displayed in the console.
+	 *
+	 * This does not actually change the working directory of the runtime session.
+	 */
+	initialWorkingDirectory: string;
+
+	/**
 	 * Enqueues code to be executed.
 	 * @param code The code to enqueue.
 	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`

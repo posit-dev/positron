@@ -36,6 +36,9 @@ export interface SerializedSessionMetadata {
 
 	/// The metadata of the runtime associated with the session.
 	runtimeMetadata: ILanguageRuntimeMetadata;
+
+	/// The working directory of the runtime session, at the time it was serialized.
+	workingDirectory: string;
 }
 
 /**

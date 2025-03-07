@@ -249,6 +249,10 @@ export const ActionBar = (props: ActionBarProps) => {
 			const session = activePositronConsoleInstance.attachedRuntimeSession;
 			if (session) {
 				attachRuntime(session);
+			} else {
+				// If no session yet, we can at least show the directory label
+				// while it reconnects
+				setDirectoryLabel(activePositronConsoleInstance.initialWorkingDirectory);
 			}
 
 			// Register for runtime changes.

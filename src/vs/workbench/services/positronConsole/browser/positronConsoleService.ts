@@ -489,6 +489,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		const sessionId = session.metadata.sessionId;
 		const console = this.createPositronConsoleInstance(
 			session.metadata, session.runtimeMetadata, activate);
+		console.initialWorkingDirectory = session.workingDirectory;
 		this._executionHistoryService.getExecutionEntries(sessionId).forEach(entry => {
 			console.replayExecution(entry);
 		});
@@ -867,6 +868,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * An observable value representing the current console width in characters
 	 */
 	private readonly _widthInChars: ISettableObservable<number>;
+
+	/**
+	 * The initial working directory.
+	 */
+	private _initialWorkingDirectory: string = '';
 
 	//#endregion Private Properties
 
@@ -1395,6 +1401,15 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}
 		// Attach the new runtime.
 		this.attachRuntime(session, attachMode);
+	}
+
+
+	set initialWorkingDirectory(workingDirectory: string) {
+		this._initialWorkingDirectory = workingDirectory;
+	}
+
+	get initialWorkingDirectory(): string {
+		return this._initialWorkingDirectory;
 	}
 
 	/**
