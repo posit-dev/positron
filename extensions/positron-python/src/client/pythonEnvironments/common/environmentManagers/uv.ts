@@ -6,8 +6,10 @@
 import * as path from 'path';
 import { cache } from '../../../common/utils/decorators';
 import { traceVerbose } from '../../../logging';
-import { exec, resolveSymbolicLink } from '../externalDependencies';
+import { exec, pathExists, readFile, resolveSymbolicLink } from '../externalDependencies';
 import { isTestExecution } from '../../../common/constants';
+import { getPyvenvConfigPathsFrom } from './simplevirtualenvs';
+import { splitLines } from '../../../common/stringUtils';
 
 /** Wraps the "uv" utility, and exposes its functionality. */
 class UvUtils {
@@ -81,8 +83,30 @@ export async function isUvEnvironment(interpreterPath: string): Promise<boolean>
             return true;
         }
     } catch (ex) {
-        // If we can't resolve the symlink, fall back to false
         traceVerbose(ex);
+    }
+
+    // Check if there's a pyvenv.cfg file with a uv key
+    const configPaths = getPyvenvConfigPathsFrom(interpreterPath);
+    for (const configPath of configPaths) {
+        if (await pathExists(configPath)) {
+            try {
+                const content = await readFile(configPath);
+                const lines = splitLines(content);
+
+                for (const line of lines) {
+                    const parts = line.split('=');
+                    if (parts.length === 2) {
+                        const key = parts[0].toLowerCase().trim();
+                        if (key === 'uv') {
+                            return true;
+                        }
+                    }
+                }
+            } catch (ex) {
+                traceVerbose(`Error reading pyvenv.cfg: ${ex}`);
+            }
+        }
     }
 
     return false;
