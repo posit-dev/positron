@@ -218,7 +218,7 @@ export function printInterpreterDebugInfo(interpreters: PythonEnvironment[]): vo
  *          otherwise returns an empty string
  */
 export function getUserDefaultInterpreter(scope?: Resource): InspectInterpreterSettingType {
-    const configuration = vscode.workspace.getConfiguration('python', scope);
+    const configuration = getConfiguration('python', scope);
     const defaultInterpreterPath: InspectInterpreterSettingType =
         configuration?.inspect<string>('defaultInterpreterPath') ?? {};
 
