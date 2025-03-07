@@ -42,14 +42,16 @@ export const ConsoleInstanceInfoButton = () => {
 	const ref = useRef<HTMLButtonElement>(undefined!);
 
 	const handlePressed = async () => {
-		if (!positronConsoleContext.activePositronConsoleInstance) {
+		if (!positronConsoleContext.activePositronConsoleInstance ||
+			!positronConsoleContext.activePositronConsoleInstance.attachedRuntimeSession) {
 			return;
 		}
 
 		// Get the channels from the session.
-		const channels = intersectionOutputChannels(
-			await positronConsoleContext.activePositronConsoleInstance.session.listOutputChannels()
-		);
+		const session = positronConsoleContext.activePositronConsoleInstance.attachedRuntimeSession;
+		const channels = session ?
+			intersectionOutputChannels(await session.listOutputChannels()) :
+			[];
 
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
@@ -64,7 +66,7 @@ export const ConsoleInstanceInfoButton = () => {
 				anchorElement={ref.current}
 				channels={channels}
 				renderer={renderer}
-				session={positronConsoleContext.activePositronConsoleInstance.session}
+				session={positronConsoleContext.activePositronConsoleInstance.attachedRuntimeSession}
 			/>
 		);
 	}

@@ -1296,8 +1296,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				entry.id + '-input',
 				entry.id,
 				new Date(entry.when),
-				'', // TODO: These need to be filled in. We probably need to serialize the prompt.
-				'',
+				entry.prompt,
+				' '.repeat(entry.prompt.length),
 				entry.input
 			)
 		);

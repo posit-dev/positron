@@ -21,6 +21,9 @@ export interface IExecutionHistoryEntry<T> {
 	/** Time that the execution occurred, in milliseconds since the Epoch */
 	when: number;
 
+	/** The input prompt at the time the code was executed. */
+	prompt: string;
+
 	/** The code that was executed, as a multi-line string */
 	input: string;
 

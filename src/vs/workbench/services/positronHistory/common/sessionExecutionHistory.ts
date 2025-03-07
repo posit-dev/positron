@@ -86,6 +86,7 @@ export class SessionExecutionHistory extends Disposable {
 				const entry: IExecutionHistoryEntry<string> = {
 					id: message.parent_id,
 					when: Date.parse(message.when),
+					prompt: session.dynState.inputPrompt,
 					input: message.code,
 					outputType: 'text/plain',
 					output: '',
@@ -152,6 +153,7 @@ export class SessionExecutionHistory extends Disposable {
 			const entry: IExecutionHistoryEntry<string> = {
 				id: message.parent_id,
 				when: Date.parse(message.when),
+				prompt: '',
 				input: '',
 				outputType: 'text/plain',
 				output,
