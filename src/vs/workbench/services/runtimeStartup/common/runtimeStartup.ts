@@ -421,7 +421,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Get the set of sessions that were active when the workspace was last open.
 		let storedSessions: Array<SerializedSessionMetadata> = new Array();
 		try {
-			const sessions = await this._ephemeralStateService.getItem<Array<SerializedSessionMetadata>>(this.getEphemeralWorkspaceSessionsKey());
+			const sessions =
+				await this._ephemeralStateService.getItem<Array<SerializedSessionMetadata>>(
+					this.getEphemeralWorkspaceSessionsKey());
 			if (sessions) {
 				storedSessions = sessions;
 			}
@@ -458,8 +460,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._logService.error(`Could not restore workspace sessions: ${err?.stack ?? err} ` +
 				`(data: ${JSON.stringify(storedSessions)})`);
 		}
+
+		// Sort the sessions by last used time, descending, so that the most recently used
+		// sessions are at the top.
+		this._restoredSessions.sort((a, b) => b.lastUsed - a.lastUsed);
 	}
 
+	/**
+	 * Gets sessions that should be restored in the workspace.
+	 *
+	 * @returns A list of sessions that should be restored.
+	 */
 	public async getRestoredSessions(): Promise<SerializedSessionMetadata[]> {
 		await this._foundRestoredSessions.wait();
 		return this._restoredSessions;

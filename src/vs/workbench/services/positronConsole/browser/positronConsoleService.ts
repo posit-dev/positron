@@ -207,9 +207,15 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		// Start a Positron console instance for each session that will be restored.
 		this._runtimeStartupService.getRestoredSessions().then(restoredSessions => {
+			let first = true;
+			const hasActiveSession = !!this.activePositronConsoleInstance;
 			restoredSessions.forEach(session => {
+				// Activate the first restored console session, if no session
+				// is active.
+				const activate = first && !hasActiveSession;
 				if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-					this.restorePositronConsole(session);
+					first = false;
+					this.restorePositronConsole(session, activate);
 				}
 			});
 		});
@@ -477,11 +483,12 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * Restores a Positron console instance.
 	 *
 	 * @param session The session to restore.
+	 * @param activate Whether to activate the console instance immediately.
 	 */
-	private restorePositronConsole(session: SerializedSessionMetadata) {
+	private restorePositronConsole(session: SerializedSessionMetadata, activate: boolean) {
 		const sessionId = session.metadata.sessionId;
 		const console = this.createPositronConsoleInstance(
-			session.metadata, session.runtimeMetadata, false);
+			session.metadata, session.runtimeMetadata, activate);
 		this._executionHistoryService.getExecutionEntries(sessionId).forEach(entry => {
 			console.replayExecution(entry);
 		});
