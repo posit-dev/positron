@@ -32,6 +32,11 @@ export interface RMetadataExtra {
 	readonly current: boolean;
 
 	/**
+	 * Is this specified as the default R interpreter in user settings?
+	 */
+	readonly default: boolean;
+
+	/**
 	 * How did we discover this R binary?
 	 */
 	readonly reasonDiscovered: ReasonDiscovered[] | null;
@@ -123,6 +128,7 @@ export class RInstallation {
 	public readonly arch: string = '';
 	public readonly current: boolean = false;
 	public readonly orthogonal: boolean = false;
+	public readonly default: boolean = false;
 
 	/**
 	 * Represents an installation of R on the user's system.
@@ -142,6 +148,12 @@ export class RInstallation {
 		this.binpath = pth;
 		this.current = current;
 		this.reasonDiscovered = reasonDiscovered;
+
+		// Check if the installation is the default R interpreter
+		const defaultInterpreterPath = getDefaultInterpreterPath();
+		this.default = defaultInterpreterPath
+			? arePathsSame(pth, defaultInterpreterPath)
+			: false;
 
 		const rHomePath = getRHomePath(pth);
 		if (!rHomePath) {

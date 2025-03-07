@@ -12,10 +12,10 @@ import * as which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
 
-import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason } from './r-installation';
+import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, getDefaultInterpreterPath } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
-import { untildify } from './path-utils';
+import { arePathsSame, untildify } from './path-utils';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -234,6 +234,7 @@ export async function makeMetadata(
 		binpath: rInst.binpath,
 		scriptpath: scriptPath,
 		current: rInst.current,
+		default: rInst.default,
 		reasonDiscovered: rInst.reasonDiscovered,
 	};
 
