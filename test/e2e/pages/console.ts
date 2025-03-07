@@ -27,9 +27,11 @@ export class Console {
 	barPowerButton: Locator;
 	barRestartButton: Locator;
 	barClearButton: Locator;
+	barTrashButton: Locator;
 	consoleRestartButton: Locator;
 	activeConsole: Locator;
 	suggestionList: Locator;
+	private consoleTab: Locator;
 
 	get emptyConsole() {
 		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
@@ -39,9 +41,11 @@ export class Console {
 		this.barPowerButton = this.code.driver.page.getByLabel('Shutdown console');
 		this.barRestartButton = this.code.driver.page.getByLabel('Restart console');
 		this.barClearButton = this.code.driver.page.getByLabel('Clear console');
+		this.barTrashButton = this.code.driver.page.getByTestId('trash-session');
 		this.consoleRestartButton = this.code.driver.page.locator(CONSOLE_RESTART_BUTTON);
 		this.activeConsole = this.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE);
 		this.suggestionList = this.code.driver.page.locator(SUGGESTION_LIST);
+		this.consoleTab = this.code.driver.page.getByRole('tab', { name: 'Console', exact: true });
 	}
 
 	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string, waitForReady: boolean = true): Promise<undefined> {
@@ -209,11 +213,36 @@ export class Console {
 	): Promise<string[]> {
 		const { timeout = 15000, expectedCount = 1 } = options;
 
+		if (expectedCount === 0) {
+			const startTime = Date.now();
+			while (Date.now() - startTime < timeout) {
+				const errorMessage = `Expected text "${consoleText}" to not appear, but it did.`;
+				try {
+					const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText);
+					const count = await matchingLines.count();
+
+					if (count > 0) {
+						// Don't catch this error! It should fail the test.
+						throw new Error(errorMessage);
+					}
+				} catch (error) {
+					if (error instanceof Error && error.message.includes(errorMessage)) {
+						throw error;
+					}
+				}
+
+				await new Promise(resolve => setTimeout(resolve, 1000));
+			}
+			return [];
+		}
+
+		// Normal case: waiting for `expectedCount` occurrences
 		const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText);
 
 		await expect(matchingLines).toHaveCount(expectedCount, { timeout });
 		return expectedCount ? matchingLines.allTextContents() : [];
 	}
+
 
 	async waitForCurrentConsoleLineContents(expectedText: string, timeout = 30000): Promise<string> {
 		const locator = this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} .view-line`);
@@ -273,13 +302,16 @@ export class Console {
 	}
 
 	async clickConsoleTab() {
-		// sometimes the click doesn't seem to work, so adding a retry
+		// sometimes the click doesn't work (or happens too fast), so adding a retry
 		await expect(async () => {
-			await this.code.driver.page.locator('.basepanel').getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
-			// Move mouse to prevent tooltip hover
-			await this.code.driver.page.mouse.move(0, 0);
-			await expect(this.code.driver.page.getByRole('tab', { name: 'Console', exact: true })).toHaveClass(/.*checked.*/);
-		}).toPass();
+			const consoleInput = this.code.driver.page.locator('div.console-input').first();
+
+			if (!await consoleInput.isVisible()) {
+				await this.consoleTab.click();
+			}
+
+			expect(await consoleInput.count()).toBeGreaterThan(0);
+		}).toPass({ timeout: 10000 });
 	}
 
 	async interruptExecution() {

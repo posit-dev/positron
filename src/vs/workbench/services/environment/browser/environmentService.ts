@@ -257,8 +257,36 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 	@memoize
 	get enableSmokeTestDriver() { return this.options.developmentOptions?.enableSmokeTestDriver; }
 
+	// --- Start Positron ---
+	/**
+	 * Whether all extensions (or a specific set of extensions) are disabled.
+	 *
+	 * This option is currently used in web mode to disable the
+	 * `vscode.vscode-api-tests` extension in server dev mode. This extension
+	 * is required to pass integration tests, but can conflict with Positron
+	 * built-in extensions.
+	 *
+	 * @returns `true` if all extensions are disabled, `false` if all
+	 * extensions are enabled, or an array of extension IDs that are disabled.
+	 */
+	get disableExtensions(): boolean | string[] {
+		// if we have a payload, we prefer that (aligns with existing behavior)
+		if (this.payload) {
+			return this.payload.get('disableExtensions') === 'true';
+		}
+		// If this is an array of strings, return a copy of the array
+		if (Array.isArray(this.options.disableExtension)) {
+			return this.options.disableExtension.slice();
+		}
+		// Otherwise, coerce the value to boolean
+		return !!this.options.disableExtension;
+	}
+
+	/*
 	@memoize
 	get disableExtensions() { return this.payload?.get('disableExtensions') === 'true'; }
+	*/
+	// --- End Positron ---
 
 	@memoize
 	get enableExtensions() { return this.options.enabledExtensions; }

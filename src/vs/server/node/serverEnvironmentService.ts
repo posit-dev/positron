@@ -71,6 +71,11 @@ export const serverOptions: OptionDescriptions<Required<ServerParsedArgs>> = {
 	'list-extensions': OPTIONS['list-extensions'],
 	'locate-extension': OPTIONS['locate-extension'],
 
+	// --- Start Positron ---
+	// Allow disabling extensions in server mode.
+	'disable-extension': OPTIONS['disable-extension'],
+	// --- End Positron ---
+
 	'show-versions': OPTIONS['show-versions'],
 	'category': OPTIONS['category'],
 	'force': OPTIONS['force'],
@@ -219,6 +224,11 @@ export interface ServerParsedArgs {
 
 
 	'start-server'?: boolean;
+
+	// --- Start Positron ---
+	// Allow disabling extensions in server mode
+	'disable-extension'?: string[];
+	// --- End Positron ---
 
 	/* ----- remote development options ----- */
 

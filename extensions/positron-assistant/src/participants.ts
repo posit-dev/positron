@@ -16,8 +16,12 @@ import { defaultHandler } from './commands/default';
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
 class PositronAssistantParticipant implements positron.ai.ChatParticipant {
+	readonly _context: vscode.ExtensionContext;
+	constructor(context: vscode.ExtensionContext) {
+		this._context = context;
+	}
 	readonly id = 'positron.positron-assistant';
-	readonly iconPath = new vscode.ThemeIcon('positron-posit-logo');
+	readonly iconPath = new vscode.ThemeIcon('positron-assistant');
 	readonly agentData: positron.ai.ChatAgentData = {
 		id: this.id,
 		name: 'positron-assistant',
@@ -76,13 +80,13 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 	};
 
 	readonly welcomeMessageProvider = {
-		async provideWelcomeMessage(token: vscode.CancellationToken) {
+		provideWelcomeMessage: async (token: vscode.CancellationToken) => {
 			let welcomeText = await fs.promises.readFile(`${mdDir}/welcome.md`, 'utf8');
 
 			const addLanguageModelMessage = vscode.l10n.t('Add a Language Model.');
 
 			// Show an extra configuration link if there are no configured models yet
-			if (getStoredModels().length === 0) {
+			if (getStoredModels(this._context).length === 0) {
 				const commandUri = vscode.Uri.parse('command:positron.assistant.addModelConfiguration');
 				welcomeText += `\n\n[${addLanguageModelMessage}](${commandUri})`;
 			}
@@ -91,7 +95,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 			message.isTrusted = true;
 
 			return {
-				icon: new vscode.ThemeIcon('positron-posit-logo'),
+				icon: new vscode.ThemeIcon('positron-assistant'),
 				title: 'Positron Assistant',
 				message,
 			};
@@ -111,7 +115,9 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 	dispose(): void { }
 }
 
-const participants: Record<string, positron.ai.ChatParticipant> = {
-	'positron-assistant': new PositronAssistantParticipant(),
-};
-export default participants;
+export function createParticipants(context: vscode.ExtensionContext): Record<string, positron.ai.ChatParticipant> {
+	return {
+		'positron-assistant': new PositronAssistantParticipant(context),
+	};
+}
+

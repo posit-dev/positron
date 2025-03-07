@@ -115,6 +115,11 @@ export interface IPositronHelpService {
 	 * Navigates forward.
 	 */
 	navigateForward(): void;
+
+	/**
+	 * Show the find widget.
+	 */
+	find(): void;
 }
 
 /**
@@ -382,6 +387,13 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		if (this._helpEntryIndex < this._helpEntries.length - 1) {
 			this._onDidChangeCurrentHelpEntryEmitter.fire(this._helpEntries[++this._helpEntryIndex]);
 		}
+	}
+
+	/**
+	 * Show the find widget.
+	 */
+	find() {
+		this.currentHelpEntry.showFind();
 	}
 
 	//#endregion IPositronHelpService

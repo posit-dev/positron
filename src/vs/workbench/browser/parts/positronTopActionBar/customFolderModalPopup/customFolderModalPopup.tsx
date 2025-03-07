@@ -47,13 +47,13 @@ export const CustomFolderModalPopup = (props: CustomFolderModalPopupProps) => {
 	return (
 		<PositronModalPopup
 			anchorElement={props.anchorElement}
-			height={'min-content'}
+			height={'auto'}
 			keyboardNavigationStyle='menu'
 			minWidth={275}
 			popupAlignment='right'
 			popupPosition='bottom'
 			renderer={props.renderer}
-			width={'max-content'}
+			width={'auto'}
 		>
 			<CustomFolderMenuItems
 				commandService={props.commandService}

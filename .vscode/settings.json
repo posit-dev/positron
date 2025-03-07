@@ -168,11 +168,9 @@
 		"editor.wordWrap": "on"
 	},
 	"css.format.spaceAroundSelectorSeparator": true,
-	"editor.rulers": [
-		100
-	],
 	"typescript.enablePromptUseWorkspaceTsdk": true,
 	"eslint.useFlatConfig": true,
 	"editor.occurrencesHighlightDelay": 0,
 	"typescript.experimental.expandableHover": true,
+	"typescript.preferences.importModuleSpecifierEnding": "js",
 }

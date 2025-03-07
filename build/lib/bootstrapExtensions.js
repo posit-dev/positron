@@ -63,16 +63,21 @@ function log(...messages) {
     }
 }
 function getExtensionPath(extension) {
-    return path.join(root, '.build', 'bootstrapExtensions', extension.name);
+    return path.join(root, '.build', 'bootstrapExtensions', `${extension.name}-${extension.version}.vsix`);
 }
 function isUpToDate(extension) {
-    const packagePath = path.join(getExtensionPath(extension), 'package.json');
-    if (!fs.existsSync(packagePath)) {
+    const regex = new RegExp(`^${extension.name}-(\\d+\\.\\d+\\.\\d+)\\.vsix$`);
+    if (!fs.existsSync(path.join(root, '.build', 'bootstrapExtensions'))) {
         return false;
     }
-    const packageContents = fs.readFileSync(packagePath, { encoding: 'utf8' });
+    const files = fs.readdirSync(path.join(root, '.build', 'bootstrapExtensions'));
+    const vsixPath = files.find(f => regex.test(f));
+    if (!vsixPath) {
+        return false;
+    }
     try {
-        const diskVersion = JSON.parse(packageContents).version;
+        const match = vsixPath.match(regex);
+        const diskVersion = match ? match[1] : null;
         return (diskVersion === extension.version);
     }
     catch (err) {
@@ -140,9 +145,9 @@ function readControlFile() {
         return {};
     }
 }
-function writeControlFile(control, filePath) {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, JSON.stringify(control, null, 2));
+function writeControlFile(control) {
+    fs.mkdirSync(path.dirname(controlFilePath), { recursive: true });
+    fs.writeFileSync(controlFilePath, JSON.stringify(control, null, 2));
 }
 function getBootstrapExtensions() {
     const control = readControlFile();
@@ -150,16 +155,9 @@ function getBootstrapExtensions() {
     for (const extension of [...bootstrapExtensions]) {
         const controlState = control[extension.name] || 'marketplace';
         control[extension.name] = controlState;
-        // Discard extensions intended for the web. The 'type' field isn't a
-        // formal part of the extension definition but a custom field we use to
-        // filter out web-only extensions (i.e. Posit Workbench)
-        // @ts-ignore
-        if (extension.type === 'reh-web') {
-            continue;
-        }
         streams.push(syncExtension(extension, controlState));
     }
-    writeControlFile(control, controlFilePath);
+    writeControlFile(control);
     return new Promise((resolve, reject) => {
         es.merge(streams)
             .on('error', reject)

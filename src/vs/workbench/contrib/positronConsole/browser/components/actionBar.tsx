@@ -7,7 +7,7 @@
 import './actionBar.css';
 
 // React.
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -20,13 +20,14 @@ import { ActionBarRegion } from '../../../../../platform/positronActionBar/brows
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
-import { PositronActionBarContextProvider, usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, RuntimeStartMode } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ConsoleInstanceMenuButton } from './consoleInstanceMenuButton.js';
 import { multipleConsoleSessionsFeatureEnabled } from '../../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
 import { ConsoleInstanceInfoButton } from './consoleInstanceInfoButton.js';
+import { CurrentWorkingDirectory } from './currentWorkingDirectory.js';
 
 /**
  * Constants.
@@ -39,6 +40,7 @@ const kPaddingRight = 8;
  */
 interface ActionBarProps {
 	readonly reactComponentContainer: IReactComponentContainer;
+	readonly showDeleteButton?: boolean;
 }
 
 /**
@@ -60,7 +62,7 @@ const positronClearConsole = localize('positronClearConsole', "Clear console");
 const positronRestartConsole = localize('positronRestartConsole', "Restart console");
 const positronShutdownConsole = localize('positronShutdownConsole', "Shutdown console");
 const positronStartConsole = localize('positronStartConsole', "Start console");
-const positronCurrentWorkingDirectory = localize('positronCurrentWorkingDirectory', "Current Working Directory");
+const positronDeleteConsole = localize('positronDeleteConsole', "Delete console");
 
 /**
  * Provides a localized label for the given runtime state. Only the transient
@@ -326,58 +328,12 @@ export const ActionBar = (props: ActionBarProps) => {
 			'User-requested restart from console action bar');
 	};
 
-	/**
-	 * CurrentWorkingDirectoryProps interface.
-	 */
-	interface CurrentWorkingDirectoryProps {
-		readonly directoryLabel: string;
-	}
+	const deleteSessionHandler = async () => {
+		if (!positronConsoleContext.activePositronConsoleInstance) {
+			return;
+		}
 
-	/**
-	 * The current working directory component.
-	 * @returns The rendered component.
-	 */
-	const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => {
-		// Context hooks.
-		const context = usePositronActionBarContext();
-
-		// Reference hooks.
-		const ref = useRef<HTMLDivElement>(undefined!);
-
-		// State hooks.
-		const [mouseInside, setMouseInside] = useState(false);
-
-		// Hover useEffect.
-		useEffect(() => {
-			// If the mouse is inside, show the hover. This has the effect of showing the hover when
-			// mouseInside is set to true and updating the hover when the tooltip changes.
-			if (mouseInside) {
-				context.hoverManager.showHover(ref.current, props.directoryLabel);
-			}
-		}, [context.hoverManager, mouseInside, props.directoryLabel]);
-
-		// Render.
-		return (
-			<div
-				ref={ref}
-				aria-label={positronCurrentWorkingDirectory}
-				className='directory-label'
-				onMouseEnter={() => {
-					// Set the mouse inside state.
-					setMouseInside(true);
-				}}
-				onMouseLeave={() => {
-					// Clear the mouse inside state.
-					setMouseInside(false);
-
-					// Hide the hover.
-					context.hoverManager?.hideHover();
-				}}
-			>
-				<span className='codicon codicon-folder' role='presentation'></span>
-				<span className='label'>{!context.conserveSpace ? directoryLabel : '...'}</span>
-			</div>
-		);
+		await positronConsoleContext.runtimeSessionService.deleteSession(positronConsoleContext.activePositronConsoleInstance.session.sessionId);
 	};
 
 	// Render.
@@ -423,14 +379,16 @@ export const ActionBar = (props: ActionBarProps) => {
 						{interruptible &&
 							<ActionBarSeparator fadeIn={true} />
 						}
-						<ActionBarButton
-							align='right'
-							ariaLabel={canStart ? positronStartConsole : positronShutdownConsole}
-							disabled={!(canShutdown || canStart)}
-							iconId='positron-power-button-thin'
-							tooltip={canStart ? positronStartConsole : positronShutdownConsole}
-							onPressed={powerCycleConsoleHandler}
-						/>
+						{!multiSessionsEnabled &&
+							<ActionBarButton
+								align='right'
+								ariaLabel={canStart ? positronStartConsole : positronShutdownConsole}
+								disabled={!(canShutdown || canStart)}
+								iconId='positron-power-button-thin'
+								tooltip={canStart ? positronStartConsole : positronShutdownConsole}
+								onPressed={powerCycleConsoleHandler}
+							/>
+						}
 						<ActionBarButton
 							align='right'
 							ariaLabel={positronRestartConsole}
@@ -439,7 +397,20 @@ export const ActionBar = (props: ActionBarProps) => {
 							tooltip={positronRestartConsole}
 							onPressed={restartConsoleHandler}
 						/>
-						{multiSessionsEnabled && <ConsoleInstanceInfoButton />}
+						{props.showDeleteButton &&
+							<ActionBarButton
+								align='right'
+								ariaLabel={positronDeleteConsole}
+								dataTestId='trash-session'
+								disabled={!(canShutdown || canStart)}
+								iconId='trash'
+								tooltip={positronDeleteConsole}
+								onPressed={deleteSessionHandler}
+							/>
+						}
+						{multiSessionsEnabled &&
+							<ConsoleInstanceInfoButton />
+						}
 						<ActionBarSeparator />
 						{showDeveloperUI &&
 							<ActionBarButton

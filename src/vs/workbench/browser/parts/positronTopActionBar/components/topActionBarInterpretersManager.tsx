@@ -23,7 +23,8 @@ import { CommandCenter } from '../../../../../platform/commandCenter/common/comm
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { localize } from '../../../../../nls.js';
 
-const runtimePickerAction = 'workbench.action.language.runtime.openActivePicker';
+const startInterpreter = localize('positron.startInterpreter', "Start Interpreter");
+const startSession = localize('positron.console.startSession', "Start Session");
 
 /**
  * TopActionBarInterpretersManagerProps interface.
@@ -47,6 +48,8 @@ export const TopActionBarInterpretersManager_Legacy = (props: TopActionBarInterp
 	// State hooks.
 	const [activeSession, setActiveSession] =
 		useState(context.runtimeSessionService.foregroundSession);
+
+	const label = !activeSession ? startInterpreter : activeSession.metadata.sessionName;
 
 	/**
 	 * Shows the interpreters manager modal popup.
@@ -121,8 +124,6 @@ export const TopActionBarInterpretersManager_Legacy = (props: TopActionBarInterp
 		showPopup();
 	};
 
-	const label = !activeSession ? 'Start Interpreter' : activeSession.metadata.sessionName;
-
 	// Render.
 	return (
 		<div
@@ -155,6 +156,8 @@ export const TopActionBarInterpretersManager_New = (props: TopActionBarInterpret
 
 	const [activeSession, setActiveSession] = useState<ILanguageRuntimeSession>();
 
+	const labelText = activeSession?.runtimeMetadata?.runtimeName ?? startSession;
+
 	// Main useEffect.
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -176,13 +179,11 @@ export const TopActionBarInterpretersManager_New = (props: TopActionBarInterpret
 		return () => disposableStore.dispose();
 	}, [context.runtimeSessionService]);
 
-	const labelText = activeSession?.runtimeMetadata?.runtimeName ?? localize('positron.interpretersManager.chooseSession', 'Choose Session');
-
 	return (
 		<ActionBarCommandButton
-			ariaLabel={CommandCenter.title(runtimePickerAction)}
+			ariaLabel={CommandCenter.title('workbench.action.language.runtime.openActivePicker')}
 			border={true}
-			commandId={runtimePickerAction}
+			commandId={'workbench.action.language.runtime.openActivePicker'}
 			text={labelText}
 			{
 			...(

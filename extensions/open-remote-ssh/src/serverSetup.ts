@@ -35,7 +35,7 @@ export class ServerInstallError extends Error {
     }
 }
 
-const DEFAULT_DOWNLOAD_URL_TEMPLATE = 'https://github.com/posit-dev/positron/releases/download/${version}/positron-reh-${os}-${arch}-${version}.tar.gz';
+const DEFAULT_DOWNLOAD_URL_TEMPLATE = 'https://cdn.posit.co/positron/dailies/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz';
 
 export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTemplate: string | undefined, extensionIds: string[], envVariables: string[], platform: string | undefined, useSocketPath: boolean, logger: Log): Promise<ServerInstallResult> {
     let shell = 'powershell';
@@ -270,18 +270,23 @@ ARCH="$(uname -m)"
 case $ARCH in
     x86_64 | amd64)
         SERVER_ARCH="x64"
+        ARCH_LONG="x86_64"
         ;;
     armv7l | armv8l)
         SERVER_ARCH="armhf"
+        ARCH_LONG="armhf"
         ;;
     arm64 | aarch64)
         SERVER_ARCH="arm64"
+        ARCH_LONG="arm64"
         ;;
     ppc64le)
         SERVER_ARCH="ppc64le"
+        ARCH_LONG="ppc64le"
         ;;
     riscv64)
         SERVER_ARCH="riscv64"
+        ARCH_LONG="riscv64"
         ;;
     *)
         echo "Error architecture not supported: $ARCH"
@@ -307,7 +312,7 @@ if [[ ! -d $SERVER_DIR ]]; then
     fi
 fi
 
-SERVER_DOWNLOAD_URL="$(echo "${serverDownloadUrlTemplate.replace(/\$\{/g, '\\${')}" | sed "s/\\\${quality}/$DISTRO_QUALITY/g" | sed "s/\\\${version}/$DISTRO_VERSION/g" | sed "s/\\\${commit}/$DISTRO_COMMIT/g" | sed "s/\\\${os}/$PLATFORM/g" | sed "s/\\\${arch}/$SERVER_ARCH/g" | sed "s/\\\${release}/$DISTRO_VSCODIUM_RELEASE/g")"
+SERVER_DOWNLOAD_URL="$(echo "${serverDownloadUrlTemplate.replace(/\$\{/g, '\\${')}" | sed "s/\\\${quality}/$DISTRO_QUALITY/g" | sed "s/\\\${version}/$DISTRO_VERSION/g" | sed "s/\\\${commit}/$DISTRO_COMMIT/g" | sed "s/\\\${os}/$PLATFORM/g" | sed "s/\\\${arch}/$SERVER_ARCH/g" | sed "s/\\\${arch-long}/$ARCH_LONG/g" | sed "s/\\\${release}/$DISTRO_VSCODIUM_RELEASE/g")"
 
 # Check if server script is already installed
 if [[ ! -f $SERVER_SCRIPT ]]; then
@@ -415,6 +420,7 @@ function generatePowerShellInstallScript({ id, quality, version, commit, release
         .replace(/\$\{commit\}/g, commit)
         .replace(/\$\{os\}/g, 'win32')
         .replace(/\$\{arch\}/g, 'x64')
+        .replace(/\$\{arch-long}/g, 'x86_64')
         .replace(/\$\{release\}/g, release ?? '');
 
     return `
