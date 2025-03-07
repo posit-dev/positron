@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IExecutionHistoryEntry, IExecutionHistoryService, IInputHistoryEntry } from './executionHistoryService.js';
+import { EXECUTION_HISTORY_STORAGE_PREFIX, IExecutionHistoryEntry, IExecutionHistoryService, IInputHistoryEntry } from './executionHistoryService.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
@@ -84,7 +84,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		// Get the set of all history keys in storage
 		const historyKeys = this._storageService
 			.keys(StorageScope.WORKSPACE, StorageTarget.MACHINE)
-			.filter(key => key.startsWith('positron.executionHistory.'));
+			.filter(key => key.startsWith(EXECUTION_HISTORY_STORAGE_PREFIX));
 
 		// Prune any history entries that don't have a corresponding session
 		historyKeys.forEach(key => {

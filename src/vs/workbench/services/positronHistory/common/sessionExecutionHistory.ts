@@ -6,7 +6,7 @@
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
-import { IExecutionHistoryEntry } from './executionHistoryService.js';
+import { EXECUTION_HISTORY_STORAGE_PREFIX, IExecutionHistoryEntry } from './executionHistoryService.js';
 import { ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, RuntimeOnlineState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
 
@@ -41,7 +41,7 @@ export class SessionExecutionHistory extends Disposable {
 		super();
 
 		// Create storage key for this runtime based on its ID
-		this._storageKey = `positron.executionHistory.${sessionId}`;
+		this._storageKey = `${EXECUTION_HISTORY_STORAGE_PREFIX}.${sessionId}`;
 
 		// Load existing history entries
 		const entries = this._storageService.get(this._storageKey, StorageScope.WORKSPACE, '[]');
