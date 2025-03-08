@@ -658,6 +658,11 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			this.onConsoleWidthChange(width);
 		}));
 
+		// When the console is cleared, clear the execution history for the console.
+		this._register(positronConsoleInstance.onDidClearConsole(() => {
+			this._executionHistoryService.clearExecutionEntries(positronConsoleInstance.sessionId);
+		}));
+
 		// Return the instance.
 		return positronConsoleInstance;
 	}
