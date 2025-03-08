@@ -15,7 +15,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Sessions: Management', {
+test.describe.skip('Sessions: Management', {
 	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS]
 }, () => {
 

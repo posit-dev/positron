@@ -3,16 +3,19 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.fetchUrls = fetchUrls;
 exports.fetchUrl = fetchUrl;
 exports.fetchGithub = fetchGithub;
-const es = require("event-stream");
-const VinylFile = require("vinyl");
-const log = require("fancy-log");
-const ansiColors = require("ansi-colors");
-const crypto = require("crypto");
-const through2 = require("through2");
+const event_stream_1 = __importDefault(require("event-stream"));
+const vinyl_1 = __importDefault(require("vinyl"));
+const fancy_log_1 = __importDefault(require("fancy-log"));
+const ansi_colors_1 = __importDefault(require("ansi-colors"));
+const crypto_1 = __importDefault(require("crypto"));
+const through2_1 = __importDefault(require("through2"));
 // --- Start Positron ---
 const util_1 = require("./util");
 function fetchUrls(urls, options) {
@@ -25,7 +28,7 @@ function fetchUrls(urls, options) {
     if (!Array.isArray(urls)) {
         urls = [urls];
     }
-    return es.readArray(urls).pipe(es.map((data, cb) => {
+    return event_stream_1.default.readArray(urls).pipe(event_stream_1.default.map((data, cb) => {
         const url = [options.base, data].join('');
         // --- Start Positron ---
         // Replace call to fetchUrl with fetchUrlQueued to limit the number of
@@ -43,7 +46,7 @@ async function fetchUrl(url, options, retries = 10, retryDelay = 1000) {
     try {
         let startTime = 0;
         if (verbose) {
-            log(`Start fetching ${ansiColors.magenta(url)}${retries !== 10 ? ` (${10 - retries} retry)` : ''}`);
+            (0, fancy_log_1.default)(`Start fetching ${ansi_colors_1.default.magenta(url)}${retries !== 10 ? ` (${10 - retries} retry)` : ''}`);
             startTime = new Date().getTime();
         }
         const controller = new AbortController();
@@ -57,33 +60,33 @@ async function fetchUrl(url, options, retries = 10, retryDelay = 1000) {
                 signal: controller.signal /* Typings issue with lib.dom.d.ts */
             });
             if (verbose) {
-                log(`Fetch completed: Status ${response.status}. Took ${ansiColors.magenta(`${new Date().getTime() - startTime} ms`)}`);
+                (0, fancy_log_1.default)(`Fetch completed: Status ${response.status}. Took ${ansi_colors_1.default.magenta(`${new Date().getTime() - startTime} ms`)}`);
             }
             if (response.ok && (response.status >= 200 && response.status < 300)) {
                 const contents = Buffer.from(await response.arrayBuffer());
                 if (options.checksumSha256) {
-                    const actualSHA256Checksum = crypto.createHash('sha256').update(contents).digest('hex');
+                    const actualSHA256Checksum = crypto_1.default.createHash('sha256').update(contents).digest('hex');
                     if (actualSHA256Checksum !== options.checksumSha256) {
-                        throw new Error(`Checksum mismatch for ${ansiColors.cyan(url)} (expected ${options.checksumSha256}, actual ${actualSHA256Checksum}))`);
+                        throw new Error(`Checksum mismatch for ${ansi_colors_1.default.cyan(url)} (expected ${options.checksumSha256}, actual ${actualSHA256Checksum}))`);
                     }
                     else if (verbose) {
-                        log(`Verified SHA256 checksums match for ${ansiColors.cyan(url)}`);
+                        (0, fancy_log_1.default)(`Verified SHA256 checksums match for ${ansi_colors_1.default.cyan(url)}`);
                     }
                 }
                 else if (verbose) {
-                    log(`Skipping checksum verification for ${ansiColors.cyan(url)} because no expected checksum was provided`);
+                    (0, fancy_log_1.default)(`Skipping checksum verification for ${ansi_colors_1.default.cyan(url)} because no expected checksum was provided`);
                 }
                 if (verbose) {
-                    log(`Fetched response body buffer: ${ansiColors.magenta(`${contents.byteLength} bytes`)}`);
+                    (0, fancy_log_1.default)(`Fetched response body buffer: ${ansi_colors_1.default.magenta(`${contents.byteLength} bytes`)}`);
                 }
-                return new VinylFile({
+                return new vinyl_1.default({
                     cwd: '/',
                     base: options.base,
                     path: url,
                     contents
                 });
             }
-            let err = `Request ${ansiColors.magenta(url)} failed with status code: ${response.status}`;
+            let err = `Request ${ansi_colors_1.default.magenta(url)} failed with status code: ${response.status}`;
             if (response.status === 403) {
                 err += ' (you may be rate limited)';
             }
@@ -95,7 +98,7 @@ async function fetchUrl(url, options, retries = 10, retryDelay = 1000) {
     }
     catch (e) {
         if (verbose) {
-            log(`Fetching ${ansiColors.cyan(url)} failed: ${e}`);
+            (0, fancy_log_1.default)(`Fetching ${ansi_colors_1.default.cyan(url)} failed: ${e}`);
         }
         if (retries > 0) {
             await new Promise(resolve => setTimeout(resolve, retryDelay));
@@ -126,7 +129,7 @@ function fetchGithub(repo, options) {
         base: 'https://api.github.com',
         verbose: options.verbose,
         nodeFetchOptions: { headers: ghApiHeaders }
-    }).pipe(through2.obj(async function (file, _enc, callback) {
+    }).pipe(through2_1.default.obj(async function (file, _enc, callback) {
         const assetFilter = typeof options.name === 'string' ? (name) => name === options.name : options.name;
         const asset = JSON.parse(file.contents.toString()).assets.find((a) => assetFilter(a.name));
         if (!asset) {
@@ -197,17 +200,17 @@ function processFetchQueue() {
     // Determine if we should log verbose output (e.g. when running in CI)
     const verbose = !!next.options.verbose || !!process.env['CI'] || !!process.env['BUILD_ARTIFACTSTAGINGDIRECTORY'];
     if (verbose) {
-        log(`[Fetch queue] start fetching ${next.url} (${fetchQueue.length} remaining)`);
+        (0, fancy_log_1.default)(`[Fetch queue] start fetching ${next.url} (${fetchQueue.length} remaining)`);
     }
     // Perform the fetch and resolve the promise when done
     fetchUrl(next.url, next.options, next.retries, next.retryDelay).then((vinyl) => {
         if (verbose) {
-            log(`[Fetch queue] completed fetching ${next.url} (${fetchQueue.length} remaining)`);
+            (0, fancy_log_1.default)(`[Fetch queue] completed fetching ${next.url} (${fetchQueue.length} remaining)`);
         }
         next.resolve(vinyl);
     }).catch((e) => {
         if (verbose) {
-            log(`[Fetch queue] failed fetching ${next.url} (${fetchQueue.length} remaining): ${e}`);
+            (0, fancy_log_1.default)(`[Fetch queue] failed fetching ${next.url} (${fetchQueue.length} remaining): ${e}`);
         }
         next.reject(e);
     }).finally(() => {

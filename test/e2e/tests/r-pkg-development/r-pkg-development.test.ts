@@ -35,8 +35,8 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 			logger.log('Test R Package');
 			await app.workbench.quickaccess.runCommand('r.packageTest');
 			await expect(async () => {
-				await app.workbench.terminal.waitForTerminalText('[ FAIL 1 | WARN 0 | SKIP 0 | PASS 16 ]');
-				await app.workbench.terminal.waitForTerminalText('Terminal will be reused by tasks');
+				await app.workbench.terminal.waitForTerminalText('[ FAIL 1 | WARN 0 | SKIP 0 | PASS 16 ]', { web: app.web, timeout: 20000 });
+				await app.workbench.terminal.waitForTerminalText('Terminal will be reused by tasks', { web: app.web, timeout: 20000 });
 			}).toPass({ timeout: 70000 });
 		});
 
@@ -45,8 +45,8 @@ test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT]
 			await app.workbench.quickaccess.runCommand('workbench.action.terminal.clear');
 			await app.workbench.quickaccess.runCommand('r.packageCheck');
 			await expect(async () => {
-				await app.workbench.terminal.waitForTerminalText('Error: R CMD check found ERRORs');
-				await app.workbench.terminal.waitForTerminalText('Terminal will be reused by tasks');
+				await app.workbench.terminal.waitForTerminalText('Error: R CMD check found ERRORs', { web: app.web, timeout: 20000 });
+				await app.workbench.terminal.waitForTerminalText('Terminal will be reused by tasks', { web: app.web, timeout: 20000 });
 			}).toPass({ timeout: 70000 });
 		});
 
