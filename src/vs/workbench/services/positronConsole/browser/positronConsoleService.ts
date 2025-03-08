@@ -1329,11 +1329,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			inputItem.addActivityItem(outputActivityItem);
 		}
 
-		// Trim items.
-		this.trimItems();
-
-		// Let UI know to update.
-		this._onDidChangeRuntimeItemsEmitter.fire();
+		// Enter the reconnecting state.
+		this.emitStartRuntimeItems(SessionAttachMode.Reconnecting);
+		this.setState(PositronConsoleState.Starting);
 	}
 
 	/**
@@ -1489,16 +1487,18 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 									case SessionAttachMode.Restarting:
 										msg = localize('positronConsole.restarted', "{0} restarted.", this._sessionMetadata.sessionName);
 										break;
-									case SessionAttachMode.Reconnecting:
-										msg = localize('positronConsole.reconnected', "{0} reconnected.", this._sessionMetadata.sessionName);
-										break;
 									case SessionAttachMode.Connected:
 										msg = localize('positronConsole.connected', "{0} connected.", this._sessionMetadata.sessionName);
 										break;
 								}
-								this._runtimeItems[i] = new RuntimeItemStarted(
-									generateUuid(), msg);
-								this._onDidChangeRuntimeItemsEmitter.fire();
+								if (msg) {
+									this._runtimeItems[i] = new RuntimeItemStarted(
+										generateUuid(), msg);
+									this._onDidChangeRuntimeItemsEmitter.fire();
+								} else {
+									this._runtimeItems.splice(i, 1);
+									this._onDidChangeRuntimeItemsEmitter.fire();
+								}
 							}
 						}
 						break;
@@ -1591,8 +1591,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				`(attach mode = ${attachMode})`);
 		}
 
-		// Emit the start runtime items.
-		this.emitStartRuntimeItems(attachMode);
+		// Emit the start runtime items. Note that in the case of a reconnect
+		// these items will already be present.
+		if (attachMode !== SessionAttachMode.Reconnecting) {
+			this.emitStartRuntimeItems(attachMode);
+		}
 
 		// Add the onDidChangeRuntimeState event handler.
 		this._runtimeDisposableStore.add(this._session.onDidChangeRuntimeState(async runtimeState => {

@@ -26,6 +26,9 @@ export interface RuntimeStartingProps {
 export const RuntimeStarting = (props: RuntimeStartingProps) => {
 	// Render.
 	return (
-		<OutputLines outputLines={props.runtimeItemStarting.outputLines} />
+		<div className='console-item-starting console-item-spaced'>
+			<span className='codicon codicon-loading codicon-modifier-spin'></span>
+			<OutputLines outputLines={props.runtimeItemStarting.outputLines} />
+		</div>
 	);
 };
