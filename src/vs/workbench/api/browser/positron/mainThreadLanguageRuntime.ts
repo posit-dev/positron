@@ -457,11 +457,16 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 	removeClient(id: string): void {
 		const client = this._clients.get(id);
-		if (client) {
-			this._clients.delete(id);
+		// If the client is connected, notify the server that it's being removed.
+		if (client?.clientState.get() === RuntimeClientState.Connected) {
+			// Notify the server that the client is being removed.
 			client.setClientState(RuntimeClientState.Closing);
+			// Remove the client from the server.
 			this._proxy.$removeClient(this.handle, id);
+			// Emit the closed event.
 			client.setClientState(RuntimeClientState.Closed);
+			// Remove the client from the map.
+			this._clients.delete(id);
 		}
 	}
 
