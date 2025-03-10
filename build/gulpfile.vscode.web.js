@@ -107,6 +107,9 @@ const createVSCodeWebFileContentMapper = (extensionsRoot, product) => {
 			return content => {
 				const productConfiguration = JSON.stringify({
 					...product,
+					// --- Start Positron ---
+					positronBuildNumber,
+					// --- End Positron ---
 					version,
 					commit,
 					date: readISODate('out-build')
