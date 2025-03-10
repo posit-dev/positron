@@ -52,7 +52,10 @@ test.describe('Interpreter Includes/Excludes', {
 				await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, alternatePython, true);
 				fail('selectInterpreter was supposed to fail as ~/.pyenv was excluded');
 			} catch (e) {
-				// expected
+				if (!(e instanceof Error)) {
+					throw e; // Fail the test if an unexpected error type occurs
+				}
+				logger.log('Expected failure: Interpreter selection failed as ~/.pyenv was excluded');
 			}
 		} else {
 			fail('Alternate Python version not set');
@@ -71,7 +74,10 @@ test.describe('Interpreter Includes/Excludes', {
 				await app.workbench.interpreter.selectInterpreter(InterpreterType.R, alternateR, true);
 				fail('selectInterpreter was supposed to fail as /opt/R/4.4.2 was excluded');
 			} catch (e) {
-				// expected
+				if (!(e instanceof Error)) {
+					throw e; // Fail the test if an unexpected error type occurs
+				}
+				logger.log('Expected failure: Interpreter selection failed as /opt/R/4.4.2 was excluded');
 			}
 		} else {
 			fail('Alternate R version not set');
