@@ -15,7 +15,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe.skip('Sessions: Management', {
+test.describe('Sessions: Management', {
 	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS]
 }, () => {
 
@@ -90,9 +90,10 @@ test.describe.skip('Sessions: Management', {
 		rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
 
 		// Resize window to force scrolling
-		await sessions.resizeSessionList({ y: 350 });
+		// Move the divider to be 100px above the bottom
+		await sessions.setSessionDividerAboveBottom(100);
 		await sessions.expectSessionListToBeScrollable({ horizontal: false, vertical: true });
-		await sessions.resizeSessionList({ y: -350 });
+		await sessions.setSessionDividerAboveBottom(500);
 
 		// Cleaning up since next test only needs 2 sessions
 		await sessions.delete(pythonSession2.id);

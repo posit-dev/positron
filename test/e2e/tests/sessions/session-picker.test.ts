@@ -16,7 +16,7 @@ const pythonSession2: SessionInfo = { ...pythonSessionAlt, triggerMode: 'session
 const rSession1: SessionInfo = { ...rSession, triggerMode: 'session-picker' };
 const rSession2: SessionInfo = { ...rSessionAlt, triggerMode: 'session-picker' };
 
-test.describe.skip('Sessions: Session Picker', {
+test.describe('Sessions: Session Picker', {
 	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.TOP_ACTION_BAR, tags.SESSIONS]
 }, () => {
 
@@ -35,7 +35,6 @@ test.describe.skip('Sessions: Session Picker', {
 
 	test('R - Start and verify session via session picker', async function ({ app }) {
 		const sessions = app.workbench.sessions;
-
 		rSession1.id = await sessions.launch(rSession);
 		await sessions.expectSessionPickerToBe(rSession);
 		const { state } = await sessions.getMetadata();
