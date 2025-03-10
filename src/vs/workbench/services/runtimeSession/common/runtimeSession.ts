@@ -12,7 +12,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from '../../../../platform/opener/common/opener.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType, RuntimeStartMode } from './runtimeSessionService.js';
+import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode } from './runtimeSessionService.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from '../../positronModalDialogs/common/positronModalDialogs.js';
@@ -701,18 +701,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return;
 		}
 
-		// TODO @samclark2015 @dhruvisompura Fix this to eliminate race condition?
-		this._foregroundSession?.listClients(RuntimeClientType.Lsp).then(clients => {
-			clients.forEach(client => {
-				this._foregroundSession?.removeClient(client.getClientId());
-			});
-		});
 		this._foregroundSession = session;
-		this._foregroundSession?.listClients(RuntimeClientType.Lsp).then(clients => {
-			if (clients.length === 0) {
-				this._foregroundSession?.createClient(RuntimeClientType.Lsp, null);
-			}
-		});
 
 		if (session) {
 			// Update the map of active console sessions per language

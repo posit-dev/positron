@@ -188,17 +188,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 	createClient(id: string, type: positron.RuntimeClientType, params: any, metadata?: any): Thenable<void> {
 		if (this._kernel) {
-			if (type === positron.RuntimeClientType.Lsp) {
-				return new Promise(async (resolve) => {
-					const port = await this.adapterApi!.findAvailablePort([], 25);
-					this._kernel?.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
-					await this._kernel?.startPositronLsp(`127.0.0.1:${port}`);
-					this._lsp.activate(port, this.context);
-					resolve();
-				});
-			} else {
-				return this._kernel.createClient(id, type, params, metadata);
-			}
+			return this._kernel.createClient(id, type, params, metadata);
 		} else {
 			throw new Error(`Cannot create client of type '${type}'; kernel not started`);
 		}
