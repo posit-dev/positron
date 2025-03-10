@@ -12,6 +12,7 @@ import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
 import { untildify } from './path-utils';
 import { LOGGER } from './extension';
+import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
 
 export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
@@ -40,14 +41,14 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		const defaultInterpreterPath = getDefaultInterpreterPath();
 		if (defaultInterpreterPath) {
 			if (fs.existsSync(defaultInterpreterPath)) {
-				LOGGER.info(`[recommendedWorkspaceRuntime] Recommending R runtime from default interpreter path setting: ${defaultInterpreterPath}`);
+				LOGGER.info(`[recommendedWorkspaceRuntime] Recommending R runtime from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting: ${defaultInterpreterPath}`);
 				const inst = new RInstallation(defaultInterpreterPath, undefined, [ReasonDiscovered.userSetting]);
 				return makeMetadata(inst, positron.LanguageRuntimeStartupBehavior.Implicit);
 			} else {
-				LOGGER.info(`[recommendedWorkspaceRuntime] Default interpreter path does not exist: ${defaultInterpreterPath}...cannot recommend R runtime`);
+				LOGGER.info(`[recommendedWorkspaceRuntime] Path from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting does not exist: ${defaultInterpreterPath}...cannot recommend R runtime`);
 			}
 		} else {
-			LOGGER.debug('[recommendedWorkspaceRuntime] No default interpreter path set...cannot recommend R runtime');
+			LOGGER.debug(`[recommendedWorkspaceRuntime] '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting not set...cannot recommend R runtime`);
 		}
 		return undefined;
 	}
