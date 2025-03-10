@@ -754,7 +754,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		<PositronModalPopup
 			anchorElement={props.anchorElement}
 			fixedHeight={true}
-			height={'min-content'}
+			height={'auto'}
 			keyboardNavigationStyle='dialog'
 			popupAlignment='auto'
 			popupPosition='auto'

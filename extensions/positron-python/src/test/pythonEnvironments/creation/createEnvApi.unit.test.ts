@@ -2,6 +2,11 @@
 // Licensed under the MIT License.
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+// --- Start Positron ---
+/* eslint-disable import/no-duplicates */
+/* eslint-disable import/order */
+// --- End Positron ---
+
 import * as chaiAsPromised from 'chai-as-promised';
 import * as sinon from 'sinon';
 import * as typemoq from 'typemoq';
@@ -16,6 +21,8 @@ import { handleCreateEnvironmentCommand } from '../../../client/pythonEnvironmen
 import { CreateEnvironmentProvider } from '../../../client/pythonEnvironments/creation/proposed.createEnvApis';
 
 // --- Start Positron ---
+import { WorkspaceConfiguration } from 'vscode';
+import * as workspaceApis from '../../../client/common/vscodeApis/workspaceApis';
 import { IPythonRuntimeManager } from '../../../client/positron/manager';
 // --- End Positron ---
 
@@ -30,6 +37,8 @@ suite('Create Environment APIs', () => {
     let interpreterPathService: typemoq.IMock<IInterpreterPathService>;
     let pathUtils: typemoq.IMock<IPathUtils>;
     // --- Start Positron ---
+    let getConfigurationStub: sinon.SinonStub;
+    let workspaceConfig: typemoq.IMock<WorkspaceConfiguration>;
     let pythonRuntimeManager: typemoq.IMock<IPythonRuntimeManager>;
     // --- End Positron ---
 
@@ -43,6 +52,15 @@ suite('Create Environment APIs', () => {
         pathUtils = typemoq.Mock.ofType<IPathUtils>();
         // --- Start Positron ---
         pythonRuntimeManager = typemoq.Mock.ofType<IPythonRuntimeManager>();
+        workspaceConfig = typemoq.Mock.ofType<WorkspaceConfiguration>();
+
+        getConfigurationStub = sinon.stub(workspaceApis, 'getConfiguration');
+        getConfigurationStub.callsFake((section?: string) => {
+            if (section === 'python') {
+                return workspaceConfig.object;
+            }
+            return undefined;
+        });
         // --- End Positron ---
 
         registerCommandStub.callsFake((_command: string, _callback: (...args: any[]) => any) => ({

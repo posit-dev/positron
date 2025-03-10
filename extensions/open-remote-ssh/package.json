@@ -75,9 +75,9 @@
         },
         "remoteSSH.serverDownloadUrlTemplate": {
           "type": "string",
-          "description": "The URL from where the Positron server will be downloaded. You can use the following variables and they will be replaced dynamically:\n- ${quality}: Positron server quality, e.g. stable or insiders\n- ${version}: Positron server version, e.g. 2024.10.0-123\n- ${commit}: Positron server release commit\n- ${arch}: Positron server arch, e.g. x64, armhf, arm64",
+          "description": "The URL from where the Positron server will be downloaded. You can use the following variables and they will be replaced dynamically:\n- ${quality}: Positron server quality, e.g. stable or insiders\n- ${version}: Positron server version, e.g. 2024.10.0-123\n- ${commit}: Positron server release commit\n- ${arch}: Positron server arch, e.g. x64, armhf, arm64\n- ${arch-long}: Positron server arch in long format, e.g. x86_64, arm64",
           "scope": "application",
-          "default": "https://github.com/posit-dev/positron/releases/download/${version}/positron-reh-${os}-${arch}-${version}.tar.gz"
+          "default": "https://cdn.posit.co/positron/dailies/reh/${arch-long}/positron-reh-${os}-${arch}-${version}.tar.gz"
         },
         "remoteSSH.remotePlatform": {
           "type": "object",

@@ -50,6 +50,17 @@ interface ConsoleInstanceItemsProps {
 }
 /**
  * ConsoleInstanceItems component.
+ *
+ * PLEASE READ:
+ * This component is a class component ON PURPOSE!
+ * This needs to be a class component to fix https://github.com/posit-dev/positron/issues/705.
+ * Without `forceUpdate()`, there will be a regression for issue #705.
+ *
+ * This is the only class component in Positron Core for this reason.
+ * Other workarounds do not work, including the offical suggestion in the React FAQ:
+ * https://legacy.reactjs.org/docs/hooks-faq.html#is-there-something-like-forceupdate
+ *
+ * See commit: https://github.com/posit-dev/positron/commit/1e125e96bdc128a5c2dc2a9df7cdb52ba9ea5aaf
  */
 export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 	/**

@@ -315,6 +315,10 @@ async function createEnvironment(
     );
 }
 
+// --- Start Positron ---
+export const CONDA_PROVIDER_ID = `${PVSC_EXTENSION_ID}:conda`;
+// --- End Positron ---
+
 export function condaCreationProvider(): CreateEnvironmentProvider {
     return {
         createEnvironment,
@@ -322,7 +326,9 @@ export function condaCreationProvider(): CreateEnvironmentProvider {
 
         description: CreateEnv.Conda.providerDescription,
 
-        id: `${PVSC_EXTENSION_ID}:conda`,
+        // --- Start Positron ---
+        id: CONDA_PROVIDER_ID,
+        // --- End Positron ---
 
         tools: ['Conda'],
     };

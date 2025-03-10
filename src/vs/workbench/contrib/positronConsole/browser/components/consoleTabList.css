@@ -7,6 +7,7 @@
 	border-left: 1px solid var(--vscode-terminal-border);
 	background-color: var(--vscode-tab-inactiveBackground);
 	flex-grow: 1;
+	overflow-y: auto;
 }
 
 .tabs-container .tab-button {
@@ -46,7 +47,11 @@
 }
 
 .tabs-container .tab-button--active:hover {
-	background-color: var(--vscode-list-inactiveSelectionBackground);
+	background-color: var(--vscode-list-activeSelectionBackground);
+}
+
+.tabs-container .tab-button {
+	color: var(--vscode-foreground);
 }
 
 .tabs-container .tab-button .icon {

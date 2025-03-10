@@ -1740,17 +1740,17 @@ export const POSITRON_CONSOLE_TRACE_BACKGROUND_COLOR = registerColor('positronCo
 
 // Positron console active state icon color.
 export const POSITRON_CONSOLE_STATE_ICON_ACTIVE = registerColor('positronConsole.stateIconActive', {
-	dark: '#3a79b2',
+	dark: '#afcbe9',
 	light: '#3a79b2',
-	hcDark: '#3a79b2',
+	hcDark: '#afcbe9',
 	hcLight: '#3a79b2'
 }, localize('positronConsole.stateIconActive', "Positron console active state icon color."));
 
 // Positron console disconnected state icon color.
 export const POSITRON_CONSOLE_STATE_ICON_DISCONNECTED = registerColor('positronConsole.stateIconDisconnected', {
-	dark: '#d93939',
+	dark: '#ea8b8b',
 	light: '#d93939',
-	hcDark: '#d93939',
+	hcDark: '#ea8b8b',
 	hcLight: '#d93939'
 }, localize('positronConsole.stateIconDisconnected', "Positron console disconnected state icon color."));
 

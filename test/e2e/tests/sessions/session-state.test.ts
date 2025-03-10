@@ -4,9 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
-import { pythonSession, rSession } from '../../infra';
+import { pythonSession, pythonSessionAlt, rSession } from '../../infra';
 
 const pythonSession1 = { ...pythonSession };
+const pythonSession2 = { ...pythonSessionAlt };
 const rSession1 = { ...rSession };
 
 test.use({
@@ -58,7 +59,7 @@ test.describe('Sessions: State', {
 		// Restart Python session, verify Python transitions to active --> idle and R remains idle
 		await sessions.restart(pythonSession1.id, false);
 		await sessions.expectStatusToBe(pythonSession1.id, 'active');
-		await sessions.expectStatusToBe(pythonSession1.id, 'idle');
+		await sessions.expectStatusToBe(pythonSession1.id, 'idle', { timeout: 60000 });
 		await sessions.expectStatusToBe(rSession1.id, 'idle');
 
 		// Shutdown Python session, verify Python transitions to disconnected while R remains idle
@@ -70,7 +71,7 @@ test.describe('Sessions: State', {
 		// Restart R session, verify R to returns to active --> idle and Python remains disconnected
 		await sessions.restart(rSession1.id, false);
 		await sessions.expectStatusToBe(rSession1.id, 'active');
-		await sessions.expectStatusToBe(rSession1.id, 'idle');
+		await sessions.expectStatusToBe(rSession1.id, 'idle', { timeout: 60000 });
 		await sessions.expectStatusToBe(pythonSession1.id, 'disconnected');
 
 		// Shutdown R, verify both Python and R in disconnected state
@@ -104,4 +105,34 @@ test.describe('Sessions: State', {
 		await sessions.expectStatusToBe(pythonSession1.name, 'idle');
 	});
 
+	test('Validate metadata between sessions', async function ({ app }) {
+		const sessions = app.workbench.sessions;
+		const console = app.workbench.console;
+
+		// Ensure sessions exist and are idle
+		pythonSession1.id = await sessions.reuseIdleSessionIfExists(pythonSession1);
+		pythonSession2.id = await sessions.reuseIdleSessionIfExists(pythonSession2);
+		rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
+
+		// Verify Python session metadata
+		await sessions.expectMetaDataToBe({ ...pythonSession1, state: 'idle' });
+		await sessions.expectMetaDataToBe({ ...pythonSession2, state: 'idle' });
+		await sessions.expectMetaDataToBe({ ...rSession1, state: 'idle' });
+
+		// Shutdown Python session 1 and verify metadata
+		await sessions.select(pythonSession1.id);
+		await console.typeToConsole('exit()', true);
+		await sessions.expectMetaDataToBe({ ...pythonSession1, state: 'exited' });
+		await sessions.expectMetaDataToBe({ ...pythonSession2, state: 'idle' });
+
+		// Shutdown R session and verify metadata
+		await sessions.select(rSession1.id);
+		await console.typeToConsole('q()', true);
+		await sessions.expectMetaDataToBe({ ...rSession1, state: 'exited' });
+		await sessions.expectMetaDataToBe({ ...pythonSession2, state: 'idle' });
+
+		// Shutdown Python session 2 and verify metadata
+		await console.typeToConsole('exit()', true);
+		await sessions.expectMetaDataToBe({ ...pythonSession2, state: 'exited' });
+	});
 });

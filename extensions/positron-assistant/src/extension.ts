@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { EncryptedSecretStorage, getModelConfigurations, GlobalSecretStorage, SecretStorage, showConfigurationDialog, showModelList } from './config';
+import { EncryptedSecretStorage, getEnabledProviders, getModelConfigurations, GlobalSecretStorage, ModelConfig, SecretStorage, showConfigurationDialog, showModelList } from './config';
 import { newLanguageModel } from './models';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { editsProvider } from './edits';
@@ -32,28 +32,48 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 	// Dispose of existing models
 	disposeModels();
 
+	let modelConfigs: ModelConfig[] = [];
 	try {
-		const modelConfigs = await getModelConfigurations(context, storage);
-		// Register with Language Model API
-		modelConfigs.filter(config => config.type === 'chat').forEach((config, idx) => {
-			// We need at least one default and one non-default model for the dropdown to appear.
-			// For now, just set the first language model as default.
-			// TODO: Allow for setting a default in the configuration.
-			const isFirst = idx === 0;
-
-			const languageModel = newLanguageModel(config);
-			const modelDisp = vscode.lm.registerChatModelProvider(languageModel.identifier, languageModel, {
-				name: languageModel.name,
-				family: languageModel.provider,
-				vendor: context.extension.packageJSON.publisher,
-				version: context.extension.packageJSON.version,
-				maxInputTokens: 0,
-				maxOutputTokens: 0,
-				isUserSelectable: true,
-				isDefault: isFirst,
-			});
-			modelDisposables.push(modelDisp);
+		// Refresh the set of enabled providers
+		const enabledProviders = getEnabledProviders();
+		modelConfigs = await getModelConfigurations(context, storage);
+		modelConfigs = modelConfigs.filter(config => {
+			const enabled = enabledProviders.length === 0 ||
+				enabledProviders.includes(config.provider);
+			if (!enabled) {
+				console.log('Ignoring disabled model provider: ', config.provider);
+			}
+			return enabled;
 		});
+	} catch (e) {
+		const failedMessage = vscode.l10n.t('Positron Assistant: Failed to load model configurations.');
+		vscode.window.showErrorMessage(`${failedMessage} ${e}`);
+		return;
+	}
+
+	try {
+		// Register with Language Model API
+		modelConfigs
+			.filter(config => config.type === 'chat')
+			.forEach((config, idx) => {
+				// We need at least one default and one non-default model for the dropdown to appear.
+				// For now, just set the first language model as default.
+				// TODO: Allow for setting a default in the configuration.
+				const isFirst = idx === 0;
+
+				const languageModel = newLanguageModel(config);
+				const modelDisp = vscode.lm.registerChatModelProvider(languageModel.identifier, languageModel, {
+					name: languageModel.name,
+					family: languageModel.provider,
+					vendor: context.extension.packageJSON.publisher,
+					version: context.extension.packageJSON.version,
+					maxInputTokens: 0,
+					maxOutputTokens: 0,
+					isUserSelectable: true,
+					isDefault: isFirst,
+				});
+				modelDisposables.push(modelDisp);
+			});
 
 		// Register with VS Code completions API
 		modelConfigs.filter(config => config.type === 'completion').forEach(config => {
@@ -67,7 +87,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 		vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
 
 	} catch (e) {
-		const failedMessage = vscode.l10n.t('Positron Assistant: Failed to load model configurations.');
+		const failedMessage = vscode.l10n.t('Positron Assistant: Failed to register model configurations.');
 		vscode.window.showErrorMessage(`${failedMessage} ${e}`);
 	}
 }

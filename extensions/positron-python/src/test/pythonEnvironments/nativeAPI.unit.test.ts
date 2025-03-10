@@ -21,6 +21,10 @@ import * as pyenvApi from '../../client/pythonEnvironments/common/environmentMan
 import * as pw from '../../client/pythonEnvironments/base/locators/common/pythonWatcher';
 import * as ws from '../../client/common/vscodeApis/workspaceApis';
 
+// --- Start Positron ---
+import * as uvApi from '../../client/pythonEnvironments/common/environmentManagers/uv';
+// --- End Positron ---
+
 suite('Native Python API', () => {
     let api: IDiscoveryAPI;
     let mockFinder: typemoq.IMock<NativePythonFinder>;
@@ -31,6 +35,9 @@ suite('Native Python API', () => {
     let createPythonWatcherStub: sinon.SinonStub;
     let mockWatcher: typemoq.IMock<pw.PythonWatcher>;
     let getWorkspaceFoldersStub: sinon.SinonStub;
+    // --- Start Positron ---
+    let isUvEnvironmentStub: sinon.SinonStub;
+    // --- End Positron ---
 
     const basicEnv: NativeEnvInfo = {
         displayName: 'Basic Python',
@@ -141,6 +148,9 @@ suite('Native Python API', () => {
         getCondaEnvDirsStub = sinon.stub(condaApi, 'getCondaEnvDirs');
         getCondaPathSettingStub = sinon.stub(condaApi, 'getCondaPathSetting');
         setPyEnvBinaryStub = sinon.stub(pyenvApi, 'setPyEnvBinary');
+        // --- Start Positron ---
+        isUvEnvironmentStub = sinon.stub(uvApi, 'isUvEnvironment');
+        // --- End Positron ---
         getWorkspaceFoldersStub = sinon.stub(ws, 'getWorkspaceFolders');
         getWorkspaceFoldersStub.returns([]);
 
@@ -335,4 +345,37 @@ suite('Native Python API', () => {
         await api.triggerRefresh();
         assert.isTrue(setPyEnvBinaryStub.calledOnceWith(pyenvMgr.executable));
     });
+
+    // --- Start Positron ---
+    test('Uv environment detected and converted during resolveEnv', async () => {
+        // Create a test environment
+        const uvEnv: NativeEnvInfo = {
+            displayName: 'UV Python',
+            name: 'uv_python',
+            executable: '/home/user/.local/share/uv/python/cpython-3.10',
+            kind: NativePythonEnvironmentKind.VirtualEnv, // Initially recognized as VirtualEnv
+            version: '3.10.16',
+            prefix: '/home/user/.local/share/uv/python',
+        };
+
+        // Mock the isUvEnvironment to return true for this environment
+        isUvEnvironmentStub.withArgs(uvEnv.executable).resolves(true);
+
+        // Setup the finder to return our test env when resolving
+        mockFinder
+            .setup((f) => f.resolve('/home/user/.local/share/uv/python/cpython-3.10'))
+            .returns(() => Promise.resolve(uvEnv))
+            .verifiable(typemoq.Times.once());
+
+        // Resolve the environment
+        const resolved = await api.resolveEnv('/home/user/.local/share/uv/python/cpython-3.10');
+
+        // Verify the environment was recognized as Uv
+        assert.isDefined(resolved);
+        assert.equal(resolved?.kind, PythonEnvKind.Uv);
+
+        // Verify isUvEnvironment was called with the right argument
+        assert.isTrue(isUvEnvironmentStub.calledOnceWith('/home/user/.local/share/uv/python/cpython-3.10'));
+    });
+    // --- End Positron ---
 });

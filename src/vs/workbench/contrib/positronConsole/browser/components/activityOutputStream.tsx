@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -11,11 +11,11 @@ import React from 'react';
 
 // Other dependencies.
 import { OutputLines } from './outputLines.js';
-import { ActivityItemOutputStream } from '../../../../services/positronConsole/browser/classes/activityItemStream.js';
+import { ActivityItemStream } from '../../../../services/positronConsole/browser/classes/activityItemStream.js';
 
 // ActivityOutputStreamProps interface.
 export interface ActivityOutputStreamProps {
-	activityItemOutputStream: ActivityItemOutputStream;
+	activityItemStream: ActivityItemStream;
 }
 
 /**
@@ -26,6 +26,6 @@ export interface ActivityOutputStreamProps {
 export const ActivityOutputStream = (props: ActivityOutputStreamProps) => {
 	// Render.
 	return (
-		<OutputLines outputLines={props.activityItemOutputStream.outputLines} />
+		<OutputLines outputLines={props.activityItemStream.outputLines} />
 	);
 };
