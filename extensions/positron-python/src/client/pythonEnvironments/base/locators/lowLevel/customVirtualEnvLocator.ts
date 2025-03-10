@@ -16,6 +16,9 @@ import {
     isVirtualenvEnvironment,
     isVirtualenvwrapperEnvironment,
 } from '../../../common/environmentManagers/simplevirtualenvs';
+// --- Start Positron ---
+import { isUvEnvironment } from '../../../common/environmentManagers/uv';
+// --- End Positron ---
 import '../../../../common/extensions';
 import { asyncFilter } from '../../../../common/utils/arrayUtils';
 import { traceError, traceInfo, traceVerbose } from '../../../../logging';
@@ -56,6 +59,12 @@ async function getCustomVirtualEnvDirs(): Promise<string[]> {
  * @param interpreterPath: Absolute path to the interpreter paths.
  */
 async function getVirtualEnvKind(interpreterPath: string): Promise<PythonEnvKind> {
+    // --- Start Positron ---
+    if (await isUvEnvironment(interpreterPath)) {
+        return PythonEnvKind.Uv;
+    }
+    // --- End Positron ---
+
     if (await isPipenvEnvironment(interpreterPath)) {
         return PythonEnvKind.Pipenv;
     }

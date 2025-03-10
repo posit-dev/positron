@@ -11,7 +11,10 @@ import { comparePythonVersionSpecificity } from '../../base/info/env';
 import { parseBasicVersion, parseRelease, parseVersion } from '../../base/info/pythonVersion';
 import { isParentPath, pathExists, readFile } from '../externalDependencies';
 
-function getPyvenvConfigPathsFrom(interpreterPath: string): string[] {
+// --- Start Positron ---
+// Only change here is exporting it so uv.ts can use it
+export function getPyvenvConfigPathsFrom(interpreterPath: string): string[] {
+    // --- End Positron ---
     const pyvenvConfigFile = 'pyvenv.cfg';
 
     // Check if the pyvenv.cfg file is in the parent directory relative to the interpreter.
