@@ -214,11 +214,6 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 	removeClient(id: string): void {
 		if (this._kernel) {
-			this._kernel.listClients(positron.RuntimeClientType.Lsp).then((client) => {
-				if (client[id] === positron.RuntimeClientType.Lsp) {
-					this._lsp?.deactivate(true);
-				}
-			});
 			this._kernel.removeClient(id);
 		} else {
 			throw new Error(`Cannot remove client ${id}; kernel not started`);

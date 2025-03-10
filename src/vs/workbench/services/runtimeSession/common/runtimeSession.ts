@@ -701,25 +701,20 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return;
 		}
 
-		// Remove Lsp clients from the previous foreground session.
+		// TODO @samclark2015 @dhruvisompura Fix this to eliminate race condition?
 		this._foregroundSession?.listClients(RuntimeClientType.Lsp).then(clients => {
 			clients.forEach(client => {
 				this._foregroundSession?.removeClient(client.getClientId());
 			});
 		});
-
-		// Set the new foreground session
 		this._foregroundSession = session;
+		this._foregroundSession?.listClients(RuntimeClientType.Lsp).then(clients => {
+			if (clients.length === 0) {
+				this._foregroundSession?.createClient(RuntimeClientType.Lsp, null);
+			}
+		});
 
 		if (session) {
-			// Add Lsp clients to the new foreground session.
-			session.listClients(RuntimeClientType.Lsp).then(clients => {
-				// If there are no clients, create one.
-				if (clients.length === 0) {
-					session.createClient(RuntimeClientType.Lsp, null);
-				}
-			});
-
 			// Update the map of active console sessions per language
 			this._lastActiveConsoleSessionByLanguageId.set(session.runtimeMetadata.languageId, session);
 		}
