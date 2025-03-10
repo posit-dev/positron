@@ -2531,8 +2531,19 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             "f10": ["str", 1, 2, None, False] * 20,
             # mixed-integer-float
             "f11": np.array([1.5, 2, 2, None, 3.5] * 20, dtype=object),
+            # decimal
+            "f12": [
+                Decimal("1.5"),
+                Decimal("2"),
+                Decimal("2"),
+                None,
+                Decimal("3.5"),
+            ]
+            * 20,
         }
     )
+
+    f12_f64 = df1["f12"].astype("float64")
 
     df_mixed_tz1 = pd.concat(
         [
@@ -2680,6 +2691,19 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             11,
             {"num_unique": 3},
         ),
+        # decimal
+        (
+            "df1",
+            12,
+            {
+                "min_value": _format_float(f12_f64.min()),
+                "max_value": _format_float(f12_f64.max()),
+                "mean": _format_float(f12_f64.mean()),
+                "stdev": _format_float(f12_f64.std()),
+                "median": _format_float(f12_f64.median()),
+            },
+        ),
+        # mixed types
         (
             "df_mixed_tz1",
             0,
@@ -2722,6 +2746,7 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
         max_value_length=1000,
         thousands_sep="_",
     )
+
     _format_float = _get_float_formatter(format_options)
 
     test_df = pd.DataFrame(
@@ -2732,6 +2757,23 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
             "d": [0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10],
             "e": [np.inf, -np.inf, 0, 1, 2, 3, 4, 5, 6, 7, 8],
             "f": np.ones(11),
+            # decimal test case
+            "g": np.array(
+                [
+                    Decimal("1.1"),
+                    Decimal("1.2"),
+                    Decimal("1.3"),
+                    Decimal("1.4"),
+                    Decimal("1.5"),
+                    Decimal("1.6"),
+                    Decimal("1.7"),
+                    Decimal("1.8"),
+                    Decimal("1.9"),
+                    Decimal("2.0"),
+                    None,
+                ],
+                dtype=object,
+            ),
         }
     )
     dfp = pl.DataFrame(
@@ -2742,6 +2784,23 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
             "d": [0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10],
             "e": [np.inf, -np.inf, 0, 1, 2, 3, 4, 5, 6, 7, 8],
             "f": np.ones(11),
+            # decimal test case
+            "g": np.array(
+                [
+                    Decimal("1.1"),
+                    Decimal("1.2"),
+                    Decimal("1.3"),
+                    Decimal("1.4"),
+                    Decimal("1.5"),
+                    Decimal("1.6"),
+                    Decimal("1.7"),
+                    Decimal("1.8"),
+                    Decimal("1.9"),
+                    Decimal("2.0"),
+                    None,
+                ],
+                dtype=object,
+            ),
         }
     )
 
@@ -2830,6 +2889,15 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
             {
                 "bin_edges": ["0.5000", "1.50"],
                 "bin_counts": [11],
+                "quantiles": [],
+            },
+        ),
+        # test decimal
+        (
+            _get_histogram(6, bins=4),
+            {
+                "bin_edges": ["1.10", "1.33", "1.55", "1.77", "2.00"],
+                "bin_counts": [3, 2, 2, 3],
                 "quantiles": [],
             },
         ),

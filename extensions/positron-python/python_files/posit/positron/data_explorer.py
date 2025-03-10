@@ -11,6 +11,7 @@ import logging
 import math
 import operator
 from datetime import datetime
+from decimal import Decimal
 from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
@@ -891,9 +892,13 @@ class NumPyMathHelper:
         return isinstance(value, (float, self.np.floating))
 
     def isnan(self, value):
+        if isinstance(value, Decimal):
+            return False
         return self.np.isnan(value)
 
     def isinf(self, value):
+        if isinstance(value, Decimal):
+            return False
         return self.np.isinf(value)
 
 
@@ -1874,6 +1879,10 @@ def _get_histogram_numpy(data, num_bins, method="fd"):
 
     assert num_bins is not None
     hist_params = {"bins": num_bins} if method == "fixed" else {"bins": method}
+
+    if data.dtype == object:
+        # For decimals, we convert to float which is lossy but works for now
+        return _get_histogram_numpy(data.astype(float), num_bins, method=method)
 
     # We optimistically compute the histogram once, and then do extra
     # work in the special cases where the binning method produces a
