@@ -407,9 +407,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			case KeyCode.KeyR: {
 				// When Ctrl-R is pressed, engage a reverse history search (like bash).
 				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
-					engageHistoryBrowser(new HistoryInfixMatchStrategy(
-						historyNavigatorRef.current!
-					));
+					const entries = new HistoryNavigator2<IInputHistoryEntry>(
+						positronConsoleContext.executionHistoryService.getInputEntries(
+							props.positronConsoleInstance.runtimeMetadata.languageId
+						)
+					)
+					engageHistoryBrowser(new HistoryInfixMatchStrategy(entries));
 					consumeEvent();
 				}
 
@@ -443,9 +446,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					// If the cmd or ctrl key is pressed, and the history
 					// browser is not up, engage the history browser with the
 					// prefix match strategy. This behavior mimics RStudio.
-					engageHistoryBrowser(new HistoryPrefixMatchStrategy(
-						historyNavigatorRef.current!
-					));
+					const entries = new HistoryNavigator2<IInputHistoryEntry>(
+						positronConsoleContext.executionHistoryService.getInputEntries(
+							props.positronConsoleInstance.runtimeMetadata.languageId
+						)
+					)
+					engageHistoryBrowser(new HistoryPrefixMatchStrategy(entries));
 					consumeEvent();
 					break;
 				}
@@ -600,8 +606,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Build the history entries, if there is input history.
-		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(
+		// Build the history entries, if there is input history. This input
+		// history is used for navigating inside this session with navigation
+		// keys (e.g. up, down), so it includes only the current session's
+		// input.
+		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getSessionInputEntries(
 			props.positronConsoleInstance.sessionMetadata.sessionId
 		);
 		if (inputHistoryEntries.length) {
