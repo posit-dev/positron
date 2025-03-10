@@ -66,6 +66,8 @@ export class SessionExecutionHistory extends Disposable {
 	 * @param session The session to attach.
 	 */
 	attachSession(session: ILanguageRuntimeSession) {
+		this._sessionDisposables.clear();
+
 		// When the sesion starts for the first time, listen for and record the
 		// startup banner as a history entry.
 		if (this._startMode === RuntimeStartMode.Starting) {

@@ -61,6 +61,7 @@ export class SessionInputHistory extends Disposable {
 	 * @param session The session to attach.
 	 */
 	attachSession(session: ILanguageRuntimeSession) {
+		this._sessionDisposables.clear();
 		this._sessionDisposables.add(session.onDidReceiveRuntimeMessageInput(message => {
 			this._entries.push({
 				when: Date.now(),

@@ -193,12 +193,13 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 			const input = this._sessionHistories.get(session.sessionId);
 			input!.attachSession(session);
 		} else {
-			const history = new SessionInputHistory(
+			const input = new SessionInputHistory(
 				session.sessionId,
 				this._storageService,
 				this._logService);
-			this._sessionHistories.set(session.sessionId, history);
-			this._register(history);
+			input.attachSession(session);
+			this._sessionHistories.set(session.sessionId, input);
+			this._register(input);
 		}
 
 		// Clean up the history when the session ends
