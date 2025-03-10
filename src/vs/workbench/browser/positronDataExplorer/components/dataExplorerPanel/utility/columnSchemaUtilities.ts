@@ -38,6 +38,10 @@ export const columnSchemaDataTypeIcon = (columnSchema?: ColumnSchema) => {
 		case ColumnDisplayType.Object:
 			return 'codicon-positron-data-type-object';
 
+		// Reuse object codicon for categorical.
+		case ColumnDisplayType.Categorical:
+			return 'codicon-positron-data-type-object';
+
 		case ColumnDisplayType.Array:
 			return 'codicon-positron-data-type-array';
 

@@ -813,9 +813,9 @@ def _box_number_stats(min_val, max_val, mean_val, median_val, std_val):
     )
 
 
-def _box_other_stats(num_unique):
+def _box_other_stats(num_unique, type_display=ColumnDisplayType.Object):
     return ColumnSummaryStats(
-        type_display=ColumnDisplayType.Object,
+        type_display=type_display,
         other_stats=SummaryStatsOther(num_unique=int(num_unique)),
     )
 
@@ -1026,9 +1026,17 @@ def _pandas_summarize_string(col: pd.Series, _options: FormatOptions):
     return _box_string_stats(num_empty, num_unique)
 
 
-def _pandas_summarize_object(col: pd.Series, _options: FormatOptions):
+def _pandas_summarize_object(
+    col: pd.Series,
+    _options: FormatOptions,
+    type_display: ColumnDisplayType = ColumnDisplayType.Object,
+):
     num_unique = col.nunique()
-    return _box_other_stats(num_unique)
+    return _box_other_stats(num_unique, type_display=type_display)
+
+
+def _pandas_summarize_categorical(col: pd.Series, _options: FormatOptions):
+    return _box_other_stats(col.nunique(), type_display=ColumnDisplayType.Categorical)
 
 
 def _pandas_summarize_boolean(col: pd.Series, _options: FormatOptions):
@@ -1351,7 +1359,7 @@ class PandasView(DataExplorerTableView):
             "mixed": "object",
             "decimal": "number",
             "complex": "number",
-            "categorical": "categorical",
+            "category": "categorical",
             "bool": "boolean",
             "datetime64": "datetime",
             "datetime64[ns]": "datetime",
@@ -1707,6 +1715,7 @@ class PandasView(DataExplorerTableView):
             ColumnDisplayType.Date: _pandas_summarize_date,
             ColumnDisplayType.Datetime: _pandas_summarize_datetime,
             ColumnDisplayType.Object: _pandas_summarize_object,
+            ColumnDisplayType.Categorical: _pandas_summarize_categorical,
         }
     )
 
@@ -2020,6 +2029,24 @@ def _polars_summarize_string(col: pl.Series, _):
     return _box_string_stats(num_empty, num_unique)
 
 
+def _polars_summarize_categorical(
+    col: pl.Series,
+    _format_options: FormatOptions,
+):
+    return _polars_summarize_object(
+        col, _format_options, type_display=ColumnDisplayType.Categorical
+    )
+
+
+def _polars_summarize_object(
+    col: pl.Series,
+    _format_options: FormatOptions,
+    type_display: ColumnDisplayType = ColumnDisplayType.Object,
+):
+    num_unique = col.n_unique()
+    return _box_other_stats(num_unique, type_display=type_display)
+
+
 def _polars_summarize_boolean(col: pl.Series, _):
     null_count = col.is_null().sum()
     true_count = col.sum()
@@ -2201,10 +2228,13 @@ class PolarsView(DataExplorerTableView):
     ):
         type_display = cls._get_type_display(column.dtype)
 
+        # For Categorical types, we just use "Categorical" for the type name for simplicity
+        type_name = "Categorical" if type_display == "categorical" else str(column.dtype)
+
         return ColumnSchema(
             column_name=column_name,
             column_index=column_index,
-            type_name=str(column.dtype),
+            type_name=type_name,
             type_display=type_display,
         )
 
@@ -2230,7 +2260,7 @@ class PolarsView(DataExplorerTableView):
             "Object": "object",
             "List": "array",
             "Struct": "struct",
-            "Categorical": "unknown",  # See #3417
+            "Categorical": "categorical",
             "Duration": "unknown",  # See #3418
             "Enum": "unknown",
             "Null": "unknown",  # Not yet implemented
@@ -2547,6 +2577,8 @@ class PolarsView(DataExplorerTableView):
             ColumnDisplayType.Boolean: _polars_summarize_boolean,
             ColumnDisplayType.Number: _polars_summarize_number,
             ColumnDisplayType.String: _polars_summarize_string,
+            ColumnDisplayType.Object: _polars_summarize_object,
+            ColumnDisplayType.Categorical: _polars_summarize_categorical,
             ColumnDisplayType.Date: _polars_summarize_date,
             ColumnDisplayType.Datetime: _polars_summarize_datetime,
         }

@@ -42,6 +42,8 @@ class ColumnDisplayType(str, enum.Enum):
 
     Struct = "struct"
 
+    Categorical = "categorical"
+
     Unknown = "unknown"
 
 

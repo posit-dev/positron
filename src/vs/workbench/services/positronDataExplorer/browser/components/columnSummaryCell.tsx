@@ -147,6 +147,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			case ColumnDisplayType.Datetime:
 			case ColumnDisplayType.Time:
 			case ColumnDisplayType.Object:
+			case ColumnDisplayType.Categorical:
 			case ColumnDisplayType.Array:
 			case ColumnDisplayType.Struct:
 			case ColumnDisplayType.Unknown:
@@ -266,6 +267,10 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			case ColumnDisplayType.Object:
 				return <ColumnProfileObject columnIndex={props.columnIndex} instance={props.instance} />;
 
+			// Categorical. Reuse Object profile for now.
+			case ColumnDisplayType.Categorical:
+				return <ColumnProfileObject columnIndex={props.columnIndex} instance={props.instance} />;
+
 			// Column display types that do not render a profile.
 			case ColumnDisplayType.Time:
 			case ColumnDisplayType.Array:
@@ -313,6 +318,10 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			case ColumnDisplayType.Object:
 				return 'codicon-positron-data-type-object';
 
+			// Categorical. Reuse object codicon for now.
+			case ColumnDisplayType.Categorical:
+				return 'codicon-positron-data-type-object';
+
 			// Array.
 			case ColumnDisplayType.Array:
 				return 'codicon-positron-data-type-array';
@@ -343,6 +352,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		case ColumnDisplayType.Date:
 		case ColumnDisplayType.Datetime:
 		case ColumnDisplayType.Object:
+		case ColumnDisplayType.Categorical:
 			summaryStatsSupported = isSummaryStatsSupported();
 			break;
 		case ColumnDisplayType.Time:

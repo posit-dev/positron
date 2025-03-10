@@ -87,6 +87,9 @@ export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 			case ColumnDisplayType.Object:
 				return DataColumnAlignment.Left;
 
+			case ColumnDisplayType.Categorical:
+				return DataColumnAlignment.Left;
+
 			case ColumnDisplayType.Array:
 				return DataColumnAlignment.Left;
 
