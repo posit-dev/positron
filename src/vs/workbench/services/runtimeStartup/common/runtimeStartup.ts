@@ -41,14 +41,19 @@ interface IAffiliatedRuntimeMetadata {
 }
 
 /**
- * Key for storing the set of persistent workspace session list. The session
- * list is stored in ephemeral storage; it persists across browser
- * reloads/reconnects, but not across Positron sessions.
+ * Key for storing the set of persistent workspace session list.
+ *
+ * The session list is stored (by default) in ephemeral storage; this persists
+ * across browser reloads/reconnects, but not across Positron sessions.
+ *
+ * Sessions can also be persisted across Positron sessions in workspace
+ * storage, if the kernel supervisor is configured to do so.
  *
  * Amended with the workspace ID to allow for multiple workspaces to store their
- * sessions separately.
+ * sessions separately, and with a version number to allow for future changes to
+ * the storage format.
  */
-const PERSISTENT_WORKSPACE_SESSIONS = 'positron.workspaceSessionList';
+const PERSISTENT_WORKSPACE_SESSIONS = 'positron.workspaceSessionList.v2';
 
 const languageRuntimeExtPoint =
 	ExtensionsRegistry.registerExtensionPoint<ILanguageRuntimeProviderMetadata[]>({
