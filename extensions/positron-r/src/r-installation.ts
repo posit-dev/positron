@@ -149,7 +149,7 @@ export class RInstallation {
 		this.current = current;
 		this.reasonDiscovered = reasonDiscovered;
 
-		// Check if the installation is the default R interpreter
+		// Check if the installation is the default R interpreter for Positron
 		const defaultInterpreterPath = getDefaultInterpreterPath();
 		this.default = defaultInterpreterPath
 			? arePathsSame(pth, defaultInterpreterPath)
@@ -352,7 +352,7 @@ function isExcludedInstallation(binpath: string): boolean | undefined {
 }
 
 /**
- * Get the default R interpreter path specified in the settings.
+ * Get the default R interpreter path specified in Positron settings.
  * Converts aliased paths to absolute paths. Relative paths are ignored.
  * @returns The default R interpreter path specified in the settings, or undefined if not set.
  */
