@@ -447,6 +447,15 @@ class ColumnProfileEvaluator {
 		// potentially better performance
 		const numRows = Number(stats.get('num_rows'));
 
+		// Handle numRows == 0 special case
+		if (numRows === 0) {
+			return {
+				bin_edges: [],
+				bin_counts: [],
+				quantiles: []
+			};
+		}
+
 		// TODO: This may be lossy for very large INT64 values
 		// We used strings here to temporarily support decimal type data that fits in float64.
 		// We will need to return later to support broader-spectrum decimals
@@ -786,6 +795,16 @@ export class DuckDBTableView {
 		// based on what the UI requested. This blunt approach could end up being wasteful in
 		// some cases, but doing fewer queries / scans in the average case should yield better
 		// performance.
+
+		// First, check if the filtered table has any rows at all
+		const [filteredNumRows, _] = await this._filteredShape;
+		if (filteredNumRows === 0) {
+			// If the table has 0 rows due to filtering, return empty columns immediately
+			return {
+				columns: Array.from({ length: params.columns.length }, () => [])
+			};
+		}
+
 		let lowerLimit = Infinity;
 		let upperLimit = -Infinity;
 
