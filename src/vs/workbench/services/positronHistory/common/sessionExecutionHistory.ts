@@ -6,9 +6,9 @@
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
-import { EXECUTION_HISTORY_STORAGE_PREFIX, IExecutionHistoryEntry } from './executionHistoryService.js';
-import { ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, RuntimeOnlineState } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
+import { EXECUTION_HISTORY_STORAGE_PREFIX, ExecutionEntryType, IExecutionHistoryEntry } from './executionHistoryService.js';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, RuntimeOnlineState } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 
 /**
  * Represents a history of executions for a single language runtime session.
@@ -35,6 +35,7 @@ export class SessionExecutionHistory extends Disposable {
 
 	constructor(
 		sessionId: string,
+		private readonly _startMode: RuntimeStartMode,
 		private readonly _storageService: IStorageService,
 		private readonly _logService: ILogService
 	) {
@@ -65,6 +66,24 @@ export class SessionExecutionHistory extends Disposable {
 	 * @param session The session to attach.
 	 */
 	attachSession(session: ILanguageRuntimeSession) {
+		// When the sesion starts for the first time, listen for and record the
+		// startup banner as a history entry.
+		if (this._startMode === RuntimeStartMode.Starting) {
+			this._sessionDisposables.add(session.onDidCompleteStartup(info => {
+				// Add the startup banner as a history entry
+				const entry: IExecutionHistoryEntry<ILanguageRuntimeInfo> = {
+					id: `startup-${session.sessionId}`,
+					when: Date.now(),
+					prompt: '',
+					input: '',
+					outputType: ExecutionEntryType.Startup,
+					output: info,
+					durationMs: 0
+				};
+				this._entries.push(entry);
+			}));
+		}
+
 		this._sessionDisposables.add(session.onDidReceiveRuntimeMessageInput(message => {
 			// See if there is already a pending execution for the parent ID.
 			// This is possible if an output message arrives before the input
@@ -88,7 +107,7 @@ export class SessionExecutionHistory extends Disposable {
 					when: Date.parse(message.when),
 					prompt: session.dynState.inputPrompt,
 					input: message.code,
-					outputType: 'text/plain',
+					outputType: ExecutionEntryType.Execution,
 					output: '',
 					durationMs: 0
 				};
@@ -155,7 +174,7 @@ export class SessionExecutionHistory extends Disposable {
 				when: Date.parse(message.when),
 				prompt: '',
 				input: '',
-				outputType: 'text/plain',
+				outputType: ExecutionEntryType.Execution,
 				output,
 				durationMs: 0
 			};

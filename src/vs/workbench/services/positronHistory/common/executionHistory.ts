@@ -5,7 +5,7 @@
 
 import { EXECUTION_HISTORY_STORAGE_PREFIX, IExecutionHistoryEntry, IExecutionHistoryService, IInputHistoryEntry } from './executionHistoryService.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -40,13 +40,13 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 
 		// Start recording history for all currently active runtimes
 		this._runtimeSessionService.activeSessions.forEach(session => {
-			this.beginRecordingHistory(session);
+			this.beginRecordingHistory(session, RuntimeStartMode.Reconnecting);
 		});
 
 		// Listen for runtimes to start; when they do, begin recording
 		// executions
-		this._register(this._runtimeSessionService.onDidStartRuntime(runtime => {
-			this.beginRecordingHistory(runtime);
+		this._register(this._runtimeSessionService.onWillStartSession(evt => {
+			this.beginRecordingHistory(evt.session, evt.startMode);
 		}));
 
 		// Prune storage for any sessions that are no longer active
@@ -116,7 +116,13 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		return [];
 	}
 
-	private beginRecordingHistory(session: ILanguageRuntimeSession): void {
+	/**
+	 * Begins recording history for a given runtime session.
+	 *
+	 * @param session The session to begin recording history for.
+	 * @param startMode The mode in which the session is starting.
+	 */
+	private beginRecordingHistory(session: ILanguageRuntimeSession, startMode: RuntimeStartMode): void {
 		// Create a new history for the runtime if we don't already have one
 		if (this._executionHistories.has(session.sessionId)) {
 			const history = this._executionHistories.get(session.sessionId);
@@ -124,6 +130,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		} else {
 			const history = new SessionExecutionHistory(
 				session.metadata.sessionId,
+				startMode,
 				this._storageService,
 				this._logService);
 			history.attachSession(session);
@@ -157,6 +164,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		// If we don't have a history for this session, create one.
 		const history = new SessionExecutionHistory(
 			sessionId,
+			RuntimeStartMode.Reconnecting,
 			this._storageService,
 			this._logService);
 		this._executionHistories.set(sessionId, history);

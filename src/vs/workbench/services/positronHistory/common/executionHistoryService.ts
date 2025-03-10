@@ -41,6 +41,17 @@ export interface IExecutionHistoryEntry<T> {
 }
 
 /**
+ * The type of an execution history entry.
+ */
+export enum ExecutionEntryType {
+	/** The entry represents the startup of a language runtime */
+	Startup = 'startup',
+
+	/** The entry represents the execution of a code fragment */
+	Execution = 'execution',
+}
+
+/**
  * Represents an input code fragment sent to a language runtime.
  */
 export interface IInputHistoryEntry {

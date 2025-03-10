@@ -36,12 +36,12 @@ import { ActivityItem, RuntimeItemActivity } from './classes/runtimeItemActivity
 import { ActivityItemInput, ActivityItemInputState } from './classes/activityItemInput.js';
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
 import { ILanguageRuntimeCodeExecutedEvent, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
 import { IRuntimeStartupService, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
 import { multipleConsoleSessionsFeatureEnabled } from '../../runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
-import { IExecutionHistoryEntry, IExecutionHistoryService } from '../../positronHistory/common/executionHistoryService.js';
+import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } from '../../positronHistory/common/executionHistoryService.js';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -1307,31 +1307,44 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	replayExecutions(entries: IExecutionHistoryEntry<any>[]): void {
 		for (const entry of entries) {
-			// Create the activity and the first item (the input)
-			const inputActivityItem =
-				new ActivityItemInput(
-					ActivityItemInputState.Completed,
-					entry.id + '-input',
-					entry.id,
-					new Date(entry.when),
-					entry.prompt,
-					' '.repeat(entry.prompt.length),
-					entry.input
-				);
+			if (entry.outputType === ExecutionEntryType.Execution) {
+				// Create the activity and the first item (the input)
+				const inputActivityItem =
+					new ActivityItemInput(
+						ActivityItemInputState.Completed,
+						entry.id + '-input',
+						entry.id,
+						new Date(entry.when),
+						entry.prompt,
+						' '.repeat(entry.prompt.length),
+						entry.input
+					);
 
-			const inputItem = new RuntimeItemActivity(entry.id, inputActivityItem);
-			this._runtimeItemActivities.set(entry.id, inputItem);
-			this._runtimeItems.push(inputItem);
+				const inputItem = new RuntimeItemActivity(entry.id, inputActivityItem);
+				this._runtimeItemActivities.set(entry.id, inputItem);
+				this._runtimeItems.push(inputItem);
 
-			// Add the second item (the output)
-			const outputActivityItem =
-				new ActivityItemOutputMessage(
-					entry.id + '-output',
+				if (entry.output) {
+					// Add the second item (the output)
+					const outputActivityItem =
+						new ActivityItemOutputMessage(
+							entry.id + '-output',
+							entry.id,
+							new Date(entry.when),
+							{ 'text/plain': entry.output }
+						);
+					inputItem.addActivityItem(outputActivityItem);
+				}
+			} else if (entry.outputType === ExecutionEntryType.Startup) {
+				const info = entry.output as ILanguageRuntimeInfo;
+				const startupItem = new RuntimeItemStartup(
 					entry.id,
-					new Date(entry.when),
-					{ 'text/plain': entry.output }
+					info.banner,
+					info.implementation_version,
+					info.language_version,
 				);
-			inputItem.addActivityItem(outputActivityItem);
+				this._runtimeItems.push(startupItem);
+			}
 		}
 
 		// Enter the reconnecting state.
