@@ -10,8 +10,6 @@ import { newLanguageModel } from './models';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { editsProvider } from './edits';
 import { createParticipants } from './participants';
-import { register } from 'node:module';
-import { LanguageModel } from 'ai';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -50,11 +48,11 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 		}
 
 		const languageModel = newLanguageModel(modelConfig);
-		const resolved = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
+		const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
 
-		if (!resolved) {
+		if (error) {
 			vscode.window.showErrorMessage(
-				vscode.l10n.t('Positron Assistant: Failed to register model configuration. The model could not be connected.')
+				vscode.l10n.t(`Positron Assistant: Failed to register model configuration. ${error.message}`)
 			);
 			return false;
 		}

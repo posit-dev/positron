@@ -39,7 +39,7 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 		throw new Error(this._message);
 	}
 
-	resolveConnection(token: vscode.CancellationToken): Thenable<boolean> {
+	resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined> {
 		throw new Error(this._message);
 	}
 }
@@ -85,8 +85,8 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		}
 	}
 
-	resolveConnection(token: vscode.CancellationToken): Thenable<boolean> {
-		return Promise.resolve(true);
+	resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined> {
+		return Promise.resolve(undefined);
 	}
 }
 
@@ -105,22 +105,27 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		this.provider = _config.provider;
 	}
 
-	async resolveConnection(token: vscode.CancellationToken): Promise<boolean> {
+	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
 		token.onCancellationRequested(() => {
 			return false;
 		});
 
 		try {
 			// send a test message to the model
-			await ai.generateText({
+			const result = await ai.generateText({
 				model: this.model,
-				prompt: 'Hello!',
+				prompt: 'I\'m checking to see if you\'re there. Response only with the word "hello".',
 			});
 
 			// if the model responds, the config works
-			return true;
+			return undefined;
 		} catch (error) {
-			return false;
+			if (ai.AISDKError.isInstance(error)) {
+				return new Error(error.message);
+			}
+			else {
+				return new Error(JSON.stringify(error));
+			}
 		}
 	}
 

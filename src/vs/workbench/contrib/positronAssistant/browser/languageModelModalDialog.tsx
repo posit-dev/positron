@@ -20,6 +20,7 @@ import { DropDownListBoxItem } from '../../../browser/positronComponents/dropDow
 import { LabeledTextInput } from '../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
 import { localize } from '../../../../nls.js';
+import { ProgressBar } from '../../../../base/browser/ui/positronComponents/progressBar.js';
 
 export const showLanguageModelModalDialog = (
 	keybindingService: IKeybindingService,
@@ -89,6 +90,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const [numCtx, setNumCtx] = React.useState<number | undefined>(defaultSource.defaults.numCtx);
 	const [model, setModel] = React.useState<string>(defaultSource.defaults.model);
 	const [name, setName] = React.useState<string>(defaultSource.defaults.name);
+	const [showProgress, setShowProgress] = React.useState(false);
 
 	useEffect(() => {
 		setSource(defaultSource);
@@ -119,7 +121,8 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		if (!source) {
 			return;
 		}
-		await props.onSave({
+		setShowProgress(true);
+		props.onSave({
 			type: type,
 			provider: source.provider.id,
 			model: model,
@@ -131,8 +134,10 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			location: location,
 			toolCalls: toolCalls,
 			numCtx: numCtx,
-		})
-		props.renderer.dispose();
+		}).finally(() => {
+			setShowProgress(false);
+			props.renderer.dispose();
+		});
 	}
 	const onCancel = async () => {
 		props.onCancel();
@@ -250,6 +255,9 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 						{(() => localize('positron.newConnectionModalDialog.toolCalls', "Enable tool calling"))()}
 					</label>
 				</div>
+			}
+			{showProgress &&
+				<ProgressBar />
 			}
 		</VerticalStack>
 	</OKCancelModalDialog>

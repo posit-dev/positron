@@ -1600,8 +1600,10 @@ declare module 'positron' {
 
 			/**
 			 * Tests the connection to the language model provider.
+			 *
+			 * Returns an error if the connection fails.
 			 */
-			resolveConnection(token: vscode.CancellationToken): Thenable<boolean>;
+			resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined>;
 		}
 
 		/**
