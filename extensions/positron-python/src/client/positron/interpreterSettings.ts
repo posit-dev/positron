@@ -221,15 +221,23 @@ export function getUserDefaultInterpreter(scope?: Resource): InspectInterpreterS
     const defaultInterpreterPath: InspectInterpreterSettingType =
         configuration?.inspect<string>('defaultInterpreterPath') ?? {};
 
-    // 'python' is the default for this setting. we only want to know if it has changed
-    if (defaultInterpreterPath.globalValue === 'python') {
-        defaultInterpreterPath.globalValue = '';
-    }
-    if (defaultInterpreterPath.workspaceValue === 'python') {
-        defaultInterpreterPath.workspaceValue = '';
-    }
-    if (defaultInterpreterPath.workspaceFolderValue === 'python') {
-        defaultInterpreterPath.workspaceFolderValue = '';
-    }
+    const processPath = (value: string | undefined): string => {
+        // 'python' is the default for this setting. we only want to know if it has changed
+        if (value === 'python') {
+            return '';
+        }
+        if (value) {
+            if (!path.isAbsolute(value)) {
+                traceInfo(`[getUserDefaultInterpreter]: interpreter path ${value} is not absolute...ignoring`);
+                return '';
+            }
+            return value;
+        }
+        return value ?? '';
+    };
+
+    defaultInterpreterPath.globalValue = processPath(defaultInterpreterPath.globalValue);
+    defaultInterpreterPath.workspaceValue = processPath(defaultInterpreterPath.workspaceValue);
+    defaultInterpreterPath.workspaceFolderValue = processPath(defaultInterpreterPath.workspaceFolderValue);
     return defaultInterpreterPath;
 }
