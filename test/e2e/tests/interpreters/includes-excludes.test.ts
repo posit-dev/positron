@@ -66,7 +66,7 @@ test.describe('Interpreter Includes/Excludes', {
 		if (alternateR) {
 			await app.workbench.interpreter.selectInterpreter(InterpreterType.R, alternateR, true);
 
-			await userSettings.set([['positron.r.interpreters.exclud', '["/opt/R/4.4.2"]']], true);
+			await userSettings.set([['positron.r.interpreters.exclude', '["/opt/R/4.4.2"]']], true);
 			try {
 				await app.workbench.interpreter.selectInterpreter(InterpreterType.R, alternateR, true);
 				fail('selectInterpreter was supposed to fail as /opt/R/4.4.2 was excluded');
