@@ -737,6 +737,15 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 	}
 
+	public async activateLsp() {
+		const port = await this.adapterApi!.findAvailablePort([], 25);
+		this._lsp.activate(port, this.context);
+	}
+
+	public deactivateLsp() {
+		this._lsp.deactivate(false);
+	}
+
 	/**
 	 * Shows a help topic in the Positron help viewer.
 	 *
