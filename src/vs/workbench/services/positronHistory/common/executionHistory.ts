@@ -134,32 +134,50 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	 * @returns Input history for the given language, as an array of input history entries.
 	 */
 	getInputEntries(languageId: string): IInputHistoryEntry[] {
-		if (this._languageHistories.has(languageId)) {
-			return this._languageHistories.get(languageId)!.getInputHistory();
-		} else {
-			try {
-				this.createLanguageHistory(languageId);
-				return this._languageHistories.get(languageId)!.getInputHistory();
-			} catch (e) {
-				this._logService.error(`Error creating language history for ${languageId}: ${e}`);
-				return [];
-			}
-		}
+		return this.getLanguageHistory(languageId)?.getInputHistory() || [];
 	}
 
-	private createLanguageHistory(languageId: string) {
-		const storageScope =
-			this._workspaceContextService.getWorkbenchState() === WorkbenchState.EMPTY ?
-				StorageScope.PROFILE :
-				StorageScope.WORKSPACE;
-		const history = new LanguageInputHistory(
-			languageId,
-			this._storageService,
-			storageScope,
-			this._logService,
-			this._configurationService);
-		this._languageHistories.set(languageId, history);
-		this._register(history);
+	/**
+	 * Attempt to get the language history for a given language ID. If the history
+	 * doesn't exist, create it.
+	 *
+	 * @param languageId The ID of the language to get input history for
+	 * @returns The language history, if it exists or could be created, or
+	 * undefined otherwise.
+	 *
+	 * Does not throw.
+	 */
+	private getLanguageHistory(languageId: string): LanguageInputHistory | undefined {
+		// If we already have a history for this language, return it
+		if (this._languageHistories.has(languageId)) {
+			return this._languageHistories.get(languageId)!;
+		}
+
+		// We don't have a history for this language, so create one
+		try {
+			// Use the workspace scope if we have a workspace, otherwise use
+			// the profile scope (this handles the empty workspace case)
+			const storageScope =
+				this._workspaceContextService.getWorkbenchState() === WorkbenchState.EMPTY ?
+					StorageScope.PROFILE :
+					StorageScope.WORKSPACE;
+
+			// Create the history
+			const history = new LanguageInputHistory(
+				languageId,
+				this._storageService,
+				storageScope,
+				this._logService,
+				this._configurationService);
+
+			// Store the history and return it
+			this._languageHistories.set(languageId, history);
+			this._register(history);
+			return history;
+		} catch (e) {
+			this._logService.error(`Error creating language history for ${languageId}: ${e}`);
+		}
+		return undefined;
 	}
 
 	/**
@@ -169,10 +187,8 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	 * @param startMode The mode in which the session is starting.
 	 */
 	private beginRecordingHistory(session: ILanguageRuntimeSession, startMode: RuntimeStartMode): void {
-		// Create a new language history if we don't have one
-		if (!this._languageHistories.has(session.runtimeMetadata.languageId)) {
-			this.createLanguageHistory(session.runtimeMetadata.languageId);
-		}
+		// Attach the session to the language history
+		this.getLanguageHistory(session.runtimeMetadata.languageId)?.attachSession(session);
 
 		// Create a new history for the runtime if we don't already have one
 		if (this._executionHistories.has(session.sessionId)) {

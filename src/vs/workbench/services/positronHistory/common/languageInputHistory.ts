@@ -49,7 +49,7 @@ export class LanguageInputHistory extends Disposable {
 		}));
 	}
 
-	public attachToRuntime(session: ILanguageRuntimeSession): void {
+	public attachSession(session: ILanguageRuntimeSession): void {
 		// Don't attach to the same runtime twice.
 		if (this._attachedSessions.has(session.sessionId)) {
 			this._logService.debug(`LanguageInputHistory (${this._languageId}): ` +
