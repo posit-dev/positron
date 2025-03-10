@@ -454,11 +454,18 @@ export class Extension implements IExtension {
 		}
 
 		if (this.type === ExtensionType.System) {
+			// --- Start Positron ---
+			// 			return Promise.resolve(`# ${this.displayName || this.name}
+			// **Notice:** This extension is bundled with Visual Studio Code. It can be disabled but not uninstalled.
+			// ## Features
+			// ${this.description}
+			// `);
 			return Promise.resolve(`# ${this.displayName || this.name}
-**Notice:** This extension is bundled with Visual Studio Code. It can be disabled but not uninstalled.
+**Notice:** This extension is bundled with Positron. It can be disabled but not uninstalled.
 ## Features
 ${this.description}
 `);
+			// --- End Positron ---
 		}
 
 		if (this.resourceExtension?.readmeUri) {

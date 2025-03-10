@@ -54,8 +54,8 @@ export const ConsoleInstanceInfoButton = () => {
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
 			keybindingService: positronConsoleContext.keybindingService,
-			layoutService: positronConsoleContext.workbenchLayoutService,
-			container: positronConsoleContext.workbenchLayoutService.getContainer(DOM.getWindow(ref.current)),
+			layoutService: positronConsoleContext.layoutService,
+			container: positronConsoleContext.layoutService.getContainer(DOM.getWindow(ref.current)),
 			parent: ref.current
 		});
 
@@ -105,6 +105,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 
 	const showKernelOutputChannelClickHandler = (channel: LanguageRuntimeSessionChannel) => {
 		props.session.showOutput(channel);
+		props.renderer.dispose();
 	}
 
 	// Render.
@@ -112,7 +113,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 		<PositronModalPopup
 			anchorElement={props.anchorElement}
 			fixedHeight={true}
-			height='min-content'
+			height='auto'
 			keyboardNavigationStyle='menu'
 			popupAlignment='auto'
 			popupPosition='auto'
