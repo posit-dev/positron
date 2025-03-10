@@ -636,6 +636,8 @@ export class Sessions {
  */
 export class SessionQuickPick {
 	private sessionQuickMenu = this.code.driver.page.getByText(/(Select a Session)|(Start a New Session)/);
+	private allSessionsMenu = this.code.driver.page.getByText(/Start a New Session/);
+	private activeSessionsMenu = this.code.driver.page.getByText(/Select a Session/);
 
 	constructor(private code: Code, private sessions: Sessions) { }
 
@@ -649,12 +651,10 @@ export class SessionQuickPick {
 			await this.sessions.activeSessionPicker.click();
 		}
 
-		if (viewAllRuntimes) {
+		if (viewAllRuntimes && await this.activeSessionsMenu.isVisible()) {
 			await this.code.driver.page.getByRole('combobox', { name: 'input' }).fill('New Session');
 			await this.code.driver.page.keyboard.press('Enter');
-			await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible();
-		} else {
-			await expect(this.code.driver.page.getByText(/Select a Session/)).toBeVisible();
+			await expect(this.allSessionsMenu).toBeVisible();
 		}
 	}
 
@@ -676,7 +676,13 @@ export class SessionQuickPick {
 	 */
 	async getActiveSessions(): Promise<QuickPickSessionInfo[]> {
 		await this.openSessionQuickPickMenu(false);
-		const allSessions = await this.code.driver.page.locator('.quick-input-list-rows').all();
+
+		// Check if the "All Sessions" menu is visible: ths indicates that
+		// there are no active sessions and we were taken to the "All Sessions" menu
+		const isAllSessionsMenuVisible = await this.allSessionsMenu.isVisible();
+		const allSessions = isAllSessionsMenuVisible
+			? []
+			: await this.code.driver.page.locator('.quick-input-list-rows').all();
 
 		// Get the text of all sessions
 		const activeSessions = await Promise.all(
