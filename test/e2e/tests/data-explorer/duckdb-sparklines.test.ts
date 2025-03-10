@@ -90,7 +90,7 @@ test.describe('Data Explorer - DuckDB Column Summary', {
 				'50.0',
 				'36.0',
 				'44.0',
-				'0.0',
+				'26.0',
 			]);
 
 			const col5ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(5);
