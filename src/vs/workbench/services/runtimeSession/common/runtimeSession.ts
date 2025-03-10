@@ -22,13 +22,13 @@ import { IExtensionService } from '../../extensions/common/extensions.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
-import { basename } from '../../../../base/common/resources.js';
 import { IUpdateService } from '../../../../platform/update/common/update.js';
 import { multipleConsoleSessionsFeatureEnabled } from './positronMultipleConsoleSessionsFeatureFlag.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
-// import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { IFileService, FileOperation } from '../../../../platform/files/common/files.js';
+// No longer needed
+import { generateNotebookSessionId } from './runtimeSessionUtils.js';
 
 /**
  * The maximum number of active sessions a user can have running at a time.
@@ -411,11 +411,20 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const sessionMode = notebookUri
 			? LanguageRuntimeSessionMode.Notebook
 			: LanguageRuntimeSessionMode.Console;
-		const sessionName = notebookUri ? basename(notebookUri) : runtime.runtimeName;
+
+		// Use a generated notebook session ID for notebooks, runtime name for consoles
+		const sessionName = notebookUri
+			? generateNotebookSessionId()
+			: runtime.runtimeName;
+
+		// Store the session name for this notebook URI if it doesn't exist yet
+		if (notebookUri) {
+			this._logService.info(`Using session ID ${sessionName} for notebook ${notebookUri.toString()}`);
+		}
+
 		const startMode = notebookUri
 			? RuntimeStartMode.Switching
 			: multiSessionsEnabled ? RuntimeStartMode.Starting : RuntimeStartMode.Switching;
-
 
 		// If a start request is already in progress, wait for it to complete.
 		const startingPromise = this._startingSessionsBySessionMapKey.get(
@@ -1361,6 +1370,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			createdTimestamp: Date.now(),
 			startReason: source
 		};
+
+		// Store the session ID in the NotebookEditorInput if this is a notebook session
+		if (sessionMode === LanguageRuntimeSessionMode.Notebook && notebookUri) {
+			// Try to find and update any open notebook editor inputs with this session ID
+			this._commandService.executeCommand('_positron.storeNotebookSessionId', notebookUri.toString(), sessionId)
+				.then(() => {
+					this._logService.debug(`Stored session ID ${sessionId} for notebook ${notebookUri.toString()}`);
+				})
+				.catch(err => {
+					this._logService.error(`Failed to store session ID for notebook: ${err}`);
+				});
+		}
 
 		// Provision the new session.
 		let session: ILanguageRuntimeSession;

@@ -141,6 +141,26 @@ import { NotebookSynchronizerService } from './contrib/chatEdit/notebookSynchron
 import { getShouldUsePositronEditor } from '../../positronNotebook/browser/positronNotebook.contribution.js';
 import { PositronNotebookEditorInput } from '../../positronNotebook/browser/PositronNotebookEditorInput.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
+import { CommandsRegistry } from '../../../../platform/commands/common/commands.js';
+
+// Register a command to store the session ID in the NotebookEditorInput
+CommandsRegistry.registerCommand('_positron.storeNotebookSessionId', async (accessor, uriString: string, sessionId: string) => {
+	const editorService = accessor.get(IEditorService);
+	const uri = URI.parse(uriString);
+
+	// Find all editors that match this URI
+	const editors = editorService.findEditors(uri);
+	let stored = false;
+
+	for (const editor of editors) {
+		if (editor.editor instanceof NotebookEditorInput) {
+			editor.editor.setSessionId(sessionId);
+			stored = true;
+		}
+	}
+
+	return stored;
+});
 // --- End Positron ---
 /*--------------------------------------------------------------------------------------------- */
 
@@ -544,7 +564,7 @@ class CellInfoContentProvider {
 
 		const data = CellUri.parseCellPropertyUri(resource, Schemas.vscodeNotebookCellOutput);
 		if (!data) {
-			return null;
+			return this.provideOutputsTextContent(resource);
 		}
 
 		const ref = await this._notebookModelResolverService.resolve(data.notebook);

@@ -36,6 +36,13 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { basename } from '../../../../base/common/resources.js';
+
+/**
+ * A map of notebook URIs to their associated session IDs.
+ * This allows notebooks to reattach to their sessions when reopened.
+ * The keys are string representations of URIs.
+ */
+const notebookSessionIds = new Map<string, string>();
 // --- End Positron ---
 
 export interface NotebookEditorInputOptions {
@@ -267,6 +274,13 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 						.then((success: boolean) => {
 							if (success) {
 								console.log(`Updated runtime session from ${fromName} to ${toName}`);
+
+								// Transfer the session ID to the new URI if we have one
+								const sessionId = this.getSessionId();
+								if (sessionId) {
+									notebookSessionIds.set(target.toString(), sessionId);
+									console.log(`Transferred session ID ${sessionId} to new URI ${target.toString()}`);
+								}
 							}
 						})
 						.catch((err: Error) => {
@@ -400,6 +414,26 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 		}
 		return false;
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Get the session ID associated with this notebook, if any.
+	 *
+	 * @returns The session ID for this notebook, or undefined if none exists
+	 */
+	getSessionId(): string | undefined {
+		return notebookSessionIds.get(this.resource.toString());
+	}
+
+	/**
+	 * Set the session ID for this notebook.
+	 *
+	 * @param sessionId The session ID to associate with this notebook
+	 */
+	setSessionId(sessionId: string): void {
+		notebookSessionIds.set(this.resource.toString(), sessionId);
+	}
+	// --- End Positron ---
 }
 
 export interface ICompositeNotebookEditorInput {

@@ -5,10 +5,43 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { log } from './extension';
 import { ResourceMap } from './map';
 import { getNotebookSession } from './utils';
+
+/**
+ * Generates a simple UUID v4 string.
+ * This is a simplified implementation to avoid external dependencies.
+ *
+ * @returns A string containing a randomly generated UUID
+ */
+function generateSimpleUuid(): string {
+	// Create array of random bytes
+	const bytes = new Uint8Array(16);
+	for (let i = 0; i < 16; i++) {
+		bytes[i] = Math.floor(Math.random() * 256);
+	}
+
+	// Set version to 4 (random UUID)
+	bytes[6] = (bytes[6] & 0x0f) | 0x40;
+	// Set variant to the RFC4122 spec
+	bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+	// Convert to hex representation
+	const hexBytes = [];
+	for (let i = 0; i < 16; i++) {
+		hexBytes.push(bytes[i].toString(16).padStart(2, '0'));
+	}
+
+	// Format as standard UUID (8-4-4-4-12)
+	return [
+		hexBytes.slice(0, 4).join(''),
+		hexBytes.slice(4, 6).join(''),
+		hexBytes.slice(6, 8).join(''),
+		hexBytes.slice(8, 10).join(''),
+		hexBytes.slice(10, 16).join('')
+	].join('-');
+}
 
 /**
  * The notebook session service is the main interface for interacting with
@@ -20,6 +53,12 @@ import { getNotebookSession } from './utils';
  * API.
  */
 export class NotebookSessionService {
+	/**
+	 * A map of notebook URIs to the session ID currently assigned to them.
+	 * This allows us to reuse the same session ID for a notebook across restarts.
+	 */
+	private readonly _sessionIdsByNotebookUri = new ResourceMap<string>();
+
 	/**
 	 * A map of sessions currently starting, keyed by notebook URI. Values are promises that resolve
 	 * when the session has started and is ready to execute code.
@@ -103,10 +142,29 @@ export class NotebookSessionService {
 			}
 		}
 
+		// Get or create a session ID for this notebook
+		let sessionId = this._sessionIdsByNotebookUri.get(notebookUri);
+		if (!sessionId) {
+			// Create a new session ID with "n-" prefix followed by UUID
+			sessionId = `n-${generateSimpleUuid()}`;
+			this._sessionIdsByNotebookUri.set(notebookUri, sessionId);
+			log.info(`Created new session ID ${sessionId} for notebook ${notebookUri.toString()}`);
+		} else {
+			log.info(`Reusing session ID ${sessionId} for notebook ${notebookUri.toString()}`);
+		}
+
+		// Store the session ID in the NotebookEditorInput
+		try {
+			await vscode.commands.executeCommand('_positron.storeNotebookSessionId', notebookUri.toString(), sessionId);
+		} catch (err) {
+			log.error(`Failed to store session ID in NotebookEditorInput: ${err}`);
+			// Continue anyway, this is not critical
+		}
+
 		// Start the session.
 		return positron.runtime.startLanguageRuntime(
 			runtimeId,
-			path.basename(notebookUri.path), // Use the notebook's file name as the session name.
+			sessionId, // Use our generated session ID instead of the filename
 			notebookUri);
 	}
 
@@ -282,5 +340,21 @@ export class NotebookSessionService {
 		}
 
 		return session;
+	}
+
+	/**
+	 * Update a notebook's session ID when it's renamed or saved with a new name.
+	 * This ensures we maintain the same session ID across notebook renames.
+	 *
+	 * @param oldUri The old notebook URI
+	 * @param newUri The new notebook URI
+	 */
+	updateNotebookSessionId(oldUri: vscode.Uri, newUri: vscode.Uri): void {
+		const sessionId = this._sessionIdsByNotebookUri.get(oldUri);
+		if (sessionId) {
+			this._sessionIdsByNotebookUri.delete(oldUri);
+			this._sessionIdsByNotebookUri.set(newUri, sessionId);
+			log.info(`Updated session ID mapping: ${oldUri.toString()} → ${newUri.toString()}`);
+		}
 	}
 }
