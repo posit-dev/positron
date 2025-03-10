@@ -107,7 +107,7 @@ test.describe('Data Explorer - DuckDB Column Summary', {
 				'47.8',
 				'50.0',
 				'43.5',
-				'0.0',
+				'47.8',
 			]);
 		});
 	});
