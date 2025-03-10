@@ -14,6 +14,7 @@ export interface IEncryptionService extends ICommonEncryptionService {
 export const IEncryptionMainService = createDecorator<IEncryptionMainService>('encryptionMainService');
 export interface IEncryptionMainService extends IEncryptionService { }
 
+export const ICommonEncryptionService = createDecorator<ICommonEncryptionService>('commonEncryptionService');
 export interface ICommonEncryptionService {
 
 	readonly _serviceBrand: undefined;

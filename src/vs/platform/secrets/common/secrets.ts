@@ -125,11 +125,14 @@ export class BaseSecretStorageService extends Disposable implements ISecretStora
 
 	private async initialize(): Promise<IStorageService> {
 		let storageService;
-		if (!this._useInMemoryStorage && await this._encryptionService.isEncryptionAvailable()) {
-			this._logService.trace(`[SecretStorageService] Encryption is available, using persisted storage`);
-			this._type = 'persisted';
-			storageService = this._storageService;
-		} else {
+		if (!this._useInMemoryStorage) {
+			if (await this._encryptionService.isEncryptionAvailable()) {
+				this._logService.trace(`[SecretStorageService] Encryption is available, using persisted storage`);
+				this._type = 'persisted';
+				storageService = this._storageService;
+			}
+		}
+		if (storageService === undefined) {
 			// If we already have an in-memory storage service, we don't need to recreate it
 			if (this._type === 'in-memory') {
 				return this._storageService;
