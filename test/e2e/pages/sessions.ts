@@ -67,7 +67,7 @@ export class Sessions {
 	async launch(options: {
 		language: 'Python' | 'R';
 		version?: string;
-		triggerMode?: 'session-picker' | 'quickaccess' | 'console';
+		triggerMode?: 'session-picker' | 'quickaccess' | 'console' | 'hotkey';
 		waitForReady?: boolean;
 	}): Promise<string> {
 
@@ -79,7 +79,7 @@ export class Sessions {
 			language,
 			version = language === 'Python' ? DESIRED_PYTHON : DESIRED_R,
 			waitForReady = true,
-			triggerMode = 'quickaccess',
+			triggerMode = 'hotkey',
 		} = options;
 
 		await test.step(`Start session via ${triggerMode}: ${language} ${version}`, async () => {
@@ -93,8 +93,10 @@ export class Sessions {
 				await this.quickaccess.runCommand(command, { keepOpen: true });
 			} else if (triggerMode === 'session-picker') {
 				await this.quickPick.openSessionQuickPickMenu();
-			} else {
+			} else if (triggerMode === 'console') {
 				await this.newConsoleButton.click();
+			} else {
+				await this.page.keyboard.press('Control+Shift+/');
 			}
 
 			await this.quickinput.type(`${language} ${version}`);
@@ -766,7 +768,7 @@ export type SessionInfo = {
 	language: 'Python' | 'R';
 	version: string; // e.g. '3.10.15'
 	id: string;
-	triggerMode?: 'session-picker' | 'quickaccess' | 'console';
+	triggerMode?: 'session-picker' | 'quickaccess' | 'console' | 'hotkey';
 	waitForReady?: boolean;
 };
 
@@ -788,7 +790,7 @@ export const pythonSession: SessionInfo = {
 	name: `Python ${process.env.POSITRON_PY_VER_SEL || ''}`,
 	language: 'Python',
 	version: process.env.POSITRON_PY_VER_SEL || '',
-	triggerMode: 'session-picker',
+	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
 };
@@ -798,7 +800,7 @@ export const pythonSessionAlt: SessionInfo = {
 	name: `Python ${process.env.POSITRON_PY_ALT_VER_SEL || ''}`,
 	language: 'Python',
 	version: process.env.POSITRON_PY_ALT_VER_SEL || '',
-	triggerMode: 'session-picker',
+	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
 };
@@ -808,7 +810,7 @@ export const rSession: SessionInfo = {
 	name: `R ${process.env.POSITRON_R_VER_SEL || ''}`,
 	language: 'R',
 	version: process.env.POSITRON_R_VER_SEL || '',
-	triggerMode: 'session-picker',
+	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
 };
@@ -818,7 +820,7 @@ export const rSessionAlt: SessionInfo = {
 	name: `R ${process.env.POSITRON_R_ALT_VER_SEL || ''}`,
 	language: 'R',
 	version: process.env.POSITRON_R_ALT_VER_SEL || '',
-	triggerMode: 'session-picker',
+	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
 };
