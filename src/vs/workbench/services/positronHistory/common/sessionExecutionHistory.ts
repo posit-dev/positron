@@ -51,7 +51,7 @@ export class SessionExecutionHistory extends Disposable {
 				this._entries.push(entry);
 			});
 		} catch (err) {
-			this._logService.warn(`Couldn't load history for ${_sessionId}: ${err}}`);
+			this._logService.warn(`Couldn't load execution history for ${_sessionId}: ${err}}`);
 		}
 
 		// Ensure we persist the history on e.g. shutdown

@@ -10,11 +10,12 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { SessionExecutionHistory } from './sessionExecutionHistory.js';
-import { SessionInputHistory } from './languageInputHistory.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { IRuntimeStartupService, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
 import { RuntimeExitReason } from '../../languageRuntime/common/languageRuntimeService.js';
+import { SessionInputHistory } from './sessionInputHistory.js';
+import { LanguageInputHistory } from './languageInputHistory.js';
+import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 
 /**
  * Service that manages execution histories for all runtimes.
@@ -26,8 +27,11 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	// Map of session ID to execution history
 	private readonly _executionHistories: Map<string, SessionExecutionHistory> = new Map();
 
+	// Map of session ID to input history
+	private readonly _sessionHistories: Map<string, SessionInputHistory> = new Map();
+
 	// Map of language ID to input history
-	private readonly _inputHistories: Map<string, SessionInputHistory> = new Map();
+	private readonly _languageHistories: Map<string, LanguageInputHistory> = new Map();
 
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
@@ -62,8 +66,8 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	 * @param sessionId Language ID to clear input history for
 	 */
 	clearInputEntries(sessionId: string): void {
-		if (this._inputHistories.has(sessionId)) {
-			this._inputHistories.get(sessionId)!.clear();
+		if (this._sessionHistories.has(sessionId)) {
+			this._sessionHistories.get(sessionId)!.delete();
 		}
 	}
 
@@ -110,11 +114,52 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	 * @param sessionId Session ID to get input history for
 	 * @returns Input history for the given session, as an array of input history entries.
 	 */
-	getInputEntries(sessionId: string): IInputHistoryEntry[] {
-		if (this._inputHistories.has(sessionId)) {
-			this._inputHistories.get(sessionId)!.getInputHistory();
+	getSessionInputEntries(sessionId: string): IInputHistoryEntry[] {
+		if (this._sessionHistories.has(sessionId)) {
+			return this._sessionHistories.get(sessionId)!.getInputHistory();
+		} else {
+			const history = new SessionInputHistory(sessionId,
+				this._storageService,
+				this._logService);
+			this._sessionHistories.set(sessionId, history);
+			this._register(history);
+			return history.getInputHistory();
 		}
-		return [];
+	}
+
+	/**
+	 * Get the input history for the given language.
+	 *
+	 * @param language Language ID to get input history for
+	 * @returns Input history for the given language, as an array of input history entries.
+	 */
+	getInputEntries(languageId: string): IInputHistoryEntry[] {
+		if (this._languageHistories.has(languageId)) {
+			return this._languageHistories.get(languageId)!.getInputHistory();
+		} else {
+			try {
+				this.createLanguageHistory(languageId);
+				return this._languageHistories.get(languageId)!.getInputHistory();
+			} catch (e) {
+				this._logService.error(`Error creating language history for ${languageId}: ${e}`);
+				return [];
+			}
+		}
+	}
+
+	private createLanguageHistory(languageId: string) {
+		const storageScope =
+			this._workspaceContextService.getWorkbenchState() === WorkbenchState.EMPTY ?
+				StorageScope.PROFILE :
+				StorageScope.WORKSPACE;
+		const history = new LanguageInputHistory(
+			languageId,
+			this._storageService,
+			storageScope,
+			this._logService,
+			this._configurationService);
+		this._languageHistories.set(languageId, history);
+		this._register(history);
 	}
 
 	/**
@@ -124,6 +169,11 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 	 * @param startMode The mode in which the session is starting.
 	 */
 	private beginRecordingHistory(session: ILanguageRuntimeSession, startMode: RuntimeStartMode): void {
+		// Create a new language history if we don't have one
+		if (!this._languageHistories.has(session.runtimeMetadata.languageId)) {
+			this.createLanguageHistory(session.runtimeMetadata.languageId);
+		}
+
 		// Create a new history for the runtime if we don't already have one
 		if (this._executionHistories.has(session.sessionId)) {
 			const history = this._executionHistories.get(session.sessionId);
@@ -139,19 +189,15 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 			this._register(history);
 		}
 
-		if (!this._inputHistories.has(session.sessionId)) {
-			// If we're in an empty workspace, use the profile storage scope; otherwise,
-			// use the workspace scope.
-			const storageScope =
-				this._workspaceContextService.getWorkbenchState() === WorkbenchState.EMPTY ?
-					StorageScope.PROFILE :
-					StorageScope.WORKSPACE;
-			const history = new SessionInputHistory(session,
+		if (this._sessionHistories.has(session.sessionId)) {
+			const input = this._sessionHistories.get(session.sessionId);
+			input!.attachSession(session);
+		} else {
+			const history = new SessionInputHistory(
+				session.sessionId,
 				this._storageService,
-				storageScope,
-				this._logService,
-				this._configurationService);
-			this._inputHistories.set(session.sessionId, history);
+				this._logService);
+			this._sessionHistories.set(session.sessionId, history);
 			this._register(history);
 		}
 
@@ -174,7 +220,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 					history.dispose();
 					this._executionHistories.delete(session.sessionId);
 				}
-				this._inputHistories.delete(session.sessionId);
+				this._sessionHistories.delete(session.sessionId);
 			}
 		}));
 	}

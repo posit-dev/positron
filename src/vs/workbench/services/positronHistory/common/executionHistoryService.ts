@@ -12,6 +12,7 @@ export const IExecutionHistoryService = createDecorator<IExecutionHistoryService
 
 /// The prefix used for keys that store execution history
 export const EXECUTION_HISTORY_STORAGE_PREFIX = 'positron.executionHistory';
+export const INPUT_HISTORY_STORAGE_PREFIX = 'positron.inputHistory';
 
 /**
  * Represents the execution (input and output) of a single code fragment in a
@@ -79,6 +80,14 @@ export interface IExecutionHistoryService {
 	 * @param languageId The ID of the language to get input history for
 	 */
 	getInputEntries(languageId: string): IInputHistoryEntry[];
+
+	/**
+	 * Gets the input history for a given session. This returns only the input
+	 * history for the specific session.
+	 *
+	 * @param languageId The ID of the session to get input history for
+	 */
+	getSessionInputEntries(sessionId: string): IInputHistoryEntry[];
 
 	/**
 	 * Removes (clears) all the the input history entries for a given language.

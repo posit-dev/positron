@@ -11,9 +11,17 @@ import { IInputHistoryEntry, inputHistorySizeSettingId } from './executionHistor
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 /**
- * Records input history for a given session.
+ * Records input history for a given language. This is a separate class from the
+ * runtime execution history because the input history is language-specific,
+ * whereas the execution history is session-specific.
+ *
+ * Because multiple runtimes may be associated with the same language, each must
+ * be attached individually.
  */
-export class SessionInputHistory extends Disposable {
+export class LanguageInputHistory extends Disposable {
+	/** The set of session IDs to which we are currently attached (listening to inputs) */
+	private _attachedSessions: Set<string> = new Set();
+
 	/** The set of entries that have not been flushed to storage  */
 	private readonly _pendingEntries: IInputHistoryEntry[] = [];
 
@@ -24,7 +32,7 @@ export class SessionInputHistory extends Disposable {
 	private _timerId?: NodeJS.Timeout;
 
 	constructor(
-		private readonly _session: ILanguageRuntimeSession,
+		private readonly _languageId: string,
 		private readonly _storageService: IStorageService,
 		private readonly _storageScope: StorageScope,
 		private readonly _logService: ILogService,
@@ -32,16 +40,33 @@ export class SessionInputHistory extends Disposable {
 		super();
 
 		// The storage key is unique to the language ID.
-		this._storageKey = `positron.sessionHistory.${_session.sessionId}`;
+		this._storageKey = `positron.languageInputHistory.${this._languageId}`;
 
 		// Ensure that any pending entries are flushed to storage during
 		// shutdown.
 		this._register(this._storageService.onWillSaveState(() => {
 			this.save(true);
 		}));
+	}
+
+	public attachToRuntime(session: ILanguageRuntimeSession): void {
+		// Don't attach to the same runtime twice.
+		if (this._attachedSessions.has(session.sessionId)) {
+			this._logService.debug(`LanguageInputHistory (${this._languageId}): ` +
+				`Already attached to session ${session.metadata.sessionName} (${session.sessionId})`);
+			return;
+		}
+
+		// Safety check: ensure that this runtime is associated with the
+		// language for this history recorder.
+		if (session.runtimeMetadata.languageId !== this._languageId) {
+			this._logService.warn(`LanguageInputHistory (${this._languageId}): Language mismatch ` +
+				`(expected ${this._languageId}, got ${session.runtimeMetadata.languageId}))`);
+			return;
+		}
 
 		// When a runtime records an input, emit it to the history.
-		this._register(_session.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
+		this._register(session.onDidReceiveRuntimeMessageInput(languageRuntimeMessageInput => {
 			// Do not record history for empty codes.
 			if (languageRuntimeMessageInput.code.length > 0) {
 				const entry: IInputHistoryEntry = {
@@ -80,7 +105,7 @@ export class SessionInputHistory extends Disposable {
 		try {
 			parsedEntries = JSON.parse(entries);
 		} catch (err) {
-			this._logService.error(`SessionInputHistory (${this._session.sessionId}): Failed to parse JSON from storage: ${err}.`);
+			this._logService.error(`LanguageInputHistory (${this._languageId}): Failed to parse JSON from storage: ${err}.`);
 		}
 
 		// Return the parsed entries, plus any pending entries that have not yet
@@ -120,7 +145,7 @@ export class SessionInputHistory extends Disposable {
 		} catch (err) {
 			// If we can't parse the JSON, the storage is corrupt, so we can't
 			// meaningfully do anything with it.
-			this._logService.error(`SessionInputHistory (${this._session.sessionId}): Failed to parse JSON from storage: ${err}.`);
+			this._logService.error(`LanguageInputHistory (${this._languageId}): Failed to parse JSON from storage: ${err}.`);
 
 			if (forShutdown) {
 				// If we're shutting down, we can't do anything else, so just
@@ -132,7 +157,7 @@ export class SessionInputHistory extends Disposable {
 			// If we're not shutting down, we will recover (so we can store the
 			// new state) by clearing the state and starting over with a fresh
 			// input history.
-			this._logService.warn(`SessionInputHistory (${this._session.sessionId}: Clearing to recover from error.`);
+			this._logService.warn(`LanguageInputHistory (${this._languageId}: Clearing to recover from error.`);
 		}
 
 		// Append the pending entries to the parsed entries.
