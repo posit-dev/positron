@@ -53,10 +53,10 @@ jobs:
           npm install typescript
 
           # Install required dependencies - must keep in sync with root package.json
-          npm install @playwright/test@^1.49.1
+          npm install @playwright/test@^1.51.0
           npx playwright install
           npx playwright install-deps
-          npm install @currents/playwright@^1.8.0
+          npm install @currents/playwright@^1.11.2
           npm install @midleman/github-actions-reporter@^1.9.5
           npm install @vscode/v8-heap-parser@^0.1.0
           npm install fs-extra
