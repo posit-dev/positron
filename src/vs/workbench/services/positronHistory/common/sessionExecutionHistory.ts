@@ -34,7 +34,7 @@ export class SessionExecutionHistory extends Disposable {
 	private readonly _sessionDisposables = this._register(new DisposableStore());
 
 	constructor(
-		sessionId: string,
+		private readonly _sessionId: string,
 		private readonly _startMode: RuntimeStartMode,
 		private readonly _storageService: IStorageService,
 		private readonly _logService: ILogService
@@ -42,7 +42,7 @@ export class SessionExecutionHistory extends Disposable {
 		super();
 
 		// Create storage key for this runtime based on its ID
-		this._storageKey = `${EXECUTION_HISTORY_STORAGE_PREFIX}.${sessionId}`;
+		this._storageKey = `${EXECUTION_HISTORY_STORAGE_PREFIX}.${_sessionId}`;
 
 		// Load existing history entries
 		const entries = this._storageService.get(this._storageKey, StorageScope.WORKSPACE, '[]');
@@ -51,7 +51,7 @@ export class SessionExecutionHistory extends Disposable {
 				this._entries.push(entry);
 			});
 		} catch (err) {
-			this._logService.warn(`Couldn't load history for ${sessionId}: ${err}}`);
+			this._logService.warn(`Couldn't load history for ${_sessionId}: ${err}}`);
 		}
 
 		// Ensure we persist the history on e.g. shutdown
@@ -81,6 +81,8 @@ export class SessionExecutionHistory extends Disposable {
 					durationMs: 0
 				};
 				this._entries.push(entry);
+				this._dirty = true;
+				this.delayedSave();
 			}));
 		}
 
@@ -196,10 +198,24 @@ export class SessionExecutionHistory extends Disposable {
 		return this._entries;
 	}
 
+	/**
+	 * Clears the history. This is done when the console is cleared.
+	 */
 	clear(): void {
 		// Delete all entries and save the new state
 		this._entries.splice(0, this._entries.length);
 		this.save();
+	}
+
+	/**
+	 * Deletes the entire history. This is done when a session is permanently
+	 * ended.
+	 */
+	delete(): void {
+		this._storageService.store(this._storageKey,
+			null,
+			StorageScope.WORKSPACE,
+			StorageTarget.MACHINE);
 	}
 
 	/**
@@ -214,10 +230,10 @@ export class SessionExecutionHistory extends Disposable {
 			this._timerId = undefined;
 		}
 
-		// Set a new 30 second timer
+		// Set a new 10 second timer
 		this._timerId = setTimeout(() => {
 			this.save();
-		}, 30000);
+		}, 10000);
 	}
 
 	private save(): void {
@@ -234,7 +250,9 @@ export class SessionExecutionHistory extends Disposable {
 
 		// Serialize the entries to JSON
 		const storageState = JSON.stringify(this._entries);
-		this._logService.trace(`Saving execution history in key ${this._storageKey} (${storageState.length} bytes)`);
+		this._logService.trace(
+			`Saving execution history for session ${this._sessionId} ` +
+			`(${storageState.length} bytes)`);
 
 		// Write to machine/workspace specific storage so we can restore the
 		// history in this "session"

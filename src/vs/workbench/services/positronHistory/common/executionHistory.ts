@@ -14,6 +14,7 @@ import { SessionInputHistory } from './languageInputHistory.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { IRuntimeStartupService, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
+import { RuntimeExitReason } from '../../languageRuntime/common/languageRuntimeService.js';
 
 /**
  * Service that manages execution histories for all runtimes.
@@ -153,8 +154,37 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 			this._inputHistories.set(session.sessionId, history);
 			this._register(history);
 		}
+
+		// Clean up the history when the session ends
+		this._register(session.onDidEndSession(evt => {
+
+			// Some session exit reasons indicate permanent termination, so we should
+			// clean up the history in those cases.
+			//
+			// Note that this is largely for hygiene and storage conservation;
+			// the history is also pruned at startup for any sessions that are
+			// no longer active, so anything missed here will be cleaned up at
+			// the next startup.
+			if (evt.reason === RuntimeExitReason.Shutdown ||
+				evt.reason === RuntimeExitReason.ForcedQuit ||
+				evt.reason === RuntimeExitReason.Unknown) {
+				if (this._executionHistories.has(session.sessionId)) {
+					const history = this._executionHistories.get(session.sessionId)!;
+					history.delete();
+					history.dispose();
+					this._executionHistories.delete(session.sessionId);
+				}
+				this._inputHistories.delete(session.sessionId);
+			}
+		}));
 	}
 
+	/**
+	 * Gets the execution history for a given runtime session.
+	 *
+	 * @param sessionId The ID of the session to get execution history for.
+	 * @returns An array of history entries.
+	 */
 	getExecutionEntries(sessionId: string): IExecutionHistoryEntry<any>[] {
 		// Return the history entries for the given runtime, if known.
 		if (this._executionHistories.has(sessionId)) {
