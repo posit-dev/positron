@@ -756,8 +756,8 @@ export function registerLanguageRuntimeActions() {
 				},
 				category,
 				keybinding: {
-					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Backquote,
-					mac: { primary: KeyMod.WinCtrl | KeyMod.Shift | KeyCode.Backquote },
+					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Slash,
+					mac: { primary: KeyMod.WinCtrl | KeyMod.Shift | KeyCode.Slash },
 					weight: KeybindingWeight.WorkbenchContrib
 				},
 				menu: [{
