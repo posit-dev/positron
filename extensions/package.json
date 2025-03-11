@@ -15,6 +15,9 @@
     "vscode-grammar-updater": "^1.1.0"
   },
   "overrides": {
-    "node-gyp-build": "4.8.1"
+    "node-gyp-build": "4.8.1",
+    "@parcel/watcher-linux-arm-musl": "0.0.0",
+    "@parcel/watcher-linux-arm64-musl": "0.0.0",
+    "@parcel/watcher-linux-x64-musl": "0.0.0"
   }
 }
