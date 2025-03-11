@@ -1711,6 +1711,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					// onDidEncounterStartupFailure event within a reasonable
 					// amount of time.
 					setTimeout(() => {
+						// Remove any Starting runtime items since we're no
+						// longer Starting
+						for (let i = this._runtimeItems.length - 1; i >= 0; i--) {
+							if (this._runtimeItems[i] instanceof RuntimeItemStarting) {
+								this._runtimeItems.splice(i, 1);
+							}
+						}
+
 						// If we're still in the Exited state and haven't
 						// disposed, then do it now.
 						if ((this._runtimeState === RuntimeState.Exited ||
