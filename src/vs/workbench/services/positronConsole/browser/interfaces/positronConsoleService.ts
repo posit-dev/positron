@@ -76,6 +76,17 @@ export interface IPositronConsoleService {
 	readonly onDidChangeActivePositronConsoleInstance: Event<IPositronConsoleInstance | undefined>;
 
 	/**
+	 * Set the active console instance to the one with the given session ID.
+	 *
+	 * Typically the active console instance should follow the global
+	 * foreground session; this method should only be used when the active
+	 * console instance needs to be set to a specific session.
+	 *
+	 * @param sessionId The session ID of the console to activate.
+	 */
+	readonly setActivePositronConsoleSession: (sessionId: string) => void;
+
+	/**
 	 * The onDidChangeConsoleWidth event.
 	 */
 	readonly onDidChangeConsoleWidth: Event<number>;

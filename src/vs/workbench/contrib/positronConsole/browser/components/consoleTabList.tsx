@@ -95,6 +95,14 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 		if (session) {
 			// Set the session as the foreground session
 			positronConsoleContext.runtimeSessionService.foregroundSession = session;
+		} else {
+			// It is possible for a console instance to exist without a
+			// session; this typically happens when we create a provisional
+			// instance while waiting for a session to be connected, but the
+			// session never connects. In this case we can't set the session as
+			// the foreground session, but we can still set the console
+			// instance as the active console instance.
+			positronConsoleContext.positronConsoleService.setActivePositronConsoleSession(sessionId);
 		}
 	};
 
@@ -114,7 +122,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 			role='tablist'
 			style={{ height: props.height, width: props.width }}
 		>
-			{consoleInstances.map((positronConsoleInstance) => <ConsoleTab key={positronConsoleInstance.sessionMetadata.sessionId} positronConsoleInstance={positronConsoleInstance} onClick={() => handleTabClick(positronConsoleInstance.sessionMetadata.sessionId)} />)}
+			{consoleInstances.map((positronConsoleInstance) => <ConsoleTab key={positronConsoleInstance.sessionMetadata.sessionId} data-session-id={positronConsoleInstance.sessionMetadata.sessionId} positronConsoleInstance={positronConsoleInstance} onClick={() => handleTabClick(positronConsoleInstance.sessionMetadata.sessionId)} />)}
 		</div>
 	)
 }

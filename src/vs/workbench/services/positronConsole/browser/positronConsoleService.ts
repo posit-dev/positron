@@ -694,6 +694,19 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	}
 
 	/**
+	 * Sets the active Positron console session.
+	 *
+	 * @param sessionId The session ID to set as active.
+	 */
+	setActivePositronConsoleSession(sessionId: string): void {
+		// Find the console instance with the given session ID.
+		const consoleInstance = this._positronConsoleInstancesBySessionId.get(sessionId);
+		if (consoleInstance) {
+			this.setActivePositronConsoleInstance(consoleInstance);
+		}
+	}
+
+	/**
 	 * Sets the active Positron console instance.
 	 * @param positronConsoleInstance
 	 */
