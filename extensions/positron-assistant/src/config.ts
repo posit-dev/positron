@@ -7,9 +7,9 @@ import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { languageModels } from './models';
 import { completionModels } from './completion';
-import { registerModels } from './extension';
+import { registerModel, registerModels } from './extension';
 
-interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
+export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
 	id: string;
 }
 
@@ -70,6 +70,21 @@ export interface ModelConfig extends StoredModelConfig {
 
 export function getStoredModels(context: vscode.ExtensionContext): StoredModelConfig[] {
 	return context.globalState.get('positron.assistant.models') || [];
+}
+
+export async function getModelConfiguration(id: string, context: vscode.ExtensionContext, storage: SecretStorage): Promise<ModelConfig | undefined> {
+	const storedConfigs = getStoredModels(context);
+	const config = storedConfigs.find((config) => config.id === id);
+
+	if (!config) {
+		return undefined;
+	}
+
+	const apiKey = await storage.get(`apiKey-${config.id}`);
+	return {
+		...config,
+		apiKey: apiKey || ''
+	};
 }
 
 export async function getModelConfigurations(context: vscode.ExtensionContext, storage: SecretStorage): Promise<ModelConfig[]> {
@@ -252,12 +267,20 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 			[...existingConfigs, newConfig]
 		);
 
-		vscode.window.showInformationMessage(
-			vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
-		);
-
 		// Register the new model
-		await registerModels(context, storage);
+		const registered = await registerModel(newConfig, context, storage);
+
+		if (!registered) {
+			await storage.delete(`apiKey-${id}`);
+			await context.globalState.update(
+				'positron.assistant.models',
+				existingConfigs
+			);
+		} else {
+			vscode.window.showInformationMessage(
+				vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
+			);
+		}
 	});
 
 }

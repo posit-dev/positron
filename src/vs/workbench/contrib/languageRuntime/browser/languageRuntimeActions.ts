@@ -149,7 +149,7 @@ export const selectLanguageRuntimeSession = async (
 				session.sessionId === runtimeSessionService.foregroundSession?.sessionId;
 			return {
 				id: session.sessionId,
-				label: session.runtimeMetadata.runtimeName,
+				label: session.metadata.sessionName,
 				detail: session.runtimeMetadata.runtimePath,
 				description: isForegroundSession ? 'Currently Selected' : undefined,
 				iconPath: {
@@ -756,8 +756,8 @@ export function registerLanguageRuntimeActions() {
 				},
 				category,
 				keybinding: {
-					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Backquote,
-					mac: { primary: KeyMod.WinCtrl | KeyMod.Shift | KeyCode.Backquote },
+					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Slash,
+					mac: { primary: KeyMod.WinCtrl | KeyMod.Shift | KeyCode.Slash },
 					weight: KeybindingWeight.WorkbenchContrib
 				},
 				menu: [{

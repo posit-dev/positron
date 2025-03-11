@@ -67,7 +67,7 @@ export class Sessions {
 	async launch(options: {
 		language: 'Python' | 'R';
 		version?: string;
-		triggerMode?: 'session-picker' | 'quickaccess' | 'console';
+		triggerMode?: 'session-picker' | 'quickaccess' | 'console' | 'hotkey';
 		waitForReady?: boolean;
 	}): Promise<string> {
 
@@ -79,7 +79,7 @@ export class Sessions {
 			language,
 			version = language === 'Python' ? DESIRED_PYTHON : DESIRED_R,
 			waitForReady = true,
-			triggerMode = 'quickaccess',
+			triggerMode = 'hotkey',
 		} = options;
 
 		await test.step(`Start session via ${triggerMode}: ${language} ${version}`, async () => {
@@ -93,8 +93,10 @@ export class Sessions {
 				await this.quickaccess.runCommand(command, { keepOpen: true });
 			} else if (triggerMode === 'session-picker') {
 				await this.quickPick.openSessionQuickPickMenu();
-			} else {
+			} else if (triggerMode === 'console') {
 				await this.newConsoleButton.click();
+			} else {
+				await this.page.keyboard.press('Control+Shift+/');
 			}
 
 			await this.quickinput.type(`${language} ${version}`);
@@ -636,6 +638,8 @@ export class Sessions {
  */
 export class SessionQuickPick {
 	private sessionQuickMenu = this.code.driver.page.getByText(/(Select a Session)|(Start a New Session)/);
+	private allSessionsMenu = this.code.driver.page.getByText(/Start a New Session/);
+	private activeSessionsMenu = this.code.driver.page.getByText(/Select a Session/);
 
 	constructor(private code: Code, private sessions: Sessions) { }
 
@@ -649,12 +653,10 @@ export class SessionQuickPick {
 			await this.sessions.activeSessionPicker.click();
 		}
 
-		if (viewAllRuntimes) {
+		if (viewAllRuntimes && await this.activeSessionsMenu.isVisible()) {
 			await this.code.driver.page.getByRole('combobox', { name: 'input' }).fill('New Session');
 			await this.code.driver.page.keyboard.press('Enter');
-			await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible();
-		} else {
-			await expect(this.code.driver.page.getByText(/Select a Session/)).toBeVisible();
+			await expect(this.allSessionsMenu).toBeVisible();
 		}
 	}
 
@@ -676,7 +678,13 @@ export class SessionQuickPick {
 	 */
 	async getActiveSessions(): Promise<QuickPickSessionInfo[]> {
 		await this.openSessionQuickPickMenu(false);
-		const allSessions = await this.code.driver.page.locator('.quick-input-list-rows').all();
+
+		// Check if the "All Sessions" menu is visible: ths indicates that
+		// there are no active sessions and we were taken to the "All Sessions" menu
+		const isAllSessionsMenuVisible = await this.allSessionsMenu.isVisible();
+		const allSessions = isAllSessionsMenuVisible
+			? []
+			: await this.code.driver.page.locator('.quick-input-list-rows').all();
 
 		// Get the text of all sessions
 		const activeSessions = await Promise.all(
@@ -760,7 +768,7 @@ export type SessionInfo = {
 	language: 'Python' | 'R';
 	version: string; // e.g. '3.10.15'
 	id: string;
-	triggerMode?: 'session-picker' | 'quickaccess' | 'console';
+	triggerMode?: 'session-picker' | 'quickaccess' | 'console' | 'hotkey';
 	waitForReady?: boolean;
 };
 
@@ -782,7 +790,7 @@ export const pythonSession: SessionInfo = {
 	name: `Python ${process.env.POSITRON_PY_VER_SEL || ''}`,
 	language: 'Python',
 	version: process.env.POSITRON_PY_VER_SEL || '',
-	triggerMode: 'session-picker',
+	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
 };
@@ -792,7 +800,7 @@ export const pythonSessionAlt: SessionInfo = {
 	name: `Python ${process.env.POSITRON_PY_ALT_VER_SEL || ''}`,
 	language: 'Python',
 	version: process.env.POSITRON_PY_ALT_VER_SEL || '',
-	triggerMode: 'session-picker',
+	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
 };
@@ -802,7 +810,7 @@ export const rSession: SessionInfo = {
 	name: `R ${process.env.POSITRON_R_VER_SEL || ''}`,
 	language: 'R',
 	version: process.env.POSITRON_R_VER_SEL || '',
-	triggerMode: 'session-picker',
+	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
 };
@@ -812,7 +820,7 @@ export const rSessionAlt: SessionInfo = {
 	name: `R ${process.env.POSITRON_R_ALT_VER_SEL || ''}`,
 	language: 'R',
 	version: process.env.POSITRON_R_ALT_VER_SEL || '',
-	triggerMode: 'session-picker',
+	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
 };

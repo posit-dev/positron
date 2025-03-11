@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { fail } from 'assert';
 import { InterpreterType } from '../../infra/fixtures/interpreter';
 import { test, tags } from '../_test.setup';
 
@@ -38,4 +39,53 @@ test.describe('Interpreter Includes/Excludes', {
 			logger.log('Hidden R version not set'); // use this for now so release test can essentially skip this case
 		}
 	});
+
+	test('R - Can Exclude an Interpreter', async function ({ app, r, userSettings, logger }) {
+
+		const alternateR = process.env.POSITRON_R_ALT_VER_SEL;
+
+		if (alternateR) {
+			await app.workbench.interpreter.selectInterpreter(InterpreterType.R, alternateR, true);
+
+			const failMessage = 'selectInterpreter was supposed to fail as /opt/R/4.4.2 was excluded';
+			await userSettings.set([['positron.r.interpreters.exclude', '["/opt/R/4.4.2"]']], true);
+			try {
+				await app.workbench.interpreter.selectInterpreter(InterpreterType.R, alternateR, true);
+				fail(failMessage);
+			} catch (e) {
+				if (e instanceof Error && e.message.includes(failMessage)) {
+					fail(failMessage);
+				}
+			}
+
+			await app.code.driver.page.keyboard.press('Escape');
+		} else {
+			fail('Alternate R version not set');
+		}
+	});
+
+	test('Python - Can Exclude an Interpreter', async function ({ app, python, userSettings, logger }) {
+
+		const alternatePython = process.env.POSITRON_PY_ALT_VER_SEL;
+
+		if (alternatePython) {
+			await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, alternatePython, true);
+
+			const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was excluded';
+			await userSettings.set([['python.interpreters.exclude', '["~/.pyenv"]']], true);
+			try {
+				await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, alternatePython, true);
+				fail(failMessage);
+			} catch (e) {
+				if (e instanceof Error && e.message.includes(failMessage)) {
+					fail(failMessage);
+				}
+			}
+
+			await app.code.driver.page.keyboard.press('Escape');
+		} else {
+			fail('Alternate Python version not set');
+		}
+	});
+
 });

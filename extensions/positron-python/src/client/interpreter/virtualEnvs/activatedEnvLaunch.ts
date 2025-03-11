@@ -15,6 +15,9 @@ import { sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
 import { IPythonPathUpdaterServiceManager } from '../configuration/types';
 import { IActivatedEnvironmentLaunch, IInterpreterService } from '../contracts';
+// --- Start Positron ---
+import { getUserDefaultInterpreter } from '../../positron/interpreterSettings';
+// --- End Positron ---
 
 @injectable()
 export class ActivatedEnvironmentLaunch implements IActivatedEnvironmentLaunch {
@@ -101,6 +104,12 @@ export class ActivatedEnvironmentLaunch implements IActivatedEnvironmentLaunch {
         }
         this.wasSelected = true;
         this.inMemorySelection = prefix;
+        // --- Start Positron ---
+        // prefer user setting defaultInterpreterPath (if set) if no workspace is opened
+        if (getUserDefaultInterpreter().globalValue && !this.workspaceService.workspaceFolders) {
+            return undefined;
+        }
+        // --- End Positron ---
         traceLog(
             `VS Code was launched from an activated environment: '${path.basename(
                 prefix,

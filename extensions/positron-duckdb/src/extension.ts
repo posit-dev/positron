@@ -447,6 +447,8 @@ class ColumnProfileEvaluator {
 		// potentially better performance
 		const numRows = Number(stats.get('num_rows'));
 
+		// If numRows is 0, this is handled earlier
+
 		// TODO: This may be lossy for very large INT64 values
 		// We used strings here to temporarily support decimal type data that fits in float64.
 		// We will need to return later to support broader-spectrum decimals
@@ -786,6 +788,16 @@ export class DuckDBTableView {
 		// based on what the UI requested. This blunt approach could end up being wasteful in
 		// some cases, but doing fewer queries / scans in the average case should yield better
 		// performance.
+
+		// First, check if the filtered table has any rows at all
+		const [filteredNumRows, _] = await this._filteredShape;
+		if (filteredNumRows === 0) {
+			// If the table has 0 rows due to filtering, return empty columns immediately
+			return {
+				columns: Array.from({ length: params.columns.length }, () => [])
+			};
+		}
+
 		let lowerLimit = Infinity;
 		let upperLimit = -Infinity;
 
@@ -1142,24 +1154,108 @@ END`;
 		this._evaluateColumnProfiles(params);
 	}
 
+	/**
+	 * Creates empty summary statistics for a column when there are zero rows
+	 * @param columnSchema Column schema information
+	 * @returns Empty summary stats appropriate for the column type
+	 */
+	private createEmptySummaryStats(columnSchema: SchemaEntry): ColumnSummaryStats {
+		if (isNumeric(columnSchema.column_type) || columnSchema.column_type.startsWith('DECIMAL')) {
+			return {
+				type_display: ColumnDisplayType.Number,
+				number_stats: {}
+			};
+		} else if (columnSchema.column_type === 'VARCHAR') {
+			return {
+				type_display: ColumnDisplayType.String,
+				string_stats: {
+					num_unique: 0,
+					num_empty: 0
+				}
+			};
+		} else if (columnSchema.column_type === 'BOOLEAN') {
+			return {
+				type_display: ColumnDisplayType.Boolean,
+				boolean_stats: {
+					true_count: 0,
+					false_count: 0
+				}
+			};
+		} else if (columnSchema.column_type === 'TIMESTAMP') {
+			return {
+				type_display: ColumnDisplayType.Datetime,
+				datetime_stats: {
+					num_unique: 0
+				}
+			};
+		} else {
+			return {
+				type_display: ColumnDisplayType.Unknown
+			};
+		}
+	}
+
 	private async _evaluateColumnProfiles(params: GetColumnProfilesParams) {
-		const evaluator = new ColumnProfileEvaluator(this.db,
-			this.fullSchema,
-			this.tableName,
-			this._whereClause,
-			params
-		);
+		// Check if there are any rows in the filtered data
+		const [filteredRowCount, _] = await this._filteredShape;
 
 		const outParams: ReturnColumnProfilesEvent = {
 			callback_id: params.callback_id,
 			profiles: []
 		};
-		try {
-			outParams.profiles = await evaluator.evaluate();
-		} catch (error) {
-			// TODO: Add error message to ReturnColumnProfilesEvent and display in UI
-			const errorMessage = error instanceof Error ? error.message : 'unknown error';
-			console.log(`Failed to compute column profiles: ${errorMessage}`);
+
+		if (filteredRowCount === 0) {
+			// Handle the zero-row case - return empty/null profiles
+			outParams.profiles = params.profiles.map(request => {
+				// Create an empty result with appropriate null values
+				const result: ColumnProfileResult = {};
+
+				for (const spec of request.profiles) {
+					switch (spec.profile_type) {
+						case ColumnProfileType.NullCount:
+							result.null_count = 0;
+							break;
+						case ColumnProfileType.LargeHistogram:
+						case ColumnProfileType.SmallHistogram:
+							result[spec.profile_type] = {
+								bin_edges: ['NULL', 'NULL'],
+								bin_counts: [0],
+								quantiles: []
+							};
+							break;
+						case ColumnProfileType.LargeFrequencyTable:
+						case ColumnProfileType.SmallFrequencyTable:
+							result[spec.profile_type] = {
+								values: [],
+								counts: [],
+								other_count: 0
+							};
+							break;
+						case ColumnProfileType.SummaryStats:
+							// Create null summary stats appropriate for the column type
+							const columnSchema = this.fullSchema[request.column_index];
+							result.summary_stats = this.createEmptySummaryStats(columnSchema);
+							break;
+					}
+				}
+				return result;
+			});
+		} else {
+			// Normal case - compute stats using evaluator
+			const evaluator = new ColumnProfileEvaluator(this.db,
+				this.fullSchema,
+				this.tableName,
+				this._whereClause,
+				params
+			);
+
+			try {
+				outParams.profiles = await evaluator.evaluate();
+			} catch (error) {
+				// TODO: Add error message to ReturnColumnProfilesEvent and display in UI
+				const errorMessage = error instanceof Error ? error.message : 'unknown error';
+				console.log(`Failed to compute column profiles: ${errorMessage}`);
+			}
 		}
 
 		await vscode.commands.executeCommand(
