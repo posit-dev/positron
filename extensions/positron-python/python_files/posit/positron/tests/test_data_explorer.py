@@ -729,6 +729,14 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             "string",
             "string",
         ),
+        (
+            np.array(
+                ["NaT", 3600000000000, -3600000000000, 0, 0],
+                dtype="timedelta64[ns]",
+            ),
+            "timedelta64[ns]",
+            "datetime",
+        ),
         # datetimetz
         (
             pd.Series(

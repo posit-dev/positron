@@ -974,8 +974,11 @@ _FILTER_RANGE_COMPARE_SUPPORTED = {
 }
 
 
-def _pandas_datetimetz_mapper(type_name):
+def _pandas_temporal_mapper(type_name):
     if "datetime64" in type_name:
+        return "datetime"
+    elif "timedelta64" in type_name:
+        # We don't have a separate display type for timedelta yet
         return "datetime"
     return None
 
@@ -1068,7 +1071,7 @@ def _pandas_summarize_datetime(col: pd.Series, _options: FormatOptions):
 
     num_unique = _possibly(col.nunique)
 
-    timezones = col.apply(lambda x: x.tz).unique()
+    timezones = col.apply(lambda x: getattr(x, "tz", None)).unique()
     if len(timezones) == 1:
         timezone = str(timezones[0])
     else:
@@ -1372,6 +1375,9 @@ class PandasView(DataExplorerTableView):
             "datetime64": "datetime",
             "datetime64[ns]": "datetime",
             "datetime": "datetime",
+            # Perhaps we will want to add a display type for timedelta
+            "timedelta64[ns]": "datetime",
+            "timedelta": "datetime",
             "date": "date",
             "time": "time",
             "bytes": "string",
@@ -1394,7 +1400,7 @@ class PandasView(DataExplorerTableView):
         }
     )
 
-    TYPE_MAPPERS = (_pandas_datetimetz_mapper,)
+    TYPE_MAPPERS = (_pandas_temporal_mapper,)
 
     @classmethod
     def _get_type_display(cls, type_name):
@@ -1958,8 +1964,15 @@ def _date_median(x):
 
     # the np.array calls are required to please pyright
     median_date = np.median(np.array(pd.to_numeric(x)))
-    out = pd.to_datetime(np.array(median_date), utc=True)
-    return out.tz_convert(x[0].tz)
+
+    # if any datetime64 or datetimetz type in pandas
+    if isinstance(x.dtype, pd.DatetimeTZDtype) or x.dtype == "datetime64":
+        out = pd.to_datetime(np.array(median_date), utc=True)
+        return out.tz_convert(x[0].tz)
+    elif x.dtype == "timedelta64[ns]":
+        return pd.to_timedelta(median_date)
+    else:
+        raise ValueError(x)
 
 
 def _possibly(f, otherwise=None):
