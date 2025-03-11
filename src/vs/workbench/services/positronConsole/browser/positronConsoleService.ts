@@ -1504,6 +1504,21 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}
 	}
 
+
+	/**
+	 * Find and remove the runtime item marking the runtime as Starting, if it
+	 * exists.
+	 */
+	clearStartingItem() {
+		// Remove the item indicating that the runtime is starting.
+		for (let i = this._runtimeItems.length - 1; i >= 0; i--) {
+			if (this._runtimeItems[i] instanceof RuntimeItemStarting) {
+				this._runtimeItems.splice(i, 1);
+				break;
+			}
+		}
+	}
+
 	/**
 	 * Updates the console in the case of a session restore failure.
 	 *
@@ -1516,12 +1531,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}
 
 		// Remove the item indicating that the runtime is starting.
-		for (let i = this._runtimeItems.length - 1; i >= 0; i--) {
-			if (this._runtimeItems[i] instanceof RuntimeItemStarting) {
-				this._runtimeItems.splice(i, 1);
-				break;
-			}
-		}
+		this.clearStartingItem();
 
 		// Add a runtime item indicating the failure.
 		this.addRuntimeItem(new RuntimeItemStartupFailure(
@@ -1713,11 +1723,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					setTimeout(() => {
 						// Remove any Starting runtime items since we're no
 						// longer Starting
-						for (let i = this._runtimeItems.length - 1; i >= 0; i--) {
-							if (this._runtimeItems[i] instanceof RuntimeItemStarting) {
-								this._runtimeItems.splice(i, 1);
-							}
-						}
+						this.clearStartingItem();
 
 						// If we're still in the Exited state and haven't
 						// disposed, then do it now.
@@ -2063,6 +2069,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			if (this._trace) {
 				this.addRuntimeItemTrace(`onDidEndSession (code ${exit.exit_code}, reason '${exit.reason}')`);
 			}
+
+			// Clear any starting item still present.
+			this.clearStartingItem();
 
 			// Add a message explaining that the exit occurred, and why.
 			let message = this.formatExit(exit);
