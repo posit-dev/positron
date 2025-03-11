@@ -357,6 +357,10 @@ function convertKind(kind: PythonEnvKind): EnvironmentTools | undefined {
             return 'Conda';
         case PythonEnvKind.Pyenv:
             return 'Pyenv';
+        // --- Start Positron ---
+        case PythonEnvKind.Uv:
+            return 'Uv';
+        // --- End Positron ---
         default:
             return undefined;
     }

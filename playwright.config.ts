@@ -14,6 +14,7 @@ process.env.PW_TEST = '1';
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig<CustomTestOptions>({
+	captureGitInfo: { commit: true, diff: true },
 	globalSetup: './test/e2e/tests/_global.setup.ts',
 	testDir: './test/e2e',
 	testIgnore: '**/example.test.ts',

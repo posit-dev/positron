@@ -168,11 +168,25 @@ async function downloadAndReplaceArk(version: string,
 			}
 			let binaryData = Buffer.alloc(0);
 
+			// Ensure we got a 200 response on the final request.
+			if (dlResponse.statusCode !== 200) {
+				throw new Error(`Failed to download Ark: HTTP ${dlResponse.statusCode}`);
+			}
+
 			dlResponse.on('data', (chunk: any) => {
 				binaryData = Buffer.concat([binaryData, chunk]);
 			});
 			dlResponse.on('end', async () => {
 				const arkDir = path.join('resources', 'ark');
+
+				// Ensure we got some bytes. Less than 1024 bytes is probably
+				// an error; none of our assets are under 1mb
+				if (binaryData.length < 1024) {
+					// Log the data we did get
+					console.error(binaryData.toString('utf-8'));
+					throw new Error(
+						`Binary data is too small (${binaryData.length} bytes); download probably failed.`);
+				}
 
 				// Create the resources/ark directory if it doesn't exist.
 				if (!await existsAsync(arkDir)) {

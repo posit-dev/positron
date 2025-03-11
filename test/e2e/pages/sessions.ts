@@ -31,6 +31,7 @@ export class Sessions {
 	sessionTabs: Locator;
 	currentSessionTab: Locator;
 	consoleInstance: (sessionId: string) => Locator;
+	outputChannel: Locator;
 
 	constructor(private code: Code, private console: Console, private quickaccess: QuickAccess, private quickinput: QuickInput) {
 		this.page = this.code.driver.page;
@@ -40,7 +41,7 @@ export class Sessions {
 		this.metadataButton = this.page.getByRole('button', { name: 'Console information' });
 		this.metadataDialog = this.page.getByRole('dialog');
 		this.quickPick = new SessionQuickPick(this.code, this);
-		this.activeSessionPicker = this.page.getByRole('button', { name: 'Open Active Session Picker' });
+		this.activeSessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').getByRole('button', { name: /(Start a New Session)|(Open Active Session Picker)/ });
 		this.trashButton = (sessionId: string) => this.getSessionTab(sessionId).getByTestId('trash-session');
 		this.newConsoleButton = this.page.getByRole('button', { name: 'Open Start Session Picker', exact: true });
 		this.restartButton = this.page.getByLabel('Restart console', { exact: true });
@@ -49,6 +50,7 @@ export class Sessions {
 		this.sessionTabs = this.page.getByTestId(/console-tab/);
 		this.currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 		this.consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
+		this.outputChannel = this.page.getByRole('combobox');
 	}
 
 
@@ -235,7 +237,7 @@ export class Sessions {
 			// Collect all disconnected session IDs
 			for (const sessionId of sessionIds) {
 				const status = await this.getIconStatus(sessionId);
-				if (status === 'disconnected' || 'exited') {
+				if (status === 'disconnected' || status === 'exited') {
 					disconnectedSessions.push(sessionId);
 				}
 			}
@@ -254,17 +256,38 @@ export class Sessions {
 	}
 
 	/**
-	 * Action: Widen the session tab list
+	 * Action: Resize the session tab list by dragging a sash.
+	 * - If `x` is provided, it adjusts width (horizontal sash).
+	 * - If `y` is provided, it adjusts height (vertical sash).
+	 * - If both `x` and `y` are provided, it adjusts width first, then height.
+	 *
+	 * @param options An object with `x` (horizontal offset) and/or `y` (vertical offset).
 	 */
-	async widenSessionTabList() {
-		const sash = this.page.locator('.sash');
-		const box = await sash.boundingBox();
+	async resizeSessionList(options: { x?: number; y?: number }) {
+		const { x, y } = options;
 
-		if (box) {
-			await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-			await this.page.mouse.down();
-			await this.page.mouse.move(box.x + box.width / 2 - 100, box.y + box.height / 2);
-			await this.page.mouse.up();
+		// Adjust width if x is provided
+		if (x !== undefined) {
+			const horizontalSash = this.page.locator('.sash');
+			const box = await horizontalSash.boundingBox();
+			if (box) {
+				await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+				await this.page.mouse.down();
+				await this.page.mouse.move(box.x + box.width / 2 + x, box.y + box.height / 2);
+				await this.page.mouse.up();
+			}
+		}
+
+		// Adjust height if y is provided
+		if (y !== undefined) {
+			const verticalSash = this.page.locator('.split-view-container > div:nth-child(3) > div > div > div > .monaco-sash');
+			const box = await verticalSash.boundingBox();
+			if (box) {
+				await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+				await this.page.mouse.down();
+				await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + y);
+				await this.page.mouse.up();
+			}
 		}
 	}
 
@@ -457,7 +480,7 @@ export class Sessions {
 	 * @param sessionIdOrName A string representing the session name or id.
 	 * @returns 'active', 'idle', 'disconnected', or 'unknown'
 	 */
-	async getIconStatus(sessionIdOrName: string): Promise<'active' | 'idle' | 'disconnected' | 'unknown'> {
+	async getIconStatus(sessionIdOrName: string): Promise<'active' | 'idle' | 'disconnected' | 'exited' | 'unknown'> {
 		const session = this.getSessionTab(sessionIdOrName);
 
 		if (await this.activeStatus(session).isVisible()) { return 'active'; }
@@ -506,7 +529,7 @@ export class Sessions {
 		await test.step(`Verify ${session.language} ${session.version} metadata`, async () => {
 
 			// Click metadata button for desired session
-			await this.getSessionTab(session.name).click();
+			await this.getSessionTab(session.id).click();
 			await this.metadataButton.click();
 
 			// Verify metadata
@@ -518,16 +541,20 @@ export class Sessions {
 			await this.page.keyboard.press('Escape');
 
 			// Verify Language Console
+			const escapedSessionName = new RegExp(session.name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
 			await this.selectMetadataOption('Show Console Output Channel');
-			await expect(this.page.getByRole('combobox')).toHaveValue(new RegExp(`^${session.language} ${session.version}.*: Console$`));
+			await expect(this.outputChannel).toHaveValue(escapedSessionName);
+			await expect(this.outputChannel).toHaveValue(/Console$/);
 
 			// Verify Output Channel
 			await this.selectMetadataOption('Show Kernel Output Channel');
-			await expect(this.page.getByRole('combobox')).toHaveValue(new RegExp(`^${session.language} ${session.version}.*: Kernel$`));
+			await expect(this.outputChannel).toHaveValue(escapedSessionName);
+			await expect(this.outputChannel).toHaveValue(/Kernel$/);
 
 			// Verify LSP Output Channel
 			await this.selectMetadataOption('Show LSP Output Channel');
-			await expect(this.page.getByRole('combobox')).toHaveValue(/Language Server \(Console\)$/);
+			await expect(this.outputChannel).toHaveValue(escapedSessionName);
+			await expect(this.outputChannel).toHaveValue(/Language Server \(Console\)$/);
 
 			// Go back to console when done
 			await this.console.clickConsoleTab();
@@ -591,6 +618,17 @@ export class Sessions {
 			}).toPass({ timeout: 10000 });
 		});
 	}
+
+	async expectSessionListToBeScrollable(options: { horizontal?: boolean; vertical?: boolean } = {}) {
+		const { horizontal = false, vertical = true } = options;
+		const tabsContainer = this.page.locator('.console-tab-list').getByRole('tablist');
+
+		const isHorizontallyScrollable = await tabsContainer.evaluate(el => el.scrollWidth > el.clientWidth);
+		const isVerticallyScrollable = await tabsContainer.evaluate(el => el.scrollHeight > el.clientHeight);
+
+		expect(isHorizontallyScrollable).toBe(horizontal);
+		expect(isVerticallyScrollable).toBe(vertical);
+	}
 }
 
 /**
@@ -598,7 +636,6 @@ export class Sessions {
  */
 export class SessionQuickPick {
 	private sessionQuickMenu = this.code.driver.page.getByText(/(Select a Session)|(Start a New Session)/);
-	private newSessionQuickOption = this.code.driver.page.getByText(/New Session.../);
 
 	constructor(private code: Code, private sessions: Sessions) { }
 
@@ -613,7 +650,8 @@ export class SessionQuickPick {
 		}
 
 		if (viewAllRuntimes) {
-			await this.newSessionQuickOption.click();
+			await this.code.driver.page.getByRole('combobox', { name: 'input' }).fill('New Session');
+			await this.code.driver.page.keyboard.press('Enter');
 			await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible();
 		} else {
 			await expect(this.code.driver.page.getByText(/Select a Session/)).toBeVisible();

@@ -93,6 +93,9 @@ export namespace EnvGroups {
     export const Poetry = 'Poetry';
     export const Hatch = 'Hatch';
     export const Pixi = 'Pixi';
+    // --- Start Positron ---
+    export const Uv = 'Uv';
+    // --- End Positron ---
     export const VirtualEnvWrapper = 'VirtualEnvWrapper';
     export const ActiveState = 'ActiveState';
     export const Recommended = Common.recommended;
