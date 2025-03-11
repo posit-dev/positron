@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-
 import { traceInfo, traceVerbose } from '../logging';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { arePathsSame, isParentPath } from '../pythonEnvironments/common/externalDependencies';
@@ -16,6 +15,7 @@ import {
 import { untildify } from '../common/helpers';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { PythonVersion } from '../pythonEnvironments/info/pythonVersion';
+import { Resource, InspectInterpreterSettingType } from '../common/types';
 import { comparePythonVersionDescending } from '../interpreter/configuration/environmentTypeComparer';
 
 /**
@@ -208,4 +208,36 @@ export function printInterpreterDebugInfo(interpreters: PythonEnvironment[]): vo
     traceInfo('=====================================================================');
     traceInfo('================ [END] PYTHON INTERPRETER DEBUG INFO ================');
     traceInfo('=====================================================================');
+}
+
+/**
+ * Retrieves the user's default Python interpreter path from VS Code settings
+ *
+ * @returns The configured Python interpreter path if it exists and is not 'python',
+ *          otherwise returns an empty string
+ */
+export function getUserDefaultInterpreter(scope?: Resource): InspectInterpreterSettingType {
+    const configuration = getConfiguration('python', scope);
+    const defaultInterpreterPath: InspectInterpreterSettingType =
+        configuration?.inspect<string>('defaultInterpreterPath') ?? {};
+
+    const processPath = (value: string | undefined): string => {
+        // 'python' is the default for this setting. we only want to know if it has changed
+        if (value === 'python') {
+            return '';
+        }
+        if (value) {
+            if (!path.isAbsolute(value)) {
+                traceInfo(`[getUserDefaultInterpreter]: interpreter path ${value} is not absolute...ignoring`);
+                return '';
+            }
+            return value;
+        }
+        return value ?? '';
+    };
+
+    defaultInterpreterPath.globalValue = processPath(defaultInterpreterPath.globalValue);
+    defaultInterpreterPath.workspaceValue = processPath(defaultInterpreterPath.workspaceValue);
+    defaultInterpreterPath.workspaceFolderValue = processPath(defaultInterpreterPath.workspaceFolderValue);
+    return defaultInterpreterPath;
 }
