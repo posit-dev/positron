@@ -1597,6 +1597,13 @@ declare module 'positron' {
 			 * Calculate the token count for a given string.
 			 */
 			provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Thenable<number>;
+
+			/**
+			 * Tests the connection to the language model provider.
+			 *
+			 * Returns an error if the connection fails.
+			 */
+			resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined>;
 		}
 
 		/**
