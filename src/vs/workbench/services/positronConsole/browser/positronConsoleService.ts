@@ -1335,6 +1335,19 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						);
 					inputItem.addActivityItem(outputActivityItem);
 				}
+				if (entry.error) {
+					// If errors were omitted, add them at the end
+					const errorActivityItem =
+						new ActivityItemErrorMessage(
+							entry.id + '-error',
+							entry.id,
+							new Date(entry.when),
+							entry.error.name,
+							entry.error.message,
+							entry.error.traceback
+						);
+					inputItem.addActivityItem(errorActivityItem);
+				}
 			} else if (entry.outputType === ExecutionEntryType.Startup) {
 				const info = entry.output as ILanguageRuntimeInfo;
 				const startupItem = new RuntimeItemStartup(

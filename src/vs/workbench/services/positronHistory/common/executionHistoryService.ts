@@ -37,6 +37,9 @@ export interface IExecutionHistoryEntry<T> {
 	/** The output itself */
 	output: T;
 
+	/** The error that was returned when executing the code, if any */
+	error?: IExecutionHistoryError;
+
 	/** The total user time expended during the execution, in milliseconds */
 	durationMs: number;
 }
@@ -50,6 +53,17 @@ export enum ExecutionEntryType {
 
 	/** The entry represents the execution of a code fragment */
 	Execution = 'execution',
+}
+
+export interface IExecutionHistoryError {
+	/** The name of the error */
+	name: string;
+
+	/** The error message */
+	message: string;
+
+	/** The error stack trace */
+	traceback: string[];
 }
 
 /**

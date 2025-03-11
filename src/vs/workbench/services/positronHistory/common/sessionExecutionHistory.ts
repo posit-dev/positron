@@ -6,8 +6,8 @@
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
-import { EXECUTION_HISTORY_STORAGE_PREFIX, ExecutionEntryType, IExecutionHistoryEntry } from './executionHistoryService.js';
-import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, RuntimeOnlineState } from '../../languageRuntime/common/languageRuntimeService.js';
+import { EXECUTION_HISTORY_STORAGE_PREFIX, ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryError } from './executionHistoryService.js';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, RuntimeOnlineState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 
 /**
@@ -56,6 +56,7 @@ export class SessionExecutionHistory extends Disposable {
 
 		// Ensure we persist the history on e.g. shutdown
 		this._register(this._storageService.onWillSaveState(() => {
+			// TODO: flush pending entries
 			this.save();
 		}));
 	}
@@ -137,12 +138,18 @@ export class SessionExecutionHistory extends Disposable {
 			}
 		};
 
+		const handleDidReceiveRuntimeMessageError = (message: ILanguageRuntimeMessageError) => {
+			this.recordError(message);
+		};
+
 		this._sessionDisposables.add(
 			session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
 		this._sessionDisposables.add(
 			session.onDidReceiveRuntimeMessageResult(handleDidReceiveRuntimeMessageOutput));
 		this._sessionDisposables.add(
 			session.onDidReceiveRuntimeMessageStream(handleDidReceiveRuntimeMessageStream));
+		this._sessionDisposables.add(
+			session.onDidReceiveRuntimeMessageError(handleDidReceiveRuntimeMessageError));
 
 		// When we receive a message indicating that an execution has completed,
 		// we'll move it from the pending executions map to the history entries.
@@ -184,6 +191,22 @@ export class SessionExecutionHistory extends Disposable {
 			};
 			// Add the entry to the pending executions map
 			this._pendingExecutions.set(message.parent_id, entry);
+		}
+	}
+
+	private recordError(message: ILanguageRuntimeMessageError) {
+		// Get the pending execution and set its output.
+		const pending = this._pendingExecutions.get(message.parent_id);
+		if (pending) {
+			const error: IExecutionHistoryError = {
+				name: message.name,
+				message: message.message,
+				traceback: message.traceback
+			};
+			pending.error = error;
+		} else {
+			// Currently, the history service intentionally does not record
+			// errors that don't occur during an execution.
 		}
 	}
 
