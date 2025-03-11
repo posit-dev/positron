@@ -24,7 +24,7 @@ test.describe('Interpreter Includes/Excludes', {
 			await userSettings.set([['python.interpreters.include', '["/home/runner/scratch/python-env"]']], true);
 			await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, hiddenPython, true);
 		} else {
-			logger.log('Hidden Python version not set'); // use this for now so release test can essentially skip this case
+			fail('Hidden Python version not set');
 		}
 	});
 
@@ -36,7 +36,7 @@ test.describe('Interpreter Includes/Excludes', {
 			await userSettings.set([['positron.r.customRootFolders', '["/home/runner/scratch"]']], true);
 			await app.workbench.interpreter.selectInterpreter(InterpreterType.R, hiddenR, true);
 		} else {
-			logger.log('Hidden R version not set'); // use this for now so release test can essentially skip this case
+			fail('Hidden R version not set');
 		}
 	});
 
