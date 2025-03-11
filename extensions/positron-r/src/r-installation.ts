@@ -32,6 +32,11 @@ export interface RMetadataExtra {
 	readonly current: boolean;
 
 	/**
+	 * Is this specified as the default R interpreter in user settings?
+	 */
+	readonly default: boolean;
+
+	/**
 	 * How did we discover this R binary?
 	 */
 	readonly reasonDiscovered: ReasonDiscovered[] | null;
@@ -48,7 +53,7 @@ export enum ReasonDiscovered {
 	HQ = "HQ",
 	/* eslint-enable @typescript-eslint/naming-convention */
 	adHoc = "adHoc",
-	user = "user",
+	userSetting = "userSetting",
 	server = "server"
 }
 
@@ -75,8 +80,8 @@ export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null)
 				return 'Found in the primary location for R versions on this operating system';
 			case ReasonDiscovered.adHoc:
 				return 'Found in a conventional location for symlinked R binaries';
-			case ReasonDiscovered.user:
-				return 'User-specified location';
+			case ReasonDiscovered.userSetting:
+				return 'Found in a location specified via user settings';
 			case ReasonDiscovered.server:
 				return 'Found in a conventional location for R binaries installed on a server';
 		}
@@ -89,7 +94,7 @@ export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null)
 			case ReasonRejected.nonOrthogonal:
 				return 'Non-orthogonal installation that is also not the current version';
 			case ReasonRejected.excluded:
-				return 'Installation path was excluded via settings';
+				return 'Installation path was excluded via user settings';
 		}
 	}
 
@@ -123,6 +128,7 @@ export class RInstallation {
 	public readonly arch: string = '';
 	public readonly current: boolean = false;
 	public readonly orthogonal: boolean = false;
+	public readonly default: boolean = false;
 
 	/**
 	 * Represents an installation of R on the user's system.
@@ -142,6 +148,12 @@ export class RInstallation {
 		this.binpath = pth;
 		this.current = current;
 		this.reasonDiscovered = reasonDiscovered;
+
+		// Check if the installation is the default R interpreter for Positron
+		const defaultInterpreterPath = getDefaultInterpreterPath();
+		this.default = defaultInterpreterPath
+			? arePathsSame(pth, defaultInterpreterPath)
+			: false;
 
 		const rHomePath = getRHomePath(pth);
 		if (!rHomePath) {
@@ -316,7 +328,7 @@ function getExcludedInstallations(): string[] {
 				return false;
 			});
 		const formattedPaths = JSON.stringify(excludedPaths, null, 2);
-		LOGGER.info(` R installation paths to exclude:\n${formattedPaths}`);
+		LOGGER.info(`R installation paths to exclude:\n${formattedPaths}`);
 		return excludedPaths;
 	}
 	LOGGER.debug('No installation paths specified to exclude via settings');
@@ -337,4 +349,23 @@ function isExcludedInstallation(binpath: string): boolean | undefined {
 	return excludedInstallations.some(
 		excluded => isParentPath(binpath, excluded) || arePathsSame(binpath, excluded)
 	);
+}
+
+/**
+ * Get the default R interpreter path specified in Positron settings.
+ * Converts aliased paths to absolute paths. Relative paths are ignored.
+ * @returns The default R interpreter path specified in the settings, or undefined if not set.
+ */
+export function getDefaultInterpreterPath(): string | undefined {
+	const config = vscode.workspace.getConfiguration('positron.r');
+	let defaultInterpreterPath = config.get<string>('interpreters.default');
+	if (defaultInterpreterPath) {
+		defaultInterpreterPath = untildify(defaultInterpreterPath);
+		if (path.isAbsolute(defaultInterpreterPath)) {
+			return defaultInterpreterPath;
+		}
+		LOGGER.info(`Default R interpreter path ${defaultInterpreterPath} is not absolute...ignoring`);
+		return undefined;
+	}
+	return undefined;
 }

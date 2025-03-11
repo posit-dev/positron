@@ -17,3 +17,6 @@ export const MINIMUM_R_VERSION = packageJson.positron.minimumRVersion as string;
 
 // The minimum supported version of renv.
 export const MINIMUM_RENV_VERSION = packageJson.positron.minimumRenvVersion as string;
+
+// The settings key for the default R interpreter path in Positron.
+export const POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY = 'positron.r.interpreters.default';
