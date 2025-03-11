@@ -11,7 +11,8 @@ import { Server } from 'net';
 import { log, ProxyServerStyles } from './extension';
 // eslint-disable-next-line no-duplicate-imports
 import { Disposable, ExtensionContext } from 'vscode';
-import { createProxyMiddleware, responseInterceptor } from 'http-proxy-middleware';
+// TODO: switch to using createProxyMiddleware when new options format is fixed
+import { legacyCreateProxyMiddleware as createProxyMiddleware, responseInterceptor } from 'http-proxy-middleware';
 import { HtmlProxyServer } from './htmlProxy';
 import { helpContentRewriter, htmlContentRewriter } from './util';
 import { ContentRewriter, isAddressInfo, MaybeAddressInfo, PendingProxyServer, ProxyServerHtml, ProxyServerHtmlConfig, ProxyServerType } from './types';
@@ -416,51 +417,53 @@ export class PositronProxy implements Disposable {
 			changeOrigin: true,
 			selfHandleResponse: true,
 			ws: true,
-			onProxyReq: (proxyReq, req, _res, _options) => {
-				log.trace(`onProxyReq - proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}` +
-					`\n\tmethod: ${proxyReq.method}` +
-					`\n\tprotocol: ${proxyReq.protocol}` +
-					`\n\thost: ${proxyReq.host}` +
-					`\n\turl: ${proxyReq.path}` +
-					`\n\theaders: ${JSON.stringify(proxyReq.getHeaders())}` +
-					`\n\texternal uri: ${externalUri.toString(true)}`
-				);
+			on: {
+				proxyReq: (proxyReq, req, res, _options) => {
+					log.trace(`onProxyReq - proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}` +
+						`\n\tmethod: ${proxyReq.method}` +
+						`\n\tprotocol: ${proxyReq.protocol}` +
+						`\n\thost: ${proxyReq.host}` +
+						`\n\turl: ${proxyReq.path}` +
+						`\n\theaders: ${JSON.stringify(proxyReq.getHeaders())}` +
+						`\n\texternal uri: ${externalUri.toString(true)}`
+					);
+				},
+				proxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, _res) => {
+					log.trace(`onProxyRes - proxy response ${targetOrigin}${req.url} -> ${serverOrigin}${req.url}` +
+						`\n\tstatus: ${proxyRes.statusCode}` +
+						`\n\tstatusMessage: ${proxyRes.statusMessage}` +
+						`\n\theaders: ${JSON.stringify(proxyRes.headers)}` +
+						`\n\texternal uri: ${externalUri.toString(true)}`
+					);
+
+					// Get the URL and the content type. These must be present to call the
+					// content rewriter. Also, the scripts must be loaded.
+					const url = req.url;
+					const contentType = proxyRes.headers['content-type'];
+					const serverType = this._proxyServers.get(targetOrigin)?.serverType;
+					const scriptsLoaded = this.resourcesLoadedForServerType(serverType);
+					if (!url || !contentType || !scriptsLoaded) {
+						log.trace(`onProxyRes - skipping response processing for ${serverOrigin}${url}`);
+						// Don't process the response.
+						return responseBuffer;
+					}
+
+					// Get the HTML configuration.
+					const htmlConfig = serverType === ProxyServerType.Help
+						? this._proxyServerHtmlConfigs.help
+						: this._proxyServerHtmlConfigs.preview;
+
+					// Rewrite the content.
+					return contentRewriter(
+						serverOrigin,
+						externalUri.path,
+						url,
+						contentType,
+						responseBuffer,
+						htmlConfig
+					);
+				}),
 			},
-			onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, _res) => {
-				log.trace(`onProxyRes - proxy response ${targetOrigin}${req.url} -> ${serverOrigin}${req.url}` +
-					`\n\tstatus: ${proxyRes.statusCode}` +
-					`\n\tstatusMessage: ${proxyRes.statusMessage}` +
-					`\n\theaders: ${JSON.stringify(proxyRes.headers)}` +
-					`\n\texternal uri: ${externalUri.toString(true)}`
-				);
-
-				// Get the URL and the content type. These must be present to call the
-				// content rewriter. Also, the scripts must be loaded.
-				const url = req.url;
-				const contentType = proxyRes.headers['content-type'];
-				const serverType = this._proxyServers.get(targetOrigin)?.serverType;
-				const scriptsLoaded = this.resourcesLoadedForServerType(serverType);
-				if (!url || !contentType || !scriptsLoaded) {
-					log.trace(`onProxyRes - skipping response processing for ${serverOrigin}${url}`);
-					// Don't process the response.
-					return responseBuffer;
-				}
-
-				// Get the HTML configuration.
-				const htmlConfig = serverType === ProxyServerType.Help
-					? this._proxyServerHtmlConfigs.help
-					: this._proxyServerHtmlConfigs.preview;
-
-				// Rewrite the content.
-				return contentRewriter(
-					serverOrigin,
-					externalUri.path,
-					url,
-					contentType,
-					responseBuffer,
-					htmlConfig
-				);
-			})
 		}));
 	}
 
