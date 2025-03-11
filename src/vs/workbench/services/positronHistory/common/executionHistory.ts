@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { EXECUTION_HISTORY_STORAGE_PREFIX, IExecutionHistoryEntry, IExecutionHistoryService, IInputHistoryEntry } from './executionHistoryService.js';
+import { EXECUTION_HISTORY_STORAGE_PREFIX, IExecutionHistoryEntry, IExecutionHistoryService, IInputHistoryEntry, INPUT_HISTORY_STORAGE_PREFIX } from './executionHistoryService.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
@@ -18,7 +18,19 @@ import { LanguageInputHistory } from './languageInputHistory.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 
 /**
- * Service that manages execution histories for all runtimes.
+ * Service that manages execution and input histories for all runtimes.
+ *
+ * This service is responsible for maintaining three separate types of history:
+ *
+ * - Session execution history: a history of all code executions in a given
+ *   runtime session. This is the largest but most ephemeral history; it is
+ *   saved, but can be cleared just by clearing the console.
+ *
+ * - Session input history: a history of all inputs in a given runtime session.
+ *   This is used to recall history when navigating in the console.
+ *
+ * - Language input history: a history of all inputs for a given language. This
+ *   is used to drive history search operations.
  */
 export class ExecutionHistoryService extends Disposable implements IExecutionHistoryService {
 	// Required for service branding in dependency injector.
@@ -54,6 +66,12 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 			this.beginRecordingHistory(evt.session, evt.startMode);
 		}));
 
+		// When a session fails to restore, delete any history that was stored
+		// with the session.
+		this._register(this._runtimeStartupService.onSessionRestoreFailure(evt => {
+			this.deleteSessionHistory(evt.sessionId);
+		}));
+
 		// Prune storage for any sessions that are no longer active
 		this._runtimeStartupService.getRestoredSessions().then(sessions => {
 			this.pruneStorage(sessions);
@@ -86,10 +104,14 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		// All valid session IDs
 		const allSessionIds = new Set([...restoredSessionIds, ...activeSessionIds]);
 
-		// Get the set of all history keys in storage
+		// Get the set of all history and input keys in storage
 		const historyKeys = this._storageService
 			.keys(StorageScope.WORKSPACE, StorageTarget.MACHINE)
 			.filter(key => key.startsWith(EXECUTION_HISTORY_STORAGE_PREFIX));
+		const inputKeys = this._storageService
+			.keys(StorageScope.WORKSPACE, StorageTarget.MACHINE)
+			.filter(key => key.startsWith(INPUT_HISTORY_STORAGE_PREFIX));
+		historyKeys.push(...inputKeys);
 
 		// Prune any history entries that don't have a corresponding session
 		historyKeys.forEach(key => {
@@ -102,7 +124,7 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 			const sessionId = parts[2];
 			if (!allSessionIds.has(sessionId)) {
 				this._logService.debug(
-					`[Runtime history] Pruning history for expired session ${sessionId}`);
+					`[Runtime history] Pruning ${key} for expired session ${sessionId}`);
 				this._storageService.remove(key, StorageScope.WORKSPACE);
 			}
 		});
@@ -231,15 +253,31 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 			if (evt.reason === RuntimeExitReason.Shutdown ||
 				evt.reason === RuntimeExitReason.ForcedQuit ||
 				evt.reason === RuntimeExitReason.Unknown) {
-				if (this._executionHistories.has(session.sessionId)) {
-					const history = this._executionHistories.get(session.sessionId)!;
-					history.delete();
-					history.dispose();
-					this._executionHistories.delete(session.sessionId);
-				}
-				this._sessionHistories.delete(session.sessionId);
+				this.deleteSessionHistory(session.sessionId);
 			}
 		}));
+	}
+
+	/**
+	 * Permanently delete the input and execution history for a given session.
+	 *
+	 * This is done when the session ends or fails to restore.
+	 *
+	 * @param sessionId
+	 */
+	deleteSessionHistory(sessionId: string) {
+		if (this._executionHistories.has(sessionId)) {
+			const history = this._executionHistories.get(sessionId)!;
+			history.delete();
+			history.dispose();
+			this._executionHistories.delete(sessionId);
+		}
+		if (this._sessionHistories.has(sessionId)) {
+			const input = this._sessionHistories.get(sessionId)!;
+			input.delete();
+			input.dispose();
+			this._sessionHistories.delete(sessionId);
+		}
 	}
 
 	/**
