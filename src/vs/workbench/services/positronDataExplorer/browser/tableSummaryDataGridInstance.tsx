@@ -433,11 +433,6 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 				return rowHeight(true, COLUMN_PROFILE_OBJECT_LINE_COUNT);
 			}
 
-			// Categorical. Reuse object profile.
-			case ColumnDisplayType.Categorical: {
-				return rowHeight(true, COLUMN_PROFILE_OBJECT_LINE_COUNT);
-			}
-
 			// Column display types that do not render a profile.
 			case ColumnDisplayType.Time:
 			case ColumnDisplayType.Array:

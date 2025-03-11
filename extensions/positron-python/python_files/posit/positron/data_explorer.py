@@ -2679,6 +2679,23 @@ class PolarsView(DataExplorerTableView):
                     profile_type=ColumnProfileType.SummaryStats,
                     support_status=SupportStatus.Supported,
                 ),
+                # These are implemented but lack testing
+                # ColumnProfileTypeSupportStatus(
+                #     profile_type=ColumnProfileType.SmallHistogram,
+                #     support_status=SupportStatus.Supported,
+                # ),
+                # ColumnProfileTypeSupportStatus(
+                #     profile_type=ColumnProfileType.LargeHistogram,
+                #     support_status=SupportStatus.Supported,
+                # ),
+                # ColumnProfileTypeSupportStatus(
+                #     profile_type=ColumnProfileType.SmallFrequencyTable,
+                #     support_status=SupportStatus.Supported,
+                # ),
+                # ColumnProfileTypeSupportStatus(
+                #     profile_type=ColumnProfileType.LargeFrequencyTable,
+                #     support_status=SupportStatus.Supported,
+                # ),
             ],
         ),
         export_data_selection=ExportDataSelectionFeatures(
