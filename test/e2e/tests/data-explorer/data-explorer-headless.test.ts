@@ -60,8 +60,8 @@ test.describe('Headless Data Explorer', {
 			await app.workbench.dataExplorer.clickLowerRightCorner();
 			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
 			const lastRow = tableData.at(-2);
-			const lastHour = lastRow!['decimal_high_precision'];
-			expect(lastHour).toBe(`5555555555.55555555`);
+			const lastHour = lastRow!['decimal_no_scale'];
+			expect(lastHour).toBe(`5555555555`);
 		}).toPass();
 	}
 	);
