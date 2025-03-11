@@ -738,12 +738,18 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	public async activateLsp() {
-		const port = await this.adapterApi!.findAvailablePort([], 25);
-		this._lsp.activate(port, this.context);
+		// Start LSP for the foreground session only if its been previously stopped
+		if (this._lsp.state === LspState.stopped) {
+			const port = await this.adapterApi!.findAvailablePort([], 25);
+			this._lsp.activate(port, this.context);
+		}
 	}
 
 	public deactivateLsp() {
-		this._lsp.deactivate(false);
+		// Stop LSP if it's running
+		if (this._lsp.state === LspState.running) {
+			this._lsp.deactivate(true);
+		}
 	}
 
 	/**
