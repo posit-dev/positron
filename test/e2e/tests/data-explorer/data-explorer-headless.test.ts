@@ -12,11 +12,11 @@ test.use({
 });
 
 const testCases = [
-	{ name: 'parquet', file: 'flights.parquet', copyValue: '2013' },
-	{ name: 'csv', file: 'flights.csv', copyValue: '0' },
-	{ name: 'gzipped csv', file: 'flights.csv.gz', copyValue: '0' },
-	{ name: 'tsv', file: 'flights.tsv', copyValue: '0' },
-	{ name: 'gzipped tsv', file: 'flights.tsv.gz', copyValue: '0' }
+	{ name: 'parquet', file: 'data-files/flights/flights.parquet', copyValue: '2013' },
+	{ name: 'csv', file: 'data-files/flights/flights.csv', copyValue: '0' },
+	{ name: 'gzipped csv', file: 'data-files/flights/flights.csv.gz', copyValue: '0' },
+	{ name: 'tsv', file: 'data-files/flights/flights.tsv', copyValue: '0' },
+	{ name: 'gzipped tsv', file: 'data-files/flights/flights.tsv.gz', copyValue: '0' }
 ];
 
 const plainTextTestCases = [
@@ -34,8 +34,8 @@ test.describe('Headless Data Explorer', {
 
 	testCases.forEach(({ name, file, copyValue }) => {
 		test(`Verify can open and view data with large ${name} file`, async function ({ app, openDataFile }) {
-			await openDataFile(join(`data-files/flights/${file}`));
-			await app.workbench.dataExplorer.verifyTab(file, { isVisible: true, isSelected: true });
+			await openDataFile(`${file}`);
+			await app.workbench.dataExplorer.verifyTab(file.split('/').pop()!, { isVisible: true, isSelected: true });
 			await verifyCopyFromCell(app, copyValue);
 			await verifyDataIsPresent(app);
 			await verifyPlainTextButtonInActionBar(app, file.endsWith('.csv') || file.endsWith('.tsv'));
@@ -50,6 +50,21 @@ test.describe('Headless Data Explorer', {
 				await verifyCanOpenAsPlaintext(app, searchString);
 			});
 	});
+
+	test(`Verify can open parquet decimal data`, async function ({ app, openDataFile }) {
+		await openDataFile(`data-files/misc-parquet/decimal_types.parquet`);
+		await app.workbench.dataExplorer.verifyTab('decimal_types.parquet', { isVisible: true, isSelected: true });
+		await verifyCopyFromCell(app, '123456789012345.678');
+		await expect(async () => {
+			// Validate full grid by checking bottom right corner data
+			await app.workbench.dataExplorer.clickLowerRightCorner();
+			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
+			const lastRow = tableData.at(-2);
+			const lastHour = lastRow!['decimal_high_precision'];
+			expect(lastHour).toBe(`5555555555.55555555`);
+		}).toPass();
+	}
+	);
 });
 
 
