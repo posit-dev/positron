@@ -65,7 +65,7 @@
     "lint": "eslint src --ext ts"
   },
   "dependencies": {
-    "express": "^4.19.2",
+    "express": "^4.21.2",
     "http-proxy-middleware": "^3.0.3"
   },
   "devDependencies": {
