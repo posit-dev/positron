@@ -1687,14 +1687,15 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this.addRuntimeItemTrace(`onDidCompleteStartup`);
 			}
 
-			// Add the item startup. Omit the banner if reconnecting.
-			this.addRuntimeItem(new RuntimeItemStartup(
-				generateUuid(),
-				attachMode === SessionAttachMode.Reconnecting ? '' :
+			// Add the item startup, if not reconnecting.
+			if (attachMode !== SessionAttachMode.Reconnecting) {
+				this.addRuntimeItem(new RuntimeItemStartup(
+					generateUuid(),
 					languageRuntimeInfo.banner,
-				languageRuntimeInfo.implementation_version,
-				languageRuntimeInfo.language_version
-			));
+					languageRuntimeInfo.implementation_version,
+					languageRuntimeInfo.language_version
+				));
+			}
 		}));
 
 		// Add the onDidEncounterStartupFailure event handler. This can arrive before or after
