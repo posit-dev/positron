@@ -47,15 +47,15 @@ test.describe('Interpreter Includes/Excludes', {
 		if (alternatePython) {
 			await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, alternatePython, true);
 
+			const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was excluded';
 			await userSettings.set([['python.interpreters.exclude', '["~/.pyenv"]']], true);
 			try {
 				await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, alternatePython, true);
-				fail('selectInterpreter was supposed to fail as ~/.pyenv was excluded');
+				fail(failMessage);
 			} catch (e) {
-				if (!(e instanceof Error)) {
-					throw e; // Fail the test if an unexpected error type occurs
+				if (e instanceof Error && e.message.includes(failMessage)) {
+					fail(failMessage);
 				}
-				logger.log('Expected failure: Interpreter selection failed as ~/.pyenv was excluded');
 			}
 		} else {
 			fail('Alternate Python version not set');
@@ -69,18 +69,19 @@ test.describe('Interpreter Includes/Excludes', {
 		if (alternateR) {
 			await app.workbench.interpreter.selectInterpreter(InterpreterType.R, alternateR, true);
 
+			const failMessage = 'selectInterpreter was supposed to fail as /opt/R/4.4.2 was excluded';
 			await userSettings.set([['positron.r.interpreters.exclude', '["/opt/R/4.4.2"]']], true);
 			try {
 				await app.workbench.interpreter.selectInterpreter(InterpreterType.R, alternateR, true);
-				fail('selectInterpreter was supposed to fail as /opt/R/4.4.2 was excluded');
+				fail(failMessage);
 			} catch (e) {
-				if (!(e instanceof Error)) {
-					throw e; // Fail the test if an unexpected error type occurs
+				if (e instanceof Error && e.message.includes(failMessage)) {
+					fail(failMessage);
 				}
-				logger.log('Expected failure: Interpreter selection failed as /opt/R/4.4.2 was excluded');
 			}
 		} else {
 			fail('Alternate R version not set');
 		}
 	});
+
 });
