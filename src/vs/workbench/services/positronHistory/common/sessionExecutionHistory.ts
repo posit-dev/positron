@@ -56,7 +56,10 @@ export class SessionExecutionHistory extends Disposable {
 
 		// Ensure we persist the history on e.g. shutdown
 		this._register(this._storageService.onWillSaveState(() => {
-			// TODO: flush pending entries
+			// Flush any pending executions to the history entries
+			this.flushPendingExecutions();
+
+			// Save the history
 			this.save();
 		}));
 	}
@@ -170,6 +173,24 @@ export class SessionExecutionHistory extends Disposable {
 				}
 			}
 		}));
+
+		// Flush any pending executions when the session ends
+		this._sessionDisposables.add(session.onDidEndSession(() => {
+			this.flushPendingExecutions();
+		}));
+	}
+
+	/**
+	 * Flush all pending executions to the history entries. This is done when
+	 * the session ends or we're about to disconnect, so that any execution
+	 * that never completed is still recorded.
+	 */
+	private flushPendingExecutions() {
+		this._pendingExecutions.forEach(entry => {
+			this._entries.push(entry);
+			this._dirty = true;
+		});
+		this._pendingExecutions.clear();
 	}
 
 	private recordOutput(message: ILanguageRuntimeMessage, output: string) {
