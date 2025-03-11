@@ -29,14 +29,14 @@ from ._vendor.jedi_language_server.server import (
     declaration,
     definition,
     did_change_configuration,
-    did_change_notebook_document_diagnostics,
-    did_change_text_document_diagnostics,
-    did_close_notebook_document_diagnostics,
-    did_close_text_document_diagnostics,
-    did_open_notebook_document_diagnostics,
-    did_open_text_document_diagnostics,
-    did_save_notebook_document_diagnostics,
-    did_save_text_document_diagnostics,
+    did_change_diagnostics,
+    did_change_notebook_diagnostics,
+    did_close_diagnostics,
+    did_close_notebook_diagnostics,
+    did_open_diagnostics,
+    did_open_notebook_diagnostics,
+    did_save_diagnostics,
+    did_save_notebook_diagnostics,
     document_symbol,
     highlight,
     hover,
@@ -145,24 +145,12 @@ def _jedi_utils_script(project: Optional[Project], document: TextDocument) -> In
     return _interpreter(project, document.source, document.path, server.shell)
 
 
-def _jedi_Script(**kwargs) -> Interpreter:  # noqa: N802
-    """
-    Search the call stack for the server object and return a Jedi Interpreter object.
-
-    This lets us use an `Interpreter` (with reference to the shell's user namespace) for all LSP
-    methods without having to vendor all of that code from `jedi-language-server`.
-    """
-    server = _get_server_from_call_stack()
-    if server is None:
-        raise AssertionError("Could not find server object in the caller's scope")
-    return _interpreter(**kwargs, shell=server.shell)
-
-
 def _get_server_from_call_stack() -> Optional["PositronJediLanguageServer"]:
     """Search the call stack for the server object."""
     frame = inspect.currentframe()
     while frame is not None:
-        server = frame.f_locals.get("server")
+        server = frame.f_locals.get("server") or frame.f_locals.get("ls")
+        server = getattr(server, "_wrapped", server)
         if isinstance(server, PositronJediLanguageServer):
             return server
         frame = frame.f_back
@@ -220,7 +208,6 @@ def _publish_diagnostics(server: "PositronJediLanguageServer", uri: str) -> None
 
 def _apply_jedi_language_server_patches() -> None:
     jedi_utils.script = _jedi_utils_script
-    server.Script = _jedi_Script
     server._publish_diagnostics = _publish_diagnostics_debounced  # noqa: SLF001
 
 
@@ -844,22 +831,17 @@ def positron_rename(
 
 
 @POSITRON.feature(_HELP_TOPIC)
+# The help topic request signature does not pass the type checker but is supported
+# since it has text_document and position fields.
+@notebook_utils.supports_notebooks  # type: ignore[reportArgumentType]
 def positron_help_topic_request(
     server: PositronJediLanguageServer, params: HelpTopicParams
 ) -> Optional[ShowHelpTopicParams]:
     """Return topic to display in Help pane."""
     document = server.workspace.get_text_document(params.text_document.uri)
-    notebook_mapper = notebook_utils.notebook_coordinate_mapper(
-        server.workspace, cell_uri=document.uri
-    )
-    source = notebook_mapper.source if notebook_mapper is not None else document.source
-    position = (
-        notebook_mapper.notebook_position(document.uri, params.position)
-        if notebook_mapper is not None
-        else params.position
-    )
+    source = document.source
     jedi_script = _interpreter(server.project, source, document.path, server.shell)
-    jedi_lines = jedi_utils.line_column(position)
+    jedi_lines = jedi_utils.line_column(params.position)
     names = jedi_script.infer(*jedi_lines)
 
     try:
@@ -903,59 +885,59 @@ def positron_did_change_configuration(
 
 
 @POSITRON.feature(TEXT_DOCUMENT_DID_SAVE)
-def positron_did_save_text_document_diagnostics(
+def positron_did_save_diagnostics(
     server: PositronJediLanguageServer, params: DidSaveTextDocumentParams
 ) -> None:
-    return did_save_text_document_diagnostics(server, params)
+    return did_save_diagnostics(server, params)
 
 
 @POSITRON.feature(TEXT_DOCUMENT_DID_CHANGE)
-def positron_did_change_text_document_diagnostics(
+def positron_did_change_diagnostics(
     server: PositronJediLanguageServer, params: DidChangeTextDocumentParams
 ) -> None:
-    return did_change_text_document_diagnostics(server, params)
+    return did_change_diagnostics(server, params)
 
 
 @POSITRON.feature(TEXT_DOCUMENT_DID_OPEN)
-def positron_did_open_text_document_diagnostics(
+def positron_did_open_diagnostics(
     server: PositronJediLanguageServer, params: DidOpenTextDocumentParams
 ) -> None:
-    return did_open_text_document_diagnostics(server, params)
+    return did_open_diagnostics(server, params)
 
 
 @POSITRON.feature(TEXT_DOCUMENT_DID_CLOSE)
-def positron_did_close_text_document_diagnostics(
+def positron_did_close_diagnostics(
     server: PositronJediLanguageServer, params: DidCloseTextDocumentParams
 ) -> None:
-    return did_close_text_document_diagnostics(server, params)
+    return did_close_diagnostics(server, params)
 
 
 @POSITRON.feature(NOTEBOOK_DOCUMENT_DID_SAVE)
-def positron_did_save_notebook_document_diagnostics(
+def positron_did_save_notebook_diagnostics(
     server: PositronJediLanguageServer, params: DidSaveNotebookDocumentParams
 ) -> None:
-    return did_save_notebook_document_diagnostics(server, params)
+    return did_save_notebook_diagnostics(server, params)
 
 
 @POSITRON.feature(NOTEBOOK_DOCUMENT_DID_CHANGE)
-def positron_did_change_notebook_document_diagnostics(
+def positron_did_change_notebook_diagnostics(
     server: PositronJediLanguageServer, params: DidChangeNotebookDocumentParams
 ) -> None:
-    return did_change_notebook_document_diagnostics(server, params)
+    return did_change_notebook_diagnostics(server, params)
 
 
 @POSITRON.feature(NOTEBOOK_DOCUMENT_DID_OPEN)
-def positron_did_open_notebook_document_diagnostics(
+def positron_did_open_notebook_diagnostics(
     server: JediLanguageServer, params: DidOpenNotebookDocumentParams
 ) -> None:
-    return did_open_notebook_document_diagnostics(server, params)
+    return did_open_notebook_diagnostics(server, params)
 
 
 @POSITRON.feature(NOTEBOOK_DOCUMENT_DID_CLOSE)
-def positron_did_close_notebook_document_diagnostics(
+def positron_did_close_notebook_diagnostics(
     server: JediLanguageServer, params: DidCloseNotebookDocumentParams
 ) -> None:
-    return did_close_notebook_document_diagnostics(server, params)
+    return did_close_notebook_diagnostics(server, params)
 
 
 def _interpreter(
