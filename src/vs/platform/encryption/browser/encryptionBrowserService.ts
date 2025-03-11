@@ -27,10 +27,11 @@ export class EncryptionBrowserService implements IEncryptionService {
 	}
 
 	private async initializeEncryptionKey(): Promise<CryptoKey> {
+		// TO DO: Swap some info logging for trace logging
 		this.logService.info('[EncryptionBrowserService] Initializing encryption key...');
 		try {
 			const storedKeyData = this.storageService.get(this._storageKeyName, StorageScope.APPLICATION);
-			// check is storedKeyData is defined and not an empty json
+
 			if (storedKeyData && storedKeyData !== '{}') {
 				this.logService.info('[EncryptionBrowserService] Found stored key data.');
 				this._encryptionKey = await mainWindow.crypto.subtle.importKey(
@@ -60,11 +61,8 @@ export class EncryptionBrowserService implements IEncryptionService {
 			);
 
 			const exportedKey = await mainWindow.crypto.subtle.exportKey('jwk', key);
-			const keyStr = JSON.stringify(exportedKey);
-			this.logService.info('keyStr is:', keyStr);
-
-
-			this.storageService.store(this._storageKeyName, keyStr, StorageScope.APPLICATION, StorageTarget.MACHINE);
+			const keyString = JSON.stringify(exportedKey);
+			this.storageService.store(this._storageKeyName, keyString, StorageScope.APPLICATION, StorageTarget.MACHINE);
 
 			this._encryptionKey = key;
 			this.logService.info('[EncryptionBrowserService] Generated encryption key.');
@@ -91,15 +89,10 @@ export class EncryptionBrowserService implements IEncryptionService {
 		this.logService.info('[EncryptionBrowserService] Encrypting value...');
 
 		try {
-			// Simple implementation using Web Crypto API - in a real implementation you'd want
-			// to properly handle key generation and storage with IndexedDB
 			const encoder = new TextEncoder();
 			const data = encoder.encode(value);
 			const key = await this.getEncryptionKey();
-
-			// Generate a random IV for each encryption
 			const iv = mainWindow.crypto.getRandomValues(new Uint8Array(12));
-
 			const encryptedBuffer = await mainWindow.crypto.subtle.encrypt(
 				{ name: 'AES-GCM', iv },
 				key,
@@ -130,7 +123,6 @@ export class EncryptionBrowserService implements IEncryptionService {
 			}
 
 			const key = await this.getEncryptionKey();
-
 			const ivArray = new Uint8Array(iv);
 			const dataArray = new Uint8Array(data);
 
@@ -152,16 +144,18 @@ export class EncryptionBrowserService implements IEncryptionService {
 	}
 
 	async isEncryptionAvailable(): Promise<boolean> {
-		// Check if Web Crypto API is available
 		const available = !!(mainWindow?.crypto?.subtle);
 		this.logService.info('[EncryptionBrowserService] Encryption is available:', available);
 		return available;
 	}
+
 	getKeyStorageProvider(): Promise<KnownStorageProvider> {
+		this.logService.info('[EncryptionBrowserService] Getting key storage provider:', KnownStorageProvider.basicText);
 		return Promise.resolve(KnownStorageProvider.basicText);
 	}
 
 	setUsePlainTextEncryption(): Promise<void> {
+		this.logService.info('[EncryptionBrowserService] Setting use plain text encryption');
 		return Promise.resolve(undefined);
 	}
 }
