@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IEncryptionService, KnownStorageProvider } from '../../../../platform/encryption/common/encryptionService.js';
-import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+// --- Start Positron ---
+//import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+// --- End Positron ---
 
 export class EncryptionService implements IEncryptionService {
 
@@ -30,5 +32,6 @@ export class EncryptionService implements IEncryptionService {
 		return Promise.resolve(undefined);
 	}
 }
-
-registerSingleton(IEncryptionService, EncryptionService, InstantiationType.Delayed);
+// --- Start Positron ---
+//registerSingleton(IEncryptionService, EncryptionService, InstantiationType.Delayed);
+// --- End Positron ---

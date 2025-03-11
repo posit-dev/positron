@@ -3,16 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { mainWindow } from '../../../base/browser/window.js';
-import { IEncryptionService, KnownStorageProvider } from '../common/encryptionService.js';
-import { ILogService } from '../../log/common/log.js';
-import { InstantiationType, registerSingleton } from '../../instantiation/common/extensions.js';
-import { IStorageService, StorageScope, StorageTarget } from '../../storage/common/storage.js';
+import { mainWindow } from '../../../../base/browser/window.js';
+import { IEncryptionService, KnownStorageProvider } from '../../../../platform/encryption/common/encryptionService.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 
 /**
  * Browser-specific encryption service that uses the Web Crypto API
  */
-export class EncryptionBrowserService implements IEncryptionService {
+export class BrowserEncryptionService implements IEncryptionService {
 	_serviceBrand: undefined;
 
 	private _encryptionKey: CryptoKey | undefined;
@@ -22,18 +22,18 @@ export class EncryptionBrowserService implements IEncryptionService {
 	constructor(
 		@IStorageService private readonly storageService: IStorageService,
 		@ILogService private readonly logService: ILogService) {
-		this.logService.info('[EncryptionBrowserService] Initializing browser encryption service');
+		this.logService.info('[BrowserEncryptionService] Initializing browser encryption service');
 		this._keyInitPromise = this.initializeEncryptionKey();
 	}
 
 	private async initializeEncryptionKey(): Promise<CryptoKey> {
 		// TO DO: Swap some info logging for trace logging
-		this.logService.info('[EncryptionBrowserService] Initializing encryption key...');
+		this.logService.info('[BrowserEncryptionService] Initializing encryption key...');
 		try {
 			const storedKeyData = this.storageService.get(this._storageKeyName, StorageScope.APPLICATION);
 
 			if (storedKeyData && storedKeyData !== '{}') {
-				this.logService.info('[EncryptionBrowserService] Found stored key data.');
+				this.logService.info('[BrowserEncryptionService] Found stored key data.');
 				this._encryptionKey = await mainWindow.crypto.subtle.importKey(
 					'jwk',
 					JSON.parse(storedKeyData),
@@ -43,16 +43,16 @@ export class EncryptionBrowserService implements IEncryptionService {
 				);
 				return this._encryptionKey;
 			}
-			this.logService.info('[EncryptionBrowserService] No stored key data found.');
+			this.logService.info('[BrowserEncryptionService] No stored key data found.');
 			return await this.generateAndStoreEncryptionKey();
 		} catch (error) {
-			this.logService.error('[EncryptionBrowserService] Error initializing encryption key:', error);
+			this.logService.error('[BrowserEncryptionService] Error initializing encryption key:', error);
 			return this.generateAndStoreEncryptionKey();
 		}
 	}
 
 	private async generateAndStoreEncryptionKey(): Promise<CryptoKey> {
-		this.logService.info('[EncryptionBrowserService] Generating encryption key...');
+		this.logService.info('[BrowserEncryptionService] Generating encryption key...');
 		try {
 			const key = await mainWindow.crypto.subtle.generateKey(
 				{ name: 'AES-GCM', length: 256 },
@@ -65,10 +65,10 @@ export class EncryptionBrowserService implements IEncryptionService {
 			this.storageService.store(this._storageKeyName, keyString, StorageScope.APPLICATION, StorageTarget.MACHINE);
 
 			this._encryptionKey = key;
-			this.logService.info('[EncryptionBrowserService] Generated encryption key.');
+			this.logService.info('[BrowserEncryptionService] Generated encryption key.');
 			return this._encryptionKey;
 		} catch (error) {
-			this.logService.error('[EncryptionBrowserService] Error generating encryption key:', error);
+			this.logService.error('[BrowserEncryptionService] Error generating encryption key:', error);
 			throw error;
 		}
 	}
@@ -86,7 +86,7 @@ export class EncryptionBrowserService implements IEncryptionService {
 	}
 
 	async encrypt(value: string): Promise<string> {
-		this.logService.info('[EncryptionBrowserService] Encrypting value...');
+		this.logService.info('[BrowserEncryptionService] Encrypting value...');
 
 		try {
 			const encoder = new TextEncoder();
@@ -105,7 +105,7 @@ export class EncryptionBrowserService implements IEncryptionService {
 				iv: Array.from(iv)
 			});
 
-			this.logService.info('[EncryptionBrowserService] Encrypted value.');
+			this.logService.info('[BrowserEncryptionService] Encrypted value.');
 			return result;
 		} catch (e) {
 			this.logService.error(e);
@@ -114,12 +114,12 @@ export class EncryptionBrowserService implements IEncryptionService {
 	}
 
 	async decrypt(value: string): Promise<string> {
-		this.logService.info('[EncryptionBrowserService] Decrypting value...');
+		this.logService.info('[BrowserEncryptionService] Decrypting value...');
 
 		try {
 			const { data, iv } = JSON.parse(value);
 			if (!data || !iv) {
-				throw new Error('[EncryptionBrowserService Invalid encrypted value');
+				throw new Error('[BrowserEncryptionService Invalid encrypted value');
 			}
 
 			const key = await this.getEncryptionKey();
@@ -135,29 +135,29 @@ export class EncryptionBrowserService implements IEncryptionService {
 			const decoder = new TextDecoder();
 			const decrypted = decoder.decode(decryptedBuffer);
 
-			this.logService.info('[EncryptionBrowserService] Decrypted value.');
+			this.logService.info('[BrowserEncryptionService] Decrypted value.');
 			return decrypted;
 		} catch (e) {
-			this.logService.error('[EncryptionBrowserService] Error decrypting value:', e);
+			this.logService.error('[BrowserEncryptionService] Error decrypting value:', e);
 			throw e;
 		}
 	}
 
 	async isEncryptionAvailable(): Promise<boolean> {
 		const available = !!(mainWindow?.crypto?.subtle);
-		this.logService.info('[EncryptionBrowserService] Encryption is available:', available);
+		this.logService.info('[BrowserEncryptionService] Encryption is available:', available);
 		return available;
 	}
 
 	getKeyStorageProvider(): Promise<KnownStorageProvider> {
-		this.logService.info('[EncryptionBrowserService] Getting key storage provider:', KnownStorageProvider.basicText);
+		this.logService.info('[BrowserEncryptionService] Getting key storage provider:', KnownStorageProvider.basicText);
 		return Promise.resolve(KnownStorageProvider.basicText);
 	}
 
 	setUsePlainTextEncryption(): Promise<void> {
-		this.logService.info('[EncryptionBrowserService] Setting use plain text encryption');
+		this.logService.info('[BrowserEncryptionService] Setting use plain text encryption');
 		return Promise.resolve(undefined);
 	}
 }
 
-registerSingleton(IEncryptionService, EncryptionBrowserService, InstantiationType.Delayed);
+registerSingleton(IEncryptionService, BrowserEncryptionService, InstantiationType.Delayed);

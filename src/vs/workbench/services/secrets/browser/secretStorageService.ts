@@ -5,8 +5,9 @@
 
 import { SequencerByKey } from '../../../../base/common/async.js';
 import { IEncryptionService } from '../../../../platform/encryption/common/encryptionService.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { ISecretStorageProvider, BaseSecretStorageService } from '../../../../platform/secrets/common/secrets.js';
+import { ISecretStorageProvider, ISecretStorageService, BaseSecretStorageService } from '../../../../platform/secrets/common/secrets.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { IBrowserWorkbenchEnvironmentService } from '../../environment/browser/environmentService.js';
 
@@ -21,23 +22,12 @@ export class BrowserSecretStorageService extends BaseSecretStorageService {
 		@IBrowserWorkbenchEnvironmentService environmentService: IBrowserWorkbenchEnvironmentService,
 		@ILogService logService: ILogService
 	) {
-		// We don't have encryption in the browser so instead we use the
-		// in-memory base class implementation instead.
-		super(
-			false,
-			storageService,
-			encryptionService,
-			logService
-		);
+		super(false, storageService, encryptionService, logService);
 
-		/*
 		if (environmentService.options?.secretStorageProvider) {
-			logService.info('[BrowserSecretStorage] Secret storage provider is available');
 			this._secretStorageProvider = environmentService.options.secretStorageProvider;
 			this._embedderSequencer = new SequencerByKey<string>();
-		} else {
-			logService.info('[BrowserSecretStorage] Secret storage provider is not available');
-		}*/
+		}
 	}
 
 	override get(key: string): Promise<string | undefined> {
@@ -79,4 +69,4 @@ export class BrowserSecretStorageService extends BaseSecretStorageService {
 	}
 }
 
-//registerSingleton(ISecretStorageService, BrowserSecretStorageService, InstantiationType.Delayed);
+registerSingleton(ISecretStorageService, BrowserSecretStorageService, InstantiationType.Delayed);

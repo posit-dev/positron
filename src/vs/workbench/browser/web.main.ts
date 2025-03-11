@@ -90,12 +90,15 @@ import { BufferLogger } from '../../platform/log/common/bufferLog.js';
 import { FileLoggerService } from '../../platform/log/common/fileLog.js';
 import { IEmbedderTerminalService } from '../services/terminal/common/embedderTerminalService.js';
 import { BrowserSecretStorageService } from '../services/secrets/browser/secretStorageService.js';
+// --- Start Positron ---
+//import { EncryptionService } from '../services/encryption/browser/encryptionService.js';
+import { BrowserEncryptionService } from '../services/encryption/browser/browserEncryptionService.js';
+// --- End Positron ---
 import { IEncryptionService } from '../../platform/encryption/common/encryptionService.js';
 import { ISecretStorageService } from '../../platform/secrets/common/secrets.js';
 import { TunnelSource } from '../services/remote/common/tunnelModel.js';
 import { mainWindow } from '../../base/browser/window.js';
 import { INotificationService, Severity } from '../../platform/notification/common/notification.js';
-import { EncryptionBrowserService } from '../../platform/encryption/browser/encryptionBrowserService.js';
 
 export class BrowserMain extends Disposable {
 
@@ -414,9 +417,9 @@ export class BrowserMain extends Disposable {
 		//
 		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-		//const encryptionService = new EncryptionNodeService(logService);
-		//serviceCollection.set(IEncryptionService, encryptionService);
-		const encryptionService = new EncryptionBrowserService(storageService, logService);
+		// --- Start Positron ---
+		const encryptionService = new BrowserEncryptionService(storageService, logService);
+		// --- End Positron ---
 		serviceCollection.set(IEncryptionService, encryptionService);
 		const secretStorageService = new BrowserSecretStorageService(storageService, encryptionService, environmentService, logService);
 		serviceCollection.set(ISecretStorageService, secretStorageService);
