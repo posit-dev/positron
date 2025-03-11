@@ -1035,10 +1035,6 @@ def _pandas_summarize_object(
     return _box_other_stats(num_unique, type_display=type_display)
 
 
-def _pandas_summarize_categorical(col: pd.Series, _options: FormatOptions):
-    return _box_other_stats(col.nunique(), type_display=ColumnDisplayType.Categorical)
-
-
 def _pandas_summarize_boolean(col: pd.Series, _options: FormatOptions):
     null_count = col.isna().sum()
     true_count = col.sum()
@@ -1321,6 +1317,8 @@ class PandasView(DataExplorerTableView):
 
     @classmethod
     def _get_type(cls, column, column_index, state: DataExplorerState):
+        import pandas as pd
+
         # A helper function for returning the backend type_name and
         # the display type when returning schema results or analyzing
         # schema changes
@@ -1329,11 +1327,22 @@ class PandasView(DataExplorerTableView):
         if dtype == object:  # noqa: E721
             type_name = cls._get_inferred_dtype(column, column_index, state)
             type_name = cls.TYPE_NAME_MAPPING.get(type_name, type_name)
+            type_display = cls._get_type_display(type_name)
+        elif isinstance(dtype, pd.CategoricalDtype):
+            type_name = "category"
+            if dtype.categories.dtype == object:
+                categories_type_name = cls._get_inferred_dtype(
+                    dtype.categories, column_index, state
+                )
+                type_display = cls.TYPE_NAME_MAPPING.get(categories_type_name, categories_type_name)
+            else:
+                categories_type_name = str(dtype.categories.dtype)
+                type_display = cls._get_type_display(categories_type_name)
         else:
             # TODO: more sophisticated type mapping
             type_name = str(dtype)
+            type_display = cls._get_type_display(type_name)
 
-        type_display = cls._get_type_display(type_name)
         return type_name, type_display
 
     TYPE_DISPLAY_MAPPING = MappingProxyType(
@@ -1359,7 +1368,6 @@ class PandasView(DataExplorerTableView):
             "mixed": "object",
             "decimal": "number",
             "complex": "number",
-            "category": "categorical",
             "bool": "boolean",
             "datetime64": "datetime",
             "datetime64[ns]": "datetime",
@@ -1715,7 +1723,6 @@ class PandasView(DataExplorerTableView):
             ColumnDisplayType.Date: _pandas_summarize_date,
             ColumnDisplayType.Datetime: _pandas_summarize_datetime,
             ColumnDisplayType.Object: _pandas_summarize_object,
-            ColumnDisplayType.Categorical: _pandas_summarize_categorical,
         }
     )
 
@@ -2029,15 +2036,6 @@ def _polars_summarize_string(col: pl.Series, _):
     return _box_string_stats(num_empty, num_unique)
 
 
-def _polars_summarize_categorical(
-    col: pl.Series,
-    _format_options: FormatOptions,
-):
-    return _polars_summarize_object(
-        col, _format_options, type_display=ColumnDisplayType.Categorical
-    )
-
-
 def _polars_summarize_object(
     col: pl.Series,
     _format_options: FormatOptions,
@@ -2226,10 +2224,17 @@ class PolarsView(DataExplorerTableView):
         column_name: str,
         column_index: int,
     ):
-        type_display = cls._get_type_display(column.dtype)
+        import polars as pl
 
-        # For Categorical types, we just use "Categorical" for the type name for simplicity
-        type_name = "Categorical" if type_display == "categorical" else str(column.dtype)
+        if isinstance(column.dtype, pl.Categorical):
+            # Categorical is always string in polars
+            type_display = "string"
+            # For Categorical types, we just use "Categorical" for the type name
+            # for simplicity
+            type_name = "Categorical"
+        else:
+            type_display = cls._get_type_display(column.dtype)
+            type_name = str(column.dtype)
 
         return ColumnSchema(
             column_name=column_name,
@@ -2578,7 +2583,6 @@ class PolarsView(DataExplorerTableView):
             ColumnDisplayType.Number: _polars_summarize_number,
             ColumnDisplayType.String: _polars_summarize_string,
             ColumnDisplayType.Object: _polars_summarize_object,
-            ColumnDisplayType.Categorical: _polars_summarize_categorical,
             ColumnDisplayType.Date: _polars_summarize_date,
             ColumnDisplayType.Datetime: _polars_summarize_datetime,
         }

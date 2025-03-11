@@ -1087,7 +1087,6 @@ export enum ColumnDisplayType {
 	Object = 'object',
 	Array = 'array',
 	Struct = 'struct',
-	Categorical = 'categorical',
 	Unknown = 'unknown'
 }
 

@@ -417,7 +417,6 @@
 					"object",
 					"array",
 					"struct",
-					"categorical",
 					"unknown"
 				]
 			},

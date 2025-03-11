@@ -748,7 +748,12 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
         (
             pd.Series(["foo", "bar", "foo", "baz", "qux"], dtype="category"),
             "category",
-            "categorical",
+            "string",
+        ),
+        (
+            pd.Series([0, 1, 0, 1, 0], dtype="category"),
+            "category",
+            "number",
         ),
     ]
 
@@ -3072,7 +3077,7 @@ POLARS_TYPE_EXAMPLES = [
         "Struct({'a': Int64, 'b': List(String)})",
         "struct",
     ),
-    (pl.Categorical, ["a", "b", "a", None], "Categorical", "categorical"),
+    (pl.Categorical, ["a", "b", "a", None], "Categorical", "string"),
     (pl.Object, ["Hello", True, None, 5], "Object", "object"),
 ]
 
