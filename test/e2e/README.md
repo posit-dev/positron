@@ -9,9 +9,9 @@ This document provides guidelines and setup instructions for effectively running
 - [Dependencies](#dependencies)
 - [Running Tests](#running-tests)
 - [Test Project](#test-project)
+- [Pull Requests and Test Tags](#pull-requests-and-test-tags)
 - [Running Tests in Github Actions](#running-tests-in-github-actions)
 - [Notes About Updating Specific Tests](#notes-about-updating-specific-tests)
-- [Tests Run on PRs](#tests-run-on-prs)
 
 ## Test Structure Overview
 
@@ -29,7 +29,7 @@ test/
 
 ### Test Template
 
-An [example test](https://github.com/posit-dev/positron/blob/main/test/e2e/example.test.ts) is available to help guide you in structuring a new test.
+An [example test](https://github.com/posit-dev/positron/blob/main/test/e2e/tests/example.test.ts) is available to help guide you in structuring a new test.
 
 ## Setup
 
@@ -231,6 +231,6 @@ When a run is complete, you can debug any test failures that occurred using the 
 
 In order to get the "golden screenshots" used for plot comparison is CI, you will need to temporarily uncomment the line of code marked with `capture master image in CI` or add a similar line of code for a new case. We must use CI taken snapshots because if the "golden screenshots" are taken locally, they will differ too much from the CI images to be useable with a proper threshold. You can't compare the current runtime plot against a snapshot until you have established a baseline screenshot from CI that is saved to `test/e2e/plots`.
 
-## Tests run on PRs
+### Critical Tests
 
-If you think your test should be run when PRs are created, [tag the test with @:critical](https://playwright.dev/docs/test-annotations#tag-tests). The existing @:critical cases were selected to give good overall coverage while keeping the overall execution time down to ten minutes or less. If your new test functionality covers a part of the application that no other tests cover, it is probably a good idea to include it in the @:critical set.
+If your test should run on all PRs, tag it with `@:critical`. Existing `@:critical` tests balance coverage and execution time (~15 min). If your test covers an untested area, consider adding it to this set. When in doubt, ask your friendly QA team.
