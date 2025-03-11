@@ -5,10 +5,14 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import { currentRBinary, makeMetadata, rRuntimeDiscoverer } from './provider';
-import { RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason } from './r-installation';
+import { RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason, getDefaultInterpreterPath } from './r-installation';
 import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
+import { untildify } from './path-utils';
+import { LOGGER } from './extension';
+import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
 
 export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
@@ -32,8 +36,20 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	}
 
 	async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
-		// TODO: If the workspace contains an R project, we could recommend an
-		// R runtime from e.g. the `DESCRIPTION` file or an renv lockfile.
+		// If the default interpreter path is set and the path exists on the filesystem,
+		// recommend it with implicit startup behavior.
+		const defaultInterpreterPath = getDefaultInterpreterPath();
+		if (defaultInterpreterPath) {
+			if (fs.existsSync(defaultInterpreterPath)) {
+				LOGGER.info(`[recommendedWorkspaceRuntime] Recommending R runtime from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting: ${defaultInterpreterPath}`);
+				const inst = new RInstallation(defaultInterpreterPath, undefined, [ReasonDiscovered.userSetting]);
+				return makeMetadata(inst, positron.LanguageRuntimeStartupBehavior.Implicit);
+			} else {
+				LOGGER.info(`[recommendedWorkspaceRuntime] Path from '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting does not exist: ${defaultInterpreterPath}...cannot recommend R runtime`);
+			}
+		} else {
+			LOGGER.debug(`[recommendedWorkspaceRuntime] '${POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY}' setting not set...cannot recommend R runtime`);
+		}
 		return undefined;
 	}
 
