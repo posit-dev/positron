@@ -57,6 +57,8 @@ test.describe('Interpreter Includes/Excludes', {
 					fail(failMessage);
 				}
 			}
+
+			await app.code.driver.page.keyboard.press('Escape');
 		} else {
 			fail('Alternate R version not set');
 		}
