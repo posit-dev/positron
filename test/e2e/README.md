@@ -194,21 +194,20 @@ For R, add any package requirements to the "imports" section of the `DESCRIPTION
 
 ## Pull Requests and Test Tags
 
-When you create a pull request, the test runner automatically scans the PR description for test tags to determine which E2E tests to run.
-
 ### Test Tag Rules
+
+When creating a pull request, the test runner automatically scans the PR description for test tags to determine which E2E tests to run.
 
 - **Always-on Tests:** Tests tagged with `@:critical` always run, and you can’t opt out of them.
 - **Custom Tags:** If your changes affect a specific feature, you can include additional tags in the PR description to trigger relevant tests.
 
 ### How to Add a Test Tag
 
-1. Use the format `@:tag` in your PR description (e.g., `@:help`, `@:console`).
+1. Use the format `@:tag` anywhere in your PR description (e.g., `@:help`, `@:console`).
 2. Once added, a comment will appear on your PR confirming that the tag was found and parsed correctly.
 
 > [!NOTE]
-> _You must add tags before the `pr-tags` job starts running._ If you modify tags after opening the PR, push a new commit or restart the jobs to apply the changes. The PR comment will confirm the detected tags, and tests will run based on the tags present at execution time.
-
+> **Add tags before the `pr-tags` job starts**. If you update tags after opening the PR, push a new commit or restart the jobs to apply the changes. The PR comment will confirm the detected tags, and tests will run based on the tags present at execution time.
 For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts).
 
 ### Running Windows and Browser Tests
