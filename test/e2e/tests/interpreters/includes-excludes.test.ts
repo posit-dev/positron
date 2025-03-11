@@ -62,8 +62,6 @@ test.describe('Interpreter Includes/Excludes', {
 		} else {
 			fail('Alternate R version not set');
 		}
-
-		await app.code.driver.page.keyboard.press('Escape');
 	});
 
 	test('Python - Can Exclude an Interpreter', async function ({ app, python, userSettings, logger }) {
