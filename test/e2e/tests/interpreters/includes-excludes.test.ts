@@ -40,28 +40,6 @@ test.describe('Interpreter Includes/Excludes', {
 		}
 	});
 
-	test('Python - Can Exclude an Interpreter', async function ({ app, python, userSettings, logger }) {
-
-		const alternatePython = process.env.POSITRON_PY_ALT_VER_SEL;
-
-		if (alternatePython) {
-			await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, alternatePython, true);
-
-			const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was excluded';
-			await userSettings.set([['python.interpreters.exclude', '["~/.pyenv"]']], true);
-			try {
-				await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, alternatePython, true);
-				fail(failMessage);
-			} catch (e) {
-				if (e instanceof Error && e.message.includes(failMessage)) {
-					fail(failMessage);
-				}
-			}
-		} else {
-			fail('Alternate Python version not set');
-		}
-	});
-
 	test('R - Can Exclude an Interpreter', async function ({ app, r, userSettings, logger }) {
 
 		const alternateR = process.env.POSITRON_R_ALT_VER_SEL;
@@ -81,6 +59,32 @@ test.describe('Interpreter Includes/Excludes', {
 			}
 		} else {
 			fail('Alternate R version not set');
+		}
+
+		await app.code.driver.page.keyboard.press('Escape');
+	});
+
+	test('Python - Can Exclude an Interpreter', async function ({ app, python, userSettings, logger }) {
+
+		const alternatePython = process.env.POSITRON_PY_ALT_VER_SEL;
+
+		if (alternatePython) {
+			await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, alternatePython, true);
+
+			const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was excluded';
+			await userSettings.set([['python.interpreters.exclude', '["~/.pyenv"]']], true);
+			try {
+				await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, alternatePython, true);
+				fail(failMessage);
+			} catch (e) {
+				if (e instanceof Error && e.message.includes(failMessage)) {
+					fail(failMessage);
+				}
+			}
+
+			await app.code.driver.page.keyboard.press('Escape');
+		} else {
+			fail('Alternate Python version not set');
 		}
 	});
 
