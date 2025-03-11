@@ -142,7 +142,7 @@ def _jedi_utils_script(project: Optional[Project], document: TextDocument) -> In
     server = _get_server_from_call_stack()
     if server is None:
         raise AssertionError("Could not find server object in the caller's scope")
-    return _interpreter(project, document.source, document.path, server.shell)
+    return _interpreter(project, document, server.shell)
 
 
 def _get_server_from_call_stack() -> Optional["PositronJediLanguageServer"]:
@@ -159,18 +159,22 @@ def _get_server_from_call_stack() -> Optional["PositronJediLanguageServer"]:
 
 
 @debounce(1, keyed_by="uri")
-def _publish_diagnostics_debounced(server: "PositronJediLanguageServer", uri: str) -> None:
+def _publish_diagnostics_debounced(
+    server: "PositronJediLanguageServer", uri: str, filename: Optional[str] = None
+) -> None:
     # Catch and log any exceptions. Exceptions should be handled by pygls, but the debounce
     # decorator causes the function to run in a separate thread thus a separate stack from pygls'
     # exception handler.
     try:
-        _publish_diagnostics(server, uri)
+        _publish_diagnostics(server, uri, filename)
     except Exception:
         logger.exception(f"Failed to publish diagnostics for uri {uri}", exc_info=True)
 
 
 # Adapted from jedi_language_server/server.py::_publish_diagnostics.
-def _publish_diagnostics(server: "PositronJediLanguageServer", uri: str) -> None:
+def _publish_diagnostics(
+    server: "PositronJediLanguageServer", uri: str, filename: Optional[str] = None
+) -> None:
     """Helper function to publish diagnostics for a file."""
     # The debounce decorator delays the execution by 1 second
     # canceling notifications that happen in that interval.
@@ -178,13 +182,10 @@ def _publish_diagnostics(server: "PositronJediLanguageServer", uri: str) -> None
     # whether the document still exists
     if uri not in server.workspace.text_documents:
         return
+    if filename is None:
+        filename = uri
 
     doc = server.workspace.get_text_document(uri)
-    notebook_mapper = notebook_utils.notebook_coordinate_mapper(server.workspace, cell_uri=uri)
-    if notebook_mapper and (cell_index := notebook_mapper.cell_index(uri)) is not None:
-        display_uri = f"cell {cell_index + 1}"
-    else:
-        display_uri = doc.uri
 
     # Comment out magic/shell/help command lines so that they don't appear as syntax errors.
     source = "\n".join(
@@ -200,7 +201,7 @@ def _publish_diagnostics(server: "PositronJediLanguageServer", uri: str) -> None
     # Ignore all warnings during the compile, else they display in the console.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        diagnostic = jedi_utils.lsp_python_diagnostic(display_uri, source)
+        diagnostic = jedi_utils.lsp_python_diagnostic(filename, source)
 
     diagnostics = [diagnostic] if diagnostic else []
     server.publish_diagnostics(uri, diagnostics)
@@ -520,6 +521,7 @@ _MAGIC_COMPLETIONS: Dict[str, Any] = {}
         trigger_characters=[".", "'", '"', _LINE_MAGIC_PREFIX], resolve_provider=True
     ),
 )
+@notebook_utils.supports_notebooks
 def positron_completion(
     server: PositronJediLanguageServer, params: CompletionParams
 ) -> Optional[CompletionList]:
@@ -529,16 +531,7 @@ def positron_completion(
     resolve_eagerly = server.initialization_options.completion.resolve_eagerly
     ignore_patterns = server.initialization_options.completion.ignore_patterns
     document = server.workspace.get_text_document(params.text_document.uri)
-    notebook_mapper = notebook_utils.notebook_coordinate_mapper(
-        server.workspace, cell_uri=document.uri
-    )
-    source = notebook_mapper.source if notebook_mapper is not None else document.source
-    position = (
-        notebook_mapper.notebook_position(document.uri, params.position)
-        if notebook_mapper is not None
-        else params.position
-    )
-    jedi_lines = jedi_utils.line_column(position)
+    jedi_lines = jedi_utils.line_column(params.position)
 
     # --- Start Positron ---
     # Don't complete comments or shell commands
@@ -548,12 +541,12 @@ def positron_completion(
         return None
 
     # Use Interpreter instead of Script to include the shell's namespaces in completions
-    jedi_script = _interpreter(server.project, source, document.path, server.shell)
+    jedi_script = _interpreter(server.project, document, server.shell)
 
     # --- End Positron ---
 
     try:
-        jedi_lines = jedi_utils.line_column(position)
+        jedi_lines = jedi_utils.line_column(params.position)
         completions_jedi_raw = jedi_script.complete(*jedi_lines)
         if not ignore_patterns:
             # A performance optimization. ignore_patterns should usually be empty;
@@ -626,12 +619,23 @@ def positron_completion(
                     # setting the deprecated vscode.CompletionItem.textEdit property
                     # in the client. Quarto also doesn't support the textEdit property.
                     # See https://github.com/posit-dev/positron/issues/6444.
+                    # Use a range that starts and ends at the cursor position to insert
+                    # text at the cursor.
+                    range_ = Range(params.position, params.position)
+
+                    # Convert the range back to cell coordinates if completing in a notebook cell.
+                    mapper = notebook_utils.notebook_coordinate_mapper(
+                        server.workspace, cell_uri=params.text_document.uri
+                    )
+                    if mapper is not None:
+                        location = mapper.cell_range(range_)
+                        if location is not None and location.uri == params.text_document.uri:
+                            range_ = location.range
+
                     jedi_completion_item.text_edit = InsertReplaceEdit(
                         new_text=new_text,
-                        # Use a range that starts and ends at the cursor position to insert
-                        # text at the cursor.
-                        insert=Range(params.position, params.position),
-                        replace=Range(params.position, params.position),
+                        insert=range_,
+                        replace=range_,
                     )
                 completion_items.append(jedi_completion_item)
 
@@ -839,8 +843,7 @@ def positron_help_topic_request(
 ) -> Optional[ShowHelpTopicParams]:
     """Return topic to display in Help pane."""
     document = server.workspace.get_text_document(params.text_document.uri)
-    source = document.source
-    jedi_script = _interpreter(server.project, source, document.path, server.shell)
+    jedi_script = _interpreter(server.project, document, server.shell)
     jedi_lines = jedi_utils.line_column(params.position)
     names = jedi_script.infer(*jedi_lines)
 
@@ -941,11 +944,13 @@ def positron_did_close_notebook_diagnostics(
 
 
 def _interpreter(
-    project: Optional[Project], code: str, path: str, shell: Optional["PositronShell"]
+    project: Optional[Project], document: TextDocument, shell: Optional["PositronShell"]
 ) -> Interpreter:
     """Return a `jedi.Interpreter` with a reference to the shell's user namespace."""
     namespaces: List[Dict[str, Any]] = []
     if shell is not None:
         namespaces.append(shell.user_ns)
 
-    return Interpreter(code, namespaces, path=path, project=project)
+    return Interpreter(
+        code=document.source, path=document.path, project=project, namespaces=namespaces
+    )
