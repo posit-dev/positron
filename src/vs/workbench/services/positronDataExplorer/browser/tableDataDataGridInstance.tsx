@@ -114,18 +114,27 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				state.table_shape.num_rows
 			);
 
-			// Adjust the vertical scroll offset, if needed.
-			if (!this.firstRow) {
+			// For zero-row case (e.g., after filtering), ensure a full reset of scroll positions
+			if (state.table_shape.num_rows === 0) {
 				this._verticalScrollOffset = 0;
-			} else if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
-				this._verticalScrollOffset = this.maximumVerticalScrollOffset;
-			}
-
-			// Adjust the horizontal scroll offset, if needed.
-			if (!this.firstColumn) {
 				this._horizontalScrollOffset = 0;
-			} else if (this._horizontalScrollOffset > this.maximumHorizontalScrollOffset) {
-				this._horizontalScrollOffset = this.maximumHorizontalScrollOffset;
+				// Force a layout recomputation and repaint
+				this.softReset();
+				this._onDidUpdateEmitter.fire();
+			} else {
+				// Adjust the vertical scroll offset, if needed.
+				if (!this.firstRow) {
+					this._verticalScrollOffset = 0;
+				} else if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
+					this._verticalScrollOffset = this.maximumVerticalScrollOffset;
+				}
+
+				// Adjust the horizontal scroll offset, if needed.
+				if (!this.firstColumn) {
+					this._horizontalScrollOffset = 0;
+				} else if (this._horizontalScrollOffset > this.maximumHorizontalScrollOffset) {
+					this._horizontalScrollOffset = this.maximumHorizontalScrollOffset;
+				}
 			}
 		};
 
