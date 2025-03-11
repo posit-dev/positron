@@ -39,7 +39,7 @@ import { ILanguageRuntimeCodeExecutedEvent, IPositronConsoleInstance, IPositronC
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
-import { IRuntimeStartupService, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
+import { IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
 import { multipleConsoleSessionsFeatureEnabled } from '../../runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
 import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } from '../../positronHistory/common/executionHistoryService.js';
 
@@ -353,6 +353,13 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 			if (positronConsoleInstance) {
 				positronConsoleInstance.setState(PositronConsoleState.Exited);
+			}
+		}));
+
+		this._register(this._runtimeStartupService.onSessionRestoreFailure(evt => {
+			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(evt.sessionId);
+			if (positronConsoleInstance) {
+				positronConsoleInstance.showRestoreFailure(evt);
 			}
 		}));
 
@@ -1495,6 +1502,35 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				break;
 			}
 		}
+	}
+
+	/**
+	 * Updates the console in the case of a session restore failure.
+	 *
+	 * @param evt The event with error details.
+	 */
+	showRestoreFailure(evt: ISessionRestoreFailedEvent) {
+		// If trace is enabled, add a trace runtime item.
+		if (this._trace) {
+			this.addRuntimeItemTrace(`Restore failure: ${evt.error.toString()}`);
+		}
+
+		// Remove the item indicating that the runtime is starting.
+		for (let i = this._runtimeItems.length - 1; i >= 0; i--) {
+			if (this._runtimeItems[i] instanceof RuntimeItemStarting) {
+				this._runtimeItems.splice(i, 1);
+				break;
+			}
+		}
+
+		// Add a runtime item indicating the failure.
+		this.addRuntimeItem(new RuntimeItemStartupFailure(
+			generateUuid(),
+			evt.error.toString(),
+			''
+		));
+
+		this.setState(PositronConsoleState.Exited);
 	}
 
 	/**

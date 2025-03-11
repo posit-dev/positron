@@ -13,7 +13,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeAutoStartEvent, IRuntimeStartupService, SerializedSessionMetadata } from './runtimeStartupService.js';
+import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from './runtimeStartupService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
@@ -108,6 +108,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/// The event emitter for the onWillAutoStartRuntime event.
 	private readonly _onWillAutoStartRuntime: Emitter<IRuntimeAutoStartEvent>;
 
+	/// The event emitter for the onSessionRestoreFailure event.
+	private readonly _onSessionRestoreFailure: Emitter<ISessionRestoreFailedEvent>;
+
 	private _restoredSessions: SerializedSessionMetadata[] = [];
 	private _foundRestoredSessions: Barrier = new Barrier();
 
@@ -129,8 +132,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		super();
 
 		this._onWillAutoStartRuntime = new Emitter<IRuntimeAutoStartEvent>();
+		this._onSessionRestoreFailure = new Emitter<ISessionRestoreFailedEvent>();
+		this._register(this._onSessionRestoreFailure);
 		this._register(this._onWillAutoStartRuntime);
 		this.onWillAutoStartRuntime = this._onWillAutoStartRuntime.event;
+		this.onSessionRestoreFailure = this._onSessionRestoreFailure.event;
 
 		this._register(
 			this._runtimeSessionService.onDidChangeForegroundSession(
@@ -382,6 +388,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	onWillAutoStartRuntime: Event<IRuntimeAutoStartEvent>;
+
+	onSessionRestoreFailure: Event<ISessionRestoreFailedEvent>;
 
 	/**
 	 * Gets all the affiliated runtimes for the workspace.
@@ -1220,6 +1228,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					this._logService.debug(
 						`[Runtime startup] Session ` +
 						`${session.metadata.sessionName} (${session.metadata.sessionId}) valid = ${valid}`);
+
+					// Fire an event to clean up provisional copies of the session
+					if (!valid) {
+						const error: ISessionRestoreFailedEvent = {
+							sessionId: session.metadata.sessionId,
+							error: new Error(`Session is no longer available`)
+						};
+						this._onSessionRestoreFailure.fire(error);
+					}
+
 					return valid;
 				} catch (err) {
 					// This is a non-fatal error since we can just avoid reconnecting
@@ -1227,6 +1245,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					this._logService.error(
 						`Error validating persisted session ` +
 						`${session.metadata.sessionName} (${session.metadata.sessionId}): ${err}`);
+
+					// Fire an event to clean up provisional copies of the session
+					const error: ISessionRestoreFailedEvent = {
+						sessionId: session.metadata.sessionId,
+						error: new Error(`Could not validate session: ${err}`)
+					};
+					this._onSessionRestoreFailure.fire(error);
 					return false;
 				}
 			}
@@ -1271,10 +1296,19 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				firstConsole = false;
 			}
 
-			// Reconnect to the session; activate it if it is the first console
-			// session
-			await this._runtimeSessionService.restoreRuntimeSession(
-				session.runtimeMetadata, session.metadata, activate);
+			try {
+				// Reconnect to the session; activate it if it is the first console
+				// session
+				await this._runtimeSessionService.restoreRuntimeSession(
+					session.runtimeMetadata, session.metadata, activate);
+			} catch (err) {
+				// If an error occurs, fire an event to clean up provisional copies
+				const error: ISessionRestoreFailedEvent = {
+					sessionId: session.metadata.sessionId,
+					error: new Error(`Could not reconnect: ${err}`)
+				};
+				this._onSessionRestoreFailure.fire(error);
+			}
 		}));
 	}
 

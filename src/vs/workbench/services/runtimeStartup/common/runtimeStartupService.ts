@@ -22,6 +22,18 @@ export interface IRuntimeAutoStartEvent {
 }
 
 /**
+ * An event that is emitted when a session that was meant to be restored fails
+ * to be restored.
+ */
+export interface ISessionRestoreFailedEvent {
+	/** The session ID that failed to restore */
+	sessionId: string;
+
+	/** The restoration error, if known */
+	error: Error;
+}
+
+/**
  * Metadata for serialized runtime sessions.
  */
 export interface SerializedSessionMetadata {
@@ -108,6 +120,11 @@ export interface IRuntimeStartupService {
 	 * Get the sessions that were (or will be) restored into this window.
 	 */
 	getRestoredSessions(): Promise<SerializedSessionMetadata[]>;
+
+	/**
+	 * Fired when session restoration fails
+	 */
+	onSessionRestoreFailure: Event<ISessionRestoreFailedEvent>;
 
 	/**
 	 * Register a runtime manager with the service; returns a disposable that
