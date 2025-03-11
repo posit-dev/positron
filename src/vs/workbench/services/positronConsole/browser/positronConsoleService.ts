@@ -206,6 +206,10 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		super();
 
 		// Start a Positron console instance for each session that will be restored.
+		//
+		// These are provisional instances not backed by a live session; they
+		// are placeholders shown during startup while the session attempts to
+		// restore.
 		this._runtimeStartupService.getRestoredSessions().then(restoredSessions => {
 			let first = true;
 			const hasActiveSession = !!this.activePositronConsoleInstance;
@@ -215,9 +219,17 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				const activate = first && !hasActiveSession;
 				if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 					first = false;
-					this.restorePositronConsole(session, activate);
+					try {
+						this.restorePositronConsole(session, activate);
+					} catch (err) {
+						this._logService.error(
+							`Error restoring ${session.metadata.sessionId}: ${err}`);
+					}
 				}
 			});
+		}).catch(err => {
+			// Survivable, we'll just log the error.
+			this._logService.error('Error restoring Positron console sessions:', err);
 		});
 
 		// Start a Positron console instance for each running runtime. Only
@@ -356,8 +368,11 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			}
 		}));
 
+		// Register the onSessionRestoreFailure event handler so we can show
+		// the restore failure in the console.
 		this._register(this._runtimeStartupService.onSessionRestoreFailure(evt => {
-			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(evt.sessionId);
+			const positronConsoleInstance =
+				this._positronConsoleInstancesBySessionId.get(evt.sessionId);
 			if (positronConsoleInstance) {
 				positronConsoleInstance.showRestoreFailure(evt);
 			}
@@ -487,16 +502,23 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	}
 
 	/**
-	 * Restores a Positron console instance.
+	 * Begins the process of restoring a Positron console.
 	 *
 	 * @param session The session to restore.
 	 * @param activate Whether to activate the console instance immediately.
 	 */
 	private restorePositronConsole(session: SerializedSessionMetadata, activate: boolean) {
+		// Create a provisional console from the serialized metadata. This
+		// console won't be connected to a live session until the runtime
+		// successfully reconnects.
 		const sessionId = session.metadata.sessionId;
 		const console = this.createPositronConsoleInstance(
 			session.metadata, session.runtimeMetadata, activate);
+
+		// Set the initial working directory to the session's working directory.
 		console.initialWorkingDirectory = session.workingDirectory;
+
+		// Replay all the execution entries for the session.
 		const entries = this._executionHistoryService.getExecutionEntries(sessionId);
 		console.replayExecutions(entries);
 	}
@@ -609,12 +631,28 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		attachMode: SessionAttachMode,
 		activate: boolean
 	): IPositronConsoleInstance {
+		// Create the instance
 		const instance = this.createPositronConsoleInstance(
 			session.metadata, session.runtimeMetadata, activate);
+
+		// Attach it to the session
 		instance.attachRuntimeSession(session, attachMode);
 		return instance;
 	}
 
+	/**
+	 * Creates a new Positron console instance given the metadata of the
+	 * runtime and session.
+	 *
+	 * This creates a detached (provisional) instance that is not connected to
+	 * the session; use the `attachRuntimeSession` method to connect it to a
+	 * live session.
+	 *
+	 * @param sessionMetadata The session metadata.
+	 * @param runtimeMetadata The runtime metadata.
+	 * @param activate Whether to activate the console instance immediately.
+	 * @returns The new Positron console instance.
+	 */
 	private createPositronConsoleInstance(
 		sessionMetadata: IRuntimeSessionMetadata,
 		runtimeMetadata: ILanguageRuntimeMetadata,
@@ -1321,7 +1359,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
-	 * Replays execution history.
+	 * Replays execution history. This is called when restoring a session to
+	 * restore the console's contents after a reload/reconnect.
 	 *
 	 * @param entries The execution history entries to replay.
 	 */

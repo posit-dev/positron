@@ -38,10 +38,10 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
+import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
-import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 
 /**
  * PositronConsoleViewPane class.

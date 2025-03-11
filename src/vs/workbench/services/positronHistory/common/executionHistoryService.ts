@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { IDisposable } from '../../../../base/common/lifecycle.js';
 import * as nls from '../../../../nls.js';
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
@@ -83,7 +84,7 @@ export interface IInputHistoryEntry {
  * listens to execution inputs and outputs, and stores them in a durable history
  * for replay/retrieval.
  */
-export interface IExecutionHistoryService {
+export interface IExecutionHistoryService extends IDisposable {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
 
