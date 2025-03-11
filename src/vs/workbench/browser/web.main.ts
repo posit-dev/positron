@@ -418,7 +418,7 @@ export class BrowserMain extends Disposable {
 		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 		// --- Start Positron ---
-		const encryptionService = new BrowserEncryptionService(storageService, logService);
+		const encryptionService = new BrowserEncryptionService(storageService, logService, fileService, environmentService);
 		// --- End Positron ---
 		serviceCollection.set(IEncryptionService, encryptionService);
 		const secretStorageService = new BrowserSecretStorageService(storageService, encryptionService, environmentService, logService);
