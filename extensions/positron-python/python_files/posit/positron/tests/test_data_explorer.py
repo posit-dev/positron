@@ -3164,6 +3164,22 @@ def test_polars_get_state(dxf: DataExplorerFixture):
             profile_type="summary_stats",
             support_status=SupportStatus.Supported,
         ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="small_histogram",
+            support_status=SupportStatus.Supported,
+        ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="large_histogram",
+            support_status=SupportStatus.Supported,
+        ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="small_frequency_table",
+            support_status=SupportStatus.Supported,
+        ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="large_frequency_table",
+            support_status=SupportStatus.Supported,
+        ),
     ]
 
 
