@@ -294,6 +294,83 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		disengageHistoryBrowser();
 	};
 
+	/**
+	 * Consumes an event.
+	 */
+	const consumeKbdEvent = (e: IKeyboardEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+	};
+	const navigateHistoryUp = (e: IKeyboardEvent) => {
+		// If the history browser is present, Up should select the
+		// previous history item.
+		if (historyBrowserActiveRef.current) {
+			setHistoryBrowserSelectedIndex(Math.max(
+				0, historyBrowserSelectedIndexRef.current - 1));
+			consumeKbdEvent(e);
+			return;
+		}
+
+		// Get the position. If it's at line number 1, allow backward history navigation.
+		const position = codeEditorWidgetRef.current.getPosition();
+		if (position?.lineNumber === 1) {
+			// Consume the event.
+			consumeKbdEvent(e);
+
+			// If there are history entries, process the event.
+			if (historyNavigatorRef.current) {
+				// When the user moves up from the end, and we don't have a current code editor
+				// fragment, set the current code fragment. Otherwise, move to the previous
+				// entry.
+				if (historyNavigatorRef.current.isAtEnd() &&
+					currentCodeFragmentRef.current === undefined) {
+					setCurrentCodeFragment(codeEditorWidgetRef.current.getValue());
+				} else {
+					historyNavigatorRef.current.previous();
+				}
+
+				// Get the current history entry, set it as the value of the code editor widget.
+				const inputHistoryEntry = historyNavigatorRef.current.current();
+				codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
+
+				// Position the code editor widget.
+				updateCodeEditorWidgetPosition(Position.First, Position.Last);
+			}
+		}
+	};
+
+	const navigateHistoryDown = (e: IKeyboardEvent) => {
+
+		// Get the position and text model. If it's on the last line, allow forward history
+		// navigation.
+		const position = codeEditorWidgetRef.current.getPosition();
+		const textModel = codeEditorWidgetRef.current.getModel();
+		if (position?.lineNumber === textModel?.getLineCount()) {
+			// Consume the event.
+			consumeKbdEvent(e);
+
+			// If there are history entries, process the event.
+			if (historyNavigatorRef.current) {
+				// When the user reaches the end of the history entries, restore the current
+				// code fragment.
+				if (historyNavigatorRef.current.isAtEnd()) {
+					if (currentCodeFragmentRef.current !== undefined) {
+						codeEditorWidgetRef.current.setValue(currentCodeFragmentRef.current);
+						setCurrentCodeFragment(undefined);
+					}
+				} else {
+					// Move to the next history entry and set it as the value of the code editor
+					// widget.
+					const inputHistoryEntry = historyNavigatorRef.current.next();
+					codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
+				}
+
+				// Position the code editor widget.
+				updateCodeEditorWidgetPosition(Position.Last, Position.Last);
+			}
+		}
+	}
+
 	// Key down event handler.
 	const keyDownHandler = async (e: IKeyboardEvent) => {
 		/**
@@ -429,6 +506,26 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				break;
 			}
 
+			case KeyCode.KeyN: {
+				// Bind Ctrl+N to navigate history down ("Next"). This is a GNU
+				// readline keybinding.
+				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
+					consumeEvent();
+					navigateHistoryDown(e);
+					break;
+				}
+			}
+
+			case KeyCode.KeyP: {
+				// Bind Ctrl+N to navigate history up ("Previous"). This is a GNU
+				// readline keybinding.
+				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
+					consumeEvent();
+					navigateHistoryUp(e);
+					break;
+				}
+			}
+
 			// Tab processing.
 			case KeyCode.Tab: {
 				// If the history browser is active, accept the selected history entry and
@@ -454,42 +551,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					engageHistoryBrowser(new HistoryPrefixMatchStrategy(entries));
 					consumeEvent();
 					break;
-				}
-
-				// If the history browser is present, Up should select the
-				// previous history item.
-				else if (historyBrowserActiveRef.current) {
-					setHistoryBrowserSelectedIndex(Math.max(
-						0, historyBrowserSelectedIndexRef.current - 1));
-					consumeEvent();
-					break;
-				}
-
-				// Get the position. If it's at line number 1, allow backward history navigation.
-				const position = codeEditorWidgetRef.current.getPosition();
-				if (position?.lineNumber === 1) {
-					// Consume the event.
-					consumeEvent();
-
-					// If there are history entries, process the event.
-					if (historyNavigatorRef.current) {
-						// When the user moves up from the end, and we don't have a current code editor
-						// fragment, set the current code fragment. Otherwise, move to the previous
-						// entry.
-						if (historyNavigatorRef.current.isAtEnd() &&
-							currentCodeFragmentRef.current === undefined) {
-							setCurrentCodeFragment(codeEditorWidgetRef.current.getValue());
-						} else {
-							historyNavigatorRef.current.previous();
-						}
-
-						// Get the current history entry, set it as the value of the code editor widget.
-						const inputHistoryEntry = historyNavigatorRef.current.current();
-						codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
-
-						// Position the code editor widget.
-						updateCodeEditorWidgetPosition(Position.First, Position.Last);
-					}
+				} else {
+					navigateHistoryUp(e);
 				}
 				break;
 			}
@@ -504,36 +567,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 						historyBrowserSelectedIndexRef.current + 1));
 					consumeEvent();
 					break;
+				} else {
+					navigateHistoryDown(e);
 				}
 
-				// Get the position and text model. If it's on the last line, allow forward history
-				// navigation.
-				const position = codeEditorWidgetRef.current.getPosition();
-				const textModel = codeEditorWidgetRef.current.getModel();
-				if (position?.lineNumber === textModel?.getLineCount()) {
-					// Consume the event.
-					consumeEvent();
-
-					// If there are history entries, process the event.
-					if (historyNavigatorRef.current) {
-						// When the user reaches the end of the history entries, restore the current
-						// code fragment.
-						if (historyNavigatorRef.current.isAtEnd()) {
-							if (currentCodeFragmentRef.current !== undefined) {
-								codeEditorWidgetRef.current.setValue(currentCodeFragmentRef.current);
-								setCurrentCodeFragment(undefined);
-							}
-						} else {
-							// Move to the next history entry and set it as the value of the code editor
-							// widget.
-							const inputHistoryEntry = historyNavigatorRef.current.next();
-							codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
-						}
-
-						// Position the code editor widget.
-						updateCodeEditorWidgetPosition(Position.Last, Position.Last);
-					}
-				}
 				break;
 			}
 
