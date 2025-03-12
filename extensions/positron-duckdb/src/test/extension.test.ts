@@ -938,6 +938,137 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		}
 	});
 
+	test('row filter with zero matching rows works correctly', async () => {
+		// Create a simple table with known data for precise zero-row testing
+		const tableName = makeTempTableName();
+
+		await createTempTable(tableName, [
+			{
+				name: 'id',
+				type: 'INTEGER',
+				display_type: ColumnDisplayType.Number,
+				values: ['1', '2', '3', '4', '5']
+			},
+			{
+				name: 'name',
+				type: 'VARCHAR',
+				display_type: ColumnDisplayType.String,
+				values: ['\'Alice\'', '\'Bob\'', '\'Charlie\'', '\'David\'', '\'Eve\'']
+			},
+			{
+				name: 'value',
+				type: 'DOUBLE',
+				display_type: ColumnDisplayType.Number,
+				values: ['10.5', '20.75', '30.25', '40.5', '50.0']
+			}
+		]);
+
+		const uri = `duckdb://${tableName}`;
+
+		// Get original state for reference
+		const origState = await getState(uri);
+		assert.strictEqual(origState.table_shape.num_rows, 5);
+
+		// Get schema for filter construction
+		const fullSchema = await getSchema(tableName);
+		const nameToSchema = new Map<string, ColumnSchema>(
+			fullSchema.columns.map((column) => [column.column_name, column])
+		);
+		const idColumn = nameToSchema.get('id')!;
+
+		// Filter that will match no rows (id > 100)
+		const zeroRowFilter: RowFilter = {
+			filter_id: 'zero-row-filter',
+			condition: RowFilterCondition.And,
+			column_schema: idColumn,
+			filter_type: RowFilterType.Compare,
+			params: { op: FilterComparisonOp.Gt, value: '100' }
+		};
+
+		// Apply the filter
+		const filterResult = await dxExec({
+			method: DataExplorerBackendRequest.SetRowFilters,
+			uri,
+			params: { filters: [zeroRowFilter] } satisfies SetRowFiltersParams
+		});
+
+		// Check that filter result shows 0 rows
+		assert.strictEqual(filterResult.selected_num_rows, 0);
+
+		// Check that get_state also shows 0 rows
+		const filteredState = await getState(uri);
+		assert.strictEqual(filteredState.table_shape.num_rows, 0);
+		assert.strictEqual(filteredState.table_unfiltered_shape.num_rows, 5);
+
+		// Test that getDataValues returns empty columns
+		const data = await getAllDataValues(tableName);
+		assert.deepStrictEqual(data, {
+			columns: [[], [], []]
+		});
+
+		// Test with different column selections
+		const testSpecificColumns = async () => {
+			return dxExec({
+				method: DataExplorerBackendRequest.GetDataValues,
+				uri,
+				params: {
+					columns: [
+						{
+							column_index: 0, // id column
+							spec: { first_index: 0, last_index: 4 }
+						},
+						{
+							column_index: 2, // value column
+							spec: { first_index: 0, last_index: 4 }
+						}
+					],
+					format_options: DEFAULT_FORMAT_OPTIONS
+				} satisfies GetDataValuesParams
+			}) as Promise<TableData>;
+		};
+
+		const specificColumnsData = await testSpecificColumns();
+		assert.deepStrictEqual(specificColumnsData, {
+			columns: [[], []]
+		});
+
+		// Test with indices instead of ranges
+		const testIndicesSelection = async () => {
+			return dxExec({
+				method: DataExplorerBackendRequest.GetDataValues,
+				uri,
+				params: {
+					columns: [
+						{
+							column_index: 1, // name column
+							spec: { indices: [0, 2, 4] }
+						}
+					],
+					format_options: DEFAULT_FORMAT_OPTIONS
+				} satisfies GetDataValuesParams
+			}) as Promise<TableData>;
+		};
+
+		const indicesData = await testIndicesSelection();
+		assert.deepStrictEqual(indicesData, {
+			columns: [[]]
+		});
+
+		// Remove the filter and verify data comes back
+		await dxExec({
+			method: DataExplorerBackendRequest.SetRowFilters,
+			uri,
+			params: { filters: [] }
+		});
+
+		const unfilterState = await getState(uri);
+		assert.deepStrictEqual(unfilterState, origState);
+
+		const unfilteredData = await getAllDataValues(tableName);
+		assert.strictEqual(unfilteredData.columns.length, 3);
+		assert.strictEqual(unfilteredData.columns[0].length, 5);
+	});
+
 	test('set_sort_columns works correctly', async () => {
 		const tableName = makeTempTableName();
 

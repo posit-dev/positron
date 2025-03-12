@@ -9,9 +9,9 @@ This document provides guidelines and setup instructions for effectively running
 - [Dependencies](#dependencies)
 - [Running Tests](#running-tests)
 - [Test Project](#test-project)
+- [Pull Requests and Test Tags](#pull-requests-and-test-tags)
 - [Running Tests in Github Actions](#running-tests-in-github-actions)
 - [Notes About Updating Specific Tests](#notes-about-updating-specific-tests)
-- [Tests Run on PRs](#tests-run-on-prs)
 
 ## Test Structure Overview
 
@@ -29,7 +29,7 @@ test/
 
 ### Test Template
 
-An [example test](https://github.com/posit-dev/positron/blob/main/test/e2e/example.test.ts) is available to help guide you in structuring a new test.
+An [example test](https://github.com/posit-dev/positron/blob/main/test/e2e/tests/example.test.ts) is available to help guide you in structuring a new test.
 
 ## Setup
 
@@ -194,23 +194,28 @@ For R, add any package requirements to the "imports" section of the `DESCRIPTION
 
 ## Pull Requests and Test Tags
 
-When you create a pull request, the test runner automatically scans the PR description for test tags to determine which E2E tests to run.
+### Test Tag Rules
+
+When creating a pull request, the test runner automatically scans the PR description for test tags to determine which E2E tests to run.
 
 - **Always-on Tests:** Tests tagged with `@:critical` always run, and you can’t opt out of them.
 - **Custom Tags:** If your changes affect a specific feature, you can include additional tags in the PR description to trigger relevant tests.
 
-To add a test tag:
+### How to Add a Test Tag
 
-1. Use the format `@:tag` in your PR description (e.g., `@:help`, `@:console`).
+1. Use the format `@:tag` anywhere in your PR description (e.g., `@:help`, `@:console`).
 2. Once added, a comment will appear on your PR confirming that the tag was found and parsed correctly.
 
-From that point, all E2E tests linked to the specified tag(s) will run during the test job. For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts).
+> [!NOTE]
+> **Add tags before the `pr-tags` job starts**. If you update tags _after_ opening the PR, push a new commit or restart the jobs to apply the changes. The PR comment will confirm the detected tags, and tests will run based on the tags present at execution time.
+For a full list of available tags, see this [file](https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts).
 
-To include Windows and Web Browser testing:
+### Running Windows and Browser Tests
 
-By default, only Linux e2e test will run.  You can optionally add `@:win` to your PR description and this will run test on windows as well. As of now, windows tests do take longer to run, so the overall PR test job will take longer to complete. You can also ass `@:web` to run the browser tests.
+By default, only Linux E2E tests run. If you need to include additional environments:
 
-Note: You can update the tags in the PR description at any time. The PR comment will confirm the parsed tags, and the test job will use the tags present in the PR description at the time of execution.
+- Add `@:win` to your PR description to run tests on Windows. (Note: Windows tests take longer to complete.)
+- Add `@:web` to run browser-based tests.
 
 ## Running Tests in Github Actions
 
@@ -226,6 +231,6 @@ When a run is complete, you can debug any test failures that occurred using the 
 
 In order to get the "golden screenshots" used for plot comparison is CI, you will need to temporarily uncomment the line of code marked with `capture master image in CI` or add a similar line of code for a new case. We must use CI taken snapshots because if the "golden screenshots" are taken locally, they will differ too much from the CI images to be useable with a proper threshold. You can't compare the current runtime plot against a snapshot until you have established a baseline screenshot from CI that is saved to `test/e2e/plots`.
 
-## Tests run on PRs
+### Critical Tests
 
-If you think your test should be run when PRs are created, [tag the test with @:critical](https://playwright.dev/docs/test-annotations#tag-tests). The existing @:critical cases were selected to give good overall coverage while keeping the overall execution time down to ten minutes or less. If your new test functionality covers a part of the application that no other tests cover, it is probably a good idea to include it in the @:critical set.
+If your test should run on all PRs, tag it with `@:critical`. Existing `@:critical` tests balance coverage and execution time (~15 min). If your test covers an untested area, consider adding it to this set. When in doubt, ask your friendly QA team.
