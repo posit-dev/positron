@@ -134,7 +134,7 @@
     "http-proxy": "^1.18.1"
   },
   "devDependencies": {
-    "@currents/playwright": "^1.9.4",
+    "@currents/playwright": "^1.11.2",
     "@midleman/github-actions-reporter": "^1.9.5",
     "@playwright/test": "^1.50.0",
     "@stylistic/eslint-plugin-ts": "^2.8.0",

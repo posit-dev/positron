@@ -99,6 +99,9 @@ export const NEW_EMPTY_EDITOR_WINDOW_COMMAND_ID = 'workbench.action.newEmptyEdit
 export const API_OPEN_EDITOR_COMMAND_ID = '_workbench.open';
 export const API_OPEN_DIFF_EDITOR_COMMAND_ID = '_workbench.diff';
 export const API_OPEN_WITH_EDITOR_COMMAND_ID = '_workbench.openWith';
+// --- Start Positron ---
+export const API_REOPEN_WITH_EDITOR_COMMAND_ID = '_workbench.reopenWith';
+// --- End Positron ---
 
 export const EDITOR_CORE_NAVIGATION_COMMANDS = [
 	SPLIT_EDITOR,
@@ -509,6 +512,29 @@ function registerOpenEditorAPICommands(): void {
 
 		await editorService.openEditor({ resource: URI.from(resource, true), options: { pinned: true, ...optionsArg, override: id } }, columnToEditorGroup(editorGroupsService, configurationService, columnArg));
 	});
+
+	// --- Start Positron ---
+	CommandsRegistry.registerCommand(API_REOPEN_WITH_EDITOR_COMMAND_ID, async (accessor: ServicesAccessor, resource: UriComponents, id: string) => {
+		const editorService = accessor.get(IEditorService);
+		const activeEditorPane = editorService.activeEditorPane;
+		if (!activeEditorPane) {
+			return;
+		}
+
+		await editorService.replaceEditors([
+			{
+				editor: activeEditorPane.input,
+				replacement: {
+					resource: activeEditorPane.input.resource,
+					options: {
+						override: id
+					}
+				}
+			}
+		], activeEditorPane.group);
+
+	});
+	// --- End Positron ---
 
 	// partial, renderer-side API command to open diff editor
 	// complements https://github.com/microsoft/vscode/blob/2b164efb0e6a5de3826bff62683eaeafe032284f/src/vs/workbench/api/common/extHostApiCommands.ts#L397

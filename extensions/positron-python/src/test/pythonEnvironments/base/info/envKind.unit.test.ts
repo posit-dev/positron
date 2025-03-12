@@ -15,6 +15,9 @@ const KIND_NAMES: [PythonEnvKind, string][] = [
     [PythonEnvKind.Poetry, 'poetry'],
     [PythonEnvKind.Hatch, 'hatch'],
     [PythonEnvKind.Pixi, 'pixi'],
+    // --- Start Positron ---
+    [PythonEnvKind.Uv, 'uv'],
+    // --- End Positron ---
     [PythonEnvKind.Custom, 'customGlobal'],
     [PythonEnvKind.OtherGlobal, 'otherGlobal'],
     [PythonEnvKind.Venv, 'venv'],

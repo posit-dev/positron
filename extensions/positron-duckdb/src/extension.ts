@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -61,7 +61,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as zlib from 'zlib';
 import Worker from 'web-worker';
-import { Schema, StructRow, Table, Vector } from 'apache-arrow';
+import { Table, Vector } from 'apache-arrow';
 import { pathToFileURL } from 'url';
 
 // Set to true when doing development for better console logging
@@ -184,7 +184,8 @@ const SCHEMA_TYPE_MAPPING = new Map<string, ColumnDisplayType>([
 	['TIMESTAMP_NS', ColumnDisplayType.Datetime],
 	['TIMESTAMP WITH TIME ZONE', ColumnDisplayType.Datetime],
 	['TIMESTAMP_NS WITH TIME ZONE', ColumnDisplayType.Datetime],
-	['TIME', ColumnDisplayType.Time]
+	['TIME', ColumnDisplayType.Time],
+	['DECIMAL', ColumnDisplayType.Number]
 ]);
 
 function formatLiteral(value: string, schema: ColumnSchema) {
@@ -344,6 +345,7 @@ class ColumnProfileEvaluator {
 	}
 
 	private addIqr(fieldName: string) {
+		// TODO: This will be imprecise / lossy for out-of-range int64 or decimal values
 		this.statsExprs.add(
 			`APPROX_QUANTILE("${fieldName}", 0.75)::DOUBLE - APPROX_QUANTILE("${fieldName}", 0.25)::DOUBLE
 			AS "iqr_${fieldName}"`
@@ -351,7 +353,7 @@ class ColumnProfileEvaluator {
 	}
 
 	private addHistogramStats(fieldName: string, params: ColumnHistogramParams) {
-		this.addMinMax(fieldName);
+		this.addMinMaxStringified(fieldName);
 		switch (params.method) {
 			case ColumnHistogramParamsMethod.FreedmanDiaconis:
 				this.addIqr(fieldName);
@@ -370,6 +372,11 @@ class ColumnProfileEvaluator {
 			this.statsExprs.add(`AVG("${fieldName}") AS "mean_${fieldName}"`);
 			this.statsExprs.add(`STDDEV_SAMP("${fieldName}") AS "stdev_${fieldName}"`);
 			this.statsExprs.add(`MEDIAN("${fieldName}") AS "median_${fieldName}"`);
+		} else if (columnSchema.column_type.startsWith('DECIMAL')) {
+			this.addMinMaxStringified(fieldName);
+			this.statsExprs.add(`AVG("${fieldName}")::DOUBLE AS "f64_mean_${fieldName}"`);
+			this.statsExprs.add(`STDDEV_SAMP("${fieldName}"::DOUBLE) AS "f64_stdev_${fieldName}"`);
+			this.statsExprs.add(`MEDIAN("${fieldName}"::DOUBLE) AS "f64_median_${fieldName}"`);
 		} else if (columnSchema.column_type === 'VARCHAR') {
 			this.addNumUnique(fieldName);
 
@@ -440,9 +447,13 @@ class ColumnProfileEvaluator {
 		// potentially better performance
 		const numRows = Number(stats.get('num_rows'));
 
-		// This may be lossy for very large INT64 values
-		const minValue = Number(stats.get(`min_${field}`));
-		const maxValue = Number(stats.get(`max_${field}`));
+		// If numRows is 0, this is handled earlier
+
+		// TODO: This may be lossy for very large INT64 values
+		// We used strings here to temporarily support decimal type data that fits in float64.
+		// We will need to return later to support broader-spectrum decimals
+		const minValue = Number(stats.get(`string_min_${field}`));
+		const maxValue = Number(stats.get(`string_max_${field}`));
 
 		// Exceptional cases to worry about
 		// - Inf/-Inf values in min/max/iqr
@@ -534,7 +545,7 @@ class ColumnProfileEvaluator {
 		}
 
 		// Since the last bin edge is exclusive, we need to add its count to the last bin
-		output.bin_counts[numBins - 1] += Number(histEntries.get(numBins)) ?? 0;
+		output.bin_counts[numBins - 1] += Number(histEntries.get(numBins) ?? 0);
 
 		// Compute the push the last bin
 		output.bin_edges.push((binWidth * numBins).toString());
@@ -567,6 +578,17 @@ class ColumnProfileEvaluator {
 					mean: formatNumber(stats.get(`mean_${columnSchema.column_name}`)),
 					stdev: formatNumber(stats.get(`stdev_${columnSchema.column_name}`)),
 					median: formatNumber(stats.get(`median_${columnSchema.column_name}`))
+				}
+			};
+		} else if (columnSchema.column_type.startsWith('DECIMAL')) {
+			return {
+				type_display: ColumnDisplayType.Number,
+				number_stats: {
+					min_value: formatNumber(Number(stats.get(`string_min_${columnSchema.column_name}`))),
+					max_value: formatNumber(Number(stats.get(`string_max_${columnSchema.column_name}`))),
+					mean: formatNumber(stats.get(`f64_mean_${columnSchema.column_name}`)),
+					stdev: formatNumber(stats.get(`f64_stdev_${columnSchema.column_name}`)),
+					median: formatNumber(stats.get(`f64_median_${columnSchema.column_name}`))
 				}
 			};
 		} else if (columnSchema.column_type === 'VARCHAR') {
@@ -627,7 +649,7 @@ class ColumnProfileEvaluator {
 			const columnSchema = this.fullSchema[request.column_index];
 			const field = columnSchema.column_name;
 
-			const numRows = Number(stats.get('num_rows'));
+			// const numRows = Number(stats.get('num_rows'));
 
 			const result: ColumnProfileResult = {};
 			for (const spec of request.profiles) {
@@ -674,7 +696,11 @@ function isInteger(duckdbName: string) {
 }
 
 function isNumeric(duckdbName: string) {
-	return isInteger(duckdbName) || duckdbName === 'FLOAT' || duckdbName === 'DOUBLE';
+	return (
+		isInteger(duckdbName) ||
+		duckdbName === 'FLOAT' ||
+		duckdbName === 'DOUBLE'
+	);
 }
 
 /**
@@ -740,6 +766,12 @@ export class DuckDBTableView {
 				if (type_display === undefined) {
 					type_display = ColumnDisplayType.Unknown;
 				}
+
+				// If entry.column_type is like DECIMAL($p,$s), set type_display to Number
+				if (entry.column_type.startsWith('DECIMAL')) {
+					type_display = ColumnDisplayType.Number;
+				}
+
 				return {
 					column_name: entry.column_name,
 					column_index: index,
@@ -756,6 +788,16 @@ export class DuckDBTableView {
 		// based on what the UI requested. This blunt approach could end up being wasteful in
 		// some cases, but doing fewer queries / scans in the average case should yield better
 		// performance.
+
+		// First, check if the filtered table has any rows at all
+		const [filteredNumRows, _] = await this._filteredShape;
+		if (filteredNumRows === 0) {
+			// If the table has 0 rows due to filtering, return empty columns immediately
+			return {
+				columns: Array.from({ length: params.columns.length }, () => [])
+			};
+		}
+
 		let lowerLimit = Infinity;
 		let upperLimit = -Infinity;
 
@@ -1112,24 +1154,108 @@ END`;
 		this._evaluateColumnProfiles(params);
 	}
 
+	/**
+	 * Creates empty summary statistics for a column when there are zero rows
+	 * @param columnSchema Column schema information
+	 * @returns Empty summary stats appropriate for the column type
+	 */
+	private createEmptySummaryStats(columnSchema: SchemaEntry): ColumnSummaryStats {
+		if (isNumeric(columnSchema.column_type) || columnSchema.column_type.startsWith('DECIMAL')) {
+			return {
+				type_display: ColumnDisplayType.Number,
+				number_stats: {}
+			};
+		} else if (columnSchema.column_type === 'VARCHAR') {
+			return {
+				type_display: ColumnDisplayType.String,
+				string_stats: {
+					num_unique: 0,
+					num_empty: 0
+				}
+			};
+		} else if (columnSchema.column_type === 'BOOLEAN') {
+			return {
+				type_display: ColumnDisplayType.Boolean,
+				boolean_stats: {
+					true_count: 0,
+					false_count: 0
+				}
+			};
+		} else if (columnSchema.column_type === 'TIMESTAMP') {
+			return {
+				type_display: ColumnDisplayType.Datetime,
+				datetime_stats: {
+					num_unique: 0
+				}
+			};
+		} else {
+			return {
+				type_display: ColumnDisplayType.Unknown
+			};
+		}
+	}
+
 	private async _evaluateColumnProfiles(params: GetColumnProfilesParams) {
-		const evaluator = new ColumnProfileEvaluator(this.db,
-			this.fullSchema,
-			this.tableName,
-			this._whereClause,
-			params
-		);
+		// Check if there are any rows in the filtered data
+		const [filteredRowCount, _] = await this._filteredShape;
 
 		const outParams: ReturnColumnProfilesEvent = {
 			callback_id: params.callback_id,
 			profiles: []
 		};
-		try {
-			outParams.profiles = await evaluator.evaluate();
-		} catch (error) {
-			// TODO: Add error message to ReturnColumnProfilesEvent and display in UI
-			const errorMessage = error instanceof Error ? error.message : 'unknown error';
-			console.log(`Failed to compute column profiles: ${errorMessage}`);
+
+		if (filteredRowCount === 0) {
+			// Handle the zero-row case - return empty/null profiles
+			outParams.profiles = params.profiles.map(request => {
+				// Create an empty result with appropriate null values
+				const result: ColumnProfileResult = {};
+
+				for (const spec of request.profiles) {
+					switch (spec.profile_type) {
+						case ColumnProfileType.NullCount:
+							result.null_count = 0;
+							break;
+						case ColumnProfileType.LargeHistogram:
+						case ColumnProfileType.SmallHistogram:
+							result[spec.profile_type] = {
+								bin_edges: ['NULL', 'NULL'],
+								bin_counts: [0],
+								quantiles: []
+							};
+							break;
+						case ColumnProfileType.LargeFrequencyTable:
+						case ColumnProfileType.SmallFrequencyTable:
+							result[spec.profile_type] = {
+								values: [],
+								counts: [],
+								other_count: 0
+							};
+							break;
+						case ColumnProfileType.SummaryStats:
+							// Create null summary stats appropriate for the column type
+							const columnSchema = this.fullSchema[request.column_index];
+							result.summary_stats = this.createEmptySummaryStats(columnSchema);
+							break;
+					}
+				}
+				return result;
+			});
+		} else {
+			// Normal case - compute stats using evaluator
+			const evaluator = new ColumnProfileEvaluator(this.db,
+				this.fullSchema,
+				this.tableName,
+				this._whereClause,
+				params
+			);
+
+			try {
+				outParams.profiles = await evaluator.evaluate();
+			} catch (error) {
+				// TODO: Add error message to ReturnColumnProfilesEvent and display in UI
+				const errorMessage = error instanceof Error ? error.message : 'unknown error';
+				console.log(`Failed to compute column profiles: ${errorMessage}`);
+			}
 		}
 
 		await vscode.commands.executeCommand(
@@ -1215,10 +1341,6 @@ END`;
 			};
 		};
 
-		const formatColumnNames = (columns: Array<SchemaEntry>) => {
-			return columns.map(s => quoteIdentifier(s.column_name)).join(', ');
-		}
-
 		const getColumnSelectors = (columns: Array<SchemaEntry>) => {
 			const columnSelectors = [];
 			for (const column of columns) {
@@ -1273,7 +1395,7 @@ END`;
 				return {
 					data: result.toArray()[0][result.schema.names[0]],
 					format: params.format
-				}
+				};
 			}
 			case TableSelectionKind.CellRange: {
 				const selection = params.selection.selection as DataSelectionCellRange;

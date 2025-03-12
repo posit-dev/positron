@@ -87,7 +87,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 
 			// Show an extra configuration link if there are no configured models yet
 			if (getStoredModels(this._context).length === 0) {
-				const commandUri = vscode.Uri.parse('command:positron.assistant.addModelConfiguration');
+				const commandUri = vscode.Uri.parse('command:positron-assistant.addModelConfiguration');
 				welcomeText += `\n\n[${addLanguageModelMessage}](${commandUri})`;
 			}
 

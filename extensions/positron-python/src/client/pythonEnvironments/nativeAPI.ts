@@ -36,6 +36,10 @@ import {
 } from './base/locators/common/pythonWatcher';
 import { getWorkspaceFolders, onDidChangeWorkspaceFolders } from '../common/vscodeApis/workspaceApis';
 
+// --- Start Positron ---
+import { isUvEnvironment } from './common/environmentManagers/uv';
+// --- End Positron ---
+
 function makeExecutablePath(prefix?: string): string {
     if (!prefix) {
         return process.platform === 'win32' ? 'python.exe' : 'python';
@@ -94,6 +98,10 @@ function kindToShortString(kind: PythonEnvKind): string | undefined {
             return 'hatch';
         case PythonEnvKind.Pixi:
             return 'pixi';
+        // --- Start Positron ---
+        case PythonEnvKind.Uv:
+            return 'uv';
+        // --- End Positron ---
         case PythonEnvKind.System:
         case PythonEnvKind.Unknown:
         case PythonEnvKind.OtherGlobal:
@@ -132,6 +140,9 @@ function validEnv(nativeEnv: NativeEnvInfo): boolean {
 
 function getEnvType(kind: PythonEnvKind): PythonEnvType | undefined {
     switch (kind) {
+        // --- Start Positron ---
+        // The only Positron change here is adding uv, but this fence can't be in the middle
+        case PythonEnvKind.Uv:
         case PythonEnvKind.Poetry:
         case PythonEnvKind.Pyenv:
         case PythonEnvKind.VirtualEnv:
@@ -142,6 +153,7 @@ function getEnvType(kind: PythonEnvKind): PythonEnvType | undefined {
         case PythonEnvKind.ActiveState:
         case PythonEnvKind.Hatch:
         case PythonEnvKind.Pixi:
+            // --- End Positron ---
             return PythonEnvType.Virtual;
 
         case PythonEnvKind.Conda:
@@ -478,6 +490,12 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
         }
         const native = await this.finder.resolve(envPath);
         if (native) {
+            // --- Start Positron ---
+            if (native.executable && (await isUvEnvironment(native.executable))) {
+                traceInfo(`Found uv environment: ${native.executable}`);
+                native.kind = NativePythonEnvironmentKind.Uv;
+            }
+            // --- End Positron ---
             if (native.kind === NativePythonEnvironmentKind.Conda && this._condaEnvDirs.length === 0) {
                 this._condaEnvDirs = (await getCondaEnvDirs()) ?? [];
             }

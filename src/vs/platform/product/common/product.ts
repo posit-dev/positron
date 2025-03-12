@@ -68,9 +68,13 @@ else {
 		Object.assign(product, {
 			version: '1.95.0-dev',
 			// --- Start Positron ---
-			positronVersion: '2024.03.0',
-			nameShort: 'Positron',
-			nameLong: 'Positron',
+			// This only applies to dev builds where it is not possible to read the
+			// product configuration. Release builds replace the product configuration
+			// during the build. See INSERT_PRODUCT_CONFIGURATION above.
+			positronVersion: '2025.04.0',
+			positronBuildNumber: '0',
+			nameShort: 'Positron Dev',
+			nameLong: 'Positron Dev',
 			applicationName: 'positron',
 			dataFolderName: '.positron',
 			urlProtocol: 'code-oss',
