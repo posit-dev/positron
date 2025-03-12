@@ -42,16 +42,22 @@ export const ConsoleInstanceInfoButton = () => {
 	const ref = useRef<HTMLButtonElement>(undefined!);
 
 	const handlePressed = async () => {
-		if (!positronConsoleContext.activePositronConsoleInstance ||
-			!positronConsoleContext.activePositronConsoleInstance.attachedRuntimeSession) {
+		// Get the session ID and the session. Note that we don't ask the
+		// console instance for the session directly since we want this to work
+		// even with a detached session.
+		const sessionId =
+			positronConsoleContext.activePositronConsoleInstance?.sessionId;
+		if (!sessionId) {
+			return;
+		}
+		const session = positronConsoleContext.runtimeSessionService.getSession(sessionId);
+		if (!session) {
 			return;
 		}
 
 		// Get the channels from the session.
-		const session = positronConsoleContext.activePositronConsoleInstance.attachedRuntimeSession;
-		const channels = session ?
-			intersectionOutputChannels(await session.listOutputChannels()) :
-			[];
+		const channels =
+			intersectionOutputChannels(await session.listOutputChannels());
 
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
@@ -66,7 +72,7 @@ export const ConsoleInstanceInfoButton = () => {
 				anchorElement={ref.current}
 				channels={channels}
 				renderer={renderer}
-				session={positronConsoleContext.activePositronConsoleInstance.attachedRuntimeSession}
+				session={session}
 			/>
 		);
 	}
