@@ -256,6 +256,9 @@
     "yaserver": "^0.4.0"
   },
   "overrides": {
+    "@parcel/watcher-linux-arm-musl": "0.0.0",
+    "@parcel/watcher-linux-arm64-musl": "0.0.0",
+    "@parcel/watcher-linux-x64-musl": "0.0.0",
     "semver": "^7.5.4",
     "micromatch": "^4.0.8",
     "braces": "^3.0.3",
