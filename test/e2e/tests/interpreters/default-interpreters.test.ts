@@ -43,14 +43,20 @@ test.describe('Default Interpreters', {
 
 	test('Python - Add a default interpreter (Conda)', async function ({ app, userSettings, runCommand }) {
 
+		await app.workbench.console.waitForInterpretersToFinishLoading();
+
 		// close qa-example-content
 		await runCommand('workbench.action.closeFolder');
+
+		await app.workbench.console.waitForInterpretersToFinishLoading();
 
 		// local debugging sample:
 		// await userSettings.set([['python.defaultInterpreterPath', `"${path.join(homeDir, '.pyenv/versions/3.13.0/bin/python')}"`]], false);
 
 		// hidden interpreter (Conda)
-		await userSettings.set([['python.defaultInterpreterPath', '/home/runner/scratch/python-env/bin/python']], false);
+		await userSettings.set([['python.defaultInterpreterPath', '"/home/runner/scratch/python-env/bin/python"']], false);
+
+
 
 		await app.workbench.console.waitForReadyAndStarted('>>>', 30000);
 
