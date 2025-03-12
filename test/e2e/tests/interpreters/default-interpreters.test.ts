@@ -13,7 +13,7 @@ test.use({
 });
 
 test.describe('Default Interpreters', {
-	tag: [tags.INTERPRETER, tags.WEB]
+	tag: [tags.INTERPRETER]
 }, () => {
 
 	const homeDir = process.env.HOME || '';
