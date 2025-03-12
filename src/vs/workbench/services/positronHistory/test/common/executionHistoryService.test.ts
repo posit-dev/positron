@@ -5,7 +5,7 @@
 
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import { Disposable, DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
+import { Disposable, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
@@ -541,7 +541,6 @@ suite('ExecutionHistoryService', () => {
 	let storageService: TestStorageService;
 	let configurationService: TestConfigurationService;
 	let executionHistoryService: IExecutionHistoryService;
-	let workspaceContextService: TestWorkspaceContextService;
 
 	setup(() => {
 		instantiationService = new TestInstantiationService();
@@ -550,7 +549,6 @@ suite('ExecutionHistoryService', () => {
 		runtimeStartupService = new TestRuntimeStartupService();
 		storageService = new TestStorageService();
 		configurationService = new TestConfigurationService();
-		workspaceContextService = new TestWorkspaceContextService();
 
 		instantiationService.stub(IRuntimeSessionService, runtimeSessionService);
 		instantiationService.stub(IRuntimeStartupService, runtimeStartupService);
