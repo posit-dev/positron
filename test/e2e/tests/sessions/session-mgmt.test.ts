@@ -152,7 +152,7 @@ test.describe('Sessions: Management', {
 		await variables.expectRuntimeToBe('not.visible', `${rSession1.name}|${pythonSession1.name}|None`);
 	});
 
-	test('Validate session, console, variables, and plots persists after reload',
+	test('Validate session, console, variables, and plots persist after reload',
 		{
 			tag: [tags.VARIABLES, tags.PLOTS],
 			annotation: [
@@ -192,21 +192,21 @@ test.describe('Sessions: Management', {
 			// Verify all sessions reload and are idle
 			await sessions.expectSessionCountToBe(2); // issue 6725: session count should be 3
 			await sessions.expectAllSessionsToBeIdle();
-			// await plots.expectPlotThumbnailsCountToBe(3); issue 6035: only 1 plot is shown
+			// await plots.expectPlotThumbnailsCountToBe(3); // issue 6035: only 1 plot is shown
 
 			// Verify sessions, plot, console history, and variables persist for each session
 			await sessions.select(rSession1.id);
-			// await console.waitForConsoleContents('[1] "this is console 1"');
 			await variables.expectVariableToBe('test', '1');
+			// await console.waitForConsoleContents('[1] "this is console 1"');
 
 			// issue 6725: uncomment below lines after issue is fixed
 			// await sessions.select(pythonSession1.id);
-			// await console.waitForConsoleContents('this is console 2');
 			// await variables.expectVariableToBe('test', '2');
+			// await console.waitForConsoleContents('this is console 2');
 
 			await sessions.select(pythonSession1b.id);
-			// await console.waitForConsoleContents('this is console 3');
 			await variables.expectVariableToBe('test', '3');
+			// await console.waitForConsoleContents('this is console 3');
 		});
 });
 
