@@ -599,7 +599,8 @@ export function setContext(accessor: ServicesAccessor, contextKey: any, contextV
 	// Disable vscode-jupyter's cell-related keybindings, preferring the positron-code-cells
 	// extension instead.
 	// TODO(seem): We can remove this if we eventually decide to unbundle vscode-jupyter.
-	if (contextKey === 'jupyter.hascodecells') {
+	if (contextKey === 'jupyter.hascodecells' ||
+		contextKey === 'jupyter.ownsSelection') {
 		contextValue = false;
 	}
 	// --- End Positron ---
