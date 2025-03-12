@@ -15,21 +15,17 @@ test.describe('Default Interpreters', {
 	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
 
-	let orginalSettings: string;
+	const homeDir = process.env.HOME || '';
 
 	test.beforeAll(async function ({ app }) {
-		orginalSettings = await app.workbench.settings.backupWorkspaceSettings();
 
-		await app.workbench.settings.removeWorkspaceSettings(['interpreters.startupBehavior']);
-
-		const homeDir = process.env.HOME || '';
 		const buildSet = !!process.env.BUILD;
 
 		let vscodePath: string;
 		let positronPath: string;
 		if (buildSet) {
 			vscodePath = path.join(homeDir, '.vscode');
-			if (process.platform === 'darwin') {
+			if (process.platform === 'darwin') { // for local debug
 				positronPath = path.join(homeDir, 'Library/Application\ Support/Positron');
 			} else { // linux, test not planned for Windows yet
 				positronPath = path.join(homeDir, '.config/Positron');
@@ -45,19 +41,28 @@ test.describe('Default Interpreters', {
 
 	});
 
-	test.afterAll(async function ({ app }) {
-		await app.workbench.settings.restoreWorkspaceSettings(orginalSettings);
-	});
+	test('Python - Add a default interpreter (Conda)', async function ({ app, userSettings, runCommand }) {
 
-	test('Python - Add a default interpreter', async function ({ app, userSettings }) {
+		// close qa-example-content
+		await runCommand('workbench.action.closeFolder');
 
-		//await userSettings.set([['python.defaultInterpreterPath', '"/home/runner/scratch/python-env/bin/python"']], true);
+		// local debugging sample:
+		// await userSettings.set([['python.defaultInterpreterPath', `"${path.join(homeDir, '.pyenv/versions/3.13.0/bin/python')}"`]], false);
 
-		const homeDir = process.env.HOME || '';
-		await userSettings.set([['python.defaultInterpreterPath', `"${path.join(homeDir, '.pyenv/versions/3.13.0/bin/python')}"`]], true);
+		// hidden interpreter (Conda)
+		await userSettings.set([['python.defaultInterpreterPath', '/home/runner/scratch/python-env/bin/python']], false);
 
-		await app.code.wait(60000);
+		await app.workbench.console.waitForReadyAndStarted('>>>', 30000);
 
+		await app.workbench.console.barClearButton.click();
 
+		await app.workbench.console.pasteCodeToConsole('import sys; print(sys.version)');
+		await app.workbench.console.sendEnterKey();
+
+		// local debugging sample:
+		// await app.workbench.console.waitForConsoleContents('3.13.0', {expectedCount: 1});
+
+		// hidden interpreter (Conda)
+		await app.workbench.console.waitForConsoleContents('3.12.9', { expectedCount: 1 });
 	});
 });
