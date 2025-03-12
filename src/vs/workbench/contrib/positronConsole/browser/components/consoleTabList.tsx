@@ -31,8 +31,13 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 		// Prevent the button from being clicked multiple times
 		setDeleteDisabled(true);
 		try {
-			await positronConsoleContext.runtimeSessionService.deleteSession(
-				consoleInstance.sessionMetadata.sessionId);
+			if (consoleInstance.attachedRuntimeSession) {
+				await positronConsoleContext.runtimeSessionService.deleteSession(
+					consoleInstance.sessionId);
+			} else {
+				positronConsoleContext.positronConsoleService.deletePositronConsoleSession(
+					consoleInstance.sessionId);
+			}
 		} catch (error) {
 			// Show an error notification if the session could not be deleted.
 			positronConsoleContext.notificationService.error(

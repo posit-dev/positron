@@ -431,33 +431,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		}));
 
 		this._register(this._runtimeSessionService.onDidDeleteRuntimeSession(sessionId => {
-			const consoleInstance = this._positronConsoleInstancesBySessionId.get(sessionId);
-			if (!consoleInstance) {
-				return;
-			}
-
-			this._onDidDeletePositronConsoleInstanceEmitter.fire(consoleInstance);
-
-			let runtimeSession = this._runtimeSessionService.getConsoleSessionForRuntime(
-				consoleInstance.runtimeMetadata.runtimeId
-			);
-			if (!runtimeSession) {
-				// Otherwise, select the next available runtime session.
-				const sessions = Array.from(this._positronConsoleInstancesBySessionId.values());
-				const currentIndex = sessions.indexOf(consoleInstance);
-				if (currentIndex !== -1) {
-					const nextSession = sessions[currentIndex + 1] || sessions[currentIndex - 1];
-					runtimeSession = nextSession?.session;
-				}
-			}
-			this._runtimeSessionService.foregroundSession = runtimeSession;
-
-			this._positronConsoleInstancesByLanguageId.delete(
-				consoleInstance.runtimeMetadata.languageId
-			);
-			this._positronConsoleInstancesBySessionId.delete(sessionId);
-
-			consoleInstance.dispose();
+			this.deletePositronConsoleSession(sessionId);
 		}));
 	}
 
@@ -749,6 +723,41 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		if (consoleInstance) {
 			this.setActivePositronConsoleInstance(consoleInstance);
 		}
+	}
+
+	/**
+	 * Deletes the Positron console instance corresponding to the given session ID.
+	 *
+	 * @param sessionId The session ID to delete.
+	 */
+	deletePositronConsoleSession(sessionId: string): void {
+		const consoleInstance = this._positronConsoleInstancesBySessionId.get(sessionId);
+		if (!consoleInstance) {
+			return;
+		}
+
+		this._onDidDeletePositronConsoleInstanceEmitter.fire(consoleInstance);
+
+		let runtimeSession = this._runtimeSessionService.getConsoleSessionForRuntime(
+			consoleInstance.runtimeMetadata.runtimeId
+		);
+		if (!runtimeSession) {
+			// Otherwise, select the next available runtime session.
+			const sessions = Array.from(this._positronConsoleInstancesBySessionId.values());
+			const currentIndex = sessions.indexOf(consoleInstance);
+			if (currentIndex !== -1) {
+				const nextSession = sessions[currentIndex + 1] || sessions[currentIndex - 1];
+				runtimeSession = nextSession?.session;
+			}
+		}
+		this._runtimeSessionService.foregroundSession = runtimeSession;
+
+		this._positronConsoleInstancesByLanguageId.delete(
+			consoleInstance.runtimeMetadata.languageId
+		);
+		this._positronConsoleInstancesBySessionId.delete(sessionId);
+
+		consoleInstance.dispose();
 	}
 
 	/**

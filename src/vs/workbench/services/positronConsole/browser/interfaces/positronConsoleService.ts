@@ -84,7 +84,18 @@ export interface IPositronConsoleService {
 	 *
 	 * @param sessionId The session ID of the console to activate.
 	 */
-	readonly setActivePositronConsoleSession: (sessionId: string) => void;
+	setActivePositronConsoleSession(sessionId: string): void;
+
+	/**
+	 * Remove the console instance with the given session ID.
+	 *
+	 * As with setActivePositronConsoleSession, this is only used to remove
+	 * provisional instances that aren't tied to a session. Typically, session
+	 * deletion should be handled by the runtime session service.
+	 *
+	 * @param sessionId
+	 */
+	deletePositronConsoleSession(sessionId: string): void;
 
 	/**
 	 * The onDidChangeConsoleWidth event.

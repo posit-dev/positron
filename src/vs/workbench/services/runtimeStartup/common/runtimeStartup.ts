@@ -1287,7 +1287,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					});
 			}
 
-			this._logService.debug(`${marker}: Restoring session for ${session.metadata.sessionName}`);
+			this._logService.debug(`${marker}: Restoring session for ` +
+				`${session.metadata.sessionName}`);
 
 			// We want to activate the first console session we see, but no
 			// following sessions
