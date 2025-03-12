@@ -36,6 +36,8 @@ class ColumnDisplayType(str, enum.Enum):
 
     Time = "time"
 
+    Interval = "interval"
+
     Object = "object"
 
     Array = "array"

@@ -1084,6 +1084,7 @@ export enum ColumnDisplayType {
 	Date = 'date',
 	Datetime = 'datetime',
 	Time = 'time',
+	Interval = 'interval',
 	Object = 'object',
 	Array = 'array',
 	Struct = 'struct',

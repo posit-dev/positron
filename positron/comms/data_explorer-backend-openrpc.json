@@ -414,6 +414,7 @@
 					"date",
 					"datetime",
 					"time",
+					"interval",
 					"object",
 					"array",
 					"struct",

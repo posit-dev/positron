@@ -978,8 +978,7 @@ def _pandas_temporal_mapper(type_name):
     if "datetime64" in type_name:
         return "datetime"
     elif "timedelta64" in type_name:
-        # We don't have a separate display type for timedelta yet
-        return "datetime"
+        return "interval"
     return None
 
 
@@ -1375,9 +1374,8 @@ class PandasView(DataExplorerTableView):
             "datetime64": "datetime",
             "datetime64[ns]": "datetime",
             "datetime": "datetime",
-            # Perhaps we will want to add a display type for timedelta
-            "timedelta64[ns]": "datetime",
-            "timedelta": "datetime",
+            "timedelta64[ns]": "interval",
+            "timedelta": "interval",
             "date": "date",
             "time": "time",
             "bytes": "string",
@@ -1963,16 +1961,15 @@ def _date_median(x):
     import pandas as pd
 
     # the np.array calls are required to please pyright
-    median_date = np.median(np.array(pd.to_numeric(x)))
+    median_value = np.median(np.array(pd.to_numeric(x)))
 
     # if any datetime64 or datetimetz type in pandas
-    if isinstance(x.dtype, pd.DatetimeTZDtype) or x.dtype == "datetime64":
-        out = pd.to_datetime(np.array(median_date), utc=True)
-        return out.tz_convert(x[0].tz)
-    elif x.dtype == "timedelta64[ns]":
-        return pd.to_timedelta(median_date)
+    if x.dtype == "timedelta64[ns]":
+        return pd.to_timedelta(median_value)
     else:
-        raise ValueError(x)
+        # Date or datetime
+        out = pd.to_datetime(np.array(median_value), utc=True)
+        return out.tz_convert(x[0].tz)
 
 
 def _possibly(f, otherwise=None):

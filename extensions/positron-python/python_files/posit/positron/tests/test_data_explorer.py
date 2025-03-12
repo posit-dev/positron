@@ -735,7 +735,7 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
                 dtype="timedelta64[ns]",
             ),
             "timedelta64[ns]",
-            "datetime",
+            "interval",
         ),
         # datetimetz
         (

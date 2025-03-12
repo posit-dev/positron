@@ -185,6 +185,7 @@ const SCHEMA_TYPE_MAPPING = new Map<string, ColumnDisplayType>([
 	['TIMESTAMP WITH TIME ZONE', ColumnDisplayType.Datetime],
 	['TIMESTAMP_NS WITH TIME ZONE', ColumnDisplayType.Datetime],
 	['TIME', ColumnDisplayType.Time],
+	['INTERVAL', ColumnDisplayType.Interval],
 	['DECIMAL', ColumnDisplayType.Number]
 ]);
 
