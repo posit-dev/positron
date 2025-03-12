@@ -1329,7 +1329,7 @@ class PandasView(DataExplorerTableView):
             type_name = cls.TYPE_NAME_MAPPING.get(type_name, type_name)
             type_display = cls._get_type_display(type_name)
         elif isinstance(dtype, pd.CategoricalDtype):
-            type_name = "category"
+            type_name = str(dtype)
             if dtype.categories.dtype == object:
                 categories_type_name = cls._get_inferred_dtype(
                     dtype.categories, column_index, state
