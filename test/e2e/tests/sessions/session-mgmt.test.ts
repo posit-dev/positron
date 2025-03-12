@@ -224,7 +224,7 @@ df <- data.frame(x = c(1, 2, 3, 4), y = c(10, 20, 25, 30))
 ggplot(df, aes(x = x, y = y)) + geom_line() + ggtitle("Plot ${num}")`;
 }
 
-function getPrintScript(num: number): string {
+function printScript(num: number): string {
 	return `print("this is console ${num}")`;
 }
 
@@ -236,7 +236,7 @@ async function runCodeInSession(app: Application, session: SessionInfo, index: n
 	const script = session.language === 'R' ? rScript : pythonScript;
 
 	await console.executeCode(session.language, script(index));
-	await console.typeToConsole(getPrintScript(index), true);
+	await console.typeToConsole(printScript(index), true);
 
 	// Assign a variable based on session language
 	const assignment = session.language === 'R' ? `test <- ${index}` : `test = ${index}`;
