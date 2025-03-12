@@ -661,7 +661,6 @@ export class Sessions {
 export class SessionQuickPick {
 	private sessionQuickMenu = this.code.driver.page.getByText(/(Select a Session)|(Start a New Session)/);
 	private allSessionsMenu = this.code.driver.page.getByText(/Start a New Session/);
-	private activeSessionsMenu = this.code.driver.page.getByText(/Select a Session/);
 
 	constructor(private code: Code, private sessions: Sessions) { }
 
