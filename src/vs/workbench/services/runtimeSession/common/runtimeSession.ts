@@ -724,6 +724,17 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
+	 * Gets a single active session, given its session ID.
+	 *
+	 * @param sessionId The session ID to retrieve.
+	 * @returns The session with the given session ID, or undefined if no
+	 *  session with the given session ID exists.
+	 */
+	getActiveSession(sessionId: string): ActiveRuntimeSession | undefined {
+		return this._activeSessionsBySessionId.get(sessionId);
+	}
+
+	/**
 	 * Gets the running runtimes.
 	 */
 	get activeSessions(): ILanguageRuntimeSession[] {

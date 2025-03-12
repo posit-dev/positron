@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -13,7 +13,7 @@ import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common
 /**
  * Records input history for a given language. This is a separate class from the
  * runtime execution history because the input history is language-specific,
- * whereas the execution history is runtime-specific.
+ * whereas the execution history is session-specific.
  *
  * Because multiple runtimes may be associated with the same language, each must
  * be attached individually.
@@ -49,7 +49,7 @@ export class LanguageInputHistory extends Disposable {
 		}));
 	}
 
-	public attachToRuntime(session: ILanguageRuntimeSession): void {
+	public attachSession(session: ILanguageRuntimeSession): void {
 		// Don't attach to the same runtime twice.
 		if (this._attachedSessions.has(session.sessionId)) {
 			this._logService.debug(`LanguageInputHistory (${this._languageId}): ` +

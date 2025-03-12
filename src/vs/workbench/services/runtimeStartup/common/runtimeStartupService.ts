@@ -5,8 +5,9 @@
 
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { ILanguageRuntimeMetadata, IRuntimeManager } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, IRuntimeManager, RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { Event } from '../../../../base/common/event.js';
+import { IRuntimeSessionMetadata } from '../../runtimeSession/common/runtimeSessionService.js';
 
 export const IRuntimeStartupService =
 	createDecorator<IRuntimeStartupService>('runtimeStartupService');
@@ -18,6 +19,38 @@ export const IRuntimeStartupService =
 export interface IRuntimeAutoStartEvent {
 	runtime: ILanguageRuntimeMetadata;
 	newSession: boolean;
+}
+
+/**
+ * An event that is emitted when a session that was meant to be restored fails
+ * to be restored.
+ */
+export interface ISessionRestoreFailedEvent {
+	/** The session ID that failed to restore */
+	sessionId: string;
+
+	/** The restoration error, if known */
+	error: Error;
+}
+
+/**
+ * Metadata for serialized runtime sessions.
+ */
+export interface SerializedSessionMetadata {
+	/// The metadata for the runtime session itself.
+	metadata: IRuntimeSessionMetadata;
+
+	/// The state of the runtime, at the time it was serialized.
+	sessionState: RuntimeState;
+
+	/// The time at which the session was last used, in milliseconds since the epoch.
+	lastUsed: number;
+
+	/// The metadata of the runtime associated with the session.
+	runtimeMetadata: ILanguageRuntimeMetadata;
+
+	/// The working directory of the runtime session, at the time it was serialized.
+	workingDirectory: string;
 }
 
 /**
@@ -82,6 +115,16 @@ export interface IRuntimeStartupService {
 	 * @param id the id of the MainThreadLanguageRuntime instance for the extension host
 	 */
 	completeDiscovery(id: number): void;
+
+	/**
+	 * Get the sessions that were (or will be) restored into this window.
+	 */
+	getRestoredSessions(): Promise<SerializedSessionMetadata[]>;
+
+	/**
+	 * Fired when session restoration fails
+	 */
+	onSessionRestoreFailure: Event<ISessionRestoreFailedEvent>;
 
 	/**
 	 * Register a runtime manager with the service; returns a disposable that

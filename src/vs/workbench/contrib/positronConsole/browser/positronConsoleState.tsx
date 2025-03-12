@@ -19,7 +19,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { PositronActionBarServices } from '../../../../platform/positronActionBar/browser/positronActionBarState.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IExecutionHistoryService } from '../../executionHistory/common/executionHistoryService.js';
+import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { IPositronConsoleInstance, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';

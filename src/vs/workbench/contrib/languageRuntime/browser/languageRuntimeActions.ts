@@ -551,7 +551,7 @@ export function registerLanguageRuntimeActions() {
 		// that's active in the Console, so try that first.
 		const activeConsole = consoleService.activePositronConsoleInstance;
 		if (activeConsole) {
-			session = activeConsole.session;
+			session = activeConsole.attachedRuntimeSession;
 		}
 
 		// If there's no active console, try the active language runtime.

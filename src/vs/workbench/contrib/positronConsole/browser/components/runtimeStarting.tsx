@@ -26,6 +26,11 @@ export interface RuntimeStartingProps {
 export const RuntimeStarting = (props: RuntimeStartingProps) => {
 	// Render.
 	return (
-		<OutputLines outputLines={props.runtimeItemStarting.outputLines} />
+		<div className='console-item-starting runtime-starting'>
+			<div className='left-bar'></div>
+			<div className='starting-message'>
+				<OutputLines outputLines={props.runtimeItemStarting.outputLines} />
+			</div>
+		</div>
 	);
 };

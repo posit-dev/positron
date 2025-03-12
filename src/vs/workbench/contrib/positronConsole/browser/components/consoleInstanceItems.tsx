@@ -117,7 +117,7 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 					}
 				})}
 				{extensionHostDisconnected ?
-					(<div className='console-item-reconnecting'>
+					(<div className='console-item-starting'>
 						<span className='codicon codicon-loading codicon-modifier-spin'></span>
 						<span>{localize(
 							"positron.console.extensionsRestarting",

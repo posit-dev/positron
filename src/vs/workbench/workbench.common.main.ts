@@ -288,7 +288,7 @@ import './contrib/output/browser/outputView.js';
 import './contrib/positronVariables/browser/positronVariables.contribution.js';
 import './contrib/positronHelp/browser/positronHelp.contribution.js';
 import './contrib/positronPreview/browser/positronPreview.contribution.js';
-import './contrib/positronPreviewEditor/browser/positronPreviewEditor.contribution.js'
+import './contrib/positronPreviewEditor/browser/positronPreviewEditor.contribution.js';
 import './contrib/positronPlots/browser/positronPlots.contribution.js';
 import './contrib/positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
 import './contrib/positronOutputWebview/browser/notebookOutputWebview.contribution.js';
@@ -440,7 +440,6 @@ import './contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor.
 import './contrib/positronConnections/browser/positronConnections.contribution.js';
 import './contrib/positronRuntimeSessions/browser/positronRuntimeSessions.contribution.js';
 import './contrib/languageRuntime/browser/languageRuntime.contribution.js';
-import './contrib/executionHistory/common/executionHistory.js';
 import './contrib/positronIPyWidgets/browser/positronIPyWidgets.contribution.js';
 import './contrib/positronNewProject/browser/positronNewProject.contribution.js';
 
@@ -451,6 +450,7 @@ import './services/runtimeStartup/common/runtimeStartup.js';
 import './contrib/runtimeNotebookKernel/browser/runtimeNotebookKernelService.js';
 import './services/positronConsole/browser/positronConsoleService.js';
 import './contrib/positronHelp/browser/positronHelpService.js';
+import './services/positronHistory/common/executionHistory.js';
 import './services/positronVariables/common/positronVariablesService.js';
 import './services/positronVariables/common/positronVariables.contribution.js';
 import './services/positronDataExplorer/browser/positronDataExplorerService.js';
