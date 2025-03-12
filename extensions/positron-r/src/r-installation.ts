@@ -6,11 +6,11 @@
 import * as semver from 'semver';
 import * as path from 'path';
 import * as fs from 'fs';
-import * as vscode from 'vscode';
 import { extractValue, readLines, removeSurroundingQuotes } from './util';
 import { LOGGER } from './extension';
 import { MINIMUM_R_VERSION } from './constants';
-import { arePathsSame, isParentPath, untildify } from './path-utils';
+import { arePathsSame } from './path-utils';
+import { getDefaultInterpreterPath, isExcludedInstallation } from './interpreter-settings.js';
 
 /**
  * Extra metadata included in the LanguageRuntimeMetadata for R installations.
@@ -307,104 +307,4 @@ function getRHomePathWindows(binpath: string): string | undefined {
 		return pathUpToBin;
 	}
 
-}
-
-/**
- * Gets the list of R installations excluded via settings.
- * Converts aliased paths to absolute paths. Relative paths are ignored.
- * @returns List of installation paths to exclude.
- */
-function getExcludedInstallations(): string[] {
-	const config = vscode.workspace.getConfiguration('positron.r');
-	const interpretersExclude = config.get<string[]>('interpreters.exclude') ?? [];
-	if (interpretersExclude.length > 0) {
-		const excludedPaths = interpretersExclude
-			.map((item) => untildify(item))
-			.filter((item) => {
-				if (path.isAbsolute(item)) {
-					return true;
-				}
-				LOGGER.info(`R installation path to exclude ${item} is not absolute...ignoring`);
-				return false;
-			});
-		const formattedPaths = JSON.stringify(excludedPaths, null, 2);
-		LOGGER.info(`R installation paths to exclude:\n${formattedPaths}`);
-		return excludedPaths;
-	}
-	LOGGER.debug('No installation paths specified to exclude via settings');
-	return [];
-}
-
-/**
- * Gets the list of R installations to override the installations we make available.
- * The override setting take precedence over the excluded installations, the custom binaries
- * and the custom root folders settings.
- * Converts aliased paths to absolute paths. Relative paths are ignored.
- * @returns List of installation paths to exclusively include.
- */
-export function getInterpreterOverridePaths(): string[] {
-	const config = vscode.workspace.getConfiguration('positron.r');
-	const interpretersOverride = config.get<string[]>('interpreters.override') ?? [];
-	if (interpretersOverride.length > 0) {
-		const overridePaths = interpretersOverride
-			.map((item) => untildify(item))
-			.filter((item) => {
-				if (path.isAbsolute(item)) {
-					return true;
-				}
-				LOGGER.info(`R installation path to exclusively include ${item} is not absolute...ignoring`);
-				return false;
-			});
-		const formattedPaths = JSON.stringify(overridePaths, null, 2);
-		LOGGER.info(`R installation paths to exclusively include:\n${formattedPaths}`);
-		return overridePaths;
-	}
-	LOGGER.debug('No installation paths specified to exclusively include via settings');
-	return [];
-}
-
-/**
- * Checks if the given binary path is excluded via settings. If interpreter override paths are
- * specified, this method will return true if the binary path is not in the override paths. The
- * override paths take precedence over the excluded installations.
- * @param binpath The binary path to check
- * @returns True if the binary path is excluded, false if it is not excluded, and undefined if the
- * no exclusions have been specified.
- */
-function isExcludedInstallation(binpath: string): boolean | undefined {
-	const overridePaths = getInterpreterOverridePaths();
-	if (overridePaths.length > 0) {
-		// Override paths are exclusive include paths, so an interpreter is excluded if it is not in
-		// the override paths.
-		return !overridePaths.some(
-			override => isParentPath(binpath, override) || arePathsSame(binpath, override)
-		);
-	}
-
-	const excludedInstallations = getExcludedInstallations();
-	if (excludedInstallations.length === 0) {
-		return undefined;
-	}
-	return excludedInstallations.some(
-		excluded => isParentPath(binpath, excluded) || arePathsSame(binpath, excluded)
-	);
-}
-
-/**
- * Get the default R interpreter path specified in Positron settings.
- * Converts aliased paths to absolute paths. Relative paths are ignored.
- * @returns The default R interpreter path specified in the settings, or undefined if not set.
- */
-export function getDefaultInterpreterPath(): string | undefined {
-	const config = vscode.workspace.getConfiguration('positron.r');
-	let defaultInterpreterPath = config.get<string>('interpreters.default');
-	if (defaultInterpreterPath) {
-		defaultInterpreterPath = untildify(defaultInterpreterPath);
-		if (path.isAbsolute(defaultInterpreterPath)) {
-			return defaultInterpreterPath;
-		}
-		LOGGER.info(`Default R interpreter path ${defaultInterpreterPath} is not absolute...ignoring`);
-		return undefined;
-	}
-	return undefined;
 }
