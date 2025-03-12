@@ -3060,7 +3060,7 @@ POLARS_TYPE_EXAMPLES = [
         pl.Duration("ms"),
         [0, 1000, 2000, None],
         "Duration(time_unit='ms')",
-        "unknown",
+        "interval",
     ),
     (
         pl.Decimal(12, 4),

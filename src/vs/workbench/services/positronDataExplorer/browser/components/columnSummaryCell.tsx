@@ -313,7 +313,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 
 			// Time.
 			case ColumnDisplayType.Interval:
-				return 'codicon-positron-data-type-time';
+				return 'codicon-positron-data-type-date-time';
 
 			// Object.
 			case ColumnDisplayType.Object:

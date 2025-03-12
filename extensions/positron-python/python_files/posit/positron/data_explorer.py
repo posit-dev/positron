@@ -2271,12 +2271,12 @@ class PolarsView(DataExplorerTableView):
             "Date": "date",
             "Datetime": "datetime",
             "Time": "time",
+            "Duration": "interval",
             "Decimal": "number",
             "Object": "object",
             "List": "array",
             "Struct": "struct",
             "Categorical": "categorical",
-            "Duration": "unknown",  # See #3418
             "Enum": "unknown",
             "Null": "unknown",  # Not yet implemented
             "Unknown": "unknown",
