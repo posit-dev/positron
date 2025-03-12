@@ -41,7 +41,7 @@ export class Interpreter {
 	 */
 	startInterpreterViaQuickAccess = async (interpreterType: 'Python' | 'R', waitForReady = true) => {
 		if (!DESIRED_PYTHON || !DESIRED_R) {
-			throw new Error('Please set env vars: POSITRON_PYTHON_VER_SEL, POSITRON_R_VER_SEL');
+			throw new Error('Please set env vars: POSITRON_PY_VER_SEL, POSITRON_R_VER_SEL');
 		}
 
 		await test.step(`Select interpreter via Quick Access: ${interpreterType}`, async () => {
@@ -63,7 +63,7 @@ export class Interpreter {
 		waitForReady = true
 	) {
 		if (!DESIRED_PYTHON || !DESIRED_R) {
-			throw new Error('Please set env vars: POSITRON_PYTHON_VER_SEL, POSITRON_R_VER_SEL');
+			throw new Error('Please set env vars: POSITRON_PY_VER_SEL, POSITRON_R_VER_SEL');
 		}
 
 		await test.step(`Select interpreter via UI: ${interpreterDescription}`, async () => {
