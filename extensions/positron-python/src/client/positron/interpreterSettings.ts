@@ -284,7 +284,6 @@ export function printInterpreterDebugInfo(interpreters: PythonEnvironment[]): vo
     traceInfo('=====================================================================');
 }
 
-
 /**
  * Maps a list of interpreter paths to their installation directories.
  * @param interpreterPaths List of interpreter paths to map to their installation directories.
@@ -311,20 +310,29 @@ function mapInterpretersToInstallDirs(interpreterPaths: string[]): string[] {
             // installDir tends to be the python version directory, AKA the installation directory, which is the parent of the bin directory.
             installDir = path.dirname(parentDir);
         } catch (error) {
-            traceError(`[mapInterpretersToInterpreterDirs]: Failed to get install directory for Python interpreter ${interpreterPath}`, error);
+            traceError(
+                `[mapInterpretersToInterpreterDirs]: Failed to get install directory for Python interpreter ${interpreterPath}`,
+                error,
+            );
         }
 
         if (installDir) {
-            traceVerbose(`[mapInterpretersToInterpreterDirs]: Mapped ${interpreterPath} to installation directory ${installDir}`);
+            traceVerbose(
+                `[mapInterpretersToInterpreterDirs]: Mapped ${interpreterPath} to installation directory ${installDir}`,
+            );
             return installDir;
         }
 
         if (parentDir) {
-            traceInfo(`[mapInterpretersToInterpreterDirs]: Expected ${interpreterPath} to be located in a Python installation directory. It may not be discoverable.`);
+            traceInfo(
+                `[mapInterpretersToInterpreterDirs]: Expected ${interpreterPath} to be located in a Python installation directory. It may not be discoverable.`,
+            );
             return parentDir;
         }
 
-        traceInfo(`[mapInterpretersToInterpreterDirs]: Unable to map ${interpreterPath} to an installation directory. It may not be discoverable.`);
+        traceInfo(
+            `[mapInterpretersToInterpreterDirs]: Unable to map ${interpreterPath} to an installation directory. It may not be discoverable.`,
+        );
         return interpreterPath;
     });
 }
