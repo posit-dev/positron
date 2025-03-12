@@ -128,8 +128,14 @@ export class Sessions {
 	 * Action: Select the session
 	 * @param sessionIdOrName the id or name of the session
 	 */
-	async select(sessionIdOrName: string): Promise<void> {
+	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
 		await test.step(`Select session: ${sessionIdOrName}`, async () => {
+			const session = this.getSessionTab(sessionIdOrName);
+
+			if (waitForSessionIdle) {
+				await expect(this.idleStatus(session)).toBeVisible();
+			}
+
 			await this.getSessionTab(sessionIdOrName).click();
 		});
 	}

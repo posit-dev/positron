@@ -190,23 +190,23 @@ test.describe('Sessions: Management', {
 			await runCommand('workbench.action.reloadWindow');
 
 			// Verify all sessions reload and are idle
-			await sessions.expectSessionCountToBe(2); // issue 6725: session count should be 3
-			await sessions.expectAllSessionsToBeIdle();
+			await sessions.expectSessionCountToBe(3);
+			// await sessions.expectAllSessionsToBeIdle(); // issue 6725: uncomment after issue is fixed, session fails to reload
 			// await plots.expectPlotThumbnailsCountToBe(3); // issue 6035: only 1 plot is shown
 
 			// Verify sessions, plot, console history, and variables persist for each session
-			await sessions.select(rSession1.id);
+			await sessions.select(rSession1.id, true);
 			await variables.expectVariableToBe('test', '1');
-			// await console.waitForConsoleContents('[1] "this is console 1"');
+			await console.waitForConsoleContents('[1] "this is console 1"');
 
 			// issue 6725: uncomment below lines after issue is fixed
 			// await sessions.select(pythonSession1.id);
 			// await variables.expectVariableToBe('test', '2');
-			// await console.waitForConsoleContents('this is console 2');
+			// await console.waitForConsoleContents('this is console 2', { exact: true });
 
-			await sessions.select(pythonSession1b.id);
+			await sessions.select(pythonSession1b.id, true);
 			await variables.expectVariableToBe('test', '3');
-			// await console.waitForConsoleContents('this is console 3');
+			await console.waitForConsoleContents('this is console 3', { exact: true });
 		});
 });
 
