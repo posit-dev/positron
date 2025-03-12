@@ -744,6 +744,17 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             "datetime64[ns, US/Eastern]",
             "datetime",
         ),
+        # categorical
+        (
+            pd.Series(["foo", "bar", "foo", "baz", "qux"], dtype="category"),
+            "category",
+            "string",
+        ),
+        (
+            pd.Series([0, 1, 0, 1, 0], dtype="category"),
+            "category",
+            "number",
+        ),
     ]
 
     if hasattr(np, "complex256"):
@@ -3066,7 +3077,8 @@ POLARS_TYPE_EXAMPLES = [
         "Struct({'a': Int64, 'b': List(String)})",
         "struct",
     ),
-    # (pl.Object, ["Hello", True, None, 5], "Object", "object"),
+    (pl.Categorical, ["a", "b", "a", None], "Categorical", "string"),
+    (pl.Object, ["Hello", True, None, 5], "Object", "object"),
 ]
 
 
@@ -3152,6 +3164,22 @@ def test_polars_get_state(dxf: DataExplorerFixture):
             profile_type="summary_stats",
             support_status=SupportStatus.Supported,
         ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="small_histogram",
+            support_status=SupportStatus.Supported,
+        ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="large_histogram",
+            support_status=SupportStatus.Supported,
+        ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="small_frequency_table",
+            support_status=SupportStatus.Supported,
+        ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="large_frequency_table",
+            support_status=SupportStatus.Supported,
+        ),
     ]
 
 
@@ -3200,7 +3228,8 @@ def test_polars_get_data_values(dxf: DataExplorerFixture):
             _VALUE_NULL,
             "{'a': 0, 'b': None}",
         ],  # Struct({'a': Int64, 'b': List(String)}),
-        # ["Hello", "True", _VALUE_NULL, "5"],  # Object
+        ["a", "b", "a", _VALUE_NULL],  # Categorical
+        ["Hello", "True", _VALUE_NULL, "5"],  # Object
     ]
 
     assert result["columns"] == expected_columns

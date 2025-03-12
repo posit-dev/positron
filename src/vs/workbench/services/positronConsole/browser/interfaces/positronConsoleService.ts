@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,10 +7,11 @@ import { Event } from '../../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { RuntimeItem } from '../classes/runtimeItem.js';
-import { ILanguageRuntimeSession } from '../../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { ActivityItemPrompt } from '../classes/activityItemPrompt.js';
-import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
+import { IExecutionHistoryEntry } from '../../../positronHistory/common/executionHistoryService.js';
 
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
@@ -73,6 +74,28 @@ export interface IPositronConsoleService {
 	 * The onDidChangeActivePositronConsoleInstance event.
 	 */
 	readonly onDidChangeActivePositronConsoleInstance: Event<IPositronConsoleInstance | undefined>;
+
+	/**
+	 * Set the active console instance to the one with the given session ID.
+	 *
+	 * Typically the active console instance should follow the global
+	 * foreground session; this method should only be used when the active
+	 * console instance needs to be set to a specific session.
+	 *
+	 * @param sessionId The session ID of the console to activate.
+	 */
+	setActivePositronConsoleSession(sessionId: string): void;
+
+	/**
+	 * Remove the console instance with the given session ID.
+	 *
+	 * As with setActivePositronConsoleSession, this is only used to remove
+	 * provisional instances that aren't tied to a session. Typically, session
+	 * deletion should be handled by the runtime session service.
+	 *
+	 * @param sessionId
+	 */
+	deletePositronConsoleSession(sessionId: string): void;
 
 	/**
 	 * The onDidChangeConsoleWidth event.
@@ -142,14 +165,24 @@ export interface ILanguageRuntimeCodeExecutedEvent {
  */
 export interface IPositronConsoleInstance {
 	/**
-	 * Gets the runtime session for the Positron console instance.
-	 */
-	readonly session: ILanguageRuntimeSession;
-
-	/**
 	 * Gets the state.
 	 */
 	readonly state: PositronConsoleState;
+
+	/**
+	 * Gets the metadata for the runtime session itself.
+	 */
+	readonly sessionMetadata: IRuntimeSessionMetadata;
+
+	/**
+	 * Gets the metadata of the runtime associated with the session.
+	 */
+	readonly runtimeMetadata: ILanguageRuntimeMetadata;
+
+	/**
+	 * Gets the session ID.
+	 */
+	readonly sessionId: string;
 
 	/**
 	 * Gets a value which indicates whether trace is enabled.
@@ -258,10 +291,10 @@ export interface IPositronConsoleInstance {
 	readonly onDidRequestRestart: Event<void>;
 
 	/**
-	 * The onDidAttachRuntime event. Fires both when a runtime is attached and
+	 * The onDidAttachSession event. Fires both when a session is attached and
 	 * when one is detached (in which case the parameter is undefined)
 	 */
-	readonly onDidAttachRuntime: Event<ILanguageRuntimeSession | undefined>;
+	readonly onDidAttachSession: Event<ILanguageRuntimeSession | undefined>;
 
 	/**
 	 * The onDidChangeWidthInChars event.
@@ -325,6 +358,21 @@ export interface IPositronConsoleInstance {
 	interrupt(code: string): void;
 
 	/**
+	 * Replays execution history entries, adding their input and output to the
+	 * console and preparing the console to reconnect to the runtime.
+	 *
+	 * @param entry The entry to replay.
+	 */
+	replayExecutions(entries: IExecutionHistoryEntry<any>[]): void;
+
+	/**
+	 * Gets or sets the initial working directory displayed in the console.
+	 *
+	 * This does not actually change the working directory of the runtime session.
+	 */
+	initialWorkingDirectory: string;
+
+	/**
 	 * Enqueues code to be executed.
 	 * @param code The code to enqueue.
 	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
@@ -356,7 +404,15 @@ export interface IPositronConsoleInstance {
 	interruptPrompt(activityItemPrompt: ActivityItemPrompt): void;
 
 	/**
-	 * Sets the currently attached runtime, or undefined if none.
+	 * Attaches a runtime session to the console.
+	 *
+	 * @param session The session to attach.
+	 * @param mode The session attach mode.
+	 */
+	attachRuntimeSession(session: ILanguageRuntimeSession | undefined, mode: SessionAttachMode): void;
+
+	/**
+	 * Gets the currently attached runtime, or undefined if none.
 	 */
 	attachedRuntimeSession: ILanguageRuntimeSession | undefined;
 }
