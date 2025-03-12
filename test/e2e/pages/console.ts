@@ -83,15 +83,12 @@ export class Console {
 		return;
 	}
 
-	async executeCode(languageName: 'Python' | 'R', code: string): Promise<void> {
-		await test.step(`Execute ${languageName} code in console: ${code}`, async () => {
+	async executeCode(languageName: 'Python' | 'R', code: string, options?: { timeout?: number }): Promise<void> {
+		return test.step(`Execute ${languageName} code in console: ${code}`, async () => {
+			const timeout = options?.timeout ?? 30000;
 
-			await expect(async () => {
-				// Kind of hacky, but activate console in case focus was previously lost
-				await this.activeConsole.click();
-				await this.quickaccess.runCommand('workbench.action.executeCode.console', { keepOpen: true });
-
-			}).toPass();
+			await this.activeConsole.focus();
+			await this.quickaccess.runCommand('workbench.action.executeCode.console', { keepOpen: true });
 
 			await this.quickinput.waitForQuickInputOpened();
 			await this.quickinput.type(languageName);
@@ -107,7 +104,7 @@ export class Console {
 			await this.quickinput.waitForQuickInputClosed();
 
 			// The console will show the prompt after the code is done executing.
-			await this.waitForReady(languageName === 'Python' ? '>>>' : '>');
+			await this.waitForReady(languageName === 'Python' ? '>>>' : '>', timeout);
 			await this.maximizeConsole();
 		});
 	}
@@ -128,6 +125,7 @@ export class Console {
 			await this.code.driver.page.keyboard.type(text, { delay });
 
 			if (pressEnter) {
+				await this.code.driver.page.waitForTimeout(500);
 				await this.code.driver.page.keyboard.press('Enter');
 			}
 		});
@@ -209,9 +207,10 @@ export class Console {
 		options: {
 			timeout?: number;
 			expectedCount?: number;
+			exact?: boolean;
 		} = {}
 	): Promise<string[]> {
-		const { timeout = 15000, expectedCount = 1 } = options;
+		const { timeout = 15000, expectedCount = 1, exact = false } = options;
 
 		if (expectedCount === 0) {
 			const startTime = Date.now();
@@ -237,7 +236,7 @@ export class Console {
 		}
 
 		// Normal case: waiting for `expectedCount` occurrences
-		const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText);
+		const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText, { exact });
 
 		await expect(matchingLines).toHaveCount(expectedCount, { timeout });
 		return expectedCount ? matchingLines.allTextContents() : [];
