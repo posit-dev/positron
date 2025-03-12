@@ -1531,11 +1531,9 @@ export class DataExplorerRpcHandler {
 			// TODO: Will need to be able to pass CSV / TSV options from the
 			// UI at some point.
 			const options: Array<string> = [];
-			if (fileExt === '.csv') {
-				options.push('delim=\',\'');
-			} else if (fileExt === '.tsv') {
+			if (fileExt === '.tsv') {
 				options.push('delim=\'\t\'');
-			} else {
+			} else if (fileExt !== '.csv' && fileExt !== '.tsv') {
 				throw new Error(`Unsupported file extension: ${fileExt}`);
 			}
 
