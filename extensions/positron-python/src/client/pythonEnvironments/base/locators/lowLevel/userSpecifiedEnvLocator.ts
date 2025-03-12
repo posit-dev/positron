@@ -23,7 +23,7 @@ import { findInterpretersInDir, looksLikeBasicVirtualPython } from '../../../com
 import '../../../../common/extensions';
 import { traceError, traceInfo, traceVerbose, traceWarn } from '../../../../logging';
 import { StopWatch } from '../../../../common/utils/stopWatch';
-import { getIncludedInterpreters } from '../../../../positron/interpreterSettings';
+import { getCustomEnvDirs } from '../../../../positron/interpreterSettings';
 import { isParentPath } from '../../../common/externalDependencies';
 
 /**
@@ -35,7 +35,7 @@ const DEFAULT_SEARCH_DEPTH = 2;
  * Gets all user-specified directories to look for environments.
  */
 async function getUserSpecifiedEnvDirs(): Promise<string[]> {
-    const envDirs = getIncludedInterpreters();
+    const envDirs = getCustomEnvDirs();
     return [OSType.Windows, OSType.OSX].includes(getOSType()) ? uniqBy(envDirs, toLower) : uniq(envDirs);
 }
 

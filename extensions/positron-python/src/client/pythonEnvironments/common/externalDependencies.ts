@@ -91,6 +91,13 @@ export async function isDirectory(filename: string): Promise<boolean> {
     return stat.isDirectory();
 }
 
+// --- Start Positron ---
+export function isDirectorySync(filename: string): boolean {
+    const stat = fsapi.statSync(filename)
+    return stat.isDirectory();
+}
+// --- End Positron ---
+
 export function normalizePath(filename: string): string {
     return path.normalize(filename);
 }
