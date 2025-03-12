@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
-import { Application, pythonSession, pythonSessionAlt, rSession, SessionInfo, Sessions } from '../../infra';
+import { Application, pythonSession, pythonSessionAlt, rSession, SessionInfo } from '../../infra';
 import { expect } from '@playwright/test';
 
 const pythonSession1: SessionInfo = { ...pythonSession };
