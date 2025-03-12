@@ -6,6 +6,7 @@
 import { execSync } from 'child_process';
 import path from 'path';
 import { test, tags } from '../_test.setup';
+import { expect } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
@@ -48,15 +49,15 @@ test.describe('Default Interpreters', {
 		// close qa-example-content
 		await runCommand('workbench.action.closeFolder');
 
-		await app.workbench.console.waitForInterpretersToFinishLoading();
+		await expect(async () => {
+			await app.workbench.console.waitForInterpretersToFinishLoading();
 
-		// local debugging sample:
-		// await userSettings.set([['python.defaultInterpreterPath', `"${path.join(homeDir, '.pyenv/versions/3.13.0/bin/python')}"`]], false);
+			// local debugging sample:
+			// await userSettings.set([['python.defaultInterpreterPath', `"${path.join(homeDir, '.pyenv/versions/3.13.0/bin/python')}"`]], false);
 
-		// hidden interpreter (Conda)
-		await userSettings.set([['python.defaultInterpreterPath', '"/home/runner/scratch/python-env/bin/python"']], false);
-
-
+			// hidden interpreter (Conda)
+			await userSettings.set([['python.defaultInterpreterPath', '"/home/runner/scratch/python-env/bin/python"']], false);
+		}).toPass({ timeout: 45000 });
 
 		await app.workbench.console.waitForReadyAndStarted('>>>', 30000);
 
