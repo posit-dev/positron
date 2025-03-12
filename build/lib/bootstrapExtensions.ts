@@ -8,11 +8,11 @@ import * as path from 'path';
 import * as os from 'os';
 import * as rimraf from 'rimraf';
 import * as es from 'event-stream';
-import * as rename from 'gulp-rename';
 import * as vfs from 'vinyl-fs';
 import * as ext from './extensions';
-import * as fancyLog from 'fancy-log';
 import * as ansiColors from 'ansi-colors';
+import rename from 'gulp-rename';
+import fancyLog from 'fancy-log';
 import { Stream } from 'stream';
 import { IExtensionDefinition } from './builtInExtensions';
 

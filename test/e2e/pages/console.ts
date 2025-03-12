@@ -301,6 +301,11 @@ export class Console {
 		await expect(this.code.driver.page.locator(INTERRUPT_RUNTIME)).toBeHidden({ timeout });
 	}
 
+	async focus() {
+		await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? `Meta+K` : `Control+K`);
+		await this.code.driver.page.keyboard.press('F');
+	}
+
 	async clickConsoleTab() {
 		// sometimes the click doesn't work (or happens too fast), so adding a retry
 		await expect(async () => {

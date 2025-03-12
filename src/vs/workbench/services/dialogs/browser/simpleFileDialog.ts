@@ -292,27 +292,31 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 			this.filePickBox.sortByLabel = false;
 			this.filePickBox.ignoreFocusOut = true;
 			this.filePickBox.ok = true;
+			this.filePickBox.okLabel = this.options.openLabel;
 			// --- Start PWB: disable file downloads ---
+			// We just wrapped the whole block in this outer if statement.
+			// Keep the inner block unindented to avoid merge conflicts:
+			// prettier-ignore
 			if ((isSave && this.environmentService.isEnabledFileDownloads) || (!isSave && this.environmentService.isEnabledFileUploads)) {
-				if ((this.scheme !== Schemas.file) && this.options && this.options.availableFileSystems && (this.options.availableFileSystems.length > 1) && (this.options.availableFileSystems.indexOf(Schemas.file) > -1)) {
-					this.filePickBox.customButton = true;
-					this.filePickBox.customLabel = nls.localize('remoteFileDialog.local', 'Show Local');
-					let action;
-					if (isSave) {
-						action = SaveLocalFileCommand;
-					} else {
-						action = this.allowFileSelection ? (this.allowFolderSelection ? OpenLocalFileFolderCommand : OpenLocalFileCommand) : OpenLocalFolderCommand;
-					}
-					const keybinding = this.keybindingService.lookupKeybinding(action.ID);
-					if (keybinding) {
-						const label = keybinding.getLabel();
-						if (label) {
-							this.filePickBox.customHover = format('{0} ({1})', action.LABEL, label);
-						}
-						// --- End PWB ---
+			if ((this.scheme !== Schemas.file) && this.options && this.options.availableFileSystems && (this.options.availableFileSystems.length > 1) && (this.options.availableFileSystems.indexOf(Schemas.file) > -1)) {
+				this.filePickBox.customButton = true;
+				this.filePickBox.customLabel = nls.localize('remoteFileDialog.local', 'Show Local');
+				let action;
+				if (isSave) {
+					action = SaveLocalFileCommand;
+				} else {
+					action = this.allowFileSelection ? (this.allowFolderSelection ? OpenLocalFileFolderCommand : OpenLocalFileCommand) : OpenLocalFolderCommand;
+				}
+				const keybinding = this.keybindingService.lookupKeybinding(action.ID);
+				if (keybinding) {
+					const label = keybinding.getLabel();
+					if (label) {
+						this.filePickBox.customHover = format('{0} ({1})', action.LABEL, label);
 					}
 				}
 			}
+			}
+			// --- End PWB ---
 
 			let isResolving: number = 0;
 			let isAcceptHandled = false;
@@ -435,7 +439,7 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 			// onDidChangeValue can also be triggered by the auto complete, so if it looks like the auto complete, don't do anything
 			if (this.isValueChangeFromUser()) {
 				// If the user has just entered more bad path, don't change anything
-				if (!equalsIgnoreCase(value, this.constructFullUserPath()) && !this.isBadSubpath(value)) {
+				if (!equalsIgnoreCase(value, this.constructFullUserPath()) && (!this.isBadSubpath(value) || this.canTildaEscapeHatch(value))) {
 					this.filePickBox.validationMessage = undefined;
 					const filePickBoxUri = this.filePickBoxValue();
 					let updated: UpdateResult = UpdateResult.NotUpdated;
@@ -510,7 +514,7 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 
 	private async onDidAccept(): Promise<URI | undefined> {
 		this.busy = true;
-		if (this.filePickBox.activeItems.length === 1) {
+		if (!this.updatingPromise && this.filePickBox.activeItems.length === 1) {
 			const item = this.filePickBox.selectedItems[0];
 			if (item.isFolder) {
 				if (this.trailing) {
@@ -532,7 +536,7 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 				this.filePickBox.busy = false;
 				return;
 			}
-		} else {
+		} else if (!this.updatingPromise) {
 			// If the items have updated, don't try to resolve
 			if ((await this.tryUpdateItems(this.filePickBox.value, this.filePickBoxValue())) !== UpdateResult.NotUpdated) {
 				this.filePickBox.busy = false;
@@ -568,10 +572,16 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 		return dir;
 	}
 
+	private canTildaEscapeHatch(value: string): boolean {
+		return !!(value.endsWith('~') && this.isBadSubpath(value));
+	}
+
 	private tildaReplace(value: string): URI {
 		const home = this.trueHome;
 		if ((value.length > 0) && (value[0] === '~')) {
 			return resources.joinPath(home, value.substring(1));
+		} else if (this.canTildaEscapeHatch(value)) {
+			return home;
 		}
 		return this.remoteUriFrom(value);
 	}
@@ -587,7 +597,7 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 	}
 
 	private async tryUpdateItems(value: string, valueUri: URI): Promise<UpdateResult> {
-		if ((value.length > 0) && (value[0] === '~')) {
+		if ((value.length > 0) && ((value[0] === '~') || this.canTildaEscapeHatch(value))) {
 			const newDir = this.tildaReplace(value);
 			return await this.updateItems(newDir, true) ? UpdateResult.UpdatedWithTrailing : UpdateResult.Updated;
 		} else if (value === '\\') {
@@ -611,7 +621,7 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 					return await this.updateItems(valueUri) ? UpdateResult.UpdatedWithTrailing : UpdateResult.Updated;
 				} else if (this.endsWithSlash(value)) {
 					// The input box contains a path that doesn't exist on the system.
-					this.filePickBox.validationMessage = nls.localize('remoteFileDialog.badPath', 'The path does not exist.');
+					this.filePickBox.validationMessage = nls.localize('remoteFileDialog.badPath', 'The path does not exist. Use ~ to go to your home directory.');
 					// Save this bad path. It can take too long to a stat on every user entered character, but once a user enters a bad path they are likely
 					// to keep typing more bad path. We can compare against this bad path and see if the user entered path starts with it.
 					this.badPath = value;
@@ -875,6 +885,8 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 	private async updateItems(newFolder: URI, force: boolean = false, trailing?: string): Promise<boolean> {
 		this.busy = true;
 		this.autoCompletePathSegment = '';
+		const wasDotDot = trailing === '..';
+		trailing = wasDotDot ? undefined : trailing;
 		const isSave = !!trailing;
 		let result = false;
 
@@ -905,7 +917,7 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 				this.filePickBox.items = items;
 
 				// the user might have continued typing while we were updating. Only update the input box if it doesn't match the directory.
-				if (!equalsIgnoreCase(this.filePickBox.value, newValue) && force) {
+				if (!equalsIgnoreCase(this.filePickBox.value, newValue) && (force || wasDotDot)) {
 					this.filePickBox.valueSelection = [0, this.filePickBox.value.length];
 					this.insertText(newValue, newValue);
 				}
