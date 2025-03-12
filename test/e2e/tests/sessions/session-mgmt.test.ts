@@ -229,16 +229,18 @@ function printScript(num: number): string {
 }
 
 async function runCodeInSession(app: Application, session: SessionInfo, index: number) {
-	const { sessions, console } = app.workbench;
-	await sessions.select(session.id);
+	await test.step(`${session.name}: run code to generate plot and variable`, async () => {
+		const { sessions, console } = app.workbench;
+		await sessions.select(session.id);
 
-	// Determine script function based on session language
-	const script = session.language === 'R' ? rScript : pythonScript;
+		// Determine script function based on session language
+		const script = session.language === 'R' ? rScript : pythonScript;
 
-	await console.executeCode(session.language, script(index));
-	await console.typeToConsole(printScript(index), true);
+		await console.executeCode(session.language, script(index));
+		await console.typeToConsole(printScript(index), true);
 
-	// Assign a variable based on session language
-	const assignment = session.language === 'R' ? `test <- ${index}` : `test = ${index}`;
-	await console.typeToConsole(assignment, true);
+		// Assign a variable based on session language
+		const assignment = session.language === 'R' ? `test <- ${index}` : `test = ${index}`;
+		await console.typeToConsole(assignment, true);
+	});
 }

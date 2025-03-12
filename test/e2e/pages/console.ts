@@ -210,36 +210,38 @@ export class Console {
 			exact?: boolean;
 		} = {}
 	): Promise<string[]> {
-		const { timeout = 15000, expectedCount = 1, exact = false } = options;
+		return await test.step(`Verify console contains: ${consoleText}`, async () => {
+			const { timeout = 15000, expectedCount = 1, exact = false } = options;
 
-		if (expectedCount === 0) {
-			const startTime = Date.now();
-			while (Date.now() - startTime < timeout) {
-				const errorMessage = `Expected text "${consoleText}" to not appear, but it did.`;
-				try {
-					const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText);
-					const count = await matchingLines.count();
+			if (expectedCount === 0) {
+				const startTime = Date.now();
+				while (Date.now() - startTime < timeout) {
+					const errorMessage = `Expected text "${consoleText}" to not appear, but it did.`;
 
-					if (count > 0) {
-						// Don't catch this error! It should fail the test.
-						throw new Error(errorMessage);
+					try {
+						const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText);
+						const count = await matchingLines.count();
+
+						if (count > 0) {
+							throw new Error(errorMessage); // Fail the test immediately
+						}
+					} catch (error) {
+						if (error instanceof Error && error.message.includes(errorMessage)) {
+							throw error;
+						}
 					}
-				} catch (error) {
-					if (error instanceof Error && error.message.includes(errorMessage)) {
-						throw error;
-					}
+
+					await new Promise(resolve => setTimeout(resolve, 1000));
 				}
-
-				await new Promise(resolve => setTimeout(resolve, 1000));
+				return [];
 			}
-			return [];
-		}
 
-		// Normal case: waiting for `expectedCount` occurrences
-		const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText, { exact });
+			// Normal case: waiting for `expectedCount` occurrences
+			const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText, { exact });
 
-		await expect(matchingLines).toHaveCount(expectedCount, { timeout });
-		return expectedCount ? matchingLines.allTextContents() : [];
+			await expect(matchingLines).toHaveCount(expectedCount, { timeout });
+			return expectedCount ? matchingLines.allTextContents() : [];
+		});
 	}
 
 
