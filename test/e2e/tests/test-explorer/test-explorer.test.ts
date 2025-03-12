@@ -28,13 +28,20 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 		}
 	});
 
-	test('R - Verify Basic Test Explorer Functionality', async function ({ app, openFolder }) {
+	test('R - Verify Basic Test Explorer Functionality', async function ({ app, r, openFolder }) {
+
 		// Open R package embedded in qa-example-content
 		await openFolder(path.join('qa-example-content/workspaces/r_testing'));
 
-		await app.workbench.testExplorer.clickTestExplorerIcon();
 		await app.workbench.console.waitForInterpretersToFinishLoading();
-		await app.workbench.testExplorer.verifyTestFilesExist(['test-mathstuff.R']);
+
+		await expect(async () => {
+			await app.workbench.testExplorer.openTestExplorer();
+
+			await app.workbench.console.waitForInterpretersToFinishLoading();
+
+			await app.workbench.testExplorer.verifyTestFilesExist(['test-mathstuff.R']);
+		}).toPass({ timeout: 60000 });
 
 		await app.workbench.testExplorer.runAllTests();
 

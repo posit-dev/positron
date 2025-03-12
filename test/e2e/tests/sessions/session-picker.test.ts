@@ -35,7 +35,6 @@ test.describe('Sessions: Session Picker', {
 
 	test('R - Start and verify session via session picker', async function ({ app }) {
 		const sessions = app.workbench.sessions;
-
 		rSession1.id = await sessions.launch(rSession);
 		await sessions.expectSessionPickerToBe(rSession);
 		const { state } = await sessions.getMetadata();

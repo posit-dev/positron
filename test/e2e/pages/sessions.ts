@@ -98,6 +98,7 @@ export class Sessions {
 				await this.quickPick.openSessionQuickPickMenu();
 			} else if (triggerMode === 'console') {
 				await this.newConsoleButton.click();
+				await expect(this.code.driver.page.getByText(/Select a Session/)).toBeVisible();
 			} else {
 				await this.page.keyboard.press('Control+Shift+/');
 			}
@@ -224,7 +225,7 @@ export class Sessions {
 	 * @param menuItem the menu item to click on the metadata dialog
 	 */
 	async selectMetadataOption(menuItem: 'Show Kernel Output Channel' | 'Show Console Output Channel' | 'Show LSP Output Channel') {
-		await this.console.clickConsoleTab();
+		await this.console.focus();
 		await this.metadataButton.click();
 		await this.metadataDialog.getByText(menuItem).click();
 
@@ -258,6 +259,27 @@ export class Sessions {
 			await this.console.barTrashButton.click();
 			await expect(this.page.getByText('Shutting down')).not.toBeVisible();
 		});
+	}
+
+	/**
+	 * Action: Move the session tab list divider to a specific position from the bottom of the window.
+	 * Positions the divider `distanceFromBottom` pixels above the bottom of the window.
+	 *
+	 * @param distanceFromBottom Number of pixels above the bottom of the window.
+	 */
+	async setSessionDividerAboveBottom(distanceFromBottom: number = 100) {
+		const windowHeight = await this.page.evaluate(() => window.innerHeight);
+
+		const verticalSash = this.page.locator('.split-view-container > div:nth-child(3) > div > div > div > .monaco-sash');
+		const box = await verticalSash.boundingBox();
+
+		if (box) {
+			const targetY = windowHeight - distanceFromBottom;
+			const currentY = box.y + box.height / 2;
+			const offsetY = targetY - currentY;
+
+			await this.resizeSessionList({ y: offsetY });
+		}
 	}
 
 	/**
@@ -562,7 +584,7 @@ export class Sessions {
 			await expect(this.outputChannel).toHaveValue(/Language Server \(Console\)$/);
 
 			// Go back to console when done
-			await this.console.clickConsoleTab();
+			await this.console.focus();
 		});
 	}
 
@@ -646,7 +668,6 @@ export class Sessions {
 export class SessionQuickPick {
 	private sessionQuickMenu = this.code.driver.page.getByText(/(Select a Session)|(Start a New Session)/);
 	private allSessionsMenu = this.code.driver.page.getByText(/Start a New Session/);
-	private activeSessionsMenu = this.code.driver.page.getByText(/Select a Session/);
 
 	constructor(private code: Code, private sessions: Sessions) { }
 
@@ -656,15 +677,19 @@ export class SessionQuickPick {
 	 * Action: Open the session quickpick menu via the "Start Session" button in top action bar.
 	 */
 	async openSessionQuickPickMenu(viewAllRuntimes = true) {
-		if (!await this.sessionQuickMenu.isVisible()) {
-			await this.sessions.activeSessionPicker.click();
-		}
+		// something about the 1.97.0 upstream merge impacted the session picker
+		// unfortunately we need to retry the session picker until it works
+		await expect(async () => {
+			if (!await this.sessionQuickMenu.isVisible()) {
+				await this.sessions.activeSessionPicker.click();
+			}
 
-		if (viewAllRuntimes && await this.activeSessionsMenu.isVisible()) {
-			await this.code.driver.page.getByRole('combobox', { name: 'input' }).fill('New Session');
-			await this.code.driver.page.keyboard.press('Enter');
-			await expect(this.allSessionsMenu).toBeVisible();
-		}
+			if (viewAllRuntimes) {
+				await this.code.driver.page.getByRole('combobox', { name: 'input' }).fill('New Session');
+				await this.code.driver.page.keyboard.press('Enter');
+				await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible({ timeout: 1000 });
+			}
+		}).toPass();
 	}
 
 	/**

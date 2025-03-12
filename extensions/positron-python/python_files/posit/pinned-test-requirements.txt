@@ -7,27 +7,28 @@ geopandas==0.13.2; python_version < '3.9'
 geopandas==1.0.1; python_version >= '3.9'
 hvplot==0.11.2 ; python_version >= '3.9'
 hvplot==0.8.0 ; python_version < '3.9'
-ibis-framework[duckdb]==10.0.0; python_version >= '3.10'
+ibis-framework[duckdb]==10.2.0; python_version >= '3.10'
 ipykernel==6.29.5
 ipython<=8.31.0
 ipywidgets==8.1.5
-lightning==2.3.2
+lightning==2.3.2; python_version < '3.9'
+lightning==2.5.0; python_version >= '3.9'
 matplotlib==3.7.4; python_version < '3.9'
 matplotlib==3.9.2; python_version == '3.9'
-matplotlib==3.10.0; python_version >= '3.10'
+matplotlib==3.10.1; python_version >= '3.10'
 numpy==1.24.4; python_version < '3.9'
 numpy==2.0.2; python_version == '3.9'
-numpy==2.2.2; python_version >= '3.10'
+numpy==2.2.3; python_version >= '3.10'
 pandas==2.0.3; python_version < '3.9'
 pandas==2.2.3; python_version >= '3.9'
 plotly==6.0.0
 polars==1.7.1; python_version < '3.9'
 polars[timezone]==1.7.1; python_version < '3.9'
-polars==1.22.0; python_version >= '3.9'
-polars[timezone]==1.22.0; python_version >= '3.9' and sys_platform == 'win32'
+polars==1.24.0; python_version >= '3.9'
+polars[timezone]==1.24.0; python_version >= '3.9' and sys_platform == 'win32'
 pyarrow==17.0.0; python_version < '3.13'
-pyarrow==19.0.0; python_version >= '3.13'
-pytest==8.3.4
+pyarrow==19.0.1; python_version >= '3.13'
+pytest==8.3.5
 pytest-asyncio==0.23.8; python_version < '3.9'
 pytest-asyncio==0.25.3; python_version >= '3.9'
 pytest-mock==3.14.0
