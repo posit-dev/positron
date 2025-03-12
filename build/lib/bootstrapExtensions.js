@@ -3,19 +3,55 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getBootstrapExtensionStream = getBootstrapExtensionStream;
 exports.getBootstrapExtensions = getBootstrapExtensions;
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
-const rimraf = require("rimraf");
-const es = require("event-stream");
-const rename = require("gulp-rename");
-const vfs = require("vinyl-fs");
-const ext = require("./extensions");
-const fancyLog = require("fancy-log");
-const ansiColors = require("ansi-colors");
+const fs = __importStar(require("fs"));
+const path = __importStar(require("path"));
+const os = __importStar(require("os"));
+const rimraf = __importStar(require("rimraf"));
+const es = __importStar(require("event-stream"));
+const vfs = __importStar(require("vinyl-fs"));
+const ext = __importStar(require("./extensions"));
+const ansiColors = __importStar(require("ansi-colors"));
+const gulp_rename_1 = __importDefault(require("gulp-rename"));
+const fancy_log_1 = __importDefault(require("fancy-log"));
 const root = path.dirname(path.dirname(__dirname));
 const productjson = JSON.parse(fs.readFileSync(path.join(__dirname, '../../product.json'), 'utf8'));
 const ENABLE_LOGGING = !process.env['VSCODE_BUILD_BOOTSTRAP_EXTENSIONS_SILENCE_PLEASE'];
@@ -23,7 +59,7 @@ const bootstrapExtensions = productjson.bootstrapExtensions || [];
 const controlFilePath = path.join(os.homedir(), '.vscode-oss-dev', 'extensions', 'bootstrap-control.json');
 function log(...messages) {
     if (ENABLE_LOGGING) {
-        fancyLog(...messages);
+        (0, fancy_log_1.default)(...messages);
     }
 }
 function getExtensionPath(extension) {
@@ -51,14 +87,14 @@ function isUpToDate(extension) {
 function getExtensionDownloadStream(extension) {
     const url = extension.metadata.multiPlatformServiceUrl || productjson.extensionsGallery?.serviceUrl;
     return (url ? ext.fromMarketplace(url, extension, true) : ext.fromGithub(extension))
-        .pipe(rename(p => { p.basename = `${extension.name}-${extension.version}.vsix`; }));
+        .pipe((0, gulp_rename_1.default)(p => { p.basename = `${extension.name}-${extension.version}.vsix`; }));
 }
 function getBootstrapExtensionStream(extension) {
     // if the extension exists on disk, use those files instead of downloading anew
     if (isUpToDate(extension)) {
         log('[extensions]', `${extension.name}@${extension.version} up to date`, ansiColors.green('✔︎'));
         return vfs.src(['**'], { cwd: getExtensionPath(extension), dot: true })
-            .pipe(rename(p => p.dirname = `${extension.name}/${p.dirname}`));
+            .pipe((0, gulp_rename_1.default)(p => p.dirname = `${extension.name}/${p.dirname}`));
     }
     return getExtensionDownloadStream(extension);
 }

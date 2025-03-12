@@ -27,7 +27,8 @@ test.describe('Python - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJEC
 		await verifyProjectCreation(app, projectTitle);
 	});
 
-	test('New env: Git initialized', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
+	// untagged windows because we cannot find any way to copy text from the terminal now that its a canvas
+	test('New env: Git initialized', { tag: [tags.CRITICAL] }, async function ({ app }) {
 		const projectTitle = addRandomNumSuffix('git-init');
 
 		await createNewProject(app, {
