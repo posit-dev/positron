@@ -28,7 +28,7 @@ export function prepareTestEnv(rootPath = process.env.ROOT_PATH || 'ROOT_PATH no
 
 	try {
 		initializeTestEnvironment(rootPath, logger);
-		console.log('Test environment ready.');
+		console.log('✓ Test environment ready');
 
 		// Disabling this section of code for now. It's used to download a stable version of VSCode
 		// Maybe we would want to update this to download a stable version of Positron some day?
