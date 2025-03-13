@@ -22,6 +22,8 @@ export class Settings {
 		await this.editor.waitForTypeInEditor(file, settings.map(v => `"${v[0]}": ${v[1]},`).join(''));
 		await this.editors.saveOpenedFile();
 		await this.editors.waitForActiveTabNotDirty(file);
+		// Wait for the settings to be applied. I ran into this specifically with Chromium locally but it seems fine in CI :shrug:
+		await this.code.driver.page.waitForTimeout(1000);
 	}
 
 	async clearUserSettings(): Promise<void> {

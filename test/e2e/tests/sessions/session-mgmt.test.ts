@@ -4,10 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
-import { pythonSession, pythonSessionAlt, rSession, SessionInfo } from '../../infra';
+import { Application, pythonSession, pythonSessionAlt, rSession, SessionInfo } from '../../infra';
 import { expect } from '@playwright/test';
 
 const pythonSession1: SessionInfo = { ...pythonSession };
+// const pythonSession1b: SessionInfo = { ...pythonSession };
 const pythonSession2: SessionInfo = { ...pythonSessionAlt };
 const rSession1: SessionInfo = { ...rSession };
 
@@ -150,4 +151,98 @@ test.describe('Sessions: Management', {
 		await sessions.expectActiveSessionListsToMatch();
 		await variables.expectRuntimeToBe('not.visible', `${rSession1.name}|${pythonSession1.name}|None`);
 	});
+
+	test('Validate session, console, variables, and plots persist after reload',
+		{
+			tag: [tags.VARIABLES, tags.PLOTS],
+			annotation: [
+				{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6036' },
+				{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6725' }]
+		}, async function ({ app, runCommand }) {
+			const { sessions, console, plots, variables } = app.workbench;
+
+			// Ensure sessions exist and are idle
+			pythonSession1.id = await sessions.reuseIdleSessionIfExists(pythonSession1);
+			rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
+			// pythonSession1b.id = await sessions.launch(pythonSession1b);
+			await sessions.expectSessionCountToBe(2);
+			await sessions.expectAllSessionsToBeIdle();
+
+			// Select R session and run script to generate plot and variable
+			await runCodeInSession(app, rSession1, 1,);
+			await plots.waitForCurrentPlot();
+			await console.waitForConsoleContents('[1] "this is console 1"');
+			await variables.expectVariableToBe('test', '1');
+
+			// Select Python session 1 and run script to generate plot and variable
+			await runCodeInSession(app, pythonSession1, 2);
+			await plots.waitForCurrentPlot();
+			await plots.expectPlotThumbnailsCountToBe(2);
+			await console.waitForConsoleContents('this is console 2', { exact: true });
+			await variables.expectVariableToBe('test', '2');
+
+			// issue 6725: uncomment below lines after issue is fixed
+			// Select Python session 1b (same runtime) and run script to generate plot and variable
+			// await runCodeInSession(app, pythonSession1b, 3);
+			// await plots.expectPlotThumbnailsCountToBe(3);
+			// await console.waitForConsoleContents('this is console 3', { exact: true });
+			// await variables.expectVariableToBe('test', '3');
+
+			// Reload app
+			await runCommand('workbench.action.reloadWindow');
+
+			// Verify all sessions reload and are idle
+			await sessions.expectSessionCountToBe(2);
+			await sessions.expectAllSessionsToBeIdle();
+
+			// Verify sessions, plot, console history, and variables persist for R session
+			await sessions.select(rSession1.id);
+			await variables.expectVariableToBe('test', '1');
+			await console.waitForConsoleContents('[1] "this is console 1"');
+			await plots.waitForCurrentPlot();
+			await plots.expectPlotThumbnailsCountToBe(2);
+
+			// Verify sessions, plot, console history, and variables persist for Python session
+			await sessions.select(pythonSession1.id);
+			await variables.expectVariableToBe('test', '2');
+			await console.waitForConsoleContents('this is console 2', { exact: true });
+			await plots.waitForCurrentPlot();
+			await plots.expectPlotThumbnailsCountToBe(2);
+
+			// issue 6725: uncomment below lines after issue is fixed
+			// await sessions.select(pythonSession1b.id);
+			// await variables.expectVariableToBe('test', '3');
+			// await console.waitForConsoleContents('this is console 3', { exact: true });
+		});
 });
+
+
+async function runCodeInSession(app: Application, session: SessionInfo, index: number) {
+	await test.step(`${session.name}: run code to generate plot and variable`, async () => {
+		const { sessions, console, variables } = app.workbench;
+		await sessions.select(session.id);
+
+		// Generate an image plot
+		const imagePlotScript = session.language === 'R'
+			? `library(ggplot2)
+library(grid)
+img <- matrix(runif(100), nrow=10)
+grid.raster(img)`
+			: `import matplotlib.pyplot as plt
+import numpy as np
+img = np.random.rand(10, 10)
+plt.imshow(img, cmap='gray')
+plt.axis('off')
+plt.show()`;
+		await console.executeCode(session.language, imagePlotScript);
+
+		// Print index to console
+		await console.typeToConsole(`print("this is console ${index}")`, true);
+
+		// Assign a variable based on session language
+		const assignment = session.language === 'R' ? `test <- ${index}` : `test = ${index}`;
+		await console.typeToConsole(assignment, true);
+
+		await variables.focusVariablesView();
+	});
+}
