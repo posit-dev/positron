@@ -4,12 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { traceInfo, traceVerbose } from '../logging';
+import { traceError, traceInfo, traceVerbose } from '../logging';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
-import { arePathsSame, isParentPath } from '../pythonEnvironments/common/externalDependencies';
+import { arePathsSame, isDirectorySync, isParentPath } from '../pythonEnvironments/common/externalDependencies';
 import {
     INTERPRETERS_EXCLUDE_SETTING_KEY,
     INTERPRETERS_INCLUDE_SETTING_KEY,
+    INTERPRETERS_OVERRIDE_SETTING_KEY,
     MINIMUM_PYTHON_VERSION,
 } from '../common/constants';
 import { untildify } from '../common/helpers';
@@ -23,7 +24,7 @@ import { comparePythonVersionDescending } from '../interpreter/configuration/env
  * Converts aliased paths to absolute paths. Relative paths are not included.
  * @returns List of interpreters included in the settings.
  */
-export function getIncludedInterpreters(): string[] {
+function getIncludedInterpreters(): string[] {
     const interpretersInclude = getConfiguration('python').get<string[]>(INTERPRETERS_INCLUDE_SETTING_KEY) ?? [];
     if (interpretersInclude.length > 0) {
         return interpretersInclude
@@ -45,7 +46,7 @@ export function getIncludedInterpreters(): string[] {
  * Converts aliased paths to absolute paths. Relative paths are not included.
  * @returns List of interpreters excluded in the settings.
  */
-export function getExcludedInterpreters(): string[] {
+function getExcludedInterpreters(): string[] {
     const interpretersExclude = getConfiguration('python').get<string[]>(INTERPRETERS_EXCLUDE_SETTING_KEY) ?? [];
     if (interpretersExclude.length > 0) {
         return interpretersExclude
@@ -63,12 +64,67 @@ export function getExcludedInterpreters(): string[] {
 }
 
 /**
+ * Gets the exclusive list of interpreters that should be included in the list of discovered interpreters.
+ * Converts aliased paths to absolute paths. Relative paths are not included.
+ * @returns List of the only interpreters that should be included in the list of discovered interpreters.
+ */
+function getOverrideInterpreters(): string[] {
+    const interpretersOverride = getConfiguration('python').get<string[]>(INTERPRETERS_OVERRIDE_SETTING_KEY) ?? [];
+    if (interpretersOverride.length > 0) {
+        return interpretersOverride
+            .map((item) => untildify(item))
+            .filter((item) => {
+                if (path.isAbsolute(item)) {
+                    return true;
+                }
+                traceInfo(`[shouldIncludeInterpreter]: override interpreter path ${item} is not absolute...ignoring`);
+                return false;
+            });
+    }
+    traceVerbose(`[shouldIncludeInterpreter]: No interpreters specified via ${INTERPRETERS_OVERRIDE_SETTING_KEY}`);
+    return [];
+}
+
+/**
+ * Gets the list of custom environment directories specified in the settings to look for python installations.
+ * @returns List of custom environment directories to look for environments.
+ */
+export function getCustomEnvDirs(): string[] {
+    const overrideDirs = getOverrideInterpreters();
+    if (overrideDirs.length > 0) {
+        return mapInterpretersToInstallDirs(overrideDirs);
+    }
+
+    const includeDirs = getIncludedInterpreters();
+    if (includeDirs.length > 0) {
+        return mapInterpretersToInstallDirs(includeDirs);
+    }
+
+    return [];
+}
+
+/**
  * Check whether an interpreter should be included in the list of discovered interpreters.
  * If an interpreter is both included and excluded via settings, it will be excluded.
  * @param interpreterPath The interpreter path to check
  * @returns Whether the interpreter should be included in the list of discovered interpreters.
  */
 export function shouldIncludeInterpreter(interpreterPath: string): boolean {
+    // If any interpreter overrides are specified, include the interpreter only if it is specified in the overrides.
+    const override = isOverrideInterpreter(interpreterPath);
+    if (override !== undefined) {
+        if (override) {
+            traceInfo(
+                `[shouldIncludeInterpreter] Interpreter ${interpreterPath} included via ${INTERPRETERS_OVERRIDE_SETTING_KEY} setting`,
+            );
+            return true;
+        }
+        traceInfo(
+            `[shouldIncludeInterpreter] Interpreter ${interpreterPath} is excluded since it is not specified in ${INTERPRETERS_OVERRIDE_SETTING_KEY} setting`,
+        );
+        return false;
+    }
+
     // If the settings exclude the interpreter, exclude it. Excluding an interpreter takes
     // precedence over including it, so we return right away if the interpreter is excluded.
     const excluded = isExcludedInterpreter(interpreterPath);
@@ -126,6 +182,23 @@ function isExcludedInterpreter(interpreterPath: string): boolean | undefined {
 }
 
 /**
+ * Checks if an interpreter path is specified to override the discovered interpreters.
+ * @param interpreterPath The interpreter path to check
+ * @returns True if the interpreter is specified in the settings to override the discovered interpreters,
+ * false if it is not specified to override the discovered interpreters, and undefined if no interpreters
+ * are specified to override the discovered interpreters.
+ */
+function isOverrideInterpreter(interpreterPath: string): boolean | undefined {
+    const interpretersOverride = getOverrideInterpreters();
+    if (interpretersOverride.length === 0) {
+        return undefined;
+    }
+    return interpretersOverride.some(
+        (overridePath) => isParentPath(interpreterPath, overridePath) || arePathsSame(interpreterPath, overridePath),
+    );
+}
+
+/**
  * Check if a version is supported (i.e. >= the minimum supported version).
  * Also returns true if the version could not be determined.
  */
@@ -167,6 +240,7 @@ export function printInterpreterDebugInfo(interpreters: PythonEnvironment[]): vo
         defaultInterpreterPath: getConfiguration('python').get<string>('defaultInterpreterPath'),
         'interpreters.include': getIncludedInterpreters(),
         'interpreters.exclude': getExcludedInterpreters(),
+        'interpreters.override': getOverrideInterpreters(),
     };
 
     // Construct debug information about each interpreter
@@ -208,6 +282,59 @@ export function printInterpreterDebugInfo(interpreters: PythonEnvironment[]): vo
     traceInfo('=====================================================================');
     traceInfo('================ [END] PYTHON INTERPRETER DEBUG INFO ================');
     traceInfo('=====================================================================');
+}
+
+/**
+ * Maps a list of interpreter paths to their installation directories.
+ * @param interpreterPaths List of interpreter paths to map to their installation directories.
+ * @returns
+ */
+function mapInterpretersToInstallDirs(interpreterPaths: string[]): string[] {
+    return interpreterPaths.map((interpreterPath) => {
+        // If it's already a directory, return it as-is.
+        if (isDirectorySync(interpreterPath)) {
+            return interpreterPath;
+        }
+
+        // If it's a file, we need to return the installation directory so that the Python locators can find it.
+        // e.g. ~/scratch/3.10.4/bin/python -> ~/scratch/3.10.4
+        // The locators expect a list of environment directories and don't seem to handle individual interpreter files.
+        // The installation directory is the grandparent directory, which upholds the JS locator's DEFAULT_SEARCH_DEPTH of 2
+        // see extensions/positron-python/src/client/pythonEnvironments/base/locators/lowLevel/userSpecifiedEnvLocator.ts
+        // The Native Python Locator seems to use the same search depth of 2, although not explicitly documented in the python extension.
+        let parentDir: string | undefined;
+        let installDir: string | undefined;
+        try {
+            // parentDir tends to be the bin directory, which is the parent of the interpreter file.
+            parentDir = path.dirname(interpreterPath);
+            // installDir tends to be the python version directory, AKA the installation directory, which is the parent of the bin directory.
+            installDir = path.dirname(parentDir);
+        } catch (error) {
+            traceError(
+                `[mapInterpretersToInterpreterDirs]: Failed to get install directory for Python interpreter ${interpreterPath}`,
+                error,
+            );
+        }
+
+        if (installDir) {
+            traceVerbose(
+                `[mapInterpretersToInterpreterDirs]: Mapped ${interpreterPath} to installation directory ${installDir}`,
+            );
+            return installDir;
+        }
+
+        if (parentDir) {
+            traceInfo(
+                `[mapInterpretersToInterpreterDirs]: Expected ${interpreterPath} to be located in a Python installation directory. It may not be discoverable.`,
+            );
+            return parentDir;
+        }
+
+        traceInfo(
+            `[mapInterpretersToInterpreterDirs]: Unable to map ${interpreterPath} to an installation directory. It may not be discoverable.`,
+        );
+        return interpreterPath;
+    });
 }
 
 /**
