@@ -87,8 +87,12 @@ export class Console {
 		return test.step(`Execute ${languageName} code in console: ${code}`, async () => {
 			const timeout = options?.timeout ?? 30000;
 
-			await this.activeConsole.focus();
-			await this.quickaccess.runCommand('workbench.action.executeCode.console', { keepOpen: true });
+			await expect(async () => {
+				// Kind of hacky, but activate console in case focus was previously lost
+				await this.activeConsole.click();
+				await this.quickaccess.runCommand('workbench.action.executeCode.console', { keepOpen: true });
+
+			}).toPass();
 
 			await this.quickinput.waitForQuickInputOpened();
 			await this.quickinput.type(languageName);
