@@ -293,31 +293,39 @@ export const ActionBar = (props: ActionBarProps) => {
 
 	// Power cycle (start or stop) console event handler.
 	const powerCycleConsoleHandler = async () => {
-		// Get the current session the console is bound to and its state.
-		const session =
-			positronConsoleContext.activePositronConsoleInstance?.attachedRuntimeSession;
-		if (!session) {
+		// Ensure we're acting on a valid console instance.
+		if (!positronConsoleContext.activePositronConsoleInstance) {
 			return;
 		}
-		const state = session.getRuntimeState();
+
+		// Get the current session the console is bound to and its state.
+		const consoleInstance = positronConsoleContext.activePositronConsoleInstance;
+		const session = consoleInstance.attachedRuntimeSession;
+
+		// If no session, treat state as uninitialized.
+		const state = session ? session.getRuntimeState() : RuntimeState.Uninitialized;
 
 		if (state === RuntimeState.Exited || state === RuntimeState.Uninitialized) {
+
+			const runtimeMetadata = consoleInstance.runtimeMetadata;
+			const sessionMetadata = consoleInstance.sessionMetadata;
+
 			// Start a new session if the current session has exited, or never
 			// started (e.g. retrying after a startup failure)
 			positronConsoleContext.runtimeSessionService.startNewRuntimeSession(
-				session.runtimeMetadata.runtimeId,
-				session.metadata.sessionName,
-				session.metadata.sessionMode,
-				session.metadata.notebookUri,
+				runtimeMetadata.runtimeId,
+				sessionMetadata.sessionName,
+				sessionMetadata.sessionMode,
+				sessionMetadata.notebookUri,
 				`User-requested new session from console action bar ` +
-				`after session ${session.metadata.sessionId} exited.`,
+				`after session ${sessionMetadata.sessionId} exited.`,
 				RuntimeStartMode.Starting,
 				false
 			);
 			return;
 		} else {
 			// Shutdown the current session.
-			session.shutdown(
+			session?.shutdown(
 				RuntimeExitReason.Shutdown
 			);
 		}

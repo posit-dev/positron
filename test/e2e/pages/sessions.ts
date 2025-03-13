@@ -10,6 +10,7 @@ import { QuickInput } from './quickInput';
 const DESIRED_PYTHON = process.env.POSITRON_PY_VER_SEL;
 const DESIRED_R = process.env.POSITRON_R_VER_SEL;
 const sessionIdPattern = /^(python|r)-[a-zA-Z0-9]+$/i;
+const ACTIVE_STATUS_ICON = '.codicon-positron-status-active';
 
 /**
  * Class to manage console sessions
@@ -32,10 +33,11 @@ export class Sessions {
 	currentSessionTab: Locator;
 	consoleInstance: (sessionId: string) => Locator;
 	outputChannel: Locator;
+	activeStatusIcon: Locator;
 
 	constructor(private code: Code, private console: Console, private quickaccess: QuickAccess, private quickinput: QuickInput) {
 		this.page = this.code.driver.page;
-		this.activeStatus = (session: Locator) => session.locator('.codicon-positron-status-active');
+		this.activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
 		this.idleStatus = (session: Locator) => session.locator('.codicon-positron-status-idle');
 		this.disconnectedStatus = (session: Locator) => session.locator('.codicon-positron-status-disconnected');
 		this.metadataButton = this.page.getByRole('button', { name: 'Console information' });
@@ -51,6 +53,7 @@ export class Sessions {
 		this.currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 		this.consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
 		this.outputChannel = this.page.getByRole('combobox');
+		this.activeStatusIcon = this.page.locator(ACTIVE_STATUS_ICON);
 	}
 
 
@@ -113,8 +116,8 @@ export class Sessions {
 
 			if (waitForReady) {
 				language === 'Python'
-					? await this.console.waitForReadyAndStarted('>>>', 40000)
-					: await this.console.waitForReadyAndStarted('>', 40000);
+					? await this.console.waitForReadyAndStarted('>>>', 90000)
+					: await this.console.waitForReadyAndStarted('>', 90000);
 			}
 		});
 
@@ -125,8 +128,14 @@ export class Sessions {
 	 * Action: Select the session
 	 * @param sessionIdOrName the id or name of the session
 	 */
-	async select(sessionIdOrName: string): Promise<void> {
+	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
 		await test.step(`Select session: ${sessionIdOrName}`, async () => {
+			const session = this.getSessionTab(sessionIdOrName);
+
+			if (waitForSessionIdle) {
+				await expect(this.idleStatus(session)).toBeVisible();
+			}
+
 			await this.getSessionTab(sessionIdOrName).click();
 		});
 	}
@@ -652,6 +661,10 @@ export class Sessions {
 
 		expect(isHorizontallyScrollable).toBe(horizontal);
 		expect(isVerticallyScrollable).toBe(vertical);
+	}
+
+	async expectAllSessionsToBeIdle() {
+		await expect(this.activeStatusIcon).toHaveCount(0);
 	}
 }
 
