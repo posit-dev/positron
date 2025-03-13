@@ -37,7 +37,7 @@ test.describe('Console Pane: R', {
 		await expect(async () => {
 			await app.workbench.console.barClearButton.click();
 			await app.workbench.console.barRestartButton.click();
-			await app.workbench.console.waitForReadyAndRestarted('>');
+			await app.workbench.console.waitForReady('>');
 		}).toPass();
 	});
 
