@@ -2040,10 +2040,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined {
-		const session = this.activeSessions.find(s => s.dynState.currentNotebookUri === oldUri);
+		// Update notebook by uri map to identify the session by the new uri
+		const session = this._notebookSessionsByNotebookUri.get(oldUri);
+
 		if (!session) {
 			return undefined;
 		}
+
+		this._notebookSessionsByNotebookUri.set(newUri, session);
+		this._notebookSessionsByNotebookUri.delete(oldUri);
 
 		// Update the session's notebook URI
 		session.dynState.currentNotebookUri = newUri;
@@ -2057,7 +2062,6 @@ CommandsRegistry.registerCommand('_positron.reassignNotebookSessionUri', async (
 	const from = URI.parse(fromUri);
 	const to = URI.parse(toUri);
 
-	console.log(`Reassigning notebook session URI from ${from.toString()} to ${to.toString()}`);
 	// // Update the URI associated with the session
 	const sessionId = accessor.get(IRuntimeSessionService).updateNotebookSessionUri(from, to);
 	if (sessionId) {
