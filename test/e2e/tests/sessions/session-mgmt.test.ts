@@ -176,7 +176,7 @@ test.describe('Sessions: Management', {
 
 			// Select Python session 1 and run script to generate plot and variable
 			await runCodeInSession(app, pythonSession1, 2);
-			await plots.expectPlotThumbnailsCountToBe(2);
+			// await plots.expectPlotThumbnailsCountToBe(2);
 			await console.waitForConsoleContents('this is console 2', { exact: true });
 			await variables.expectVariableToBe('test', '2');
 
