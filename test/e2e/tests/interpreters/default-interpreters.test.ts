@@ -18,7 +18,9 @@ test.describe('Default Interpreters', {
 
 	const homeDir = process.env.HOME || '';
 
-	test.beforeEach(async function () {
+	test.beforeEach(async function ({ userSettings }) {
+
+		await userSettings.set([['files.simpleDialog.enable', 'true']]);
 
 		const buildSet = !!process.env.BUILD;
 
