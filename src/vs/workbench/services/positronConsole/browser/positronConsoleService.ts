@@ -319,10 +319,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				 * a new one. This is problematic because the user's intention was to creat a new console
 				 * instance for the new session.
 				 */
-				const positronConsoleInstances = this._positronConsoleInstancesByRuntimeId.get(e.session.runtimeMetadata.runtimeId);
-
-				const positronConsoleInstance = positronConsoleInstances?.find(
-					console => console.sessionId === e.session.sessionId);
+				const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(e.session.sessionId);
 
 				if (positronConsoleInstance) {
 					this._positronConsoleInstancesBySessionId.delete(positronConsoleInstance.sessionId);
@@ -337,14 +334,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		// Register the onDidStartRuntime event handler so we activate the new Positron console instance when the runtime starts up.
 		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
-			const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
-
-			let positronConsoleInstance: PositronConsoleInstance | undefined;
-			if (!multiSessionsEnabled) {
-				positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.runtimeMetadata.runtimeId);
-			} else {
-				positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.sessionId);
-			}
+			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.sessionId);
 
 			if (positronConsoleInstance) {
 				positronConsoleInstance.setState(PositronConsoleState.Ready);
@@ -353,15 +343,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		// Register the onDidFailStartRuntime event handler so we activate the new Positron console instance when the runtime starts up.
 		this._register(this._runtimeSessionService.onDidFailStartRuntime(session => {
-			const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
-
-			let positronConsoleInstance: PositronConsoleInstance | undefined;
-			if (!multiSessionsEnabled) {
-				positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.runtimeMetadata.runtimeId);
-
-			} else {
-				positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.sessionId);
-			}
+			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(session.sessionId);
 
 			if (positronConsoleInstance) {
 				positronConsoleInstance.setState(PositronConsoleState.Exited);
