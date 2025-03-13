@@ -117,10 +117,22 @@ export async function defaultHandler(
 		const document = request.location2.document;
 		const selection = request.location2.selection;
 		const selectedText = document.getText(selection);
-		messages.push(...[
-			vscode.LanguageModelChatMessage.User(`The user has selected the following text: ${selectedText}`),
-			vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
-		]);
+		const documentText = document.getText();
+		const ref = {
+			id: document.uri.toString(),
+			documentText,
+			selectedText,
+			line: selection.active.line + 1, // 1-based line numbering for the model
+			column: selection.active.character,
+			documentOffset: document.offsetAt(selection.active)
+		};
+		const textParts: vscode.LanguageModelTextPart[] = [
+			new vscode.LanguageModelTextPart(`\n\n${JSON.stringify(ref)}`)
+		];
+		messages.push(vscode.LanguageModelChatMessage.User(textParts));
+		messages.push(
+			vscode.LanguageModelChatMessage.Assistant('Acknowledged.')
+		);
 
 		// Add tool to output text edits
 		tools.push(textEditToolAdapter.toolData);
