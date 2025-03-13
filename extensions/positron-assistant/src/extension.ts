@@ -27,7 +27,7 @@ function disposeParticipants() {
 	participantDisposables = [];
 }
 
-export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage): Promise<boolean> {
+export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage) {
 	try {
 		const modelConfig = await getModelConfiguration(config.id, context, storage);
 
@@ -35,7 +35,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			vscode.window.showErrorMessage(
 				vscode.l10n.t('Positron Assistant: Failed to register model configuration. The model configuration could not be found.')
 			);
-			return false;
+			throw new Error(vscode.l10n.t('Failed to register model configuration. The model configuration could not be found.'));
 		}
 
 		const enabledProviders = getEnabledProviders();
@@ -44,7 +44,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			vscode.window.showErrorMessage(
 				vscode.l10n.t('Positron Assistant: Failed to register model configuration. The provider is disabled.')
 			);
-			return false;
+			throw new Error(vscode.l10n.t('Failed to register model configuration. The provider is disabled.'));
 		}
 
 		const languageModel = newLanguageModel(modelConfig);
@@ -54,17 +54,15 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			vscode.window.showErrorMessage(
 				vscode.l10n.t(`Positron Assistant: Failed to register model configuration. ${error.message}`)
 			);
-			return false;
+			throw new Error(vscode.l10n.t('Failed to register model configuration. {0}', [error.message]));
 		}
 
 		registerModelWithAPI(languageModel, modelConfig, context);
-
-		return true;
 	} catch (e) {
 		vscode.window.showErrorMessage(
 			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', [e])
 		);
-		return false;
+		throw new Error(vscode.l10n.t('Failed to register model configuration. {0}', [e]));
 	}
 }
 

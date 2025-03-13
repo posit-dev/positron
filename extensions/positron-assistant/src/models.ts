@@ -241,7 +241,7 @@ class AnthropicLanguageModel extends AILanguageModel implements positron.ai.Lang
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'anthropic',
-			displayName: 'Anthropic'
+			displayName: 'Anthropic Claude'
 		},
 		supportedOptions: ['apiKey'],
 		defaults: {
@@ -480,7 +480,7 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'google',
-			displayName: 'Google Generative AI'
+			displayName: 'Gemini Code Assist'
 		},
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {
@@ -504,11 +504,16 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 export const languageModels = [
 	AWSLanguageModel,
 	AnthropicLanguageModel,
-	AzureLanguageModel,
+	// AzureLanguageModel,
 	GoogleLanguageModel,
-	MistralLanguageModel,
-	OllamaLanguageModel,
-	OpenAILanguageModel,
-	OpenRouterLanguageModel,
-	VertexLanguageModel,
+	// MistralLanguageModel,
+	// OllamaLanguageModel,
+	// OpenAILanguageModel,
+	// OpenRouterLanguageModel,
+	// VertexLanguageModel,
+];
+
+export const testLanguageModels = [
+	EchoLanguageModel,
+	ErrorLanguageModel,
 ];

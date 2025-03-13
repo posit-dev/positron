@@ -7,3 +7,51 @@
 	width: 250px;
 	margin-top: 5px;
 }
+
+.language-model-section {
+	font-weight: bold;
+	font-size: 0.7rem;
+}
+
+.language-model.icon {
+	height: 3rem;
+	width: 3rem;
+	align-self: center;
+}
+
+.language-model.button .content {
+	align-items: center;
+}
+
+.language-model.button {
+	flex-direction: row;
+	align-items: center;
+	cursor: pointer;
+	border-radius: 6px;
+	padding: 0.25rem 0.25rem;
+	margin: 0 0.25rem;
+	border: 1px solid var(--vscode-positronModalDialog-background);
+}
+
+.language-model.button.selected {
+	background: var(--vscode-positronIconButton-background);
+}
+
+.language-model.button:hover {
+	border: 1px solid var(--vscode-positronIconButton-border);
+	background: var(--vscode-positronIconButton-background);
+}
+
+.language-model-authentication-container {
+	display: flex;
+}
+
+.language-model.button.sign-in {
+	align-self: center;
+	font-weight: 600;
+	text-wrap: nowrap;
+	height: 2rem;
+	border-radius: 5px;
+	border: 1px solid var(--vscode-positronModalDialog-buttonBorder);
+	background: var(--vscode-positronModalDialog-buttonBackground);
+}

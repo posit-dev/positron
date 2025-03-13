@@ -268,18 +268,19 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 		);
 
 		// Register the new model
-		const registered = await registerModel(newConfig, context, storage);
+		try {
+			await registerModel(newConfig, context, storage);
 
-		if (!registered) {
+			vscode.window.showInformationMessage(
+				vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
+			);
+		} catch (error) {
 			await storage.delete(`apiKey-${id}`);
 			await context.globalState.update(
 				'positron.assistant.models',
 				existingConfigs
 			);
-		} else {
-			vscode.window.showInformationMessage(
-				vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
-			);
+			throw new Error(vscode.l10n.t('Failed to add language model.'));
 		}
 	});
 

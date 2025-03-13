@@ -15,6 +15,7 @@ import { IChatRequestData, IPositronAssistantService, IPositronChatContext, IPos
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 
 /**
  * PositronAssistantService class.
@@ -31,6 +32,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		@ITerminalService private readonly _terminalService: ITerminalService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@ILayoutService private readonly _layoutService: ILayoutService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 	) {
 		super();
 	}
@@ -80,7 +82,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		onSave: (config: IPositronLanguageModelConfig) => Promise<void>,
 		onCancel: () => void,
 	): void {
-		showLanguageModelModalDialog(this._keybindingService, this._layoutService, sources, onSave, onCancel);
+		showLanguageModelModalDialog(this._keybindingService, this._layoutService, this._contextKeyService, sources, onSave, onCancel);
 	}
 
 	//#endregion

@@ -15,16 +15,22 @@ import { IKeybindingService } from '../../../../platform/keybinding/common/keybi
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { OKCancelModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { VerticalStack } from '../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
-import { DropDownListBox } from '../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { LabeledTextInput } from '../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
 import { localize } from '../../../../nls.js';
 import { ProgressBar } from '../../../../base/browser/ui/positronComponents/progressBar.js';
+import { LanguageModelButton } from './components/languageModelButton.js';
+import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
+import { DropDownListBox } from '../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
+import { OKModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronOKModalDialog.js';
 
 export const showLanguageModelModalDialog = (
 	keybindingService: IKeybindingService,
 	layoutService: ILayoutService,
+	contextKeyService: IContextKeyService,
 	sources: IPositronLanguageModelSource[],
 	onSave: (config: IPositronLanguageModelConfig) => Promise<void>,
 	onCancel: () => void,
@@ -38,6 +44,7 @@ export const showLanguageModelModalDialog = (
 	renderer.render(
 		<div className='language-model-modal-dialog'>
 			<LanguageModelConfiguration
+				contextKeyService={contextKeyService}
 				keybindingService={keybindingService}
 				layoutService={layoutService}
 				renderer={renderer}
@@ -53,12 +60,15 @@ interface LanguageModelConfigurationProps {
 	keybindingService: IKeybindingService;
 	layoutService: ILayoutService;
 	sources: IPositronLanguageModelSource[];
+	contextKeyService: IContextKeyService;
 	renderer: PositronModalReactRenderer;
 	onSave: (config: IPositronLanguageModelConfig) => Promise<void>;
 	onCancel: () => void;
 }
 
 const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModelConfigurationProps>) => {
+	const isDev = IsDevelopmentContext.getValue(props.contextKeyService);
+
 	const [type, setType] = React.useState<PositronLanguageModelType>(PositronLanguageModelType.Chat);
 
 	const enabledProviders = props.sources.map(source => source.provider.id);
@@ -91,6 +101,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const [model, setModel] = React.useState<string>(defaultSource.defaults.model);
 	const [name, setName] = React.useState<string>(defaultSource.defaults.name);
 	const [showProgress, setShowProgress] = React.useState(false);
+	const [errorMessage, setError] = React.useState<string>();
 
 	useEffect(() => {
 		setSource(defaultSource);
@@ -117,11 +128,16 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			value: source,
 		}))
 
-	const onAccept = async () => {
+	const onAccept = () => {
+		props.renderer.dispose();
+	}
+
+	const onSignIn = async () => {
 		if (!source) {
 			return;
 		}
 		setShowProgress(true);
+		setError(undefined);
 		props.onSave({
 			type: type,
 			provider: source.provider.id,
@@ -134,9 +150,12 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			location: location,
 			toolCalls: toolCalls,
 			numCtx: numCtx,
+		}).then(() => {
+			props.renderer.dispose();
+		}).catch((e) => {
+			setError(e.message);
 		}).finally(() => {
 			setShowProgress(false);
-			props.renderer.dispose();
 		});
 	}
 	const onCancel = async () => {
@@ -144,121 +163,186 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		props.renderer.dispose();
 	}
 
-	return <OKCancelModalDialog
-		cancelButtonTitle={(() => localize('positron.languageModelModalDialog.cancel', "Cancel"))()}
-		catchErrors={true}
-		height={540}
-		okButtonTitle={(() => localize('positron.languageModelModalDialog.save', "Save"))()}
-		renderer={props.renderer}
-		title={(() => localize('positron.languageModelModalDialog.title', "Add a Language Model Provider"))()}
-		width={540}
-		onAccept={onAccept}
-		onCancel={onCancel}
-	>
-		<VerticalStack>
-			<label>
-				{(() => localize('positron.newConnectionModalDialog.type', "Type"))()}
-				<DropDownListBox<string, PositronLanguageModelType>
-					entries={[
-						new DropDownListBoxItem({
-							identifier: 'chat',
-							title: (() => localize('positron.newConnectionModalDialog.chat', "Chat"))(),
-							value: 'chat',
-						}),
-						new DropDownListBoxItem({
-							identifier: 'completion',
-							title: (() => localize('positron.newConnectionModalDialog.completion', "Completion"))(),
-							value: 'completion',
-						})
-					]}
-					keybindingService={props.keybindingService}
-					layoutService={props.layoutService}
-					selectedIdentifier={type}
-					title={(() => localize('positron.newConnectionModalDialog.selectType', "SelectType"))()}
-					onSelectionChanged={(item) => setType(item.options.value)}
-				/>
-			</label>
-			<label>
-				{(() => localize('positron.newConnectionModalDialog.provider', "Provider"))()}
-				<DropDownListBox
-					entries={providers}
-					keybindingService={props.keybindingService}
-					layoutService={props.layoutService}
-					selectedIdentifier={source?.provider.id}
-					title={(() => localize('positron.newConnectionModalDialog.selectProvider', "Select Provider"))()}
-					onSelectionChanged={(item) => setSource(item.options.value)}
-				/>
-			</label>
-
-			<LabeledTextInput
-				label={(() => localize('positron.newConnectionModalDialog.name', "Name"))()}
-				validator={(value) => value ? undefined : localize('positron.newConnectionModalDialog.missingName', 'A model name is required')}
-				value={name}
-				onChange={e => { setName(e.currentTarget.value) }}
-			/>
-			<LabeledTextInput
-				label={(() => localize('positron.newConnectionModalDialog.model', "Model"))()}
-				validator={(value) => value ? undefined : localize('positron.newConnectionModalDialog.missingModel', 'A model is required')}
-				value={model}
-				onChange={e => { setModel(e.currentTarget.value) }}
-			/>
-			{source?.supportedOptions.includes('baseUrl') &&
-				<LabeledTextInput
-					label={(() => localize('positron.newConnectionModalDialog.baseURL', "Base URL"))()}
-					value={baseUrl ?? ''}
-					onChange={e => { setBaseUrl(e.currentTarget.value) }}
-				/>}
-			{source?.supportedOptions.includes('project') &&
-				<LabeledTextInput
-					label={(() => localize('positron.newConnectionModalDialog.project', "Google Cloud Project ID"))()}
-					value={project ?? ''}
-					onChange={e => { setProject(e.currentTarget.value) }}
-				/>}
-			{source?.supportedOptions.includes('location') &&
-				<LabeledTextInput
-					label={(() => localize('positron.newConnectionModalDialog.location', "Google Cloud Location"))()}
-					value={location ?? ''}
-					onChange={e => { setLocation(e.currentTarget.value) }}
-				/>}
-			{source?.supportedOptions.includes('resourceName') &&
-				<LabeledTextInput
-					label={(() => localize('positron.newConnectionModalDialog.resourceName', "Azure resource name"))()}
-					value={resourceName ?? ''}
-					onChange={e => { setResourceName(e.currentTarget.value) }}
-				/>}
-			{source?.supportedOptions.includes('apiKey') &&
-				<LabeledTextInput
-					label={(() => localize('positron.newConnectionModalDialog.apiKey', "API Key"))()}
-					type='password'
-					validator={(value) => value ? undefined : localize('positron.newConnectionModalDialog.missingApiKey', 'An API key is required')}
-					value={apiKey ?? ''}
-					onChange={e => { setApiKey(e.currentTarget.value) }}
-				/>
-			}
-			{source?.supportedOptions.includes('numCtx') &&
-				<LabeledTextInput
-					label={(() => localize('positron.newConnectionModalDialog.numCtx', "Context Window size"))()}
-					type='number'
-					value={numCtx ?? 2048}
-					onChange={e => { setNumCtx(parseInt(e.currentTarget.value)) }}
-				/>
-			}
-			{source?.supportedOptions.includes('toolCalls') &&
-				<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-					<input
-						checked={toolCalls}
-						id='toolCallsCheckbox'
-						type='checkbox'
-						onChange={e => { setToolCalls(e.target.checked) }}
+	function oldDialog() {
+		return <OKCancelModalDialog
+			cancelButtonTitle={(() => localize('positron.languageModelModalDialog.cancel', "Cancel"))()}
+			catchErrors={true}
+			height={540}
+			okButtonTitle={(() => localize('positron.languageModelModalDialog.save', "Save"))()}
+			renderer={props.renderer}
+			title={(() => localize('positron.languageModelModalDialog.title', "Add a Language Model Provider"))()}
+			width={540}
+			onAccept={onAccept}
+			onCancel={onCancel}
+		>
+			<VerticalStack>
+				<label>
+					{(() => localize('positron.newConnectionModalDialog.type', "Type"))()}
+					<DropDownListBox<string, PositronLanguageModelType>
+						entries={[
+							new DropDownListBoxItem({
+								identifier: 'chat',
+								title: (() => localize('positron.newConnectionModalDialog.chat', "Chat"))(),
+								value: 'chat',
+							}),
+							new DropDownListBoxItem({
+								identifier: 'completion',
+								title: (() => localize('positron.newConnectionModalDialog.completion', "Completion"))(),
+								value: 'completion',
+							})
+						]}
+						keybindingService={props.keybindingService}
+						layoutService={props.layoutService}
+						selectedIdentifier={type}
+						title={(() => localize('positron.newConnectionModalDialog.selectType', "SelectType"))()}
+						onSelectionChanged={(item) => setType(item.options.value)}
 					/>
-					<label htmlFor='toolCallsCheckbox'>
-						{(() => localize('positron.newConnectionModalDialog.toolCalls', "Enable tool calling"))()}
-					</label>
+				</label>
+				<label>
+					{(() => localize('positron.newConnectionModalDialog.provider', "Provider"))()}
+					<DropDownListBox
+						entries={providers}
+						keybindingService={props.keybindingService}
+						layoutService={props.layoutService}
+						selectedIdentifier={source?.provider.id}
+						title={(() => localize('positron.newConnectionModalDialog.selectProvider', "Select Provider"))()}
+						onSelectionChanged={(item) => setSource(item.options.value)}
+					/>
+				</label>
+
+				<LabeledTextInput
+					label={(() => localize('positron.newConnectionModalDialog.name', "Name"))()}
+					validator={(value) => value ? undefined : localize('positron.newConnectionModalDialog.missingName', 'A model name is required')}
+					value={name}
+					onChange={e => { setName(e.currentTarget.value) }}
+				/>
+				<LabeledTextInput
+					label={(() => localize('positron.newConnectionModalDialog.model', "Model"))()}
+					validator={(value) => value ? undefined : localize('positron.newConnectionModalDialog.missingModel', 'A model is required')}
+					value={model}
+					onChange={e => { setModel(e.currentTarget.value) }}
+				/>
+				{source?.supportedOptions.includes('baseUrl') &&
+					<LabeledTextInput
+						label={(() => localize('positron.newConnectionModalDialog.baseURL', "Base URL"))()}
+						value={baseUrl ?? ''}
+						onChange={e => { setBaseUrl(e.currentTarget.value) }}
+					/>}
+				{source?.supportedOptions.includes('project') &&
+					<LabeledTextInput
+						label={(() => localize('positron.newConnectionModalDialog.project', "Google Cloud Project ID"))()}
+						value={project ?? ''}
+						onChange={e => { setProject(e.currentTarget.value) }}
+					/>}
+				{source?.supportedOptions.includes('location') &&
+					<LabeledTextInput
+						label={(() => localize('positron.newConnectionModalDialog.location', "Google Cloud Location"))()}
+						value={location ?? ''}
+						onChange={e => { setLocation(e.currentTarget.value) }}
+					/>}
+				{source?.supportedOptions.includes('resourceName') &&
+					<LabeledTextInput
+						label={(() => localize('positron.newConnectionModalDialog.resourceName', "Azure resource name"))()}
+						value={resourceName ?? ''}
+						onChange={e => { setResourceName(e.currentTarget.value) }}
+					/>}
+				{source?.supportedOptions.includes('apiKey') &&
+					<LabeledTextInput
+						label={(() => localize('positron.newConnectionModalDialog.apiKey', "API Key"))()}
+						type='password'
+						validator={(value) => value ? undefined : localize('positron.newConnectionModalDialog.missingApiKey', 'An API key is required')}
+						value={apiKey ?? ''}
+						onChange={e => { setApiKey(e.currentTarget.value) }}
+					/>
+				}
+				{source?.supportedOptions.includes('numCtx') &&
+					<LabeledTextInput
+						label={(() => localize('positron.newConnectionModalDialog.numCtx', "Context Window size"))()}
+						type='number'
+						value={numCtx ?? 2048}
+						onChange={e => { setNumCtx(parseInt(e.currentTarget.value)) }}
+					/>
+				}
+				{source?.supportedOptions.includes('toolCalls') &&
+					<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+						<input
+							checked={toolCalls}
+							id='toolCallsCheckbox'
+							type='checkbox'
+							onChange={e => { setToolCalls(e.target.checked) }}
+						/>
+						<label htmlFor='toolCallsCheckbox'>
+							{(() => localize('positron.newConnectionModalDialog.toolCalls', "Enable tool calling"))()}
+						</label>
+					</div>
+				}
+				{showProgress &&
+					<ProgressBar />
+				}
+			</VerticalStack>
+		</OKCancelModalDialog>
+	}
+
+	function newDialog() {
+		return <OKModalDialog
+			height={400}
+			okButtonTitle={(() => localize('positron.languageModelModalDialog.done', "Done"))()}
+			renderer={props.renderer}
+			title={(() => localize('positron.languageModelModalDialog.title', "Add a Language Model Provider"))()}
+			width={540}
+			onAccept={onAccept}
+		>
+			<VerticalStack>
+				<label className='language-model-section'>
+					{(() => localize('positron.newConnectionModalDialog.provider', "Provider"))()}
+				</label>
+				<div>
+					{
+						providers.map(provider => {
+							return <LanguageModelButton
+								key={provider.options.identifier}
+								displayName={provider.options.title ?? provider.options.identifier}
+								identifier={provider.options.identifier}
+								selected={provider.options.identifier === source.provider.id}
+								onClick={() => setSource(provider.options.value)}
+							/>
+						})
+					}
 				</div>
-			}
-			{showProgress &&
-				<ProgressBar />
-			}
-		</VerticalStack>
-	</OKCancelModalDialog>
+				<label className='language-model-section'>
+					{(() => localize('positron.newConnectionModalDialog.authentication', "Authentication"))()}
+				</label>
+				{source?.supportedOptions.includes('apiKey') &&
+					(
+						<div className='language-model-authentication-container'>
+							<LabeledTextInput
+								label={(() => localize('positron.newConnectionModalDialog.apiKey', "API Key"))()}
+								type='password'
+								validator={(value) => {
+									if (errorMessage) {
+										return errorMessage;
+									}
+									return value ? undefined : localize('positron.newConnectionModalDialog.missingApiKey', 'An API key is required')
+								}}
+								value={apiKey ?? ''}
+								onChange={e => { setApiKey(e.currentTarget.value) }}
+							/>
+							<Button className='language-model button sign-in' onPressed={onSignIn}>
+								{(() => localize('positron.newConnectionModalDialog.signIn', "Sign in"))()}
+							</Button>
+						</div>
+					)
+				}
+				{showProgress &&
+					<ProgressBar />
+				}
+			</VerticalStack>
+		</OKModalDialog>;
+	}
+
+	if (isDev) {
+		return newDialog();
+	} else {
+		return oldDialog();
+	}
 }
