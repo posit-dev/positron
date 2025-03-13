@@ -67,11 +67,11 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 	copyRepo(cacheDir, workspacePath);
 }
 
-// Helper function to copy the repo
 function copyRepo(source: string, destination: string): void {
-	rimraf.sync(destination);
-	fs.mkdirSync(destination, { recursive: true });
-	const cmd = process.platform === 'win32' ? `xcopy /E /H /K /Y "${source}\\*" "${destination}\\*"` : `cp -R "${source}/." "${destination}"`;
-	cp.execSync(cmd);
+	if (process.platform === 'win32') {
+		cp.execSync(`xcopy /E /H /K /Y "${source}\\*" "${destination}\\*"`);
+	} else {
+		cp.execSync(`cp -R "${source}/." "${destination}"`);
+	}
 	console.log(`✓ Workspace: ${destination}`);
 }
