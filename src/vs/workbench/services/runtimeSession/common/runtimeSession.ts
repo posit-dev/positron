@@ -20,13 +20,14 @@ import { ILanguageService } from '../../../../editor/common/languages/language.j
 import { ResourceMap } from '../../../../base/common/map.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
-import { basename } from '../../../../base/common/resources.js';
 import { IUpdateService } from '../../../../platform/update/common/update.js';
 import { multipleConsoleSessionsFeatureEnabled } from './positronMultipleConsoleSessionsFeatureFlag.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
+import { generateNotebookSessionId } from './runtimeSessionUtils.js';
+import { IPositronVariablesService } from '../../positronVariables/common/interfaces/positronVariablesService.js';
 
 /**
  * The maximum number of active sessions a user can have running at a time.
@@ -382,7 +383,17 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const sessionMode = notebookUri
 			? LanguageRuntimeSessionMode.Notebook
 			: LanguageRuntimeSessionMode.Console;
-		const sessionName = notebookUri ? basename(notebookUri) : runtime.runtimeName;
+
+
+		let sessionName = runtime.runtimeName;
+
+		if (notebookUri) {
+			const activeSession = this.getNotebookSessionForNotebookUri(notebookUri);
+			// If there is an active session for this notebook, use the runtime ID of the active
+			// session instead of generating a new one.
+			sessionName = activeSession ? activeSession.runtimeMetadata.runtimeId : generateNotebookSessionId();
+		}
+
 		const startMode = notebookUri
 			? RuntimeStartMode.Switching
 			: multiSessionsEnabled ? RuntimeStartMode.Starting : RuntimeStartMode.Switching;
@@ -410,6 +421,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			const activeSession =
 				this.getNotebookSessionForNotebookUri(notebookUri);
 			if (activeSession) {
+				// If the active session is for the same runtime, we don't need to do anything.
 				if (activeSession.runtimeMetadata.runtimeId === runtime.runtimeId) {
 					return;
 				}
@@ -452,6 +464,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			startMode,
 			true
 		);
+
+		if (notebookUri) {
+			// Make sure that the notebook knows about its session id for proper mapping of notebook file name to session.
+			await this._commandService.executeCommand('_positron.storeNotebookSessionId', notebookUri.toString(), sessionName)
+				.catch(err => {
+					this._logService.error(`Failed to store session ID for notebook: ${err}`);
+				});
+		}
 	}
 
 	/**
@@ -2019,7 +2039,33 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._updateService.updateActiveLanguages([...languages]);
 	}
 
+	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined {
+		const session = this.activeSessions.find(s => s.dynState.currentNotebookUri === oldUri);
+		if (!session) {
+			return undefined;
+		}
+
+		// Update the session's notebook URI
+		session.dynState.currentNotebookUri = newUri;
+		return session.sessionId;
+	}
 }
+
+// Register a command to store the session ID in the NotebookEditorInput
+CommandsRegistry.registerCommand('_positron.reassignNotebookSessionUri', async (accessor, fromUri: string, toUri: string) => {
+	// const editorService = accessor.get(IEditorService);
+	const from = URI.parse(fromUri);
+	const to = URI.parse(toUri);
+
+	console.log(`Reassigning notebook session URI from ${from.toString()} to ${to.toString()}`);
+	// // Update the URI associated with the session
+	const sessionId = accessor.get(IRuntimeSessionService).updateNotebookSessionUri(from, to);
+	if (sessionId) {
+		// Tell the variables service to refresh so that the new URI is displayed
+		accessor.get(IPositronVariablesService).setActivePositronVariablesSession(sessionId);
+	}
+});
+
 registerSingleton(IRuntimeSessionService, RuntimeSessionService, InstantiationType.Eager);
 
 /**

@@ -27,7 +27,7 @@ export const VariablesInstanceMenuButton = () => {
 	// Helper method to calculate the label for a runtime.
 	const labelForRuntime = (session?: ILanguageRuntimeSession): string => {
 		if (session) {
-			return session.metadata.sessionName;
+			return session.getLabel();
 		}
 		return 'None';
 	};
@@ -39,7 +39,7 @@ export const VariablesInstanceMenuButton = () => {
 		positronVariablesContext.positronVariablesInstances.map(positronVariablesInstance => {
 			actions.push({
 				id: positronVariablesInstance.session.sessionId,
-				label: positronVariablesInstance.session.metadata.sessionName,
+				label: labelForRuntime(positronVariablesInstance.session),
 				tooltip: '',
 				class: undefined,
 				enabled: true,

@@ -226,6 +226,9 @@ export interface ILanguageRuntimeSession extends IDisposable {
 
 	/** Show profiler log of the runtime, if supported */
 	showProfile(): Thenable<void>;
+
+	/** Get the label associated with the session. This is a more human-readable name for the session. */
+	getLabel(): string;
 }
 
 /**
@@ -453,6 +456,15 @@ export interface IRuntimeSessionService {
 	 * @returns A promise that resolves when the session has exited.
 	 */
 	shutdownNotebookSession(notebookUri: URI, exitReason: RuntimeExitReason, source: string): Promise<void>;
+
+	/**
+	 * Updates the URI of a notebook session.
+	 *
+	 * @param oldUri The old URI of the notebook session.
+	 * @param newUri The new URI of the notebook session.
+	 * @returns The ID of the session that was updated, or undefined if no session was updated.
+	 */
+	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined;
 
 	/**
 	 * Updates the active languages with the update service. This has to be pushed to the update

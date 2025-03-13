@@ -31,6 +31,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { IMarkdownString } from '../../../../base/common/htmlContent.js';
 import { ITextResourceConfigurationService } from '../../../../editor/common/services/textResourceConfiguration.js';
 import { ICustomEditorLabelService } from '../../../services/editor/common/customEditorLabelService.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 
 export interface NotebookEditorInputOptions {
 	startDirty?: boolean;
@@ -71,7 +72,8 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 		@IExtensionService extensionService: IExtensionService,
 		@IEditorService editorService: IEditorService,
 		@ITextResourceConfigurationService textResourceConfigurationService: ITextResourceConfigurationService,
-		@ICustomEditorLabelService customEditorLabelService: ICustomEditorLabelService
+		@ICustomEditorLabelService customEditorLabelService: ICustomEditorLabelService,
+		@ICommandService private readonly _commandService: ICommandService,
 	) {
 		super(resource, preferredResource, labelService, fileService, filesConfigurationService, textResourceConfigurationService, customEditorLabelService);
 		this._defaultDirtyState = !!options.startDirty;
@@ -237,6 +239,13 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 			}).join(', ');
 			throw new Error(`File name ${target} is not supported by ${provider.providerDisplayName}.\n\nPlease make sure the file name matches following patterns:\n${patterns}`);
 		}
+		// --- Start Positron ---
+		// Log when an untitled notebook has been successfully saved
+		if (this.hasCapability(EditorInputCapabilities.Untitled) && target) {
+			// Send message to the runtime session service to update the URI
+			this._commandService.executeCommand('_positron.reassignNotebookSessionUri', this.resource.toString(), target.toString());
+		}
+		// --- End Positron ---
 
 		return await this.editorModelReference.object.saveAs(target);
 	}
