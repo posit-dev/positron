@@ -20,6 +20,7 @@
 	"r.command.packageDocument.title": "Document R Package",
 	"r.command.selectInterpreter.title": "Select Interpreter",
 	"r.command.rmarkdownRender.title": "Render Document With R Markdown",
+	"r.command.interpreters.settingsInfo.title": "Print interpreter settings information to Output",
 	"r.menu.createNewFile.title": "R File",
 	"r.menu.insertPipe.title": "Insert the pipe operator",
 	"r.menu.insertLeftAssignment.title": "Insert the \"<-\" assignment operator",

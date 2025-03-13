@@ -142,6 +142,11 @@
         "category": "R",
         "title": "%r.command.rmarkdownRender.title%",
         "icon": "$(play)"
+      },
+      {
+        "command": "r.interpreters.settingsInfo",
+        "category": "R",
+        "title": "%r.command.interpreters.settingsInfo.title%"
       }
     ],
     "configuration": [

@@ -159,3 +159,26 @@ export function getDefaultInterpreterPath(): string | undefined {
 	}
 	return undefined;
 }
+
+/**
+ * Print the R interpreter settings info to the log.
+ */
+export function printInterpreterSettingsInfo(): void {
+	const interpreterSettingsInfo = {
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		'interpreters.default': getDefaultInterpreterPath(),
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		'interpreters.override': getInterpreterOverridePaths(),
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		'interpreters.exclude': getExcludedInstallations(),
+		'customRootFolders': userRHeadquarters(),
+		'customBinaries': userRBinaries(),
+	};
+	LOGGER.info('=====================================================================');
+	LOGGER.info('=============== [START] R INTERPRETER SETTINGS INFO =================');
+	LOGGER.info('=====================================================================');
+	LOGGER.info('R interpreter settings:', JSON.stringify(interpreterSettingsInfo, null, 2));
+	LOGGER.info('=====================================================================');
+	LOGGER.info('================ [END] R INTERPRETER SETTINGS INFO ==================');
+	LOGGER.info('=====================================================================');
+}

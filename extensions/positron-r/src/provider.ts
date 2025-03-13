@@ -15,7 +15,7 @@ import * as crypto from 'crypto';
 import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
-import { getInterpreterOverridePaths, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
+import { getInterpreterOverridePaths, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { isDirectory, isFile } from './path-utils.js';
 
 // We don't give this a type so it's compatible with both the VS Code
@@ -58,6 +58,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	// If no R binaries are found, notify the user and end discovery.
 	if (binaries.length === 0) {
 		LOGGER.warn('Positron could not find any R installations. Please review any custom settings.');
+		printInterpreterSettingsInfo();
 		const showLog = await positron.window.showSimpleModalDialogPrompt(
 			vscode.l10n.t('No R installations discovered'),
 			vscode.l10n.t('Positron could not find any R installations. Learn more about R discovery at <br><a href="https://positron.posit.co/r-installations">https://positron.posit.co/r-installations</a>'),

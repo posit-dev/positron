@@ -16,6 +16,8 @@ import { MINIMUM_RENV_VERSION, MINIMUM_R_VERSION } from './constants';
 import { RRuntimeManager } from './runtime-manager';
 import { RMetadataExtra } from './r-installation';
 import { onDidDiscoverTestFiles } from './testing/testing';
+import { LOGGER } from './extension.js';
+import { printInterpreterSettingsInfo } from './interpreter-settings.js';
 
 export async function registerCommands(context: vscode.ExtensionContext, runtimeManager: RRuntimeManager) {
 
@@ -223,6 +225,13 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			} else {
 				console.debug('[r.renvInit] renv is not installed');
 			}
+		}),
+
+		// Command used to open up the R Language Pack output channel and log information
+		// about the R interpreter settings
+		vscode.commands.registerCommand('r.interpreters.settingsInfo', async () => {
+			LOGGER.show();
+			printInterpreterSettingsInfo();
 		}),
 	);
 }
