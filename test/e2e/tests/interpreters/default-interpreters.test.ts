@@ -18,7 +18,7 @@ test.describe('Default Interpreters', {
 
 	const homeDir = process.env.HOME || '';
 
-	test.beforeEach(async function ({ app }) {
+	test.beforeEach(async function () {
 
 		const buildSet = !!process.env.BUILD;
 
@@ -40,6 +40,10 @@ test.describe('Default Interpreters', {
 
 		execSync(`rm -rf ${vscodePath} ${positronPath}`);
 
+	});
+
+	test.afterEach(async function ({ openFolder }) {
+		await openFolder(path.join('qa-example-content'));
 	});
 
 	test('Python - Add a default interpreter (Conda)', async function ({ app, userSettings, runCommand }) {
