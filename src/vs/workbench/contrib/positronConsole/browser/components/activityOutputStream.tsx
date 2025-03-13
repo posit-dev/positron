@@ -10,7 +10,7 @@ import './activityOutputStream.css';
 import React from 'react';
 
 // Other dependencies.
-import { OutputLines } from './outputLines.js';
+import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { ActivityItemStream } from '../../../../services/positronConsole/browser/classes/activityItemStream.js';
 
 // ActivityOutputStreamProps interface.
@@ -26,6 +26,6 @@ export interface ActivityOutputStreamProps {
 export const ActivityOutputStream = (props: ActivityOutputStreamProps) => {
 	// Render.
 	return (
-		<OutputLines outputLines={props.activityItemStream.outputLines} />
+		<ConsoleOutputLines outputLines={props.activityItemStream.outputLines} />
 	);
 };

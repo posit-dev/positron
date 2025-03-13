@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -11,8 +11,8 @@ import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
-import { OutputLines } from './outputLines.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 
 // ActivityErrorProps interface.
@@ -73,7 +73,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 					<div className='traceback-lines'>
 						<div />
 						<div>
-							<OutputLines outputLines={props.activityItemErrorMessage.tracebackOutputLines} />
+							<ConsoleOutputLines outputLines={props.activityItemErrorMessage.tracebackOutputLines} />
 						</div>
 					</div>
 				}
@@ -87,7 +87,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 			<div className='error-bar'></div>
 			<div className='error-information'>
 				{props.activityItemErrorMessage.messageOutputLines.length > 0 &&
-					<OutputLines outputLines={props.activityItemErrorMessage.messageOutputLines} />
+					<ConsoleOutputLines outputLines={props.activityItemErrorMessage.messageOutputLines} />
 				}
 				{props.activityItemErrorMessage.tracebackOutputLines.length > 0 &&
 					<Traceback />

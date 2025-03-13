@@ -12,7 +12,7 @@ import React, { KeyboardEvent, useEffect, useRef } from 'react';
 // Other dependencies.
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { OutputRun } from '../../../../browser/positronAnsiRenderer/outputRun.js';
-import { OutputLines } from './outputLines.js';
+import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ActivityItemPrompt, ActivityItemPromptState } from '../../../../services/positronConsole/browser/classes/activityItemPrompt.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
@@ -209,7 +209,7 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 	// Render.
 	return (
 		<div className='activity-prompt'>
-			<OutputLines outputLines={props.activityItemPrompt.outputLines.slice(0, -1)} />
+			<ConsoleOutputLines outputLines={props.activityItemPrompt.outputLines.slice(0, -1)} />
 			<div className='prompt-line'>
 				{props.activityItemPrompt.outputLines.slice(-1).map(outputLine =>
 					outputLine.outputRuns.map(outputRun =>

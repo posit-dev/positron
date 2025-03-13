@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,7 +10,7 @@ import './activityOutputMessage.css';
 import React from 'react';
 
 // Other dependencies.
-import { OutputLines } from './outputLines.js';
+import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { ActivityItemOutputMessage } from '../../../../services/positronConsole/browser/classes/activityItemOutputMessage.js';
 
 // ActivityOutputMessageProps interface.
@@ -26,6 +26,6 @@ export interface ActivityOutputMessageProps {
 export const ActivityOutputMessage = (props: ActivityOutputMessageProps) => {
 	// Render.
 	return (
-		<OutputLines outputLines={props.activityItemOutputMessage.outputLines} />
+		<ConsoleOutputLines outputLines={props.activityItemOutputMessage.outputLines} />
 	);
 };

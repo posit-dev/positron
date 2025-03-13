@@ -1,9 +1,22 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { generateUuid } from './uuid.js';
+/**
+ * ANSIOutput has no depencencies for a reason. Please do not add depencencies
+ * to this file. If you need something in here, inject it from the outside.
+ */
+
+/**
+ * Constants.
+ */
+const MIN_TRUNCATED_OUTPUT_LINES = 10;
+
+/**
+ * The identifier that is handed out in the next call to `getIdentifier`.
+ */
+let identifier = 0;
 
 //#region Exports
 
@@ -225,6 +238,14 @@ export class ANSIOutput {
 		return this._outputLines;
 	}
 
+	/**
+	 * Gets the clipboard representation.
+	 */
+	get clipboardRepresentation() {
+		this.flushBuffer();
+		return this.outputLines.map(outputLine => outputLine.outputRuns.map(outputRun => outputRun.text).join('')).join('\n');
+	}
+
 	//#endregion Public Properties
 
 	//#region Public Static Methods
@@ -389,6 +410,40 @@ export class ANSIOutput {
 
 		// Flush the buffer at the end of the output.
 		this.flushBuffer();
+	}
+
+	/**
+	 * Returns truncated output lines.
+	 * @param headOutputLinesLength The head output lines length.
+	 * @param tailOutputLinesLength The tail output lines length.
+	 * @param truncationLabelCallback The truncation label callback.
+	 * @returns The truncated output lines.
+	 */
+	truncatedOutputLines(
+		headOutputLinesLength: number,
+		tailOutputLinesLength: number,
+		truncationLabelCallback: (truncatedOutputLinesLength: number) => string
+	) {
+		// Calculate the truncated output lines length.
+		const truncatedOutputLinesLength = this.outputLines.length - headOutputLinesLength - tailOutputLinesLength;
+
+		// If there are fewer than MIN_TRUNCATED_OUTPUT_LINES, just return the output lines.
+		if (truncatedOutputLinesLength <= MIN_TRUNCATED_OUTPUT_LINES) {
+			return this.outputLines;
+		}
+
+		// Return the truncated output lines.
+		return [
+			...this._outputLines.slice(0, headOutputLinesLength),
+			{
+				id: generateId(),
+				outputRuns: [{
+					id: generateId(),
+					text: truncationLabelCallback(truncatedOutputLinesLength)
+				}]
+			},
+			...this._outputLines.slice(-tailOutputLinesLength)
+		];
 	}
 
 	//#endregion Public Methods
@@ -2377,7 +2432,7 @@ class Hyperlink implements ANSIHyperlink {
  * @returns The identifier.
  */
 const generateId = () => {
-	return generateUuid();
+	return ++identifier + '';
 };
 
 /**

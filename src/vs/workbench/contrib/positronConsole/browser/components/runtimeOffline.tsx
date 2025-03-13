@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,7 +10,7 @@ import './runtimeOffline.css';
 import React from 'react';
 
 // Other dependencies.
-import { OutputLines } from './outputLines.js';
+import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { RuntimeItemOffline } from '../../../../services/positronConsole/browser/classes/runtimeItemOffline.js';
 
 // RuntimeExitedProps interface.
@@ -27,7 +27,7 @@ export const RuntimeOffline = (props: RuntimeOfflineProps) => {
 	// Render.
 	return (
 		<div className='runtime-offline'>
-			<OutputLines outputLines={props.runtimeItemOffline.outputLines} />
+			<ConsoleOutputLines outputLines={props.runtimeItemOffline.outputLines} />
 		</div>
 	);
 };

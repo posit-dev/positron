@@ -10,7 +10,7 @@ import './activityErrorStream.css';
 import React from 'react';
 
 // Other dependencies.
-import { OutputLines } from './outputLines.js';
+import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { ActivityItemStream } from '../../../../services/positronConsole/browser/classes/activityItemStream.js';
 
 // ActivityErrorStreamProps interface.
@@ -27,7 +27,7 @@ export const ActivityErrorStream = (props: ActivityErrorStreamProps) => {
 	// Render.
 	return (
 		<div className='activity-error-stream'>
-			<OutputLines outputLines={props.activityItemStream.outputLines} />
+			<ConsoleOutputLines outputLines={props.activityItemStream.outputLines} />
 		</div>
 	);
 };

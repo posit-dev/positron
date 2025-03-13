@@ -5,4 +5,5 @@
 
 .runtime-activity {
 	background: transparent;
+	border-bottom: 1px solid var(--vscode-positronSideActionBar-border);
 }
