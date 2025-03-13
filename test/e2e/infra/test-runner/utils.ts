@@ -26,7 +26,7 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 			.split('\t')[0]
 			.trim();
 	} catch {
-		console.warn('! Warning: No internet connection detected.');
+		console.warn('! Warning: No internet connection detected');
 	}
 
 	// Prevent force cloning if offline
@@ -51,7 +51,7 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 	}
 
 	if (!remoteCommitHash) {
-		console.error('✗ No internet connection and no valid cache found.');
+		console.error('✗ No internet connection and no valid cache found');
 		return;
 	}
 
@@ -59,7 +59,7 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 	console.log('✓ Cloning fresh repository...');
 	rimraf.sync(cacheDir);
 	if (cp.spawnSync('git', ['clone', '--depth=1', '--branch', branch, testRepoUrl, cacheDir, '-q'], { stdio: 'inherit' }).status !== 0) {
-		console.error('✗ Failed to clone repository.');
+		console.error('✗ Failed to clone repository');
 		return;
 	}
 
