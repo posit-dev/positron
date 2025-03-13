@@ -18,7 +18,7 @@ test.describe('Default Interpreters', {
 
 	const homeDir = process.env.HOME || '';
 
-	test.beforeAll(async function ({ app }) {
+	test.beforeEach(async function ({ app }) {
 
 		const buildSet = !!process.env.BUILD;
 
@@ -71,5 +71,30 @@ test.describe('Default Interpreters', {
 
 		// hidden interpreter (Conda)
 		await app.workbench.console.waitForConsoleContents('3.12.9', { expectedCount: 1 });
+	});
+
+	test('R - Add a default interpreter', async function ({ app, userSettings, runCommand }) {
+
+		await app.workbench.console.waitForInterpretersToFinishLoading();
+
+		// close qa-example-content
+		await runCommand('workbench.action.closeFolder');
+
+		await expect(async () => {
+			await app.workbench.console.waitForInterpretersToFinishLoading();
+
+			// hidden interpreter
+			await userSettings.set([['positron.r.interpreters.default', '"/home/runner/scratch/R-4.4.1/bin/R"']], false);
+		}).toPass({ timeout: 45000 });
+
+		await app.workbench.console.waitForReadyAndStarted('>', 30000);
+
+		await app.workbench.console.barClearButton.click();
+
+		await app.workbench.console.pasteCodeToConsole('cat(R.version.string, "\n")');
+		await app.workbench.console.sendEnterKey();
+
+		// hidden interpreter
+		await app.workbench.console.waitForConsoleContents('4.4.1', { expectedCount: 1 });
 	});
 });
