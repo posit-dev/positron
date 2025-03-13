@@ -140,11 +140,6 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	private readonly _positronConsoleInstancesByLanguageId = new Map<string, PositronConsoleInstance>();
 
 	/**
-	 * A map of the Positron console instances by runtime ID.
-	 */
-	private readonly _positronConsoleInstancesByRuntimeId = new Map<string, PositronConsoleInstance[]>();
-
-	/**
 	 * A map of the Positron console instances by session ID.
 	 */
 	private readonly _positronConsoleInstancesBySessionId = new Map<string, PositronConsoleInstance>();
@@ -628,16 +623,8 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				runtimeMetadata.languageId,
 				positronConsoleInstance
 			);
-		} else {
-			// Add the Positron console instance.
-			const positronConsoleInstancesForRuntime =
-				this._positronConsoleInstancesByRuntimeId.get(runtimeMetadata.runtimeId) || [];
-			positronConsoleInstancesForRuntime.push(positronConsoleInstance);
-			this._positronConsoleInstancesByRuntimeId.set(
-				runtimeMetadata.runtimeId,
-				positronConsoleInstancesForRuntime
-			);
 		}
+
 		this._positronConsoleInstancesBySessionId.set(
 			sessionMetadata.sessionId,
 			positronConsoleInstance
