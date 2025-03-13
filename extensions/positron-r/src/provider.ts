@@ -55,6 +55,21 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	// Discover R binaries on the system
 	const { binaries, currentBinary } = await getBinaries();
 
+	// If no R binaries are found, notify the user and end discovery.
+	if (binaries.length === 0) {
+		LOGGER.warn('Positron could not find any R installations. Please review any custom settings.');
+		const showLog = await positron.window.showSimpleModalDialogPrompt(
+			vscode.l10n.t('No R installations discovered'),
+			vscode.l10n.t('Positron could not find any R installations. Learn more about R discovery at <br><a href="https://positron.posit.co/r-installations">https://positron.posit.co/r-installations</a>'),
+			vscode.l10n.t('View logs'),
+			vscode.l10n.t('Dismiss')
+		);
+		if (showLog) {
+			LOGGER.show();
+		}
+		return;
+	}
+
 	// Promote R binaries to R installations
 	const rejectedRInstallations: RInstallation[] = [];
 	const rInstallations: RInstallation[] = binaries
@@ -135,11 +150,16 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	}
 }
 
+/**
+ * Discover binaries on the system based on various sources and return them.
+ * @returns A list of unique R binaries and the current binary if it exists.
+ */
 async function getBinaries(): Promise<DiscoveredBinaries> {
 	// If the override paths are specified, use them exclusively
 	const overrideBinaries = discoverOverrideBinaries();
-	if (!!overrideBinaries) {
-		return { binaries: overrideBinaries, currentBinary: undefined };
+	if (overrideBinaries !== undefined) {
+		const uniqueBinaries = deduplicateRBinaries(overrideBinaries);
+		return { binaries: uniqueBinaries, currentBinary: undefined };
 	}
 
 	// Consult various sources of R binaries
@@ -156,19 +176,32 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 	const serverBinaries = discoverServerBinaries();
 
 	// Combine all the binaries we've found
-	const rBinaries: RBinary[] = [];
-	rBinaries.push(
+	const rBinaries: RBinary[] = [
 		...currentBinaries,
 		...systemHqBinaries,
 		...registryBinaries,
 		...moreBinaries,
 		...userBinaries,
 		...serverBinaries
-	);
+	];
 
-	// Deduplicate the binaries, merging the reasons for each binary
-	const binariesMap = new Map<string, RBinary>();
-	rBinaries.reduce((acc, binary) => {
+	// Deduplicate the binaries
+	const uniqueBinaries = deduplicateRBinaries(rBinaries);
+
+	// Return the array of unique binaries and the current binary if it exists
+	return {
+		binaries: uniqueBinaries,
+		currentBinary: currentBinaries.length > 0 ? currentBinaries[0].path : undefined
+	};
+}
+
+/**
+ * Deduplicate a list of R binaries, merging the reasons for each binary.
+ * @param binaries Binaries to deduplicate
+ * @returns Deduplicated binaries
+ */
+function deduplicateRBinaries(binaries: RBinary[]) {
+	const binariesMap = binaries.reduce((acc, binary) => {
 		if (acc.has(binary.path)) {
 			const existingBinary = acc.get(binary.path)!;
 			const mergedReasons = Array.from(new Set([...existingBinary.reasons, ...binary.reasons]));
@@ -177,13 +210,9 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 			acc.set(binary.path, binary);
 		}
 		return acc;
-	}, binariesMap);
+	}, new Map<string, RBinary>());
 
-	// Return the array of unique binaries and the current binary if it exists
-	return {
-		binaries: Array.from(binariesMap.values()),
-		currentBinary: currentBinaries.length > 0 ? currentBinaries[0].path : undefined
-	};
+	return Array.from(binariesMap.values());
 }
 
 export async function makeMetadata(
@@ -597,19 +626,28 @@ function discoverServerBinaries(): RBinary[] {
 }
 
 /**
- * Discovers R binaries that are specified by the user via the `positron.r.interpreters.override` setting.
- * @returns R binaries that are installed in the user-specified locations.
+ * Discovers R binaries that are specified via the `positron.r.interpreters.override` setting.
+ * @returns R binaries that are installed in the settings-specified locations.
  */
 function discoverOverrideBinaries(): RBinary[] | undefined {
 	const overridePaths = getInterpreterOverridePaths();
+
+	// Return immediately if there are no override paths
 	if (overridePaths.length === 0) {
 		return undefined;
 	}
+
+	// Filter the override paths into directories and files
 	const overrideDirs = overridePaths.filter((item) => isDirectory(item));
 	const overrideFiles = overridePaths.filter((item) => isFile(item));
+
+	// Discover the binaries in the override directories and files and combine them
 	const overrideHqBinaries = discoverHQBinaries(overrideDirs);
-	const overrideBinaries = discoverAdHocBinaries(overrideFiles);
-	return overrideHqBinaries.concat(overrideBinaries);
+	const overrideAdHocBinaries = discoverAdHocBinaries(overrideFiles);
+	const overrideBinaries = overrideHqBinaries.concat(overrideAdHocBinaries);
+
+	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.userSetting
+	return overrideBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.userSetting] }));
 }
 
 // R discovery helpers
