@@ -16,6 +16,7 @@ import { IReactComponentContainer } from '../../../../../base/browser/positronRe
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { IRuntimeSessionMetadata } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
+import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 // ConsoleInstanceMenuButtonProps interface.
 interface ConsoleInstanceMenuButtonProps {
@@ -54,6 +55,21 @@ export const ConsoleInstanceMenuButton = (props: ConsoleInstanceMenuButtonProps)
 		return () => disposables.dispose();
 	}, [positronConsoleContext.activePositronConsoleInstance, positronConsoleContext.positronConsoleService]);
 
+	// Switch to the given console.
+	const switchToConsole = (positronConsoleInstance: IPositronConsoleInstance) => {
+		const session = positronConsoleInstance.attachedRuntimeSession;
+		if (session) {
+			// For attached sessions, we need to set the foreground session.
+			positronConsoleContext.runtimeSessionService.foregroundSession = session;
+		} else {
+			// For detached sessions, set the session in just the console service.
+			positronConsoleContext.positronConsoleService.setActivePositronConsoleSession(positronConsoleInstance.sessionId);
+		}
+		setTimeout(() => {
+			props.reactComponentContainer.takeFocus();
+		}, 0);
+	}
+
 	// Builds the actions.
 	const actions = () => {
 		// Build the actions for the available console repl instances.
@@ -66,11 +82,7 @@ export const ConsoleInstanceMenuButton = (props: ConsoleInstanceMenuButtonProps)
 				class: undefined,
 				enabled: true,
 				run: () => {
-					positronConsoleContext.runtimeSessionService.foregroundSession =
-						positronConsoleInstance.attachedRuntimeSession
-					setTimeout(() => {
-						props.reactComponentContainer.takeFocus();
-					}, 0);
+					switchToConsole(positronConsoleInstance);
 				}
 			});
 		});
