@@ -38,7 +38,7 @@ test.describe('SQLite DB Connection', {
 				await app.workbench.variables.clickDatabaseIconForVariableRow('conn');
 				await app.workbench.connections.connectIcon.click();
 			} catch (error) {
-				// For some reasonm, on the retry, the pane opes directly to this connection
+				// For some reasonm, on the retry, the pane opens directly to this connection
 				// and the connectIcon.click() is not needed.
 				await app.workbench.sideBar.openSession();
 				await app.code.driver.page.waitForTimeout(2000);
