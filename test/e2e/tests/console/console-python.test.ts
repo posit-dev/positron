@@ -39,7 +39,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 		await app.workbench.console.barRestartButton.click();
 
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.console.waitForReadyAndStarted('>>>');
+		await app.workbench.console.waitForReady('>>>');
 	});
 
 	test('Python - Verify cancel button on console bar', async function ({ app, python }) {
@@ -85,7 +85,14 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 		const secondaryPython = process.env.POSITRON_PY_ALT_VER_SEL;
 
 		if (secondaryPython) {
-			await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, secondaryPython, true);
+			await expect(async () => {
+				try {
+					await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, secondaryPython, true);
+				} catch (e) {
+					await app.code.driver.page.keyboard.press('Escape');
+					throw e;
+				}
+			}).toPass({ timeout: 45000 });
 			await app.workbench.console.barClearButton.click();
 			await app.workbench.console.pasteCodeToConsole(`import ipykernel; ipykernel.__file__`, true);
 			await app.workbench.console.waitForConsoleContents('site-packages');
