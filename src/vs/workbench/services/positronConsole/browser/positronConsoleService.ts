@@ -54,14 +54,14 @@ const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_THRESHOLD = 20;
 const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL = 50;
 
 /**
- * The maximum items to display in the console.
+ * The max output lines.
  */
-const MAX_ITEMS = 10000;
+const MAX_OUTPUT_LINES = 1_000;
 
 /**
- * The trim threshold.
+ * The trace output max length.
  */
-const TRIM_THRESHOLD = 500;
+const TRACE_OUTPUT_MAX_LENGTH = 1024;
 
 //#region Helper Functions
 
@@ -101,17 +101,6 @@ const formatOutputData = (data: Record<string, string>) => {
 };
 
 /**
- * Formats stdout/stder output.
- *
- * @param stream The standard stream, either 'stdout' or 'stderr'.
- * @param text The text that arrived on the stream.
- * @returns The formatted text.
- */
-const formatOutputStream = (stream: 'stdout' | 'stderr', text: string) => {
-	return `\nStream ${stream}: "${text}"`;
-};
-
-/**
  * Formats a traceback.
  * @param traceback The traceback.
  * @returns The formatted traceback.
@@ -124,6 +113,46 @@ const formatTraceback = (traceback: string[]) => {
 		traceback.forEach((tracebackEntry, index) => result += `\n[${index + 1}]: ${tracebackEntry}`);
 	}
 	return result;
+};
+
+/**
+ * Sanitizes trace output.
+ * @param traceOutput The trace output.
+ * @returns The sanitized trace output.
+ */
+const sanitizeTraceOutput = (traceOutput: string) => {
+	// Sanitize the trace output. This involves trimming it to a maximum length and replacing
+	// certain characters with a text representation.
+	traceOutput = traceOutput.slice(0, TRACE_OUTPUT_MAX_LENGTH);
+	traceOutput = traceOutput.replaceAll('\t', '[HT]');
+	traceOutput = traceOutput.replaceAll('\n', '[LF]');
+	traceOutput = traceOutput.replaceAll('\r', '[CR]');
+	traceOutput = traceOutput.replaceAll('\x9B', 'CSI');
+	traceOutput = traceOutput.replaceAll('\x1b', 'ESC');
+	traceOutput = traceOutput.replaceAll('\x9B', 'CSI');
+
+	// If the trace output was trimmed, add an ellipsis to indicate that.
+	if (traceOutput.length > TRACE_OUTPUT_MAX_LENGTH) {
+		traceOutput += '...';
+	}
+
+	// Return the sanitized trace output.
+	return traceOutput;
+};
+
+/**
+ * Formats the stream length.
+ * @param length The stream length.
+ * @returns The formatted stram length.
+ */
+const formattedLength = (length: number) => {
+	if (length < 1024) {
+		return `${length} chars`;
+	}
+	if (length < 1024 * 1024) {
+		return `${(length / 1024).toFixed(1)} KB`;
+	}
+	return `${(length / 1024 / 1024).toFixed(1)} MB`;
 };
 
 //#endregion Helper Functions
@@ -180,21 +209,21 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 	/**
 	 * Constructor.
-	 * @param _instantiationService The instantiation service.
-	 * @param _runtimeStartupService The runtime affiliation service.
-	 * @param _runtimeSessionService The runtime session service.
-	 * @param _logService The log service service.
-	 * @param _viewsService The views service.
-	 * @param _layoutService The workbench layout service.
 	 * @param _configurationService The configuration service.
+	 * @param _executionHistoryService The execution history service.
+	 * @param _instantiationService The instantiation service.
+	 * @param _logService The log service service.
+	 * @param _runtimeSessionService The runtime session service.
+	 * @param _runtimeStartupService The runtime affiliation service.
+	 * @param _viewsService The views service.
 	 */
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
-		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IExecutionHistoryService private readonly _executionHistoryService: IExecutionHistoryService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
 		@IViewsService private readonly _viewsService: IViewsService,
 	) {
 		// Call the disposable constructor.
@@ -793,11 +822,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Determines whether or not pending input is currently being processed.
 	 */
 	private _pendingInputState: 'Idle' | 'Processing' | 'Interrupted' = 'Idle';
-
-	/**
-	 * Gets or sets the trim counter.
-	 */
-	private _trimCounter = 0;
 
 	/**
 	 * Gets or sets the runtime items.
@@ -1956,50 +1980,44 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageResult(handleDidReceiveRuntimeMessageOutput));
 
 		// Add the onDidReceiveRuntimeMessageStream event handler.
-		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageStream(
-			languageRuntimeMessageStream => {
-				// Sanitize the trace output.
-				let traceOutput = languageRuntimeMessageStream.text;
-				traceOutput = traceOutput.replaceAll('\t', '[HT]');
-				traceOutput = traceOutput.replaceAll('\n', '[LF]');
-				traceOutput = traceOutput.replaceAll('\r', '[CR]');
-				traceOutput = traceOutput.replaceAll('\x9B', 'CSI');
-				traceOutput = traceOutput.replaceAll('\x1b', 'ESC');
-				traceOutput = traceOutput.replaceAll('\x9B', 'CSI');
+		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageStream(languageRuntimeMessageStream => {
+			// If trace is enabled, add a trace runtime item.
+			if (this._trace) {
+				// Get the sanitized trace output.
+				const traceOutput = sanitizeTraceOutput(languageRuntimeMessageStream.text);
 
-				// If trace is enabled, add a trace runtime item.
-				if (this._trace) {
-					this.addRuntimeItemTrace(
-						formatCallbackTrace('onDidReceiveRuntimeMessageStream', languageRuntimeMessageStream) +
-						formatOutputStream(languageRuntimeMessageStream.name, traceOutput)
-					);
-				}
+				// Add the trace runtime item.
+				this.addRuntimeItemTrace(
+					formatCallbackTrace('onDidReceiveRuntimeMessageStream', languageRuntimeMessageStream) +
+					`\nStream ${languageRuntimeMessageStream.name}: "${traceOutput}" ${formattedLength(languageRuntimeMessageStream.text.length)}`
+				);
+			}
 
-				// Handle stdout and stderr.
-				if (languageRuntimeMessageStream.name === 'stdout') {
-					this.addOrUpdateUpdateRuntimeItemActivity(
+			// Handle stdout and stderr.
+			if (languageRuntimeMessageStream.name === 'stdout') {
+				this.addOrUpdateUpdateRuntimeItemActivity(
+					languageRuntimeMessageStream.parent_id,
+					new ActivityItemStream(
+						ActivityItemStreamType.OUTPUT,
+						languageRuntimeMessageStream.id,
 						languageRuntimeMessageStream.parent_id,
-						new ActivityItemStream(
-							ActivityItemStreamType.OUTPUT,
-							languageRuntimeMessageStream.id,
-							languageRuntimeMessageStream.parent_id,
-							new Date(languageRuntimeMessageStream.when),
-							languageRuntimeMessageStream.text
-						)
-					);
-				} else if (languageRuntimeMessageStream.name === 'stderr') {
-					this.addOrUpdateUpdateRuntimeItemActivity(
+						new Date(languageRuntimeMessageStream.when),
+						languageRuntimeMessageStream.text
+					)
+				);
+			} else if (languageRuntimeMessageStream.name === 'stderr') {
+				this.addOrUpdateUpdateRuntimeItemActivity(
+					languageRuntimeMessageStream.parent_id,
+					new ActivityItemStream(
+						ActivityItemStreamType.ERROR,
+						languageRuntimeMessageStream.id,
 						languageRuntimeMessageStream.parent_id,
-						new ActivityItemStream(
-							ActivityItemStreamType.ERROR,
-							languageRuntimeMessageStream.id,
-							languageRuntimeMessageStream.parent_id,
-							new Date(languageRuntimeMessageStream.when),
-							languageRuntimeMessageStream.text
-						)
-					);
-				}
-			}));
+						new Date(languageRuntimeMessageStream.when),
+						languageRuntimeMessageStream.text
+					)
+				);
+			}
+		}));
 
 		// Add the onDidReceiveRuntimeMessageError event handler.
 		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageError(
@@ -2566,8 +2584,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			// Add the activity item to the activity runtime item.
 			runtimeItemActivity.addActivityItem(activityItem);
 
-			// Trim items.
-			this.trimItems();
+			// Optimize output lines.
+			this.optimizeOutputLines();
 
 			// Fire the onDidChangeRuntimeItems event.
 			this._onDidChangeRuntimeItemsEmitter.fire();
@@ -2589,56 +2607,30 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this._runtimeItemActivities.set(runtimeItem.id, runtimeItem);
 		}
 
-		// Trim items.
-		this.trimItems();
+		// Optimize output lines.
+		this.optimizeOutputLines();
 
 		// Fire the onDidChangeRuntimeItems event.
 		this._onDidChangeRuntimeItemsEmitter.fire();
 	}
 
 	/**
-	 * Trims items displayed in the console.
+	 * Optimizes output lines.
 	 */
-	private trimItems() {
-		// Increment the trim counter. Trim items when we reach the trim threshold.
-		if (++this._trimCounter < TRIM_THRESHOLD) {
-			return;
-		}
-
-		// Reset the trim counter.
-		this._trimCounter = 0;
-
-		// Trim items.
-		let remainingItems = MAX_ITEMS;
-		let runtimeItemIndex = this._runtimeItems.length;
-		while (remainingItems > 0 && runtimeItemIndex > 0) {
+	private optimizeOutputLines() {
+		// Optimize output lines for each runtime item in reverse order.
+		for (let maxOutputLines = MAX_OUTPUT_LINES, i = this._runtimeItems.length - 1; i >= 0; i--) {
 			// Get the runtime item.
-			const runtimeItem = this._runtimeItems[--runtimeItemIndex];
+			const runtimeItem = this._runtimeItems[i];
 
-			// If the runtime item is a RuntimeItemActivity, trim its activity items; otherwise,
-			// decrement the remaining items counter.
+			// If the runtime item is an ActivityItemStream, optimize its output lines.
 			if (runtimeItem instanceof RuntimeItemActivity) {
-				remainingItems -= runtimeItem.trimActivityItems(remainingItems);
-			} else {
-				remainingItems--;
+				const starting = maxOutputLines;
+				maxOutputLines = runtimeItem.optimizeOutputLines(maxOutputLines);
+
+				console.log(`Optimized output lines for RuntimeItemActivity ${i} starting ${starting} ending ${maxOutputLines}`);
 			}
 		}
-
-		// If no runtime items were trimmed, return.
-		if (!runtimeItemIndex) {
-			return;
-		}
-
-		// Trim the runtime items.
-		const trimmedRuntimeItems = this._runtimeItems.slice(0, runtimeItemIndex);
-		this._runtimeItems = this._runtimeItems.slice(runtimeItemIndex);
-
-		// Remove runtime item activities that were trimmed.
-		trimmedRuntimeItems.filter(trimmedRuntimeItem =>
-			trimmedRuntimeItem instanceof RuntimeItemActivity
-		).forEach(runtimeItemActivity =>
-			this._runtimeItemActivities.delete(runtimeItemActivity.id)
-		);
 	}
 
 	//#endregion Private Methods

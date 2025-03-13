@@ -1,9 +1,16 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as nls from '../../../../../nls.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
+
+/**
+ * Constants.
+ */
+export const HEAD_OUTPUT_LINES = 5;
+export const TAIL_OUTPUT_LINES = 5;
 
 /**
  * ActivityItemStreamType enum.
@@ -34,6 +41,11 @@ export class ActivityItemStream {
 	 */
 	private ansiOutput = new ANSIOutput();
 
+	/**
+	 * Gets or sets the max output lines. This is used to truncate the output lines for display.
+	 */
+	private maxOutputLines?: number;
+
 	//#endregion Private Properties
 
 	//#region Public Properties
@@ -45,8 +57,27 @@ export class ActivityItemStream {
 		// Process the activity items streams.
 		this.processActivityItemStreams();
 
-		// Return the output lines.
-		return this.ansiOutput.outputLines;
+		// If max output lines is undefined, return all the output lines.
+		if (this.maxOutputLines === undefined) {
+			return this.ansiOutput.outputLines;
+		}
+
+		// Return the truncated output lines.
+		return this.ansiOutput.truncatedOutputLines(
+			HEAD_OUTPUT_LINES,
+			TAIL_OUTPUT_LINES,
+			truncatedOutputLinesLength => nls.localize(
+				'positron.truncation', "... ({0} lines)",
+				truncatedOutputLinesLength.toLocaleString()
+			)
+		);
+	}
+
+	/**
+	 * Gets the clipboard representation.
+	 */
+	get clipboardRepresentation() {
+		return this.ansiOutput.clipboardRepresentation;
 	}
 
 	//#endregion Public Properties
@@ -80,9 +111,7 @@ export class ActivityItemStream {
 	 * @param activityItemStream The ActivityItemStream to add.
 	 * @returns The remainder ActivityItemStream, or undefined.
 	 */
-	public addActivityItemStream(
-		activityItemStream: ActivityItemStream
-	): ActivityItemStream | undefined {
+	public addActivityItemStream(activityItemStream: ActivityItemStream): ActivityItemStream | undefined {
 		// If this ActivityItemStream is terminated, copy its styles to the ActivityItemStream being
 		// added and return it as the remainder ActivityItemStream to be processed.
 		if (this.terminated) {
@@ -136,6 +165,27 @@ export class ActivityItemStream {
 		return activityItemStream;
 	}
 
+	/**
+	 * Optimizes output lines.
+	 * @param maxOutputLines The max output lines.
+	 */
+	public optimizeOutputLines(maxOutputLines: number) {
+		// Process the activity items streams.
+		this.processActivityItemStreams();
+
+		// If there are fewer output lines than max output lines, clear the max output lines
+		// as all of them will be displayed, and return the remaining max output lines.
+		if (this.ansiOutput.outputLines.length <= maxOutputLines) {
+			this.maxOutputLines = undefined;
+			return maxOutputLines - this.ansiOutput.outputLines.length;
+		}
+
+		// Set the max output lines and return 0, indicating that there are no remaining max
+		// output lines.
+		this.maxOutputLines = maxOutputLines;
+		return 0;
+	}
+
 	//#endregion Public Methods
 
 	//#region Private Methods
@@ -159,13 +209,18 @@ export class ActivityItemStream {
 	 * Processes the activity item streams.
 	 */
 	private processActivityItemStreams() {
-		if (this.activityItemStreams.length) {
-			for (const activityItemStream of this.activityItemStreams) {
-				this.ansiOutput.processOutput(activityItemStream.text);
-			}
-
-			this.activityItemStreams = [];
+		// If there are no activity item streams, return.
+		if (!this.activityItemStreams.length) {
+			return;
 		}
+
+		// Process the activity item streams.
+		for (const activityItemStream of this.activityItemStreams) {
+			this.ansiOutput.processOutput(activityItemStream.text);
+		}
+
+		// Clear the activity item streams.
+		this.activityItemStreams = [];
 	}
 
 	//#endregion Private Methods

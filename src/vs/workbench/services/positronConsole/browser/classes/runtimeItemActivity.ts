@@ -1,15 +1,15 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { RuntimeItem } from './runtimeItem.js';
-import { ActivityItemStream } from './activityItemStream.js';
 import { ActivityItemPrompt } from './activityItemPrompt.js';
 import { ActivityItemOutputHtml } from './activityItemOutputHtml.js';
 import { ActivityItemOutputPlot } from './activityItemOutputPlot.js';
 import { ActivityItemErrorMessage } from './activityItemErrorMessage.js';
 import { ActivityItemOutputMessage } from './activityItemOutputMessage.js';
+import { ActivityItemStream, TAIL_OUTPUT_LINES } from './activityItemStream.js';
 import { ActivityItemInput, ActivityItemInputState } from './activityItemInput.js';
 
 /**
@@ -135,15 +135,31 @@ export class RuntimeItemActivity extends RuntimeItem {
 	}
 
 	/**
-	 * Trims activity items.
-	 * @param max The maximum number of activity items to keep.
+	 * Optimizes output lines.
+	 * @param maxOutputLines The max output lines.
+	 * @returns The number of remaining max output lines.
 	 */
-	public trimActivityItems(max: number) {
-		// Slice the array of activity items.
-		this._activityItems = this._activityItems.slice(-max);
+	public optimizeOutputLines(maxOutputLines: number) {
+		// Optimize output lines for each activity item in reverse order.
+		for (let i = this._activityItems.length - 1; i >= 0; i--) {
+			// Get the activity item.
+			const activityItem = this._activityItems[i];
 
-		// Return the count of activity items.
-		return this._activityItems.length;
+			// If the activity item is an ActivityItemStream, optimize its output lines.
+			if (activityItem instanceof ActivityItemStream) {
+				// Optimize the output lines.
+				maxOutputLines = activityItem.optimizeOutputLines(maxOutputLines);
+
+				// If max output lines is less than or equal to the tail output lines, set it to 0
+				// so we tail all the remaining output lines in all the remaining activity items.
+				if (maxOutputLines <= TAIL_OUTPUT_LINES) {
+					maxOutputLines = 0;
+				}
+			}
+		}
+
+		// Return the remaining max output lines.
+		return maxOutputLines;
 	}
 
 	//#endregion Public Methods
