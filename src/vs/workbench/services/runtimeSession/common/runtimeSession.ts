@@ -353,12 +353,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *
 	 * If `console.multipleConsoleSessions` is enabled this function works as decribed below:
 	 *
-	 * Select a session for the provided runtime. If there is an active console session for the runtime,
-	 * set it as the foreground session and return. If there is no active console session for the runtime,
-	 * start a new session for the runtime.
+	 * Select a session for the provided runtime.
 	 *
-	 * If there are multiple sessions for the runtime, the most recently created session is set as the
-	 * foreground session.
+	 * For console sessions, if there is an active console session for the runtime, set it as
+	 *  the foreground session and return. If there is no active console session for the runtime,
+	 * start a new session for the runtime. If there are multiple sessions for the runtime,
+	 * the most recently created session is set as the foreground session.
+	 *
+	 * For notebooks, only one runtime session for a notebook URI is allowed. Starts a session for the
+	 * new runtime after shutting down the session for the previous runtime. Do nothing if the runtime
+	 * matches the active runtime for the notebook session.
 	 *
 	 * @param runtimeId The ID of the runtime to select
 	 * @param source The source of the selection
