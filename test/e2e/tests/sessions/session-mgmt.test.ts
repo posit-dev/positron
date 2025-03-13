@@ -231,7 +231,7 @@ function printScript(num: number): string {
 
 async function runCodeInSession(app: Application, session: SessionInfo, index: number) {
 	await test.step(`${session.name}: run code to generate plot and variable`, async () => {
-		const { sessions, console } = app.workbench;
+		const { sessions, console, variables } = app.workbench;
 		await sessions.select(session.id);
 
 		// Determine script function based on session language
@@ -243,5 +243,7 @@ async function runCodeInSession(app: Application, session: SessionInfo, index: n
 		// Assign a variable based on session language
 		const assignment = session.language === 'R' ? `test <- ${index}` : `test = ${index}`;
 		await console.typeToConsole(assignment, true);
+
+		await variables.focusVariablesView();
 	});
 }

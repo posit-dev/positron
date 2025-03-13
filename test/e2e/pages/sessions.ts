@@ -116,8 +116,8 @@ export class Sessions {
 
 			if (waitForReady) {
 				language === 'Python'
-					? await this.console.waitForReadyAndStarted('>>>', 40000)
-					: await this.console.waitForReadyAndStarted('>', 40000);
+					? await this.console.waitForReadyAndStarted('>>>', 90000)
+					: await this.console.waitForReadyAndStarted('>', 90000);
 			}
 		});
 
