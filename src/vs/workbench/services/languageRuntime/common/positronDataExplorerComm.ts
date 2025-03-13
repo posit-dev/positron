@@ -769,7 +769,7 @@ export interface ColumnFrequencyTable {
 	/**
 	 * The formatted top values
 	 */
-	values: Array<string>;
+	values: Array<ColumnValue>;
 
 	/**
 	 * Counts of top values

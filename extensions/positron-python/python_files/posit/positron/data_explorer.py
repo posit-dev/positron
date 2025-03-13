@@ -1303,7 +1303,7 @@ class PandasView(DataExplorerTableView):
             column_name=str(column_name),
             column_index=column_index,
             type_name=type_name,
-            type_display=type_display,
+            type_display=ColumnDisplayType(type_display),
         )
 
     @classmethod
@@ -1782,8 +1782,11 @@ class PandasView(DataExplorerTableView):
 
         formatted_edges = self._format_values(bin_edges, format_options)
 
+        # TODO: formatted_edges should not contain any special values, but we should
+        # probably check more carefully.
+
         return ColumnHistogram(
-            bin_edges=formatted_edges,
+            bin_edges=[str(x) for x in formatted_edges],
             bin_counts=[int(x) for x in bin_counts],
             quantiles=[],
         )
@@ -1965,7 +1968,7 @@ def _date_median(x):
 
     # if any datetime64 or datetimetz type in pandas
     if x.dtype == "timedelta64[ns]":
-        return pd.to_timedelta(median_value)
+        return pd.to_timedelta(np.array(int(median_value)))
     else:
         # Date or datetime
         out = pd.to_datetime(np.array(median_value), utc=True)
@@ -2250,7 +2253,7 @@ class PolarsView(DataExplorerTableView):
             column_name=column_name,
             column_index=column_index,
             type_name=type_name,
-            type_display=type_display,
+            type_display=ColumnDisplayType(type_display),
         )
 
     TYPE_DISPLAY_MAPPING = MappingProxyType(
@@ -2655,8 +2658,10 @@ class PolarsView(DataExplorerTableView):
 
         formatted_edges = self._format_values(bin_edges, format_options)
 
+        # TODO: make sure that formatted_edges has no special values
+
         return ColumnHistogram(
-            bin_edges=formatted_edges,
+            bin_edges=[str(x) for x in formatted_edges],
             bin_counts=[int(x) for x in bin_counts],
             quantiles=[],
         )

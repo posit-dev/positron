@@ -897,7 +897,7 @@ class ColumnFrequencyTable(BaseModel):
     Result from a frequency_table profile request
     """
 
-    values: List[StrictStr] = Field(
+    values: List[ColumnValue] = Field(
         description="The formatted top values",
     )
 
