@@ -142,6 +142,11 @@
         "category": "R",
         "title": "%r.command.rmarkdownRender.title%",
         "icon": "$(play)"
+      },
+      {
+        "command": "r.interpreters.settingsInfo",
+        "category": "R",
+        "title": "%r.command.interpreters.settingsInfo.title%"
       }
     ],
     "configuration": [
@@ -216,6 +221,15 @@
             },
             "default": [],
             "markdownDescription": "%r.configuration.interpreters.exclude.markdownDescription%"
+          },
+          "positron.r.interpreters.override": {
+            "scope": "window",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "markdownDescription": "%r.configuration.interpreters.override.markdownDescription%"
           },
           "positron.r.interpreters.default": {
             "scope": "window",
