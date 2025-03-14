@@ -414,6 +414,7 @@
 					"date",
 					"datetime",
 					"time",
+					"interval",
 					"object",
 					"array",
 					"struct",
@@ -1235,7 +1236,7 @@
 						"type": "array",
 						"description": "The formatted top values",
 						"items": {
-							"type": "string"
+							"$ref": "#/components/schemas/column_value"
 						}
 					},
 					"counts": {

@@ -35,6 +35,10 @@ export const columnSchemaDataTypeIcon = (columnSchema?: ColumnSchema) => {
 		case ColumnDisplayType.Time:
 			return 'codicon-positron-data-type-time';
 
+		// Reuse datetime icon for interval for now.
+		case ColumnDisplayType.Interval:
+			return 'codicon-positron-data-type-date-time';
+
 		case ColumnDisplayType.Object:
 			return 'codicon-positron-data-type-object';
 

@@ -84,6 +84,9 @@ export class PositronDataExplorerColumn implements IPositronDataExplorerColumn {
 			case ColumnDisplayType.Time:
 				return DataColumnAlignment.Right;
 
+			case ColumnDisplayType.Interval:
+				return DataColumnAlignment.Right;
+
 			case ColumnDisplayType.Object:
 				return DataColumnAlignment.Left;
 
