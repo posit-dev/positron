@@ -16,6 +16,7 @@ import { IKeybindingService } from '../../../../platform/keybinding/common/keybi
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
 /**
  * PositronAssistantService class.
@@ -33,6 +34,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
 		super();
 	}
@@ -82,7 +84,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		onSave: (config: IPositronLanguageModelConfig) => Promise<void>,
 		onCancel: () => void,
 	): void {
-		showLanguageModelModalDialog(this._keybindingService, this._layoutService, this._contextKeyService, sources, onSave, onCancel);
+		showLanguageModelModalDialog(this._keybindingService, this._layoutService, this._contextKeyService, this._configurationService, sources, onSave, onCancel);
 	}
 
 	//#endregion

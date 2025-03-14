@@ -26,11 +26,13 @@ import { DropDownListBox } from '../../../browser/positronComponents/dropDownLis
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { OKModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronOKModalDialog.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
 export const showLanguageModelModalDialog = (
 	keybindingService: IKeybindingService,
 	layoutService: ILayoutService,
 	contextKeyService: IContextKeyService,
+	configurationService: IConfigurationService,
 	sources: IPositronLanguageModelSource[],
 	onSave: (config: IPositronLanguageModelConfig) => Promise<void>,
 	onCancel: () => void,
@@ -44,6 +46,7 @@ export const showLanguageModelModalDialog = (
 	renderer.render(
 		<div className='language-model-modal-dialog'>
 			<LanguageModelConfiguration
+				configurationService={configurationService}
 				contextKeyService={contextKeyService}
 				keybindingService={keybindingService}
 				layoutService={layoutService}
@@ -61,6 +64,7 @@ interface LanguageModelConfigurationProps {
 	layoutService: ILayoutService;
 	sources: IPositronLanguageModelSource[];
 	contextKeyService: IContextKeyService;
+	configurationService: IConfigurationService;
 	renderer: PositronModalReactRenderer;
 	onSave: (config: IPositronLanguageModelConfig) => Promise<void>;
 	onCancel: () => void;
@@ -71,6 +75,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 
 	const [type, setType] = React.useState<PositronLanguageModelType>(PositronLanguageModelType.Chat);
 
+	const useNewConfig = props.configurationService.getValue<boolean>('positron.assistant.newModelConfiguration');
 	const enabledProviders = props.sources.map(source => source.provider.id);
 	const hasAnthropic = enabledProviders.includes('anthropic');
 	const hasMistral = enabledProviders.includes('mistral');
@@ -358,7 +363,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		</OKModalDialog>;
 	}
 
-	if (isDev) {
+	if (isDev && useNewConfig) {
 		return newDialog();
 	} else {
 		return oldDialog();
