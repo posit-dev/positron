@@ -46,11 +46,14 @@ jobs:
           cache: 'npm'
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v5
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
+          enable-cache: true
+
+      - name: Add pip to uv venv
+        run: uv pip install pip
 
       - name: Install Node dependencies
         run: npm ci --fetch-timeout 120000
@@ -69,9 +72,9 @@ jobs:
 
       - name: Lint and Check Formatting with Ruff
         run: |
-          python -m pip install -U ruff
-          python -m ruff check .
-          python -m ruff format --check
+          uv pip install ruff
+          ruff check .
+          ruff format --check
         working-directory: ${{ env.PYTHON_SRC_DIR }}
 
   check-types:
@@ -81,23 +84,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Use Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v5
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
+          enable-cache: true
+
+      - name: Add pip to uv venv
+        run: uv pip install pip
 
       - name: Install base Python requirements
-        run: 'python -m pip install --no-deps --require-hashes --only-binary :all: -t ./python_files/lib/python --no-cache-dir --implementation py -r requirements.txt'
+        run: 'uv pip install --no-deps --require-hashes --only-binary :all: --target ./python_files/lib/python -r requirements.txt'
 
       - name: Install Positron IPyKernel requirements
-        run: python scripts/vendor.py
+        run: uv run scripts/vendor.py
 
       - name: Install other Python requirements
         run: |
-          python -m pip --disable-pip-version-check install -t ./python_files/lib/python --no-cache-dir --implementation py --no-deps --upgrade --pre debugpy
-          python -m pip install --upgrade -r build/test-requirements.txt
-          python -m pip install --upgrade -r ./python_files/posit/pinned-test-requirements.txt
+          uv pip install --target ./python_files/lib/python --no-deps --upgrade --pre debugpy
+          uv pip install --upgrade -r build/test-requirements.txt -r ./python_files/posit/pinned-test-requirements.txt
 
       - name: Run Pyright
         uses: jakebailey/pyright-action@v2
@@ -125,26 +130,27 @@ jobs:
         with:
           path: ${{ env.special-working-directory-relative }}
 
-      - name: Use Python ${{ matrix.python }}
-        uses: actions/setup-python@v5
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python }}
+          enable-cache: true
 
       - name: Install specific pytest version
         run: |
-          python -m pip install pytest
+          uv pip install pytest
 
       - name: Install specific pytest version
-        run: python -m pytest --version
+        run: uv run pytest --version
 
       - name: Install base Python requirements
-        run: 'python -m pip install --no-deps --require-hashes --only-binary :all: -t ./python_files/lib/python --no-cache-dir --implementation py -r requirements.txt'
+        run: 'uv pip install --no-deps --require-hashes --only-binary :all: --target ./python_files/lib/python -r requirements.txt'
 
       - name: Install test requirements
-        run: python -m pip install -r build/test-requirements.txt
+        run: uv pip install -r build/test-requirements.txt
 
       - name: Run Python unit tests
-        run: python python_files/tests/run_all.py
+        run: uv run python_files/tests/run_all.py
 
   positron-ipykernel-tests:
     name: Test Positron IPyKernel
@@ -167,20 +173,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Use Python ${{ matrix.python }}
-        uses: actions/setup-python@v5
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python }}
-          cache: 'pip'
+          enable-cache: true
+
+      - name: Add pip to uv venv
+        run: uv pip install pip
 
       - name: Install Positron IPyKernel requirements
-        run: python scripts/vendor.py
+        run: uv run scripts/vendor.py
 
       - name: Install Positron IPyKernel test requirements
-        run: python -m pip install --prefer-binary --upgrade -r python_files/posit/pinned-test-requirements.txt
+        run: uv pip install --upgrade -r python_files/posit/pinned-test-requirements.txt
 
       - name: Run Positron IPyKernel unit tests
-        run: pytest python_files/posit
+        run: uv run pytest python_files/posit
 
   python-minimum-dependencies:
     name: Test Minimum Positron IPyKernel Dependencies
@@ -195,16 +204,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Use Python  ${{ matrix.python }}
-        uses: actions/setup-python@v5
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python }}
-          cache: 'pip'
+          enable-cache: true
+
+      - name: Add pip to uv venv
+        run: uv pip install pip
 
       - name: Install testing requirements
         run: |
-          python scripts/vendor.py
-          python -m pip install nox
+          uv run scripts/vendor.py
+          uv pip install nox
 
       - name: Run tests
         run: npm run positron:testMinimumPythonReqs
