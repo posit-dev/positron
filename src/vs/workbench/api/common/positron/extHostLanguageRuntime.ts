@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
+import { debounce } from '../../../../base/common/decorators.js';
 import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
@@ -588,6 +589,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 *
 	 * @param sessionId The ID of the new foreground session
 	 */
+	@debounce(1000)
 	public async $notifyForegroundSessionChanged(sessionId: string | undefined): Promise<void> {
 		const session = this._runtimeSessions.find(session => session.metadata.sessionId === sessionId);
 		if (!session && sessionId) {
