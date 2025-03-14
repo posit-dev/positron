@@ -378,7 +378,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.expectPlotThumbnailsCountToBe(2);
 		});
 
-		// fails as a test on web, but works manually
+		// fails on web
 		test('R - Plot building', { tag: [tags.WIN] }, async function ({ app }) {
 			await app.workbench.console.pasteCodeToConsole('par(mfrow = c(2, 2))');
 			await app.workbench.console.sendEnterKey();
@@ -409,8 +409,21 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.console.sendEnterKey();
 			await app.workbench.plots.waitForCurrentPlot();
 			await app.workbench.plots.expectPlotThumbnailsCountToBe(3);
-
 		});
+
+		// fails on web
+		test('R - Figure margins', { tag: [tags.WIN] }, async function ({ app }) {
+			await app.workbench.console.pasteCodeToConsole('par(mfrow = c(2, 1))');
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.pasteCodeToConsole('plot(1:10)');
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.pasteCodeToConsole('plot(2:20)');
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.pasteCodeToConsole('par(mfrow = c(1, 1))');
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.plots.waitForCurrentPlot();
+		});
+
 	});
 });
 
