@@ -19,11 +19,6 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 	test.describe('Python Plots', () => {
 
 		test.beforeEach(async function ({ app, interpreter }) {
-			// Set the viewport to a size that ensures all the plots view actions are visible
-			if (process.platform === 'linux') {
-				await app.code.driver.page.setViewportSize({ width: 1280, height: 800 });
-			}
-
 			await interpreter.set('Python');
 			await app.workbench.layouts.enterLayout('stacked');
 		});
@@ -272,10 +267,6 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 	test.describe('R Plots', () => {
 
-		test.beforeAll(async function ({ userSettings }) {
-			await userSettings.set([['application.experimental.positronPlotsInEditorTab', 'true']]);
-		});
-
 		test.beforeEach(async function ({ app, interpreter }) {
 			await app.workbench.layouts.enterLayout('stacked');
 			await interpreter.set('R');
@@ -378,6 +369,47 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('R - Verify plotly plot', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, rPlotly, '.plot-container', app.web);
+		});
+
+		test('R - Two simultaneous plots', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+			await app.workbench.console.pasteCodeToConsole(rTwoPlots);
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.plots.waitForCurrentPlot();
+			await app.workbench.plots.expectPlotThumbnailsCountToBe(2);
+		});
+
+		// fails as a test on web, but works manually
+		test('R - Plot building', { tag: [tags.WIN] }, async function ({ app }) {
+			await app.workbench.console.pasteCodeToConsole('par(mfrow = c(2, 2))');
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.pasteCodeToConsole('plot(1:5)');
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.plots.waitForCurrentPlot();
+
+			await app.workbench.console.pasteCodeToConsole('plot(2:6)');
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.plots.waitForCurrentPlot();
+
+			await app.workbench.console.pasteCodeToConsole('plot(3:7)');
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.plots.waitForCurrentPlot();
+
+			await app.workbench.console.pasteCodeToConsole('plot(4:8)');
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.plots.waitForCurrentPlot();
+
+			await app.workbench.console.pasteCodeToConsole('plot(5:9)');
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.plots.waitForCurrentPlot();
+			await app.workbench.plots.expectPlotThumbnailsCountToBe(2);
+
+			await app.workbench.console.pasteCodeToConsole('par(mfrow = c(1, 1))');
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.pasteCodeToConsole('plot(1:10)');
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.plots.waitForCurrentPlot();
+			await app.workbench.plots.expectPlotThumbnailsCountToBe(3);
+
 		});
 	});
 });
@@ -620,3 +652,6 @@ m %>% addPopups(-93.65, 42.0285, 'Here is the <b>Department of Statistics</b>, I
 const rPlotly = `library(plotly)
 fig <- plot_ly(midwest, x = ~percollege, color = ~state, type = "box")
 fig`;
+
+const rTwoPlots = `plot(1:10)
+plot(1:100)`;
