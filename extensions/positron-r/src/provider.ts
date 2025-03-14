@@ -71,12 +71,11 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 		return;
 	}
 
-	// Promote R binaries to R installations
+	// Promote R binaries to R installations, filtering out any rejected R installations
 	const rejectedRInstallations: RInstallation[] = [];
 	const rInstallations: RInstallation[] = binaries
 		.map(rbin => new RInstallation(rbin.path, rbin.path === currentBinary, rbin.reasons))
 		.filter(r => {
-			// Filter out any rejected R installations
 			if (!r.usable) {
 				LOGGER.info(`Filtering out ${r.binpath}, reason: ${friendlyReason(r.reasonRejected)}.`);
 				rejectedRInstallations.push(r);
@@ -105,7 +104,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 		}
 	}
 
-	// Sort the R installations by version number, descending
+	// Sort the R installations
 	rInstallations.sort((a, b) => {
 		if (a.current || b.current) {
 			// always put the current R version first
@@ -165,7 +164,7 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 
 	// Consult various sources of R binaries
 	const currentBinaries = await currentRBinaryCandidates();
-	const systemHqBinaries = discoverHQBinaries(rHeadquarters());
+	const systemBinaries = discoverSystemBinaries();
 	const registryBinaries = await discoverRegistryBinaries();
 	const moreBinaries = discoverAdHocBinaries([
 		'/usr/bin/R',
@@ -179,7 +178,7 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 	// Combine all the binaries we've found
 	const rBinaries: RBinary[] = [
 		...currentBinaries,
-		...systemHqBinaries,
+		...systemBinaries,
 		...registryBinaries,
 		...moreBinaries,
 		...userBinaries,
@@ -320,6 +319,11 @@ export async function currentRBinary(): Promise<RBinary | undefined> {
 	}
 }
 
+/**
+ * Get the current R binary(ies) for various definitions of "current".
+ * The first item of the returned list will eventually be marked as The Current R Binary.
+ * @returns List of current R binaries from various sources.
+ */
 async function currentRBinaryCandidates(): Promise<RBinary[]> {
 	const candidates: RBinary[] = [];
 	let candidate: RBinary | undefined;
@@ -587,6 +591,14 @@ function discoverAdHocBinaries(paths: string[]): RBinary[] {
 }
 
 /**
+ * Scour the system for all R binaries we can find.
+ * @returns System R binaries.
+ */
+function discoverSystemBinaries(): RBinary[] {
+	return discoverHQBinaries(rHeadquarters());
+}
+
+/**
  * Discovers optional, user-specified root directories or binaries.
  * @returns R binaries that the user has specified.
  */
@@ -594,7 +606,7 @@ function discoverUserSpecifiedBinaries(): RBinary[] {
 	const userHqBinaries = discoverHQBinaries(userRHeadquarters());
 	const userMoreBinaries = discoverAdHocBinaries(userRBinaries());
 	const userBinaries = userHqBinaries.concat(userMoreBinaries);
-	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.user
+	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.userSetting
 	return userBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.userSetting] }));
 }
 
@@ -607,7 +619,6 @@ function discoverUserSpecifiedBinaries(): RBinary[] {
  * @returns R binaries that are installed in conventional locations on servers.
  */
 function discoverServerBinaries(): RBinary[] {
-	// Return immediately if we're on Windows, where these paths are not relevant
 	if (os.platform() === 'win32') {
 		return [];
 	}
@@ -622,6 +633,7 @@ function discoverServerBinaries(): RBinary[] {
 		// '/opt/R', // Already checked for in rHeadquarters
 		'/opt/local/R'
 	]);
+
 	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.server
 	return serverBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.server] }));
 }
@@ -632,8 +644,6 @@ function discoverServerBinaries(): RBinary[] {
  */
 function discoverOverrideBinaries(): RBinary[] | undefined {
 	const overridePaths = getInterpreterOverridePaths();
-
-	// Return immediately if there are no override paths
 	if (overridePaths.length === 0) {
 		return undefined;
 	}
