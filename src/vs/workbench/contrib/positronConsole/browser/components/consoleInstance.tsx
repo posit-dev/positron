@@ -324,10 +324,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Add the onDidRequestRestart event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidRequestRestart(() => {
-			const session = positronConsoleContext.activePositronConsoleInstance?.session;
-			if (session) {
+			const sessionId =
+				positronConsoleContext.activePositronConsoleInstance?.sessionId;
+			if (sessionId) {
 				positronConsoleContext.runtimeSessionService.restartSession(
-					session.sessionId,
+					sessionId,
 					'Restart requested from activity in the Console tab');
 			}
 		}));
@@ -336,13 +337,13 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			selectAllRuntimeItems();
 		}));
 
-		disposableStore.add(props.positronConsoleInstance.onDidAttachRuntime((runtime) => {
+		disposableStore.add(props.positronConsoleInstance.onDidAttachSession((runtime) => {
 			setRuntimeAttached(!!runtime);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, [editorFontInfo, positronConsoleContext.activePositronConsoleInstance?.session, positronConsoleContext.configurationService, positronConsoleContext.positronPlotsService, positronConsoleContext.runtimeSessionService, positronConsoleContext.viewsService, props.positronConsoleInstance, props.reactComponentContainer, scrollToBottom]);
+	}, [editorFontInfo, positronConsoleContext.activePositronConsoleInstance?.attachedRuntimeSession, positronConsoleContext.activePositronConsoleInstance, positronConsoleContext.configurationService, positronConsoleContext.positronPlotsService, positronConsoleContext.runtimeSessionService, positronConsoleContext.viewsService, props.positronConsoleInstance, props.reactComponentContainer, scrollToBottom]);
 
 	useLayoutEffect(() => {
 		// If the view is not scroll locked, scroll to the bottom to reveal the most recent items.
@@ -605,9 +606,9 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	return (
 		<div
 			ref={consoleInstanceRef}
-			aria-controls={`panel-${props.positronConsoleInstance.session.sessionId}`}
+			aria-controls={`panel-${props.positronConsoleInstance.sessionMetadata.sessionId}`}
 			className='console-instance'
-			data-testid={`console-${props.positronConsoleInstance.session.sessionId}`}
+			data-testid={`console-${props.positronConsoleInstance.sessionMetadata.sessionId}`}
 			style={{
 				width: adjustedWidth,
 				height: props.height,

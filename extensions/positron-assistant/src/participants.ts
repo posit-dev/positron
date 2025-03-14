@@ -47,6 +47,9 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 	readonly _performActionEventEmitter = new vscode.EventEmitter<vscode.ChatUserActionEvent>();
 	onDidPerformAction: vscode.Event<vscode.ChatUserActionEvent> = this._performActionEventEmitter.event;
 
+	readonly _pauseStateEventEmitter = new vscode.EventEmitter<vscode.ChatParticipantPauseStateEvent>();
+	onDidChangePauseState: vscode.Event<vscode.ChatParticipantPauseStateEvent> = this._pauseStateEventEmitter.event;
+
 	readonly followupProvider: vscode.ChatFollowupProvider = {
 		async provideFollowups(result: vscode.ChatResult, context: vscode.ChatContext, token: vscode.CancellationToken): Promise<vscode.ChatFollowup[]> {
 			const system: string = await fs.promises.readFile(`${mdDir}/prompts/chat/followups.md`, 'utf8');
@@ -84,7 +87,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 
 			// Show an extra configuration link if there are no configured models yet
 			if (getStoredModels(this._context).length === 0) {
-				const commandUri = vscode.Uri.parse('command:positron.assistant.addModelConfiguration');
+				const commandUri = vscode.Uri.parse('command:positron-assistant.addModelConfiguration');
 				welcomeText += `\n\n[${addLanguageModelMessage}](${commandUri})`;
 			}
 

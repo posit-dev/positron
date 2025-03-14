@@ -99,14 +99,14 @@ export class Workbench {
 		this.interpreter = new Interpreter(code, this.console);
 		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess);
 		this.welcome = new Welcome(code);
-		this.terminal = new Terminal(code, this.quickaccess);
+		this.clipboard = new Clipboard(code);
+		this.terminal = new Terminal(code, this.quickaccess, this.clipboard);
 		this.viewer = new Viewer(code);
 		this.editor = new Editor(code);
 		this.testExplorer = new TestExplorer(code);
 		this.outline = new Outline(code, this.quickaccess);
-		this.clipboard = new Clipboard(code);
 		this.extensions = new Extensions(code, this.quickaccess);
-		this.settings = new Settings(code, this.editors, this.editor, this.quickaccess);
+		this.settings = new Settings(code, this.editors, this.editor, this.quickaccess, this.clipboard);
 		this.debug = new Debug(code);
 		this.editorActionBar = new EditorActionBar(code.driver.page, this.viewer, this.quickaccess);
 		this.problems = new Problems(code, this.quickaccess);

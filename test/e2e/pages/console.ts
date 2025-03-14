@@ -83,8 +83,9 @@ export class Console {
 		return;
 	}
 
-	async executeCode(languageName: 'Python' | 'R', code: string): Promise<void> {
-		await test.step(`Execute ${languageName} code in console: ${code}`, async () => {
+	async executeCode(languageName: 'Python' | 'R', code: string, options?: { timeout?: number }): Promise<void> {
+		return test.step(`Execute ${languageName} code in console: ${code}`, async () => {
+			const timeout = options?.timeout ?? 30000;
 
 			await expect(async () => {
 				// Kind of hacky, but activate console in case focus was previously lost
@@ -107,7 +108,7 @@ export class Console {
 			await this.quickinput.waitForQuickInputClosed();
 
 			// The console will show the prompt after the code is done executing.
-			await this.waitForReady(languageName === 'Python' ? '>>>' : '>');
+			await this.waitForReady(languageName === 'Python' ? '>>>' : '>', timeout);
 			await this.maximizeConsole();
 		});
 	}
@@ -128,6 +129,7 @@ export class Console {
 			await this.code.driver.page.keyboard.type(text, { delay });
 
 			if (pressEnter) {
+				await this.code.driver.page.waitForTimeout(500);
 				await this.code.driver.page.keyboard.press('Enter');
 			}
 		});
@@ -209,38 +211,41 @@ export class Console {
 		options: {
 			timeout?: number;
 			expectedCount?: number;
+			exact?: boolean;
 		} = {}
 	): Promise<string[]> {
-		const { timeout = 15000, expectedCount = 1 } = options;
+		return await test.step(`Verify console contains: ${consoleText}`, async () => {
+			const { timeout = 15000, expectedCount = 1, exact = false } = options;
 
-		if (expectedCount === 0) {
-			const startTime = Date.now();
-			while (Date.now() - startTime < timeout) {
-				const errorMessage = `Expected text "${consoleText}" to not appear, but it did.`;
-				try {
-					const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText);
-					const count = await matchingLines.count();
+			if (expectedCount === 0) {
+				const startTime = Date.now();
+				while (Date.now() - startTime < timeout) {
+					const errorMessage = `Expected text "${consoleText}" to not appear, but it did.`;
 
-					if (count > 0) {
-						// Don't catch this error! It should fail the test.
-						throw new Error(errorMessage);
+					try {
+						const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText);
+						const count = await matchingLines.count();
+
+						if (count > 0) {
+							throw new Error(errorMessage); // Fail the test immediately
+						}
+					} catch (error) {
+						if (error instanceof Error && error.message.includes(errorMessage)) {
+							throw error;
+						}
 					}
-				} catch (error) {
-					if (error instanceof Error && error.message.includes(errorMessage)) {
-						throw error;
-					}
+
+					await new Promise(resolve => setTimeout(resolve, 1000));
 				}
-
-				await new Promise(resolve => setTimeout(resolve, 1000));
+				return [];
 			}
-			return [];
-		}
 
-		// Normal case: waiting for `expectedCount` occurrences
-		const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText);
+			// Normal case: waiting for `expectedCount` occurrences
+			const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText, { exact });
 
-		await expect(matchingLines).toHaveCount(expectedCount, { timeout });
-		return expectedCount ? matchingLines.allTextContents() : [];
+			await expect(matchingLines).toHaveCount(expectedCount, { timeout });
+			return expectedCount ? matchingLines.allTextContents() : [];
+		});
 	}
 
 
@@ -299,6 +304,11 @@ export class Console {
 
 	async waitForExecutionComplete(timeout = 30000): Promise<void> {
 		await expect(this.code.driver.page.locator(INTERRUPT_RUNTIME)).toBeHidden({ timeout });
+	}
+
+	async focus() {
+		await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? `Meta+K` : `Control+K`);
+		await this.code.driver.page.keyboard.press('F');
 	}
 
 	async clickConsoleTab() {

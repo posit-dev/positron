@@ -10,7 +10,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { PositronVariablesInstance } from './positronVariablesInstance.js';
 import { IPositronVariablesService } from './interfaces/positronVariablesService.js';
 import { IPositronVariablesInstance } from './interfaces/positronVariablesInstance.js';
-import { LanguageRuntimeSessionMode, RuntimeState, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
+import { LanguageRuntimeSessionMode, RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { RuntimeClientState } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
@@ -114,7 +114,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 
 		// Register the onDidChangeActiveRuntime event handler.
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
-			this._setActivePositronVariablesBySession(session);
+			this._setActivePositronVariablesBySession(session?.sessionId);
 		}));
 
 		// Set up listeners for any existing console instances
@@ -240,10 +240,11 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			);
 			// If the editor is not for a jupyter notebook, just leave variables session as is.
 			if (!notebookSession) { return; }
-			this._setActivePositronVariablesBySession(notebookSession);
+			this._setActivePositronVariablesBySession(notebookSession.sessionId);
 		} else if (this._runtimeSessionService.foregroundSession) {
 			// Revert to the most recent console session if we're not in a notebook editor
-			this._setActivePositronVariablesBySession(this._runtimeSessionService.foregroundSession);
+			this._setActivePositronVariablesBySession(
+				this._runtimeSessionService.foregroundSession.sessionId);
 		} else {
 			// All else fails, just reset to the default
 			this._setActivePositronVariablesInstance();
@@ -259,7 +260,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 		if (!this._inFollowMode) {
 			return;
 		}
-		this._setActivePositronVariablesBySession(instance.session);
+		this._setActivePositronVariablesBySession(instance.sessionId);
 	}
 
 
@@ -411,16 +412,16 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 
 	/**
 	 * Set the active Positron variables instance based on a session.
-	 * @param session The session to set the active Positron variables instance for. If not provided, the active Positron variables instance will be set to undefined.
+	 * @param sessionId The session to set the active Positron variables
+	 * instance for. If not provided, the active Positron variables instance
+	 * will be set to undefined.
 	 */
-	private _setActivePositronVariablesBySession(session?: ILanguageRuntimeSession) {
+	private _setActivePositronVariablesBySession(sessionId?: string) {
 
-		if (!session) {
+		if (!sessionId) {
 			this._setActivePositronVariablesInstance();
 			return;
 		}
-
-		const { sessionId } = session;
 
 		// No-op if this is already the active instance. Setting the active
 		// instance below triggers a refresh, so avoid it if if the instance is
@@ -438,7 +439,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			return;
 		}
 
-		this._logService.error(`Cannot show Variables: ${formatLanguageRuntimeSession(session)} became active, but a Variables instance for it is not running.`);
+		this._logService.error(`Cannot show Variables: ${sessionId} became active, but a Variables instance for it is not running.`);
 	}
 
 	//#endregion Private Methods

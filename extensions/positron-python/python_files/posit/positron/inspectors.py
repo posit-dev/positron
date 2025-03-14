@@ -233,7 +233,7 @@ class PositronInspector(Generic[T]):
             raise ValueError(f"Expected json_data['type'] to be str, got {json_data['type']}")
 
         # TODO(pyright): cast shouldn't be necessary, recheck in a future version of pyright
-        return cls.value_from_json(cast(str, json_data["type"]), json_data["data"])
+        return cls.value_from_json(cast("str", json_data["type"]), json_data["data"])
 
     @classmethod
     def value_from_json(cls, type_name: str, data: JsonData) -> T:
@@ -433,7 +433,7 @@ class NumberInspector(PositronInspector[NT], ABC):
         if type_name == "complex":
             if not isinstance(data, str):
                 raise ValueError(f"Expected data to be str, got {data}")
-            return cast(numbers.Number, complex(data))
+            return cast("numbers.Number", complex(data))
 
         return super().value_from_json(type_name, data)
 
@@ -620,9 +620,9 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
 
             # TODO(pyright): cast shouldn't be necessary, recheck in a future version of pyright
             return range(
-                cast(int, data["start"]),
-                cast(int, data["stop"]),
-                cast(int, data["step"]),
+                cast("int", data["start"]),
+                cast("int", data["stop"]),
+                cast("int", data["step"]),
             )
 
         return super().value_from_json(type_name, data)
@@ -833,7 +833,7 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
         _truncate_at: int = TRUNCATE_AT,
     ) -> tuple[str, bool]:
         display_value = _get_simplified_qualname(self.value)
-        column_values = str(cast(Column, self.value[:100]).to_list())
+        column_values = str(cast("Column", self.value[:100]).to_list())
         display_value = f"{display_value} {column_values}"
 
         return (display_value, True)

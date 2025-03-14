@@ -111,6 +111,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// the runtimeId (metadata.runtimeId) of the session.
 	private readonly _consoleSessionsByRuntimeId = new Map<string, ILanguageRuntimeSession[]>();
 
+	// A map of the number of sessions created per runtime ID. This is used to
+	// make each session name unique.
+	private readonly _consoleSessionCounterByRuntimeId = new Map<string, number>();
+
 	// A map of the last active console session per langauge.
 	// We can have multiple console sessions per language,
 	// and this map provides access to the session that was
@@ -285,17 +289,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
-	 * Gets the console session for a runtime, if one exists. Used by the top
-	 * bar interpreter drop-down to associated a session with a runtime.
+	 * Gets the console session for a runtime, if one exists.
+	 * Used to associated a session with a runtime.
 	 *
 	 * @param runtimeId The runtime identifier of the session to retrieve.
 	 * @returns The console session with the given runtime identifier, or undefined if
 	 *  no console session with the given runtime identifier exists.
 	 */
 	getConsoleSessionForRuntime(runtimeId: string): ILanguageRuntimeSession | undefined {
-		// It's possible that there are multiple consoles for the same runtime,
-		// for example, if one failed to start and is uninitialized. In that case,
-		// we return the most recently created.
+		// It's possible that there are multiple consoles for the same runtime.
+		// In that case, we return the most recently created.
 		return Array.from(this._activeSessionsBySessionId.values())
 			.map((info, index) => ({ info, index }))
 			.sort((a, b) =>
@@ -350,17 +353,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *
 	 * If `console.multipleConsoleSessions` is enabled this function works as decribed below:
 	 *
-	 * Starts a runtime session for the provided runtime if there isn't one.
+	 * Select a session for the provided runtime.
+	 *
+	 * For console sessions, if there is an active console session for the runtime, set it as
+	 *  the foreground session and return. If there is no active console session for the runtime,
+	 * start a new session for the runtime. If there are multiple sessions for the runtime,
+	 * the most recently created session is set as the foreground session.
 	 *
 	 * For notebooks, only one runtime session for a notebook URI is allowed. Starts a session for the
 	 * new runtime after shutting down the session for the previous runtime. Do nothing if the runtime
 	 * matches the active runtime for the notebook session.
-	 *
-	 * For consoles, we can have multiple sessions for a given runtime. Starts a session for the new
-	 * runtime if there isn't one. Do nothing if there is an active console session for the runtime.
-	 *
-	 * This should not be used to create new console sessions unless the goal is to limit session
-	 * creation to one per runtime.
 	 *
 	 * @param runtimeId The ID of the runtime to select
 	 * @param source The source of the selection
@@ -419,6 +421,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				// Check if there is a console session for this runtime already
 				const activeSession = this.getConsoleSessionForRuntime(runtimeId);
 				if (activeSession) {
+					// Set it as the foreground session and return.
+					this.foregroundSession = activeSession;
 					return;
 				}
 			} else {
@@ -717,6 +721,17 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	getSession(sessionId: string): ILanguageRuntimeSession | undefined {
 		return this._activeSessionsBySessionId.get(sessionId)?.session;
+	}
+
+	/**
+	 * Gets a single active session, given its session ID.
+	 *
+	 * @param sessionId The session ID to retrieve.
+	 * @returns The session with the given session ID, or undefined if no
+	 *  session with the given session ID exists.
+	 */
+	getActiveSession(sessionId: string): ActiveRuntimeSession | undefined {
+		return this._activeSessionsBySessionId.get(sessionId);
 	}
 
 	/**
@@ -1297,6 +1312,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		startMode: RuntimeStartMode,
 		activate: boolean,
 		notebookUri?: URI): Promise<string> {
+		const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
+
 		this.setStartingSessionMaps(sessionMode, runtimeMetadata, notebookUri);
 
 		// Create a promise that resolves when the runtime is ready to use, if there isn't already one.
@@ -1321,10 +1338,26 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			throw err;
 		}
 
+		// Determine if the console session name should be appended with a session count to make it unique.
+		let updatedSessionName = sessionName;
+		if (sessionMode === LanguageRuntimeSessionMode.Console && multiSessionsEnabled) {
+			let sessionCount = this._consoleSessionCounterByRuntimeId.get(runtimeMetadata.runtimeId);
+			if (sessionCount) {
+				// Increment the session count for the runtime and append it to the session name.
+				sessionCount++;
+				this._consoleSessionCounterByRuntimeId.set(runtimeMetadata.runtimeId, sessionCount);
+				updatedSessionName = `${sessionName} - ${sessionCount}`;
+			} else {
+				// Initialize the session count for the runtime.
+				// The first session for a runtime does not append this count to the session name.
+				this._consoleSessionCounterByRuntimeId.set(runtimeMetadata.runtimeId, 1);
+			}
+		}
+
 		const sessionId = this.generateNewSessionId(runtimeMetadata);
 		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId,
-			sessionName,
+			sessionName: updatedSessionName,
 			sessionMode,
 			notebookUri,
 			createdTimestamp: Date.now(),

@@ -10,6 +10,7 @@ import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, ILanguageRuntimeS
 import { RuntimeClientType, IRuntimeClientInstance } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { IRuntimeClientEvent } from '../../languageRuntime/common/languageRuntimeUiClient.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
+import { ActiveRuntimeSession } from './activeRuntimeSession.js';
 
 export const IRuntimeSessionService =
 	createDecorator<IRuntimeSessionService>('runtimeSessionService');
@@ -326,6 +327,11 @@ export interface IRuntimeSessionService {
 	 * Gets a specific runtime session by session identifier.
 	 */
 	getSession(sessionId: string): ILanguageRuntimeSession | undefined;
+
+	/**
+	 * Gets a currently active session for a runtime.
+	 */
+	getActiveSession(sessionId: string): ActiveRuntimeSession | undefined;
 
 	/**
 	 * Gets a specific runtime console by runtime identifier. Currently, only

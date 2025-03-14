@@ -185,7 +185,7 @@ class RemoteAuthoritiesImpl {
 	}
 
 	setServerRootPath(product: { quality?: string; commit?: string }, serverBasePath: string | undefined): void {
-		this._serverRootPath = getServerRootPath(product, serverBasePath);
+		this._serverRootPath = paths.posix.join(serverBasePath ?? '/', getServerProductSegment(product));
 	}
 
 	getServerRootPath(): string {
@@ -244,8 +244,8 @@ class RemoteAuthoritiesImpl {
 
 export const RemoteAuthorities = new RemoteAuthoritiesImpl();
 
-export function getServerRootPath(product: { quality?: string; commit?: string }, basePath: string | undefined): string {
-	return paths.posix.join(basePath ?? '/', `${product.quality ?? 'oss'}-${product.commit ?? 'dev'}`);
+export function getServerProductSegment(product: { quality?: string; commit?: string }) {
+	return `${product.quality ?? 'oss'}-${product.commit ?? 'dev'}`;
 }
 
 /**

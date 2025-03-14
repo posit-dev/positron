@@ -227,9 +227,9 @@ export type EnvironmentsChangeEvent = {
 
 export type ActiveEnvironmentPathChangeEvent = EnvironmentPath & {
     /**
-     * Workspace folder the environment changed for.
+     * Resource the environment changed for.
      */
-    readonly resource: WorkspaceFolder | undefined;
+    readonly resource: Resource | undefined;
 };
 
 /**
@@ -268,6 +268,9 @@ export type KnownEnvironmentTools =
     | 'VirtualEnvWrapper'
     | 'Pyenv'
     | 'Hatch'
+    // --- Start Positron ---
+    | 'Uv'
+    // --- End Positron ---
     | 'Unknown';
 
 /**

@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { ZedRuntimeManager } from './manager';
+import { registerCommands } from './commands';
 
 /**
  * Activates the extension.
@@ -14,4 +15,7 @@ import { ZedRuntimeManager } from './manager';
 export function activate(context: vscode.ExtensionContext) {
 	// Register the Zed runtime manager with the Positron runtime.
 	positron.runtime.registerLanguageRuntimeManager('zed', new ZedRuntimeManager(context));
+
+	// Register some dummy commands.
+	registerCommands(context);
 }

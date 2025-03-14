@@ -40,7 +40,7 @@ import { isWorkspaceToOpen, isFolderToOpen } from '../../platform/window/common/
 import { getSingleFolderWorkspaceIdentifier, getWorkspaceIdentifier } from '../services/workspaces/browser/workspaces.js';
 import { InMemoryFileSystemProvider } from '../../platform/files/common/inMemoryFilesystemProvider.js';
 import { ICommandService } from '../../platform/commands/common/commands.js';
-import { IndexedDBFileSystemProviderErrorDataClassification, IndexedDBFileSystemProvider, IndexedDBFileSystemProviderErrorData } from '../../platform/files/browser/indexedDBFileSystemProvider.js';
+import { IndexedDBFileSystemProvider } from '../../platform/files/browser/indexedDBFileSystemProvider.js';
 import { BrowserRequestService } from '../services/request/browser/requestService.js';
 import { IRequestService } from '../../platform/request/common/request.js';
 import { IUserDataInitializationService, IUserDataInitializer, UserDataInitializationService } from '../services/userData/browser/userDataInit.js';
@@ -64,7 +64,6 @@ import { IOpenerService } from '../../platform/opener/common/opener.js';
 import { mixin, safeStringify } from '../../base/common/objects.js';
 import { IndexedDB } from '../../base/browser/indexedDB.js';
 import { WebFileSystemAccess } from '../../platform/files/browser/webFileSystemAccess.js';
-import { ITelemetryService } from '../../platform/telemetry/common/telemetry.js';
 import { IProgressService } from '../../platform/progress/common/progress.js';
 import { DelayedLogChannel } from '../services/output/common/delayedLogChannel.js';
 import { dirname, joinPath } from '../../base/common/resources.js';
@@ -77,7 +76,7 @@ import { UserDataProfileService } from '../services/userDataProfile/common/userD
 import { IUserDataProfileService } from '../services/userDataProfile/common/userDataProfile.js';
 import { BrowserUserDataProfilesService } from '../../platform/userDataProfile/browser/userDataProfile.js';
 import { DeferredPromise, timeout } from '../../base/common/async.js';
-import { windowLogId } from '../services/log/common/logConstants.js';
+import { windowLogGroup, windowLogId } from '../services/log/common/logConstants.js';
 import { LogService } from '../../platform/log/common/logService.js';
 import { IRemoteSocketFactoryService, RemoteSocketFactoryService } from '../../platform/remote/common/remoteSocketFactoryService.js';
 import { BrowserSocketFactory } from '../../platform/remote/browser/browserSocketFactory.js';
@@ -139,13 +138,6 @@ export class BrowserMain extends Disposable {
 
 		// Logging
 		services.logService.trace('workbench#open with configuration', safeStringify(this.configuration));
-
-		instantiationService.invokeFunction(accessor => {
-			const telemetryService = accessor.get(ITelemetryService);
-			for (const indexedDbFileSystemProvider of this.indexedDBFileSystemProviders) {
-				this._register(indexedDbFileSystemProvider.onReportError(e => telemetryService.publicLog2<IndexedDBFileSystemProviderErrorData, IndexedDBFileSystemProviderErrorDataClassification>('indexedDBFileSystemProviderError', e)));
-			}
-		});
 
 		// Return API Facade
 		return instantiationService.invokeFunction(accessor => {
@@ -283,7 +275,9 @@ export class BrowserMain extends Disposable {
 		serviceCollection.set(IProductService, productService);
 
 		// Environment
-		const logsPath = URI.file(toLocalISOString(new Date()).replace(/-|:|\.\d+Z$/g, '')).with({ scheme: 'vscode-log' });
+		// --- Start PWB: Always use in-memory logger
+		const logsPath = URI.file(this.configuration.userDataPath + '/' + toLocalISOString(new Date()).replace(/-|:|\.\d+Z$/g, '')).with({ scheme: 'vscode-log' });
+		// --- End PWB
 		const environmentService = new BrowserWorkbenchEnvironmentService(workspace.id, logsPath, this.configuration, productService);
 		serviceCollection.set(IBrowserWorkbenchEnvironmentService, environmentService);
 
@@ -301,7 +295,7 @@ export class BrowserMain extends Disposable {
 		if (environmentService.isExtensionDevelopment && !!environmentService.extensionTestsLocationURI) {
 			otherLoggers.push(new ConsoleLogInAutomationLogger(loggerService.getLogLevel()));
 		}
-		const logger = loggerService.createLogger(environmentService.logFile, { id: windowLogId, name: localize('rendererLog', "Window") });
+		const logger = loggerService.createLogger(environmentService.logFile, { id: windowLogId, name: windowLogGroup.name, group: windowLogGroup });
 		const logService = new LogService(logger, otherLoggers);
 		serviceCollection.set(ILogService, logService);
 
@@ -400,7 +394,7 @@ export class BrowserMain extends Disposable {
 		this._register(workspaceTrustManagementService.onDidChangeTrust(() => configurationService.updateWorkspaceTrust(workspaceTrustManagementService.isWorkspaceTrusted())));
 
 		// Request Service
-		const requestService = new BrowserRequestService(remoteAgentService, configurationService, logService);
+		const requestService = new BrowserRequestService(remoteAgentService, configurationService, loggerService);
 		serviceCollection.set(IRequestService, requestService);
 
 		// Userdata Sync Store Management Service
@@ -482,13 +476,9 @@ export class BrowserMain extends Disposable {
 		}
 
 		// Logger
-		if (indexedDB) {
-			const logFileSystemProvider = new IndexedDBFileSystemProvider(logsPath.scheme, indexedDB, logsStore, false);
-			this.indexedDBFileSystemProviders.push(logFileSystemProvider);
-			fileService.registerProvider(logsPath.scheme, logFileSystemProvider);
-		} else {
-			fileService.registerProvider(logsPath.scheme, new InMemoryFileSystemProvider());
-		}
+		// --- Start PWB: Always use in-memory logger
+		fileService.registerProvider(logsPath.scheme, new InMemoryFileSystemProvider());
+		// --- End PWB
 
 		// User data
 		let userDataProvider;

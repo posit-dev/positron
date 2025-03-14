@@ -6,7 +6,7 @@
 
 import { Code } from '../infra/code';
 
-const HIDE_SECONDARY_SIDE_BAR = '[aria-label="Hide Secondary Side Bar"]';
+const HIDE_SECONDARY_SIDE_BAR = '[aria-label^="Hide Secondary Side Bar"]';
 const SESSION_BUTTON = '[aria-label="Session"]:has-text("Session")';
 
 /*

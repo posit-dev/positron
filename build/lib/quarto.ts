@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as fancyLog from 'fancy-log';
+import fancyLog from 'fancy-log';
 import { fetchUrls } from './fetch';
 import * as es from 'event-stream';
 import { Stream } from 'stream';

@@ -217,6 +217,12 @@
             "default": [],
             "markdownDescription": "%r.configuration.interpreters.exclude.markdownDescription%"
           },
+          "positron.r.interpreters.default": {
+            "scope": "window",
+            "type": "string",
+            "default": null,
+            "markdownDescription": "%r.configuration.interpreters.default.markdownDescription%"
+          },
           "positron.r.kernel.path": {
             "scope": "window",
             "type": "string",
@@ -702,7 +708,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.170"
+      "ark": "0.1.172"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

@@ -103,10 +103,13 @@
 }
 
 .connections-instance-details .connection-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	flex-grow: 0;
 	flex-shrink: 0;
-	width: 26px;
-	height: 26px;
+	width: 19px;
+	height: 19px;
 	display: flex;
 	align-items: center;
 	justify-content: center;

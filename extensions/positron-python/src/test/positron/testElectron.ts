@@ -276,7 +276,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     switch (platform) {
         case 'darwin':
             fileName = `Positron-${version}${suffix}`;
-            url = new URL(`https://cdn.posit.co/positron/prereleases/mac/universal/${fileName}`);
+            url = new URL(`https://cdn.posit.co/positron/dailies/mac/universal/${fileName}`);
             break;
         default:
             throw new Error(`Unsupported platform: ${platform}`);

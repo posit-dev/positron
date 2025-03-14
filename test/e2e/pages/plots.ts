@@ -160,4 +160,8 @@ export class Plots {
 	async waitForPlotInEditor() {
 		await expect(this.code.driver.page.locator('.editor-container img')).toBeVisible({ timeout: 30000 });
 	}
+
+	async expectPlotThumbnailsCountToBe(count: number) {
+		await expect(this.code.driver.page.locator('.plot-thumbnail')).toHaveCount(count);
+	}
 }

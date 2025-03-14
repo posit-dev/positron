@@ -63,7 +63,8 @@ export class Variables {
 	}
 
 	async focusVariablesView() {
-		await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+K+V' : 'Control+K+V');
+		await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
+		await this.code.driver.page.keyboard.press('V');
 	}
 
 	async waitForVariableRow(variableName: string): Promise<Locator> {
@@ -208,7 +209,7 @@ export class Variables {
 	 */
 	async expectVariableToBe(variableName: string, value: string) {
 		await test.step(`Verify variable: ${variableName} with value: ${value}`, async () => {
-			await this.togglePane('show');
+			await this.focusVariablesView();
 			const row = this.code.driver.page.locator('.variables-instance[style*="z-index: 1"] .variable-item').filter({ hasText: variableName });
 
 			await expect(row).toBeVisible();

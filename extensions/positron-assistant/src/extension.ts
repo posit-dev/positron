@@ -5,12 +5,11 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { EncryptedSecretStorage, getEnabledProviders, getModelConfigurations, GlobalSecretStorage, ModelConfig, SecretStorage, showConfigurationDialog, showModelList } from './config';
+import { EncryptedSecretStorage, getEnabledProviders, getModelConfiguration, getModelConfigurations, GlobalSecretStorage, ModelConfig, SecretStorage, showConfigurationDialog, showModelList, StoredModelConfig } from './config';
 import { newLanguageModel } from './models';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { editsProvider } from './edits';
 import { createParticipants } from './participants';
-import { register } from 'node:module';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -26,6 +25,47 @@ function disposeModels() {
 function disposeParticipants() {
 	participantDisposables.forEach(d => d.dispose());
 	participantDisposables = [];
+}
+
+export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage): Promise<boolean> {
+	try {
+		const modelConfig = await getModelConfiguration(config.id, context, storage);
+
+		if (!modelConfig) {
+			vscode.window.showErrorMessage(
+				vscode.l10n.t('Positron Assistant: Failed to register model configuration. The model configuration could not be found.')
+			);
+			return false;
+		}
+
+		const enabledProviders = getEnabledProviders();
+		const enabled = enabledProviders.length === 0 || enabledProviders.includes(modelConfig.provider);
+		if (!enabled) {
+			vscode.window.showErrorMessage(
+				vscode.l10n.t('Positron Assistant: Failed to register model configuration. The provider is disabled.')
+			);
+			return false;
+		}
+
+		const languageModel = newLanguageModel(modelConfig);
+		const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
+
+		if (error) {
+			vscode.window.showErrorMessage(
+				vscode.l10n.t(`Positron Assistant: Failed to register model configuration. ${error.message}`)
+			);
+			return false;
+		}
+
+		registerModelWithAPI(languageModel, modelConfig, context);
+
+		return true;
+	} catch (e) {
+		vscode.window.showErrorMessage(
+			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', [e])
+		);
+		return false;
+	}
 }
 
 export async function registerModels(context: vscode.ExtensionContext, storage: SecretStorage) {
@@ -52,9 +92,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 	}
 
 	try {
-		// Register with Language Model API
 		modelConfigs
-			.filter(config => config.type === 'chat')
 			.forEach((config, idx) => {
 				// We need at least one default and one non-default model for the dropdown to appear.
 				// For now, just set the first language model as default.
@@ -62,25 +100,8 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 				const isFirst = idx === 0;
 
 				const languageModel = newLanguageModel(config);
-				const modelDisp = vscode.lm.registerChatModelProvider(languageModel.identifier, languageModel, {
-					name: languageModel.name,
-					family: languageModel.provider,
-					vendor: context.extension.packageJSON.publisher,
-					version: context.extension.packageJSON.version,
-					maxInputTokens: 0,
-					maxOutputTokens: 0,
-					isUserSelectable: true,
-					isDefault: isFirst,
-				});
-				modelDisposables.push(modelDisp);
+				registerModelWithAPI(languageModel, config, context, isFirst);
 			});
-
-		// Register with VS Code completions API
-		modelConfigs.filter(config => config.type === 'completion').forEach(config => {
-			const completionProvider = newCompletionProvider(config);
-			const complDisp = vscode.languages.registerInlineCompletionItemProvider({ pattern: '**/*.*' }, completionProvider);
-			modelDisposables.push(complDisp);
-		});
 
 		// Set context for if we have chat models available for use
 		const hasChatModels = modelConfigs.filter(config => config.type === 'chat').length > 0;
@@ -90,6 +111,40 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 		const failedMessage = vscode.l10n.t('Positron Assistant: Failed to register model configurations.');
 		vscode.window.showErrorMessage(`${failedMessage} ${e}`);
 	}
+}
+
+/**
+ * Registers the language model with the language model API.
+ *
+ * @param languageModel the language model to register
+ * @param modelConfig the language model's config
+ * @param context the extension context
+ */
+function registerModelWithAPI(languageModel: positron.ai.LanguageModelChatProvider, modelConfig: ModelConfig, context: vscode.ExtensionContext, isDefault = true) {
+	// Register with Language Model API
+	if (modelConfig.type === 'chat') {
+		const modelDisp = vscode.lm.registerChatModelProvider(languageModel.identifier, languageModel, {
+			name: languageModel.name,
+			family: languageModel.provider,
+			vendor: context.extension.packageJSON.publisher,
+			version: context.extension.packageJSON.version,
+			maxInputTokens: 0,
+			maxOutputTokens: 0,
+			isUserSelectable: true,
+			isDefault: isDefault,
+		});
+		modelDisposables.push(modelDisp);
+	}
+
+	// Register with VS Code completions API
+	if (modelConfig.type === 'completion') {
+		const completionProvider = newCompletionProvider(modelConfig);
+		const complDisp = vscode.languages.registerInlineCompletionItemProvider({ pattern: '**/*.*' }, completionProvider);
+		modelDisposables.push(complDisp);
+	}
+
+	const hasChatModels = modelConfig.type === 'chat';
+	vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
 }
 
 function registerParticipants(context: vscode.ExtensionContext) {

@@ -529,6 +529,30 @@
                     "scope": "machine",
                     "type": "string"
                 },
+                "python.environmentProviders.enable": {
+                    "default": {
+                        "Venv": true,
+                        "Conda": true
+                    },
+                    "examples": [
+                        {
+                            "Venv": true,
+                            "Conda": true
+                        }
+                    ],
+                    "markdownDescription": "%python.environmentProviders.enable.markdownDescription%",
+                    "scope": "machine",
+                    "type": "object",
+                    "properties": {
+                        "Venv": {
+                            "type": "boolean"
+                        },
+                        "Conda": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "python.defaultInterpreterPath": {
                     "default": "python",
                     "markdownDescription": "%python.defaultInterpreterPath.description%",
@@ -548,6 +572,16 @@
                 "python.interpreters.exclude": {
                     "default": [],
                     "markdownDescription": "%python.interpreters.exclude.markdownDescription%",
+                    "scope": "window",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true
+                },
+                "python.interpreters.override": {
+                    "default": [],
+                    "markdownDescription": "%python.interpreters.override.markdownDescription%",
                     "scope": "window",
                     "type": "array",
                     "items": {
@@ -770,6 +804,12 @@
                     "description": "%python.testing.autoTestDiscoverOnSaveEnabled.description%",
                     "scope": "resource",
                     "type": "boolean"
+                },
+                "python.testing.autoTestDiscoverOnSavePattern": {
+                    "default": "**/*.py",
+                    "description": "%python.testing.autoTestDiscoverOnSavePattern.description%",
+                    "scope": "resource",
+                    "type": "string"
                 },
                 "python.testing.cwd": {
                     "default": null,
@@ -1892,7 +1932,7 @@
         "get-port": "^5.1.1",
         "gulp": "^5.0.0",
         "gulp-typescript": "^5.0.0",
-        "mocha": "^9.2.2",
+        "mocha": "^11.1.0",
         "mocha-junit-reporter": "^2.0.2",
         "mocha-multi-reporters": "^1.1.7",
         "node-has-native-dependencies": "^1.0.2",

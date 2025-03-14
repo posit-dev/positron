@@ -1,6 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+// --- Start Positron ---
+/* eslint-disable import/no-duplicates */
+// --- End Positron ---
+
 import { ConfigurationTarget, Disposable, QuickInputButtons } from 'vscode';
 import { Commands } from '../../common/constants';
 import { IDisposableRegistry, IInterpreterPathService, IPathUtils } from '../../common/types';
@@ -31,8 +35,10 @@ import { Conda } from '../common/environmentManagers/conda';
 import {
     createEnvironmentAndRegister,
     getCreateEnvironmentProviders,
+    isEnvProviderEnabled,
     isGlobalPython,
 } from '../../positron/createEnvApi';
+import { traceLog } from '../../logging';
 // --- End Positron ---
 
 class CreateEnvironmentProviders {
@@ -43,6 +49,13 @@ class CreateEnvironmentProviders {
     }
 
     public add(provider: CreateEnvironmentProvider) {
+        // --- Start Positron ---
+        if (!isEnvProviderEnabled(provider.id)) {
+            traceLog(`${provider.name} environment provider ${provider.id} is not enabled...skipping registration`);
+            return;
+        }
+        // --- End Positron ---
+
         if (this._createEnvProviders.filter((p) => p.id === provider.id).length > 0) {
             throw new Error(`Create Environment provider with id ${provider.id} already registered`);
         }

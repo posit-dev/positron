@@ -56,6 +56,7 @@ import { registerTriggerForTerminalREPL } from './terminals/codeExecution/termin
 import { registerPythonStartup } from './terminals/pythonStartup';
 import { registerPixiFeatures } from './pythonEnvironments/common/environmentManagers/pixi';
 import { registerCustomTerminalLinkProvider } from './terminals/pythonStartupLinkProvider';
+import { registerEnvExtFeatures } from './envExt/api.internal';
 
 // --- Start Positron ---
 import { IPythonRuntimeManager } from './positron/manager';
@@ -107,6 +108,7 @@ export function activateFeatures(ext: ExtensionState, _components: Components): 
     const interpreterService: IInterpreterService = ext.legacyIOC.serviceContainer.get<IInterpreterService>(
         IInterpreterService,
     );
+    registerEnvExtFeatures(ext.disposables, interpreterPathService);
     const pathUtils = ext.legacyIOC.serviceContainer.get<IPathUtils>(IPathUtils);
 
     // --- Start Positron ---

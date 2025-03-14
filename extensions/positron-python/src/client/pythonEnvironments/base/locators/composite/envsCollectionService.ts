@@ -289,6 +289,9 @@ export class EnvsCollectionService extends PythonEnvsWatcher<PythonEnvCollection
             const venvEnvs = envs.filter((e) => e.kind === PythonEnvKind.Venv).length;
             const virtualEnvEnvs = envs.filter((e) => e.kind === PythonEnvKind.VirtualEnv).length;
             const virtualEnvWrapperEnvs = envs.filter((e) => e.kind === PythonEnvKind.VirtualEnvWrapper).length;
+            // --- Start Positron ---
+            const uvEnvs = envs.filter((e) => e.kind === PythonEnvKind.Uv).length;
+            // --- End Positron ---
 
             // Intent is to capture time taken for discovery of all envs to complete the first time.
             sendTelemetryEvent(EventName.PYTHON_INTERPRETER_DISCOVERY, stopWatch.elapsedTime, {
@@ -310,6 +313,9 @@ export class EnvsCollectionService extends PythonEnvsWatcher<PythonEnvCollection
                 venvEnvs,
                 virtualEnvEnvs,
                 virtualEnvWrapperEnvs,
+                // --- Start Positron ---
+                uvEnvs,
+                // --- End Positron ---
             });
         }
         this.hasRefreshFinishedForQuery.set(query, true);

@@ -35,7 +35,6 @@ test.describe('Sessions: Session Picker', {
 
 	test('R - Start and verify session via session picker', async function ({ app }) {
 		const sessions = app.workbench.sessions;
-
 		rSession1.id = await sessions.launch(rSession);
 		await sessions.expectSessionPickerToBe(rSession);
 		const { state } = await sessions.getMetadata();
@@ -49,7 +48,7 @@ test.describe('Sessions: Session Picker', {
 		rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
 
 		// Widen session tab list to view full runtime names
-		await sessions.widenSessionTabList();
+		await sessions.resizeSessionList({ x: -100 });
 
 		// Verify Active Session Picker is accurate when selecting different sessions
 		pythonSession2.id = await sessions.launch(pythonSession2);
