@@ -12,7 +12,7 @@ test.use({
 });
 
 test.describe('Default Interpreters - Python', {
-	tag: [tags.INTERPRETER]
+	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {

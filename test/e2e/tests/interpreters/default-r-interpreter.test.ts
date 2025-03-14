@@ -12,7 +12,7 @@ test.use({
 });
 
 test.describe('Default Interpreters - R', {
-	tag: [tags.INTERPRETER]
+	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
