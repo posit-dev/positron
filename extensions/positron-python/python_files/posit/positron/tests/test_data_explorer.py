@@ -737,6 +737,14 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             "timedelta64[ns]",
             "interval",
         ),
+        (
+            np.array(
+                ["NaT", 3600, -3600, 0, 0],
+                dtype="timedelta64[s]",
+            ),
+            "timedelta64[s]",
+            "interval",
+        ),
         # datetimetz
         (
             pd.Series(
