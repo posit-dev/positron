@@ -1653,6 +1653,7 @@ declare module 'positron' {
 				[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K] ? K : never
 			}[keyof LanguageModelConfig], undefined>[];
 			defaults: LanguageModelConfigOptions;
+			signedIn?: boolean;
 		}
 
 		/**

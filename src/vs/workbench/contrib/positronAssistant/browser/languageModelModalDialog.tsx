@@ -151,7 +151,6 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			toolCalls: toolCalls,
 			numCtx: numCtx,
 		}).then(() => {
-			props.renderer.dispose();
 		}).catch((e) => {
 			setError(e.message);
 		}).finally(() => {
@@ -299,6 +298,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				<div>
 					{
 						providers.map(provider => {
+							console.log(provider.options.value.signedIn);
 							return <LanguageModelButton
 								key={provider.options.identifier}
 								displayName={provider.options.title ?? provider.options.identifier}
@@ -332,6 +332,11 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 							</Button>
 						</div>
 					)
+				}
+				{!source?.supportedOptions.includes('apiKey') && !source?.signedIn &&
+					<Button className='language-model button sign-in' onPressed={onSignIn}>
+						{(() => localize('positron.newConnectionModalDialog.signIn', "Sign in"))()}
+					</Button>
 				}
 				{showProgress &&
 					<ProgressBar />
