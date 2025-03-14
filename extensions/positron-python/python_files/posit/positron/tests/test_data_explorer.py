@@ -742,7 +742,15 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
                 ["NaT", 3600, -3600, 0, 0],
                 dtype="timedelta64[s]",
             ),
-            "timedelta64[s]",
+            # Older versions of pandas upcast seconds to nanoseconds
+            str(
+                pd.Series(
+                    np.array(
+                        ["NaT", 3600, -3600, 0, 0],
+                        dtype="timedelta64[s]",
+                    )
+                ).dtype
+            ),
             "interval",
         ),
         # datetimetz
