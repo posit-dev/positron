@@ -203,6 +203,7 @@ configurationRegistry.registerConfiguration({
 			description: nls.localize(
 				'positron.runtime.automaticStartup',
 				"How interpreters are started in new Positron windows."),
+			tags: ['interpreterSettings']
 		}
 	}
 });
