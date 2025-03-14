@@ -77,7 +77,7 @@ def get_qualname(value: Any) -> str:
         qualname = getattr(type(value), "__name__", "object")
 
     # Tell the type checker that it's a string
-    qualname = cast(str, qualname)
+    qualname = cast("str", qualname)
 
     # If the value is not itself a module, prepend its module name if it exists
     if not inspect.ismodule(value):

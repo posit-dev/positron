@@ -18,7 +18,6 @@ from comm.base_comm import BaseComm
 
 from ._vendor import attrs, cattrs
 from ._vendor.jedi.api import Interpreter, Project, Script
-from ._vendor.jedi.api.classes import Completion
 from ._vendor.jedi_language_server import jedi_utils, pygls_utils
 from ._vendor.jedi_language_server.server import (
     JediLanguageServer,
@@ -102,6 +101,7 @@ from .jedi import apply_jedi_patches
 from .utils import debounce
 
 if TYPE_CHECKING:
+    from ._vendor.jedi.api.classes import Completion
     from .positron_ipkernel import PositronShell
 
 
@@ -504,7 +504,7 @@ def positron_completion(
         if not trimmed_line.startswith(_LINE_MAGIC_PREFIX):
             for completion in completions_jedi:
                 jedi_completion_item = jedi_utils.lsp_completion_item(
-                    completion=cast(Completion, completion),
+                    completion=cast("Completion", completion),
                     char_before_cursor=char_before_cursor,
                     char_after_cursor=char_after_cursor,
                     enable_snippets=enable_snippets,
@@ -518,7 +518,7 @@ def positron_completion(
                 # `completion` isn't available when accessing the most recent completions dict
                 # (in `positron_completion_item_resolve`), and it may differ from the `label`.
                 jedi_utils._MOST_RECENT_COMPLETIONS[jedi_completion_item.label] = cast(  # noqa: SLF001
-                    Completion, completion
+                    "Completion", completion
                 )
 
                 # If Jedi knows how to complete the expression, use its suggestion.
@@ -553,7 +553,7 @@ def positron_completion(
         exclude_magics = is_completing_attribute or has_whitespace or has_string
         if server.shell is not None and not exclude_magics:
             magic_commands = cast(
-                Dict[str, Dict[str, Callable]], server.shell.magics_manager.lsmagic()
+                "Dict[str, Dict[str, Callable]]", server.shell.magics_manager.lsmagic()
             )
 
             chars_before_cursor = trimmed_line[: params.position.character]

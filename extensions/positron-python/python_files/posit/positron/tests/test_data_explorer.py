@@ -78,13 +78,13 @@ def get_new_comm(
     de_service.register_table(table, title, comm_id=comm_id)
 
     # Clear any existing messages
-    new_comm = cast(DummyComm, de_service.comms[comm_id])
+    new_comm = cast("DummyComm", de_service.comms[comm_id])
     new_comm.messages.clear()
     return new_comm
 
 
 def get_last_message(de_service: DataExplorerService, comm_id: str):
-    comm = cast(DummyComm, de_service.comms[comm_id].comm)
+    comm = cast("DummyComm", de_service.comms[comm_id].comm)
     return comm.messages[-1]
 
 
@@ -224,7 +224,7 @@ def test_explorer_delete_variable(
 
         # Check that comms were all closed
         for comm in comms:
-            last_message = cast(DummyComm, comm.comm).messages[-1]
+            last_message = cast("DummyComm", comm.comm).messages[-1]
             assert last_message["msg_type"] == "comm_close"
 
         for path in paths:
@@ -235,14 +235,14 @@ def test_explorer_delete_variable(
 
 
 def _check_last_message(comm, expected_msg):
-    dummy_comm = cast(DummyComm, comm.comm)
+    dummy_comm = cast("DummyComm", comm.comm)
     last_message = dummy_comm.messages[-1]
     dummy_comm.messages.clear()
     assert last_message == expected_msg
 
 
 def _get_last_message(comm):
-    dummy_comm = cast(DummyComm, comm.comm)
+    dummy_comm = cast("DummyComm", comm.comm)
     return dummy_comm.messages[-1]
 
 
@@ -522,7 +522,7 @@ class DataExplorerFixture:
 
 
 def get_column_profile_result(de_service: DataExplorerService, comm_id: str, callback_id: str):
-    comm = cast(DummyComm, de_service.comms[comm_id].comm)
+    comm = cast("DummyComm", de_service.comms[comm_id].comm)
     for message in comm.messages:
         data = message["data"]
         if data.get("method", "") == "return_column_profiles":

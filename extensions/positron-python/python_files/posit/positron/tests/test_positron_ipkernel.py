@@ -159,7 +159,7 @@ def test_console_traceback(
     st = esc + "\\"
 
     # Convenient reference to colors from the active scheme.
-    colors = cast(Any, shell.InteractiveTB.Colors)
+    colors = cast("Any", shell.InteractiveTB.Colors)
 
     # This template matches the beginning of each traceback frame. We don't check each entire frame
     # because syntax highlighted code is full of escape codes. For example, after removing
