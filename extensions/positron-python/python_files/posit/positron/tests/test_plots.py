@@ -82,7 +82,7 @@ def _create_mpl_plot(
     args_code = ", ".join(args)
 
     shell.run_cell(f"plt.figure({args_code})").raise_error()
-    plot_comm = cast(DummyComm, plots_service._plots[-1]._comm.comm)  # noqa: SLF001
+    plot_comm = cast("DummyComm", plots_service._plots[-1]._comm.comm)  # noqa: SLF001
     assert plot_comm.messages == [comm_open_message(_CommTarget.Plot)]
     plot_comm.messages.clear()
     return plot_comm

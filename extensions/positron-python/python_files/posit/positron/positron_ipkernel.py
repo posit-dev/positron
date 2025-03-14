@@ -219,7 +219,7 @@ class PositronShell(ZMQInteractiveShell):
         # Set custom attributes from the parent object.
         # It would be better to pass these as explicit arguments, but there's no easy way
         # to override the parent to do that.
-        parent = cast(PositronIPyKernel, kwargs["parent"])
+        parent = cast("PositronIPyKernel", kwargs["parent"])
         self.session_mode = parent.session_mode
 
         super().__init__(*args, **kwargs)
@@ -280,7 +280,7 @@ class PositronShell(ZMQInteractiveShell):
     def _handle_pre_run_cell(self, info: ExecutionInfo) -> None:
         """Prior to execution, reset the user environment watch state."""
         # If an empty cell is being executed, do nothing.
-        raw_cell = cast(str, info.raw_cell)
+        raw_cell = cast("str", info.raw_cell)
         if not raw_cell or raw_cell.isspace():
             return
 
@@ -297,8 +297,8 @@ class PositronShell(ZMQInteractiveShell):
         the changes observed to variables in the user's environment.
         """
         # If an empty cell was executed, do nothing.
-        info = cast(ExecutionInfo, result.info)
-        raw_cell = cast(str, info.raw_cell)
+        info = cast("ExecutionInfo", result.info)
+        raw_cell = cast("str", info.raw_cell)
         if not raw_cell or raw_cell.isspace():
             return
 
@@ -411,7 +411,7 @@ class PositronIPyKernel(IPythonKernel):
         # Set custom attributes from the parent object.
         # It would be better to pass these as explicit arguments, but there's no easy way
         # to override the parent to do that.
-        parent = cast(PositronIPKernelApp, kwargs["parent"])
+        parent = cast("PositronIPKernelApp", kwargs["parent"])
         self.session_mode = parent.session_mode
 
         super().__init__(**kwargs)

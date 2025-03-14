@@ -1,4 +1,3 @@
-# noqa: A005
 #
 # Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
@@ -929,7 +928,7 @@ def _highlight(code: str, name: str, _attrs: str) -> str:
 
     formatter = HtmlFormatter()
     result = highlight(code, lexer, formatter)
-    return cast(str, result)
+    return cast("str", result)
 
 
 def _docstring_to_html(docstring: str, object_: Any) -> str:
