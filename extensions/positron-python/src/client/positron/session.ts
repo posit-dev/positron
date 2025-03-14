@@ -114,6 +114,18 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this.onDidChangeRuntimeState = this._stateEmitter.event;
         this.onDidEndSession = this._exitEmitter.event;
 
+        positron.runtime.onDidChangeForegroundSession((sessionId) => {
+            if (sessionId) {
+                if (sessionId === metadata.sessionId) {
+                    // Start LSP for the foreground session only if its been previously stopped
+                    this.activateLsp();
+                } else if (metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
+                    // Stop LSP for other console sessions if they are running
+                    this.deactivateLsp();
+                }
+            }
+        });
+
         // Extract the extra data from the runtime metadata; it contains the
         // Python path that was saved when the metadata was created.
         const extraData: PythonRuntimeExtraData = runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
@@ -524,6 +536,38 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             languageClientOptions,
             this.metadata,
         );
+    }
+
+    async activateLsp() {
+        // Start LSP for the foreground session only if its been previously stopped
+        if (this._lsp?.state === LspState.stopped) {
+            this._queue.add(async () => {
+                const port = await this.adapterApi!.findAvailablePort([], 25);
+                if (this._kernel) {
+                    this._kernel.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
+
+                    // Create the LSP comm before creating the LSP
+                    // client. We keep track of this initialisation in
+                    // case we need to restart, to avoid restarting in
+                    // the middle of init.
+                    this._lspStarting = this._kernel.startPositronLsp(`127.0.0.1:${port}`);
+
+                    await this._lspStarting;
+                    await this._lsp?.activate(port);
+                }
+            });
+        }
+    }
+
+    deactivateLsp() {
+        if (this._lsp?.state === LspState.running) {
+            this._queue.add(async () => {
+                if (this._kernel) {
+                    this._kernel.emitJupyterLog(`Stopping Positron LSP server`);
+                }
+                await this._lsp?.deactivate(true);
+            });
+        }
     }
 
     async restart(workingDirectory?: string): Promise<void> {

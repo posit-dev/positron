@@ -1492,6 +1492,11 @@ declare module 'positron' {
 		 * An event that fires when a new runtime is registered.
 		 */
 		export const onDidRegisterRuntime: vscode.Event<LanguageRuntimeMetadata>;
+
+		/**
+		 * An event that fires when the foreground session changes
+		 */
+		export const onDidChangeForegroundSession: vscode.Event<string | undefined>;
 	}
 
 	// FIXME: The current (and clearly not final) state of an experiment to bring in interface(s)

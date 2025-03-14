@@ -22,7 +22,25 @@ export class RSessionManager {
 	private _lastBinpath = '';
 
 	/// Constructor; private since we only want one of these
-	private constructor() { }
+	private constructor() {
+		positron.runtime.onDidChangeForegroundSession(sessionId => {
+			if (sessionId) {
+				const session = this._sessions.get(sessionId);
+				if (session) {
+					// Start LSP for the foreground session
+					session.activateLsp();
+
+					// Stop LSPs for other console sessions
+					this._sessions.forEach(s => {
+						if (s.metadata.sessionId !== sessionId &&
+							s.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
+							s.deactivateLsp();
+						}
+					});
+				}
+			}
+		});
+	}
 
 	/**
 	 * Accessor for the singleton instance; creates it if it doesn't exist.

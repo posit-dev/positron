@@ -173,6 +173,11 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 			}
 		});
 
+		// Listen for changes to the foreground session and notify the extension host
+		this._runtimeSessionService.onDidChangeForegroundSession((session) => {
+			this._proxy.$notifyForegroundSessionChanged(session?.sessionId);
+		});
+
 		this._runtimeSessionService.onDidReceiveRuntimeEvent(globalEvent => {
 			// Ignore events for other sessions.
 			if (globalEvent.session_id !== this.sessionId) {
