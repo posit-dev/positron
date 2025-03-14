@@ -5,7 +5,7 @@
 
 import { test, tags } from '../_test.setup';
 import { expect } from '@playwright/test';
-import { deletePositronHistoryFiles } from './helpers/deleteFiles.js';
+import { deletePositronHistoryFiles, getPrimaryInterpretersText } from './helpers/default-interpreters.js';
 
 test.use({
 	suiteId: __filename
@@ -17,7 +17,12 @@ test.describe('Default Interpreters - Python', {
 
 	test.beforeAll(async function ({ userSettings }) {
 
-		await userSettings.set([['files.simpleDialog.enable', 'true']]);
+		// local debugging sample:
+		// const homeDir = process.env.HOME || '';
+		// await userSettings.set([['python.defaultInterpreterPath', `"${path.join(homeDir, '.pyenv/versions/3.13.0/bin/python')}"`]], false);
+
+		// hidden interpreter (Conda)
+		await userSettings.set([['python.defaultInterpreterPath', '"/home/runner/scratch/python-env/bin/python"']], false);
 
 		await deletePositronHistoryFiles();
 
@@ -27,31 +32,14 @@ test.describe('Default Interpreters - Python', {
 
 		await app.workbench.console.waitForInterpretersToFinishLoading();
 
-		// close qa-example-content
-		await runCommand('workbench.action.closeFolder');
+		await runCommand('workbench.action.reloadWindow');
 
-		await expect(async () => {
-			// local debugging sample:
-			// const homeDir = process.env.HOME || '';
-			// await userSettings.set([['python.defaultInterpreterPath', `"${path.join(homeDir, '.pyenv/versions/3.13.0/bin/python')}"`]], false);
+		const interpretersText = await getPrimaryInterpretersText(app);
 
-			// hidden interpreter (Conda)
-			await userSettings.set([['python.defaultInterpreterPath', '"/home/runner/scratch/python-env/bin/python"']], false);
-		}).toPass({ timeout: 45000 });
+		// local debugging:
+		// expect(interpretersText.some(text => text.includes("3.13.0"))).toBe(true);
 
-		await app.workbench.console.waitForReadyAndStarted('>>>', 30000);
-
-		await app.workbench.console.barClearButton.click();
-
-		await app.workbench.console.pasteCodeToConsole('import sys; print(sys.version)');
-		await app.workbench.console.sendEnterKey();
-
-		// local debugging sample:
-		// await app.workbench.console.waitForConsoleContents('3.13.0', { expectedCount: 1 });
-
-		// hidden interpreter (Conda)
-		await app.workbench.console.waitForConsoleContents('3.12.9', { expectedCount: 1 });
-
-		await app.workbench.settings.clearUserSettings();
+		// hidden CI interpreter:
+		expect(interpretersText.some(text => text.includes("3.12.9"))).toBe(true);
 	});
 });
