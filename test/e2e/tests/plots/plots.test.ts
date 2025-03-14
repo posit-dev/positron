@@ -378,8 +378,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.expectPlotThumbnailsCountToBe(2);
 		});
 
-		// fails on web
-		test('R - Plot building', { tag: [tags.WIN] }, async function ({ app }) {
+		test('R - Plot building', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+
+			await app.workbench.plots.enlargePlotArea();
+
 			await app.workbench.console.pasteCodeToConsole('par(mfrow = c(2, 2))');
 			await app.workbench.console.sendEnterKey();
 			await app.workbench.console.pasteCodeToConsole('plot(1:5)');
@@ -409,10 +411,14 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.console.sendEnterKey();
 			await app.workbench.plots.waitForCurrentPlot();
 			await app.workbench.plots.expectPlotThumbnailsCountToBe(3);
+
+			await app.workbench.plots.restorePlotArea();
 		});
 
-		// fails on web
-		test('R - Figure margins', { tag: [tags.WIN] }, async function ({ app }) {
+		test('R - Figure margins', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+
+			await app.workbench.plots.enlargePlotArea();
+
 			await app.workbench.console.pasteCodeToConsole('par(mfrow = c(2, 1))');
 			await app.workbench.console.sendEnterKey();
 			await app.workbench.console.pasteCodeToConsole('plot(1:10)');
@@ -422,6 +428,29 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.console.pasteCodeToConsole('par(mfrow = c(1, 1))');
 			await app.workbench.console.sendEnterKey();
 			await app.workbench.plots.waitForCurrentPlot();
+
+			await app.workbench.plots.restorePlotArea();
+		});
+
+		test('R - plot and save in one block', { tag: [tags.WEB, tags.WIN] }, async function ({ app, runCommand }) {
+
+			await app.workbench.console.barClearButton.click();
+			await app.workbench.console.barRestartButton.click();
+
+			await app.workbench.console.waitForConsoleContents('restarted', { expectedCount: 1 });
+
+			await app.workbench.console.pasteCodeToConsole(rPlotAndSave);
+			await app.workbench.console.sendEnterKey();
+			await app.workbench.plots.waitForCurrentPlot();
+
+			await runCommand('workbench.action.fullSizedAuxiliaryBar');
+
+			const vars = await app.workbench.variables.getFlatVariables();
+			const filePath = vars.get('tempfile')?.value;
+
+			expect(fs.existsSync(filePath?.replaceAll('"', '')!)).toBe(true);
+
+			await app.workbench.layouts.enterLayout('stacked');
 		});
 
 	});
@@ -448,6 +477,7 @@ async function runScriptAndValidatePlot(app: Application, script: string, locato
 	await app.workbench.console.sendEnterKey();
 	await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 	await app.workbench.plots.waitForWebviewPlot(locator, 'visible', RWeb);
+	await app.workbench.layouts.enterLayout('stacked');
 }
 
 async function compareImages({
@@ -668,3 +698,9 @@ fig`;
 
 const rTwoPlots = `plot(1:10)
 plot(1:100)`;
+
+const rPlotAndSave = `plot(1:10)
+tempfile <- tempfile()
+grDevices::png(filename = tempfile)
+plot(1:20)
+dev.off()`;

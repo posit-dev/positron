@@ -6,6 +6,7 @@
 
 import { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
+import { fail } from 'assert';
 
 const CURRENT_PLOT = '.plot-instance img';
 const CURRENT_STATIC_PLOT = '.plot-instance.static-plot-instance img';
@@ -163,5 +164,55 @@ export class Plots {
 
 	async expectPlotThumbnailsCountToBe(count: number) {
 		await expect(this.code.driver.page.locator('.plot-thumbnail')).toHaveCount(count);
+	}
+
+	async enlargePlotArea() {
+		await this.alterPlotArea(-150, -150);
+	}
+
+	async restorePlotArea() {
+		await this.alterPlotArea(150, 150);
+	}
+
+	async alterPlotArea(xDelta: number, yDelta: number) {
+
+		const vericalSashLocator = this.code.driver.page.locator('.monaco-sash.vertical').nth(2);
+		const verticalSashBoundingBox = await vericalSashLocator.boundingBox();
+
+		if (verticalSashBoundingBox) {
+
+			await this.code.driver.clickAndDrag({
+				from: {
+					x: verticalSashBoundingBox.x,
+					y: verticalSashBoundingBox.y + 10
+				},
+				to: {
+					x: verticalSashBoundingBox.x + xDelta,
+					y: verticalSashBoundingBox.y + 10
+				}
+			});
+		} else {
+			fail('Vertical sash bounding box not found');
+		}
+
+		const horizontalSashLocator = this.code.driver.page.locator('.auxiliarybar .monaco-sash.horizontal').nth(0);
+		const horizontalSashBoundingBox = await horizontalSashLocator.boundingBox();
+
+		if (horizontalSashBoundingBox) {
+
+			await this.code.driver.clickAndDrag({
+				from: {
+					x: horizontalSashBoundingBox.x + 10,
+					y: horizontalSashBoundingBox.y
+				},
+				to: {
+					x: horizontalSashBoundingBox.x + 10,
+					y: horizontalSashBoundingBox.y + yDelta
+				}
+			});
+		} else {
+			fail('Horizontal sash bounding box not found');
+		}
+
 	}
 }
