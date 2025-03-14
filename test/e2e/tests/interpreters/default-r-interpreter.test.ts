@@ -11,8 +11,9 @@ test.use({
 	suiteId: __filename
 });
 
+// electron only for now - windows doesn't have hidden interpreters and for web the deletePositronHistoryFiles is not valid
 test.describe('Default Interpreters - R', {
-	tag: [tags.INTERPRETER, tags.WEB]
+	tag: [tags.INTERPRETER]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
