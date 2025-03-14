@@ -383,6 +383,17 @@ export class TableDataCache extends Disposable {
 		this._rows = tableState.table_shape.num_rows;
 		this._hasRowLabels = tableState.has_row_labels;
 
+		// If there are no rows (e.g., due to filtering), immediately fire an update and return
+		if (this._rows === 0) {
+			// Clear existing caches for a clean display
+			this._rowLabelCache.clear();
+			this._dataColumnCache.clear();
+			// Fire the update event before returning to ensure UI updates even with zero rows
+			this._onDidUpdateEmitter.fire();
+			this._updating = false;
+			return;
+		}
+
 		// Set the start column index and the end column index of the columns to cache.
 		const overscanColumns = screenColumns * OVERSCAN_FACTOR;
 		const startColumnIndex = Math.max(

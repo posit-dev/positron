@@ -95,7 +95,10 @@ suite('Interpreter Path Service', async () => {
         workspaceConfig
             .setup((w) => w.update('defaultInterpreterPath', interpreterPath, true))
             .returns(() => Promise.resolve())
-            .verifiable(TypeMoq.Times.once());
+            /// --- Start Positron ---
+            // Do not reset defaultInterpreterPath setting unless the user does
+            .verifiable(TypeMoq.Times.never());
+        // --- End Positron ---
 
         await interpreterPathService.update(resource, ConfigurationTarget.Global, interpreterPath);
 

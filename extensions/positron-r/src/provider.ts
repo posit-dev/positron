@@ -15,6 +15,8 @@ import * as crypto from 'crypto';
 import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
+import { getInterpreterOverridePaths, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
+import { isDirectory, isFile } from './path-utils.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -27,7 +29,12 @@ export const R_DOCUMENT_SELECTORS = [
 
 export interface RBinary {
 	path: string;
-	reasons: ReasonDiscovered[]
+	reasons: ReasonDiscovered[];
+}
+
+interface DiscoveredBinaries {
+	binaries: RBinary[];
+	currentBinary?: string;
 }
 
 /**
@@ -45,69 +52,29 @@ export enum RRuntimeSource {
  * @param context The extension context.
  */
 export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
-	const binaries = new Map<string, RBinary>();
+	// Discover R binaries on the system
+	const { binaries, currentBinary } = await getBinaries();
 
-	function updateBinaries(binary: RBinary | RBinary[] | undefined): void {
-		if (!binary) {
-			return;
+	// If no R binaries are found, notify the user and end discovery.
+	if (binaries.length === 0) {
+		LOGGER.warn('Positron could not find any R installations. Please review any custom settings.');
+		printInterpreterSettingsInfo();
+		const showLog = await positron.window.showSimpleModalDialogPrompt(
+			vscode.l10n.t('No R installations discovered'),
+			vscode.l10n.t('Positron could not find any R installations. Learn more about R discovery at <br><a href="https://positron.posit.co/r-installations">https://positron.posit.co/r-installations</a>'),
+			vscode.l10n.t('View logs'),
+			vscode.l10n.t('Dismiss')
+		);
+		if (showLog) {
+			LOGGER.show();
 		}
-		const input = Array.isArray(binary) ? binary : [binary];
-		for (const binary of input) {
-			if (binaries.has(binary.path)) {
-				const reasons = new Set(binaries.get(binary.path)!.reasons.concat(binary.reasons));
-				binaries.get(binary.path)!.reasons = Array.from(reasons);
-			} else {
-				binaries.set(binary.path, binary);
-			}
-		}
+		return;
 	}
 
-	// Find the current R binary(ies) for various definitions of "current".
-	// The first item here will eventually be marked as The Current R Binary.
-	const currentBinaries = await currentRBinaryCandidates();
-	updateBinaries(currentBinaries);
-
-	// Now we scour the system for all R binaries we can find.
-	const systemHqBinaries = discoverHQBinaries(rHeadquarters());
-	updateBinaries(systemHqBinaries);
-
-	const registryBinaries = await discoverRegistryBinaries();
-	updateBinaries(registryBinaries);
-
-	const moreBinaries = discoverAdHocBinaries([
-		'/usr/bin/R',
-		'/usr/local/bin/R',
-		'/opt/local/bin/R',
-		'/opt/homebrew/bin/R'
-	]);
-	updateBinaries(moreBinaries);
-
-	// Optional, user-specified root directories or binaries
-	const userBinaries = discoverUserSpecifiedBinaries();
-	updateBinaries(userBinaries);
-
-	// Search locations for R binaries that are conventional on servers. These locations are also
-	// searched by RStudio/Posit Workbench on POSIX platforms, such as Linux and macOS.
-	// See https://github.com/rstudio/rstudio/blob/bb8cbf17bb415467f87d6e415f9e3777fa46e583/src/cpp/core/r_util/RVersionsPosix.cpp#L121-L147
-	if (os.platform() !== 'win32') {
-		const serverBinaries = discoverServerBinaries();
-		updateBinaries(serverBinaries);
-	}
-
-	// (Try to) promote each RBinary to a proper RInstallation
-	let rInstallations: Array<RInstallation> = [];
-	if (currentBinaries.length > 0) {
-		const currentBinary = currentBinaries[0];
-		rInstallations.push(new RInstallation(currentBinary.path, true, currentBinary.reasons));
-		binaries.delete(currentBinary.path);
-	}
-
-	binaries.forEach(rbin => {
-		rInstallations.push(new RInstallation(rbin.path, false, rbin.reasons));
-	});
-
-	const rejectedRInstallations: Array<RInstallation> = [];
-	rInstallations = rInstallations
+	// Promote R binaries to R installations, filtering out any rejected R installations
+	const rejectedRInstallations: RInstallation[] = [];
+	const rInstallations: RInstallation[] = binaries
+		.map(rbin => new RInstallation(rbin.path, rbin.path === currentBinary, rbin.reasons))
 		.filter(r => {
 			if (!r.usable) {
 				LOGGER.info(`Filtering out ${r.binpath}, reason: ${friendlyReason(r.reasonRejected)}.`);
@@ -117,6 +84,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 			return true;
 		});
 
+	// Log info about rejected R installations or lack of usable R installations
 	if (rejectedRInstallations.length > 0) {
 		if (rInstallations.length === 0) {
 			LOGGER.warn(`All discovered R installations are unusable by Positron.`);
@@ -136,6 +104,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 		}
 	}
 
+	// Sort the R installations
 	rInstallations.sort((a, b) => {
 		if (a.current || b.current) {
 			// always put the current R version first
@@ -153,6 +122,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	// checking an renv lockfile for a match against a system version of R.
 	let recommendedForWorkspace = await shouldRecommendForWorkspace();
 
+	// Construct and yield the metadata for each R installation
 	for (const rInst of rInstallations) {
 		// If we're recommending an R runtime, request immediate startup.
 		const startupBehavior = recommendedForWorkspace ?
@@ -178,6 +148,71 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
 		yield metadata;
 	}
+}
+
+/**
+ * Discover binaries on the system based on various sources and return them.
+ * @returns A list of unique R binaries and the current binary if it exists.
+ */
+async function getBinaries(): Promise<DiscoveredBinaries> {
+	// If the override paths are specified, use them exclusively
+	const overrideBinaries = discoverOverrideBinaries();
+	if (overrideBinaries !== undefined) {
+		const uniqueBinaries = deduplicateRBinaries(overrideBinaries);
+		return { binaries: uniqueBinaries, currentBinary: undefined };
+	}
+
+	// Consult various sources of R binaries
+	const currentBinaries = await currentRBinaryCandidates();
+	const systemBinaries = discoverSystemBinaries();
+	const registryBinaries = await discoverRegistryBinaries();
+	const moreBinaries = discoverAdHocBinaries([
+		'/usr/bin/R',
+		'/usr/local/bin/R',
+		'/opt/local/bin/R',
+		'/opt/homebrew/bin/R'
+	]);
+	const userBinaries = discoverUserSpecifiedBinaries();
+	const serverBinaries = discoverServerBinaries();
+
+	// Combine all the binaries we've found
+	const rBinaries: RBinary[] = [
+		...currentBinaries,
+		...systemBinaries,
+		...registryBinaries,
+		...moreBinaries,
+		...userBinaries,
+		...serverBinaries
+	];
+
+	// Deduplicate the binaries
+	const uniqueBinaries = deduplicateRBinaries(rBinaries);
+
+	// Return the array of unique binaries and the current binary if it exists
+	return {
+		binaries: uniqueBinaries,
+		currentBinary: currentBinaries.length > 0 ? currentBinaries[0].path : undefined
+	};
+}
+
+/**
+ * Deduplicate a list of R binaries, merging the reasons for each binary.
+ * @param binaries Binaries to deduplicate
+ * @returns Deduplicated binaries
+ */
+function deduplicateRBinaries(binaries: RBinary[]) {
+	const binariesMap = binaries.reduce((acc, binary) => {
+		if (acc.has(binary.path)) {
+			const existingBinary = acc.get(binary.path)!;
+			const mergedReasons = Array.from(new Set([...existingBinary.reasons, ...binary.reasons]));
+			acc.set(binary.path, { ...existingBinary, reasons: mergedReasons });
+		} else {
+			acc.set(binary.path, binary);
+		}
+		return acc;
+	}, new Map<string, RBinary>());
+
+	return Array.from(binariesMap.values());
 }
 
 export async function makeMetadata(
@@ -233,6 +268,7 @@ export async function makeMetadata(
 		binpath: rInst.binpath,
 		scriptpath: scriptPath,
 		current: rInst.current,
+		default: rInst.default,
 		reasonDiscovered: rInst.reasonDiscovered,
 	};
 
@@ -283,6 +319,11 @@ export async function currentRBinary(): Promise<RBinary | undefined> {
 	}
 }
 
+/**
+ * Get the current R binary(ies) for various definitions of "current".
+ * The first item of the returned list will eventually be marked as The Current R Binary.
+ * @returns List of current R binaries from various sources.
+ */
 async function currentRBinaryCandidates(): Promise<RBinary[]> {
 	const candidates: RBinary[] = [];
 	let candidate: RBinary | undefined;
@@ -458,7 +499,13 @@ function currentRBinaryFromHq(hqDirs: string[]): RBinary | undefined {
 
 // Consult various sources of other, perhaps non-current, R binaries
 function discoverHQBinaries(hqDirs: string[]): RBinary[] {
-	const existingHqDirs = hqDirs.filter(dir => fs.existsSync(dir));
+	const existingHqDirs = hqDirs.filter(dir => {
+		if (!fs.existsSync(dir)) {
+			LOGGER.info(`Ignoring R headquarters directory ${dir} because it does not exist.`);
+			return false;
+		}
+		return true;
+	});
 	if (existingHqDirs.length === 0) {
 		return [];
 	}
@@ -532,9 +579,23 @@ async function discoverRegistryBinaries(): Promise<RBinary[]> {
 
 function discoverAdHocBinaries(paths: string[]): RBinary[] {
 	return paths
-		.filter(b => fs.existsSync(b))
+		.filter(b => {
+			if (!fs.existsSync(b)) {
+				LOGGER.info(`Ignoring ad hoc R binary ${b} because it does not exist.`);
+				return false;
+			}
+			return true;
+		})
 		.map(b => fs.realpathSync(b))
 		.map(b => ({ path: b, reasons: [ReasonDiscovered.adHoc] }));
+}
+
+/**
+ * Scour the system for all R binaries we can find.
+ * @returns System R binaries.
+ */
+function discoverSystemBinaries(): RBinary[] {
+	return discoverHQBinaries(rHeadquarters());
 }
 
 /**
@@ -545,17 +606,23 @@ function discoverUserSpecifiedBinaries(): RBinary[] {
 	const userHqBinaries = discoverHQBinaries(userRHeadquarters());
 	const userMoreBinaries = discoverAdHocBinaries(userRBinaries());
 	const userBinaries = userHqBinaries.concat(userMoreBinaries);
-	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.user
-	return userBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.user] }));
+	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.userSetting
+	return userBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.userSetting] }));
 }
 
 /**
  * Discovers R binaries that are installed in conventional locations on servers, such as Posit
  * Workbench.
  * Paths are from: https://docs.posit.co/ide/server-pro/r/using_multiple_versions_of_r.html
+ * These locations are also searched by RStudio/Posit Workbench on POSIX platforms, such as Linux and macOS.
+ * See https://github.com/rstudio/rstudio/blob/bb8cbf17bb415467f87d6e415f9e3777fa46e583/src/cpp/core/r_util/RVersionsPosix.cpp#L121-L147
  * @returns R binaries that are installed in conventional locations on servers.
  */
 function discoverServerBinaries(): RBinary[] {
+	if (os.platform() === 'win32') {
+		return [];
+	}
+
 	const serverBinaries = discoverHQBinaries([
 		'/usr/lib/R',
 		'/usr/lib64/R',
@@ -566,8 +633,32 @@ function discoverServerBinaries(): RBinary[] {
 		// '/opt/R', // Already checked for in rHeadquarters
 		'/opt/local/R'
 	]);
+
 	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.server
 	return serverBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.server] }));
+}
+
+/**
+ * Discovers R binaries that are specified via the `positron.r.interpreters.override` setting.
+ * @returns R binaries that are installed in the settings-specified locations.
+ */
+function discoverOverrideBinaries(): RBinary[] | undefined {
+	const overridePaths = getInterpreterOverridePaths();
+	if (overridePaths.length === 0) {
+		return undefined;
+	}
+
+	// Filter the override paths into directories and files
+	const overrideDirs = overridePaths.filter((item) => isDirectory(item));
+	const overrideFiles = overridePaths.filter((item) => isFile(item));
+
+	// Discover the binaries in the override directories and files and combine them
+	const overrideHqBinaries = discoverHQBinaries(overrideDirs);
+	const overrideAdHocBinaries = discoverAdHocBinaries(overrideFiles);
+	const overrideBinaries = overrideHqBinaries.concat(overrideAdHocBinaries);
+
+	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.userSetting
+	return overrideBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.userSetting] }));
 }
 
 // R discovery helpers
@@ -590,32 +681,6 @@ function rHeadquarters(): string[] {
 		}
 		default:
 			throw new Error('Unsupported platform');
-	}
-}
-
-// directory(ies) where this user keeps R installations
-function userRHeadquarters(): string[] {
-	const config = vscode.workspace.getConfiguration('positron.r');
-	const userHqDirs = config.get<string[]>('customRootFolders');
-	if (userHqDirs && userHqDirs.length > 0) {
-		const formattedPaths = JSON.stringify(userHqDirs, null, 2);
-		LOGGER.info(`User-specified directories to scan for R installations:\n${formattedPaths}`);
-		return userHqDirs;
-	} else {
-		return [];
-	}
-}
-
-// ad hoc binaries this user wants Positron to know about
-function userRBinaries(): string[] {
-	const config = vscode.workspace.getConfiguration('positron.r');
-	const userBinaries = config.get<string[]>('customBinaries');
-	if (userBinaries && userBinaries.length > 0) {
-		const formattedPaths = JSON.stringify(userBinaries, null, 2);
-		LOGGER.info(`User-specified R binaries:\n${formattedPaths}`);
-		return userBinaries;
-	} else {
-		return [];
 	}
 }
 

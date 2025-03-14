@@ -68,6 +68,21 @@
           "description": "Automatically start Zed in new workspaces"
         }
       }
+    },
+    "commands": [
+      {
+        "command": "zed.quartoVisualMode",
+        "category": "Zed",
+        "title": "Edit Quarto File in Visual Mode"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "category": "Zed",
+          "command": "zed.quartoVisualMode"
+        }
+      ]
     }
   },
   "scripts": {

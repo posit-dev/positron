@@ -452,6 +452,16 @@ const newCommands: ApiCommand[] = [
 		],
 		ApiCommandResult.Void
 	),
+	// --- Start Positron ---
+	new ApiCommand(
+		'positron.reopenWith', '_workbench.reopenWith', 'Replace the provided resource with the same resource opened in a specific editor.',
+		[
+			ApiCommandArgument.Uri.with('resource', 'Resource to reopen'),
+			ApiCommandArgument.String.with('viewId', 'Custom editor view id. This should be the viewType string for custom editors or the notebookType string for notebooks. Use \'default\' to use VS Code\'s default text editor'),
+		],
+		ApiCommandResult.Void
+	),
+	// --- End Positron ---
 	new ApiCommand(
 		'vscode.diff', '_workbench.diff', 'Opens the provided resources in the diff editor to compare their contents.',
 		[
@@ -557,25 +567,6 @@ const newCommands: ApiCommand[] = [
 			new ApiCommandArgument('value', 'The context key value', () => true, v => v),
 		],
 		ApiCommandResult.Void
-	),
-	// --- mapped edits
-	new ApiCommand(
-		'vscode.executeMappedEditsProvider', '_executeMappedEditsProvider', 'Execute Mapped Edits Provider',
-		[
-			ApiCommandArgument.Uri,
-			ApiCommandArgument.StringArray,
-			new ApiCommandArgument(
-				'MappedEditsContext',
-				'Mapped Edits Context',
-				(v: unknown) => typeConverters.MappedEditsContext.is(v),
-				(v: vscode.MappedEditsContext) => typeConverters.MappedEditsContext.from(v)
-			)
-		],
-		new ApiCommandResult<IWorkspaceEditDto | null, vscode.WorkspaceEdit | null>(
-			'A promise that resolves to a workspace edit or null',
-			(value) => {
-				return value ? typeConverters.WorkspaceEdit.to(value) : null;
-			})
 	),
 	// --- inline chat
 	new ApiCommand(

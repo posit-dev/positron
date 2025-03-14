@@ -126,8 +126,8 @@ export const ActionBar = (props: ActionBarProps) => {
 				setActivePositronConsoleInstance(activePositronConsoleInstance);
 				setInterruptible(activePositronConsoleInstance?.state === PositronConsoleState.Busy);
 				setInterrupting(false);
-				setCanShutdown(activePositronConsoleInstance?.session.getRuntimeState() !== RuntimeState.Exited);
-				setCanStart(activePositronConsoleInstance?.session.getRuntimeState() === RuntimeState.Exited);
+				setCanShutdown(activePositronConsoleInstance?.attachedRuntimeSession?.getRuntimeState() !== RuntimeState.Exited);
+				setCanStart(activePositronConsoleInstance?.attachedRuntimeSession?.getRuntimeState() === RuntimeState.Exited);
 			}
 		);
 	}, [positronConsoleContext.positronConsoleService]);
@@ -249,11 +249,15 @@ export const ActionBar = (props: ActionBarProps) => {
 			const session = activePositronConsoleInstance.attachedRuntimeSession;
 			if (session) {
 				attachRuntime(session);
+			} else {
+				// If no session yet, we can at least show the directory label
+				// while it reconnects
+				setDirectoryLabel(activePositronConsoleInstance.initialWorkingDirectory);
 			}
 
 			// Register for runtime changes.
 			disposableConsoleStore.add(
-				activePositronConsoleInstance.onDidAttachRuntime(attachRuntime));
+				activePositronConsoleInstance.onDidAttachSession(attachRuntime));
 		}
 
 		// Return the cleanup function that will dispose of the disposables.
@@ -269,7 +273,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		setInterrupting(true);
 
 		// Interrupt the active Positron console instance.
-		activePositronConsoleInstance?.session.interrupt();
+		activePositronConsoleInstance?.attachedRuntimeSession?.interrupt();
 	};
 
 	// Toggle trace event handler.
@@ -289,30 +293,39 @@ export const ActionBar = (props: ActionBarProps) => {
 
 	// Power cycle (start or stop) console event handler.
 	const powerCycleConsoleHandler = async () => {
-		// Get the current session the console is bound to and its state.
-		const session = positronConsoleContext.activePositronConsoleInstance?.session;
-		if (!session) {
+		// Ensure we're acting on a valid console instance.
+		if (!positronConsoleContext.activePositronConsoleInstance) {
 			return;
 		}
-		const state = session.getRuntimeState();
+
+		// Get the current session the console is bound to and its state.
+		const consoleInstance = positronConsoleContext.activePositronConsoleInstance;
+		const session = consoleInstance.attachedRuntimeSession;
+
+		// If no session, treat state as uninitialized.
+		const state = session ? session.getRuntimeState() : RuntimeState.Uninitialized;
 
 		if (state === RuntimeState.Exited || state === RuntimeState.Uninitialized) {
+
+			const runtimeMetadata = consoleInstance.runtimeMetadata;
+			const sessionMetadata = consoleInstance.sessionMetadata;
+
 			// Start a new session if the current session has exited, or never
 			// started (e.g. retrying after a startup failure)
 			positronConsoleContext.runtimeSessionService.startNewRuntimeSession(
-				session.runtimeMetadata.runtimeId,
-				session.metadata.sessionName,
-				session.metadata.sessionMode,
-				session.metadata.notebookUri,
+				runtimeMetadata.runtimeId,
+				sessionMetadata.sessionName,
+				sessionMetadata.sessionMode,
+				sessionMetadata.notebookUri,
 				`User-requested new session from console action bar ` +
-				`after session ${session.metadata.sessionId} exited.`,
+				`after session ${sessionMetadata.sessionId} exited.`,
 				RuntimeStartMode.Starting,
 				false
 			);
 			return;
 		} else {
 			// Shutdown the current session.
-			session.shutdown(
+			session?.shutdown(
 				RuntimeExitReason.Shutdown
 			);
 		}
@@ -324,7 +337,7 @@ export const ActionBar = (props: ActionBarProps) => {
 			return;
 		}
 		positronConsoleContext.runtimeSessionService.restartSession(
-			activePositronConsoleInstance!.session.sessionId,
+			activePositronConsoleInstance!.sessionId,
 			'User-requested restart from console action bar');
 	};
 
@@ -333,7 +346,8 @@ export const ActionBar = (props: ActionBarProps) => {
 			return;
 		}
 
-		await positronConsoleContext.runtimeSessionService.deleteSession(positronConsoleContext.activePositronConsoleInstance.session.sessionId);
+		await positronConsoleContext.runtimeSessionService.deleteSession(
+			positronConsoleContext.activePositronConsoleInstance.sessionId);
 	};
 
 	// Render.

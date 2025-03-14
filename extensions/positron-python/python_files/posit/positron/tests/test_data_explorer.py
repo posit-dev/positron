@@ -78,13 +78,13 @@ def get_new_comm(
     de_service.register_table(table, title, comm_id=comm_id)
 
     # Clear any existing messages
-    new_comm = cast(DummyComm, de_service.comms[comm_id])
+    new_comm = cast("DummyComm", de_service.comms[comm_id])
     new_comm.messages.clear()
     return new_comm
 
 
 def get_last_message(de_service: DataExplorerService, comm_id: str):
-    comm = cast(DummyComm, de_service.comms[comm_id].comm)
+    comm = cast("DummyComm", de_service.comms[comm_id].comm)
     return comm.messages[-1]
 
 
@@ -224,7 +224,7 @@ def test_explorer_delete_variable(
 
         # Check that comms were all closed
         for comm in comms:
-            last_message = cast(DummyComm, comm.comm).messages[-1]
+            last_message = cast("DummyComm", comm.comm).messages[-1]
             assert last_message["msg_type"] == "comm_close"
 
         for path in paths:
@@ -235,14 +235,14 @@ def test_explorer_delete_variable(
 
 
 def _check_last_message(comm, expected_msg):
-    dummy_comm = cast(DummyComm, comm.comm)
+    dummy_comm = cast("DummyComm", comm.comm)
     last_message = dummy_comm.messages[-1]
     dummy_comm.messages.clear()
     assert last_message == expected_msg
 
 
 def _get_last_message(comm):
-    dummy_comm = cast(DummyComm, comm.comm)
+    dummy_comm = cast("DummyComm", comm.comm)
     return dummy_comm.messages[-1]
 
 
@@ -522,7 +522,7 @@ class DataExplorerFixture:
 
 
 def get_column_profile_result(de_service: DataExplorerService, comm_id: str, callback_id: str):
-    comm = cast(DummyComm, de_service.comms[comm_id].comm)
+    comm = cast("DummyComm", de_service.comms[comm_id].comm)
     for message in comm.messages:
         data = message["data"]
         if data.get("method", "") == "return_column_profiles":
@@ -743,6 +743,17 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             ),
             "datetime64[ns, US/Eastern]",
             "datetime",
+        ),
+        # categorical
+        (
+            pd.Series(["foo", "bar", "foo", "baz", "qux"], dtype="category"),
+            "category",
+            "string",
+        ),
+        (
+            pd.Series([0, 1, 0, 1, 0], dtype="category"),
+            "category",
+            "number",
         ),
     ]
 
@@ -2531,8 +2542,19 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             "f10": ["str", 1, 2, None, False] * 20,
             # mixed-integer-float
             "f11": np.array([1.5, 2, 2, None, 3.5] * 20, dtype=object),
+            # decimal
+            "f12": [
+                Decimal("1.5"),
+                Decimal("2"),
+                Decimal("2"),
+                None,
+                Decimal("3.5"),
+            ]
+            * 20,
         }
     )
+
+    f12_f64 = df1["f12"].astype("float64")
 
     df_mixed_tz1 = pd.concat(
         [
@@ -2680,6 +2702,19 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             11,
             {"num_unique": 3},
         ),
+        # decimal
+        (
+            "df1",
+            12,
+            {
+                "min_value": _format_float(f12_f64.min()),
+                "max_value": _format_float(f12_f64.max()),
+                "mean": _format_float(f12_f64.mean()),
+                "stdev": _format_float(f12_f64.std()),
+                "median": _format_float(f12_f64.median()),
+            },
+        ),
+        # mixed types
         (
             "df_mixed_tz1",
             0,
@@ -2722,6 +2757,7 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
         max_value_length=1000,
         thousands_sep="_",
     )
+
     _format_float = _get_float_formatter(format_options)
 
     test_df = pd.DataFrame(
@@ -2732,6 +2768,23 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
             "d": [0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10],
             "e": [np.inf, -np.inf, 0, 1, 2, 3, 4, 5, 6, 7, 8],
             "f": np.ones(11),
+            # decimal test case
+            "g": np.array(
+                [
+                    Decimal("1.1"),
+                    Decimal("1.2"),
+                    Decimal("1.3"),
+                    Decimal("1.4"),
+                    Decimal("1.5"),
+                    Decimal("1.6"),
+                    Decimal("1.7"),
+                    Decimal("1.8"),
+                    Decimal("1.9"),
+                    Decimal("2.0"),
+                    None,
+                ],
+                dtype=object,
+            ),
         }
     )
     dfp = pl.DataFrame(
@@ -2742,6 +2795,23 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
             "d": [0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10],
             "e": [np.inf, -np.inf, 0, 1, 2, 3, 4, 5, 6, 7, 8],
             "f": np.ones(11),
+            # decimal test case
+            "g": np.array(
+                [
+                    Decimal("1.1"),
+                    Decimal("1.2"),
+                    Decimal("1.3"),
+                    Decimal("1.4"),
+                    Decimal("1.5"),
+                    Decimal("1.6"),
+                    Decimal("1.7"),
+                    Decimal("1.8"),
+                    Decimal("1.9"),
+                    Decimal("2.0"),
+                    None,
+                ],
+                dtype=object,
+            ),
         }
     )
 
@@ -2830,6 +2900,15 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
             {
                 "bin_edges": ["0.5000", "1.50"],
                 "bin_counts": [11],
+                "quantiles": [],
+            },
+        ),
+        # test decimal
+        (
+            _get_histogram(6, bins=4),
+            {
+                "bin_edges": ["1.10", "1.33", "1.55", "1.77", "2.00"],
+                "bin_counts": [3, 2, 2, 3],
                 "quantiles": [],
             },
         ),
@@ -2998,7 +3077,8 @@ POLARS_TYPE_EXAMPLES = [
         "Struct({'a': Int64, 'b': List(String)})",
         "struct",
     ),
-    # (pl.Object, ["Hello", True, None, 5], "Object", "object"),
+    (pl.Categorical, ["a", "b", "a", None], "Categorical", "string"),
+    (pl.Object, ["Hello", True, None, 5], "Object", "object"),
 ]
 
 
@@ -3084,6 +3164,22 @@ def test_polars_get_state(dxf: DataExplorerFixture):
             profile_type="summary_stats",
             support_status=SupportStatus.Supported,
         ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="small_histogram",
+            support_status=SupportStatus.Supported,
+        ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="large_histogram",
+            support_status=SupportStatus.Supported,
+        ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="small_frequency_table",
+            support_status=SupportStatus.Supported,
+        ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="large_frequency_table",
+            support_status=SupportStatus.Supported,
+        ),
     ]
 
 
@@ -3132,7 +3228,8 @@ def test_polars_get_data_values(dxf: DataExplorerFixture):
             _VALUE_NULL,
             "{'a': 0, 'b': None}",
         ],  # Struct({'a': Int64, 'b': List(String)}),
-        # ["Hello", "True", _VALUE_NULL, "5"],  # Object
+        ["a", "b", "a", _VALUE_NULL],  # Categorical
+        ["Hello", "True", _VALUE_NULL, "5"],  # Object
     ]
 
     assert result["columns"] == expected_columns

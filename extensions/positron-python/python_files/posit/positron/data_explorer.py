@@ -11,6 +11,7 @@ import logging
 import math
 import operator
 from datetime import datetime
+from decimal import Decimal
 from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
@@ -812,9 +813,9 @@ def _box_number_stats(min_val, max_val, mean_val, median_val, std_val):
     )
 
 
-def _box_other_stats(num_unique):
+def _box_other_stats(num_unique, type_display=ColumnDisplayType.Object):
     return ColumnSummaryStats(
-        type_display=ColumnDisplayType.Object,
+        type_display=type_display,
         other_stats=SummaryStatsOther(num_unique=int(num_unique)),
     )
 
@@ -891,9 +892,13 @@ class NumPyMathHelper:
         return isinstance(value, (float, self.np.floating))
 
     def isnan(self, value):
+        if isinstance(value, Decimal):
+            return False
         return self.np.isnan(value)
 
     def isinf(self, value):
+        if isinstance(value, Decimal):
+            return False
         return self.np.isinf(value)
 
 
@@ -1021,9 +1026,13 @@ def _pandas_summarize_string(col: pd.Series, _options: FormatOptions):
     return _box_string_stats(num_empty, num_unique)
 
 
-def _pandas_summarize_object(col: pd.Series, _options: FormatOptions):
+def _pandas_summarize_object(
+    col: pd.Series,
+    _options: FormatOptions,
+    type_display: ColumnDisplayType = ColumnDisplayType.Object,
+):
     num_unique = col.nunique()
-    return _box_other_stats(num_unique)
+    return _box_other_stats(num_unique, type_display=type_display)
 
 
 def _pandas_summarize_boolean(col: pd.Series, _options: FormatOptions):
@@ -1308,6 +1317,8 @@ class PandasView(DataExplorerTableView):
 
     @classmethod
     def _get_type(cls, column, column_index, state: DataExplorerState):
+        import pandas as pd
+
         # A helper function for returning the backend type_name and
         # the display type when returning schema results or analyzing
         # schema changes
@@ -1316,11 +1327,22 @@ class PandasView(DataExplorerTableView):
         if dtype == object:  # noqa: E721
             type_name = cls._get_inferred_dtype(column, column_index, state)
             type_name = cls.TYPE_NAME_MAPPING.get(type_name, type_name)
+            type_display = cls._get_type_display(type_name)
+        elif isinstance(dtype, pd.CategoricalDtype):
+            type_name = str(dtype)
+            if dtype.categories.dtype == object:
+                categories_type_name = cls._get_inferred_dtype(
+                    dtype.categories, column_index, state
+                )
+                type_display = cls.TYPE_NAME_MAPPING.get(categories_type_name, categories_type_name)
+            else:
+                categories_type_name = str(dtype.categories.dtype)
+                type_display = cls._get_type_display(categories_type_name)
         else:
             # TODO: more sophisticated type mapping
             type_name = str(dtype)
+            type_display = cls._get_type_display(type_name)
 
-        type_display = cls._get_type_display(type_name)
         return type_name, type_display
 
     TYPE_DISPLAY_MAPPING = MappingProxyType(
@@ -1346,7 +1368,6 @@ class PandasView(DataExplorerTableView):
             "mixed": "object",
             "decimal": "number",
             "complex": "number",
-            "categorical": "categorical",
             "bool": "boolean",
             "datetime64": "datetime",
             "datetime64[ns]": "datetime",
@@ -1875,6 +1896,10 @@ def _get_histogram_numpy(data, num_bins, method="fd"):
     assert num_bins is not None
     hist_params = {"bins": num_bins} if method == "fixed" else {"bins": method}
 
+    if data.dtype == object:
+        # For decimals, we convert to float which is lossy but works for now
+        return _get_histogram_numpy(data.astype(float), num_bins, method=method)
+
     # We optimistically compute the histogram once, and then do extra
     # work in the special cases where the binning method produces a
     # finer-grained histogram than the maximum number of bins that we
@@ -2009,6 +2034,15 @@ def _polars_summarize_string(col: pl.Series, _):
     num_empty = (col.str.len_chars() == 0).sum()
     num_unique = col.n_unique()
     return _box_string_stats(num_empty, num_unique)
+
+
+def _polars_summarize_object(
+    col: pl.Series,
+    _format_options: FormatOptions,
+    type_display: ColumnDisplayType = ColumnDisplayType.Object,
+):
+    num_unique = col.n_unique()
+    return _box_other_stats(num_unique, type_display=type_display)
 
 
 def _polars_summarize_boolean(col: pl.Series, _):
@@ -2190,12 +2224,22 @@ class PolarsView(DataExplorerTableView):
         column_name: str,
         column_index: int,
     ):
-        type_display = cls._get_type_display(column.dtype)
+        import polars as pl
+
+        if isinstance(column.dtype, pl.Categorical):
+            # Categorical is always string in polars
+            type_display = "string"
+            # For Categorical types, we just use "Categorical" for the type name
+            # for simplicity
+            type_name = "Categorical"
+        else:
+            type_display = cls._get_type_display(column.dtype)
+            type_name = str(column.dtype)
 
         return ColumnSchema(
             column_name=column_name,
             column_index=column_index,
-            type_name=str(column.dtype),
+            type_name=type_name,
             type_display=type_display,
         )
 
@@ -2221,7 +2265,7 @@ class PolarsView(DataExplorerTableView):
             "Object": "object",
             "List": "array",
             "Struct": "struct",
-            "Categorical": "unknown",  # See #3417
+            "Categorical": "categorical",
             "Duration": "unknown",  # See #3418
             "Enum": "unknown",
             "Null": "unknown",  # Not yet implemented
@@ -2538,6 +2582,7 @@ class PolarsView(DataExplorerTableView):
             ColumnDisplayType.Boolean: _polars_summarize_boolean,
             ColumnDisplayType.Number: _polars_summarize_number,
             ColumnDisplayType.String: _polars_summarize_string,
+            ColumnDisplayType.Object: _polars_summarize_object,
             ColumnDisplayType.Date: _polars_summarize_date,
             ColumnDisplayType.Datetime: _polars_summarize_datetime,
         }
@@ -2632,6 +2677,22 @@ class PolarsView(DataExplorerTableView):
                 ),
                 ColumnProfileTypeSupportStatus(
                     profile_type=ColumnProfileType.SummaryStats,
+                    support_status=SupportStatus.Supported,
+                ),
+                ColumnProfileTypeSupportStatus(
+                    profile_type=ColumnProfileType.SmallHistogram,
+                    support_status=SupportStatus.Supported,
+                ),
+                ColumnProfileTypeSupportStatus(
+                    profile_type=ColumnProfileType.LargeHistogram,
+                    support_status=SupportStatus.Supported,
+                ),
+                ColumnProfileTypeSupportStatus(
+                    profile_type=ColumnProfileType.SmallFrequencyTable,
+                    support_status=SupportStatus.Supported,
+                ),
+                ColumnProfileTypeSupportStatus(
+                    profile_type=ColumnProfileType.LargeFrequencyTable,
                     support_status=SupportStatus.Supported,
                 ),
             ],

@@ -59,7 +59,7 @@ def decode_access_key(access_key: str) -> Any:
 
     # Get the inspector for this type.
     # TODO(pyright): cast shouldn't be necessary, recheck in a future version of pyright
-    type_name = cast(str, json_data["type"])
+    type_name = cast("str", json_data["type"])
     inspector_key = _ACCESS_KEY_QUALNAME_TO_INSPECTOR_KEY.get(type_name, type_name)
     inspector_cls = INSPECTOR_CLASSES.get(inspector_key, PositronInspector)
 

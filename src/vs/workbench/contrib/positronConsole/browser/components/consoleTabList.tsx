@@ -31,7 +31,13 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 		// Prevent the button from being clicked multiple times
 		setDeleteDisabled(true);
 		try {
-			await positronConsoleContext.runtimeSessionService.deleteSession(consoleInstance.session.sessionId);
+			if (consoleInstance.attachedRuntimeSession) {
+				await positronConsoleContext.runtimeSessionService.deleteSession(
+					consoleInstance.sessionId);
+			} else {
+				positronConsoleContext.positronConsoleService.deletePositronConsoleSession(
+					consoleInstance.sessionId);
+			}
 		} catch (error) {
 			// Show an error notification if the session could not be deleted.
 			positronConsoleContext.notificationService.error(
@@ -44,23 +50,25 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 		}
 	}
 
+	const sessionId = positronConsoleInstance.sessionMetadata.sessionId;
+
 	return (<div
-		key={`tab-${positronConsoleInstance.session.sessionId}`}
-		aria-label={positronConsoleInstance.session.metadata.sessionName}
-		aria-labelledby={`console-panel-${positronConsoleInstance.session.sessionId}`}
-		aria-selected={positronConsoleContext.activePositronConsoleInstance?.session.sessionId === positronConsoleInstance.session.sessionId}
-		className={`tab-button ${positronConsoleContext.activePositronConsoleInstance?.session.sessionId === positronConsoleInstance.session.sessionId && 'tab-button--active'}`}
-		data-testid={`console-tab-${positronConsoleInstance.session.sessionId}`}
+		key={`tab-${sessionId}`}
+		aria-label={positronConsoleInstance.sessionMetadata.sessionName}
+		aria-labelledby={`console-panel-${sessionId}`}
+		aria-selected={positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === sessionId}
+		className={`tab-button ${positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === sessionId && 'tab-button--active'}`}
+		data-testid={`console-tab-${positronConsoleInstance.sessionMetadata.sessionId}`}
 		role='tab'
 		onClick={() => onClick(positronConsoleInstance)}
 	>
 		<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
 		<img
 			className='icon'
-			src={`data:image/svg+xml;base64,${positronConsoleInstance.session.runtimeMetadata.base64EncodedIconSvg}`}
+			src={`data:image/svg+xml;base64,${positronConsoleInstance.runtimeMetadata.base64EncodedIconSvg}`}
 		/>
 		<p className='session-name'>
-			{positronConsoleInstance.session.metadata.sessionName}
+			{positronConsoleInstance.sessionMetadata.sessionName}
 		</p>
 		<button className='delete-button' data-testid='trash-session' disabled={deleteDisabled} onClick={evt => handleTabDeleteClick(evt, positronConsoleInstance)}>
 			<span className='codicon codicon-trash' />
@@ -92,6 +100,14 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 		if (session) {
 			// Set the session as the foreground session
 			positronConsoleContext.runtimeSessionService.foregroundSession = session;
+		} else {
+			// It is possible for a console instance to exist without a
+			// session; this typically happens when we create a provisional
+			// instance while waiting for a session to be connected, but the
+			// session never connects. In this case we can't set the session as
+			// the foreground session, but we can still set the console
+			// instance as the active console instance.
+			positronConsoleContext.positronConsoleService.setActivePositronConsoleSession(sessionId);
 		}
 	};
 
@@ -101,7 +117,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 
 	// Sort console sessions by created time, oldest to newest
 	const consoleInstances = Array.from(positronConsoleContext.positronConsoleInstances.values()).sort((a, b) => {
-		return a.session.metadata.createdTimestamp - b.session.metadata.createdTimestamp;
+		return a.sessionMetadata.createdTimestamp - b.sessionMetadata.createdTimestamp;
 	});
 
 	// Render.
@@ -111,7 +127,13 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 			role='tablist'
 			style={{ height: props.height, width: props.width }}
 		>
-			{consoleInstances.map((positronConsoleInstance) => <ConsoleTab key={positronConsoleInstance.session.sessionId} positronConsoleInstance={positronConsoleInstance} onClick={() => handleTabClick(positronConsoleInstance.session.sessionId)} />)}
+			{consoleInstances.map((positronConsoleInstance) =>
+				<ConsoleTab
+					key={positronConsoleInstance.sessionId}
+					positronConsoleInstance={positronConsoleInstance}
+					onClick={() => handleTabClick(positronConsoleInstance.sessionId)}
+				/>
+			)}
 		</div>
 	)
 }

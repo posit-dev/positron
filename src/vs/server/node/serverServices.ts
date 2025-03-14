@@ -82,7 +82,6 @@ import { AllowedExtensionsService } from '../../platform/extensionManagement/com
 // -- Start PWB: Heartbeat
 import { IPwbHeartbeatService, PwbHeartbeatService } from './pwbHeartbeat.js';
 // -- End PWB: Heartbeat
-
 // --- Start Positron ---
 import { EphemeralStateService } from '../../platform/ephemeralState/common/ephemeralStateService.js';
 import { IEphemeralStateService } from '../../platform/ephemeralState/common/ephemeralState.js';
@@ -162,7 +161,7 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 	services.set(IExtensionHostStatusService, extensionHostStatusService);
 
 	// Request
-	const requestService = new RequestService(configurationService, environmentService, logService);
+	const requestService = new RequestService('remote', configurationService, environmentService, logService);
 	services.set(IRequestService, requestService);
 
 	let oneDsAppender: ITelemetryAppender = NullAppender;

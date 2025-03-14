@@ -23,6 +23,7 @@ import { Progress } from '../../../../platform/progress/common/progress.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { IWorkbenchAssignmentService } from '../../../services/assignment/common/assignmentService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { ChatAgentLocation, IChatAgent, IChatAgentCommand, IChatAgentData, IChatAgentHistoryEntry, IChatAgentRequest, IChatAgentResult, IChatAgentService } from './chatAgents.js';
 import { ChatModel, ChatRequestModel, ChatRequestRemovalReason, IChatModel, IChatRequestModel, IChatRequestVariableData, IChatResponseModel, IExportableChatData, ISerializableChatData, ISerializableChatDataIn, ISerializableChatsData, normalizeSerializableChatData, toChatHistoryContent, updateRanges } from './chatModel.js';
@@ -33,6 +34,7 @@ import { ChatServiceTelemetry } from './chatServiceTelemetry.js';
 import { IChatSlashCommandService } from './chatSlashCommands.js';
 import { IChatVariablesService } from './chatVariables.js';
 import { ChatMessageRole, IChatMessage } from './languageModels.js';
+import { ILanguageModelToolsService } from './languageModelToolsService.js';
 
 const serializedChatKey = 'interactive.sessions';
 
@@ -86,7 +88,8 @@ const maxPersistedSessions = 25;
 class CancellableRequest implements IDisposable {
 	constructor(
 		public readonly cancellationTokenSource: CancellationTokenSource,
-		public requestId?: string | undefined
+		public requestId: string | undefined,
+		@ILanguageModelToolsService private readonly toolsService: ILanguageModelToolsService
 	) { }
 
 	dispose() {
@@ -94,6 +97,10 @@ class CancellableRequest implements IDisposable {
 	}
 
 	cancel() {
+		if (this.requestId) {
+			this.toolsService.cancelToolCallsForRequest(this.requestId);
+		}
+
 		this.cancellationTokenSource.cancel();
 	}
 }
@@ -132,7 +139,8 @@ export class ChatService extends Disposable implements IChatService {
 		@IChatSlashCommandService private readonly chatSlashCommandService: IChatSlashCommandService,
 		@IChatVariablesService private readonly chatVariablesService: IChatVariablesService,
 		@IChatAgentService private readonly chatAgentService: IChatAgentService,
-		@IConfigurationService private readonly configurationService: IConfigurationService
+		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@IWorkbenchAssignmentService private readonly experimentService: IWorkbenchAssignmentService,
 	) {
 		super();
 
@@ -469,13 +477,21 @@ export class ChatService extends Disposable implements IChatService {
 			locationData: request.locationData,
 			attachedContext: request.attachedContext,
 			workingSet: request.workingSet,
+			hasInstructionAttachments: options?.hasInstructionAttachments ?? false,
 		};
 		await this._sendRequestAsync(model, model.sessionId, request.message, attempt, enableCommandDetection, defaultAgent, location, resendOptions).responseCompletePromise;
 	}
 
 	async sendRequest(sessionId: string, request: string, options?: IChatSendRequestOptions): Promise<IChatSendRequestData | undefined> {
 		this.trace('sendRequest', `sessionId: ${sessionId}, message: ${request.substring(0, 20)}${request.length > 20 ? '[...]' : ''}}`);
-		if (!request.trim() && !options?.slashCommand && !options?.agentId) {
+
+		// if text is not provided, but chat input has `prompt instructions`
+		// attached, use the default prompt text to avoid empty messages
+		if (!request.trim() && options?.hasInstructionAttachments) {
+			request = 'Follow these instructions.';
+		}
+
+		if (!request.trim() && !options?.slashCommand && !options?.agentId && !options?.hasInstructionAttachments) {
 			this.trace('sendRequest', 'Rejected empty message');
 			return;
 		}
@@ -490,6 +506,14 @@ export class ChatService extends Disposable implements IChatService {
 		if (this._pendingRequests.has(sessionId)) {
 			this.trace('sendRequest', `Session ${sessionId} already has a pending request`);
 			return;
+		}
+
+		const requests = model.getRequests();
+		for (let i = requests.length - 1; i >= 0; i -= 1) {
+			const request = requests[i];
+			if (request.shouldBeRemovedOnSend) {
+				this.removeRequest(sessionId, request.id);
+			}
 		}
 
 		const location = options?.location ?? model.initialLocation;
@@ -665,6 +689,7 @@ export class ChatService extends Disposable implements IChatService {
 					const agent = (detectedAgent ?? agentPart?.agent ?? defaultAgent)!;
 					const command = detectedCommand ?? agentSlashCommandPart?.command;
 					await this.extensionService.activateByEvent(`onChatParticipant:${agent.id}`);
+					await this.checkAgentAllowed(agent);
 
 					// Recompute history in case the agent or command changed
 					const history = this.getHistoryEntriesFromModel(requests, model.sessionId, location, agent.id);
@@ -778,7 +803,8 @@ export class ChatService extends Disposable implements IChatService {
 			}
 		};
 		const rawResponsePromise = sendRequestInternal();
-		this._pendingRequests.set(model.sessionId, new CancellableRequest(source));
+		// Note- requestId is not known at this point, assigned later
+		this._pendingRequests.set(model.sessionId, this.instantiationService.createInstance(CancellableRequest, source, undefined));
 		rawResponsePromise.finally(() => {
 			this._pendingRequests.deleteAndDispose(model.sessionId);
 		});
@@ -786,6 +812,15 @@ export class ChatService extends Disposable implements IChatService {
 			responseCreatedPromise: responseCreated.p,
 			responseCompletePromise: rawResponsePromise,
 		};
+	}
+
+	private async checkAgentAllowed(agent: IChatAgentData): Promise<void> {
+		if (agent.isToolsAgent) {
+			const enabled = await this.experimentService.getTreatment<boolean>('chatAgentEnabled');
+			if (enabled === false) {
+				throw new Error('Agent is currently disabled');
+			}
+		}
 	}
 
 	private attachmentKindsForTelemetry(variableData: IChatRequestVariableData): string[] {

@@ -69,12 +69,16 @@
 }
 
 .connections-list-item .col-icon {
+	padding-left: 5px;
 	width: 26px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
 
 .connections-list-item .col-icon > img {
-	width: 26px;
-	height: 26px;
+	width: 19px;
+	height: 19px;
 }
 
 .connections-list-container .col-language {

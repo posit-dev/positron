@@ -43,10 +43,12 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	getPositronChatContext(request: IChatRequestData): IPositronChatContext {
 		const variablesInstance = this._variableService.activePositronVariablesInstance as PositronVariablesInstance | undefined;
 
+		const runtimeMetadata =
+			this._consoleService.activePositronConsoleInstance?.runtimeMetadata;
 		const context: IPositronChatContext = {
 			console: {
-				language: this._consoleService.activePositronConsoleInstance?.session.runtimeMetadata.languageName ?? '',
-				version: this._consoleService.activePositronConsoleInstance?.session.runtimeMetadata.languageVersion ?? '',
+				language: runtimeMetadata?.languageName ?? '',
+				version: runtimeMetadata?.languageVersion ?? '',
 			},
 			variables: variablesInstance?.variableItems.map((item) => {
 				return {

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -73,7 +73,12 @@ function makeTempTableName(): string {
 	return `positron_${randomUUID().replace(/-/g, '')}`;
 }
 
-type InsertColumn = { name: string; type: string; values: Array<string> };
+type InsertColumn = {
+	name: string;
+	type: string;
+	display_type?: ColumnDisplayType;
+	values: Array<string>;
+};
 
 async function createTempTable(
 	tableName: string,
@@ -117,7 +122,7 @@ async function getState(uri: string): Promise<BackendState> {
 	});
 }
 
-async function getSchema(tableName: string, formatOptions?: FormatOptions) {
+async function getSchema(tableName: string) {
 	const uri = `duckdb://${tableName}`;
 	const state = await getState(uri);
 	const shape = state.table_shape;
@@ -230,6 +235,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			}
 		} satisfies BackendState);
 
+
 		result = await dxExec({
 			method: DataExplorerBackendRequest.GetSchema,
 			uri,
@@ -274,8 +280,9 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		} satisfies TableSchema);
 	});
 
+	type TestCaseType = [InsertColumn[] | undefined, ColumnValue[][], FormatOptions];
+
 	test('get_data_values formatting', async () => {
-		type TestCaseType = [InsertColumn[] | undefined, ColumnValue[][], FormatOptions];
 
 		const testCases: Array<TestCaseType> = [
 			// Boolean
@@ -284,6 +291,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: 'a',
 						type: 'BOOLEAN',
+						display_type: ColumnDisplayType.Boolean,
 						values: [
 							'true', 'false', 'NULL'
 						]
@@ -300,21 +308,25 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: 'a',
 						type: 'TINYINT',
+						display_type: ColumnDisplayType.Number,
 						values: ['127', '-128', '0', 'NULL']
 					},
 					{
 						name: 'b',
 						type: 'SMALLINT',
+						display_type: ColumnDisplayType.Number,
 						values: ['32767', '-32768', '0', 'NULL']
 					},
 					{
 						name: 'c',
 						type: 'INTEGER',
+						display_type: ColumnDisplayType.Number,
 						values: ['2147483647', '-2147483648', '0', 'NULL']
 					},
 					{
 						name: 'd',
 						type: 'BIGINT',
+						display_type: ColumnDisplayType.Number,
 						values: ['9223372036854775807', '-9223372036854775808', '0', 'NULL']
 					},
 				],
@@ -342,6 +354,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: 'a',
 						type: 'DOUBLE',
+						display_type: ColumnDisplayType.Number,
 						values: [
 							'0', '1.125', '0.12345', 'NULL', '\'NaN\'',
 							'\'Infinity\'', '\'-Infinity\'',
@@ -350,6 +363,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: 'b',
 						type: 'FLOAT',
+						display_type: ColumnDisplayType.Number,
 						values: [
 							'0', '1.115', '0.12366', 'NULL', '\'NaN\'',
 							'\'Infinity\'', '\'-Infinity\'',
@@ -368,6 +382,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: 'a',
 						type: 'DOUBLE',
+						display_type: ColumnDisplayType.Number,
 						values: [
 							'123456789.78', '456789.78'
 						]
@@ -391,6 +406,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: 'a',
 						type: 'DOUBLE',
+						display_type: ColumnDisplayType.Number,
 						values: [
 							'155500', '150000', '15000'
 						]
@@ -407,6 +423,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: 'a',
 						type: 'VARCHAR',
+						display_type: ColumnDisplayType.String,
 						values: [
 							'\'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\'',
 							'\'aaaaaaaaaaaaaaaaaaaaaaaaa\'',
@@ -425,21 +442,25 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					{
 						name: 'date0',
 						type: 'DATE',
+						display_type: ColumnDisplayType.Date,
 						values: ['\'2023-10-20\'', '\'2024-01-01\'', 'NULL']
 					},
 					{
 						name: 'timestamp0',
 						type: 'TIMESTAMP',
+						display_type: ColumnDisplayType.Datetime,
 						values: ['\'2023-10-20 15:30:00\'', '\'2024-01-01 08:00:00\'', 'NULL']
 					},
 					{
 						name: 'timestamptz0',
 						type: 'TIMESTAMP WITH TIME ZONE',
+						display_type: ColumnDisplayType.Datetime,
 						values: ['\'2023-10-20 15:30:00+00\'', '\'2024-01-01 08:00:00-05\'', 'NULL']
 					},
 					{
 						name: 'time0',
 						type: 'TIME',
+						display_type: ColumnDisplayType.Time,
 						values: ['\'13:30:00\'', '\'07:12:34.567\'', 'NULL']
 					}
 				],
@@ -452,15 +473,56 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				],
 				DEFAULT_FORMAT_OPTIONS
 			],
+			// Decimal types
+			[
+				[
+					{
+						name: 'decimal_default',
+						type: 'DECIMAL',
+						display_type: ColumnDisplayType.Number,
+						values: ['1.23', '45.67', '89.01', 'NULL']
+					},
+					{
+						name: 'decimal_precision',
+						type: 'DECIMAL(10)', // same as DECIMAL(10,0)
+						display_type: ColumnDisplayType.Number,
+						values: ['123456', '987654', '555555', 'NULL']
+					},
+					{
+						name: 'decimal_precision_scale',
+						type: 'DECIMAL(10,2)',
+						display_type: ColumnDisplayType.Number,
+						values: ['123.456', '789.012', '345.678', 'NULL']
+					}
+				],
+				[
+					['1.230', '45.670', '89.010', 0],
+					['123456', '987654', '555555', 0],
+					['123.46', '789.01', '345.68', 0]
+				],
+				DEFAULT_FORMAT_OPTIONS
+			]
 		];
 
 		let tableName, testInput, testResults, formatOptions;
 		for ([testInput, testResults, formatOptions] of testCases) {
 			// If testInput is undefined, just reuse the table from the previous test case
-			if (testInput !== undefined) {
-				tableName = makeTempTableName();
-				await createTempTable(tableName, testInput);
+			if (testInput === undefined) {
+				continue;
 			}
+
+			tableName = makeTempTableName();
+			await createTempTable(tableName, testInput);
+
+			const fullSchema = await getSchema(tableName!);
+
+			// Check that returned schema matches display types in testInput
+			for (let i = 0; i < testInput.length; i++) {
+				const schema = fullSchema.columns[i];
+				assert.strictEqual(schema.column_name, testInput[i].name);
+				assert.strictEqual(schema.type_display, testInput[i].display_type);
+			}
+
 			const data = await getAllDataValues(tableName!, formatOptions);
 			assert.deepStrictEqual(data,
 				{
@@ -654,7 +716,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			},
 			'int_col\tstr_col\n1\ta\n2\tb',
 			ExportFormat.Tsv
-		)
+		);
 
 		// Test HTML format
 		await testSelection(TableSelectionKind.CellRange,
@@ -874,6 +936,137 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			const expectedData = await getAllDataValues(expectedTableName);
 			assert.deepStrictEqual(resultData, expectedData);
 		}
+	});
+
+	test('row filter with zero matching rows works correctly', async () => {
+		// Create a simple table with known data for precise zero-row testing
+		const tableName = makeTempTableName();
+
+		await createTempTable(tableName, [
+			{
+				name: 'id',
+				type: 'INTEGER',
+				display_type: ColumnDisplayType.Number,
+				values: ['1', '2', '3', '4', '5']
+			},
+			{
+				name: 'name',
+				type: 'VARCHAR',
+				display_type: ColumnDisplayType.String,
+				values: ['\'Alice\'', '\'Bob\'', '\'Charlie\'', '\'David\'', '\'Eve\'']
+			},
+			{
+				name: 'value',
+				type: 'DOUBLE',
+				display_type: ColumnDisplayType.Number,
+				values: ['10.5', '20.75', '30.25', '40.5', '50.0']
+			}
+		]);
+
+		const uri = `duckdb://${tableName}`;
+
+		// Get original state for reference
+		const origState = await getState(uri);
+		assert.strictEqual(origState.table_shape.num_rows, 5);
+
+		// Get schema for filter construction
+		const fullSchema = await getSchema(tableName);
+		const nameToSchema = new Map<string, ColumnSchema>(
+			fullSchema.columns.map((column) => [column.column_name, column])
+		);
+		const idColumn = nameToSchema.get('id')!;
+
+		// Filter that will match no rows (id > 100)
+		const zeroRowFilter: RowFilter = {
+			filter_id: 'zero-row-filter',
+			condition: RowFilterCondition.And,
+			column_schema: idColumn,
+			filter_type: RowFilterType.Compare,
+			params: { op: FilterComparisonOp.Gt, value: '100' }
+		};
+
+		// Apply the filter
+		const filterResult = await dxExec({
+			method: DataExplorerBackendRequest.SetRowFilters,
+			uri,
+			params: { filters: [zeroRowFilter] } satisfies SetRowFiltersParams
+		});
+
+		// Check that filter result shows 0 rows
+		assert.strictEqual(filterResult.selected_num_rows, 0);
+
+		// Check that get_state also shows 0 rows
+		const filteredState = await getState(uri);
+		assert.strictEqual(filteredState.table_shape.num_rows, 0);
+		assert.strictEqual(filteredState.table_unfiltered_shape.num_rows, 5);
+
+		// Test that getDataValues returns empty columns
+		const data = await getAllDataValues(tableName);
+		assert.deepStrictEqual(data, {
+			columns: [[], [], []]
+		});
+
+		// Test with different column selections
+		const testSpecificColumns = async () => {
+			return dxExec({
+				method: DataExplorerBackendRequest.GetDataValues,
+				uri,
+				params: {
+					columns: [
+						{
+							column_index: 0, // id column
+							spec: { first_index: 0, last_index: 4 }
+						},
+						{
+							column_index: 2, // value column
+							spec: { first_index: 0, last_index: 4 }
+						}
+					],
+					format_options: DEFAULT_FORMAT_OPTIONS
+				} satisfies GetDataValuesParams
+			}) as Promise<TableData>;
+		};
+
+		const specificColumnsData = await testSpecificColumns();
+		assert.deepStrictEqual(specificColumnsData, {
+			columns: [[], []]
+		});
+
+		// Test with indices instead of ranges
+		const testIndicesSelection = async () => {
+			return dxExec({
+				method: DataExplorerBackendRequest.GetDataValues,
+				uri,
+				params: {
+					columns: [
+						{
+							column_index: 1, // name column
+							spec: { indices: [0, 2, 4] }
+						}
+					],
+					format_options: DEFAULT_FORMAT_OPTIONS
+				} satisfies GetDataValuesParams
+			}) as Promise<TableData>;
+		};
+
+		const indicesData = await testIndicesSelection();
+		assert.deepStrictEqual(indicesData, {
+			columns: [[]]
+		});
+
+		// Remove the filter and verify data comes back
+		await dxExec({
+			method: DataExplorerBackendRequest.SetRowFilters,
+			uri,
+			params: { filters: [] }
+		});
+
+		const unfilterState = await getState(uri);
+		assert.deepStrictEqual(unfilterState, origState);
+
+		const unfilteredData = await getAllDataValues(tableName);
+		assert.strictEqual(unfilteredData.columns.length, 3);
+		assert.strictEqual(unfilteredData.columns[0].length, 5);
 	});
 
 	test('set_sort_columns works correctly', async () => {

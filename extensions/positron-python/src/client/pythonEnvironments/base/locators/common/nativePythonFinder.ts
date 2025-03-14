@@ -28,7 +28,7 @@ import { untildify } from '../../../../common/helpers';
 import { traceError } from '../../../../logging';
 
 // --- Start Positron ---
-import { getIncludedInterpreters } from '../../../../positron/interpreterSettings';
+import { getCustomEnvDirs } from '../../../../positron/interpreterSettings';
 import { traceVerbose } from '../../../../logging';
 // --- End Positron ---
 
@@ -474,8 +474,8 @@ function getAdditionalEnvDirs(): string[] {
     }
 
     // Add user-specified Python search directories.
-    const userIncludedDirs = getIncludedInterpreters();
-    additionalDirs.push(...userIncludedDirs);
+    const customEnvDirs = getCustomEnvDirs();
+    additionalDirs.push(...customEnvDirs);
 
     // Return the list of additional directories.
     const uniqueDirs = Array.from(new Set(additionalDirs));

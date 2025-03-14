@@ -10,6 +10,7 @@ import { QuickInput } from './quickInput';
 const DESIRED_PYTHON = process.env.POSITRON_PY_VER_SEL;
 const DESIRED_R = process.env.POSITRON_R_VER_SEL;
 const sessionIdPattern = /^(python|r)-[a-zA-Z0-9]+$/i;
+const ACTIVE_STATUS_ICON = '.codicon-positron-status-active';
 
 /**
  * Class to manage console sessions
@@ -32,10 +33,11 @@ export class Sessions {
 	currentSessionTab: Locator;
 	consoleInstance: (sessionId: string) => Locator;
 	outputChannel: Locator;
+	activeStatusIcon: Locator;
 
 	constructor(private code: Code, private console: Console, private quickaccess: QuickAccess, private quickinput: QuickInput) {
 		this.page = this.code.driver.page;
-		this.activeStatus = (session: Locator) => session.locator('.codicon-positron-status-active');
+		this.activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
 		this.idleStatus = (session: Locator) => session.locator('.codicon-positron-status-idle');
 		this.disconnectedStatus = (session: Locator) => session.locator('.codicon-positron-status-disconnected');
 		this.metadataButton = this.page.getByRole('button', { name: 'Console information' });
@@ -51,6 +53,7 @@ export class Sessions {
 		this.currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 		this.consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
 		this.outputChannel = this.page.getByRole('combobox');
+		this.activeStatusIcon = this.page.locator(ACTIVE_STATUS_ICON);
 	}
 
 
@@ -67,7 +70,7 @@ export class Sessions {
 	async launch(options: {
 		language: 'Python' | 'R';
 		version?: string;
-		triggerMode?: 'session-picker' | 'quickaccess' | 'console';
+		triggerMode?: 'session-picker' | 'quickaccess' | 'console' | 'hotkey';
 		waitForReady?: boolean;
 	}): Promise<string> {
 
@@ -79,7 +82,7 @@ export class Sessions {
 			language,
 			version = language === 'Python' ? DESIRED_PYTHON : DESIRED_R,
 			waitForReady = true,
-			triggerMode = 'quickaccess',
+			triggerMode = 'hotkey',
 		} = options;
 
 		await test.step(`Start session via ${triggerMode}: ${language} ${version}`, async () => {
@@ -93,8 +96,11 @@ export class Sessions {
 				await this.quickaccess.runCommand(command, { keepOpen: true });
 			} else if (triggerMode === 'session-picker') {
 				await this.quickPick.openSessionQuickPickMenu();
-			} else {
+			} else if (triggerMode === 'console') {
 				await this.newConsoleButton.click();
+				await expect(this.code.driver.page.getByText(/Select a Session/)).toBeVisible();
+			} else {
+				await this.page.keyboard.press('Control+Shift+/');
 			}
 
 			await this.quickinput.type(`${language} ${version}`);
@@ -110,8 +116,8 @@ export class Sessions {
 
 			if (waitForReady) {
 				language === 'Python'
-					? await this.console.waitForReadyAndStarted('>>>', 40000)
-					: await this.console.waitForReadyAndStarted('>', 40000);
+					? await this.console.waitForReadyAndStarted('>>>', 90000)
+					: await this.console.waitForReadyAndStarted('>', 90000);
 			}
 		});
 
@@ -122,8 +128,14 @@ export class Sessions {
 	 * Action: Select the session
 	 * @param sessionIdOrName the id or name of the session
 	 */
-	async select(sessionIdOrName: string): Promise<void> {
+	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
 		await test.step(`Select session: ${sessionIdOrName}`, async () => {
+			const session = this.getSessionTab(sessionIdOrName);
+
+			if (waitForSessionIdle) {
+				await expect(this.idleStatus(session)).toBeVisible();
+			}
+
 			await this.getSessionTab(sessionIdOrName).click();
 		});
 	}
@@ -219,7 +231,7 @@ export class Sessions {
 	 * @param menuItem the menu item to click on the metadata dialog
 	 */
 	async selectMetadataOption(menuItem: 'Show Kernel Output Channel' | 'Show Console Output Channel' | 'Show LSP Output Channel') {
-		await this.console.clickConsoleTab();
+		await this.console.focus();
 		await this.metadataButton.click();
 		await this.metadataDialog.getByText(menuItem).click();
 
@@ -253,6 +265,27 @@ export class Sessions {
 			await this.console.barTrashButton.click();
 			await expect(this.page.getByText('Shutting down')).not.toBeVisible();
 		});
+	}
+
+	/**
+	 * Action: Move the session tab list divider to a specific position from the bottom of the window.
+	 * Positions the divider `distanceFromBottom` pixels above the bottom of the window.
+	 *
+	 * @param distanceFromBottom Number of pixels above the bottom of the window.
+	 */
+	async setSessionDividerAboveBottom(distanceFromBottom: number = 100) {
+		const windowHeight = await this.page.evaluate(() => window.innerHeight);
+
+		const verticalSash = this.page.locator('.split-view-container > div:nth-child(3) > div > div > div > .monaco-sash');
+		const box = await verticalSash.boundingBox();
+
+		if (box) {
+			const targetY = windowHeight - distanceFromBottom;
+			const currentY = box.y + box.height / 2;
+			const offsetY = targetY - currentY;
+
+			await this.resizeSessionList({ y: offsetY });
+		}
 	}
 
 	/**
@@ -557,7 +590,7 @@ export class Sessions {
 			await expect(this.outputChannel).toHaveValue(/Language Server \(Console\)$/);
 
 			// Go back to console when done
-			await this.console.clickConsoleTab();
+			await this.console.focus();
 		});
 	}
 
@@ -629,6 +662,10 @@ export class Sessions {
 		expect(isHorizontallyScrollable).toBe(horizontal);
 		expect(isVerticallyScrollable).toBe(vertical);
 	}
+
+	async expectAllSessionsToBeIdle() {
+		await expect(this.activeStatusIcon).toHaveCount(0);
+	}
 }
 
 /**
@@ -636,6 +673,7 @@ export class Sessions {
  */
 export class SessionQuickPick {
 	private sessionQuickMenu = this.code.driver.page.getByText(/(Select a Session)|(Start a New Session)/);
+	private allSessionsMenu = this.code.driver.page.getByText(/Start a New Session/);
 
 	constructor(private code: Code, private sessions: Sessions) { }
 
@@ -645,17 +683,19 @@ export class SessionQuickPick {
 	 * Action: Open the session quickpick menu via the "Start Session" button in top action bar.
 	 */
 	async openSessionQuickPickMenu(viewAllRuntimes = true) {
-		if (!await this.sessionQuickMenu.isVisible()) {
-			await this.sessions.activeSessionPicker.click();
-		}
+		// something about the 1.97.0 upstream merge impacted the session picker
+		// unfortunately we need to retry the session picker until it works
+		await expect(async () => {
+			if (!await this.sessionQuickMenu.isVisible()) {
+				await this.sessions.activeSessionPicker.click();
+			}
 
-		if (viewAllRuntimes) {
-			await this.code.driver.page.getByRole('combobox', { name: 'input' }).fill('New Session');
-			await this.code.driver.page.keyboard.press('Enter');
-			await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible();
-		} else {
-			await expect(this.code.driver.page.getByText(/Select a Session/)).toBeVisible();
-		}
+			if (viewAllRuntimes) {
+				await this.code.driver.page.getByRole('combobox', { name: 'input' }).fill('New Session');
+				await this.code.driver.page.keyboard.press('Enter');
+				await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible({ timeout: 1000 });
+			}
+		}).toPass();
 	}
 
 	/**
@@ -676,7 +716,13 @@ export class SessionQuickPick {
 	 */
 	async getActiveSessions(): Promise<QuickPickSessionInfo[]> {
 		await this.openSessionQuickPickMenu(false);
-		const allSessions = await this.code.driver.page.locator('.quick-input-list-rows').all();
+
+		// Check if the "All Sessions" menu is visible: ths indicates that
+		// there are no active sessions and we were taken to the "All Sessions" menu
+		const isAllSessionsMenuVisible = await this.allSessionsMenu.isVisible();
+		const allSessions = isAllSessionsMenuVisible
+			? []
+			: await this.code.driver.page.locator('.quick-input-list-rows').all();
 
 		// Get the text of all sessions
 		const activeSessions = await Promise.all(
@@ -760,7 +806,7 @@ export type SessionInfo = {
 	language: 'Python' | 'R';
 	version: string; // e.g. '3.10.15'
 	id: string;
-	triggerMode?: 'session-picker' | 'quickaccess' | 'console';
+	triggerMode?: 'session-picker' | 'quickaccess' | 'console' | 'hotkey';
 	waitForReady?: boolean;
 };
 
@@ -782,7 +828,7 @@ export const pythonSession: SessionInfo = {
 	name: `Python ${process.env.POSITRON_PY_VER_SEL || ''}`,
 	language: 'Python',
 	version: process.env.POSITRON_PY_VER_SEL || '',
-	triggerMode: 'session-picker',
+	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
 };
@@ -792,7 +838,7 @@ export const pythonSessionAlt: SessionInfo = {
 	name: `Python ${process.env.POSITRON_PY_ALT_VER_SEL || ''}`,
 	language: 'Python',
 	version: process.env.POSITRON_PY_ALT_VER_SEL || '',
-	triggerMode: 'session-picker',
+	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
 };
@@ -802,7 +848,7 @@ export const rSession: SessionInfo = {
 	name: `R ${process.env.POSITRON_R_VER_SEL || ''}`,
 	language: 'R',
 	version: process.env.POSITRON_R_VER_SEL || '',
-	triggerMode: 'session-picker',
+	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
 };
@@ -812,7 +858,7 @@ export const rSessionAlt: SessionInfo = {
 	name: `R ${process.env.POSITRON_R_ALT_VER_SEL || ''}`,
 	language: 'R',
 	version: process.env.POSITRON_R_ALT_VER_SEL || '',
-	triggerMode: 'session-picker',
+	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
 };

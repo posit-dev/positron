@@ -759,7 +759,7 @@ def test_clipboard_format_error(
     # TODO(pyright): We shouldn't need to cast; may be a pyright bug
     msg = json_rpc_request(
         "clipboard_format",
-        cast(JsonRecord, {"path": path, "format": "text/plain"}),
+        cast("JsonRecord", {"path": path, "format": "text/plain"}),
         comm_id="dummy_comm_id",
     )
     variables_comm.handle_msg(msg, raise_errors=False)

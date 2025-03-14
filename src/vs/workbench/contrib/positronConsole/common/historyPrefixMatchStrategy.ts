@@ -1,10 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { HistoryNavigator2 } from '../../../../base/common/history.js';
-import { IInputHistoryEntry } from '../../executionHistory/common/executionHistoryService.js';
+import { IInputHistoryEntry } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { HistoryMatch, HistoryMatchStrategy } from './historyMatchStrategy.js';
 
 /**
