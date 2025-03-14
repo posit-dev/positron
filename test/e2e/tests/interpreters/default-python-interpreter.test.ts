@@ -28,7 +28,7 @@ test.describe('Default Interpreters - Python', {
 
 	});
 
-	test('Python - Add a default interpreter (Conda)', async function ({ app, userSettings, runCommand }) {
+	test('Python - Add a default interpreter (Conda)', async function ({ app, runCommand }) {
 
 		await app.workbench.console.waitForInterpretersToFinishLoading();
 
