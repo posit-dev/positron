@@ -30,9 +30,10 @@ export class RSessionManager {
 					// Start LSP for the foreground session
 					session.activateLsp();
 
-					// Stop LSPs for other sessions
+					// Stop LSPs for other console sessions
 					this._sessions.forEach(s => {
-						if (s.metadata.sessionId !== sessionId) {
+						if (s.metadata.sessionId !== sessionId &&
+							s.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
 							s.deactivateLsp();
 						}
 					});

@@ -119,8 +119,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                 if (sessionId === metadata.sessionId) {
                     // Start LSP for the foreground session only if its been previously stopped
                     this.activateLsp();
-                } else {
-                    // Stop LSP for other sessions if they are running
+                } else if (metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
+                    // Stop LSP for other console sessions if they are running
                     this.deactivateLsp();
                 }
             }
