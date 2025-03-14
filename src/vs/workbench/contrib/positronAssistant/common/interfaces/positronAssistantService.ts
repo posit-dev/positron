@@ -45,7 +45,7 @@ export interface IPositronLanguageModelSource {
 	provider: { id: string; displayName: string };
 	supportedOptions: PositronLanguageModelOptions[];
 	defaults: Omit<IPositronLanguageModelConfig, 'provider' | 'type'>;
-	signedIn: boolean;
+	signedIn?: boolean;
 }
 
 export interface IPositronLanguageModelConfig {

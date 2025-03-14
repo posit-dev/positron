@@ -136,6 +136,10 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		if (!source) {
 			return;
 		}
+		if (source.signedIn) {
+			// TODO: Change how to handle sign out and sign in
+			return;
+		}
 		setShowProgress(true);
 		setError(undefined);
 		props.onSave({
@@ -151,6 +155,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			toolCalls: toolCalls,
 			numCtx: numCtx,
 		}).then(() => {
+			source.signedIn = true;
 		}).catch((e) => {
 			setError(e.message);
 		}).finally(() => {
@@ -160,6 +165,18 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const onCancel = async () => {
 		props.onCancel();
 		props.renderer.dispose();
+	}
+
+	function signInButton() {
+		return <Button className='language-model button sign-in' onPressed={onSignIn}>
+			{(() => {
+				if (source.signedIn) {
+					return localize('positron.newConnectionModalDialog.signOut', "Sign out");
+				} else {
+					return localize('positron.newConnectionModalDialog.signIn', "Sign in");
+				}
+			})()}
+		</Button>
 	}
 
 	function oldDialog() {
@@ -327,16 +344,12 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 								value={apiKey ?? ''}
 								onChange={e => { setApiKey(e.currentTarget.value) }}
 							/>
-							<Button className='language-model button sign-in' onPressed={onSignIn}>
-								{(() => localize('positron.newConnectionModalDialog.signIn', "Sign in"))()}
-							</Button>
+							{signInButton()}
 						</div>
 					)
 				}
-				{!source?.supportedOptions.includes('apiKey') && !source?.signedIn &&
-					<Button className='language-model button sign-in' onPressed={onSignIn}>
-						{(() => localize('positron.newConnectionModalDialog.signIn', "Sign in"))()}
-					</Button>
+				{!source?.supportedOptions.includes('apiKey') &&
+					signInButton()
 				}
 				{showProgress &&
 					<ProgressBar />
