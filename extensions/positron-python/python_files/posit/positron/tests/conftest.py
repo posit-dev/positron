@@ -74,7 +74,9 @@ def _prepare_shell(shell: PositronShell) -> None:
     # TODO: For some reason these vars are in user_ns but not user_ns_hidden during tests. For now,
     #       manually add them to user_ns_hidden to replicate running in Positron.
     shell.user_ns_hidden.update(
-        dict.fromkeys(["__name__", "__doc__", "__package__", "__loader__", "__spec__", "_", "__", "___"], "")
+        dict.fromkeys(
+            ["__name__", "__doc__", "__package__", "__loader__", "__spec__", "_", "__", "___"], ""
+        )
     )
 
 
