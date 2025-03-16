@@ -435,6 +435,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 			// Column display types that do not render a profile.
 			case ColumnDisplayType.Time:
+			case ColumnDisplayType.Interval:
 			case ColumnDisplayType.Array:
 			case ColumnDisplayType.Struct:
 			case ColumnDisplayType.Unknown: {

@@ -729,6 +729,30 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             "string",
             "string",
         ),
+        (
+            np.array(
+                ["NaT", 3600000000000, -3600000000000, 0, 0],
+                dtype="timedelta64[ns]",
+            ),
+            "timedelta64[ns]",
+            "interval",
+        ),
+        (
+            np.array(
+                ["NaT", 3600, -3600, 0, 0],
+                dtype="timedelta64[s]",
+            ),
+            # Older versions of pandas upcast seconds to nanoseconds
+            str(
+                pd.Series(
+                    np.array(
+                        ["NaT", 3600, -3600, 0, 0],
+                        dtype="timedelta64[s]",
+                    )
+                ).dtype
+            ),
+            "interval",
+        ),
         # datetimetz
         (
             pd.Series(
@@ -3052,7 +3076,7 @@ POLARS_TYPE_EXAMPLES = [
         pl.Duration("ms"),
         [0, 1000, 2000, None],
         "Duration(time_unit='ms')",
-        "unknown",
+        "interval",
     ),
     (
         pl.Decimal(12, 4),

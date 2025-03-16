@@ -974,9 +974,11 @@ _FILTER_RANGE_COMPARE_SUPPORTED = {
 }
 
 
-def _pandas_datetimetz_mapper(type_name):
+def _pandas_temporal_mapper(type_name):
     if "datetime64" in type_name:
         return "datetime"
+    elif "timedelta64" in type_name:
+        return "interval"
     return None
 
 
@@ -1068,7 +1070,7 @@ def _pandas_summarize_datetime(col: pd.Series, _options: FormatOptions):
 
     num_unique = _possibly(col.nunique)
 
-    timezones = col.apply(lambda x: x.tz).unique()
+    timezones = col.apply(lambda x: getattr(x, "tz", None)).unique()
     if len(timezones) == 1:
         timezone = str(timezones[0])
     else:
@@ -1301,7 +1303,7 @@ class PandasView(DataExplorerTableView):
             column_name=str(column_name),
             column_index=column_index,
             type_name=type_name,
-            type_display=type_display,
+            type_display=ColumnDisplayType(type_display),
         )
 
     @classmethod
@@ -1372,6 +1374,8 @@ class PandasView(DataExplorerTableView):
             "datetime64": "datetime",
             "datetime64[ns]": "datetime",
             "datetime": "datetime",
+            "timedelta64[ns]": "interval",
+            "timedelta": "interval",
             "date": "date",
             "time": "time",
             "bytes": "string",
@@ -1394,7 +1398,7 @@ class PandasView(DataExplorerTableView):
         }
     )
 
-    TYPE_MAPPERS = (_pandas_datetimetz_mapper,)
+    TYPE_MAPPERS = (_pandas_temporal_mapper,)
 
     @classmethod
     def _get_type_display(cls, type_name):
@@ -1778,8 +1782,11 @@ class PandasView(DataExplorerTableView):
 
         formatted_edges = self._format_values(bin_edges, format_options)
 
+        # TODO: formatted_edges should not contain any special values, but we should
+        # probably check more carefully.
+
         return ColumnHistogram(
-            bin_edges=formatted_edges,
+            bin_edges=[str(x) for x in formatted_edges],
             bin_counts=[int(x) for x in bin_counts],
             quantiles=[],
         )
@@ -1957,9 +1964,15 @@ def _date_median(x):
     import pandas as pd
 
     # the np.array calls are required to please pyright
-    median_date = np.median(np.array(pd.to_numeric(x)))
-    out = pd.to_datetime(np.array(median_date), utc=True)
-    return out.tz_convert(x[0].tz)
+    median_value = np.median(np.array(pd.to_numeric(x)))
+
+    # if any datetime64 or datetimetz type in pandas
+    if x.dtype == "timedelta64[ns]":
+        return pd.to_timedelta(np.array(int(median_value)))
+    else:
+        # Date or datetime
+        out = pd.to_datetime(np.array(median_value), utc=True)
+        return out.tz_convert(x[0].tz)
 
 
 def _possibly(f, otherwise=None):
@@ -2240,7 +2253,7 @@ class PolarsView(DataExplorerTableView):
             column_name=column_name,
             column_index=column_index,
             type_name=type_name,
-            type_display=type_display,
+            type_display=ColumnDisplayType(type_display),
         )
 
     TYPE_DISPLAY_MAPPING = MappingProxyType(
@@ -2261,12 +2274,12 @@ class PolarsView(DataExplorerTableView):
             "Date": "date",
             "Datetime": "datetime",
             "Time": "time",
+            "Duration": "interval",
             "Decimal": "number",
             "Object": "object",
             "List": "array",
             "Struct": "struct",
             "Categorical": "categorical",
-            "Duration": "unknown",  # See #3418
             "Enum": "unknown",
             "Null": "unknown",  # Not yet implemented
             "Unknown": "unknown",
@@ -2645,8 +2658,10 @@ class PolarsView(DataExplorerTableView):
 
         formatted_edges = self._format_values(bin_edges, format_options)
 
+        # TODO: make sure that formatted_edges has no special values
+
         return ColumnHistogram(
-            bin_edges=formatted_edges,
+            bin_edges=[str(x) for x in formatted_edges],
             bin_counts=[int(x) for x in bin_counts],
             quantiles=[],
         )

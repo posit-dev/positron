@@ -146,6 +146,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			case ColumnDisplayType.Date:
 			case ColumnDisplayType.Datetime:
 			case ColumnDisplayType.Time:
+			case ColumnDisplayType.Interval:
 			case ColumnDisplayType.Object:
 			case ColumnDisplayType.Array:
 			case ColumnDisplayType.Struct:
@@ -268,6 +269,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 
 			// Column display types that do not render a profile.
 			case ColumnDisplayType.Time:
+			case ColumnDisplayType.Interval:
 			case ColumnDisplayType.Array:
 			case ColumnDisplayType.Struct:
 			case ColumnDisplayType.Unknown:
@@ -309,6 +311,10 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			case ColumnDisplayType.Time:
 				return 'codicon-positron-data-type-time';
 
+			// Time.
+			case ColumnDisplayType.Interval:
+				return 'codicon-positron-data-type-date-time';
+
 			// Object.
 			case ColumnDisplayType.Object:
 				return 'codicon-positron-data-type-object';
@@ -346,6 +352,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			summaryStatsSupported = isSummaryStatsSupported();
 			break;
 		case ColumnDisplayType.Time:
+		case ColumnDisplayType.Interval:
 		case ColumnDisplayType.Array:
 		case ColumnDisplayType.Struct:
 		case ColumnDisplayType.Unknown:
