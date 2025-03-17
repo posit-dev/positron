@@ -34,7 +34,7 @@ export const showLanguageModelModalDialog = (
 	contextKeyService: IContextKeyService,
 	configurationService: IConfigurationService,
 	sources: IPositronLanguageModelSource[],
-	onSave: (config: IPositronLanguageModelConfig) => Promise<void>,
+	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 	onCancel: () => void,
 ) => {
 	const renderer = new PositronModalReactRenderer({
@@ -52,8 +52,8 @@ export const showLanguageModelModalDialog = (
 				layoutService={layoutService}
 				renderer={renderer}
 				sources={sources}
+				onAction={onAction}
 				onCancel={onCancel}
-				onSave={onSave}
 			/>
 		</div>
 	);
@@ -66,7 +66,7 @@ interface LanguageModelConfigurationProps {
 	contextKeyService: IContextKeyService;
 	configurationService: IConfigurationService;
 	renderer: PositronModalReactRenderer;
-	onSave: (config: IPositronLanguageModelConfig) => Promise<void>;
+	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>;
 	onCancel: () => void;
 }
 
@@ -141,13 +141,9 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		if (!source) {
 			return;
 		}
-		if (source.signedIn) {
-			// TODO: Change how to handle sign out and sign in
-			return;
-		}
 		setShowProgress(true);
 		setError(undefined);
-		props.onSave({
+		props.onAction({
 			type: type,
 			provider: source.provider.id,
 			model: model,
@@ -159,8 +155,8 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			location: location,
 			toolCalls: toolCalls,
 			numCtx: numCtx,
-		}).then(() => {
-			source.signedIn = true;
+		}, source.signedIn ? 'delete' : 'save').then(() => {
+			source.signedIn = !source.signedIn;
 		}).catch((e) => {
 			setError(e.message);
 		}).finally(() => {

@@ -89,7 +89,7 @@ export interface IPositronAssistantService {
 	 */
 	showLanguageModelModalDialog(
 		sources: IPositronLanguageModelSource[],
-		onSave: (config: IPositronLanguageModelConfig) => Promise<void>,
+		onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 		onCancel: () => void,
 	): void;
 	/**

@@ -49,12 +49,12 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 * Show a modal dialog for language model configuration. Return a promise resolving to the
 	 * configuration saved by the user.
 	 */
-	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[]): Thenable<void> {
+	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[], action: string): Thenable<void> {
 		return new Promise((resolve, reject) => {
 			this._positronAssistantService.showLanguageModelModalDialog(
 				sources,
-				async (config) => {
-					await this._proxy.$responseLanguageModelConfig(id, config);
+				async (config, action) => {
+					await this._proxy.$responseLanguageModelConfig(id, config, action);
 					resolve();
 				},
 				() => reject('User cancelled language model configuration.'),
