@@ -66,6 +66,8 @@ export class GlobalSecretStorage implements SecretStorage {
 
 export interface ModelConfig extends StoredModelConfig {
 	apiKey: string;
+
+	extension: vscode.ExtensionContext;
 }
 
 export function getStoredModels(context: vscode.ExtensionContext): StoredModelConfig[] {
@@ -83,7 +85,8 @@ export async function getModelConfiguration(id: string, context: vscode.Extensio
 	const apiKey = await storage.get(`apiKey-${config.id}`);
 	return {
 		...config,
-		apiKey: apiKey || ''
+		apiKey: apiKey || '',
+		extension: context,
 	};
 }
 
@@ -95,7 +98,8 @@ export async function getModelConfigurations(context: vscode.ExtensionContext, s
 			const apiKey = await storage.get(`apiKey-${config.id}`);
 			return {
 				...config,
-				apiKey: apiKey || ''
+				apiKey: apiKey || '',
+				extension: context,
 			};
 		})
 	);

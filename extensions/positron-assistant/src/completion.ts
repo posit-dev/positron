@@ -21,6 +21,7 @@ import { createAzure } from '@ai-sdk/azure';
 import { loadSetting } from '@ai-sdk/provider-utils';
 import { GoogleAuth } from 'google-auth-library';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { CopilotLanguageClientService } from './copilot.js';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
@@ -602,6 +603,40 @@ class AzureCompletion extends FimPromptCompletion {
 	}
 }
 
+class CopilotCompletion implements vscode.InlineCompletionItemProvider {
+	public name;
+	public identifier;
+	public copilot;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Completion,
+		provider: {
+			id: 'copilot',
+			displayName: 'GitHub Copilot'
+		},
+		supportedOptions: [],
+		defaults: {
+			name: 'GitHub Copilot',
+			model: 'github-copilot',
+		},
+	};
+
+	constructor(_config: ModelConfig) {
+		this.identifier = _config.id;
+		this.name = _config.name;
+		this.copilot = CopilotLanguageClientService.instance(_config.extension);
+	}
+
+	provideInlineCompletionItems(
+		document: vscode.TextDocument,
+		position: vscode.Position,
+		context: vscode.InlineCompletionContext,
+		token: vscode.CancellationToken
+	): Promise<vscode.InlineCompletionList> {
+		return this.copilot.provideInlineCompletionItems(document, position, context, token);
+	}
+}
+
 //#endregion
 //#region Module exports
 
@@ -617,6 +652,7 @@ export const completionModels = [
 	AnthropicCompletion,
 	AWSCompletion,
 	AzureCompletion,
+	CopilotCompletion,
 	DeepSeekCompletion,
 	MistralCompletion,
 	GoogleCompletion,

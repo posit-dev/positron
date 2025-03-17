@@ -19,6 +19,7 @@ import { replaceBinaryMessageParts, toAIMessage } from './utils';
 import { positronToolAdapters } from './tools';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
+import { CopilotLanguageClientService } from './copilot.js';
 
 /**
  * Models used by chat participants and for vscode.lm.* API functionality.
@@ -248,11 +249,6 @@ abstract class AILanguageModel extends BaseLanguageModel implements positron.ai.
 			}
 		}
 	}
-
-	async provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Promise<number> {
-		// TODO: This is a very naive approximation, a model specific tokenizer should be used.
-		return typeof text === 'string' ? text.length : JSON.stringify(text.content).length;
-	}
 }
 
 class AnthropicLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -413,6 +409,50 @@ class AzureLanguageModel extends AILanguageModel implements positron.ai.Language
 	}
 }
 
+class CopilotLanguageModel extends BaseLanguageModel implements positron.ai.LanguageModelChatProvider {
+	protected copilot: CopilotLanguageClientService;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Chat,
+		provider: {
+			id: 'copilot',
+			displayName: 'GitHub Copilot'
+		},
+		supportedOptions: [],
+		defaults: {
+			name: 'GitHub Copilot',
+			model: 'github-copilot',
+		},
+	};
+
+	constructor(protected readonly _config: ModelConfig) {
+		super(_config);
+		this.copilot = CopilotLanguageClientService.instance(_config.extension);
+	}
+
+	async provideLanguageModelResponse(
+		messages: vscode.LanguageModelChatMessage[],
+		options: vscode.LanguageModelChatRequestOptions,
+		extensionId: string,
+		progress: vscode.Progress<vscode.ChatResponseFragment2>,
+		token: vscode.CancellationToken,
+	): Promise<void> {
+		return this.copilot.provideLanguageModelResponse(
+			this._config.model,
+			messages,
+			options,
+			extensionId,
+			progress,
+			token
+		);
+	}
+
+	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
+		// TODO: Implement connection check
+		return undefined;
+	}
+}
+
 class VertexLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected model: ai.LanguageModelV1;
 
@@ -512,6 +552,7 @@ export const languageModels = [
 	AWSLanguageModel,
 	AnthropicLanguageModel,
 	AzureLanguageModel,
+	CopilotLanguageModel,
 	GoogleLanguageModel,
 	MistralLanguageModel,
 	OllamaLanguageModel,
