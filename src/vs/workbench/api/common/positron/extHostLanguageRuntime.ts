@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
+import { debounce } from '../../../../base/common/decorators.js';
 import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
@@ -70,6 +71,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	// The event that fires when a runtime is registered.
 	public onDidRegisterRuntime = this._onDidRegisterRuntimeEmitter.event;
+
+	// The event emitter for the onDidChangeForegroundSession event.
+	private readonly _onDidChangeForegroundSessionEmitter = new Emitter<string | undefined>;
+
+	// The event that fires when the foreground session changes.
+	public onDidChangeForegroundSession = this._onDidChangeForegroundSessionEmitter.event;
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
@@ -574,6 +581,21 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// Notify the main thread that discovery is complete
 		this._runtimeDiscoveryComplete = true;
 		this._proxy.$completeLanguageRuntimeDiscovery();
+	}
+
+	/**
+	 * Notifies the extension host that the foreground session has changed.
+	 * This is forwarding the event from the main thread to the extension host.
+	 *
+	 * @param sessionId The ID of the new foreground session
+	 */
+	@debounce(1000)
+	public async $notifyForegroundSessionChanged(sessionId: string | undefined): Promise<void> {
+		const session = this._runtimeSessions.find(session => session.metadata.sessionId === sessionId);
+		if (!session && sessionId) {
+			throw new Error(`Session ID '${sessionId}' was marked as the foreground session, but is not known to the extension host.`);
+		}
+		this._onDidChangeForegroundSessionEmitter.fire(sessionId);
 	}
 
 	/**

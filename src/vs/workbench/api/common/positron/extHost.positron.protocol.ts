@@ -76,6 +76,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$showProfileLanguageRuntime(handle: number): void;
 	$discoverLanguageRuntimes(disabledLanguageIds: string[]): void;
 	$recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
+	$notifyForegroundSessionChanged(sessionId: string | undefined): void;
 }
 
 // This is the interface that the main process exposes to the extension host
