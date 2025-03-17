@@ -292,6 +292,18 @@ export interface ILanguageRuntimeSessionManager {
  * runtime sessions; it manages the set of active sessions and provides
  * facilities for starting, stopping, and interacting with them.
  */
+/**
+ * Event that fires when a notebook session's URI has been updated.
+ */
+export interface INotebookSessionUriChangedEvent {
+	/** The session ID */
+	readonly sessionId: string;
+	/** The previous URI */
+	readonly oldUri: URI;
+	/** The new URI */
+	readonly newUri: URI;
+}
+
 export interface IRuntimeSessionService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
@@ -315,6 +327,9 @@ export interface IRuntimeSessionService {
 	readonly onDidChangeForegroundSession: Event<ILanguageRuntimeSession | undefined>;
 
 	readonly onDidDeleteRuntimeSession: Event<string>;
+
+	// An event that fires when a notebook session's URI is updated.
+	readonly onDidUpdateNotebookSessionUri: Event<INotebookSessionUriChangedEvent>;
 
 	/**
 	 * Gets the active runtime sessions

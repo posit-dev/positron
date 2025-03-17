@@ -12,7 +12,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from '../../../../platform/opener/common/opener.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode } from './runtimeSessionService.js';
+import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode } from './runtimeSessionService.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from '../../positronModalDialogs/common/positronModalDialogs.js';
@@ -272,6 +272,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	// An event that fires when a runtime is deleted.
 	readonly onDidDeleteRuntimeSession = this._onDidDeleteRuntimeSessionEmitter.event;
+
+	// The event emitter for the onDidUpdateNotebookSessionUri event.
+	private readonly _onDidUpdateNotebookSessionUriEmitter =
+		this._register(new Emitter<INotebookSessionUriChangedEvent>());
+
+	// An event that fires when a notebook session's URI is updated.
+	readonly onDidUpdateNotebookSessionUri = this._onDidUpdateNotebookSessionUriEmitter.event;
 
 	/**
 	 * Registers a session manager with the service.
@@ -2066,34 +2073,56 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return undefined;
 		}
 
-		// Update URI mapping in an order that prevents inconsistent state
+		// Remember the session ID for return value
+		const sessionId = session.sessionId;
+
 		try {
-			// First add the new mapping to ensure we don't lose the session
+
+			// 1. First add the new mapping to ensure we don't lose the session
 			this._notebookSessionsByNotebookUri.set(newUri, session);
-			// Then remove the old mapping
+
+			// 2. Then update the session's notebook URI in its dynamic state
+			session.dynState.currentNotebookUri = newUri;
+
+			// 3. Finally remove the old mapping - we do this last because it's
+			// the most likely to fail if ResourceMap has internal inconsistency
 			this._notebookSessionsByNotebookUri.delete(oldUri);
 
-			// Update the session's notebook URI in its dynamic state
-			session.dynState.currentNotebookUri = newUri;
+			// Log success for debugging
 			this._logService.debug(`Successfully updated notebook session URI: ${oldUri.toString()} → ${newUri.toString()}`);
-			return session.sessionId;
+
+			// Notify listeners that the URI has been updated
+			// This event allows other components to update their state based on the new URI
+			this._onDidUpdateNotebookSessionUriEmitter.fire({
+				sessionId,
+				oldUri,
+				newUri
+			});
+
+			return sessionId;
 		} catch (error) {
-			// If anything went wrong, attempt to restore the old state
+			// If anything went wrong, attempt to restore the old state manually
 			this._logService.error('Failed to update notebook session URI', error);
 
-			// Restore original mapping if possible
-			if (!this._notebookSessionsByNotebookUri.has(oldUri)) {
-				this._notebookSessionsByNotebookUri.set(oldUri, session);
-			}
+			// Manual restoration in reverse order
+			try {
+				// 1. Try to restore old mapping if it was deleted
+				if (!this._notebookSessionsByNotebookUri.has(oldUri)) {
+					this._notebookSessionsByNotebookUri.set(oldUri, session);
+				}
 
-			// Clean up possibly invalid new mapping
-			if (this._notebookSessionsByNotebookUri.get(newUri) === session) {
-				this._notebookSessionsByNotebookUri.delete(newUri);
-			}
+				// 2. Clean up possibly invalid new mapping
+				if (this._notebookSessionsByNotebookUri.get(newUri) === session) {
+					this._notebookSessionsByNotebookUri.delete(newUri);
+				}
 
-			// Restore original URI in session state if needed
-			if (session.dynState.currentNotebookUri === newUri) {
-				session.dynState.currentNotebookUri = oldUri;
+				// 3. Restore original URI in session state if needed
+				if (session.dynState.currentNotebookUri === newUri) {
+					session.dynState.currentNotebookUri = oldUri;
+				}
+			} catch (restoreError) {
+				// If restoration fails, log it but don't throw
+				this._logService.error('Failed to restore notebook session state after URI update failure', restoreError);
 			}
 
 			return undefined;
