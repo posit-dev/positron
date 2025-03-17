@@ -11,6 +11,19 @@
 	fill: var(--vscode-positronDataExplorer-sparklineFill);
 }
 
+.vector-frequency-table .count-hover {
+	fill: var(--vscode-positronDataExplorer-sparklineHover);
+}
+
 .vector-frequency-table .count.other {
 	opacity: 0.65;
+}
+
+/* Tooltip styles */
+.tooltip-container div {
+	background-color: transparent !important;
+	cursor: default;
+	pointer-events: all;
+	position: relative;
+	z-index: 100;
 }

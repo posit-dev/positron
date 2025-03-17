@@ -108,6 +108,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 							columnHistogram={columnHistogram}
 							graphHeight={SPARKLINE_HEIGHT}
 							graphWidth={SPARKLINE_WIDTH}
+							hoverService={props.hoverService}
 							xAxisHeight={SPARKLINE_X_AXIS_HEIGHT}
 						/>
 					</div >
@@ -136,6 +137,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 							columnFrequencyTable={columnFrequencyTable}
 							graphHeight={SPARKLINE_HEIGHT}
 							graphWidth={SPARKLINE_WIDTH}
+							hoverService={props.hoverService}
 							xAxisHeight={SPARKLINE_X_AXIS_HEIGHT}
 						/>
 					</div >
@@ -245,15 +247,15 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		switch (props.columnSchema.type_display) {
 			// Number.
 			case ColumnDisplayType.Number:
-				return <ColumnProfileNumber columnIndex={props.columnIndex} instance={props.instance} />;
+				return <ColumnProfileNumber columnIndex={props.columnIndex} hoverService={props.hoverService} instance={props.instance} />;
 
 			// Boolean.
 			case ColumnDisplayType.Boolean:
-				return <ColumnProfileBoolean columnIndex={props.columnIndex} instance={props.instance} />;
+				return <ColumnProfileBoolean columnIndex={props.columnIndex} hoverService={props.hoverService} instance={props.instance} />;
 
 			// String.
 			case ColumnDisplayType.String:
-				return <ColumnProfileString columnIndex={props.columnIndex} instance={props.instance} />;
+				return <ColumnProfileString columnIndex={props.columnIndex} hoverService={props.hoverService} instance={props.instance} />;
 
 			// Date.
 			case ColumnDisplayType.Date:
