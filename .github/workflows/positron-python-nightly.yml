@@ -67,7 +67,7 @@ jobs:
         run: uv run pytest --version
 
       - name: Install base Python requirements
-        run: 'uv pip install --no-deps --require-hashes --only-binary :all: --target ./python_files/lib/python -r requirements.txt'
+        run: 'uv run pip install --no-deps --require-hashes --only-binary :all: -t ./python_files/lib/python --no-cache-dir --implementation py -r requirements.txt'
 
       - name: Install test requirements
         run: uv pip install -r build/test-requirements.txt

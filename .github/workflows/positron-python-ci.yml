@@ -94,14 +94,15 @@ jobs:
         run: uv pip install pip
 
       - name: Install base Python requirements
-        run: 'uv pip install --no-deps --require-hashes --only-binary :all: --target ./python_files/lib/python -r requirements.txt'
+        # Use uv run pip instead of uv pip so we can filter by implementation
+        run: 'uv run pip install --no-deps --require-hashes --only-binary :all: -t ./python_files/lib/python --no-cache-dir --implementation py -r requirements.txt'
 
       - name: Install Positron IPyKernel requirements
         run: uv run scripts/vendor.py
 
       - name: Install other Python requirements
         run: |
-          uv pip install --target ./python_files/lib/python --no-deps --upgrade --pre debugpy
+          uv run pip --disable-pip-version-check install -t ./python_files/lib/python --no-cache-dir --implementation py --no-deps --upgrade --pre debugpy
           uv pip install --upgrade -r build/test-requirements.txt -r ./python_files/posit/pinned-test-requirements.txt
 
       - name: Run Pyright
@@ -144,7 +145,7 @@ jobs:
         run: uv run pytest --version
 
       - name: Install base Python requirements
-        run: 'uv pip install --no-deps --require-hashes --only-binary :all: --target ./python_files/lib/python -r requirements.txt'
+        run: 'uv run pip install --no-deps --require-hashes --only-binary :all: -t ./python_files/lib/python --no-cache-dir --implementation py -r requirements.txt'
 
       - name: Install test requirements
         run: uv pip install -r build/test-requirements.txt
