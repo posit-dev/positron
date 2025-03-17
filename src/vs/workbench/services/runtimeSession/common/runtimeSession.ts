@@ -2064,6 +2064,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined {
 		// Validate inputs - both URIs must be defined
+		// Why: We need valid URIs to perform lookups and avoid system errors
 		if (!oldUri || !newUri) {
 			this._logService.error('updateNotebookSessionUri called with invalid URIs', { oldUri, newUri });
 			return undefined;
@@ -2074,12 +2075,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		if (!session) {
 			// No matching session found for the provided oldUri
+			// Why logging as debug: This is an expected case when notebooks don't have sessions yet
 			this._logService.debug(`No notebook session found for URI: ${oldUri.toString()}`);
 			return undefined;
 		}
 
 		// Check if session is in a valid state for URI reassignment
-		// We can't reassign a terminated session as it's no longer active
+		// Why: We can't reassign a terminated session as it's no longer active and would cause
+		// users to think they have a working session when they don't
 		if (session.getRuntimeState() === RuntimeState.Exited) {
 			this._logService.warn('Cannot update URI for terminated session', {
 				sessionId: session.sessionId,
@@ -2092,26 +2095,34 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const sessionId = session.sessionId;
 
 		try {
-			// We perform operations in a specific order to maintain consistency
+			// Operations are performed in a specific order to maintain atomic-like behavior
+			// The ordering ensures that even if interrupted between steps, the system won't lose
+			// track of the session completely.
 
 			// 1. First add the new mapping to ensure we don't lose the session
-			// This makes the session accessible via the new URI immediately
+			// Why: This makes the session accessible via the new URI immediately,
+			// so even if the next steps fail, the session is still accessible via some URI
 			this._notebookSessionsByNotebookUri.set(newUri, session);
 
 			// 2. Then update the session's notebook URI in its dynamic state
-			// This ensures the session's internal state reflects the new URI
+			// Why: This ensures the session's internal references are consistent
+			// with our mapping, which helps debugging and ensures session properties
+			// reflect current reality
 			session.dynState.currentNotebookUri = newUri;
 
 			// 3. Finally remove the old mapping - we do this last because it's
 			// the most likely to fail if ResourceMap has internal inconsistency
+			// Why last: If we deleted first and then failed to add the new mapping,
+			// we'd lose the session entirely
 			this._notebookSessionsByNotebookUri.delete(oldUri);
 
 			// Log success for debugging
 			this._logService.debug(`Successfully updated notebook session URI: ${oldUri.toString()} → ${newUri.toString()}`);
 
 			// Notify listeners that the URI has been updated
-			// This allows other components (like the variables view) to update their UI
-			// to reflect the new URI for the session
+			// Why: Components like the variables view need to update their UI
+			// to show the new filename instead of "Untitled-1", and any code that tracks
+			// notebook URIs needs to update its references
 			this._onDidUpdateNotebookSessionUriEmitter.fire({
 				sessionId,
 				oldUri,
@@ -2124,24 +2135,32 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			this._logService.error('Failed to update notebook session URI', error);
 
 			// Manual restoration in reverse order to maintain consistency
+			// Why: We need to undo all the changes to return to the previous state
 			try {
 				// 1. Try to restore old mapping if it was deleted
+				// Why: If we got as far as deleting the old mapping, we need to restore it
+				// so the session can still be found via the original URI
 				if (!this._notebookSessionsByNotebookUri.has(oldUri)) {
 					this._notebookSessionsByNotebookUri.set(oldUri, session);
 				}
 
 				// 2. Clean up possibly invalid new mapping
+				// Why: We only delete the new mapping if it points to our session
+				// This avoids accidentally deleting a valid mapping that might have been
+				// created by another operation
 				if (this._notebookSessionsByNotebookUri.get(newUri) === session) {
 					this._notebookSessionsByNotebookUri.delete(newUri);
 				}
 
 				// 3. Restore original URI in session state if needed
+				// Why: Keep the session's internal state consistent with our mappings
 				if (session.dynState.currentNotebookUri === newUri) {
 					session.dynState.currentNotebookUri = oldUri;
 				}
 			} catch (restoreError) {
 				// If restoration fails, log it but don't throw
-				// This avoids cascading errors but ensures the issue is recorded
+				// Why: This avoids cascading errors but ensures the issue is documented
+				// We're already in an error state, so throwing again would just obscure the original problem
 				this._logService.error('Failed to restore notebook session state after URI update failure', restoreError);
 			}
 
@@ -2153,8 +2172,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 /**
  * _positron.reassignNotebookSessionUri - Command to transfer a notebook runtime session between URIs
  *
- * This command serves as a  bridge during the notebook save process, ensuring that when
+ * This command serves as a bridge during the notebook save process, ensuring that when
  * an untitled notebook is saved to disk, it maintains its runtime context (variables, execution history, etc.).
+ *
+ * Why this exists:
+ * Without this command, saving an untitled notebook would create a new file but lose the runtime
+ * context - all variables and kernel connections would be lost, forcing users to re-execute
+ * all their cells after saving.
  *
  * Key architectural points:
  * 1. This command is triggered from NotebookEditorInput.saveAs() during the file save process
@@ -2164,10 +2188,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
  * The implementation handles errors to prevent blocking the main save operation
  * if runtime session transfer fails. This ensures users can always save their files, even
  * if maintaining the session fails.
+ *
+ * Error handling approach:
+ * We catch and log errors but don't propagate them up to the save operation, because saving
+ * the file content is more important than maintaining the runtime state - the worst case is
+ * that users need to re-run their cells, but their code is saved.
  */
 CommandsRegistry.registerCommand('_positron.reassignNotebookSessionUri', async (accessor, fromUri: string, toUri: string) => {
 	try {
 		// Validate and parse URIs
+		// Why check: Command parameters could be malformed from unexpected callers
 		if (!fromUri || !toUri) {
 			throw new Error('Missing URI parameters for notebook session reassignment');
 		}
@@ -2176,20 +2206,29 @@ CommandsRegistry.registerCommand('_positron.reassignNotebookSessionUri', async (
 		const to = URI.parse(toUri);
 
 		// Get services needed for the operation
+		// Why these services:
+		// - runtimeSessionService: Handles the actual URI mapping update
+		// - variablesService: Needs to refresh the variables view to show the new URI
+		// - logService: For debugging and error tracking
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 		const variablesService = accessor.get(IPositronVariablesService);
 		const logService = accessor.get(ILogService);
 
 		// Update the URI associated with the session
+		// Why debug log: Helps trace sequence of operations during save process debugging
 		logService.debug(`Reassigning notebook session URI: ${fromUri} → ${toUri}`);
 		const sessionId = runtimeSessionService.updateNotebookSessionUri(from, to);
 
 		if (sessionId) {
 			// Tell the variables service to refresh so that the new URI is displayed
-			// This ensures the variables view shows the correct notebook name
+			// Why this is needed: The variables view watches for active sessions but needs
+			// an explicit refresh after the URI change to show the updated filename
+			// instead of "Untitled-1"
 			variablesService.setActivePositronVariablesSession(sessionId);
 			logService.debug(`Successfully reassigned session ${sessionId} to URI: ${toUri}`);
 		} else {
+			// Why this isn't an error: It's normal for new notebooks without any executed cells
+			// to not have a session yet, so this is an expected case
 			logService.debug(`No session found to reassign for URI: ${fromUri}`);
 		}
 	} catch (error) {

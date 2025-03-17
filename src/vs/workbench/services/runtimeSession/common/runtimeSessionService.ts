@@ -488,6 +488,18 @@ export interface IRuntimeSessionService {
 	 * The implementation carefully orders operations to maintain state consistency even if
 	 * an error occurs during the update process.
 	 *
+	 * Implementation notes:
+	 * - Concurrency: Operations are ordered specifically to handle concurrent access safely.
+	 *   We first add the new mapping before removing the old one, ensuring the session is
+	 *   always accessible even if interrupted mid-operation.
+	 *
+	 * - URI Validation: Both URIs need to be valid, and oldUri must map to an active session.
+	 *   We check that the session isn't terminated before attempting the transfer.
+	 *
+	 * - Error Handling: If something goes wrong after adding the new mapping but before
+	 *   removing the old one, the session will be accessible via both URIs - not ideal
+	 *   but better than losing access completely.
+	 *
 	 * @param oldUri The original URI of the notebook (typically an untitled:// URI)
 	 * @param newUri The new URI of the notebook (typically a file:// URI after saving)
 	 * @returns The session ID of the updated session, or undefined if no update occurred
