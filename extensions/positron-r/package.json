@@ -196,45 +196,64 @@
         "title": "%r.configuration.title-dev%",
         "properties": {
           "positron.r.customRootFolders": {
-            "scope": "window",
+            "scope": "machine",
             "type": "array",
             "items": {
               "type": "string"
             },
             "default": [],
+            "tags": [
+              "interpreterSettings"
+            ],
+            "uniqueItems": true,
             "markdownDescription": "%r.configuration.customRootFolders.markdownDescription%"
           },
           "positron.r.customBinaries": {
-            "scope": "window",
+            "scope": "machine",
             "type": "array",
             "items": {
               "type": "string"
             },
             "default": [],
+            "tags": [
+              "interpreterSettings"
+            ],
+            "uniqueItems": true,
             "markdownDescription": "%r.configuration.customBinaries.markdownDescription%"
           },
           "positron.r.interpreters.exclude": {
-            "scope": "window",
+            "scope": "machine",
             "type": "array",
             "items": {
               "type": "string"
             },
             "default": [],
+            "tags": [
+              "interpreterSettings"
+            ],
+            "uniqueItems": true,
             "markdownDescription": "%r.configuration.interpreters.exclude.markdownDescription%"
           },
           "positron.r.interpreters.override": {
-            "scope": "window",
+            "scope": "machine",
             "type": "array",
             "items": {
               "type": "string"
             },
             "default": [],
+            "tags": [
+              "interpreterSettings"
+            ],
+            "uniqueItems": true,
             "markdownDescription": "%r.configuration.interpreters.override.markdownDescription%"
           },
           "positron.r.interpreters.default": {
-            "scope": "window",
+            "scope": "machine",
             "type": "string",
             "default": null,
+            "tags": [
+              "interpreterSettings"
+            ],
             "markdownDescription": "%r.configuration.interpreters.default.markdownDescription%"
           },
           "positron.r.kernel.path": {
