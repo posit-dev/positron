@@ -82,15 +82,16 @@ test.describe('Notebooks', {
 			// Add a new cell
 			await app.workbench.notebooks.insertNotebookCell('code');
 
+			// Create a new variable using the now saved notebook
 			// Add code to the new cell (using typeInEditor since addCodeToLastCell isn't available)
 			await app.workbench.notebooks.focusNextCell();
-			await app.workbench.notebooks.typeInEditor('print("Session is working after save")');
+			await app.workbench.notebooks.typeInEditor('baz = "baz"');
 
 			// Execute the cell
 			await app.workbench.notebooks.executeActiveCell();
 
-			// Verify the output contains our test message
-			await app.workbench.notebooks.assertCellOutput('Session is working after save');
+			// Verify the variable is in the variables pane
+			await app.workbench.variables.expectVariableToBe('baz', "'baz'");
 
 			// Clean up by closing the notebook without saving
 			await app.workbench.notebooks.closeNotebookWithoutSaving();
