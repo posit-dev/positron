@@ -294,13 +294,17 @@ export interface ILanguageRuntimeSessionManager {
  */
 /**
  * Event that fires when a notebook session's URI has been updated.
+ *
+ * This event is for components that track notebook URIs (like the variables view)
+ * to update their references when a notebook is saved with a new URI. Without this event,
+ * UI components would continue to display the old URI even after saving.
  */
 export interface INotebookSessionUriChangedEvent {
-	/** The session ID */
+	/** The session ID that was updated */
 	readonly sessionId: string;
-	/** The previous URI */
+	/** The previous URI associated with the session (typically an untitled URI) */
 	readonly oldUri: URI;
-	/** The new URI */
+	/** The new URI associated with the session (typically a file URI after saving) */
 	readonly newUri: URI;
 }
 
@@ -473,11 +477,20 @@ export interface IRuntimeSessionService {
 	shutdownNotebookSession(notebookUri: URI, exitReason: RuntimeExitReason, source: string): Promise<void>;
 
 	/**
-	 * Updates the URI of a notebook session.
+	 * Updates the URI of a notebook session to maintain session continuity when
+	 * a notebook is saved under a new URI.
 	 *
-	 * @param oldUri The old URI of the notebook session.
-	 * @param newUri The new URI of the notebook session.
-	 * @returns The ID of the session that was updated, or undefined if no session was updated.
+	 * This is a crucial operation during the Untitled → Saved file transition, as it:
+	 * 1. Preserves all runtime state (variables, execution context, kernel connections)
+	 * 2. Updates internal mappings to reflect the new URI
+	 * 3. Notifies dependent components about the change (via the onDidUpdateNotebookSessionUri event)
+	 *
+	 * The implementation carefully orders operations to maintain state consistency even if
+	 * an error occurs during the update process.
+	 *
+	 * @param oldUri The original URI of the notebook (typically an untitled:// URI)
+	 * @param newUri The new URI of the notebook (typically a file:// URI after saving)
+	 * @returns The session ID of the updated session, or undefined if no update occurred
 	 */
 	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined;
 

@@ -240,11 +240,17 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 			throw new Error(`File name ${target} is not supported by ${provider.providerDisplayName}.\n\nPlease make sure the file name matches following patterns:\n${patterns}`);
 		}
 		// --- Start Positron ---
-		// When an untitled notebook is saved, we need to update the associated runtime session
-		// This ensures that the notebook session (kernel, variables, execution state) persists across the save operation
+		// When an untitled notebook is saved, we need to preserve the active runtime session
+		// By updating the session's URI reference, we maintain:
+		//  1. All defined variables and in-memory state
+		//  2. The active kernel connection
+		//  3. Execution history and context
+		// Without this, saving would disconnect the notebook from its runtime session
 		if (this.hasCapability(EditorInputCapabilities.Untitled) && target) {
 			try {
-				// Send message to the runtime session service to update the URI
+				// Send message to the runtime session service to update the URI mapping
+				// This must happen AFTER the file is validated but BEFORE the actual save completes
+				// We use await to ensure this operation completes before proceeding with the save
 				await this._commandService.executeCommand(
 					'_positron.reassignNotebookSessionUri',
 					this.resource.toString(),
@@ -252,7 +258,8 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 				);
 			} catch (error) {
 				// Log the error but continue with the save process
-				// This prevents the URI update failure from blocking the file save
+				// This prevents URI reassignment failures from blocking the file save operation
+				// In the worst case, the notebook will save but lose its runtime session
 				console.error('Failed to update notebook session URI during save:', error);
 			}
 		}
