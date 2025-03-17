@@ -33,7 +33,7 @@ import { RuntimeItemReconnected } from '../../../../services/positronConsole/bro
 import { RuntimeStartupFailure } from './runtimeStartupFailure.js';
 import { RuntimeItemPendingInput } from '../../../../services/positronConsole/browser/classes/runtimeItemPendingInput.js';
 import { RuntimeItemRestartButton } from '../../../../services/positronConsole/browser/classes/runtimeItemRestartButton.js';
-import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { RuntimeItemStartupFailure } from '../../../../services/positronConsole/browser/classes/runtimeItemStartupFailure.js';
 import { localize } from '../../../../../nls.js';
 
@@ -69,6 +69,14 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 	 */
 	constructor(props: ConsoleInstanceItemsProps) {
 		super(props);
+
+		const disposable = this.props.positronConsoleInstance.onDidChangeState(() => {
+			this.forceUpdate();
+		});
+
+		this.componentWillUnmount = () => {
+			disposable.dispose();
+		}
 	}
 
 	/**
@@ -76,8 +84,7 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 	 * @returns The rendered component.
 	 */
 	override render() {
-
-		let extensionHostDisconnected = false;
+		const extensionHostDisconnected = this.props.positronConsoleInstance.state === PositronConsoleState.Disconnected;
 
 		return (
 			<>
@@ -88,10 +95,8 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 					} else if (runtimeItem instanceof RuntimeItemPendingInput) {
 						return <RuntimePendingInput key={runtimeItem.id} fontInfo={this.props.editorFontInfo} runtimeItemPendingInput={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemStartup) {
-						extensionHostDisconnected = false;
 						return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemReconnected) {
-						extensionHostDisconnected = false;
 						return null;
 					} else if (runtimeItem instanceof RuntimeItemStarting) {
 						return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
@@ -100,10 +105,6 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 					} else if (runtimeItem instanceof RuntimeItemOffline) {
 						return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemExited) {
-						if (runtimeItem.reason === 'extensionHost') {
-							extensionHostDisconnected = true;
-							return null;
-						}
 						return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemRestartButton) {
 						return <RuntimeRestartButton key={runtimeItem.id} positronConsoleInstance={this.props.positronConsoleInstance} runtimeItemRestartButton={runtimeItem} />;
