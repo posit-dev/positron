@@ -93,17 +93,38 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 //#endregion
 //#region Language Models
 
-abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider {
+abstract class BaseLanguageModel implements positron.ai.LanguageModelChatProvider {
 	public readonly name;
 	public readonly provider;
 	public readonly identifier;
-	protected abstract model: ai.LanguageModelV1;
 
 	constructor(protected readonly _config: ModelConfig) {
 		this.identifier = _config.id;
 		this.name = _config.name;
 		this.provider = _config.provider;
 	}
+
+	abstract provideLanguageModelResponse(
+		messages: vscode.LanguageModelChatMessage[],
+		options: vscode.LanguageModelChatRequestOptions,
+		extensionId: string,
+		progress: vscode.Progress<vscode.ChatResponseFragment2>,
+		token: vscode.CancellationToken
+	): Thenable<any>;
+
+	async provideTokenCount(
+		text: string | vscode.LanguageModelChatMessage,
+		token: vscode.CancellationToken
+	): Promise<number> {
+		// TODO: This is a very naive approximation, a model specific tokenizer should be used.
+		return typeof text === 'string' ? text.length : JSON.stringify(text.content).length;
+	}
+
+	abstract resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined>;
+}
+
+abstract class AILanguageModel extends BaseLanguageModel implements positron.ai.LanguageModelChatProvider {
+	protected abstract model: ai.LanguageModelV1;
 
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
 		token.onCancellationRequested(() => {
