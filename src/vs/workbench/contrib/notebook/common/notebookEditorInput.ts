@@ -240,10 +240,21 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 			throw new Error(`File name ${target} is not supported by ${provider.providerDisplayName}.\n\nPlease make sure the file name matches following patterns:\n${patterns}`);
 		}
 		// --- Start Positron ---
-		// Log when an untitled notebook has been successfully saved
+		// When an untitled notebook is saved, we need to update the associated runtime session
+		// This ensures that the notebook session (kernel, variables, execution state) persists across the save operation
 		if (this.hasCapability(EditorInputCapabilities.Untitled) && target) {
-			// Send message to the runtime session service to update the URI
-			this._commandService.executeCommand('_positron.reassignNotebookSessionUri', this.resource.toString(), target.toString());
+			try {
+				// Send message to the runtime session service to update the URI
+				await this._commandService.executeCommand(
+					'_positron.reassignNotebookSessionUri',
+					this.resource.toString(),
+					target.toString()
+				);
+			} catch (error) {
+				// Log the error but continue with the save process
+				// This prevents the URI update failure from blocking the file save
+				console.error('Failed to update notebook session URI during save:', error);
+			}
 		}
 		// --- End Positron ---
 

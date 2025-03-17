@@ -2041,32 +2041,102 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined {
 		// Update notebook by uri map to identify the session by the new uri
-		const session = this._notebookSessionsByNotebookUri.get(oldUri);
+		// This allows the session to persist when saving a notebook with a new URI
 
-		if (!session) {
+		// Validate inputs
+		if (!oldUri || !newUri) {
+			this._logService.error('updateNotebookSessionUri called with invalid URIs', { oldUri, newUri });
 			return undefined;
 		}
 
-		this._notebookSessionsByNotebookUri.set(newUri, session);
-		this._notebookSessionsByNotebookUri.delete(oldUri);
+		const session = this._notebookSessionsByNotebookUri.get(oldUri);
 
-		// Update the session's notebook URI
-		session.dynState.currentNotebookUri = newUri;
-		return session.sessionId;
+		if (!session) {
+			// No matching session found for the provided oldUri
+			this._logService.debug(`No notebook session found for URI: ${oldUri.toString()}`);
+			return undefined;
+		}
+
+		// Check if session is in a valid state for URI reassignment
+		if (session.getRuntimeState() === RuntimeState.Exited) {
+			this._logService.warn('Cannot update URI for terminated session', {
+				sessionId: session.sessionId,
+				oldUri: oldUri.toString()
+			});
+			return undefined;
+		}
+
+		// Update URI mapping in an order that prevents inconsistent state
+		try {
+			// First add the new mapping to ensure we don't lose the session
+			this._notebookSessionsByNotebookUri.set(newUri, session);
+			// Then remove the old mapping
+			this._notebookSessionsByNotebookUri.delete(oldUri);
+
+			// Update the session's notebook URI in its dynamic state
+			session.dynState.currentNotebookUri = newUri;
+			this._logService.debug(`Successfully updated notebook session URI: ${oldUri.toString()} → ${newUri.toString()}`);
+			return session.sessionId;
+		} catch (error) {
+			// If anything went wrong, attempt to restore the old state
+			this._logService.error('Failed to update notebook session URI', error);
+
+			// Restore original mapping if possible
+			if (!this._notebookSessionsByNotebookUri.has(oldUri)) {
+				this._notebookSessionsByNotebookUri.set(oldUri, session);
+			}
+
+			// Clean up possibly invalid new mapping
+			if (this._notebookSessionsByNotebookUri.get(newUri) === session) {
+				this._notebookSessionsByNotebookUri.delete(newUri);
+			}
+
+			// Restore original URI in session state if needed
+			if (session.dynState.currentNotebookUri === newUri) {
+				session.dynState.currentNotebookUri = oldUri;
+			}
+
+			return undefined;
+		}
 	}
 }
 
-// Register a command to store the session ID in the NotebookEditorInput
+// Register a command to update the notebook session URI when a notebook is saved
+/**
+ * This command facilitates the transfer of a runtime session from one notebook URI to another.
+ * This is primarily used when saving an untitled notebook to a file, where we want to preserve
+ * the runtime session (variables, execution state, etc.) but update the URI reference.
+ */
 CommandsRegistry.registerCommand('_positron.reassignNotebookSessionUri', async (accessor, fromUri: string, toUri: string) => {
-	// const editorService = accessor.get(IEditorService);
-	const from = URI.parse(fromUri);
-	const to = URI.parse(toUri);
+	try {
+		// Validate and parse URIs
+		if (!fromUri || !toUri) {
+			throw new Error('Missing URI parameters for notebook session reassignment');
+		}
 
-	// // Update the URI associated with the session
-	const sessionId = accessor.get(IRuntimeSessionService).updateNotebookSessionUri(from, to);
-	if (sessionId) {
-		// Tell the variables service to refresh so that the new URI is displayed
-		accessor.get(IPositronVariablesService).setActivePositronVariablesSession(sessionId);
+		const from = URI.parse(fromUri);
+		const to = URI.parse(toUri);
+
+		// Get services needed for the operation
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+		const variablesService = accessor.get(IPositronVariablesService);
+		const logService = accessor.get(ILogService);
+
+		// Update the URI associated with the session
+		logService.debug(`Reassigning notebook session URI: ${fromUri} → ${toUri}`);
+		const sessionId = runtimeSessionService.updateNotebookSessionUri(from, to);
+
+		if (sessionId) {
+			// Tell the variables service to refresh so that the new URI is displayed
+			// This ensures the variables view shows the correct notebook name
+			variablesService.setActivePositronVariablesSession(sessionId);
+			logService.debug(`Successfully reassigned session ${sessionId} to URI: ${toUri}`);
+		} else {
+			logService.debug(`No session found to reassign for URI: ${fromUri}`);
+		}
+	} catch (error) {
+		// Log the error but don't propagate it to avoid breaking the save process
+		accessor.get(ILogService).error('Failed to reassign notebook session URI', error);
 	}
 });
 
