@@ -37,6 +37,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 			positron.PositronChatAgentLocation.Terminal,
 			positron.PositronChatAgentLocation.Editor,
 			positron.PositronChatAgentLocation.Notebook,
+			positron.PositronChatAgentLocation.EditingSession,
 		],
 		disambiguation: []
 	};
