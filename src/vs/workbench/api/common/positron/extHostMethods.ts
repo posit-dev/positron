@@ -7,6 +7,7 @@ import * as extHostProtocol from './extHost.positron.protocol.js';
 import { ExtHostEditors } from '../extHostTextEditors.js';
 import { ExtHostDocuments } from '../extHostDocuments.js';
 import { ExtHostWorkspace } from '../extHostWorkspace.js';
+import { ExtHostQuickOpen } from '../extHostQuickOpen.js';
 import { ExtHostCommands } from '..//extHostCommands.js';
 import { ExtHostModalDialogs } from '../positron/extHostModalDialogs.js';
 import { ExtHostContextKeyService } from '../positron/extHostContextKeyService.js';
@@ -44,6 +45,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		private readonly dialogs: ExtHostModalDialogs,
 		private readonly runtime: ExtHostLanguageRuntime,
 		private readonly workspace: ExtHostWorkspace,
+		private readonly quickOpen: ExtHostQuickOpen,
 		private readonly commands: ExtHostCommands,
 		private readonly contextKeys: ExtHostContextKeyService
 	) {
@@ -132,6 +134,13 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 					}
 					result = await this.showDialog(params.title as string,
 						params.message as string);
+					break;
+				}
+				case UiFrontendRequest.AskForPassword: {
+					if (!params || !Object.keys(params).includes('prompt')) {
+						return newInvalidParamsError(method);
+					}
+					result = await this.askForPassword(params.prompt as string);
 					break;
 				}
 				case UiFrontendRequest.ExecuteCode: {
@@ -296,6 +305,14 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 
 	async showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Promise<boolean> {
 		return this.dialogs.showSimpleModalDialogPrompt(title, message, okButtonTitle, cancelButtonTitle);
+	}
+
+	async askForPassword(prompt: string): Promise<string | null> {
+		const result = await this.quickOpen.showInput({ password: true, title: prompt });
+		if (result === undefined) {
+			return null;
+		}
+		return result;
 	}
 
 	async executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean): Promise<boolean> {
