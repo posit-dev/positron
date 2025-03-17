@@ -17,6 +17,14 @@ suite('Connections pane works for R', () => {
 
 	test('Can list tables and fields from R connections', async () => {
 
+		const config = vscode.workspace.getConfiguration('positron');
+		// Old connections pane is enabled, when the new is enabled.
+		const enabled = !config.get<boolean>('connections', false);
+
+		if (!enabled) {
+			return;
+		}
+
 		// Waits until positron is ready to start a runtime
 		const info = await assert_or_timeout(async () => {
 			return await positron.runtime.getPreferredRuntime('r');
