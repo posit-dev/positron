@@ -606,26 +606,11 @@ class AzureCompletion extends FimPromptCompletion {
 //#region Module exports
 
 export function newCompletionProvider(config: ModelConfig): vscode.InlineCompletionItemProvider {
-	const providerClasses = {
-		'anthropic': AnthropicCompletion,
-		'azure': AzureCompletion,
-		'bedrock': AWSCompletion,
-		'deepseek': DeepSeekCompletion,
-		'google': GoogleCompletion,
-		'mistral': MistralCompletion,
-		'ollama': OllamaCompletion,
-		'openai': OpenAICompletion,
-		'openai-legacy': OpenAILegacyCompletion,
-		'openrouter': OpenRouterCompletion,
-		'vertex': VertexCompletion,
-		'vertex-legacy': VertexLegacyCompletion,
-	};
-
-	if (!(config.provider in providerClasses)) {
+	const providerClass = completionModels.find(cls => cls.source.provider.id === config.provider);
+	if (!providerClass) {
 		throw new Error(`Unsupported completion provider: ${config.provider}`);
 	}
-
-	return new providerClasses[config.provider as keyof typeof providerClasses](config);
+	return new providerClass(config);
 }
 
 export const completionModels = [

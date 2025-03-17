@@ -452,25 +452,11 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 //#region Module exports
 
 export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModelChatProvider {
-	const providerClasses = {
-		'echo': EchoLanguageModel,
-		'error': ErrorLanguageModel,
-		'anthropic': AnthropicLanguageModel,
-		'azure': AzureLanguageModel,
-		'bedrock': AWSLanguageModel,
-		'google': GoogleLanguageModel,
-		'mistral': MistralLanguageModel,
-		'ollama': OllamaLanguageModel,
-		'openai': OpenAILanguageModel,
-		'openrouter': OpenRouterLanguageModel,
-		'vertex': VertexLanguageModel,
-	};
-
-	if (!(config.provider in providerClasses)) {
+	const providerClass = languageModels.find((model) => model.source.provider.id === config.provider);
+	if (!providerClass) {
 		throw new Error(`Unsupported chat provider: ${config.provider}`);
 	}
-
-	return new providerClasses[config.provider as keyof typeof providerClasses](config);
+	return new providerClass(config);
 }
 
 class GoogleLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
