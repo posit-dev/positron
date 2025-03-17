@@ -372,8 +372,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test('R - Two simultaneous plots', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
-			await app.workbench.console.pasteCodeToConsole(rTwoPlots);
-			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.typeToConsole(rTwoPlots, true, 100);
 			await app.workbench.plots.waitForCurrentPlot();
 			await app.workbench.plots.expectPlotThumbnailsCountToBe(2);
 		});
@@ -382,33 +381,25 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await app.workbench.plots.enlargePlotArea();
 
-			await app.workbench.console.pasteCodeToConsole('par(mfrow = c(2, 2))');
-			await app.workbench.console.sendEnterKey();
-			await app.workbench.console.pasteCodeToConsole('plot(1:5)');
-			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.typeToConsole('par(mfrow = c(2, 2))', true, 100);
+			await app.workbench.console.typeToConsole('plot(1:5)', true, 100);
 			await app.workbench.plots.waitForCurrentPlot();
 
-			await app.workbench.console.pasteCodeToConsole('plot(2:6)');
-			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.typeToConsole('plot(2:6)', true, 100);
 			await app.workbench.plots.waitForCurrentPlot();
 
-			await app.workbench.console.pasteCodeToConsole('plot(3:7)');
-			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.typeToConsole('plot(3:7)', true, 100);
 			await app.workbench.plots.waitForCurrentPlot();
 
-			await app.workbench.console.pasteCodeToConsole('plot(4:8)');
-			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.typeToConsole('plot(4:8)', true, 100);
 			await app.workbench.plots.waitForCurrentPlot();
 
-			await app.workbench.console.pasteCodeToConsole('plot(5:9)');
-			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.typeToConsole('plot(5:9)', true, 100);
 			await app.workbench.plots.waitForCurrentPlot();
 			await app.workbench.plots.expectPlotThumbnailsCountToBe(2);
 
-			await app.workbench.console.pasteCodeToConsole('par(mfrow = c(1, 1))');
-			await app.workbench.console.sendEnterKey();
-			await app.workbench.console.pasteCodeToConsole('plot(1:10)');
-			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.typeToConsole('par(mfrow = c(1, 1))', true, 100);
+			await app.workbench.console.typeToConsole('plot(1:10)', true, 100);
 			await app.workbench.plots.waitForCurrentPlot();
 			await app.workbench.plots.expectPlotThumbnailsCountToBe(3);
 
@@ -419,14 +410,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await app.workbench.plots.enlargePlotArea();
 
-			await app.workbench.console.pasteCodeToConsole('par(mfrow = c(2, 1))');
-			await app.workbench.console.sendEnterKey();
-			await app.workbench.console.pasteCodeToConsole('plot(1:10)');
-			await app.workbench.console.sendEnterKey();
-			await app.workbench.console.pasteCodeToConsole('plot(2:20)');
-			await app.workbench.console.sendEnterKey();
-			await app.workbench.console.pasteCodeToConsole('par(mfrow = c(1, 1))');
-			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.typeToConsole('par(mfrow = c(2, 1))', true, 100);
+			await app.workbench.console.typeToConsole('plot(1:10)', true, 100);
+			await app.workbench.console.typeToConsole('plot(2:20)', true, 100);
+			await app.workbench.console.typeToConsole('par(mfrow = c(1, 1))', true, 100);
 			await app.workbench.plots.waitForCurrentPlot();
 
 			await app.workbench.plots.restorePlotArea();
@@ -439,8 +426,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await app.workbench.console.waitForConsoleContents('restarted', { expectedCount: 1 });
 
-			await app.workbench.console.pasteCodeToConsole(rPlotAndSave);
-			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.typeToConsole(rPlotAndSave, true, 100);
 			await app.workbench.plots.waitForCurrentPlot();
 
 			await runCommand('workbench.action.fullSizedAuxiliaryBar');
@@ -475,6 +461,7 @@ const options: ComparisonOptions = {
 async function runScriptAndValidatePlot(app: Application, script: string, locator: string, RWeb = false) {
 	await app.workbench.console.pasteCodeToConsole(script);
 	await app.workbench.console.sendEnterKey();
+	await app.code.wait(1000);
 	await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 	await app.workbench.plots.waitForWebviewPlot(locator, 'visible', RWeb);
 	await app.workbench.layouts.enterLayout('stacked');
