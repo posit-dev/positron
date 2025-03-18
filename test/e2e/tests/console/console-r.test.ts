@@ -78,5 +78,24 @@ test.describe('Console Pane: R', {
 			fail('Secondary R version not set');
 		}
 	});
+
+
+	test('R - Verify password prompt', {
+		tag: [tags.WIN]
+	}, async function ({ app, r }) {
+
+		await app.workbench.console.pasteCodeToConsole('out <- rstudioapi::askForPassword("enter password")');
+		await app.workbench.console.sendEnterKey();
+
+		await app.workbench.quickInput.type('password');
+		await app.code.driver.page.keyboard.press('Enter');
+
+		await app.workbench.layouts.enterLayout('stacked');
+
+		await expect(async () => {
+			const variablesMap = await app.workbench.variables.getFlatVariables();
+			expect(variablesMap.get('out')?.value).toBe('"password"');
+		}).toPass({ timeout: 20000 });
+	});
 });
 
