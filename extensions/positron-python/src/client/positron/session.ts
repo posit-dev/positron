@@ -542,7 +542,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     async activateLsp() {
         // Start LSP for the foreground session only if its been previously stopped
         if (this._lsp?.state === LspState.stopped) {
-            this._queue.add(this.startLsp);
+            this._queue.add(async () => {
+                this.startLsp();
+            });
         }
     }
 
