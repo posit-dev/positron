@@ -25,40 +25,39 @@ test.describe('Session: Outline', {
 		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
 	});
 
-	test('Python - Verify outline is per session',
-		async function ({ app, openFile }) {
-			const { sessions, variables, outline, console } = app.workbench;
+	test('Python - Verify outline is per session', async function ({ app, openFile }) {
+		const { sessions, variables, outline, console } = app.workbench;
 
-			pythonSession1a.id = await sessions.launch(pythonSession1a);
-			pythonSession1b.id = await sessions.launch(pythonSession1b);
-			pythonSession2.id = await sessions.launch(pythonSession2);
+		pythonSession1a.id = await sessions.launch(pythonSession1a);
+		pythonSession1b.id = await sessions.launch(pythonSession1b);
+		pythonSession2.id = await sessions.launch(pythonSession2);
 
-			// Focus outline view and open Python file
-			await variables.togglePane('hide');
-			await outline.focus();
-			await openFile('workspaces/outline/basic-outline-with-vars.py');
+		// Focus outline view and open Python file
+		await variables.togglePane('hide');
+		await outline.focus();
+		await openFile('workspaces/outline/basic-outline-with-vars.py');
 
-			// Session 1a - verify only expected outline elements
-			await sessions.select(pythonSession1a.id);
-			await console.typeToConsole('global_variable="goodbye"', true);
-			await outline.expectOutlineElementCountToBe(2);
-			await outline.expectOutlineElementToBeVisible('global_variable = "hello"');
-			await outline.expectOutlineElementToBeVisible('def demonstrate_scope');
+		// Session 1a - verify only expected outline elements
+		await sessions.select(pythonSession1a.id);
+		await console.typeToConsole('global_variable="goodbye"', true);
+		await outline.expectOutlineElementCountToBe(2);
+		await outline.expectOutlineElementToBeVisible('global_variable = "hello"');
+		await outline.expectOutlineElementToBeVisible('def demonstrate_scope');
 
-			// Session 1b - verify only expected outline elements
-			await sessions.select(pythonSession1b.id);
-			await console.typeToConsole('global_variable="goodbye2"', true);
-			await outline.expectOutlineElementCountToBe(2);
-			await outline.expectOutlineElementToBeVisible('global_variable = "hello"');
-			await outline.expectOutlineElementToBeVisible('def demonstrate_scope');
+		// Session 1b - verify only expected outline elements
+		await sessions.select(pythonSession1b.id);
+		await console.typeToConsole('global_variable="goodbye2"', true);
+		await outline.expectOutlineElementCountToBe(2);
+		await outline.expectOutlineElementToBeVisible('global_variable = "hello"');
+		await outline.expectOutlineElementToBeVisible('def demonstrate_scope');
 
-			// Session 2 - verify only expected outline elements
-			await sessions.select(pythonSession2.id);
-			await console.typeToConsole('global_variable="goodbye3"', true);
-			await outline.expectOutlineElementCountToBe(2);
-			await outline.expectOutlineElementToBeVisible('global_variable = "hello"');
-			await outline.expectOutlineElementToBeVisible('def demonstrate_scope');
-		});
+		// Session 2 - verify only expected outline elements
+		await sessions.select(pythonSession2.id);
+		await console.typeToConsole('global_variable="goodbye3"', true);
+		await outline.expectOutlineElementCountToBe(2);
+		await outline.expectOutlineElementToBeVisible('global_variable = "hello"');
+		await outline.expectOutlineElementToBeVisible('def demonstrate_scope');
+	});
 
 	test('R - Verify outline is per session', async function ({ app, openFile }) {
 		const { sessions, variables, outline, console } = app.workbench;
