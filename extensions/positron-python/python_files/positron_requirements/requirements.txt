@@ -13,9 +13,9 @@ cattrs==24.1.2 \
     #   jedi-language-server
     #   lsprotocol
     #   pygls
-docstring-to-markdown==0.15 \
-    --hash=sha256:27afb3faedba81e34c33521c32bbd258d7fbb79eedf7d29bc4e81080e854aec0 \
-    --hash=sha256:e146114d9c50c181b1d25505054a8d0f7a476837f0da2c19f07e06eaed52b73d
+docstring-to-markdown==0.13 \
+    --hash=sha256:3025c428638ececae920d6d26054546a20335af3504a145327e657e7ad7ce1ce \
+    --hash=sha256:aa487059d0883e70e54da25c7b230e918d9e4d40f23d6dfaa2b73e4225b2d7dd
     # via
     #   -r python_files/positron_requirements/requirements.in
     #   jedi-language-server
@@ -27,9 +27,9 @@ jedi==0.19.2 \
     --hash=sha256:4770dc3de41bde3966b02eb84fbcf557fb33cce26ad23da12c742fb50ecb11f0 \
     --hash=sha256:a8ef22bde8490f57fe5c7681a3c83cb58874daf72b4784de3cce5b6ef6edb5b9
     # via jedi-language-server
-jedi-language-server==0.42.0 \
-    --hash=sha256:ac5a3f711694432f4677ccba5eacdde1bebc2b3b2fa361c553e28efbe526dc98 \
-    --hash=sha256:db818d956c16f79a32bbde4c6f7189282725977246199b09ac8155429432632c
+jedi-language-server==0.43.1 \
+    --hash=sha256:a2f54149ad2e6bc085d1d15eba5a682de37f341444ab7e5865013a2ef24dec0d \
+    --hash=sha256:c693a2b62ac053b1b2b0a14efaf963c2b9f800e02083cc82ccd5c275cd29d7b1
     # via -r python_files/positron_requirements/requirements.in
 lsprotocol==2023.0.1 \
     --hash=sha256:c75223c9e4af2f24272b14c6375787438279369236cd568f596d4951052a60f2 \
