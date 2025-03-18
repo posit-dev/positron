@@ -6,6 +6,9 @@
 import test from '@playwright/test';
 import { Code } from './code.js';
 
+/**
+ * Keyboard class to handle keyboard interactions
+ */
 export class Keyboard {
 	constructor(private code: Code) { }
 
@@ -13,6 +16,11 @@ export class Keyboard {
 		return process.platform === 'darwin' ? 'Meta' : 'Control';
 	}
 
+
+	/**
+	 * Provides hotkey shortcuts for common operations.
+	 * @returns An object with methods for performing hotkey actions.
+	 */
 	get hotKeys() {
 		return {
 			copy: () => this.pressHotKeys(`Cmd+C`),
@@ -32,12 +40,17 @@ export class Keyboard {
 		};
 	}
 
-	private async pressHotKeys(action: string) {
-		const modifierKey = this.getModifierKey(); // Now handled inside this function
+	/**
+	 * Press the hotkeys.
+	 * Note: Supports multiple key sequences separated by spaces.
+	 * @param keyCombo the hotkeys to press (e.g. "Cmd+Shift+P").
+	 */
+	private async pressHotKeys(keyCombo: string) {
+		const modifierKey = this.getModifierKey();
 
-		await test.step(`Press hotkeys: ${action}`, async () => {
+		await test.step(`Press hotkeys: ${keyCombo}`, async () => {
 			// Replace "Cmd" with the platform-appropriate modifier key
-			const keySequences = action.split(' ').map(keys => keys.replace(/Cmd/g, modifierKey));
+			const keySequences = keyCombo.split(' ').map(keys => keys.replace(/Cmd/g, modifierKey));
 
 			for (const key of keySequences) {
 				await this.code.driver.page.keyboard.press(key);
@@ -45,11 +58,21 @@ export class Keyboard {
 		});
 	}
 
-	async press(keys: string, options: { delay?: number } = {}) {
+	/**
+	 * Press a key.
+	 * @param key the key to press.
+	 * @param options the options to pass to the press function.
+	 */
+	async press(key: string, options: { delay?: number } = {}) {
 		const { delay = 0 } = options;
-		await this.code.driver.page.keyboard.press(keys, { delay });
+		await this.code.driver.page.keyboard.press(key, { delay });
 	}
 
+	/**
+	 * Type text.
+	 * @param text the text to type.
+	 * @param options the options to pass to the type function.
+	 */
 	async type(text: string, options: { delay?: number } = {}) {
 		const { delay = 0 } = options;
 		await this.code.driver.page.keyboard.type(text, { delay });
