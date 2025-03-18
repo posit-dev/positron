@@ -75,10 +75,10 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	 * Convenience method for starting the Positron LSP server, if the
 	 * language runtime supports it.
 	 *
-	 * @param clientAddress The address of the client that will connect to the
+	 * @param ipAddress The address of the client that will connect to the
 	 *  language server.
 	 */
-	startPositronLsp(clientAddress: string): Thenable<void>;
+	startPositronLsp(ipAddress: string): Thenable<number>;
 
 	/**
 	 * Convenience method for starting the Positron DAP server, if the

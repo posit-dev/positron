@@ -93,7 +93,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private _dapClient: DapClient | undefined;
 
 	/** A map of pending comm startups */
-	private _startingComms: Map<string, PromiseHandles<void>> = new Map();
+	private _startingComms: Map<string, PromiseHandles<number>> = new Map();
 
 	/** The original kernelspec */
 	private _kernelSpec: JupyterKernelSpec | undefined;
@@ -297,12 +297,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * Note: This is only useful if the kernel hasn't already started an LSP
 	 * server.
 	 *
-	 * @param clientAddress The client's TCP address, e.g. '127.0.0.1:1234'
+	 * @param ipAddress The address of the client that will connect to the
+	 *  language server.
 	 */
-	async startPositronLsp(clientAddress: string) {
+	async startPositronLsp(ipAddress: string): Promise<number> {
 		// Create a unique client ID for this instance
 		const clientId = `positron-lsp-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
-		this.log(`Starting LSP server ${clientId} for ${clientAddress}`, vscode.LogLevel.Info);
+		this.log(`Starting LSP server ${clientId} for ${ipAddress}`, vscode.LogLevel.Info);
 
 		// Notify Positron that we're handling messages from this client
 		this._disposables.push(positron.runtime.registerClientInstance(clientId));
@@ -311,12 +312,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		await this.createClient(
 			clientId,
 			positron.RuntimeClientType.Lsp,
-			{ client_address: clientAddress }
+			{ ip_address: ipAddress }
 		);
 
 		// Create a promise that will resolve when the LSP starts on the server
 		// side.
-		const startPromise = new PromiseHandles<void>();
+		const startPromise = new PromiseHandles<number>();
 		this._startingComms.set(clientId, startPromise);
 		return startPromise.promise;
 	}
@@ -1499,7 +1500,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			if (commMsg.data.msg_type === 'server_started') {
 				const startingPromise = this._startingComms.get(commMsg.comm_id);
 				if (startingPromise) {
-					startingPromise.resolve();
+					startingPromise.resolve(commMsg.data.content.port);
 					this._startingComms.delete(commMsg.comm_id);
 				}
 			}
