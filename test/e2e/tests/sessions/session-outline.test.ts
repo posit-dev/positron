@@ -18,7 +18,7 @@ test.use({
 });
 
 test.describe('Session: Outline', {
-	tag: [tags.WEB, tags.WIN, tags.CONSOLE, tags.SESSIONS, tags.EDITOR]
+	tag: [tags.WEB, tags.WIN, tags.SESSIONS, tags.OUTLINE]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
