@@ -10,6 +10,7 @@ import inspect
 import math
 import pprint
 from decimal import Decimal
+from importlib.metadata import version
 from io import StringIO
 from typing import Any, Dict, List, Optional, Type, cast
 
@@ -18,6 +19,7 @@ import pandas as pd
 import polars as pl
 import pytest
 import pytz
+from packaging import version as pkg_version
 
 from .._vendor.pydantic import BaseModel
 from ..access_keys import encode_access_key
@@ -60,6 +62,16 @@ TARGET_NAME = "positron.dataExplorer"
 def supports_keyword(func, keyword):
     signature = inspect.signature(func)
     return keyword in signature.parameters
+
+
+def is_pandas_2_or_higher():
+    """Check if the installed pandas version is 2.0.0 or higher."""
+    try:
+        pandas_version = version("pandas")
+        return pkg_version.parse(pandas_version) >= pkg_version.parse("2.0.0")
+    except ImportError:
+        # Handle case where pandas is not installed
+        return False
 
 
 # ----------------------------------------------------------------------
@@ -2759,91 +2771,16 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 "median": _format_float(f12_f64.median()),
             },
         ),
-        # datetime64[us]
-        (
-            "df1",
-            13,
-            {
-                "num_unique": 100,
-                "min_date": "2000-01-01 00:00:00",
-                "mean_date": "2000-01-01 00:00:00.000495",
-                "median_date": "2000-01-01 00:00:00.000495",
-                "max_date": "2000-01-01 00:00:00.000990",
-                "timezone": "None",
-            },
-        ),
-        (
-            "df1",
-            14,
-            {
-                "num_unique": 100,
-                "min_date": "2000-01-01 00:00:00-05:00",
-                "mean_date": "2000-01-01 00:00:00.000495-05:00",
-                "median_date": "2000-01-01 00:00:00.000495-05:00",
-                "max_date": "2000-01-01 00:00:00.000990-05:00",
-                "timezone": "US/Eastern",
-            },
-        ),
-        # datetime64[ms]
-        (
-            "df1",
-            15,
-            {
-                "num_unique": 100,
-                "min_date": "2000-01-01 00:00:00",
-                "mean_date": "2000-01-01 00:00:00.495",
-                "median_date": "2000-01-01 00:00:00.495",
-                "max_date": "2000-01-01 00:00:00.990",
-                "timezone": "None",
-            },
-        ),
-        (
-            "df1",
-            16,
-            {
-                "num_unique": 100,
-                "min_date": "2000-01-01 00:00:00-05:00",
-                "mean_date": "2000-01-01 00:00:00.495-05:00",
-                "median_date": "2000-01-01 00:00:00.495-05:00",
-                "max_date": "2000-01-01 00:00:00.990-05:00",
-                "timezone": "US/Eastern",
-            },
-        ),
-        # datetime64[s]
-        (
-            "df1",
-            17,
-            {
-                "num_unique": 100,
-                "min_date": "2000-01-01 00:00:00",
-                "mean_date": "2000-01-01 00:08:15",
-                "median_date": "2000-01-01 00:08:15",
-                "max_date": "2000-01-01 00:16:30",
-                "timezone": "None",
-            },
-        ),
-        (
-            "df1",
-            18,
-            {
-                "num_unique": 100,
-                "min_date": "2000-01-01 00:00:00-05:00",
-                "mean_date": "2000-01-01 00:08:15-05:00",
-                "median_date": "2000-01-01 00:08:15-05:00",
-                "max_date": "2000-01-01 00:16:30-05:00",
-                "timezone": "US/Eastern",
-            },
-        ),
         # mixed types
         (
             "df_mixed_tz1",
             0,
             {
                 "num_unique": 150,
-                "min_date": "None",
-                "mean_date": "None",
-                "median_date": "None",
-                "max_date": "None",
+                "min_date": None,
+                "mean_date": None,
+                "median_date": None,
+                "max_date": None,
                 "timezone": "None, US/Eastern, ... (1 more)",
             },
         ),
@@ -2853,13 +2790,95 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             {
                 "num_unique": 100,
                 "min_date": "2000-01-01 00:00:00+08:00",
-                "mean_date": "None",
-                "median_date": "None",
+                "mean_date": None,
+                "median_date": None,
                 "max_date": "2000-01-05 02:00:00-05:00",
                 "timezone": "US/Eastern, Asia/Hong_Kong",
             },
         ),
     ]
+
+    # Test cases that only work for pandas >= 2.0
+    if is_pandas_2_or_higher():
+        cases.extend(
+            [
+                # datetime64[us]
+                (
+                    "df1",
+                    13,
+                    {
+                        "num_unique": 100,
+                        "min_date": "2000-01-01 00:00:00",
+                        "mean_date": "2000-01-01 00:00:00.000495",
+                        "median_date": "2000-01-01 00:00:00.000495",
+                        "max_date": "2000-01-01 00:00:00.000990",
+                        "timezone": "None",
+                    },
+                ),
+                (
+                    "df1",
+                    14,
+                    {
+                        "num_unique": 100,
+                        "min_date": "2000-01-01 00:00:00-05:00",
+                        "mean_date": "2000-01-01 00:00:00.000495-05:00",
+                        "median_date": "2000-01-01 00:00:00.000495-05:00",
+                        "max_date": "2000-01-01 00:00:00.000990-05:00",
+                        "timezone": "US/Eastern",
+                    },
+                ),
+                # datetime64[ms]
+                (
+                    "df1",
+                    15,
+                    {
+                        "num_unique": 100,
+                        "min_date": "2000-01-01 00:00:00",
+                        "mean_date": "2000-01-01 00:00:00.495",
+                        "median_date": "2000-01-01 00:00:00.495",
+                        "max_date": "2000-01-01 00:00:00.990",
+                        "timezone": "None",
+                    },
+                ),
+                (
+                    "df1",
+                    16,
+                    {
+                        "num_unique": 100,
+                        "min_date": "2000-01-01 00:00:00-05:00",
+                        "mean_date": "2000-01-01 00:00:00.495-05:00",
+                        "median_date": "2000-01-01 00:00:00.495-05:00",
+                        "max_date": "2000-01-01 00:00:00.990-05:00",
+                        "timezone": "US/Eastern",
+                    },
+                ),
+                # datetime64[s]
+                (
+                    "df1",
+                    17,
+                    {
+                        "num_unique": 100,
+                        "min_date": "2000-01-01 00:00:00",
+                        "mean_date": "2000-01-01 00:08:15",
+                        "median_date": "2000-01-01 00:08:15",
+                        "max_date": "2000-01-01 00:16:30",
+                        "timezone": "None",
+                    },
+                ),
+                (
+                    "df1",
+                    18,
+                    {
+                        "num_unique": 100,
+                        "min_date": "2000-01-01 00:00:00-05:00",
+                        "mean_date": "2000-01-01 00:08:15-05:00",
+                        "median_date": "2000-01-01 00:08:15-05:00",
+                        "max_date": "2000-01-01 00:16:30-05:00",
+                        "timezone": "US/Eastern",
+                    },
+                ),
+            ]
+        )
 
     for table_name, col_index, ex_result in cases:
         profiles = [_get_summary_stats(col_index)]

@@ -849,31 +849,51 @@ def _box_date_stats(num_unique, min_date, mean_date, median_date, max_date):
     )
 
 
+def _format_utc_offset(x):
+    if x.tzinfo is None:
+        return ""
+
+    offset_seconds = x.utcoffset().total_seconds()
+    sign = "+" if offset_seconds >= 0 else "-"
+
+    offset_seconds = abs(offset_seconds)
+    offset_hours = int(offset_seconds // 3600)
+    offset_minutes = int((offset_seconds % 3600) // 60)
+    return f"{sign}{offset_hours:02d}:{offset_minutes:02d}"
+
+
 def _box_datetime_stats(
     time_unit, num_unique, min_date, mean_date, median_date, max_date, timezone
 ):
-    tz_format = "%:z" if timezone != "None" else ""
+    def format_no_micros(x, utc_offset):
+        return x.strftime("%Y-%m-%d %H:%M:%S") + utc_offset
 
-    def format_no_micros(x):
-        return x.strftime("%Y-%m-%d %H:%M:%S" + tz_format)
-
-    def format_micros(x):
-        return x.strftime("%Y-%m-%d %H:%M:%S.%f" + tz_format)
+    def format_micros(x, utc_offset):
+        return x.strftime("%Y-%m-%d %H:%M:%S.%f") + utc_offset
 
     def format_date(x):
+        if x is None:
+            return None
+
+        utc_offset = _format_utc_offset(x)
         if time_unit == "s":
-            return format_no_micros(x)
+            return format_no_micros(x, utc_offset)
         elif time_unit == "ms":
             if x.microsecond == 0:
-                return format_no_micros(x)
+                return format_no_micros(x, utc_offset)
             else:
                 # Strip final 3 digits from microseconds, taking into account whether
                 # there is a UTC offset
-                formatted = format_micros(x)
-                return formatted[:-9] + formatted[-6:] if tz_format else formatted[:-3]
+                formatted = format_micros(x, utc_offset)
+                return formatted[:-9] + formatted[-6:] if utc_offset else formatted[:-3]
         elif time_unit == "us":
-            return format_no_micros(x) if x.microsecond == 0 else format_micros(x)
+            return (
+                format_no_micros(x, utc_offset)
+                if x.microsecond == 0
+                else format_micros(x, utc_offset)
+            )
         else:
+            # This will format the UTC offset for us
             return str(x)
 
     return ColumnSummaryStats(
@@ -1102,8 +1122,9 @@ def _pandas_summarize_datetime(col: pd.Series, _options: FormatOptions):
             timezone = timezone + f", ... ({len(timezones) - 2} more)"
 
     # May have object dtype, so we only extract the time unit if
-    # the .dt attribute is present
-    time_unit = col.dt.unit if hasattr(col, "dt") else None
+    # the .dt attribute is present. Also, older versions of pandas did not
+    # support units other than nanos
+    time_unit = getattr(col.dt, "unit", "ns") if hasattr(col, "dt") else None
 
     return _box_datetime_stats(
         time_unit, num_unique, min_date, mean_date, median_date, max_date, timezone
@@ -1990,8 +2011,23 @@ def _date_median(x):
     import pandas as pd
 
     # the np.array calls are required to please pyright
-    median_value = int(np.median(pd.to_numeric(x).to_numpy()))  # type: ignore
-    return pd.Series([median_value], dtype=x.dtype)[0]
+    median_value = np.int64(np.median(pd.to_numeric(x).to_numpy()))  # type: ignore
+
+    if isinstance(x.dtype, pd.DatetimeTZDtype):
+        # pandas has been buggy with datetimetz dtype other than nanosecond,
+        # so we convert to nanoseconds and then back to the original dtype
+        if x.dtype.unit == "s":
+            median_value = median_value * 1_000_000_000
+        elif x.dtype.unit == "ms":
+            median_value = median_value * 1_000_000
+        elif x.dtype.unit == "us":
+            median_value = median_value * 1_000
+
+        median_value = pd.Series([median_value], dtype=pd.DatetimeTZDtype(unit="ns", tz=x.dtype.tz))
+    else:
+        median_value = pd.Series(np.array([median_value], dtype=x.dtype))
+
+    return median_value[0]
 
 
 def _possibly(f, otherwise=None):
