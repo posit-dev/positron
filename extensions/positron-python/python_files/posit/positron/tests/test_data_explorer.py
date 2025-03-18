@@ -2575,6 +2575,15 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 Decimal("3.5"),
             ]
             * 20,
+            # datetime64[us] with 10us increments
+            "f13": pd.date_range("2000-01-01", freq="10us", periods=100).astype("datetime64[us]"),
+            # datetime64[ms] with 10ms increments
+            "f14": pd.date_range("2000-01-01", freq="10ms", periods=100).astype("datetime64[ms]"),
+            "f15": (
+                pd.date_range("2000-01-01", freq="10ms", periods=100)
+                .astype("datetime64[ms]")
+                .tz_localize("US/Eastern")
+            ),
         }
     )
 
@@ -2736,6 +2745,44 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 "mean": _format_float(f12_f64.mean()),
                 "stdev": _format_float(f12_f64.std()),
                 "median": _format_float(f12_f64.median()),
+            },
+        ),
+        # datetime64[us]
+        (
+            "df1",
+            13,
+            {
+                "num_unique": 100,
+                "min_date": "2000-01-01 00:00:00",
+                "mean_date": "2000-01-01 00:00:00.000495",
+                "median_date": "2000-01-01 00:00:00.000495",
+                "max_date": "2000-01-01 00:00:00.000990",
+                "timezone": "None",
+            },
+        ),
+        # datetime64[ms]
+        (
+            "df1",
+            14,
+            {
+                "num_unique": 100,
+                "min_date": "2000-01-01 00:00:00",
+                "mean_date": "2000-01-01 00:00:00.495",
+                "median_date": "2000-01-01 00:00:00.495",
+                "max_date": "2000-01-01 00:00:00.990",
+                "timezone": "None",
+            },
+        ),
+        (
+            "df1",
+            15,
+            {
+                "num_unique": 100,
+                "min_date": "2000-01-01 00:00:00-05:00",
+                "mean_date": "2000-01-01 00:00:00.495-05:00",
+                "median_date": "2000-01-01 00:00:00.495-05:00",
+                "max_date": "2000-01-01 00:00:00.990-05:00",
+                "timezone": "US/Eastern",
             },
         ),
         # mixed types

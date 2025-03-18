@@ -850,9 +850,32 @@ def _box_date_stats(num_unique, min_date, mean_date, median_date, max_date):
     )
 
 
-def _box_datetime_stats(num_unique, min_date, mean_date, median_date, max_date, timezone):
+def _box_datetime_stats(
+    time_unit, num_unique, min_date, mean_date, median_date, max_date, timezone
+):
+    tz_format = "%:z" if timezone != "None" else ""
+
+    def format_no_micros(x):
+        return x.strftime("%Y-%m-%d %H:%M:%S" + tz_format)
+
+    def format_micros(x):
+        return x.strftime("%Y-%m-%d %H:%M:%S.%f" + tz_format)
+
     def format_date(x):
-        return str(x)
+        if time_unit == "s":
+            return format_no_micros(x)
+        elif time_unit == "ms":
+            if x.microsecond == 0:
+                return format_no_micros(x)
+            else:
+                # Strip final 3 digits from microseconds, taking into account whether
+                # there is a UTC offset
+                formatted = format_micros(x)
+                return formatted[:-9] + formatted[-6:] if tz_format else formatted[:-3]
+        elif time_unit == "us":
+            return format_no_micros(x) if x.microsecond == 0 else format_micros(x)
+        else:
+            return str(x)
 
     return ColumnSummaryStats(
         type_display=ColumnDisplayType.Datetime,
@@ -1079,7 +1102,13 @@ def _pandas_summarize_datetime(col: pd.Series, _options: FormatOptions):
         if len(timezones) > 2:
             timezone = timezone + f", ... ({len(timezones) - 2} more)"
 
-    return _box_datetime_stats(num_unique, min_date, mean_date, median_date, max_date, timezone)
+    # May have object dtype, so we only extract the time unit if
+    # the .dt attribute is present
+    time_unit = col.dt.unit if hasattr(col, "dt") else None
+
+    return _box_datetime_stats(
+        time_unit, num_unique, min_date, mean_date, median_date, max_date, timezone
+    )
 
 
 def _safe_stringify(x, max_length: int):
@@ -1486,10 +1515,9 @@ class PandasView(DataExplorerTableView):
         return {"row_labels": row_labels}
 
     def _format_values(self, values, options: FormatOptions) -> list[ColumnValue]:
+        import numpy as np
         import pandas as pd
 
-        nat = pd.NaT
-        na = pd.NA
         float_format = _get_float_formatter(options)
         max_length = options.max_value_length
 
@@ -1503,9 +1531,9 @@ class PandasView(DataExplorerTableView):
                     return float_format(x)
             elif x is None:
                 return _VALUE_NONE
-            elif x is nat:
+            elif x is pd.NaT:
                 return _VALUE_NAT
-            elif x is na:
+            elif x is pd.NA:
                 return _VALUE_NA
             else:
                 return _safe_stringify(x, max_length)
@@ -1964,15 +1992,8 @@ def _date_median(x):
     import pandas as pd
 
     # the np.array calls are required to please pyright
-    median_value = np.median(np.array(pd.to_numeric(x)))
-
-    # if any datetime64 or datetimetz type in pandas
-    if x.dtype == "timedelta64[ns]":
-        return pd.to_timedelta(np.array(int(median_value)))
-    else:
-        # Date or datetime
-        out = pd.to_datetime(np.array(median_value), utc=True)
-        return out.tz_convert(x[0].tz)
+    median_value = int(np.median(pd.to_numeric(x).to_numpy()))
+    return pd.Series([median_value], dtype=x.dtype)[0]
 
 
 def _possibly(f, otherwise=None):
@@ -2107,7 +2128,7 @@ def _polars_summarize_datetime(col: pl.Series, _):
     timezone = str(getattr(col.dtype, "time_zone", None))
 
     return _box_datetime_stats(
-        col.n_unique(), col.min(), mean_date, median_date, col.max(), timezone
+        col.dtype.time_unit, col.n_unique(), col.min(), mean_date, median_date, col.max(), timezone
     )
 
 
