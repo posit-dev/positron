@@ -61,25 +61,6 @@ export class Sessions {
 
 	// -- Actions --
 
-
-	async startSessionList(sessionList: SessionRuntimes[]): Promise<void> {
-		await test.step('Start session list', async () => {
-			const runtimes: Record<string, string> = {
-				python: DESIRED_PYTHON,
-				r: DESIRED_R,
-				pythonAlt: ALTERNATE_PYTHON,
-				rAlt: ALTERNATE_R
-			};
-
-			for (const session of sessionList) {
-				const version = runtimes[session];
-				const language = session === 'python' || session === 'pythonAlt' ? 'Python' : 'R';
-
-				await this.launch({ language, version });
-			}
-		});
-	}
-
 	/**
 	 * Action: Start a session via the session picker button, quickaccess, or console session button.
 	 * @param options - Configuration options for selecting the runtime session.
@@ -572,15 +553,6 @@ export class Sessions {
 		return 'unknown';
 	}
 
-	createSessions() {
-		return {
-			pythonSession1: { ...pythonSession },
-			pythonSession2: { ...pythonSessionAlt },
-			rSession1: { ...rSession },
-			rSession2: { ...rSessionAlt },
-		};
-	}
-
 	// -- Verifications --
 
 	/**
@@ -921,5 +893,3 @@ export const rSessionAlt: SessionInfo = {
 	id: '',
 	waitForReady: true
 };
-
-type SessionRuntimes = 'python' | 'pythonAlt' | 'r' | 'rAlt';

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application, pythonSession, pythonSessionAlt, rSession, rSessionAlt, SessionInfo } from '../../infra/index.js';
-import { test, tags, expect } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 const pythonSession1a: SessionInfo = { ...pythonSession };
 const pythonSession1b: SessionInfo = { ...pythonSession, name: `Python ${process.env.POSITRON_PY_VER_SEL} - 2`, };
@@ -25,8 +25,8 @@ test.describe('Session: Autocomplete', {
 		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
 	});
 
-	test('Python - Verify autocomplete suggestions', async function ({ app, runCommand, keyboard }) {
-		const { sessions, variables, editors } = app.workbench;
+	test('Python - Verify autocomplete suggestions', async function ({ app, runCommand }) {
+		const { sessions, variables, editors, console } = app.workbench;
 
 		pythonSession1a.id = await sessions.launch(pythonSession1a);
 		pythonSession1b.id = await sessions.launch(pythonSession1b);
@@ -34,11 +34,11 @@ test.describe('Session: Autocomplete', {
 
 		// Session 1a - verify autocomplete suggestions
 		await triggerAutocompleteInConsole(app, pythonSession1a);
-		await expect(app.workbench.console.suggestionList).toHaveCount(8);
+		await console.expectSuggestionListCount(8);
 
 		// Session 1b - verify autocomplete suggestions
 		await triggerAutocompleteInConsole(app, pythonSession1b);
-		await expect(app.workbench.console.suggestionList).toHaveCount(8);
+		await console.expectSuggestionListCount(8);
 
 		// Open a new Python file
 		await runCommand('Python: New Python File');
@@ -57,8 +57,8 @@ test.describe('Session: Autocomplete', {
 		await editors.expectSuggestionListCount(0);
 	});
 
-	test('R - Verify autocomplete suggestions', async function ({ app, runCommand, keyboard }) {
-		const { sessions, variables, editors } = app.workbench;
+	test('R - Verify autocomplete suggestions', async function ({ app, runCommand }) {
+		const { sessions, variables, editors, console } = app.workbench;
 
 		rSession1a.id = await sessions.reuseIdleSessionIfExists(rSession1a);
 		rSession1b.id = await sessions.launch(rSession1b);
@@ -66,11 +66,11 @@ test.describe('Session: Autocomplete', {
 
 		// Session 1a - verify autocomplete suggestions
 		await triggerAutocompleteInConsole(app, rSession1a);
-		await expect(app.workbench.console.suggestionList).toHaveCount(4);
+		await console.expectSuggestionListCount(4);
 
 		// Session 1b - verify autocomplete suggestions
 		await triggerAutocompleteInConsole(app, rSession1b);
-		await expect(app.workbench.console.suggestionList).toHaveCount(4);
+		await console.expectSuggestionListCount(4);
 
 		// Open a new R file
 		await runCommand('R: New R File');
@@ -94,16 +94,18 @@ test.describe('Session: Autocomplete', {
 // Helper functions
 
 async function triggerAutocompleteInConsole(app: Application, session: SessionInfo) {
-	await app.workbench.sessions.select(session.id);
+	const { sessions, console } = app.workbench;
+
+	await sessions.select(session.id);
 
 	if (session.language === 'Python') {
-		await app.workbench.console.pasteCodeToConsole('import pandas as pd');
-		await app.workbench.console.sendEnterKey();
-		await app.workbench.console.typeToConsole('df = pd.Dat', false, 250);
+		await console.pasteCodeToConsole('import pandas as pd');
+		await console.sendEnterKey();
+		await console.typeToConsole('df = pd.Dat', false, 250);
 	} else {
-		await app.workbench.console.pasteCodeToConsole('library(arrow)');
-		await app.workbench.console.sendEnterKey();
-		await app.workbench.console.typeToConsole('df2 <- read_p', false, 250);
+		await console.pasteCodeToConsole('library(arrow)');
+		await console.sendEnterKey();
+		await console.typeToConsole('df2 <- read_p', false, 250);
 	}
 }
 

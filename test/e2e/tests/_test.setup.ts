@@ -203,7 +203,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	},
 
 
-	// ex: await keyboard.hotKeys(HotKeys.COPY);
+	// ex: await keyboard.hotKeys.copy();
 	// ex: await keyboard.press('Enter');
 	keyboard: async ({ app }, use) => {
 		const keyboard = app.keyboard;

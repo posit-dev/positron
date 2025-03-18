@@ -13,30 +13,30 @@ export class Keyboard {
 		return process.platform === 'darwin' ? 'Meta' : 'Control';
 	}
 
-	// Getter for hotKeys to allow dot notation (e.g., app.keyboard.hotKeys.save)
 	get hotKeys() {
-		const modifierKey = this.getModifierKey();
 		return {
-			copy: () => this.hotKeysPress(`Cmd+C`, modifierKey),
-			paste: () => this.hotKeysPress(`Cmd+V`, modifierKey),
-			cut: () => this.hotKeysPress(`Cmd+X`, modifierKey),
-			selectAll: () => this.hotKeysPress(`Cmd+A`, modifierKey),
-			save: () => this.hotKeysPress(`Cmd+S`, modifierKey),
-			undo: () => this.hotKeysPress(`Cmd+Z`, modifierKey),
-			openFile: () => this.hotKeysPress(`Cmd+O`, modifierKey),
-			find: () => this.hotKeysPress(`Cmd+F`, modifierKey),
-			closeTab: () => this.hotKeysPress(`Cmd+W`, modifierKey),
-			firstTab: () => this.hotKeysPress(`Cmd+1`, modifierKey),
-			switchTabLeft: () => this.hotKeysPress(`Cmd+Shift+[`, modifierKey),
-			switchTabRight: () => this.hotKeysPress(`Cmd+Shift+]`, modifierKey),
-			closeAllEditors: () => this.hotKeysPress(`Cmd+K Cmd+W`, modifierKey),
-			visualMode: () => this.hotKeysPress(`Cmd+Shift+F4`, modifierKey),
+			copy: () => this.hotKeysPress(`Cmd+C`),
+			paste: () => this.hotKeysPress(`Cmd+V`),
+			cut: () => this.hotKeysPress(`Cmd+X`),
+			selectAll: () => this.hotKeysPress(`Cmd+A`),
+			save: () => this.hotKeysPress(`Cmd+S`),
+			undo: () => this.hotKeysPress(`Cmd+Z`),
+			openFile: () => this.hotKeysPress(`Cmd+O`),
+			find: () => this.hotKeysPress(`Cmd+F`),
+			closeTab: () => this.hotKeysPress(`Cmd+W`),
+			firstTab: () => this.hotKeysPress(`Cmd+1`),
+			switchTabLeft: () => this.hotKeysPress(`Cmd+Shift+[`),
+			switchTabRight: () => this.hotKeysPress(`Cmd+Shift+]`),
+			closeAllEditors: () => this.hotKeysPress(`Cmd+K Cmd+W`),
+			visualMode: () => this.hotKeysPress(`Cmd+Shift+F4`),
 		};
 	}
 
-	private async hotKeysPress(action: string, modifierKey: string) {
+	private async hotKeysPress(action: string) {
+		const modifierKey = this.getModifierKey(); // Now handled inside this function
+
 		await test.step(`Press hotkeys: ${action}`, async () => {
-			// Split command if there are multiple sequential key presses
+			// Replace "Cmd" with the platform-appropriate modifier key
 			const keySequences = action.split(' ').map(keys => keys.replace(/Cmd/g, modifierKey));
 
 			for (const key of keySequences) {
