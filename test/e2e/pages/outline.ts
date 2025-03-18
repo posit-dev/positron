@@ -73,4 +73,12 @@ export class Outline {
 	async expectOutlineElementCountToBe(count: number): Promise<void> {
 		await expect(this.outlineElement).toHaveCount(count);
 	}
+
+	async expectOutlineToContain(expected: string[]): Promise<void> {
+		await expect(async () => {
+			const outlineData = await this.getOutlineData();
+			const missingFromUI = expected.filter(item => !outlineData.includes(item));
+			expect(missingFromUI, `Missing from UI: ${missingFromUI}`).toHaveLength(0);
+		}).toPass();
+	}
 }

@@ -5,7 +5,6 @@
 
 import { join } from 'path';
 import { test, tags } from '../_test.setup';
-import { expect } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
@@ -17,30 +16,22 @@ test.describe('Outline', {
 
 	test('Python - Verify Outline Contents', async function ({ app, python, openFile }) {
 		await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
-		const outlineData = await app.workbench.outline.getOutlineData();
-		const expected = [
+		await app.workbench.outline.expectOutlineToContain([
 			'data_file_pathdata_file_path = os.path.join(os.getcwd(), \'data-files\', \'chinook\', \'chinook.db\')',
 			'connconn = sqlite3.connect(data_file_path)',
 			'curcur = conn.cursor()',
 			'rowsrows = cur.fetchall()',
 			'dfdf = pd.DataFrame(rows)'
-		];
-
-		const missingFromUI = expected.filter(item => !outlineData.includes(item));
-		expect(missingFromUI, `Missing from UI: ${missingFromUI}`).toHaveLength(0);
+		]);
 	});
 
 	test('R - Verify Outline Contents', async function ({ app, r, openFile }) {
 		await openFile(join('workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
-		const outlineData = await app.workbench.outline.getOutlineData();
-		const expected = [
+		await app.workbench.outline.expectOutlineToContain([
 			'con',
 			'albums',
 			'df',
-		];
-
-		const missingFromUI = expected.filter(item => !outlineData.includes(item));
-		expect(missingFromUI, `Missing from UI: ${missingFromUI}`).toHaveLength(0);
+		]);
 	});
 });
 
