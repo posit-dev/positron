@@ -40,7 +40,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	private readonly _onDidSelectColumnEmitter = this._register(new Emitter<number>);
 
-	private readonly _hoverManager: PositronActionBarHoverManager;
+	public readonly _hoverManager: PositronActionBarHoverManager;
 
 	//#endregion Private Properties
 
@@ -240,7 +240,6 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			<ColumnSummaryCell
 				columnIndex={rowIndex}
 				columnSchema={columnSchema}
-				hoverManager={this._hoverManager}
 				instance={this}
 				onDoubleClick={() => this._onDidSelectColumnEmitter.fire(rowIndex)}
 			/>
@@ -265,6 +264,13 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	get configurationService() {
 		return this._configurationService;
+	}
+
+	/**
+	 * Gets the hover manager.
+	 */
+	get hoverManager() {
+		return this._hoverManager;
 	}
 
 	//#endregion Public Properties

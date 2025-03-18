@@ -24,7 +24,6 @@ import { TableSummaryDataGridInstance } from '../tableSummaryDataGridInstance.js
 import { ColumnDisplayType, ColumnProfileType, ColumnSchema } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { dataExplorerExperimentalFeatureEnabled } from '../../common/positronDataExplorerExperimentalConfig.js';
 import { renderLeadingTrailingWhitespace } from './tableDataCell.js';
-import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 
 /**
  * Constants.
@@ -37,7 +36,6 @@ const SPARKLINE_X_AXIS_HEIGHT = 0.5;
  * ColumnSummaryCellProps interface.
  */
 interface ColumnSummaryCellProps {
-	hoverManager: IHoverManager;
 	instance: TableSummaryDataGridInstance;
 	columnSchema: ColumnSchema;
 	columnIndex: number;
@@ -107,7 +105,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 							columnHistogram={columnHistogram}
 							graphHeight={SPARKLINE_HEIGHT}
 							graphWidth={SPARKLINE_WIDTH}
-							hoverManager={props.hoverManager}
+							hoverManager={props.instance.hoverManager}
 							xAxisHeight={SPARKLINE_X_AXIS_HEIGHT}
 						/>
 					</div >
@@ -136,7 +134,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 							columnFrequencyTable={columnFrequencyTable}
 							graphHeight={SPARKLINE_HEIGHT}
 							graphWidth={SPARKLINE_WIDTH}
-							hoverManager={props.hoverManager}
+							hoverManager={props.instance.hoverManager}
 							xAxisHeight={SPARKLINE_X_AXIS_HEIGHT}
 						/>
 					</div >
@@ -246,15 +244,15 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		switch (props.columnSchema.type_display) {
 			// Number.
 			case ColumnDisplayType.Number:
-				return <ColumnProfileNumber columnIndex={props.columnIndex} hoverManager={props.hoverManager} instance={props.instance} />;
+				return <ColumnProfileNumber columnIndex={props.columnIndex} instance={props.instance} />;
 
 			// Boolean.
 			case ColumnDisplayType.Boolean:
-				return <ColumnProfileBoolean columnIndex={props.columnIndex} hoverManager={props.hoverManager} instance={props.instance} />;
+				return <ColumnProfileBoolean columnIndex={props.columnIndex} instance={props.instance} />;
 
 			// String.
 			case ColumnDisplayType.String:
-				return <ColumnProfileString columnIndex={props.columnIndex} hoverManager={props.hoverManager} instance={props.instance} />;
+				return <ColumnProfileString columnIndex={props.columnIndex} instance={props.instance} />;
 
 			// Date.
 			case ColumnDisplayType.Date:
@@ -408,9 +406,12 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				<div
 					ref={dataTypeRef}
 					className={`data-type-icon codicon ${dataTypeIcon}`}
-					onMouseLeave={() => props.hoverManager.hideHover()}
+					onMouseLeave={() => props.instance.hoverManager.hideHover()}
 					onMouseOver={() =>
-						props.hoverManager.showHover(dataTypeRef.current, `${props.columnSchema.type_name}`)
+						props.instance.hoverManager.showHover(
+							dataTypeRef.current,
+							`${props.columnSchema.type_name}`
+						)
 					}
 				/>
 				<div className='column-name'>
