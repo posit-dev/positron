@@ -42,12 +42,14 @@ from ..data_explorer import (
 from ..data_explorer_comm import (
     ColumnDisplayType,
     ColumnProfileResult,
+    ColumnProfileType,
     ColumnProfileTypeSupportStatus,
     ColumnSchema,
     ColumnSortKey,
     FilterResult,
     FormatOptions,
     RowFilter,
+    RowFilterType,
     RowFilterTypeSupportStatus,
     SupportStatus,
 )
@@ -628,19 +630,7 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
     assert row_filters["support_status"] == SupportStatus.Supported
     assert row_filters["supports_conditions"] == SupportStatus.Unsupported
 
-    row_filter_types = [
-        "between",
-        "compare",
-        "is_empty",
-        "is_false",
-        "is_null",
-        "is_true",
-        "not_between",
-        "not_empty",
-        "not_null",
-        "search",
-        "set_membership",
-    ]
+    row_filter_types = list(RowFilterType)
     for tp in row_filter_types:
         assert (
             RowFilterTypeSupportStatus(row_filter_type=tp, support_status=SupportStatus.Supported)
@@ -651,30 +641,10 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
     assert column_profiles["support_status"] == SupportStatus.Supported
 
     profile_types = [
-        ColumnProfileTypeSupportStatus(
-            profile_type="null_count", support_status=SupportStatus.Supported
-        ),
-        ColumnProfileTypeSupportStatus(
-            profile_type="summary_stats",
-            support_status=SupportStatus.Supported,
-        ),
-        ColumnProfileTypeSupportStatus(
-            profile_type="small_histogram",
-            support_status=SupportStatus.Supported,
-        ),
-        ColumnProfileTypeSupportStatus(
-            profile_type="large_histogram",
-            support_status=SupportStatus.Supported,
-        ),
-        ColumnProfileTypeSupportStatus(
-            profile_type="small_frequency_table",
-            support_status=SupportStatus.Supported,
-        ),
-        ColumnProfileTypeSupportStatus(
-            profile_type="large_frequency_table",
-            support_status=SupportStatus.Supported,
-        ),
+        ColumnProfileTypeSupportStatus(profile_type=pt, support_status=SupportStatus.Supported)
+        for pt in list(ColumnProfileType)
     ]
+
     for tp in profile_types:
         assert tp in column_profiles["supported_types"]
 
@@ -2592,21 +2562,21 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             "f14": (
                 pd.date_range("2000-01-01", freq="10us", periods=100)
                 .astype("datetime64[us]")
-                .tz_localize("US/Eastern")
+                .tz_localize("US/Eastern")  # type: ignore
             ),
             # datetime64[ms] with 10ms increments
             "f15": pd.date_range("2000-01-01", freq="10ms", periods=100).astype("datetime64[ms]"),
             "f16": (
                 pd.date_range("2000-01-01", freq="10ms", periods=100)
                 .astype("datetime64[ms]")
-                .tz_localize("US/Eastern")
+                .tz_localize("US/Eastern")  # type: ignore
             ),
             # datetime64[s] for 10s increments
             "f17": pd.date_range("2000-01-01", freq="10s", periods=100).astype("datetime64[s]"),
             "f18": (
                 pd.date_range("2000-01-01", freq="10s", periods=100)
                 .astype("datetime64[s]")
-                .tz_localize("US/Eastern")
+                .tz_localize("US/Eastern")  # type: ignore
             ),
         }
     )
@@ -3296,29 +3266,8 @@ def test_polars_get_state(dxf: DataExplorerFixture):
     assert export_data["support_status"] == SupportStatus.Supported
     assert export_data["supported_formats"] == ["csv", "tsv"]
     assert features["get_column_profiles"]["supported_types"] == [
-        ColumnProfileTypeSupportStatus(
-            profile_type="null_count", support_status=SupportStatus.Supported
-        ),
-        ColumnProfileTypeSupportStatus(
-            profile_type="summary_stats",
-            support_status=SupportStatus.Supported,
-        ),
-        ColumnProfileTypeSupportStatus(
-            profile_type="small_histogram",
-            support_status=SupportStatus.Supported,
-        ),
-        ColumnProfileTypeSupportStatus(
-            profile_type="large_histogram",
-            support_status=SupportStatus.Supported,
-        ),
-        ColumnProfileTypeSupportStatus(
-            profile_type="small_frequency_table",
-            support_status=SupportStatus.Supported,
-        ),
-        ColumnProfileTypeSupportStatus(
-            profile_type="large_frequency_table",
-            support_status=SupportStatus.Supported,
-        ),
+        ColumnProfileTypeSupportStatus(profile_type=pt, support_status=SupportStatus.Supported)
+        for pt in list(ColumnProfileType)
     ]
 
 

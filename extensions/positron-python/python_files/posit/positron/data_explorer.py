@@ -1888,29 +1888,10 @@ class PandasView(DataExplorerTableView):
             support_status=SupportStatus.Supported,
             supported_types=[
                 ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.NullCount,
+                    profile_type=profile_type,
                     support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.SummaryStats,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.SmallHistogram,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.LargeHistogram,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.SmallFrequencyTable,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.LargeFrequencyTable,
-                    support_status=SupportStatus.Supported,
-                ),
+                )
+                for profile_type in ColumnProfileType
             ],
         ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
@@ -2748,29 +2729,10 @@ class PolarsView(DataExplorerTableView):
             support_status=SupportStatus.Supported,
             supported_types=[
                 ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.NullCount,
+                    profile_type=profile_type,
                     support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.SummaryStats,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.SmallHistogram,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.LargeHistogram,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.SmallFrequencyTable,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.LargeFrequencyTable,
-                    support_status=SupportStatus.Supported,
-                ),
+                )
+                for profile_type in ColumnProfileType
             ],
         ),
         export_data_selection=ExportDataSelectionFeatures(
