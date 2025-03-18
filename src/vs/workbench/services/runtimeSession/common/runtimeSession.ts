@@ -26,7 +26,7 @@ import { IUpdateService } from '../../../../platform/update/common/update.js';
 import { multipleConsoleSessionsFeatureEnabled } from './positronMultipleConsoleSessionsFeatureFlag.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
-import { generateNotebookSessionId } from './runtimeSessionUtils.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { IPositronVariablesService } from '../../positronVariables/common/interfaces/positronVariablesService.js';
 
 /**
@@ -398,7 +398,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			const activeSession = this.getNotebookSessionForNotebookUri(notebookUri);
 			// If there is an active session for this notebook, use the runtime ID of the active
 			// session instead of generating a new one.
-			sessionName = activeSession ? activeSession.runtimeMetadata.runtimeId : generateNotebookSessionId();
+			// Generate a unique ID for a notebook session with "n-" prefix to make it easily identifiable
+			sessionName = activeSession ? activeSession.runtimeMetadata.runtimeId : `n-${generateUuid()}`;
 		}
 
 		const startMode = notebookUri
