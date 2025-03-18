@@ -46,6 +46,7 @@ interface ConsoleInstanceItemsProps {
 	readonly trace: boolean;
 	readonly runtimeAttached: boolean;
 	readonly consoleInputWidth: number;
+	readonly disconnected: boolean;
 	readonly onSelectAll: () => void;
 }
 /**
@@ -69,14 +70,6 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 	 */
 	constructor(props: ConsoleInstanceItemsProps) {
 		super(props);
-
-		const disposable = this.props.positronConsoleInstance.onDidChangeState(() => {
-			this.forceUpdate();
-		});
-
-		this.componentWillUnmount = () => {
-			disposable.dispose();
-		}
 	}
 
 	/**
@@ -84,8 +77,6 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 	 * @returns The rendered component.
 	 */
 	override render() {
-		const extensionHostDisconnected = this.props.positronConsoleInstance.state === PositronConsoleState.Disconnected;
-
 		return (
 			<>
 				<div className='top-spacer' />
@@ -117,7 +108,7 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 						return null;
 					}
 				})}
-				{extensionHostDisconnected ?
+				{this.props.disconnected ?
 					(<div className='console-item-starting'>
 						<span className='codicon codicon-loading codicon-modifier-spin'></span>
 						<span>{localize(
