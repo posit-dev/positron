@@ -74,7 +74,7 @@ test.describe('Notebooks', {
 			await new Promise(resolve => setTimeout(resolve, 1000));
 
 			// Verify the variables pane shows the correct notebook name
-			await app.workbench.variables.expectRuntimeToBe(newFileName);
+			await app.workbench.variables.expectRuntimeToBe('visible', newFileName);
 
 			// Verify the variable still exists
 			await app.workbench.variables.expectVariableToBe('foo', "'bar'");
