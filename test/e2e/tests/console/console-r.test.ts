@@ -91,11 +91,14 @@ test.describe('Console Pane: R', {
 		await app.code.driver.page.keyboard.press('Enter');
 
 		await app.workbench.layouts.enterLayout('stacked');
+		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 
 		await expect(async () => {
 			const variablesMap = await app.workbench.variables.getFlatVariables();
 			expect(variablesMap.get('out')?.value).toBe('"password"');
 		}).toPass({ timeout: 20000 });
+
+		await app.workbench.layouts.enterLayout('stacked');
 	});
 });
 
