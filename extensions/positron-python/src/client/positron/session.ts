@@ -735,7 +735,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     private onStateChange(state: positron.RuntimeState): void {
         this._state = state;
         if (state === positron.RuntimeState.Ready) {
-            this._queue.add(this.startLsp);
+            this._queue.add(async () => {
+                this.startLsp();
+            });
 
             this._queue.add(async () => {
                 try {
