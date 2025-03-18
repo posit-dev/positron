@@ -587,6 +587,7 @@
 		"--vscode-positronDataExplorer-invalidFilterBackground",
 		"--vscode-positronDataExplorer-sparklineAxis",
 		"--vscode-positronDataExplorer-sparklineFill",
+		"--vscode-positronDataExplorer-sparklineHover",
 		"--vscode-positronDataExplorer-sparklineStroke",
 		"--vscode-positronDataExplorer-statusIndicatorComputing",
 		"--vscode-positronDataExplorer-statusIndicatorDisconnected",
