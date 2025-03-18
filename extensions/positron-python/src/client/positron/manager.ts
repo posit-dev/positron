@@ -267,6 +267,10 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
             // On Windows, we need to use the 'signal' interrupt mode since 'message' is
             // not supported.
             interrupt_mode: os.platform() === 'win32' ? 'signal' : 'message',
+            // In the future this may need to be updated to reflect the exact version of
+            // the protocol supported by ipykernel. For now, use 5.3 as a lowest
+            // common denominator.
+            protocol_version: '5.3',
             env,
         };
 

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -60,6 +60,14 @@ export interface JupyterKernelSpec {
 
 	/** Environment variables to set when starting the kernel */
 	env?: NodeJS.ProcessEnv;
+
+	/**
+	 * The Jupyter protocol version to use when connecting to the kernel.
+	 *
+	 * When protocol >= 5.5 is used, the supervisor will use a handshake
+	 * to negotiate ports instead of picking them ahead of time (JEP 66)
+	 */
+	protocol_version: string; // eslint-disable-line
 
 	/** Function that starts the kernel given a JupyterSession object.
 	 *  This is used to start the kernel if it's provided. In this case `argv`
