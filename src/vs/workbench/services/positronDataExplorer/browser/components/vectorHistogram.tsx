@@ -11,8 +11,7 @@ import React, { useState, useRef, useMemo } from 'react';
 
 // Other dependencies.
 import { ColumnHistogram } from '../../../languageRuntime/common/positronDataExplorerComm.js';
-import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
-import { HoverPosition } from '../../../../../base/browser/ui/hover/hoverWidget.js';
+import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 
 /**
  * VectorHistogramProps interface.
@@ -22,7 +21,7 @@ interface VectorHistogramProps {
 	readonly graphHeight: number;
 	readonly xAxisHeight: number;
 	readonly columnHistogram: ColumnHistogram;
-	readonly hoverService?: IHoverService;
+	readonly hoverManager: IHoverManager;
 }
 
 /**
@@ -38,7 +37,7 @@ const BinItem = React.memo(({
 	graphHeight,
 	xAxisHeight,
 	binCountPercent,
-	hoverService
+	hoverManager
 }: {
 	binCount: number;
 	binCountIndex: number;
@@ -49,7 +48,7 @@ const BinItem = React.memo(({
 	graphHeight: number;
 	xAxisHeight: number;
 	binCountPercent: string;
-	hoverService?: IHoverService;
+	hoverManager: IHoverManager;
 }) => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [isHovered, setIsHovered] = useState(false);
@@ -81,26 +80,16 @@ const BinItem = React.memo(({
 					width: '100%'
 				}}
 				onMouseLeave={() => {
-					hoverService?.hideHover();
+					hoverManager.hideHover();
 					setIsHovered(false);
 				}}
 				onMouseOver={() => {
 					setIsHovered(true);
-					if (hoverService && containerRef.current) {
-						hoverService.showHover({
-							content: `Range: ${formattedMin} to ${formattedMax}\nCount: ${binCount} (${binCountPercent}%)`,
-							target: containerRef.current,
-							position: {
-								hoverPosition: HoverPosition.ABOVE,
-							},
-							persistence: {
-								hideOnHover: false
-							},
-							appearance: {
-								showHoverHint: false,
-								showPointer: false
-							}
-						}, false);
+					if (containerRef.current) {
+						hoverManager.showHover(
+							containerRef.current,
+							`Range: ${formattedMin} to ${formattedMax}\nCount: ${binCount} (${binCountPercent}%)`
+						);
 					}
 				}}
 			>
@@ -188,7 +177,7 @@ export const VectorHistogram = (props: VectorHistogramProps) => {
 							binMin={binMin}
 							binWidth={binWidth}
 							graphHeight={props.graphHeight}
-							hoverService={props.hoverService}
+							hoverManager={props.hoverManager}
 							xAxisHeight={props.xAxisHeight}
 						/>
 					);

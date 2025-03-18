@@ -13,7 +13,7 @@ import React from 'react';
 import { VectorHistogram } from './vectorHistogram.js';
 import { VectorFrequencyTable } from './vectorFrequencyTable.js';
 import { ColumnFrequencyTable, ColumnHistogram } from '../../../languageRuntime/common/positronDataExplorerComm.js';
-import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
+import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 
 /**
  * Constants.
@@ -27,7 +27,7 @@ const X_AXIS_HEIGHT = 0.5;
  */
 interface ColumnProfileSparklineHistogramProps {
 	readonly columnHistogram: ColumnHistogram;
-	readonly hoverService?: IHoverService;
+	readonly hoverManager: IHoverManager;
 }
 
 /**
@@ -37,7 +37,7 @@ interface ColumnProfileSparklineHistogramProps {
  */
 export const ColumnProfileSparklineHistogram = ({
 	columnHistogram,
-	hoverService
+	hoverManager
 }: ColumnProfileSparklineHistogramProps) => {
 	// Render.
 	return (
@@ -52,7 +52,7 @@ export const ColumnProfileSparklineHistogram = ({
 				columnHistogram={columnHistogram}
 				graphHeight={GRAPH_HEIGHT}
 				graphWidth={GRAPH_WIDTH}
-				hoverService={hoverService}
+				hoverManager={hoverManager}
 				xAxisHeight={X_AXIS_HEIGHT}
 			/>
 		</div >
@@ -64,7 +64,7 @@ export const ColumnProfileSparklineHistogram = ({
  */
 interface ColumnProfileSparklineFrequencyTableProps {
 	readonly columnFrequencyTable: ColumnFrequencyTable;
-	readonly hoverService?: IHoverService;
+	readonly hoverManager: IHoverManager;
 }
 
 /**
@@ -74,7 +74,7 @@ interface ColumnProfileSparklineFrequencyTableProps {
  */
 export const ColumnProfileSparklineFrequencyTable = ({
 	columnFrequencyTable,
-	hoverService
+	hoverManager
 }: ColumnProfileSparklineFrequencyTableProps) => {
 	// Render.
 	return (
@@ -89,7 +89,7 @@ export const ColumnProfileSparklineFrequencyTable = ({
 				columnFrequencyTable={columnFrequencyTable}
 				graphHeight={GRAPH_HEIGHT}
 				graphWidth={GRAPH_WIDTH}
-				hoverService={hoverService}
+				hoverManager={hoverManager}
 				xAxisHeight={X_AXIS_HEIGHT}
 			/>
 		</div >

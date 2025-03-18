@@ -15,7 +15,7 @@ import { TableSummaryDataGridInstance } from '../tableSummaryDataGridInstance.js
 import { ColumnProfileNullCountValue } from './columnProfileNullCountValue.js';
 import { ColumnProfileSparklineHistogram } from './columnProfileSparklines.js';
 import { positronMax, positronMean, positronMedian, positronMin, positronMissing, positronSD } from '../../common/constants.js';
-import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
+import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 
 /**
  * Constants.
@@ -28,7 +28,7 @@ export const COLUMN_PROFILE_NUMBER_LINE_COUNT = 6;
 interface ColumnProfileNumberProps {
 	instance: TableSummaryDataGridInstance;
 	columnIndex: number;
-	hoverService?: IHoverService;
+	hoverManager: IHoverManager;
 }
 
 /**
@@ -45,7 +45,7 @@ export const ColumnProfileNumber = (props: ColumnProfileNumberProps) => {
 			{columnHistogram &&
 				<ColumnProfileSparklineHistogram
 					columnHistogram={columnHistogram}
-					hoverService={props.hoverService}
+					hoverManager={props.hoverManager}
 				/>
 			}
 			<div className='tabular-info'>

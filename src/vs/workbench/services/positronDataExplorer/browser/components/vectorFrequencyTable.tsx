@@ -11,8 +11,7 @@ import React, { useState, useRef, useMemo } from 'react';
 
 // Other dependencies.
 import { ColumnFrequencyTable } from '../../../languageRuntime/common/positronDataExplorerComm.js';
-import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
-import { HoverPosition } from '../../../../../base/browser/ui/hover/hoverWidget.js';
+import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 
 /**
  * VectorFrequencyTableProps interface.
@@ -22,7 +21,7 @@ interface VectorFrequencyTableProps {
 	readonly graphHeight: number;
 	readonly xAxisHeight: number;
 	readonly columnFrequencyTable: ColumnFrequencyTable;
-	readonly hoverService?: IHoverService;
+	readonly hoverManager: IHoverManager;
 }
 
 /**
@@ -38,7 +37,7 @@ const FrequencyCount = React.memo(({
 	xAxisHeight,
 	countPercent,
 	xPosition,
-	hoverService
+	hoverManager
 }: {
 	count: number;
 	countIndex: number;
@@ -49,7 +48,7 @@ const FrequencyCount = React.memo(({
 	xAxisHeight: number;
 	countPercent: string;
 	xPosition: number;
-	hoverService?: IHoverService;
+	hoverManager: IHoverManager;
 }) => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [isHovered, setIsHovered] = useState(false);
@@ -82,26 +81,16 @@ const FrequencyCount = React.memo(({
 					position: 'relative',
 				}}
 				onMouseLeave={() => {
-					hoverService?.hideHover();
+					hoverManager?.hideHover();
 					setIsHovered(false);
 				}}
 				onMouseOver={() => {
 					setIsHovered(true);
-					if (hoverService && containerRef.current) {
-						hoverService.showHover({
-							content: `Value: ${formattedValue}\nCount: ${count} (${countPercent}%)`,
-							target: containerRef.current,
-							position: {
-								hoverPosition: HoverPosition.ABOVE,
-							},
-							persistence: {
-								hideOnHover: false
-							},
-							appearance: {
-								showHoverHint: false,
-								showPointer: false
-							}
-						}, false);
+					if (containerRef.current) {
+						hoverManager.showHover(
+							containerRef.current,
+							`Value: ${formattedValue}\nCount: ${count} (${countPercent}%)`
+						);
 					}
 				}}
 			>
@@ -115,7 +104,7 @@ const FrequencyCount = React.memo(({
 					/>
 				</svg>
 			</div>
-		</foreignObject>
+		</foreignObject >
 	);
 });
 
@@ -130,7 +119,7 @@ const OtherCount = React.memo(({
 	graphWidth,
 	xAxisHeight,
 	xPosition,
-	hoverService
+	hoverManager
 }: {
 	otherCount: number;
 	maxCount: number;
@@ -139,7 +128,7 @@ const OtherCount = React.memo(({
 	graphWidth: number;
 	xAxisHeight: number;
 	xPosition: number;
-	hoverService?: IHoverService;
+	hoverManager: IHoverManager;
 }) => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [isHovered, setIsHovered] = useState(false);
@@ -162,26 +151,13 @@ const OtherCount = React.memo(({
 					position: 'relative',
 				}}
 				onMouseLeave={() => {
-					hoverService?.hideHover();
+					hoverManager.hideHover();
 					setIsHovered(false);
 				}}
 				onMouseOver={() => {
 					setIsHovered(true);
-					if (hoverService && containerRef.current) {
-						hoverService.showHover({
-							content: `Other values\nCount: ${otherCount} (${otherCountPercent}%)`,
-							target: containerRef.current,
-							position: {
-								hoverPosition: HoverPosition.ABOVE,
-							},
-							persistence: {
-								hideOnHover: false
-							},
-							appearance: {
-								showHoverHint: false,
-								showPointer: false
-							}
-						}, false);
+					if (containerRef.current) {
+						hoverManager.showHover(containerRef.current, `Other values\nCount: ${otherCount} (${otherCountPercent}%)`);
 					}
 				}}
 			>
@@ -195,7 +171,7 @@ const OtherCount = React.memo(({
 					/>
 				</svg>
 			</div>
-		</foreignObject>
+		</foreignObject >
 	);
 });
 
@@ -286,7 +262,7 @@ export const VectorFrequencyTable = (props: VectorFrequencyTableProps) => {
 							countPercent={countPercent}
 							countWidth={countWidth}
 							graphHeight={props.graphHeight}
-							hoverService={props.hoverService}
+							hoverManager={props.hoverManager}
 							value={value}
 							xAxisHeight={props.xAxisHeight}
 							xPosition={positions[countIndex]}
@@ -297,7 +273,7 @@ export const VectorFrequencyTable = (props: VectorFrequencyTableProps) => {
 					<OtherCount
 						graphHeight={props.graphHeight}
 						graphWidth={props.graphWidth}
-						hoverService={props.hoverService}
+						hoverManager={props.hoverManager}
 						maxCount={maxCount}
 						otherCount={props.columnFrequencyTable.other_count}
 						totalCount={totalCount}

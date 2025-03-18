@@ -10,8 +10,6 @@ import './columnSummaryCell.css';
 import React, { useRef } from 'react';
 
 // Other dependencies.
-import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
-import { HoverPosition } from '../../../../../base/browser/ui/hover/hoverWidget.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { usePositronDataGridContext } from '../../../../browser/positronDataGrid/positronDataGridContext.js';
 import { VectorHistogram } from './vectorHistogram.js';
@@ -26,6 +24,7 @@ import { TableSummaryDataGridInstance } from '../tableSummaryDataGridInstance.js
 import { ColumnDisplayType, ColumnProfileType, ColumnSchema } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { dataExplorerExperimentalFeatureEnabled } from '../../common/positronDataExplorerExperimentalConfig.js';
 import { renderLeadingTrailingWhitespace } from './tableDataCell.js';
+import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 
 /**
  * Constants.
@@ -38,7 +37,7 @@ const SPARKLINE_X_AXIS_HEIGHT = 0.5;
  * ColumnSummaryCellProps interface.
  */
 interface ColumnSummaryCellProps {
-	hoverService: IHoverService;
+	hoverManager: IHoverManager;
 	instance: TableSummaryDataGridInstance;
 	columnSchema: ColumnSchema;
 	columnIndex: number;
@@ -108,7 +107,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 							columnHistogram={columnHistogram}
 							graphHeight={SPARKLINE_HEIGHT}
 							graphWidth={SPARKLINE_WIDTH}
-							hoverService={props.hoverService}
+							hoverManager={props.hoverManager}
 							xAxisHeight={SPARKLINE_X_AXIS_HEIGHT}
 						/>
 					</div >
@@ -137,7 +136,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 							columnFrequencyTable={columnFrequencyTable}
 							graphHeight={SPARKLINE_HEIGHT}
 							graphWidth={SPARKLINE_WIDTH}
-							hoverService={props.hoverService}
+							hoverManager={props.hoverManager}
 							xAxisHeight={SPARKLINE_X_AXIS_HEIGHT}
 						/>
 					</div >
@@ -247,15 +246,15 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		switch (props.columnSchema.type_display) {
 			// Number.
 			case ColumnDisplayType.Number:
-				return <ColumnProfileNumber columnIndex={props.columnIndex} hoverService={props.hoverService} instance={props.instance} />;
+				return <ColumnProfileNumber columnIndex={props.columnIndex} hoverManager={props.hoverManager} instance={props.instance} />;
 
 			// Boolean.
 			case ColumnDisplayType.Boolean:
-				return <ColumnProfileBoolean columnIndex={props.columnIndex} hoverService={props.hoverService} instance={props.instance} />;
+				return <ColumnProfileBoolean columnIndex={props.columnIndex} hoverManager={props.hoverManager} instance={props.instance} />;
 
 			// String.
 			case ColumnDisplayType.String:
-				return <ColumnProfileString columnIndex={props.columnIndex} hoverService={props.hoverService} instance={props.instance} />;
+				return <ColumnProfileString columnIndex={props.columnIndex} hoverManager={props.hoverManager} instance={props.instance} />;
 
 			// Date.
 			case ColumnDisplayType.Date:
@@ -409,22 +408,9 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				<div
 					ref={dataTypeRef}
 					className={`data-type-icon codicon ${dataTypeIcon}`}
-					onMouseLeave={() => props.hoverService.hideHover()}
+					onMouseLeave={() => props.hoverManager.hideHover()}
 					onMouseOver={() =>
-						props.hoverService.showHover({
-							content: `${props.columnSchema.type_name}`,
-							target: dataTypeRef.current,
-							position: {
-								hoverPosition: HoverPosition.ABOVE,
-							},
-							persistence: {
-								hideOnHover: false
-							},
-							appearance: {
-								showHoverHint: true,
-								showPointer: true
-							}
-						}, false)
+						props.hoverManager.showHover(dataTypeRef.current, `${props.columnSchema.type_name}`)
 					}
 				/>
 				<div className='column-name'>

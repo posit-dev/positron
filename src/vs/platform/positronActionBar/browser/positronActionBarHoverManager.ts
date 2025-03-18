@@ -164,6 +164,13 @@ export class PositronActionBarHoverManager extends Disposable implements IHoverM
 	}
 
 	/**
+	 * Set the hover delay to the specified value.
+	 */
+	public setHoverDelay(hoverDelay: number): void {
+		this._hoverDelay = hoverDelay;
+	}
+
+	/**
 	 * Hides the hover.
 	 */
 	public hideHover(): void {
