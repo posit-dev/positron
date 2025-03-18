@@ -326,12 +326,22 @@ class PositronJediLanguageServer(JediLanguageServer):
         self._stop_event = threading.Event()
         self._server = self.loop.run_until_complete(self.loop.create_server(self.lsp, host, port))
 
+        listeners = self._server.sockets
+        for socket in listeners:
+            addr, port = socket.getsockname()
+            if addr == host:
+                logger.info("LSP server is listening on port %d", port)
+                break
+        else:
+            port = 0
+            logger.warning("Could not determine server port")
+
         # Notify the frontend that the LSP server is ready
         if self._comm is None:
             logger.warning("LSP comm was not set, could not send server_started message")
         else:
             logger.info("LSP server is ready, sending server_started message")
-            self._comm.send({"msg_type": "server_started", "content": {}})
+            self._comm.send({"msg_type": "server_started", "content": {"port": port}})
 
         # Run the event loop until the stop event is set.
         try:
