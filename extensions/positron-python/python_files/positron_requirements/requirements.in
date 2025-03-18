@@ -5,7 +5,7 @@
 # 2) uv pip compile --generate-hashes --upgrade python_files/positron_requirements/requirements.in > python_files/positron_requirements/requirements.txt
 
 docstring-to-markdown==0.13
-jedi-language-server<0.44.0
+jedi-language-server<0.43.0
 markdown-it-py
 # Stick to pydantic v1 since it has a pure Python implementation which is much easy to vendor.
 pydantic<2.0.0
