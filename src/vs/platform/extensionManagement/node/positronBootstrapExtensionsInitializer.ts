@@ -48,9 +48,27 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 		}
 	}
 
-	async installVSIXOnStartup() {
+	async installVSIXOnStartup(): Promise<void> {
+		await this.installDefaultVSIX();
+		await this.installCustomVSIX();
+	}
 
-		const extensionsLocation = this.getVSIXPath();
+	private async installDefaultVSIX(): Promise<void> {
+		const extensionsLocation = this.getSystemVSIXPath();
+		await this.installVSIXFromLocation(extensionsLocation);
+	}
+
+	private async installCustomVSIX(): Promise<void> {
+		const customExtensionsLocation = this.getCustomVSIXPath();
+		if (!customExtensionsLocation) {
+			this.logService.trace('No custom extensions directory configured');
+			return;
+		}
+
+		await this.installVSIXFromLocation(customExtensionsLocation);
+	}
+
+	private async installVSIXFromLocation(extensionsLocation: URI): Promise<void> {
 		let stat: IFileStat;
 		try {
 			stat = await this.fileService.resolve(extensionsLocation);
@@ -61,8 +79,9 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 		} catch (error) {
 			if (toFileOperationResult(error) === FileOperationResult.FILE_NOT_FOUND) {
 				this.logService.debug('There are no extensions to install', extensionsLocation.toString());
+			} else {
+				this.logService.error('Error initializing extensions ', error);
 			}
-			this.logService.error('Error initializing extensions', error);
 			return;
 		}
 
@@ -104,9 +123,18 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 		return vMajor > iMajor || (vMajor === iMajor && vMinor > iMinor) || (vMajor === iMajor && vMinor === iMinor && vPatch > iPatch);
 	}
 
+	private getSystemVSIXPath(): URI {
+		return process.env['VSCODE_DEV']
+			? URI.file(join(this.environmentService.appRoot, '.build', 'bootstrapExtensions'))
+			: URI.file(join(this.environmentService.appRoot, 'extensions', 'bootstrap'));
+	}
 
-	private getVSIXPath(): URI {
-		return process.env['VSCODE_DEV'] ? URI.file(join(this.environmentService.appRoot, '.build', 'bootstrapExtensions')) : URI.file(join(this.environmentService.appRoot, 'extensions', 'bootstrap'));
+	private getCustomVSIXPath(): URI | undefined {
+		if (!this.environmentService.bootstrapExtensionsPath) {
+			return undefined;
+		}
+
+		return URI.file(this.environmentService.bootstrapExtensionsPath);
 	}
 
 	override dispose(): void {

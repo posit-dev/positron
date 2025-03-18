@@ -74,6 +74,7 @@ export const serverOptions: OptionDescriptions<Required<ServerParsedArgs>> = {
 	// --- Start Positron ---
 	// Allow disabling extensions in server mode.
 	'disable-extension': OPTIONS['disable-extension'],
+	'bootstrap-extensions-dir': { type: 'string', description: nls.localize('bootstrap-extensions-dir', "The directory to look for extensions to install on launch.") },
 	// --- End Positron ---
 
 	'show-versions': OPTIONS['show-versions'],
@@ -116,6 +117,9 @@ export interface ServerParsedArgs {
 	'disable-file-downloads'?: boolean;
 	'disable-file-uploads'?: boolean;
 	// --- End PWB ---
+	// --- Start Positron ---
+	'bootstrap-extensions-dir'?: string;
+	// --- End Positron ---
 
 	/* ----- server setup ----- */
 
