@@ -830,7 +830,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
 				startPromise.complete(session.sessionId);
 			})
-			.catch((err) => startPromise.error(err));
+			.catch((err) => {
+				startPromise.error(err);
+				this.clearStartingSessionMaps(
+					session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
+			});
 
 		// Ask the runtime to restart.
 		try {
