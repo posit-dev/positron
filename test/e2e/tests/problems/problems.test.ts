@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
+import { Hotkeys } from '../../infra/index.js';
 import { test, tags } from '../_test.setup';
 import { join } from 'path';
 
@@ -12,85 +12,47 @@ test.use({
 });
 
 test.describe('Problems', {
-	tag: [tags.PROBLEMS, tags.WEB, tags.WIN],
-	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6536' }], // fixing either would allow us to fix
+	tag: [tags.PROBLEMS, tags.WEB, tags.WIN]
 }, () => {
 
-	test('Python - Verify problems are highlighted in editor and count is accurate in Problems pane', async function ({ app, python, openFile }) {
-		const problems = app.workbench.problems;
+	test('Python - Verify problems are highlighted in editor and count is accurate in Problems pane', async function ({ app, python, openFile, keyboard }) {
+		const { problems, editor } = app.workbench;
 
-		await test.step('Open file and replace "rows" on line 9 with exclamation point', async () => {
-			await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
+		// Open a Python file and introduce an error
+		await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
+		await editor.replaceTerm('chinook-sqlite.py', 'rows', 9, '!');
 
-			await app.workbench.editor.clickOnTerm('chinook-sqlite.py', 'rows', 9, true);
+		// Verify the error is present in Editor and Problems pane
+		await problems.expectSquigglyToBeVisible('error');
+		await problems.showProblemsView();
+		await problems.expectProblemsCountToBe(4);
 
-			await app.code.driver.page.keyboard.type('!');
-		});
+		// Undo the changes
+		await keyboard.hotKeys(Hotkeys.UNDO);
 
-		await test.step('Verify File Squiggly', async () => {
-			await expect(problems.errorSquiggly).toBeVisible();
-		});
-
-		await app.workbench.problems.showProblemsView();
-
-		await test.step('Verify Problems Count', async () => {
-			await expect(async () => {
-				const errorLocators = await problems.problemsViewError.all();
-				expect(errorLocators.length).toBe(4);
-			}).toPass({ timeout: 20000 });
-		});
-
-		await test.step('Revert error', async () => {
-			await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+Z' : 'Control+Z');
-		});
-
-		await test.step('Verify File Squiggly Is Gone', async () => {
-			await expect(problems.errorSquiggly).not.toBeVisible();
-		});
-
-		await test.step('Verify Problems Count is 0', async () => {
-			await expect(async () => {
-				expect((await problems.problemsViewError.all()).length).toBe(0);
-			}).toPass({ timeout: 20000 });
-		});
-
+		// Verify the error is no longer present in Editor and Problems view
+		await problems.expectSquigglyNotToBeVisible('error');
+		await problems.expectProblemsCountToBe(0);
 	});
 
-	test('R - Verify problems are highlighted in editor and count is accurate in Problems pane', async function ({ app, r, openFile }) {
-		const problems = app.workbench.problems;
+	test('R - Verify problems are highlighted in editor and count is accurate in Problems pane', async function ({ app, r, openFile, keyboard }) {
+		const { problems, editor } = app.workbench;
 
-		await test.step('Open file and replace "albums" on line 5 with exclamation point', async () => {
-			await openFile(join('workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
+		// Open an R file and introduce an error
+		await openFile(join('workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
+		await editor.replaceTerm('chinook-sqlite.r', 'albums', 5, '!');
 
-			await app.workbench.editor.clickOnTerm('chinook-sqlite.r', 'albums', 5, true);
+		// Verify the error is present in Editor and Problems pane
+		await problems.expectSquigglyToBeVisible('error');
+		await problems.showProblemsView();
+		await problems.expectProblemsCountToBe(1);
 
-			await app.code.driver.page.keyboard.type('!');
-		});
+		// Undo the changes
+		await keyboard.hotKeys(Hotkeys.UNDO);
 
-		await test.step('Verify File Squiggly', async () => {
-			await expect(problems.errorSquiggly).toBeVisible();
-		});
-
-		await app.workbench.problems.showProblemsView();
-
-		await test.step('Verify Problems Count', async () => {
-			expect((await problems.problemsViewError.all()).length).toBe(1);
-		});
-
-		await test.step('Revert error', async () => {
-			await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+Z' : 'Control+Z');
-
-		});
-
-		await test.step('Verify File Squiggly Is Gone', async () => {
-			await expect(problems.errorSquiggly).not.toBeVisible();
-		});
-
-		await test.step('Verify Problems Count is 0', async () => {
-			await expect(async () => {
-				expect((await problems.problemsViewError.all()).length).toBe(0);
-			}).toPass({ timeout: 20000 });
-		});
-
+		// Verify the error is no longer present in Editor and Problems view
+		await problems.expectSquigglyNotToBeVisible('error');
+		await problems.expectProblemsCountToBe(0);
 	});
 });
+

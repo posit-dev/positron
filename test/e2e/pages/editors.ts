@@ -12,6 +12,7 @@ export class Editors {
 	activeEditor = this.code.driver.page.locator('div.tab.tab-actions-right.active.selected');
 	editorIcon = this.code.driver.page.locator('.monaco-icon-label.file-icon');
 	editorPart = this.code.driver.page.locator('.split-view-view .part.editor');
+	suggestionList = this.code.driver.page.locator('.suggest-widget .monaco-list-row');
 
 	constructor(private code: Code) { }
 
@@ -75,5 +76,9 @@ export class Editors {
 		} else {
 			await this.code.driver.page.keyboard.press('Control+S');
 		}
+	}
+
+	async expectSuggestionListCount(count: number): Promise<void> {
+		await expect(this.suggestionList).toHaveCount(count);
 	}
 }

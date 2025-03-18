@@ -4,14 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect, Locator } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
-
-export const enum ProblemSeverity {
-	WARNING = 0,
-	ERROR = 1
-}
 
 export class Problems {
 
@@ -37,4 +32,31 @@ export class Problems {
 	async waitForProblemsView(): Promise<void> {
 		await expect(this.problemsView).toBeVisible();
 	}
+
+	private async expectSquigglyVisibility(severity: ProblemSeverity, shouldBeVisible: boolean): Promise<void> {
+		await test.step(`Expect ${severity} squiggly ${shouldBeVisible ? 'to' : 'not to'} be visible`, async () => {
+			const squiggly = severity === 'warning' ? this.warningSquiggly : this.errorSquiggly;
+			shouldBeVisible
+				? await expect(squiggly).toBeVisible()
+				: await expect(squiggly).not.toBeVisible();
+		});
+	}
+
+	async expectSquigglyToBeVisible(severity: ProblemSeverity): Promise<void> {
+		await this.expectSquigglyVisibility(severity, true);
+	}
+
+	async expectSquigglyNotToBeVisible(severity: ProblemSeverity): Promise<void> {
+		await this.expectSquigglyVisibility(severity, false);
+	}
+
+	async expectProblemsCountToBe(count: number): Promise<void> {
+		await test.step(`Verify Problems Count: ${count}`, async () => {
+			// Waiting for debounce to complete, ensuring the error count reflects the final, stabilized state.
+			await this.code.driver.page.waitForTimeout(1500);
+			await expect(this.problemsViewError).toHaveCount(count);
+		});
+	}
 }
+
+export type ProblemSeverity = 'warning' | 'error';

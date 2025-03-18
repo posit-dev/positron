@@ -43,6 +43,7 @@ export * from '../pages/sessions';
 
 // fixtures
 export * from './fixtures/userSettings';
+export * from './fixtures/keyboard';
 
 // test-runner
 export * from './test-runner';

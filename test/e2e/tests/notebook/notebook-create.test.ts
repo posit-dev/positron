@@ -24,7 +24,7 @@ test.describe('Notebooks', {
 		});
 
 		test('Python - Verify code cell execution in notebook', async function ({ app }) {
-			await app.workbench.notebooks.addCodeToFirstCell('eval("8**2")');
+			await app.workbench.notebooks.addCodeToCellAtIndex('eval("8**2")');
 			await app.workbench.notebooks.executeCodeInCell();
 			await app.workbench.notebooks.assertCellOutput('64');
 		});
@@ -51,7 +51,7 @@ test.describe('Notebooks', {
 		});
 
 		test('R - Verify code cell execution in notebook', async function ({ app }) {
-			await app.workbench.notebooks.addCodeToFirstCell('eval(parse(text="8**2"))');
+			await app.workbench.notebooks.addCodeToCellAtIndex('eval(parse(text="8**2"))');
 			await app.workbench.notebooks.executeCodeInCell();
 			await app.workbench.notebooks.assertCellOutput('[1] 64');
 		});

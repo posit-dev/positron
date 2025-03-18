@@ -7,8 +7,10 @@ import test, { expect, Locator, Page } from '@playwright/test';
 import { Code, Console, QuickAccess } from '../infra';
 import { QuickInput } from './quickInput';
 
-const DESIRED_PYTHON = process.env.POSITRON_PY_VER_SEL;
-const DESIRED_R = process.env.POSITRON_R_VER_SEL;
+const DESIRED_PYTHON = process.env.POSITRON_PY_VER_SEL || 'missing POSITRON_PY_VER_SEL';
+const DESIRED_R = process.env.POSITRON_R_VER_SEL || 'missing POSITRON_R_VER_SEL';
+const ALTERNATE_PYTHON = process.env.POSITRON_PY_ALT_VER_SEL || 'missing POSITRON_PY_ALT_VER_SEL';
+const ALTERNATE_R = process.env.POSITRON_R_ALT_VER_SEL || 'missing POSITRON_R_ALT_VER_SEL';
 const sessionIdPattern = /^(python|r)-[a-zA-Z0-9]+$/i;
 const ACTIVE_STATUS_ICON = '.codicon-positron-status-active';
 
@@ -59,6 +61,25 @@ export class Sessions {
 
 	// -- Actions --
 
+
+	async startSessionList(sessionList: SessionRuntimes[]): Promise<void> {
+		await test.step('Start session list', async () => {
+			const runtimes: Record<string, string> = {
+				python: DESIRED_PYTHON,
+				r: DESIRED_R,
+				pythonAlt: ALTERNATE_PYTHON,
+				rAlt: ALTERNATE_R
+			};
+
+			for (const session of sessionList) {
+				const version = runtimes[session];
+				const language = session === 'python' || session === 'pythonAlt' ? 'Python' : 'R';
+
+				await this.launch({ language, version });
+			}
+		});
+	}
+
 	/**
 	 * Action: Start a session via the session picker button, quickaccess, or console session button.
 	 * @param options - Configuration options for selecting the runtime session.
@@ -76,6 +97,10 @@ export class Sessions {
 
 		if (!DESIRED_PYTHON || !DESIRED_R) {
 			throw new Error('Please set env vars: POSITRON_PY_VER_SEL, POSITRON_R_VER_SEL');
+		}
+
+		if (!ALTERNATE_PYTHON || !ALTERNATE_R) {
+			throw new Error('Please set env vars: POSITRON_PY_ALT_VER_SEL, POSITRON_R_VER_ALT');
 		}
 
 		const {
@@ -97,6 +122,7 @@ export class Sessions {
 			} else if (triggerMode === 'session-picker') {
 				await this.quickPick.openSessionQuickPickMenu();
 			} else if (triggerMode === 'console') {
+				await this.console.focus();
 				await this.newConsoleButton.click();
 				await expect(this.code.driver.page.getByText(/Select a Session/)).toBeVisible();
 			} else {
@@ -130,6 +156,7 @@ export class Sessions {
 	 */
 	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
 		await test.step(`Select session: ${sessionIdOrName}`, async () => {
+			await this.console.focus();
 			const session = this.getSessionTab(sessionIdOrName);
 
 			if (waitForSessionIdle) {
@@ -146,6 +173,7 @@ export class Sessions {
 	 */
 	async delete(sessionId: string): Promise<void> {
 		await test.step(`Delete session: ${sessionId}`, async () => {
+			await this.console.focus();
 			const sessionCount = (await this.sessions.all()).length;
 
 			if (sessionCount === 1) {
@@ -264,6 +292,28 @@ export class Sessions {
 			// Handle the last one separately because there may not be a tab list trash icon to click on
 			await this.console.barTrashButton.click();
 			await expect(this.page.getByText('Shutting down')).not.toBeVisible();
+		});
+	}
+
+	async deleteAllSessions() {
+		await test.step('Delete all sessions', async () => {
+			const sessionIds = await this.getAllSessionIds();
+			const sessionsToDelete: string[] = [];
+
+			for (const sessionId of sessionIds) {
+				sessionsToDelete.push(sessionId);
+			}
+
+			if (sessionsToDelete.length === 0) { return; }
+
+			// Delete all but the last one
+			for (let i = 0; i < sessionsToDelete.length - 1; i++) {
+				await this.delete(sessionsToDelete[i]);
+			}
+
+			// Handle the last one separately because there may not be a tab list trash icon to click on
+			await this.console.barTrashButton.click();
+			await expect(this.page.getByText('There is no session running.')).toBeVisible();
 		});
 	}
 
@@ -520,6 +570,15 @@ export class Sessions {
 		if (await this.idleStatus(session).isVisible()) { return 'idle'; }
 		if (await this.disconnectedStatus(session).isVisible()) { return 'disconnected'; }
 		return 'unknown';
+	}
+
+	createSessions() {
+		return {
+			pythonSession1: { ...pythonSession },
+			pythonSession2: { ...pythonSessionAlt },
+			rSession1: { ...rSession },
+			rSession2: { ...rSessionAlt },
+		};
 	}
 
 	// -- Verifications --
@@ -825,9 +884,9 @@ export type SessionMetaData = {
 
 // Use this session object to manage default python env in the test
 export const pythonSession: SessionInfo = {
-	name: `Python ${process.env.POSITRON_PY_VER_SEL || ''}`,
+	name: `Python ${DESIRED_PYTHON}`,
 	language: 'Python',
-	version: process.env.POSITRON_PY_VER_SEL || '',
+	version: DESIRED_PYTHON,
 	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
@@ -835,9 +894,9 @@ export const pythonSession: SessionInfo = {
 
 // Use this session object to manage alternate python env in the test
 export const pythonSessionAlt: SessionInfo = {
-	name: `Python ${process.env.POSITRON_PY_ALT_VER_SEL || ''}`,
+	name: `Python ${ALTERNATE_PYTHON}`,
 	language: 'Python',
-	version: process.env.POSITRON_PY_ALT_VER_SEL || '',
+	version: ALTERNATE_PYTHON,
 	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
@@ -845,9 +904,9 @@ export const pythonSessionAlt: SessionInfo = {
 
 // Use this session object to manage default R env in the test
 export const rSession: SessionInfo = {
-	name: `R ${process.env.POSITRON_R_VER_SEL || ''}`,
+	name: `R ${DESIRED_R}`,
 	language: 'R',
-	version: process.env.POSITRON_R_VER_SEL || '',
+	version: DESIRED_R,
 	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
@@ -855,10 +914,12 @@ export const rSession: SessionInfo = {
 
 // Use this session object to manage alternate R env in the test
 export const rSessionAlt: SessionInfo = {
-	name: `R ${process.env.POSITRON_R_ALT_VER_SEL || ''}`,
+	name: `R ${ALTERNATE_PYTHON}`,
 	language: 'R',
-	version: process.env.POSITRON_R_ALT_VER_SEL || '',
+	version: ALTERNATE_R,
 	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
 };
+
+type SessionRuntimes = 'python' | 'pythonAlt' | 'r' | 'rAlt';
