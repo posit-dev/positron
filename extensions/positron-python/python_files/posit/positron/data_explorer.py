@@ -101,7 +101,6 @@ if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
 
-    # import pyarrow as pa
 
 logger = logging.getLogger(__name__)
 
@@ -1515,7 +1514,6 @@ class PandasView(DataExplorerTableView):
         return {"row_labels": row_labels}
 
     def _format_values(self, values, options: FormatOptions) -> list[ColumnValue]:
-        import numpy as np
         import pandas as pd
 
         float_format = _get_float_formatter(options)
@@ -1992,7 +1990,7 @@ def _date_median(x):
     import pandas as pd
 
     # the np.array calls are required to please pyright
-    median_value = int(np.median(pd.to_numeric(x).to_numpy()))
+    median_value = int(np.median(pd.to_numeric(x).to_numpy()))  # type: ignore
     return pd.Series([median_value], dtype=x.dtype)[0]
 
 
@@ -2128,7 +2126,13 @@ def _polars_summarize_datetime(col: pl.Series, _):
     timezone = str(getattr(col.dtype, "time_zone", None))
 
     return _box_datetime_stats(
-        col.dtype.time_unit, col.n_unique(), col.min(), mean_date, median_date, col.max(), timezone
+        getattr(col.dtype, "time_unit", None),
+        col.n_unique(),
+        col.min(),
+        mean_date,
+        median_date,
+        col.max(),
+        timezone,
     )
 
 
