@@ -7,9 +7,11 @@
 import { fail } from 'assert';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
+import { expect } from '@playwright/test';
 
 const HORIZONTAL_SASH = '.explorer-viewlet .monaco-sash.horizontal';
 const FOCUS_OUTLINE_COMMAND = 'outline.focus';
+const OUTLINE_TREE = '.outline-tree';
 const OUTLINE_ELEMENT = '.outline-element';
 
 /*
@@ -17,11 +19,17 @@ const OUTLINE_ELEMENT = '.outline-element';
  */
 export class Outline {
 
+	outlineElement = this.code.driver.page.locator(OUTLINE_TREE).locator(OUTLINE_ELEMENT);
+
 	constructor(private code: Code, private quickaccess: QuickAccess) { }
+
+	async focus(): Promise<void> {
+		await this.quickaccess.runCommand(FOCUS_OUTLINE_COMMAND);
+	}
 
 	async getOutlineData(): Promise<string[]> {
 
-		await this.quickaccess.runCommand(FOCUS_OUTLINE_COMMAND);
+		await this.focus();
 
 		const sashLocator = this.code.driver.page.locator(HORIZONTAL_SASH).nth(1);
 		const sashBoundingBox = await sashLocator.boundingBox();
@@ -56,4 +64,13 @@ export class Outline {
 		return outlineData;
 	}
 
+	async expectOutlineElementToBeVisible(text: string, visible = true): Promise<void> {
+		visible
+			? await expect(this.outlineElement.filter({ hasText: text })).toBeVisible()
+			: await expect(this.outlineElement.filter({ hasText: text })).not.toBeVisible();
+	}
+
+	async expectOutlineElementCountToBe(count: number): Promise<void> {
+		await expect(this.outlineElement).toHaveCount(count);
+	}
 }
