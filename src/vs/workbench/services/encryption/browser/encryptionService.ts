@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IEncryptionService, KnownStorageProvider } from '../../../../platform/encryption/common/encryptionService.js';
-import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+// --- Start PWB: Secure storage ---
+//import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+// --- End PWB ---
 
 export class EncryptionService implements IEncryptionService {
 
@@ -31,4 +33,6 @@ export class EncryptionService implements IEncryptionService {
 	}
 }
 
-registerSingleton(IEncryptionService, EncryptionService, InstantiationType.Delayed);
+// --- Start PWB: Secure storage ---
+//registerSingleton(IEncryptionService, EncryptionService, InstantiationType.Delayed);
+// --- End PWB ---
