@@ -49,11 +49,13 @@ test.describe('Sessions: Diagnostics', {
 		await problems.showProblemsView();
 		await problems.expectProblemsCountToBe(4);
 
+		// Switch to another session and verify the error is present
 		await sessions.select(pythonSession2.id);
 		await problems.expectSquigglyToBeVisible('error');
 		await problems.showProblemsView();
 		await problems.expectProblemsCountToBe(4);
 
+		// Switch back to the first session and verify the error is still present
 		await sessions.select(pythonSession1.id);
 		await problems.expectSquigglyToBeVisible('error');
 		await problems.showProblemsView();
@@ -67,6 +69,7 @@ test.describe('Sessions: Diagnostics', {
 		await problems.expectSquigglyNotToBeVisible('error');
 		await problems.expectProblemsCountToBe(0);
 
+		// Switch to other session and verify the error is no longer present
 		await sessions.select(pythonSession2.id);
 		await problems.expectSquigglyNotToBeVisible('error');
 		await problems.expectProblemsCountToBe(0);
@@ -88,11 +91,13 @@ test.describe('Sessions: Diagnostics', {
 		await problems.showProblemsView();
 		await problems.expectProblemsCountToBe(1);
 
+		// Switch to another session and verify the error is present
 		await sessions.select(rSession2.id);
 		await problems.expectSquigglyToBeVisible('error');
 		await problems.showProblemsView();
 		await problems.expectProblemsCountToBe(1);
 
+		// Switch back to the first session and verify the error is still present
 		await sessions.select(rSession1.id);
 		await problems.expectSquigglyToBeVisible('error');
 		await problems.showProblemsView();
@@ -106,6 +111,7 @@ test.describe('Sessions: Diagnostics', {
 		await problems.expectSquigglyNotToBeVisible('error');
 		await problems.expectProblemsCountToBe(0);
 
+		// Switch to other session and verify the error is no longer present
 		await sessions.select(rSession2.id);
 		await problems.expectSquigglyNotToBeVisible('error');
 		await problems.expectProblemsCountToBe(0);
