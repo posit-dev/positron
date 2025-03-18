@@ -30,6 +30,7 @@ export class Notebooks {
 	kernelDropdown = this.code.driver.page.locator(KERNEL_DROPDOWN);
 	frameLocator = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
 	notebookProgressBar = this.code.driver.page.locator('[id="workbench\\.parts\\.editor"]').getByRole('progressbar');
+	cellIndex = (num = 0) => this.code.driver.page.locator('.cell-inner-container > .cell').nth(num);
 
 
 	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess) { }
@@ -46,7 +47,7 @@ export class Notebooks {
 
 			try {
 				// 1. Try finding by text
-				await expect(this.kernelDropdown.filter({ hasText: desiredKernel })).toBeVisible({ timeout: 5000 });
+				await expect(this.kernelDropdown.filter({ hasText: desiredKernel })).toBeVisible({ timeout: 2500 });
 				this.code.logger.log(`Kernel: found by text: ${desiredKernel}`);
 				return;
 			} catch (e) {
@@ -56,7 +57,7 @@ export class Notebooks {
 			try {
 				// 2. Try finding by label
 				const kernelLabelLocator = this.code.driver.page.locator(KERNEL_LABEL);
-				await expect(kernelLabelLocator).toHaveAttribute('aria-label', new RegExp(desiredKernel), { timeout: 5000 });
+				await expect(kernelLabelLocator).toHaveAttribute('aria-label', new RegExp(desiredKernel), { timeout: 2500 });
 				this.code.logger.log(`Kernel: found by label: ${desiredKernel}`);
 				return;
 			} catch (e) {
@@ -93,10 +94,10 @@ export class Notebooks {
 		});
 	}
 
-	async addCodeToFirstCell(code: string) {
+	async addCodeToCellAtIndex(code: string, cellIndex = 0, delay = 0) {
 		await test.step('Add code to first cell', async () => {
-			await this.code.driver.page.locator(CELL_LINE).first().click();
-			await this.typeInEditor(code);
+			await this.code.driver.page.locator(CELL_LINE).nth(cellIndex).click();
+			await this.typeInEditor(code, delay);
 			await this.waitForActiveCellEditorContents(code);
 		});
 	}
@@ -135,7 +136,15 @@ export class Notebooks {
 		await this.quickaccess.runCommand('notebook.focusTop');
 	}
 
-	async typeInEditor(text: string): Promise<any> {
+	async deleteAllCells() {
+		const cellCount = await this.code.driver.page.locator('.cell-inner-container > .cell').count();
+		for (let i = cellCount; i > 0; i--) {
+			await this.cellIndex(i - 1).click();
+			await this.code.driver.page.getByRole('button', { name: 'Delete Cell' }).click();
+		}
+	}
+
+	async typeInEditor(text: string, delay = 0): Promise<any> {
 		await test.step(`Type in editor: ${text}`, async () => {
 			const editor = `${ACTIVE_ROW_SELECTOR} .monaco-editor`;
 
@@ -144,7 +153,9 @@ export class Notebooks {
 			const textarea = `${editor} textarea`;
 			await expect(this.code.driver.page.locator(textarea)).toBeFocused();
 
-			await this.code.driver.page.locator(textarea).fill(text);
+			delay
+				? await this.code.driver.page.locator(textarea).pressSequentially(text, { delay })
+				: await this.code.driver.page.locator(textarea).fill(text);
 
 			await this._waitForActiveCellEditorContents(c => c.indexOf(text) > -1);
 		});
