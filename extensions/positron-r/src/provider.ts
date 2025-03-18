@@ -55,19 +55,10 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	// Discover R binaries on the system
 	const { binaries, currentBinary } = await getBinaries();
 
-	// If no R binaries are found, notify the user and end discovery.
+	// If no R binaries are found, log to output and end discovery.
 	if (binaries.length === 0) {
-		LOGGER.warn('Positron could not find any R installations. Please review any custom settings.');
+		LOGGER.warn('Positron could not find any R installations. Please verify that you have R installed and review any custom settings.');
 		printInterpreterSettingsInfo();
-		const showLog = await positron.window.showSimpleModalDialogPrompt(
-			vscode.l10n.t('No R installations discovered'),
-			vscode.l10n.t('Positron could not find any R installations. Learn more about R discovery at <br><a href="https://positron.posit.co/r-installations">https://positron.posit.co/r-installations</a>'),
-			vscode.l10n.t('View logs'),
-			vscode.l10n.t('Dismiss')
-		);
-		if (showLog) {
-			LOGGER.show();
-		}
 		return;
 	}
 
