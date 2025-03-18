@@ -833,10 +833,6 @@ export class KCApi implements PositronSupervisorApi {
 		this._disposables.forEach(disposable => disposable.dispose());
 	}
 
-	findAvailablePort(excluding: Array<number>, maxTries: number): Promise<number> {
-		return findAvailablePort(excluding, maxTries);
-	}
-
 	/**
 	 * Attempts to locate a copy of the Kallichore server binary.
 	 *

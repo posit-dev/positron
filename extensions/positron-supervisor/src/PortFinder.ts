@@ -6,7 +6,7 @@
 import * as net from 'net';
 
 /**
- * Finds an available TCP port for a server
+ * Finds an available TCP port
  *
  * @param excluding A list of ports to exclude from the search
  * @param maxTries The maximum number of attempts
