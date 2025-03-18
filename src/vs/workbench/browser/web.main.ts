@@ -89,7 +89,10 @@ import { BufferLogger } from '../../platform/log/common/bufferLog.js';
 import { FileLoggerService } from '../../platform/log/common/fileLog.js';
 import { IEmbedderTerminalService } from '../services/terminal/common/embedderTerminalService.js';
 import { BrowserSecretStorageService } from '../services/secrets/browser/secretStorageService.js';
-import { EncryptionService } from '../services/encryption/browser/encryptionService.js';
+// --- Start PWB: Secure storage ---
+//import { EncryptionService } from '../services/encryption/browser/encryptionService.js';
+import { BrowserEncryptionService } from '../services/encryption/browser/browserEncryptionService.js';
+// --- End PWB ---
 import { IEncryptionService } from '../../platform/encryption/common/encryptionService.js';
 import { ISecretStorageService } from '../../platform/secrets/common/secrets.js';
 import { TunnelSource } from '../services/remote/common/tunnelModel.js';
@@ -408,7 +411,9 @@ export class BrowserMain extends Disposable {
 		//
 		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-		const encryptionService = new EncryptionService();
+		// --- Start PWB: Secure storage ---
+		const encryptionService = new BrowserEncryptionService(storageService, logService, fileService, environmentService);
+		// --- End PWB ---
 		serviceCollection.set(IEncryptionService, encryptionService);
 		const secretStorageService = new BrowserSecretStorageService(storageService, encryptionService, environmentService, logService);
 		serviceCollection.set(ISecretStorageService, secretStorageService);
