@@ -713,8 +713,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 	private async startDap(): Promise<void> {
 		if (this._kernel) {
-			const port = await this.adapterApi!.findAvailablePort([], 25);
-			await this._kernel.startPositronDap(port, 'ark', 'Ark Positron R');
+			await this._kernel.startPositronDap('ark', 'Ark Positron R');
 		}
 	}
 

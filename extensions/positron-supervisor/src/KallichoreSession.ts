@@ -325,21 +325,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	/**
 	 * Requests that the kernel start a Debug Adapter Protocol server, and
-	 * connect it to the client locally on the given TCP port.
+	 * connect it to the client locally on the given TCP address.
 	 *
-	 * @param serverPort The port on which to bind locally.
 	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
 	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
 	 */
-	async startPositronDap(
-		serverPort: number,
-		debugType: string,
-		debugName: string,
-	) {
+	async startPositronDap(debugType: string, debugName: string) {
 		// NOTE: Ideally we'd connect to any address but the
 		// `debugServer` property passed in the configuration below
-		// needs to be a port for localhost.
-		const serverAddress = `127.0.0.1:${serverPort}`;
+		// needs to be localhost.
+		const ipAddress = '127.0.0.1';
 
 		// TODO: Should we query the kernel to see if it can create a DAP
 		// (QueryInterface style) instead of just demanding it?
@@ -349,7 +344,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Create a unique client ID for this instance
 		const clientId = `positron-dap-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
-		this.log(`Starting DAP server ${clientId} for ${serverAddress}`, vscode.LogLevel.Debug);
+		this.log(`Starting DAP server ${clientId} for ${ipAddress}`, vscode.LogLevel.Debug);
 
 		// Notify Positron that we're handling messages from this client
 		this._disposables.push(positron.runtime.registerClientInstance(clientId));
@@ -357,11 +352,21 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		await this.createClient(
 			clientId,
 			positron.RuntimeClientType.Dap,
-			{ client_address: serverAddress }
+			{ ip_address: ipAddress }
 		);
 
+		// Create a promise that will resolve when the DAP starts on the server
+		// side. When the promise resolves we obtain the port the client should
+		// connect on.
+		const startPromise = new PromiseHandles<number>();
+		this._startingComms.set(clientId, startPromise);
+
+		// Immediately await that promise because `startPositronDap()` handles the full
+		// DAP setup, unlike the LSP where the extension finishes the setup.
+		const port = await startPromise.promise;
+
 		// Create the DAP client message handler
-		this._dapClient = new DapClient(clientId, serverPort, debugType, debugName, this);
+		this._dapClient = new DapClient(clientId, port, debugType, debugName, this);
 	}
 
 	/**
