@@ -33,21 +33,12 @@ export class Problems {
 		await expect(this.problemsView).toBeVisible();
 	}
 
-	private async expectSquigglyVisibility(severity: ProblemSeverity, shouldBeVisible: boolean): Promise<void> {
-		await test.step(`Expect ${severity} squiggly ${shouldBeVisible ? 'to' : 'not to'} be visible`, async () => {
+	async expectSquigglyCountToBe(severity: ProblemSeverity, count: number): Promise<void> {
+		await test.step(`Expect ${severity} squiggly count: ${count}`, async () => {
 			const squiggly = severity === 'warning' ? this.warningSquiggly : this.errorSquiggly;
-			shouldBeVisible
-				? await expect(squiggly).toBeVisible()
-				: await expect(squiggly).not.toBeVisible();
+
+			await expect(squiggly).toHaveCount(count);
 		});
-	}
-
-	async expectSquigglyToBeVisible(severity: ProblemSeverity): Promise<void> {
-		await this.expectSquigglyVisibility(severity, true);
-	}
-
-	async expectSquigglyNotToBeVisible(severity: ProblemSeverity): Promise<void> {
-		await this.expectSquigglyVisibility(severity, false);
 	}
 
 	async expectProblemsCountToBe(count: number): Promise<void> {
