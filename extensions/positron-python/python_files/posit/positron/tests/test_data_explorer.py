@@ -2577,11 +2577,23 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             * 20,
             # datetime64[us] with 10us increments
             "f13": pd.date_range("2000-01-01", freq="10us", periods=100).astype("datetime64[us]"),
+            "f14": (
+                pd.date_range("2000-01-01", freq="10us", periods=100)
+                .astype("datetime64[us]")
+                .tz_localize("US/Eastern")
+            ),
             # datetime64[ms] with 10ms increments
-            "f14": pd.date_range("2000-01-01", freq="10ms", periods=100).astype("datetime64[ms]"),
-            "f15": (
+            "f15": pd.date_range("2000-01-01", freq="10ms", periods=100).astype("datetime64[ms]"),
+            "f16": (
                 pd.date_range("2000-01-01", freq="10ms", periods=100)
                 .astype("datetime64[ms]")
+                .tz_localize("US/Eastern")
+            ),
+            # datetime64[s] for 10s increments
+            "f17": pd.date_range("2000-01-01", freq="10s", periods=100).astype("datetime64[s]"),
+            "f18": (
+                pd.date_range("2000-01-01", freq="10s", periods=100)
+                .astype("datetime64[s]")
                 .tz_localize("US/Eastern")
             ),
         }
@@ -2760,10 +2772,22 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 "timezone": "None",
             },
         ),
-        # datetime64[ms]
         (
             "df1",
             14,
+            {
+                "num_unique": 100,
+                "min_date": "2000-01-01 00:00:00-05:00",
+                "mean_date": "2000-01-01 00:00:00.000495-05:00",
+                "median_date": "2000-01-01 00:00:00.000495-05:00",
+                "max_date": "2000-01-01 00:00:00.000990-05:00",
+                "timezone": "US/Eastern",
+            },
+        ),
+        # datetime64[ms]
+        (
+            "df1",
+            15,
             {
                 "num_unique": 100,
                 "min_date": "2000-01-01 00:00:00",
@@ -2775,13 +2799,38 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
         ),
         (
             "df1",
-            15,
+            16,
             {
                 "num_unique": 100,
                 "min_date": "2000-01-01 00:00:00-05:00",
                 "mean_date": "2000-01-01 00:00:00.495-05:00",
                 "median_date": "2000-01-01 00:00:00.495-05:00",
                 "max_date": "2000-01-01 00:00:00.990-05:00",
+                "timezone": "US/Eastern",
+            },
+        ),
+        # datetime64[s]
+        (
+            "df1",
+            17,
+            {
+                "num_unique": 100,
+                "min_date": "2000-01-01 00:00:00",
+                "mean_date": "2000-01-01 00:08:15",
+                "median_date": "2000-01-01 00:08:15",
+                "max_date": "2000-01-01 00:16:30",
+                "timezone": "None",
+            },
+        ),
+        (
+            "df1",
+            18,
+            {
+                "num_unique": 100,
+                "min_date": "2000-01-01 00:00:00-05:00",
+                "mean_date": "2000-01-01 00:08:15-05:00",
+                "median_date": "2000-01-01 00:08:15-05:00",
+                "max_date": "2000-01-01 00:16:30-05:00",
                 "timezone": "US/Eastern",
             },
         ),
