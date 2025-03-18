@@ -38,7 +38,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			throw new Error(vscode.l10n.t('Failed to register model configuration. The model configuration could not be found.'));
 		}
 
-		const enabledProviders = getEnabledProviders();
+		const enabledProviders = await getEnabledProviders();
 		const enabled = enabledProviders.length === 0 || enabledProviders.includes(modelConfig.provider);
 		if (!enabled) {
 			vscode.window.showErrorMessage(
@@ -73,7 +73,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 	let modelConfigs: ModelConfig[] = [];
 	try {
 		// Refresh the set of enabled providers
-		const enabledProviders = getEnabledProviders();
+		const enabledProviders = await getEnabledProviders();
 		modelConfigs = await getModelConfigurations(context, storage);
 		modelConfigs = modelConfigs.filter(config => {
 			const enabled = enabledProviders.length === 0 ||

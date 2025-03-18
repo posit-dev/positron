@@ -89,4 +89,11 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	async $getPositronChatContext(request: IChatRequestData): Promise<IPositronChatContext> {
 		return this._positronAssistantService.getPositronChatContext(request);
 	}
+
+	/**
+	 * Get Positron's supported providers.
+	 */
+	async $getSupportedProviders(): Promise<string[]> {
+		return this._positronAssistantService.getSupportedProviders();
+	}
 }

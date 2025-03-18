@@ -83,4 +83,8 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		}
 		return onAction(config, action);
 	}
+
+	async getSupportedProviders(): Promise<string[]> {
+		return this._proxy.$getSupportedProviders();
+	}
 }

@@ -35,6 +35,10 @@ export const LanguageModelButton = (props: LanguageModelButtonProps) => {
 				return <GithubCopilot className='language-model icon' />;
 			case 'bedrock':
 				return <Bedrock className='language-model icon' />;
+			case 'error':
+				return <div className={`language-model icon button-icon codicon codicon-error`} />;
+			case 'echo':
+				return <div className={`language-model icon button-icon codicon codicon-info`} />;
 			default:
 				return null;
 		}

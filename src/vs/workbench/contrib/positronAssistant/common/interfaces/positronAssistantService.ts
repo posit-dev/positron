@@ -93,6 +93,10 @@ export interface IPositronAssistantService {
 		onCancel: () => void,
 	): void;
 	/**
+	 * Get the supported providers for Positron Assistant.
+	 */
+	getSupportedProviders(): string[];
+	/**
 	 * Placeholder that gets called to "initialize" the PositronAssistantService.
 	 */
 	initialize(): void;

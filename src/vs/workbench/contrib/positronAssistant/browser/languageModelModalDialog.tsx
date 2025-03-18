@@ -21,9 +21,7 @@ import { IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLan
 import { localize } from '../../../../nls.js';
 import { ProgressBar } from '../../../../base/browser/ui/positronComponents/progressBar.js';
 import { LanguageModelButton } from './components/languageModelButton.js';
-import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
 import { DropDownListBox } from '../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { OKModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronOKModalDialog.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -31,7 +29,6 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 export const showLanguageModelModalDialog = (
 	keybindingService: IKeybindingService,
 	layoutService: ILayoutService,
-	contextKeyService: IContextKeyService,
 	configurationService: IConfigurationService,
 	sources: IPositronLanguageModelSource[],
 	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
@@ -47,7 +44,6 @@ export const showLanguageModelModalDialog = (
 		<div className='language-model-modal-dialog'>
 			<LanguageModelConfiguration
 				configurationService={configurationService}
-				contextKeyService={contextKeyService}
 				keybindingService={keybindingService}
 				layoutService={layoutService}
 				renderer={renderer}
@@ -63,7 +59,6 @@ interface LanguageModelConfigurationProps {
 	keybindingService: IKeybindingService;
 	layoutService: ILayoutService;
 	sources: IPositronLanguageModelSource[];
-	contextKeyService: IContextKeyService;
 	configurationService: IConfigurationService;
 	renderer: PositronModalReactRenderer;
 	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>;
@@ -71,8 +66,6 @@ interface LanguageModelConfigurationProps {
 }
 
 const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModelConfigurationProps>) => {
-	const isDev = IsDevelopmentContext.getValue(props.contextKeyService);
-
 	const [type, setType] = React.useState<PositronLanguageModelType>(PositronLanguageModelType.Chat);
 
 	const useNewConfig = props.configurationService.getValue<boolean>('positron.assistant.newModelConfiguration');
@@ -313,7 +306,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				<label className='language-model-section'>
 					{(() => localize('positron.newConnectionModalDialog.provider', "Provider"))()}
 				</label>
-				<div>
+				<div className='language-model button-container'>
 					{
 						providers.map(provider => {
 							console.log(provider.options.value.signedIn);
@@ -359,7 +352,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		</OKModalDialog>;
 	}
 
-	if (isDev && useNewConfig) {
+	if (useNewConfig) {
 		return newDialog();
 	} else {
 		return oldDialog();

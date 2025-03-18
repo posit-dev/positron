@@ -1704,6 +1704,8 @@ declare module 'positron' {
 			edits: vscode.TextEdit[];
 		}): void;
 
+		export function getSupportedProviders(): Thenable<string[]>;
+
 		/**
 		 * Show a modal dialog for language model configuration.
 		 */

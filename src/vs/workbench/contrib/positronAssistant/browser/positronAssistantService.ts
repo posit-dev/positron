@@ -17,6 +17,7 @@ import { ILayoutService } from '../../../../platform/layout/browser/layoutServic
 import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
 
 /**
  * PositronAssistantService class.
@@ -84,7 +85,15 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 		onCancel: () => void,
 	): void {
-		showLanguageModelModalDialog(this._keybindingService, this._layoutService, this._contextKeyService, this._configurationService, sources, onAction, onCancel);
+		showLanguageModelModalDialog(this._keybindingService, this._layoutService, this._configurationService, sources, onAction, onCancel);
+	}
+
+	getSupportedProviders(): string[] {
+		const providers = ['anthropic', 'google', 'copilot'];
+		if (IsDevelopmentContext.getValue(this._contextKeyService)) {
+			providers.push('bedrock', 'error', 'echo');
+		}
+		return providers;
 	}
 
 	//#endregion

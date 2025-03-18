@@ -31,6 +31,20 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly identifier = 'error-language-model';
 	private readonly _message = 'This language model always throws an error message.';
 
+	static source = {
+		type: positron.PositronLanguageModelType.Chat,
+		signedIn: false,
+		provider: {
+			id: 'error',
+			displayName: 'Error Language Model',
+		},
+		supportedOptions: [],
+		defaults: {
+			name: 'Error Language Model',
+			model: 'error',
+		},
+	};
+
 	provideLanguageModelResponse(): Promise<any> {
 		throw new Error(this._message);
 	}
@@ -48,6 +62,20 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly name = 'Echo Language Model';
 	readonly provider = 'echo';
 	readonly identifier = 'echo-language-model';
+
+	static source = {
+		type: positron.PositronLanguageModelType.Chat,
+		signedIn: false,
+		provider: {
+			id: 'echo',
+			displayName: 'Echo Language Model',
+		},
+		supportedOptions: [],
+		defaults: {
+			name: 'Echo Language Model',
+			model: 'echo',
+		},
+	};
 
 	async provideLanguageModelResponse(
 		messages: vscode.LanguageModelChatMessage[],
@@ -500,20 +528,20 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 	}
 }
 
-
-export const languageModels = [
-	AWSLanguageModel,
-	AnthropicLanguageModel,
-	// AzureLanguageModel,
-	GoogleLanguageModel,
-	// MistralLanguageModel,
-	// OllamaLanguageModel,
-	// OpenAILanguageModel,
-	// OpenRouterLanguageModel,
-	// VertexLanguageModel,
-];
-
 export const testLanguageModels = [
+	AWSLanguageModel,
 	EchoLanguageModel,
 	ErrorLanguageModel,
+];
+
+export const languageModels = [
+	...testLanguageModels,
+	AnthropicLanguageModel,
+	AzureLanguageModel,
+	GoogleLanguageModel,
+	MistralLanguageModel,
+	OllamaLanguageModel,
+	OpenAILanguageModel,
+	OpenRouterLanguageModel,
+	VertexLanguageModel,
 ];

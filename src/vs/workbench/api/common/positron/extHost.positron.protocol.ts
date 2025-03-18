@@ -134,6 +134,7 @@ export interface MainThreadAiFeaturesShape {
 	$getPositronChatContext(request: IChatRequestData): Thenable<IPositronChatContext>;
 	$responseProgress(sessionId: string, dto: IChatProgressDto): void;
 	$languageModelConfig(id: string, sources: IPositronLanguageModelSource[], action: string): Thenable<void>;
+	$getSupportedProviders(): Thenable<string[]>;
 }
 
 export interface ExtHostAiFeaturesShape {

@@ -13,10 +13,21 @@
 	font-size: 0.7rem;
 }
 
+/* scroll the container horizontally and show the scrollbar when it overflows */
+.language-model.button-container {
+	display: flex;
+	overflow-x: auto;
+	scrollbar-width: thin;
+}
+
 .language-model.icon {
 	height: 3rem;
 	width: 3rem;
 	align-self: center;
+}
+
+.language-model.icon.codicon.button-icon {
+	font-size: 3rem;
 }
 
 .language-model.button .content {

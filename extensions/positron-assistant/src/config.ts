@@ -186,10 +186,12 @@ async function confirmModelDeletion(context: vscode.ExtensionContext, storage: S
 	}
 }
 
-export function getEnabledProviders(): string[] {
+export async function getEnabledProviders(): Promise<string[]> {
 	// Get the configuration option listing enabled providers
 	let enabledProviders: string[] =
 		vscode.workspace.getConfiguration('positron.assistant').get('enabledProviders') || [];
+	const supportedProviders = await positron.ai.getSupportedProviders();
+	enabledProviders.push(...supportedProviders);
 
 	// Ensure an array was specified; coerce other values
 	if (!Array.isArray(enabledProviders)) {
@@ -213,7 +215,7 @@ export function getEnabledProviders(): string[] {
 export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {
 
 	// Gather model sources; ignore disabled providers
-	const enabledProviders = getEnabledProviders();
+	const enabledProviders = await getEnabledProviders();
 	const registeredModels = context.globalState.get<Array<StoredModelConfig>>('positron.assistant.models');
 	const sources = [...languageModels, ...completionModels]
 		.map((provider) => {
