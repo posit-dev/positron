@@ -645,7 +645,10 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		});
 
 		await this.shutdown(positron.RuntimeExitReason.Shutdown);
-		return;
+		// If the `restart` is not handled finished, positron won't allow another session
+		// to start. To fix that we need to throw an error (that's silently ignroed by Positron)
+		// and then start a new session.
+		throw new Error('Restarting the reticulate session');
 	}
 
 	public async shutdown(exitReason: positron.RuntimeExitReason) {
@@ -779,6 +782,7 @@ export class ReticulateProvider {
 		if (this._client) {
 			this._client.dispose();
 		}
+		console.log("Registering reticulate client!")
 
 		this._client = client;
 		// We'll force the registration when the user calls `reticulate::repl_python()`
@@ -793,10 +797,12 @@ export class ReticulateProvider {
 		this.manager._session?.onDidEndSession(() => {
 			this._client?.dispose();
 			this._client = undefined;
+			console.log("Reticulate session ended");
 		});
 
 		this._client.onDidSendEvent(async (e) => {
 			const event = e.data as any;
+			console.log("Helloo reticulate:", event);
 			if (event.method === 'focus') {
 				let input;
 				if (event.params && event.params.input) {
