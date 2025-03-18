@@ -46,6 +46,7 @@ export enum TestTags {
 	R_PKG_DEVELOPMENT = '@:r-pkg-development',
 	RETICULATE = '@:reticulate',
 	SCM = '@:scm',
+	SEARCH = '@:search',
 	SESSIONS = '@:sessions',
 	TASKS = '@:tasks',
 	TEST_EXPLORER = '@:test-explorer',
