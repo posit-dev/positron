@@ -28,6 +28,8 @@ import { localize } from '../../../../nls.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
 // --- Start Positron ---
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 // --- End Positron ---
 
 const replTabIcon = registerIcon('repl-editor-label-icon', Codicon.debugLineByLine, localize('replEditorLabelIcon', 'Icon of the REPL editor label.'));
@@ -58,11 +60,13 @@ export class ReplEditorInput extends NotebookEditorInput implements ICompositeNo
 		@IConfigurationService configurationService: IConfigurationService,
 		// --- Start Positron ---
 		@ICommandService commandService: ICommandService,
+		@IRuntimeSessionService runtimeSessionService: IRuntimeSessionService,
+		@ILogService logService: ILogService,
 		// --- End Positron ---
 	) {
 		super(resource, undefined, 'jupyter-notebook', {}, _notebookService, _notebookModelResolverService, _fileDialogService, labelService, fileService, filesConfigurationService, extensionService, editorService, textResourceConfigurationService, customEditorLabelService,
 			// --- Start Positron ---
-			commandService);
+			runtimeSessionService, logService);
 		// --- End Positron ---
 		this.isScratchpad = resource.scheme === 'untitled' && configurationService.getValue<boolean>(NotebookSetting.InteractiveWindowPromptToSave) !== true;
 		this.label = label ?? this.createEditorLabel(resource);

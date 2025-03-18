@@ -20,14 +20,13 @@ import { ILanguageService } from '../../../../editor/common/languages/language.j
 import { ResourceMap } from '../../../../base/common/map.js';
 import { IExtensionService } from '../../extensions/common/extensions.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
-import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
 import { IUpdateService } from '../../../../platform/update/common/update.js';
 import { multipleConsoleSessionsFeatureEnabled } from './positronMultipleConsoleSessionsFeatureFlag.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { IPositronVariablesService } from '../../positronVariables/common/interfaces/positronVariablesService.js';
 
 /**
  * The maximum number of active sessions a user can have running at a time.
@@ -2169,74 +2168,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 	}
 }
-
-/**
- * _positron.reassignNotebookSessionUri - Command to transfer a notebook runtime session between URIs
- *
- * This command serves as a bridge during the notebook save process, ensuring that when
- * an untitled notebook is saved to disk, it maintains its runtime context (variables, execution history, etc.).
- *
- * Why this exists:
- * Without this command, saving an untitled notebook would create a new file but lose the runtime
- * context - all variables and kernel connections would be lost, forcing users to re-execute
- * all their cells after saving.
- *
- * Key architectural points:
- * 1. This command is triggered from NotebookEditorInput.saveAs() during the file save process
- * 2. The UI updates in runtime-dependent components (like the variables view) depend on this command
- * 3. Execution must complete before the save operation finalizes to ensure consistent state
- *
- * The implementation handles errors to prevent blocking the main save operation
- * if runtime session transfer fails. This ensures users can always save their files, even
- * if maintaining the session fails.
- *
- * Error handling approach:
- * We catch and log errors but don't propagate them up to the save operation, because saving
- * the file content is more important than maintaining the runtime state - the worst case is
- * that users need to re-run their cells, but their code is saved.
- */
-CommandsRegistry.registerCommand('_positron.reassignNotebookSessionUri', async (accessor, fromUri: string, toUri: string) => {
-	try {
-		// Validate and parse URIs
-		// Why check: Command parameters could be malformed from unexpected callers
-		if (!fromUri || !toUri) {
-			throw new Error('Missing URI parameters for notebook session reassignment');
-		}
-
-		const from = URI.parse(fromUri);
-		const to = URI.parse(toUri);
-
-		// Get services needed for the operation
-		// Why these services:
-		// - runtimeSessionService: Handles the actual URI mapping update
-		// - variablesService: Needs to refresh the variables view to show the new URI
-		// - logService: For debugging and error tracking
-		const runtimeSessionService = accessor.get(IRuntimeSessionService);
-		const variablesService = accessor.get(IPositronVariablesService);
-		const logService = accessor.get(ILogService);
-
-		// Update the URI associated with the session
-		// Why debug log: Helps trace sequence of operations during save process debugging
-		logService.debug(`Reassigning notebook session URI: ${fromUri} → ${toUri}`);
-		const sessionId = runtimeSessionService.updateNotebookSessionUri(from, to);
-
-		if (sessionId) {
-			// Tell the variables service to refresh so that the new URI is displayed
-			// Why this is needed: The variables view watches for active sessions but needs
-			// an explicit refresh after the URI change to show the updated filename
-			// instead of "Untitled-1"
-			variablesService.setActivePositronVariablesSession(sessionId);
-			logService.debug(`Successfully reassigned session ${sessionId} to URI: ${toUri}`);
-		} else {
-			// Why this isn't an error: It's normal for new notebooks without any executed cells
-			// to not have a session yet, so this is an expected case
-			logService.debug(`No session found to reassign for URI: ${fromUri}`);
-		}
-	} catch (error) {
-		// Log the error but don't propagate it to avoid breaking the save process
-		accessor.get(ILogService).error('Failed to reassign notebook session URI', error);
-	}
-});
 
 registerSingleton(IRuntimeSessionService, RuntimeSessionService, InstantiationType.Eager);
 

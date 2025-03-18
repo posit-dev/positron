@@ -31,7 +31,10 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { IMarkdownString } from '../../../../base/common/htmlContent.js';
 import { ITextResourceConfigurationService } from '../../../../editor/common/services/textResourceConfiguration.js';
 import { ICustomEditorLabelService } from '../../../services/editor/common/customEditorLabelService.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
+// --- Start Positron ---
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+// --- End Positron ---
 
 export interface NotebookEditorInputOptions {
 	startDirty?: boolean;
@@ -73,7 +76,10 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 		@IEditorService editorService: IEditorService,
 		@ITextResourceConfigurationService textResourceConfigurationService: ITextResourceConfigurationService,
 		@ICustomEditorLabelService customEditorLabelService: ICustomEditorLabelService,
-		@ICommandService private readonly _commandService: ICommandService,
+		// --- Start Positron ---
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@ILogService private readonly _logService: ILogService,
+		// --- End Positron ---
 	) {
 		super(resource, preferredResource, labelService, fileService, filesConfigurationService, textResourceConfigurationService, customEditorLabelService);
 		this._defaultDirtyState = !!options.startDirty;
@@ -245,22 +251,30 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 		//  1. All defined variables and in-memory state
 		//  2. The active kernel connection
 		//  3. Execution history and context
-		// Without this, saving would disconnect the notebook from its runtime session
+		// When saving an untitled notebook to disk, we must update the runtime session mappings
+		// to ensure the session (variables, execution history) remains connected to the new file
 		if (this.hasCapability(EditorInputCapabilities.Untitled) && target) {
 			try {
-				// Send message to the runtime session service to update the URI mapping
-				// This must happen AFTER the file is validated but BEFORE the actual save completes
-				// We use await to ensure this operation completes before proceeding with the save
-				await this._commandService.executeCommand(
-					'_positron.reassignNotebookSessionUri',
-					this.resource.toString(),
-					target.toString()
-				);
+				this._logService.debug(`Reassigning notebook session URI: ${this.resource.toString()} → ${target.toString()}`);
+
+				// Call updateNotebookSessionUri on the runtime service
+				// This updates internal mappings and emits events that other components listen for
+				const sessionId = this._runtimeSessionService.updateNotebookSessionUri(this.resource, target);
+
+				if (sessionId) {
+					// Log success to aid debugging session transfer issues
+					this._logService.debug(`Successfully reassigned session ${sessionId} to URI: ${target.toString()}`);
+				} else {
+					// This is an expected case for notebooks without executed cells (no session yet)
+					this._logService.debug(`No session found to reassign for URI: ${this.resource.toString()}`);
+				}
 			} catch (error) {
-				// Log the error but continue with the save process
-				// This prevents URI reassignment failures from blocking the file save operation
-				// In the worst case, the notebook will save but lose its runtime session
+				// Why we catch but continue:
+				// 1. Session transfer is important but secondary to saving the file content
+				// 2. Failed session transfer shouldn't prevent the user from saving their work
+				// 3. In the worst case, the notebook will save but users may need to re-run cells
 				console.error('Failed to update notebook session URI during save:', error);
+				this._logService.error('Failed to reassign notebook session URI', error);
 			}
 		}
 		// --- End Positron ---
