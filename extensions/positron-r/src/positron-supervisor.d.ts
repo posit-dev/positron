@@ -170,15 +170,6 @@ export interface PositronSupervisorApi extends vscode.Disposable {
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
 		sessionMetadata: positron.RuntimeSessionMetadata
 	): Promise<JupyterLanguageRuntimeSession>;
-
-	/**
-	 * Finds an available TCP port for a server
-	 *
-	 * @param excluding A list of ports to exclude from the search
-	 * @param maxTries The maximum number of attempts
-	 * @returns An available TCP port
-	 */
-	findAvailablePort(excluding: Array<number>, maxTries: number): Promise<number>;
 }
 
 /** Specific functionality implemented by runtimes */
