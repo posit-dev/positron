@@ -27,15 +27,22 @@ export class RSessionManager {
 			if (sessionId) {
 				const session = this._sessions.get(sessionId);
 				if (session) {
-					// Start LSP for the foreground session
-					session.activateLsp();
-
 					// Stop LSPs for other console sessions
-					this._sessions.forEach(s => {
-						if (s.metadata.sessionId !== sessionId &&
-							s.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
-							s.deactivateLsp();
-						}
+					const stopPromises = Array.from(this._sessions)
+						// Convert RSession to Promise to stop LSP
+						.map(([, s]) => {
+							if (s.metadata.sessionId !== sessionId &&
+								s.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
+								return s.deactivateLsp();
+							}
+						})
+						// Remove undefined values
+						.filter(p => p !== undefined);
+
+					// Wait for all LSPs to stop before starting the foreground
+					Promise.all(stopPromises).then(async () => {
+						// Start LSP for the foreground session
+						await session.activateLsp();
 					});
 				}
 			}
