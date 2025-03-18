@@ -150,7 +150,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			this._hoverService
 		);
 		// Show tooltip hovers right away
-		this._hoverManager.setHoverDelay(100);
+		this._hoverManager.setCustomHoverDelay(0);
 		this._register(this._hoverManager);
 	}
 

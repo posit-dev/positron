@@ -27,6 +27,11 @@ export class PositronActionBarHoverManager extends Disposable implements IHoverM
 	private _hoverDelay: number;
 
 	/**
+	 * A custom hover delay to override the one from the configuration service.
+	 */
+	private _customHoverDelay: number | undefined;
+
+	/**
 	 * Gets or sets the hover leave time.
 	 */
 	private _hoverLeaveTime: number = 0;
@@ -70,7 +75,7 @@ export class PositronActionBarHoverManager extends Disposable implements IHoverM
 		// Initialize and track changes to the hover delay configuration.
 		this._hoverDelay = this._configurationService.getValue<number>('workbench.hover.delay');
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('workbench.hover.delay')) {
+			if (e.affectsConfiguration('workbench.hover.delay') && !this._customHoverDelay) {
 				this._hoverDelay = this._configurationService.getValue<number>('workbench.hover.delay');
 			}
 		}));
@@ -166,7 +171,8 @@ export class PositronActionBarHoverManager extends Disposable implements IHoverM
 	/**
 	 * Set the hover delay to the specified value.
 	 */
-	public setHoverDelay(hoverDelay: number): void {
+	public setCustomHoverDelay(hoverDelay: number): void {
+		this._customHoverDelay = hoverDelay;
 		this._hoverDelay = hoverDelay;
 	}
 
