@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Hotkeys } from '../../infra/fixtures/keyboard.js';
 import { pythonSession, pythonSessionAlt, rSession, rSessionAlt, SessionInfo } from '../../infra/index.js';
 import { test, tags } from '../_test.setup.js';
 import { join } from 'path';
@@ -61,7 +60,7 @@ test.describe('Sessions: Diagnostics', {
 		await problems.expectProblemsCountToBe(4);
 
 		// Undo the changes
-		await keyboard.hotKeys(Hotkeys.UNDO);
+		await keyboard.hotKeys.undo();
 
 		// Verify the error is no longer present in Editor and Problems view
 		await sessions.select(pythonSession1.id);
@@ -100,7 +99,7 @@ test.describe('Sessions: Diagnostics', {
 		await problems.expectProblemsCountToBe(1);
 
 		// Undo the changes
-		await keyboard.hotKeys(Hotkeys.UNDO);
+		await keyboard.hotKeys.undo();
 
 		// Verify the error is no longer present in Editor and Problems view
 		await sessions.select(rSession1.id);

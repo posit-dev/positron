@@ -914,7 +914,7 @@ export const rSession: SessionInfo = {
 
 // Use this session object to manage alternate R env in the test
 export const rSessionAlt: SessionInfo = {
-	name: `R ${ALTERNATE_PYTHON}`,
+	name: `R ${ALTERNATE_R}`,
 	language: 'R',
 	version: ALTERNATE_R,
 	triggerMode: 'hotkey',

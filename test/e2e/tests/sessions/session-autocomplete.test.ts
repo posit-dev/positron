@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Application, Hotkeys, Keyboard, pythonSession, pythonSessionAlt, rSession, rSessionAlt, SessionInfo } from '../../infra/index.js';
+import { Application, pythonSession, pythonSessionAlt, rSession, rSessionAlt, SessionInfo } from '../../infra/index.js';
 import { test, tags, expect } from '../_test.setup';
 
 const pythonSession1a: SessionInfo = { ...pythonSession };
@@ -18,7 +18,7 @@ test.use({
 });
 
 test.describe('Session: Autocomplete', {
-	tag: [tags.WEB, tags.WIN, tags.CONSOLE, tags.SESSIONS]
+	tag: [tags.WEB, tags.WIN, tags.CONSOLE, tags.SESSIONS, tags.EDITOR]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
@@ -44,16 +44,16 @@ test.describe('Session: Autocomplete', {
 		await runCommand('Python: New Python File');
 		await variables.togglePane('hide');
 
-		// Session 1a - verify autocomplete suggestions
-		await triggerAutocompleteInEditor(app, pythonSession1a, keyboard);
+		// Session 1a - trigger and verify autocomplete suggestions
+		await triggerAutocompleteInEditor({ app, session: pythonSession1a, retrigger: false });
 		await editors.expectSuggestionListCount(8);
 
-		// Session 1b - verify autocomplete suggestions
-		await retriggerAutocompleteInEditor(app, pythonSession1b, keyboard);
+		// Session 1b - retrigger and verify autocomplete suggestions
+		await triggerAutocompleteInEditor({ app, session: pythonSession1b, retrigger: true });
 		await editors.expectSuggestionListCount(5); // why are we only getting 5?
 
-		// Session 2 - verify no autocomplete
-		await retriggerAutocompleteInEditor(app, pythonSession2, keyboard);
+		// Session 2 - retrigger and verify no autocomplete
+		await triggerAutocompleteInEditor({ app, session: pythonSession2, retrigger: true });
 		await editors.expectSuggestionListCount(0);
 	});
 
@@ -76,16 +76,16 @@ test.describe('Session: Autocomplete', {
 		await runCommand('R: New R File');
 		await variables.togglePane('hide');
 
-		// Session 1a - verify autocomplete suggestions
-		await triggerAutocompleteInEditor(app, rSession1a, keyboard);
+		// Session 1a - trigger and verify autocomplete suggestions
+		await triggerAutocompleteInEditor({ app, session: rSession1a, retrigger: false });
 		await editors.expectSuggestionListCount(4);
 
-		// Session 1b - verify autocomplete suggestions
-		await retriggerAutocompleteInEditor(app, rSession1b, keyboard);
+		// Session 1b - retrigger and verify autocomplete suggestions
+		await triggerAutocompleteInEditor({ app, session: rSession1b, retrigger: true });
 		await editors.expectSuggestionListCount(4);
 
-		// Session 2 - verify no autocomplete
-		await retriggerAutocompleteInEditor(app, rSession2, keyboard);
+		// Session 2 - retrigger verify no autocomplete
+		await triggerAutocompleteInEditor({ app, session: rSession2, retrigger: true });
 		await editors.expectSuggestionListCount(0);
 	});
 });
@@ -107,27 +107,24 @@ async function triggerAutocompleteInConsole(app: Application, session: SessionIn
 	}
 }
 
-async function triggerAutocompleteInEditor(app: Application, session: SessionInfo, keyboard: Keyboard) {
+async function triggerAutocompleteInEditor({ app, session, retrigger = false }: {
+	app: Application;
+	session: SessionInfo;
+	retrigger?: boolean;
+}) {
 	const { sessions } = app.workbench;
+	const keyboard = app.keyboard;
 
 	await sessions.select(session.id);
-	await keyboard.hotKeys(Hotkeys.FIRST_TAB);
+	await keyboard.hotKeys.firstTab();
 
-	session.language === 'Python'
-		? await keyboard.type('df = pd.Dat', { delay: 250 })
-		: await keyboard.type('df2 <- read_p', { delay: 250 });
+	if (retrigger) {
+		await keyboard.press('Backspace', { delay: 1000 });
+		await keyboard.type(session.language === 'Python' ? 't' : 'p', { delay: 1000 });
+	} else {
+		await keyboard.type(
+			session.language === 'Python' ? 'df = pd.Dat' : 'df2 <- read_p',
+			{ delay: 250 }
+		);
+	}
 }
-
-async function retriggerAutocompleteInEditor(app: Application, session: SessionInfo, keyboard: Keyboard) {
-	const { sessions } = app.workbench;
-
-	await sessions.select(session.id);
-	await keyboard.hotKeys(Hotkeys.FIRST_TAB);
-	await keyboard.press('Backspace', { delay: 1000 });
-
-	session.language === 'Python'
-		? await keyboard.type('t', { delay: 1000 })
-		: await keyboard.type('p', { delay: 1000 });
-}
-
-

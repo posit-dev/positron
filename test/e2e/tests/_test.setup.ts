@@ -23,7 +23,7 @@ import archiver from 'archiver';
 // Local imports
 import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
-import { Keyboard } from '../infra/fixtures/keyboard.js';
+import { Keyboard } from '../infra/keyboard.js';
 
 // Constants
 const TEMP_DIR = `temp-${randomUUID()}`;
@@ -205,8 +205,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	// ex: await keyboard.hotKeys(HotKeys.COPY);
 	// ex: await keyboard.press('Enter');
-	keyboard: async ({ page }, use) => {
-		const keyboard = new Keyboard(page);
+	keyboard: async ({ app }, use) => {
+		const keyboard = app.keyboard;
 		await use(keyboard);
 	},
 
