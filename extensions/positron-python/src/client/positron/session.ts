@@ -506,8 +506,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
-    // Keep track of LSP init to avoid stopping in the middle of startup
-    private _lspStarting: Thenable<void> = Promise.resolve();
+    // Keep track of LSP init to avoid stopping in the middle of startup.
+    // Resolves to the port number used to connect on the client side.
+    private _lspStarting: Thenable<number> = Promise.resolve(0);
 
     private async createLsp(interpreter: PythonEnvironment): Promise<void> {
         traceInfo(`createPythonSession: resolving LSP services`);
@@ -541,25 +542,29 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     async activateLsp() {
         // Start LSP for the foreground session only if its been previously stopped
         if (this._lsp?.state === LspState.stopped) {
-            this._queue.add(async () => {
-                const port = await this.adapterApi!.findAvailablePort([], 25);
-                if (this._kernel) {
-                    this._kernel.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
-
-                    // Create the LSP comm before creating the LSP
-                    // client. We keep track of this initialisation in
-                    // case we need to restart, to avoid restarting in
-                    // the middle of init.
-                    this._lspStarting = this._kernel.startPositronLsp(`127.0.0.1:${port}`);
-
-                    await this._lspStarting;
-                    await this._lsp?.activate(port);
-                }
-            });
+            this._queue.add(this.startLsp);
         }
     }
 
-    deactivateLsp() {
+    private async startLsp() {
+        if (this._kernel) {
+            this._kernel.emitJupyterLog('Starting Positron LSP server');
+
+            // Create the LSP comm, which also starts the LSP server.
+            // We await the server selected port (the server selects the
+            // port since it is in charge of binding to it, which avoids
+            // race conditions). We also use this promise to avoid restarting
+            // in the middle of initialization.
+            this._lspStarting = this._kernel.startPositronLsp('127.0.0.1');
+            const port = await this._lspStarting;
+
+            this._kernel.emitJupyterLog(`Starting Positron LSP client on port ${port}`);
+
+            await this._lsp?.activate(port);
+        }
+    }
+
+    async deactivateLsp() {
         if (this._lsp?.state === LspState.running) {
             this._queue.add(async () => {
                 if (this._kernel) {
@@ -728,23 +733,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     private onStateChange(state: positron.RuntimeState): void {
         this._state = state;
         if (state === positron.RuntimeState.Ready) {
-            this._queue.add(async () => {
-                // The adapter API is guranteed to exist at this point since the
-                // runtime cannot become Ready without it
-                const port = await this.adapterApi!.findAvailablePort([], 25);
-                if (this._kernel) {
-                    this._kernel.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
-
-                    // Create the LSP comm before creating the LSP
-                    // client. We keep track of this initialisation in
-                    // case we need to restart, to avoid restarting in
-                    // the middle of init.
-                    this._lspStarting = this._kernel.startPositronLsp(`127.0.0.1:${port}`);
-
-                    await this._lspStarting;
-                    await this._lsp?.activate(port);
-                }
-            });
+            this._queue.add(this.startLsp);
 
             this._queue.add(async () => {
                 try {
