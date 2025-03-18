@@ -40,8 +40,8 @@ test.describe('Sessions: Diagnostics', {
 		pythonSession2.id = await sessions.reuseIdleSessionIfExists(pythonSession2);
 
 		// Open a Python file and introduce an error
-		await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
-		await editor.replaceTerm('chinook-sqlite.py', 'rows', 9, '!');
+		await openFile(join('workspaces/graphviz/pydotSample.py'));
+		await editor.replaceTerm('pydotSample.py', 'graph', 13, '!');
 
 		// Verify the error is present in Editor and Problems pane
 		await sessions.select(pythonSession1.id);
@@ -82,8 +82,8 @@ test.describe('Sessions: Diagnostics', {
 		rSession2.id = await sessions.reuseIdleSessionIfExists(rSession2);
 
 		// Open an R file and introduce an error
-		await openFile(join('workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
-		await editor.replaceTerm('chinook-sqlite.r', 'albums', 5, '!');
+		await openFile('workspaces/r-plots/plotly-example.r');
+		await editor.replaceTerm('plotly-example.r', 'midwest', 2, '!');
 
 		// Verify the error is present in Editor and Problems pane
 		await sessions.select(rSession1.id);
