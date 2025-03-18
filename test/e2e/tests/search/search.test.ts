@@ -13,7 +13,7 @@ test.describe('Search', {
 }, () => {
 
 	test.afterEach(async function ({ app }) {
-		await app.workbench.search.searchFor('');
+		await app.workbench.search.clearSearchResults();
 	});
 
 	test('Verify Basic Search for Unique Strings', async function ({ app }) {
@@ -26,8 +26,9 @@ test.describe('Search', {
 	test('Verify Basic Search for Unique Strings with Extension Filter', async function ({ app }) {
 		await app.workbench.search.openSearchViewlet();
 		await app.workbench.search.showQueryDetails();
-		await app.workbench.search.setFilesToIncludeText('*.js');
+
 		await app.workbench.search.searchFor('unique-string');
+		await app.workbench.search.setFilesToIncludeText('*.js');
 		await app.workbench.search.waitForResultText('4 results in 1 file');
 		await app.workbench.search.setFilesToIncludeText('');
 		await app.workbench.search.hideQueryDetails();

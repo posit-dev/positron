@@ -29,7 +29,7 @@ export class Search {
 	}
 
 	async clearSearchResults(): Promise<void> {
-		await this.code.driver.page.locator(`.sidebar .title-actions .codicon-search-clear-results`).click({ force: true });
+		await this.code.driver.page.locator(`.sidebar .title-actions .codicon-search-clear-results`).click();
 		await this.waitForNoResultText();
 	}
 
@@ -43,7 +43,6 @@ export class Search {
 	}
 
 	async searchFor(value: string): Promise<any> {
-		await this.clearSearchResults();
 		await this.code.driver.page.locator(INPUT).fill(value);
 		await this.code.driver.page.keyboard.press('Enter');
 	}
