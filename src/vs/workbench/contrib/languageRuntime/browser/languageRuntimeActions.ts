@@ -383,25 +383,45 @@ const selectNewLanguageRuntime = async (
 	// Group runtimes by language.
 	const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService);
 
+	// Grab the current runtime.
+	const currentRuntime = runtimeSessionService.foregroundSession?.runtimeMetadata;
+
+	// Grab the active runtimes.
+	const activeRuntimes = runtimeSessionService.activeSessions
+		.map(session => session.runtimeMetadata)
+		.filter((runtime, index, runtimes) =>
+			runtimes.findIndex(r => r.runtimeId === runtime.runtimeId) === index
+		)
+		.sort((a) => a.runtimeId === currentRuntime?.runtimeId ? -1 : 0);
+
+	// Create a set of active runtime IDs for quick comparison.
+	const activeRuntimeIds = new Set(activeRuntimes.map(runtime => runtime.runtimeId));
+
 	// Generate quick pick items for runtimes.
 	const runtimeItems: QuickPickItem[] = [];
-	interpreterGroups.forEach(group => {
-		const language = group.primaryRuntime.languageName;
-		// Add separator with language name.
-		runtimeItems.push({ type: 'separator', label: language });
-		// Add primary runtime first.
+
+	// if (currentRuntime) {
+	// 	runtimeItems.push({
+	// 		type: 'separator',
+	// 		label: localize('positron.languageRuntime.currentSession', 'Active Sessions')
+	// 	});
+	// 	runtimeItems.push({
+	// 		id: currentRuntime.runtimeId,
+	// 		label: currentRuntime.runtimeName,
+	// 		detail: currentRuntime.runtimePath,
+	// 		iconPath: {
+	// 			dark: URI.parse(`data:image/svg+xml;base64, ${currentRuntime.base64EncodedIconSvg}`),
+	// 		},
+	// 		picked: true
+	// 	});
+	// }
+
+	if (activeRuntimes.length > 0) {
 		runtimeItems.push({
-			id: group.primaryRuntime.runtimeId,
-			label: group.primaryRuntime.runtimeName,
-			detail: group.primaryRuntime.runtimePath,
-			iconPath: {
-				dark: URI.parse(`data:image/svg+xml;base64, ${group.primaryRuntime.base64EncodedIconSvg}`),
-			},
-			picked: (group.primaryRuntime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+			type: 'separator',
+			label: localize('positron.languageRuntime.currentSession', 'Active Sessions')
 		});
-		// Follow with alternate runtimes.
-		group.alternateRuntimes.sort((a, b) => a.runtimeName.localeCompare(b.runtimeName));
-		group.alternateRuntimes.forEach(runtime => {
+		activeRuntimes.forEach(runtime => {
 			runtimeItems.push({
 				id: runtime.runtimeId,
 				label: runtime.runtimeName,
@@ -409,8 +429,42 @@ const selectNewLanguageRuntime = async (
 				iconPath: {
 					dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
 				},
-				picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+				picked: true
 			});
+		});
+	}
+
+
+	interpreterGroups.forEach(group => {
+		const language = group.primaryRuntime.languageName;
+		// Add separator with language name.
+		runtimeItems.push({ type: 'separator', label: language });
+		// Add primary runtime first.
+		if (group.primaryRuntime.runtimeId !== currentRuntime?.runtimeId && !activeRuntimeIds.has(group.primaryRuntime.runtimeId)) {
+			runtimeItems.push({
+				id: group.primaryRuntime.runtimeId,
+				label: group.primaryRuntime.runtimeName,
+				detail: group.primaryRuntime.runtimePath,
+				iconPath: {
+					dark: URI.parse(`data:image/svg+xml;base64, ${group.primaryRuntime.base64EncodedIconSvg}`),
+				},
+				picked: (group.primaryRuntime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+			});
+		}
+		// Follow with alternate runtimes.
+		group.alternateRuntimes.sort((a, b) => a.runtimeName.localeCompare(b.runtimeName));
+		group.alternateRuntimes.forEach(runtime => {
+			if (runtime.runtimeId !== currentRuntime?.runtimeId && !activeRuntimeIds.has(runtime.runtimeId)) {
+				runtimeItems.push({
+					id: runtime.runtimeId,
+					label: runtime.runtimeName,
+					detail: runtime.runtimePath,
+					iconPath: {
+						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
+					},
+					picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+				});
+			}
 		});
 	});
 
