@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// eslint-disable-next-line import/no-unresolved
+import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { ProgressLocation, ProgressOptions } from 'vscode';
 import * as fs from 'fs';
@@ -19,10 +21,42 @@ import { IApplicationShell } from '../common/application/types';
 import { activateAppDetection as activateWebAppDetection } from './webAppContexts';
 import { activateWebAppCommands } from './webAppCommands';
 import { printInterpreterDebugInfo } from './interpreterSettings';
+import { getActivePythonSessions } from './util';
 
 export async function activatePositron(serviceContainer: IServiceContainer): Promise<void> {
     try {
         const disposables = serviceContainer.get<IDisposableRegistry>(IDisposableRegistry);
+        // Manage language servers when the foreground session changes.
+        disposables.push(
+            positron.runtime.onDidChangeForegroundSession(async (sessionId) => {
+                if (!sessionId) {
+                    // There is no foreground session, nothing to do.
+                    return;
+                }
+
+                const sessions = await getActivePythonSessions();
+
+                const foregroundSession = sessions.find((session) => session.metadata.sessionId === sessionId);
+                if (!foregroundSession) {
+                    // The foreground session is for another language.
+                    return;
+                }
+
+                // Deactivate non-foreground console session language servers.
+                await Promise.all(
+                    sessions
+                        .filter(
+                            (session) =>
+                                session.metadata.sessionId !== sessionId &&
+                                session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console,
+                        )
+                        .map((session) => session.deactivateLsp()),
+                );
+
+                // Activate the foreground session language server.
+                await foregroundSession.activateLsp();
+            }),
+        );
         // Register a command to check if ipykernel is installed for a given interpreter.
         disposables.push(
             vscode.commands.registerCommand('python.isIpykernelInstalled', async (pythonPath: string) => {

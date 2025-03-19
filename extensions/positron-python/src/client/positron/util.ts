@@ -1,10 +1,14 @@
+/* eslint-disable max-classes-per-file */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// eslint-disable-next-line import/no-unresolved
+import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { traceVerbose } from '../logging';
+import { PythonRuntimeSession } from './session';
 
 export class PromiseHandles<T> {
     resolve!: (value: T | Promise<T>) => void;
@@ -41,4 +45,22 @@ export async function hasFiles(includes: string[]): Promise<boolean> {
     traceVerbose(`Found _files_: ${files.map((file) => file.fsPath)}`);
 
     return files.length > 0;
+}
+
+export async function getActivePythonSessions(): Promise<PythonRuntimeSession[]> {
+    const sessions = await positron.runtime.getActiveSessions();
+    return sessions.filter((session) => session instanceof PythonRuntimeSession);
+}
+
+export abstract class Disposable {
+    protected _disposables: vscode.Disposable[] = [];
+
+    public dispose(): void {
+        this._disposables.forEach((disposable) => disposable.dispose());
+    }
+
+    protected _register<T extends vscode.Disposable>(value: T): T {
+        this._disposables.push(value);
+        return value;
+    }
 }
