@@ -115,23 +115,27 @@ class PositronMagics(Magics):
     @magic_arguments.magic_arguments()
     @magic_arguments.argument(
         "object",
-        help="The object to view.",
+        help="The object or expression to view.",
     )
     @magic_arguments.argument(
         "title",
         nargs="?",
-        help="The title of the Data Explorer tab. Defaults to the object's name.",
+        help="The title of the Data Explorer tab. Defaults to the object's name or expression.",
     )
     @line_magic
     def view(self, line: str) -> None:
         """
-        View an object in the Positron Data Explorer.
+        View an object or expression result in the Positron Data Explorer.
 
         Examples
         --------
         View an object:
 
         >>> %view df
+
+        View an expression result:
+
+        >>> %view df.groupby('column').sum()
 
         View an object with a custom title (quotes are required if the title contains spaces):
 
@@ -148,10 +152,31 @@ class PositronMagics(Magics):
                 raise UsageError(f"{e.args[0]}. Did you quote the title?") from e
             raise
 
-        # Find the object.
+        # First try to find the object directly by name
         info = self.shell._ofind(args.object)  # noqa: SLF001
+
         if not info.found:
-            raise UsageError(f"name '{args.object}' is not defined")
+            # Check if the object name is a quoted string and remove quotes if necessary
+            obj_name = args.object
+            if (obj_name.startswith('"') and obj_name.endswith('"')) or (
+                obj_name.startswith("'") and obj_name.endswith("'")
+            ):
+                obj_name = obj_name[1:-1]  # Remove the quotes
+
+            # If not found as a variable, try to evaluate it as an expression
+            try:
+                obj = self.shell.ev(obj_name)
+                # Create a similar info object to what _ofind would return
+                class SimpleNamespaceObj:
+                    pass
+                info = SimpleNamespaceObj()
+                info.found = True
+                info.obj = obj
+                info.ismagic = False
+                info.isalias = False
+                info.namespace = "Interactive"
+            except Exception as e:
+                raise UsageError(f"Failed to evaluate expression '{obj_name}': %s" % e) from e
 
         title = args.title
         if title is None:

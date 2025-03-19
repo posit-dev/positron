@@ -61,7 +61,7 @@ def test_view_undefined(shell: PositronShell, mock_dataexplorer_service: Mock, c
     name = "x"
     shell.run_cell(f"%view {name}")
     mock_dataexplorer_service.register_table.assert_not_called()
-    assert capsys.readouterr().err == f"UsageError: name '{name}' is not defined\n"
+    assert "UsageError: Failed to evaluate expression" in capsys.readouterr().err
 
 
 def test_view_title_unquoted(shell: PositronShell, mock_dataexplorer_service: Mock, capsys) -> None:
@@ -83,6 +83,51 @@ def test_view_unsupported_type(
 
     assert_register_table_called(mock_dataexplorer_service, shell.user_ns[name], name)
     assert capsys.readouterr().err == "UsageError: cannot view object of type 'object'\n"
+
+
+def test_view_simple_expression(shell: PositronShell, mock_dataexplorer_service: Mock) -> None:
+    """Test that %view can evaluate a simple expression."""
+    shell.run_cell("x = 5")
+    expected_result = 6
+    shell.run_cell('%view "x + 1"')
+    mock_dataexplorer_service.register_table.assert_called_once()
+    args, kwargs = mock_dataexplorer_service.register_table.call_args
+    assert args[0] is expected_result  # First arg is the object
+    assert args[1] == '"x + 1"'  # Second arg is the title (quoted expression)
+
+
+def test_view_complex_expression(shell: PositronShell, mock_dataexplorer_service: Mock) -> None:
+    """Test that %view can evaluate a more complex expression with method calls."""
+    shell.run_cell("my_list = [1, 2, 3]")
+    expected_result = [1, 2, 6]
+    shell.run_cell('%view "my_list[:2] + [sum(my_list)]"')
+    mock_dataexplorer_service.register_table.assert_called_once()
+    args, kwargs = mock_dataexplorer_service.register_table.call_args
+    assert args[0] == expected_result
+    assert (
+        args[1] == '"my_list[:2] + [sum(my_list)]"'
+    )  # Second arg is the title (quoted expression)
+
+
+def test_view_expression_with_title(shell: PositronShell, mock_dataexplorer_service: Mock) -> None:
+    """Test that %view can evaluate an expression and use a custom title."""
+    shell.run_cell("x = 10")
+    title = "Doubled Value"
+    expected_result = 20
+    shell.run_cell('%view "x * 2" "Doubled Value"')
+    mock_dataexplorer_service.register_table.assert_called_once()
+    args, kwargs = mock_dataexplorer_service.register_table.call_args
+    assert args[0] is expected_result
+    assert args[1] == title
+
+
+def test_view_expression_error(
+    shell: PositronShell, mock_dataexplorer_service: Mock, capsys
+) -> None:
+    """Test that %view properly handles errors in expressions."""
+    shell.run_cell('%view "undefined_var + 1"')
+    mock_dataexplorer_service.register_table.assert_not_called()
+    assert "Failed to evaluate expression" in capsys.readouterr().err
 
 
 def assert_register_connection_called(mock_connections_service: Mock, obj: Any) -> None:
