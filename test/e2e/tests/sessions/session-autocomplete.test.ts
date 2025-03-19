@@ -3,15 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Application, pythonSession, pythonSessionAlt, rSession, rSessionAlt, SessionInfo } from '../../infra/index.js';
+import { Application, SessionInfo } from '../../infra/index.js';
 import { test, tags } from '../_test.setup';
-
-const pythonSession1a: SessionInfo = { ...pythonSession };
-const pythonSession1b: SessionInfo = { ...pythonSession, name: `Python ${process.env.POSITRON_PY_VER_SEL} - 2`, };
-const pythonSession2: SessionInfo = { ...pythonSessionAlt };
-const rSession1a: SessionInfo = { ...rSession };
-const rSession1b: SessionInfo = { ...rSession, name: `R ${process.env.POSITRON_R_VER_SEL} - 2`, };
-const rSession2: SessionInfo = { ...rSessionAlt };
 
 test.use({
 	suiteId: __filename
@@ -27,12 +20,10 @@ test.describe('Session: Autocomplete', {
 
 	test('Python - Verify autocomplete suggestions in Console and Editor',
 		{ annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6839' }] },
-		async function ({ app, runCommand }) {
-			const { sessions, variables, editors, console } = app.workbench;
+		async function ({ app, runCommand, sessions }) {
+			const { sessions: session, variables, editors, console } = app.workbench;
 
-			pythonSession1a.id = await sessions.launch(pythonSession1a);
-			pythonSession1b.id = await sessions.launch(pythonSession1b);
-			pythonSession2.id = await sessions.launch(pythonSession2);
+			const [pythonSession1a, pythonSession1b, pythonSession2] = await sessions.start(['python', 'python', 'pythonAlt']);
 			await variables.togglePane('hide');
 
 			// Session 1a - trigger and verify console autocomplete
@@ -44,7 +35,7 @@ test.describe('Session: Autocomplete', {
 			await console.expectSuggestionListCount(8);
 
 			// Session 2 - trigger and verify no console autocomplete
-			await sessions.select(pythonSession2.id);
+			await session.select(pythonSession2.id);
 			await console.typeToConsole('pd.Dat', false, 250);
 			await console.expectSuggestionListCount(0);
 
@@ -64,12 +55,10 @@ test.describe('Session: Autocomplete', {
 			await editors.expectSuggestionListCount(0);
 		});
 
-	test('R - Verify autocomplete suggestions in Console and Editor', async function ({ app, runCommand }) {
-		const { sessions, variables, editors, console } = app.workbench;
+	test('R - Verify autocomplete suggestions in Console and Editor', async function ({ app, runCommand, sessions }) {
+		const { sessions: session, variables, editors, console } = app.workbench;
 
-		rSession1a.id = await sessions.reuseIdleSessionIfExists(rSession1a);
-		rSession1b.id = await sessions.launch(rSession1b);
-		rSession2.id = await sessions.launch(rSession2);
+		const [rSession1a, rSession1b, rSession2] = await sessions.start(['r', 'r', 'rAlt']);
 		await variables.togglePane('hide');
 
 		// Session 1a - verify console autocomplete
@@ -81,7 +70,7 @@ test.describe('Session: Autocomplete', {
 		await console.expectSuggestionListCount(4);
 
 		// Session 2 - verify no console autocomplete
-		await sessions.select(rSession2.id);
+		await session.select(rSession2.id);
 		await console.typeToConsole('read_p', false, 250);
 		await console.expectSuggestionListCount(0);
 

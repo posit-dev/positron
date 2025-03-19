@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags } from '../infra';
+import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags, SessionInfo, pythonSession, rSession, rSessionAlt, pythonSessionAlt } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 import { Keyboard } from '../infra/keyboard.js';
 
@@ -122,6 +122,37 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 		await use({ set: setInterpreter });
 	}, { scope: 'test', timeout: 30000 }],
+
+	sessions: [async ({ app }, use) => {
+		const startSessions = async (sessions: SessionRuntimes[], options?: { waitForReady?: boolean; triggerMode?: 'session-picker' | 'quickaccess' | 'console' | 'hotkey'; reuse?: boolean; deleteAfterTest?: boolean }): Promise<SessionInfo[]> => {
+
+			const {
+				waitForReady = true,
+				triggerMode = 'console',
+				reuse = true,
+			} = options || {};
+
+			const availableRuntimes: { [key: string]: SessionInfo } = {
+				r: { ...rSession, triggerMode, waitForReady },
+				rAlt: { ...rSessionAlt, triggerMode, waitForReady },
+				python: { ...pythonSession, triggerMode, waitForReady },
+				pythonAlt: { ...pythonSessionAlt, triggerMode, waitForReady },
+			};
+
+			const sessionList: SessionInfo[] = [];
+
+			for (let i = 0; i < sessions.length; i++) {
+				const session = { ...availableRuntimes[sessions[i]] };
+				session.id = reuse
+					? await app.workbench.sessions.reuseIdleSessionIfExists(session)
+					: await app.workbench.sessions.launch(session);
+				sessionList.push(session);
+			}
+			return sessionList;
+		};
+		await use({ start: startSessions });
+
+	}, { scope: 'test', timeout: 90000 }],
 
 	r: [
 		async ({ interpreter }, use) => {
@@ -401,6 +432,8 @@ async function moveAndOverwrite(sourcePath, destinationPath) {
 	} catch (err) { }
 }
 
+type SessionRuntimes = 'python' | 'pythonAlt' | 'r' | 'rAlt';
+
 interface TestFixtures {
 	restartApp: Application;
 	tracing: any;
@@ -408,6 +441,14 @@ interface TestFixtures {
 	attachScreenshotsToReport: any;
 	attachLogsToReport: any;
 	interpreter: { set: (interpreterName: 'Python' | 'R', waitFoReady?: boolean) => Promise<void> };
+	sessions: {
+		start: (sessions: SessionRuntimes[], options?: {
+			waitForReady?: boolean;
+			triggerMode?: 'session-picker' | 'quickaccess' | 'console' | 'hotkey';
+			reuse?: boolean;
+
+		}) => Promise<SessionInfo[]>;
+	};
 	r: void;
 	python: void;
 	packages: PackageManager;

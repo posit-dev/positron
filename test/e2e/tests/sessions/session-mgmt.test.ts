@@ -4,13 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
-import { Application, pythonSession, pythonSessionAlt, rSession, SessionInfo } from '../../infra';
+import { Application, SessionInfo } from '../../infra';
 import { expect } from '@playwright/test';
-
-const pythonSession1: SessionInfo = { ...pythonSession };
-// const pythonSession1b: SessionInfo = { ...pythonSession };
-const pythonSession2: SessionInfo = { ...pythonSessionAlt };
-const rSession1: SessionInfo = { ...rSession };
 
 test.use({
 	suiteId: __filename
@@ -34,16 +29,14 @@ test.describe('Sessions: Management', {
 
 	test('Validate variables between sessions', {
 		tag: [tags.VARIABLES]
-	}, async function ({ app }) {
-		const { sessions, console, variables } = app.workbench;
+	}, async function ({ app, sessions }) {
+		const { sessions: session, console, variables } = app.workbench;
 
 		// Ensure sessions exist and are idle
-		pythonSession1.id = await sessions.reuseIdleSessionIfExists(pythonSession1);
-		pythonSession2.id = await sessions.reuseIdleSessionIfExists(pythonSession2);
-		rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
+		const [pythonSession1, pythonSession2, rSession1] = await sessions.start(['python', 'pythonAlt', 'r']);
 
 		// Set and verify variables in Python Session 1
-		await sessions.select(pythonSession1.id);
+		await session.select(pythonSession1.id);
 		await console.typeToConsole('x = 1', true);
 		await console.typeToConsole('y = 2', true);
 		await variables.expectRuntimeToBe('visible', pythonSession1.name);
@@ -51,7 +44,7 @@ test.describe('Sessions: Management', {
 		await variables.expectVariableToBe('y', '2');
 
 		// Set and verify variables in Python Session 2
-		await sessions.select(pythonSession2.id);
+		await session.select(pythonSession2.id);
 		await console.typeToConsole('x = 11', true);
 		await console.typeToConsole('y = 22', true);
 		await variables.expectRuntimeToBe('visible', pythonSession2.name);
@@ -59,7 +52,7 @@ test.describe('Sessions: Management', {
 		await variables.expectVariableToBe('y', '22');
 
 		// Set and verify variables in R
-		await sessions.select(rSession1.id);
+		await session.select(rSession1.id);
 		await console.typeToConsole('x <- 3', true);
 		await console.typeToConsole('z <- 4', true);
 		await variables.expectRuntimeToBe('visible', rSession1.name);
@@ -67,83 +60,78 @@ test.describe('Sessions: Management', {
 		await variables.expectVariableToBe('z', '4');
 
 		// Switch back to Python, update variables, and verify
-		await sessions.select(pythonSession1.id);
+		await session.select(pythonSession1.id);
 		await console.typeToConsole('x = 0', true);
 		await variables.expectRuntimeToBe('visible', pythonSession1.name);
 		await variables.expectVariableToBe('x', '0');
 		await variables.expectVariableToBe('y', '2');
 
 		// Switch back to R, verify variables remain unchanged
-		await sessions.select(rSession1.id);
+		await session.select(rSession1.id);
 		await variables.expectRuntimeToBe('visible', rSession1.name);
 		await variables.expectVariableToBe('x', '3');
 		await variables.expectVariableToBe('z', '4');
 	});
 
-	test('Validate session list is scrollable', async function ({ app }) {
-		const sessions = app.workbench.sessions;
+	test('Validate session list is scrollable', async function ({ app, sessions }) {
+		const session = app.workbench.sessions;
 
-		// Ensure sessions exist and are idle
-		pythonSession1.id = await sessions.reuseIdleSessionIfExists(pythonSession1);
-		pythonSession2.id = await sessions.reuseIdleSessionIfExists(pythonSession2);
-		rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
+		const [pythonSession1, pythonSession2] = await sessions.start(['python', 'pythonAlt']);
 
 		// Resize window to force scrolling
 		// Move the divider to be 100px above the bottom
-		await sessions.setSessionDividerAboveBottom(100);
-		await sessions.expectSessionListToBeScrollable({ horizontal: false, vertical: true });
-		await sessions.setSessionDividerAboveBottom(500);
+		await session.setSessionDividerAboveBottom(100);
+		await session.expectSessionListToBeScrollable({ horizontal: false, vertical: true });
+		await session.setSessionDividerAboveBottom(500);
 
 		// Cleaning up since next test only needs 2 sessions
-		await sessions.delete(pythonSession2.id);
+		await session.delete(pythonSession2.id);
 	});
 
-	test('Validate active session list in console matches active session list in session picker', async function ({ app }) {
-		const { sessions, console } = app.workbench;
+	test('Validate active session list in console matches active session list in session picker', async function ({ app, sessions }) {
+		const { sessions: session, console } = app.workbench;
 
 		// Start sessions and verify active sessions: order matters!
-		pythonSession1.id = await sessions.reuseIdleSessionIfExists(pythonSession1);
-		rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
-		await sessions.expectSessionCountToBe(2, 'active');
-		await sessions.expectActiveSessionListsToMatch();
+		const [pythonSession1, rSession1] = await sessions.start(['python', 'r']);
+		await session.expectSessionCountToBe(2, 'active');
+		await session.expectActiveSessionListsToMatch();
 
 		// Shutdown Python session and verify active sessions
-		await sessions.select(pythonSession1.name);
+		await session.select(pythonSession1.name);
 		await console.typeToConsole('exit()', true);
-		await sessions.expectSessionCountToBe(1, 'active');
-		await sessions.expectActiveSessionListsToMatch();
+		await session.expectSessionCountToBe(1, 'active');
+		await session.expectActiveSessionListsToMatch();
 
 		// Shutdown R session and verify active sessions
-		await sessions.select(rSession1.name);
+		await session.select(rSession1.name);
 		await console.typeToConsole('q()', true);
-		await sessions.expectSessionCountToBe(0, 'active');
-		await sessions.expectActiveSessionListsToMatch();
+		await session.expectSessionCountToBe(0, 'active');
+		await session.expectActiveSessionListsToMatch();
 
 		// Launch Python session (again) and verify active sessions
-		await sessions.deleteDisconnectedSessions();
-		await sessions.launch(pythonSession1);
-		await sessions.expectSessionCountToBe(1, 'active');
-		await sessions.expectActiveSessionListsToMatch();
+		await session.deleteDisconnectedSessions();
+		await session.launch(pythonSession1);
+		await session.expectSessionCountToBe(1, 'active');
+		await session.expectActiveSessionListsToMatch();
 	});
 
-	test('Validate can delete sessions', { tag: [tags.VARIABLES] }, async function ({ app }) {
-		const { sessions, console, variables } = app.workbench;
+	test('Validate can delete sessions', { tag: [tags.VARIABLES] }, async function ({ app, sessions }) {
+		const { sessions: session, console, variables } = app.workbench;
 
 		// Ensure sessions exist and are idle
-		pythonSession1.id = await sessions.reuseIdleSessionIfExists(pythonSession1);
-		rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
+		const [pythonSession1, rSession1] = await sessions.start(['python', 'r']);
 
 		// Delete 1st session and verify active sessions and runtime in session picker
-		await sessions.delete(pythonSession1.id);
-		await sessions.expectSessionCountToBe(1);
-		await sessions.expectActiveSessionListsToMatch();
+		await session.delete(pythonSession1.id);
+		await session.expectSessionCountToBe(1);
+		await session.expectActiveSessionListsToMatch();
 		await variables.expectRuntimeToBe('visible', rSession1.name);
 
 		// Delete 2nd session and verify no active sessions or runtime in session picker
 		await console.barTrashButton.click();
-		await expect(sessions.activeSessionPicker).toHaveText('Start Session');
-		await sessions.expectSessionCountToBe(0);
-		await sessions.expectActiveSessionListsToMatch();
+		await expect(session.activeSessionPicker).toHaveText('Start Session');
+		await session.expectSessionCountToBe(0);
+		await session.expectActiveSessionListsToMatch();
 		await variables.expectRuntimeToBe('not.visible', `${rSession1.name}|${pythonSession1.name}|None`);
 	});
 
@@ -153,15 +141,15 @@ test.describe('Sessions: Management', {
 			annotation: [
 				{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6036' },
 				{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6725' }]
-		}, async function ({ app, runCommand }) {
-			const { sessions, console, plots, variables } = app.workbench;
+		}, async function ({ app, sessions, runCommand }) {
+			const { sessions: session, console, plots, variables } = app.workbench;
 
 			// Ensure sessions exist and are idle
-			pythonSession1.id = await sessions.reuseIdleSessionIfExists(pythonSession1);
-			rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
+			const [pythonSession1, rSession1] = await sessions.start(['python', 'r']);
+
 			// pythonSession1b.id = await sessions.launch(pythonSession1b);
-			await sessions.expectSessionCountToBe(2);
-			await sessions.expectAllSessionsToBeIdle();
+			await session.expectSessionCountToBe(2);
+			await session.expectAllSessionsToBeIdle();
 
 			// Select R session and run script to generate plot and variable
 			await runCodeInSession(app, rSession1, 1,);
@@ -187,25 +175,25 @@ test.describe('Sessions: Management', {
 			await runCommand('workbench.action.reloadWindow');
 
 			// Verify all sessions reload and are idle
-			await sessions.expectSessionCountToBe(2);
-			await sessions.expectAllSessionsToBeIdle();
+			await session.expectSessionCountToBe(2);
+			await session.expectAllSessionsToBeIdle();
 
 			// Verify sessions, plot, console history, and variables persist for R session
-			await sessions.select(rSession1.id);
+			await session.select(rSession1.id);
 			await variables.expectVariableToBe('test', '1');
 			await console.waitForConsoleContents('[1] "this is console 1"');
 			await plots.waitForCurrentPlot();
 			await plots.expectPlotThumbnailsCountToBe(2);
 
 			// Verify sessions, plot, console history, and variables persist for Python session
-			await sessions.select(pythonSession1.id);
+			await session.select(pythonSession1.id);
 			await variables.expectVariableToBe('test', '2');
 			await console.waitForConsoleContents('this is console 2', { exact: true });
 			await plots.waitForCurrentPlot();
 			await plots.expectPlotThumbnailsCountToBe(2);
 
 			// issue 6725: uncomment below lines after issue is fixed
-			// await sessions.select(pythonSession1b.id);
+			// await session.select(pythonSession1b.id);
 			// await variables.expectVariableToBe('test', '3');
 			// await console.waitForConsoleContents('this is console 3', { exact: true });
 		});

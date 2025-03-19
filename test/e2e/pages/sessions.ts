@@ -47,7 +47,7 @@ export class Sessions {
 		this.quickPick = new SessionQuickPick(this.code, this);
 		this.activeSessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').getByRole('button', { name: /(Start a New Session)|(Open Active Session Picker)/ });
 		this.trashButton = (sessionId: string) => this.getSessionTab(sessionId).getByTestId('trash-session');
-		this.newConsoleButton = this.page.getByRole('button', { name: 'Open Start Session Picker', exact: true });
+		this.newConsoleButton = this.page.getByRole('toolbar', { name: 'Console actions' }).getByRole('button', { name: 'Start a New Session' });
 		this.restartButton = this.page.getByLabel('Restart console', { exact: true });
 		this.shutDownButton = this.page.getByLabel('Shutdown console', { exact: true });
 		this.sessions = this.page.getByTestId(/console-(?!tab-)[a-zA-Z0-9-]+/);
@@ -105,7 +105,6 @@ export class Sessions {
 			} else if (triggerMode === 'console') {
 				await this.console.focus();
 				await this.newConsoleButton.click();
-				await expect(this.code.driver.page.getByText(/Select a Session/)).toBeVisible();
 			} else {
 				await this.page.keyboard.press('Control+Shift+/');
 			}
@@ -266,13 +265,9 @@ export class Sessions {
 			if (disconnectedSessions.length === 0) { return; } // Nothing to delete
 
 			// Delete all but the last one
-			for (let i = 0; i < disconnectedSessions.length - 1; i++) {
+			for (let i = 0; i < disconnectedSessions.length; i++) {
 				await this.delete(disconnectedSessions[i]);
 			}
-
-			// Handle the last one separately because there may not be a tab list trash icon to click on
-			await this.console.barTrashButton.click();
-			await expect(this.page.getByText('Shutting down')).not.toBeVisible();
 		});
 	}
 
@@ -831,13 +826,14 @@ export type QuickPickSessionInfo = {
 	path: string;
 };
 
+export type SessionTrigger = 'session-picker' | 'quickaccess' | 'console' | 'hotkey';
 
 export type SessionInfo = {
 	name: string;
 	language: 'Python' | 'R';
 	version: string; // e.g. '3.10.15'
 	id: string;
-	triggerMode?: 'session-picker' | 'quickaccess' | 'console' | 'hotkey';
+	triggerMode?: SessionTrigger;
 	waitForReady?: boolean;
 };
 
