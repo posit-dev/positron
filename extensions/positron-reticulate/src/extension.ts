@@ -782,7 +782,6 @@ export class ReticulateProvider {
 		if (this._client) {
 			this._client.dispose();
 		}
-		console.log("Registering reticulate client!")
 
 		this._client = client;
 		// We'll force the registration when the user calls `reticulate::repl_python()`
@@ -797,12 +796,10 @@ export class ReticulateProvider {
 		this.manager._session?.onDidEndSession(() => {
 			this._client?.dispose();
 			this._client = undefined;
-			console.log("Reticulate session ended");
 		});
 
 		this._client.onDidSendEvent(async (e) => {
 			const event = e.data as any;
-			console.log("Helloo reticulate:", event);
 			if (event.method === 'focus') {
 				let input;
 				if (event.params && event.params.input) {
