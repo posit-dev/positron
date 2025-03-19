@@ -700,7 +700,17 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			// Start the LSP and DAP servers
 			this._queue.add(async () => {
 				const dap = this.startDap();
-				await dap;
+
+				if (this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
+					// For consoles, the LSP is activated when the console becomes the foreground session
+					await dap;
+				} else {
+					// For background / notebook, the LSP is activated on startup
+					// (these never become foreground sessions)
+					const lsp = this.startLsp();
+					this._lspStarting = lsp;
+					await Promise.all([lsp, dap]);
+				}
 			});
 
 			this._queue.add(async () => {
