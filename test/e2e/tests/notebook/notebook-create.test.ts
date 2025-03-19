@@ -67,8 +67,6 @@ test.describe('Notebooks', {
 			await app.workbench.quickInput.clickOkButton();
 
 			// Wait a bit for the save to complete
-
-			// Wait a bit for the save to complete
 			await new Promise(resolve => setTimeout(resolve, 1000));
 
 			// Verify the variables pane shows the correct notebook name
