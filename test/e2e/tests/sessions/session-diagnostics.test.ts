@@ -35,7 +35,7 @@ test.describe('Sessions: Diagnostics', {
 
 		// Open new Python file
 		await runCommand('Python: New File');
-		await editor.enterText('import requests\nrequests.get("https://example.com")\n');
+		await editor.type('import requests\nrequests.get("https://example.com")\n');
 
 		// Session 1 - before installing/importing package, the requests warning should be present
 		await sessions.select(pythonSession1.id);
@@ -56,8 +56,7 @@ test.describe('Sessions: Diagnostics', {
 		await problems.expectSquigglyCountToBe('warning', 1);
 
 		// Introduce a syntax error
-		await editor.editorPane.click();
-		await editor.editorPane.pressSequentially('x =');
+		await editor.selectTabAndType('Untitled-1', 'x =');
 
 		// Session 2 - verify 2 errors (import and syntax) are present
 		await sessions.select(pythonSession2.id);
@@ -79,7 +78,7 @@ test.describe('Sessions: Diagnostics', {
 
 		// Open new R file
 		await runCommand('R: New File');
-		await editor.enterText('circos.points()\n');
+		await editor.type('circos.points()\n');
 
 		// Session 1 - before installing/importing pkg the circos warning should be present
 		await sessions.select(rSession1.id);
@@ -100,8 +99,7 @@ test.describe('Sessions: Diagnostics', {
 		await problems.expectWarningText('No symbol named \'circos.');
 
 		// Introduce a syntax error
-		await editor.editorPane.click();
-		await editor.editorPane.pressSequentially('x <-');
+		await editor.selectTabAndType('Untitled-1', 'x <-');
 
 		// Session 2 - verify 2 errors (circos and syntax) are present
 		await sessions.select(rSession2.id);

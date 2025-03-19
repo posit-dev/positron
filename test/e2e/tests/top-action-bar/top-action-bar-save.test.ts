@@ -31,8 +31,7 @@ test.describe('Top Action Bar - Save Actions', {
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, fileName));
 		await app.workbench.quickaccess.runCommand('workbench.action.keepEditor', { keepOpen: false });
-		await app.workbench.editors.selectTab(fileName);
-		await app.workbench.editor.waitForTypeInEditor(fileName, 'Puppies frolicking in a meadow of wildflowers');
+		await app.workbench.editor.selectTabAndType(fileName, 'Puppies frolicking in a meadow of wildflowers');
 
 		// The file is now "dirty" and the save buttons should be enabled
 		await app.workbench.editors.waitForTab(fileName, true);
@@ -59,10 +58,8 @@ test.describe('Top Action Bar - Save Actions', {
 		await app.workbench.quickaccess.runCommand('workbench.action.keepEditor', { keepOpen: false });
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, fileName2));
 		await app.workbench.quickaccess.runCommand('workbench.action.keepEditor', { keepOpen: false });
-		await app.workbench.editors.selectTab(fileName1);
-		await app.workbench.editor.waitForTypeInEditor(fileName1, text);
-		await app.workbench.editors.selectTab(fileName2);
-		await app.workbench.editor.waitForTypeInEditor(fileName2, text);
+		await app.workbench.editor.selectTabAndType(fileName1, text);
+		await app.workbench.editor.selectTabAndType(fileName2, text);
 
 		// The files are now "dirty" and the save buttons should be enabled
 		await app.workbench.editors.waitForTab(fileName1, true);
@@ -88,8 +85,7 @@ test.describe('Top Action Bar - Save Actions', {
 		// Open a new file and type in some text
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 		await app.workbench.quickaccess.runCommand('workbench.action.files.newUntitledFile', { keepOpen: false });
-		await app.workbench.editors.selectTab(fileName);
-		await app.workbench.editor.waitForTypeInEditor(fileName, text);
+		await app.workbench.editor.selectTabAndType(fileName, text);
 
 		// The file is now "dirty" and the save buttons should be enabled
 		await app.workbench.editors.waitForTab(fileName, true);

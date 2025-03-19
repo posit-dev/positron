@@ -21,15 +21,23 @@ export class Problems {
 
 	constructor(private code: Code, private quickaccess: QuickAccess) { }
 
+	// -- Actions --
+
+	/**
+	 * Action: Show the Problems view
+	 */
 	async showProblemsView(): Promise<any> {
 		await this.quickaccess.runCommand('workbench.panel.markers.view.focus');
-		await this.waitForProblemsView();
-	}
-
-	async waitForProblemsView(): Promise<void> {
 		await expect(this.problemsView).toBeVisible();
 	}
 
+	// -- Verifications --
+
+	/**
+	 * Verify: Expect the number of squigglies to be as specified
+	 * @param severity 'warning' | 'error'
+	 * @param count number of squigglies to expect
+	 */
 	async expectSquigglyCountToBe(severity: ProblemSeverity, count: number): Promise<void> {
 		await test.step(`Expect ${severity} squiggly count: ${count}`, async () => {
 			const squiggly = severity === 'warning' ? this.warningSquiggly : this.errorSquiggly;
@@ -38,6 +46,12 @@ export class Problems {
 		});
 	}
 
+	/**
+	 * Verify: Expect the number of problems, errors, and warnings to be as specified
+	 * @param problemCount - The expected problem count shown in the Problems tab badge
+	 * @param errorCount - The expected error count shown in the Problems view
+	 * @param warningCount - The expected warning count shown in the Problems view
+	 */
 	async expectDiagnosticsToBe({
 		problemCount,
 		errorCount,
@@ -68,6 +82,10 @@ export class Problems {
 		});
 	}
 
+	/**
+	 * Verify: Expect the warning text to be present in the Problems view
+	 * @param text The warning text that should be visible
+	 */
 	async expectWarningText(text: string): Promise<void> {
 		await test.step(`Expect warning text: ${text}`, async () => {
 			await this.showProblemsView();
