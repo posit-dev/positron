@@ -4,25 +4,31 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ActivityItem } from './activityItem.js';
+import { ScrollbackStrategy } from '../positronConsoleService.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
 /**
  * ActivityItemErrorMessage class.
  */
 export class ActivityItemErrorMessage extends ActivityItem {
-	//#region Public Properties
+	//#region Private Properties
 
 	/**
 	 * Gets the message output lines.
 	 */
-	readonly messageOutputLines: readonly ANSIOutputLine[];
+	private cachedMessageOutputLines: ANSIOutputLine[];
 
 	/**
 	 * Gets the traceback output lines.
 	 */
-	readonly tracebackOutputLines: readonly ANSIOutputLine[];
+	private cachedTracebackOutputLines: ANSIOutputLine[];
 
-	//#endregion Public Properties
+	/**
+	 * Gets or sets the scrollback size. This is used to truncate the output lines for display.
+	 */
+	private scrollbackSize?: number;
+
+	//#endregion Private Properties
 
 	//#region Constructor
 
@@ -46,17 +52,90 @@ export class ActivityItemErrorMessage extends ActivityItem {
 		// Call the base class's constructor.
 		super(id, parentId, when);
 
-		// Process the message and traceback directly into ANSI output lines suitable for rendering.
-		let detailedMessage = message;
-		if (name) {
-			// name provides additional context about the error; display in red if defined
-			detailedMessage = `\x1b[31m${name}\x1b[0m: ${message}`;
-		}
-		this.messageOutputLines = ANSIOutput.processOutput(detailedMessage);
-		this.tracebackOutputLines = !traceback.length ?
+		// Create the detailed message. The name provides additional context about the error;
+		// add it in red, if it was supplied.
+		const detailedMessage = !name ? message : `\x1b[31m${name}\x1b[0m: ${message}`;
+
+		// Set the message output lines and the traceback output lines.
+		this.cachedMessageOutputLines = ANSIOutput.processOutput(detailedMessage);
+		this.cachedTracebackOutputLines = !traceback.length ?
 			[] :
 			ANSIOutput.processOutput(traceback.join('\n'));
 	}
 
 	//#endregion Constructor
+
+	//#region Public Properties
+
+	/**
+	 * Gets the message output lines.
+	 */
+	get messageOutputLines(): ANSIOutputLine[] {
+		// If scrollback size is undefined, return all of the message output lines.
+		if (this.scrollbackSize === undefined) {
+			return this.cachedMessageOutputLines;
+		}
+
+		// Calculate the scrollback size for the message output lines.
+		const scrollbackSize = Math.max(0, this.scrollbackSize - this.cachedTracebackOutputLines.length);
+
+		// If no message output lines will be displayed, return an empty array.
+		if (!scrollbackSize) {
+			return [];
+		}
+
+		// If all of the message output lines should be displayed, return all of them.
+		if (this.cachedMessageOutputLines.length <= scrollbackSize) {
+			return this.cachedMessageOutputLines;
+		}
+
+		// Return the truncated message output lines.
+		return this.cachedMessageOutputLines.slice(-scrollbackSize);
+	}
+
+	/**
+	 * Gets the traceback output lines.
+	 */
+	get tracebackOutputLines(): ANSIOutputLine[] {
+		// If scrollback size is undefined, return all of the traceback output lines.
+		if (this.scrollbackSize === undefined) {
+			return this.cachedTracebackOutputLines;
+		}
+
+		// If all of the traceback output lines should be displayed, return all of them.
+		if (this.cachedTracebackOutputLines.length <= this.scrollbackSize) {
+			return this.cachedTracebackOutputLines;
+		}
+
+		// Return the truncated traceback output lines.
+		return this.cachedTracebackOutputLines.slice(-this.scrollbackSize);
+	}
+
+	//#endregion Public Properties
+
+	//#region Public Methods
+
+	/**
+	 * Optimizes scrollback.
+	 * @param scrollbackSize The scrollback size.
+	 * @param scrollbackStrategy The scrollback strategy.
+	 * @returns The remaining scrollback size.
+	 */
+	public override optimizeScrollback(scrollbackSize: number, scrollbackStrategy: ScrollbackStrategy) {
+		// Calculate the total number of output lines.
+		const outputLines = this.cachedMessageOutputLines.length + this.cachedTracebackOutputLines.length;
+
+		// If there are fewer output lines than the scrollback size, clear the scrollback size
+		// as all of them will be displayed, and return the remaining scrollback size.
+		if (outputLines <= scrollbackSize) {
+			this.scrollbackSize = undefined;
+			return scrollbackSize - outputLines;
+		}
+
+		// Set the scrollback size and return 0
+		this.scrollbackSize = scrollbackSize;
+		return 0;
+	}
+
+	//#endregion Public Methods
 }

@@ -32,7 +32,7 @@ export class ActivityItemStream extends ActivityItem {
 	private activityItemStreams: ActivityItemStream[] = [];
 
 	/**
-	 * Gets the ANSIOutput that is processing this ActivityItemStream.
+	 * Gets the ANSIOutput.
 	 */
 	private ansiOutput = new ANSIOutput();
 
@@ -52,11 +52,12 @@ export class ActivityItemStream extends ActivityItem {
 		// Process the activity items streams.
 		this.processActivityItemStreams();
 
-		// If scrollbac size is undefined, return all the output lines.
+		// If scrollback size is undefined, return all of the output lines.
 		if (this.scrollbackSize === undefined) {
 			return this.ansiOutput.outputLines;
 		}
 
+		// Return the truncated output lines.
 		return this.ansiOutput.truncatedOutputLines(this.scrollbackSize);
 	}
 

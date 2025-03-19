@@ -413,6 +413,12 @@ export class ANSIOutput {
 	 * @returns The truncated output lines.
 	 */
 	truncatedOutputLines(maxOutputLines: number) {
+		// If the max output lines is less than or equal to zero, return an empty array.
+		// (It should never be negative, but check anyway.)
+		if (maxOutputLines <= 0) {
+			return [];
+		}
+
 		// If there are fewer output lines than the max output lines, return the output lines.
 		if (this.outputLines.length <= maxOutputLines) {
 			return this.outputLines;
