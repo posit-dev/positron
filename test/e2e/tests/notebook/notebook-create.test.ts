@@ -66,8 +66,8 @@ test.describe('Notebooks', {
 			await app.workbench.quickInput.type(path.join(app.workspacePathOrFolder, newFileName));
 			await app.workbench.quickInput.clickOkButton();
 
-			// Wait a bit for the save to complete
-			await new Promise(resolve => setTimeout(resolve, 1000));
+			// Wait for the tab title to update with the new filename, indicating the save has completed
+			await app.workbench.editors.waitForActiveTab(newFileName);
 
 			// Verify the variables pane shows the correct notebook name
 			await app.workbench.variables.expectRuntimeToBe('visible', newFileName);
