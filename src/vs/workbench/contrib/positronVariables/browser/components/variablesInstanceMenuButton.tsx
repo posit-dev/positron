@@ -57,7 +57,7 @@ export const VariablesInstanceMenuButton = () => {
 		positronVariablesContext.positronVariablesInstances.map(positronVariablesInstance => {
 			actions.push({
 				id: positronVariablesInstance.session.sessionId,
-				label: sessionLabel,
+				label: labelForRuntime(positronVariablesInstance.session),
 				tooltip: '',
 				class: undefined,
 				enabled: true,
