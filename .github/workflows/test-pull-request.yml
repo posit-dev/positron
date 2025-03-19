@@ -40,6 +40,7 @@ jobs:
       report_testrail: false
       enable_currents_reporter: false
       install_undetectable_interpreters: true
+      install_license: false
     secrets: inherit
 
   e2e-windows-electron:
@@ -68,6 +69,7 @@ jobs:
       report_testrail: false
       enable_currents_reporter: false
       install_undetectable_interpreters: true
+      install_license: true
     secrets: inherit
 
   unit-tests:

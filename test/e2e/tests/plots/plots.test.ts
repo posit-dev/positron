@@ -461,7 +461,7 @@ const options: ComparisonOptions = {
 async function runScriptAndValidatePlot(app: Application, script: string, locator: string, RWeb = false) {
 	await app.workbench.console.pasteCodeToConsole(script);
 	await app.workbench.console.sendEnterKey();
-	await app.code.wait(1000);
+	await app.code.wait(3000); // give plot time to render before interacting with quick input
 	await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 	await app.workbench.plots.waitForWebviewPlot(locator, 'visible', RWeb);
 	await app.workbench.layouts.enterLayout('stacked');

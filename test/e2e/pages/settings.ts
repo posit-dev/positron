@@ -19,7 +19,7 @@ export class Settings {
 		const file = 'settings.json';
 		await this.editors.saveOpenedFile();
 		await this.code.driver.page.keyboard.press('ArrowRight');
-		await this.editor.waitForTypeInEditor(file, settings.map(v => `"${v[0]}": ${v[1]},`).join(''));
+		await this.editor.type(settings.map(v => `"${v[0]}": ${v[1]},`).join(''));
 		await this.editors.saveOpenedFile();
 		await this.editors.waitForActiveTabNotDirty(file);
 		// Wait for the settings to be applied. I ran into this specifically with Chromium locally but it seems fine in CI :shrug:
@@ -31,7 +31,7 @@ export class Settings {
 		const file = 'settings.json';
 		await this.quickaccess.runCommand('editor.action.selectAll');
 		await this.code.driver.page.keyboard.press('Delete');
-		await this.editor.waitForTypeInEditor(file, `{`); // will auto close }
+		await this.editor.type('{'); // will auto close }
 		await this.editors.saveOpenedFile();
 		await this.editors.waitForActiveTabNotDirty(file);
 		await this.quickaccess.runCommand('workbench.action.closeActiveEditor');
@@ -91,7 +91,7 @@ export class Settings {
 		const file = 'settings.json';
 		await this.quickaccess.runCommand('editor.action.selectAll');
 		await this.code.driver.page.keyboard.press('Delete');
-		await this.editor.waitForTypeInEditor(file, newSettingsJson);
+		await this.editor.selectTabAndType(file, newSettingsJson);
 		await this.editors.saveOpenedFile();
 		await this.editors.waitForActiveTabNotDirty(file);
 		await this.quickaccess.runCommand('workbench.action.closeActiveEditor');

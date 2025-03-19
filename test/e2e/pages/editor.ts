@@ -29,6 +29,26 @@ export class Editor {
 
 	constructor(private code: Code) { }
 
+	/**
+	 * Action: Enter text in the editor
+	 * @param text the text to type into the editor
+	 */
+	async type(text: string): Promise<void> {
+		await this.editorPane.pressSequentially(text);
+	}
+
+	/**
+	 * Action: Select a file in the editor and enter text
+	 * @param filename the name of the file to select
+	 * @param text the text to type into the editor
+	 */
+	async selectTabAndType(filename: string, text: string): Promise<void> {
+		await test.step(`Select tab ${filename} and type text`, async () => {
+			await this.code.driver.page.getByRole('tab', { name: filename }).click();
+			await this.type(text);
+		});
+	}
+
 	async pressPlay(): Promise<void> {
 		await this.code.driver.page.locator(PLAY_BUTTON).click();
 
@@ -78,33 +98,6 @@ export class Editor {
 		}
 
 		return topValue;
-	}
-
-	async waitForTypeInEditor(filename: string, text: string, selectorPrefix = ''): Promise<any> {
-		if (text.includes('\n')) {
-			throw new Error('waitForTypeInEditor does not support new lines, use either a long single line or dispatchKeybinding(\'Enter\')');
-		}
-		const editor = [selectorPrefix || '', EDITOR(filename)].join(' ');
-
-		await expect(this.code.driver.page.locator(editor)).toBeVisible();
-
-		const textarea = `${editor} textarea`;
-		await expect(this.code.driver.page.locator(textarea)).toBeFocused();
-
-		await this.code.driver.page.locator(textarea).evaluate((textarea, text) => {
-			const input = textarea as HTMLTextAreaElement;
-			const start = input.selectionStart || 0;
-			const value = input.value;
-			const newValue = value.substring(0, start) + text + value.substring(start);
-
-			input.value = newValue;
-			input.setSelectionRange(start + text.length, start + text.length);
-
-			const event = new Event('input', { bubbles: true, cancelable: true });
-			input.dispatchEvent(event);
-		}, text);
-
-		await this.waitForEditorContents(filename, c => c.indexOf(text) > -1, selectorPrefix);
 	}
 
 	async waitForEditorContents(filename: string, accept: (contents: string) => boolean, selectorPrefix = ''): Promise<any> {
