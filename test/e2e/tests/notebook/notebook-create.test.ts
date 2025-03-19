@@ -60,8 +60,6 @@ test.describe('Notebooks', {
 			// Save the notebook using the command
 			await app.workbench.quickaccess.runCommand('workbench.action.files.saveAs', { keepOpen: true });
 			await app.workbench.quickInput.waitForQuickInputOpened();
-			// Wait a bit for the save to complete
-			// await new Promise(resolve => setTimeout(resolve, 1000));
 			// Generate a random filename
 			const newFileName = `saved-session-test-${Math.random().toString(36).substring(7)}.ipynb`;
 
