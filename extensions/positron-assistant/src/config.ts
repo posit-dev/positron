@@ -240,7 +240,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 			default:
 				throw new Error(vscode.l10n.t('Invalid action: {0}', action));
 		}
-	}, '');
+	});
 
 }
 
