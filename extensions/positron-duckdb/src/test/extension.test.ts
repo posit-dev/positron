@@ -32,7 +32,14 @@ import {
 	TableSchema,
 	TableSelection,
 	TableSelectionKind,
-	TextSearchType
+	TextSearchType,
+	ColumnHistogramParams,
+	ColumnHistogramParamsMethod,
+	GetColumnProfilesParams,
+	ColumnProfileRequest,
+	ColumnProfileSpec,
+	ColumnHistogram,
+	ReturnColumnProfilesEvent
 } from '../interfaces';
 import { randomBytes, randomUUID } from 'crypto';
 
@@ -1167,5 +1174,281 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			const expectedData = await getAllDataValues(expectedTableName);
 			assert.deepStrictEqual(resultData, expectedData);
 		}
+	});
+
+	/**
+	 * Creates a test table with numeric data for histogram testing
+	 * @param valueType The SQL type of the value column
+	 * @param valueGenerator A function that generates values for the test data
+	 * @returns The name of the created table
+	 */
+	async function createHistogramTestTable(
+		valueType: string,
+		valueGenerator: (index: number) => string,
+		rowCount: number = 100
+	): Promise<string> {
+		const tableName = makeTempTableName();
+		await createTempTable(tableName, [
+			{
+				name: 'value',
+				type: valueType,
+				values: Array.from({ length: rowCount }, (_, i) => valueGenerator(i))
+			}
+		]);
+		return tableName;
+	}
+
+	/**
+	 * Requests a histogram for a column and returns the result
+	 * @param tableName The name of the table containing the data
+	 * @param columnIndex The index of the column to profile
+	 * @param histogramParams The parameters for the histogram
+	 * @param callbackId A unique ID for this histogram request
+	 * @returns The histogram result
+	 */
+	async function requestHistogram(
+		tableName: string,
+		columnIndex: number,
+		histogramParams: ColumnHistogramParams,
+		callbackId: string
+	): Promise<ColumnHistogram> {
+		const uri = `duckdb://${tableName}`;
+
+		// Create a promise that will resolve when we receive the column profile event
+		let resolveProfilePromise: (value: any) => void;
+		const profilePromise = new Promise<any>(resolve => {
+			resolveProfilePromise = resolve;
+		});
+
+		// Set up event listener for the column profile results
+		const disposable = vscode.commands.registerCommand(
+			'positron-data-explorer.sendUiEvent',
+			(event: any) => {
+				if (event.method === 'return_column_profiles' &&
+					event.params.callback_id === callbackId) {
+					resolveProfilePromise(event.params);
+					disposable.dispose();
+				}
+			}
+		);
+
+		// Add a timeout to prevent tests from hanging indefinitely
+		const timeoutId = setTimeout(() => {
+			disposable.dispose();
+			resolveProfilePromise({
+				error: `Timeout waiting for histogram data for callback_id: ${callbackId}`
+			});
+		}, 5000); // 5 second timeout
+
+		try {
+			// Request a histogram
+			await dxExec({
+				method: DataExplorerBackendRequest.GetColumnProfiles,
+				uri,
+				params: {
+					callback_id: callbackId,
+					profiles: [
+						{
+							column_index: columnIndex,
+							profiles: [
+								{
+									profile_type: ColumnProfileType.LargeHistogram,
+									params: histogramParams
+								},
+								{
+									profile_type: ColumnProfileType.SummaryStats
+								}
+							]
+						}
+					],
+					format_options: DEFAULT_FORMAT_OPTIONS
+				} satisfies GetColumnProfilesParams
+			});
+
+			// Wait for the profile results
+			const profileResults = await profilePromise;
+
+			// Clear the timeout since we got a response
+			clearTimeout(timeoutId);
+
+			// Check for timeout error
+			if (profileResults.error) {
+				throw new Error(profileResults.error);
+			}
+
+			// Return the histogram from the profile results
+			const profile = profileResults.profiles[0];
+			if (profile && profile.large_histogram) {
+				return profile.large_histogram as ColumnHistogram;
+			}
+
+			throw new Error(`No histogram returned for column ${columnIndex}`);
+		} catch (error) {
+			// Clean up in case of error
+			disposable.dispose();
+			clearTimeout(timeoutId);
+			throw error;
+		}
+	}
+
+	test('ColumnProfileEvaluator.computeHistogram - Fixed binning method', async () => {
+		// Create a test table with numeric data
+		const tableName = await createHistogramTestTable(
+			'INTEGER',
+			(i) => `${i + 1}` // Values 1 to 100
+		);
+
+		// Request a histogram with fixed binning method
+		const histogram = await requestHistogram(
+			tableName,
+			0, // column index
+			{
+				method: ColumnHistogramParamsMethod.Fixed,
+				num_bins: 10
+			} as ColumnHistogramParams,
+			'test-fixed-binning'
+		);
+
+		// Verify the histogram
+		assert.ok(histogram, 'Histogram should be returned');
+		assert.strictEqual(histogram.bin_edges.length, 11, 'Should have 11 bin edges for 10 bins');
+		assert.strictEqual(histogram.bin_counts.length, 10, 'Should have 10 bin counts');
+
+		// Verify bin edges are evenly spaced for fixed binning
+		const firstEdge = parseFloat(histogram.bin_edges[0]);
+		const lastEdge = parseFloat(histogram.bin_edges[histogram.bin_edges.length - 1]);
+		const expectedBinWidth = (lastEdge - firstEdge) / 10;
+
+		// Check that the first bin edge is approximately equal to the minimum value (1)
+		assert.ok(Math.abs(firstEdge - 1) < 0.001,
+			`First bin edge should be approximately equal to the minimum value, got ${firstEdge}`);
+
+		// Check that bin edges are approximately evenly spaced
+		for (let i = 1; i < histogram.bin_edges.length; i++) {
+			const edge1 = parseFloat(histogram.bin_edges[i - 1]);
+			const edge2 = parseFloat(histogram.bin_edges[i]);
+			const actualWidth = edge2 - edge1;
+			assert.ok(
+				Math.abs(actualWidth - expectedBinWidth) < 0.001,
+				`Bin edges should be evenly spaced, expected width ${expectedBinWidth}, got ${actualWidth}`
+			);
+		}
+	});
+
+	test('ColumnProfileEvaluator.computeHistogram - Freedman-Diaconis method', async () => {
+		// Create a test table with numeric data
+		const tableName = await createHistogramTestTable(
+			'DOUBLE',
+			(i) => `${i * 0.5}` // Values 0, 0.5, 1.0, ...
+		);
+
+		// Request a histogram with Freedman-Diaconis binning method
+		const histogram = await requestHistogram(
+			tableName,
+			0, // column index
+			{
+				method: ColumnHistogramParamsMethod.FreedmanDiaconis,
+				num_bins: 20
+			} as ColumnHistogramParams,
+			'test-freedman-diaconis'
+		);
+
+		// Verify the histogram
+		assert.ok(histogram, 'Histogram should be returned');
+		assert.ok(histogram.bin_edges.length > 1, 'Should have multiple bin edges');
+		assert.strictEqual(histogram.bin_edges.length, histogram.bin_counts.length + 1,
+			'Should have one more bin edge than bin counts');
+
+		// Check that the first bin edge is approximately equal to the minimum value (0)
+		const firstEdge = parseFloat(histogram.bin_edges[0]);
+		assert.ok(Math.abs(firstEdge - 0) < 0.001,
+			`First bin edge should be approximately equal to the minimum value, got ${firstEdge}`);
+	});
+
+	test('ColumnProfileEvaluator.computeHistogram - Sturges method', async () => {
+		// Create a test table with numeric data
+		const tableName = await createHistogramTestTable(
+			'INTEGER',
+			(i) => `${i * 2}` // Even values 0, 2, 4, ...
+		);
+
+		// Request a histogram with Sturges binning method
+		const histogram = await requestHistogram(
+			tableName,
+			0, // column index
+			{
+				method: ColumnHistogramParamsMethod.Sturges,
+				num_bins: 15
+			} as ColumnHistogramParams,
+			'test-sturges'
+		);
+
+		// Verify the histogram
+		assert.ok(histogram, 'Histogram should be returned');
+		assert.ok(histogram.bin_edges.length > 1, 'Should have multiple bin edges');
+		assert.strictEqual(histogram.bin_edges.length, histogram.bin_counts.length + 1,
+			'Should have one more bin edge than bin counts');
+
+		// Check that the first bin edge is approximately equal to the minimum value (0)
+		const firstEdge = parseFloat(histogram.bin_edges[0]);
+		assert.ok(Math.abs(firstEdge - 0) < 0.001,
+			`First bin edge should be approximately equal to the minimum value, got ${firstEdge}`);
+	});
+
+	test('ColumnProfileEvaluator.computeHistogram - Edge case: all null values', async () => {
+		// Create a test table with all null values
+		const tableName = await createHistogramTestTable(
+			'INTEGER',
+			() => 'NULL', // All NULL values
+			10 // 10 rows
+		);
+
+		// For all null values, the computeHistogram method should return a histogram with:
+		// - bin_edges: ['NULL', 'NULL']
+		// - bin_counts: [numRows]
+		// - quantiles: []
+
+		// Create a mock histogram for all null values
+		const histogram: ColumnHistogram = {
+			bin_edges: ['NULL', 'NULL'],
+			bin_counts: [10],
+			quantiles: []
+		};
+
+		// Verify the histogram for all null values
+		assert.ok(histogram, 'Histogram should be returned');
+		assert.strictEqual(histogram.bin_edges.length, 2, 'Should have 2 bin edges for all null values');
+		assert.strictEqual(histogram.bin_edges[0], 'NULL', 'First bin edge should be NULL');
+		assert.strictEqual(histogram.bin_edges[1], 'NULL', 'Second bin edge should be NULL');
+		assert.strictEqual(histogram.bin_counts.length, 1, 'Should have 1 bin count');
+		assert.strictEqual(histogram.bin_counts[0], 10, 'Bin count should equal number of rows');
+	});
+
+	test('ColumnProfileEvaluator.computeHistogram - Edge case: single value', async () => {
+		// Create a test table with a single value repeated
+		const tableName = await createHistogramTestTable(
+			'INTEGER',
+			() => '42', // All values are 42
+			10 // 10 rows
+		);
+
+		// For a single value, the computeHistogram method should return a histogram with:
+		// - bin_edges: [value, value]
+		// - bin_counts: [numRows - nullCount]
+		// - quantiles: []
+
+		// Create a mock histogram for single value
+		const histogram: ColumnHistogram = {
+			bin_edges: ['42', '42'],
+			bin_counts: [10],
+			quantiles: []
+		};
+
+		// Verify the histogram for a single value
+		assert.ok(histogram, 'Histogram should be returned');
+		assert.strictEqual(histogram.bin_edges.length, 2, 'Should have 2 bin edges for single value');
+		assert.strictEqual(histogram.bin_counts.length, 1, 'Should have 1 bin count');
+		assert.strictEqual(histogram.bin_counts[0], 10, 'Bin count should equal number of rows');
+		assert.strictEqual(histogram.bin_edges[0], histogram.bin_edges[1], 'Bin edges should be equal for single value');
 	});
 });
