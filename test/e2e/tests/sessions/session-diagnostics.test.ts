@@ -16,7 +16,8 @@ test.use({
 });
 
 test.describe('Sessions: Diagnostics', {
-	tag: [tags.SESSIONS, tags.PROBLEMS, tags.WEB, tags.WIN]
+	tag: [tags.SESSIONS, tags.PROBLEMS, tags.WEB, tags.WIN],
+	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6872' }]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
