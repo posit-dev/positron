@@ -384,12 +384,12 @@ function spawnAsync(command, args, env, rejectOnStdErr = false) {
             if (proc.exitCode !== 0) {
                 reject(
                     new Error(
-                        `Process exited with non-zero exit code: ${proc.exitCode}.\n\n``Stdout:\n\n${stdOut}\n\n``Stderr:\n\n${stdErr}`,
+                        `Process exited with non-zero exit code: ${proc.exitCode}.\n\nStdout:\n\n${stdOut}\n\nStderr:\n\n${stdErr}`,
                     ),
                 );
             }
             if (stdErr && rejectOnStdErr) {
-                reject(new Error(`Rejecting on stderr.\n\n``Stdout:\n\n${stdOut}\n\n``Stderr:\n${stdErr}`));
+                reject(new Error(`Rejecting on stderr.\n\nStdout:\n\n${stdOut}\n\nStderr:\n${stdErr}`));
             }
             resolve(stdOut);
         });
