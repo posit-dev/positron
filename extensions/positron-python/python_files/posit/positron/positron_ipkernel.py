@@ -166,9 +166,16 @@ class PositronMagics(Magics):
             # If not found as a variable, try to evaluate it as an expression
             try:
                 obj = self.shell.ev(obj_name)
+
                 # Create a similar info object to what _ofind would return
                 class SimpleNamespaceObj:
-                    pass
+                    def __init__(self) -> None:
+                        self.found: bool = False
+                        self.obj: Any = None
+                        self.ismagic: bool = False
+                        self.isalias: bool = False
+                        self.namespace: str = ""
+
                 info = SimpleNamespaceObj()
                 info.found = True
                 info.obj = obj
