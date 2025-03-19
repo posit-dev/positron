@@ -645,9 +645,9 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		});
 
 		await this.shutdown(positron.RuntimeExitReason.Shutdown);
-		// If the `restart` is not handled finished, positron won't allow another session
-		// to start. To fix that we need to throw an error (that's silently ignroed by Positron)
-		// and then start a new session.
+		// If the `restart` is not finished, positron won't allow another session
+		// to start. To fix that we need to throw an error (that's silently ignored
+		// by Positron) and then start a new session.
 		throw new Error('Restarting the reticulate session');
 	}
 
