@@ -88,9 +88,6 @@ test.describe('Notebooks', {
 
 			// Verify the variable is in the variables pane
 			await app.workbench.variables.expectVariableToBe('baz', "'baz'");
-
-			// Clean up by closing the notebook without saving
-			await app.workbench.notebooks.closeNotebookWithoutSaving();
 		});
 	});
 
