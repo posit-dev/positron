@@ -700,7 +700,17 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			// Start the LSP and DAP servers
 			this._queue.add(async () => {
 				const dap = this.startDap();
-				await dap;
+
+				if (this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
+					// For consoles, the LSP is activated when the console becomes the foreground session
+					await dap;
+				} else {
+					// For background / notebook, the LSP is activated on startup
+					// (these never become foreground sessions)
+					const lsp = this.startLsp();
+					this._lspStarting = lsp;
+					await Promise.all([lsp, dap]);
+				}
 			});
 
 			this._queue.add(async () => {
@@ -734,33 +744,31 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 	}
 
-	public async activateLsp() {
-		// Start LSP for the foreground session only if its been previously stopped
+	/**
+	 * Start the LSP
+	 *
+	 * Returns a promise that resolves when the LSP has been activated.
+	 */
+	public async activateLsp(): Promise<void> {
 		if (this._lsp.state === LspState.stopped ||
 			this._lsp.state === LspState.uninitialized) {
-			// Use this promise to await this function until
-			// the LSP call has been popped off the queue & executed
-			await new Promise<void>((resolve) => {
-				this._queue.add(async () => {
-					this._lspStarting = this.startLsp();
-					this._lspStarting.then(() => {
-						resolve();
-					});
-				});
+			return this._queue.add(async () => {
+				const lsp = this.startLsp();
+				this._lspStarting = lsp;
+				await lsp;
 			});
 		}
 	}
 
-	public async deactivateLsp() {
-		// Stop LSP if it's running
+	/**
+	 * Stops the LSP if it is running
+	 *
+	 * Returns a promise that resolves when the LSP has been deactivated.
+	 */
+	public async deactivateLsp(): Promise<void> {
 		if (this._lsp.state === LspState.running) {
-			// Use this promise to await this function until
-			// the LSP call has been popped off the queue & executed
-			await new Promise<void>((resolve) => {
-				this._queue.add(async () => {
-					await this._lsp.deactivate(true);
-					resolve();
-				});
+			return this._queue.add(async () => {
+				await this._lsp.deactivate(true);
 			});
 		}
 	}
