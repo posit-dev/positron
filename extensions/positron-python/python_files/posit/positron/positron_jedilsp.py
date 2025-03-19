@@ -322,6 +322,8 @@ class PositronJediLanguageServer(JediLanguageServer):
         asyncio.set_event_loop(self.loop)
 
         self._stop_event = threading.Event()
+        # Using the default `port` of `None` to allow the OS to pick a port for us, which
+        # we extract and send back below
         self._server = self.loop.run_until_complete(self.loop.create_server(self.lsp, host))
 
         listeners = self._server.sockets
