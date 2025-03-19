@@ -76,7 +76,8 @@ test.describe('Sessions: Management', {
 	test('Validate session list is scrollable', async function ({ app, sessions }) {
 		const session = app.workbench.sessions;
 
-		const [pythonSession1, pythonSession2] = await sessions.start(['python', 'pythonAlt']);
+		// @ts-ignore need a couple sessions for scrolling
+		const [pythonSession1, pythonSession2] = await sessions.start(['python', 'pythonAlt', 'python']);
 
 		// Resize window to force scrolling
 		// Move the divider to be 100px above the bottom
