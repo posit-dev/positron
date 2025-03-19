@@ -51,7 +51,7 @@ test.describe('Notebooks', {
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 
 			// First, create and execute a cell to verify initial session
-			await app.workbench.notebooks.addCodeToFirstCell('foo = "bar"');
+			await app.workbench.notebooks.addCodeToCellAtIndex('foo = "bar"');
 			await app.workbench.notebooks.executeCodeInCell();
 
 			// Verify the variable is in the variables pane
@@ -77,8 +77,7 @@ test.describe('Notebooks', {
 
 			// Create a new variable using the now saved notebook
 			// Add code to the new cell (using typeInEditor since addCodeToLastCell isn't available)
-			await app.workbench.notebooks.focusNextCell();
-			await app.workbench.notebooks.typeInEditor('baz = "baz"');
+			await app.workbench.notebooks.addCodeToCellAtIndex('baz = "baz"', 1);
 
 			// Execute the cell
 			await app.workbench.notebooks.executeActiveCell();
