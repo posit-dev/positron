@@ -545,6 +545,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             return this._queue.add(async () => {
                 await this.startLsp();
             });
+        } else {
+            return undefined;
         }
     }
 
@@ -556,6 +558,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                 }
                 await this._lsp?.deactivate(awaitStop);
             });
+        } else {
+            return undefined;
         }
     }
 

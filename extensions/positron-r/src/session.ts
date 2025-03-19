@@ -678,6 +678,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			return this._queue.add(async () => {
 				await this.startLsp();
 			});
+		} else {
+			return undefined;
 		}
 	}
 
@@ -694,6 +696,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				}
 				await this._lsp.deactivate(awaitStop);
 			});
+		} else {
+			return undefined;
 		}
 	}
 
