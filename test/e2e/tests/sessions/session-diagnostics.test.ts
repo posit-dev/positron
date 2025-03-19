@@ -39,33 +39,33 @@ test.describe('Sessions: Diagnostics', {
 
 		// Session 1 - before installing/importing package, the requests warning should be present
 		await sessions.select(pythonSession1.id);
-		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1 });
+		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1, errorCount: 0 });
 		await problems.expectWarningText('Import "requests" could not be resolved from source');
 		await problems.expectSquigglyCountToBe('warning', 1);
 
-		// Session 1 - install/import 'requests' and verify no problems
+		// Session 1 - install & import 'requests' and verify no problems
 		await console.executeCode('Python', 'pip install requests', { maximizeConsole: false });
 		await console.executeCode('Python', 'import requests', { maximizeConsole: false });
-		await problems.expectDiagnosticsToBe({ problemCount: 0, warningCount: 0 });
+		await problems.expectDiagnosticsToBe({ problemCount: 0, warningCount: 0, errorCount: 0 });
 		await problems.expectSquigglyCountToBe('warning', 0);
 
 		// Session 2 - verify warning since requests was not installed in that session
 		await sessions.select(pythonSession2.id);
-		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1 });
+		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1, errorCount: 0 });
 		await problems.expectWarningText('Import "requests" could not be resolved from source');
 		await problems.expectSquigglyCountToBe('warning', 1);
 
 		// Introduce a syntax error
 		await editor.selectTabAndType('Untitled-1', 'x =');
 
-		// Session 2 - verify 2 errors (import and syntax) are present
+		// Session 2 - verify both errors (import and syntax) are present
 		await sessions.select(pythonSession2.id);
-		await problems.expectDiagnosticsToBe({ problemCount: 3, errorCount: 1 });
+		await problems.expectDiagnosticsToBe({ problemCount: 3, warningCount: 2, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 
 		// Session 1 - verify 1 error (syntax) is present
 		await sessions.select(pythonSession1.id);
-		await problems.expectDiagnosticsToBe({ problemCount: 2, errorCount: 1 });
+		await problems.expectDiagnosticsToBe({ problemCount: 2, warningCount: 1, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 
 	});
@@ -82,33 +82,33 @@ test.describe('Sessions: Diagnostics', {
 
 		// Session 1 - before installing/importing pkg the circos warning should be present
 		await sessions.select(rSession1.id);
-		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1 });
+		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1, errorCount: 0 });
 		await problems.expectWarningText('No symbol named \'circos.');
 		await problems.expectSquigglyCountToBe('warning', 1);
 
-		// Session 1 - install circlize and verify no problems
+		// Session 1 - install & import circlize and verify no problems
 		await console.executeCode('R', "install.packages('circlize')", { maximizeConsole: false });
 		await console.executeCode('R', 'library(circlize)', { maximizeConsole: false });
-		await problems.expectDiagnosticsToBe({ problemCount: 0, warningCount: 0 });
+		await problems.expectDiagnosticsToBe({ problemCount: 0, warningCount: 0, errorCount: 0 });
 		await problems.expectSquigglyCountToBe('warning', 0);
 
 		// Session 2 - verify warning since circlize is not installed
 		await sessions.select(rSession2.id);
 		await problems.expectSquigglyCountToBe('warning', 1);
-		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1 });
+		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1, errorCount: 0 });
 		await problems.expectWarningText('No symbol named \'circos.');
 
 		// Introduce a syntax error
 		await editor.selectTabAndType('Untitled-1', 'x <-');
 
-		// Session 2 - verify 2 errors (circos and syntax) are present
+		// Session 2 - verify both problems (circos and syntax) are present
 		await sessions.select(rSession2.id);
-		await problems.expectDiagnosticsToBe({ problemCount: 3, errorCount: 1 });
+		await problems.expectDiagnosticsToBe({ problemCount: 3, warningCount: 2, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 
-		// Session 1 - verify 1 error (syntax) is present
+		// Session 1 - verify only syntax error is present
 		await sessions.select(rSession1.id);
-		await problems.expectDiagnosticsToBe({ problemCount: 2, errorCount: 1 });
+		await problems.expectDiagnosticsToBe({ problemCount: 2, warningCount: 1, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 	});
 });

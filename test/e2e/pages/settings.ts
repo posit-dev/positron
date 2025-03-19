@@ -31,7 +31,7 @@ export class Settings {
 		const file = 'settings.json';
 		await this.quickaccess.runCommand('editor.action.selectAll');
 		await this.code.driver.page.keyboard.press('Delete');
-		await this.editor.type('{');
+		await this.editor.type('{'); // will auto close }
 		await this.editors.saveOpenedFile();
 		await this.editors.waitForActiveTabNotDirty(file);
 		await this.quickaccess.runCommand('workbench.action.closeActiveEditor');
