@@ -471,14 +471,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			startMode,
 			true
 		);
-
-		if (notebookUri) {
-			// Make sure that the notebook knows about its session id for proper mapping of notebook file name to session.
-			await this._commandService.executeCommand('_positron.storeNotebookSessionId', notebookUri.toString(), sessionName)
-				.catch(err => {
-					this._logService.error(`Failed to store session ID for notebook: ${err}`);
-				});
-		}
 	}
 
 	/**
