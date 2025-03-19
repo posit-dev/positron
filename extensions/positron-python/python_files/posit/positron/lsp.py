@@ -34,13 +34,13 @@ class LSPService:
 
         # Parse the host and port from the comm open message
         data = msg["content"]["data"]
-        client_address = data.get("ip_address", None)
-        if client_address is None:
+        ip_address = data.get("ip_address", None)
+        if ip_address is None:
             logger.warning(f"No ip_address in LSP comm open message: {msg}")
             return
 
         # Start the language server thread
-        POSITRON.start(lsp_host=client_address, lsp_port=0, shell=self._kernel.shell, comm=comm)
+        POSITRON.start(lsp_host=ip_address, shell=self._kernel.shell, comm=comm)
 
     def _receive_message(self, msg: Dict[str, Any]) -> None:
         """Handle messages received from the client via the positron.lsp comm."""

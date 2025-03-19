@@ -310,10 +310,8 @@ class PositronJediLanguageServer(JediLanguageServer):
 
         return decorator
 
-    def start_tcp(self, host: str, port: int) -> None:
+    def start_tcp(self, host: str) -> None:
         """Starts TCP server."""
-        logger.info("Starting TCP server on %s:%s", host, port)
-
         # Create a new event loop for the LSP server thread.
         self.loop = asyncio.new_event_loop()
 
@@ -324,17 +322,16 @@ class PositronJediLanguageServer(JediLanguageServer):
         asyncio.set_event_loop(self.loop)
 
         self._stop_event = threading.Event()
-        self._server = self.loop.run_until_complete(self.loop.create_server(self.lsp, host, port))
+        self._server = self.loop.run_until_complete(self.loop.create_server(self.lsp, host))
 
         listeners = self._server.sockets
         for socket in listeners:
             addr, port = socket.getsockname()
             if addr == host:
-                logger.info("LSP server is listening on port %d", port)
+                logger.info("LSP server is listening on %s:%d", host, port)
                 break
         else:
-            port = 0
-            logger.warning("Could not determine server port")
+            raise AssertionError("Unable to determine LSP server port")
 
         # Notify the frontend that the LSP server is ready
         if self._comm is None:
@@ -352,7 +349,7 @@ class PositronJediLanguageServer(JediLanguageServer):
         finally:
             self.shutdown()
 
-    def start(self, lsp_host: str, lsp_port: int, shell: "PositronShell", comm: BaseComm) -> None:
+    def start(self, lsp_host: str, shell: "PositronShell", comm: BaseComm) -> None:
         """
         Start the LSP.
 
@@ -377,7 +374,7 @@ class PositronJediLanguageServer(JediLanguageServer):
         # Start Jedi LSP as an asyncio TCP server in a separate thread.
         logger.info("Starting LSP server thread")
         self._server_thread = threading.Thread(
-            target=self.start_tcp, args=(lsp_host, lsp_port), name="LSPServerThread"
+            target=self.start_tcp, args=(lsp_host,), name="LSPServerThread"
         )
         self._server_thread.start()
 
