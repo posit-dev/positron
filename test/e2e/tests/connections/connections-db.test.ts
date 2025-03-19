@@ -13,10 +13,6 @@ test.use({
 test.describe('SQLite DB Connection', {
 	tag: [tags.WEB, tags.CRITICAL, tags.CONNECTIONS, tags.WIN]
 }, () => {
-	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['positron.connections.showConnectionPane', 'true']]);
-	});
-
 	test.afterEach(async function ({ app }) {
 		await app.workbench.connections.disconnectButton.click();
 		await app.workbench.connections.connectionItems.first().click();
