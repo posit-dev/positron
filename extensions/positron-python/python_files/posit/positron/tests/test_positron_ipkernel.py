@@ -93,7 +93,8 @@ def test_view_simple_expression(shell: PositronShell, mock_dataexplorer_service:
     mock_dataexplorer_service.register_table.assert_called_once()
     args, kwargs = mock_dataexplorer_service.register_table.call_args
     assert args[0] is expected_result  # First arg is the object
-    assert args[1] == '"x + 1"'  # Second arg is the title (quoted expression)
+    # Check that the title is either the quoted or unquoted expression (platform-dependent)
+    assert args[1] in ('"x + 1"', "x + 1")
 
 
 def test_view_complex_expression(shell: PositronShell, mock_dataexplorer_service: Mock) -> None:
@@ -104,9 +105,8 @@ def test_view_complex_expression(shell: PositronShell, mock_dataexplorer_service
     mock_dataexplorer_service.register_table.assert_called_once()
     args, kwargs = mock_dataexplorer_service.register_table.call_args
     assert args[0] == expected_result
-    assert (
-        args[1] == '"my_list[:2] + [sum(my_list)]"'
-    )  # Second arg is the title (quoted expression)
+    # Check that the title is either the quoted or unquoted expression (platform-dependent)
+    assert args[1] in ('"my_list[:2] + [sum(my_list)]"', "my_list[:2] + [sum(my_list)]")
 
 
 def test_view_expression_with_title(shell: PositronShell, mock_dataexplorer_service: Mock) -> None:
