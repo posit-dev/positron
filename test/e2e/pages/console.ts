@@ -83,13 +83,14 @@ export class Console {
 		return;
 	}
 
-	async executeCode(languageName: 'Python' | 'R', code: string, options?: { timeout?: number }): Promise<void> {
+	async executeCode(languageName: 'Python' | 'R', code: string, options?: { timeout?: number; maximizeConsole?: boolean }): Promise<void> {
 		return test.step(`Execute ${languageName} code in console: ${code}`, async () => {
 			const timeout = options?.timeout ?? 30000;
+			const maximizeConsole = options?.maximizeConsole ?? true;
 
 			await expect(async () => {
 				// Kind of hacky, but activate console in case focus was previously lost
-				await this.activeConsole.click();
+				await this.focus();
 				await this.quickaccess.runCommand('workbench.action.executeCode.console', { keepOpen: true });
 
 			}).toPass();
@@ -109,7 +110,9 @@ export class Console {
 
 			// The console will show the prompt after the code is done executing.
 			await this.waitForReady(languageName === 'Python' ? '>>>' : '>', timeout);
-			await this.maximizeConsole();
+			if (maximizeConsole) {
+				await this.maximizeConsole();
+			}
 		});
 	}
 
