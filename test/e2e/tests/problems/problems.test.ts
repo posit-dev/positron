@@ -50,7 +50,7 @@ test.describe('Problems', {
 		await keyboard.hotKeys.undo();
 
 		// Verify the error is no longer present in Editor and Problems view
-		await problems.expectSquigglyCountToBe('error', 1);
+		await problems.expectSquigglyCountToBe('error', 0);
 		await problems.expectProblemsCountToBe(0);
 	});
 });
