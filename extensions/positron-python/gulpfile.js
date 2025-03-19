@@ -381,8 +381,15 @@ function spawnAsync(command, args, env, rejectOnStdErr = false) {
         });
 
         proc.on('close', () => {
-            if ((stdErr && rejectOnStdErr) || proc.exitCode !== 0) {
-                reject(stdErr);
+            if (proc.exitCode !== 0) {
+                reject(
+                    new Error(
+                        `Process exited with non-zero exit code: ${proc.exitCode}.\n\n``Stdout:\n\n${stdOut}\n\n``Stderr:\n\n${stdErr}`,
+                    ),
+                );
+            }
+            if (stdErr && rejectOnStdErr) {
+                reject(new Error(`Rejecting on stderr.\n\n``Stdout:\n\n${stdOut}\n\n``Stderr:\n${stdErr}`));
             }
             resolve(stdOut);
         });
