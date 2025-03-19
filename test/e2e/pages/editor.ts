@@ -29,6 +29,15 @@ export class Editor {
 
 	constructor(private code: Code) { }
 
+	/**
+	 * Action: Enter text in the editor
+	 * @param text - text to enter
+	 */
+	async enterText(text: string): Promise<void> {
+		await this.editorPane.click();
+		await this.editorPane.pressSequentially(text);
+	}
+
 	async pressPlay(): Promise<void> {
 		await this.code.driver.page.locator(PLAY_BUTTON).click();
 

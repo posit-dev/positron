@@ -35,7 +35,7 @@ test.describe('Sessions: Diagnostics', {
 
 		// Open new Python file
 		await runCommand('Python: New File');
-		await editor.editorPane.pressSequentially('import requests\nrequests.get("https://example.com")\n');
+		await editor.enterText('import requests\nrequests.get("https://example.com")\n');
 
 		// Session 1 - before installing/importing package, the requests warning should be present
 		await sessions.select(pythonSession1.id);
@@ -79,7 +79,7 @@ test.describe('Sessions: Diagnostics', {
 
 		// Open new R file
 		await runCommand('R: New File');
-		await editor.editorPane.pressSequentially('circos.points()\n');
+		await editor.enterText('circos.points()\n');
 
 		// Session 1 - before installing/importing pkg the circos warning should be present
 		await sessions.select(rSession1.id);
