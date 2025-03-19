@@ -311,6 +311,7 @@ class ColumnProfileEvaluator {
 					break;
 				case ColumnProfileType.LargeHistogram:
 				case ColumnProfileType.SmallHistogram:
+					this.addNullCount(fieldName);
 					this.addHistogramStats(fieldName, spec.params as ColumnHistogramParams);
 					break;
 				case ColumnProfileType.LargeFrequencyTable:

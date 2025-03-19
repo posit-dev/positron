@@ -1403,17 +1403,16 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			10 // 10 rows
 		);
 
-		// For all null values, the computeHistogram method should return a histogram with:
-		// - bin_edges: ['NULL', 'NULL']
-		// - bin_counts: [numRows]
-		// - quantiles: []
-
-		// Create a mock histogram for all null values
-		const histogram: ColumnHistogram = {
-			bin_edges: ['NULL', 'NULL'],
-			bin_counts: [10],
-			quantiles: []
-		};
+		// Request a histogram for the column with all null values
+		const histogram = await requestHistogram(
+			tableName,
+			0, // column index
+			{
+				method: ColumnHistogramParamsMethod.Fixed,
+				num_bins: 10
+			} as ColumnHistogramParams,
+			'test-all-null'
+		);
 
 		// Verify the histogram for all null values
 		assert.ok(histogram, 'Histogram should be returned');
@@ -1432,23 +1431,31 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			10 // 10 rows
 		);
 
-		// For a single value, the computeHistogram method should return a histogram with:
-		// - bin_edges: [value, value]
-		// - bin_counts: [numRows - nullCount]
-		// - quantiles: []
-
-		// Create a mock histogram for single value
-		const histogram: ColumnHistogram = {
-			bin_edges: ['42', '42'],
-			bin_counts: [10],
-			quantiles: []
-		};
+		// Request a histogram for the column with a single value
+		const histogram = await requestHistogram(
+			tableName,
+			0, // column index
+			{
+				method: ColumnHistogramParamsMethod.Fixed,
+				num_bins: 10
+			} as ColumnHistogramParams,
+			'test-single-value'
+		);
 
 		// Verify the histogram for a single value
 		assert.ok(histogram, 'Histogram should be returned');
 		assert.strictEqual(histogram.bin_edges.length, 2, 'Should have 2 bin edges for single value');
 		assert.strictEqual(histogram.bin_counts.length, 1, 'Should have 1 bin count');
 		assert.strictEqual(histogram.bin_counts[0], 10, 'Bin count should equal number of rows');
-		assert.strictEqual(histogram.bin_edges[0], histogram.bin_edges[1], 'Bin edges should be equal for single value');
+
+		// For a single value, the bin edges should be equal
+		const firstEdge = parseFloat(histogram.bin_edges[0]);
+		const secondEdge = parseFloat(histogram.bin_edges[1]);
+		assert.ok(Math.abs(firstEdge - secondEdge) < 0.001,
+			'Bin edges should be equal for single value');
+
+		// The single value should be 42
+		assert.ok(Math.abs(firstEdge - 42) < 0.001,
+			`First bin edge should be approximately equal to the single value (42), got ${firstEdge}`);
 	});
 });
