@@ -541,7 +541,7 @@ class ColumnProfileEvaluator {
 			result.toArray().map(entry => [entry.bin_id, entry.bin_count])
 		);
 		for (let i = 0; i < numBins; ++i) {
-			output.bin_edges.push((binWidth * i).toString());
+			output.bin_edges.push((minValue + binWidth * i).toString());
 			output.bin_counts.push(Number(histEntries.get(i) ?? 0));
 		}
 
@@ -549,7 +549,7 @@ class ColumnProfileEvaluator {
 		output.bin_counts[numBins - 1] += Number(histEntries.get(numBins) ?? 0);
 
 		// Compute the push the last bin
-		output.bin_edges.push((binWidth * numBins).toString());
+		output.bin_edges.push((minValue + binWidth * numBins).toString());
 		return output;
 	}
 
