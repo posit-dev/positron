@@ -49,7 +49,7 @@ export async function hasFiles(includes: string[]): Promise<boolean> {
 
 export async function getActivePythonSessions(): Promise<PythonRuntimeSession[]> {
     const sessions = await positron.runtime.getActiveSessions();
-    return sessions.filter((session) => session instanceof PythonRuntimeSession);
+    return sessions.filter((session) => session instanceof PythonRuntimeSession) as PythonRuntimeSession[];
 }
 
 export abstract class Disposable {
