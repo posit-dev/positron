@@ -2111,32 +2111,26 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 			// Manual restoration in reverse order to maintain consistency
 			// Why: We need to undo all the changes to return to the previous state
-			try {
-				// 1. Try to restore old mapping if it was deleted
-				// Why: If we got as far as deleting the old mapping, we need to restore it
-				// so the session can still be found via the original URI
-				if (!this._notebookSessionsByNotebookUri.has(oldUri)) {
-					this._notebookSessionsByNotebookUri.set(oldUri, session);
-				}
 
-				// 2. Clean up possibly invalid new mapping
-				// Why: We only delete the new mapping if it points to our session
-				// This avoids accidentally deleting a valid mapping that might have been
-				// created by another operation
-				if (this._notebookSessionsByNotebookUri.get(newUri) === session) {
-					this._notebookSessionsByNotebookUri.delete(newUri);
-				}
+			// 1. Try to restore old mapping if it was deleted
+			// Why: If we got as far as deleting the old mapping, we need to restore it
+			// so the session can still be found via the original URI
+			if (!this._notebookSessionsByNotebookUri.has(oldUri)) {
+				this._notebookSessionsByNotebookUri.set(oldUri, session);
+			}
 
-				// 3. Restore original URI in session state if needed
-				// Why: Keep the session's internal state consistent with our mappings
-				if (session.dynState.currentNotebookUri === newUri) {
-					session.dynState.currentNotebookUri = oldUri;
-				}
-			} catch (restoreError) {
-				// If restoration fails, log it but don't throw
-				// Why: This avoids cascading errors but ensures the issue is documented
-				// We're already in an error state, so throwing again would just obscure the original problem
-				this._logService.error('Failed to restore notebook session state after URI update failure', restoreError);
+			// 2. Clean up possibly invalid new mapping
+			// Why: We only delete the new mapping if it points to our session
+			// This avoids accidentally deleting a valid mapping that might have been
+			// created by another operation
+			if (this._notebookSessionsByNotebookUri.get(newUri) === session) {
+				this._notebookSessionsByNotebookUri.delete(newUri);
+			}
+
+			// 3. Restore original URI in session state if needed
+			// Why: Keep the session's internal state consistent with our mappings
+			if (session.dynState.currentNotebookUri === newUri) {
+				session.dynState.currentNotebookUri = oldUri;
 			}
 
 			return undefined;
