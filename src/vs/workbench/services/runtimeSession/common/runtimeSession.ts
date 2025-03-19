@@ -2055,12 +2055,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @returns The session ID of the updated session, or undefined if no update occurred
 	 */
 	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined {
-		// Validate inputs - both URIs must be defined
-		// Why: We need valid URIs to perform lookups and avoid system errors
-		if (!oldUri || !newUri) {
-			this._logService.error('updateNotebookSessionUri called with invalid URIs', { oldUri, newUri });
-			return undefined;
-		}
 
 		// Find the session associated with the old URI
 		const session = this._notebookSessionsByNotebookUri.get(oldUri);
