@@ -26,7 +26,6 @@ import { IUpdateService } from '../../../../platform/update/common/update.js';
 import { multipleConsoleSessionsFeatureEnabled } from './positronMultipleConsoleSessionsFeatureFlag.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
-import { generateUuid } from '../../../../base/common/uuid.js';
 
 /**
  * The maximum number of active sessions a user can have running at a time.
@@ -391,16 +390,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			: LanguageRuntimeSessionMode.Console;
 
 
-		let sessionName = runtime.runtimeName;
-
-		if (notebookUri) {
-			const activeSession = this.getNotebookSessionForNotebookUri(notebookUri);
-			// If there is an active session for this notebook, use the runtime ID of the active
-			// session instead of generating a new one.
-			// Generate a unique ID for a notebook session with "n-" prefix to make it easily identifiable
-			sessionName = activeSession ? activeSession.runtimeMetadata.runtimeId : `n-${generateUuid()}`;
-		}
-
 		const startMode = notebookUri
 			? RuntimeStartMode.Switching
 			: multiSessionsEnabled ? RuntimeStartMode.Starting : RuntimeStartMode.Switching;
@@ -464,7 +453,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Wait for the selected runtime to start.
 		await this.startNewRuntimeSession(
 			runtime.runtimeId,
-			sessionName,
+			runtime.runtimeName,
 			sessionMode,
 			notebookUri,
 			source,
@@ -1373,7 +1362,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		}
 
-		const sessionId = this.generateNewSessionId(runtimeMetadata);
+		const sessionId = this.generateNewSessionId(runtimeMetadata, sessionMode === LanguageRuntimeSessionMode.Notebook);
 		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId,
 			sessionName: updatedSessionName,
@@ -1999,13 +1988,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		});
 	}
 
-	private generateNewSessionId(metadata: ILanguageRuntimeMetadata): string {
+	private generateNewSessionId(metadata: ILanguageRuntimeMetadata, isNotebook: boolean | undefined): string {
 		// Generate a random session ID. We use fairly short IDs to make them more readable.
-		const id = `${metadata.languageId}-${Math.random().toString(16).slice(2, 10)}`;
+		const id = `${metadata.languageId}-${isNotebook ? 'notebook-' : ''}${Math.random().toString(16).slice(2, 10)}`;
 
 		// Since the IDs are short, there's a chance of collision. If we have a collision, try again.
 		if (this._activeSessionsBySessionId.has(id)) {
-			return this.generateNewSessionId(metadata);
+			return this.generateNewSessionId(metadata, isNotebook);
 		}
 
 		return id;
