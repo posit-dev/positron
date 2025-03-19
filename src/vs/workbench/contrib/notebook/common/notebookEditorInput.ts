@@ -273,7 +273,6 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 				// 1. Session transfer is important but secondary to saving the file content
 				// 2. Failed session transfer shouldn't prevent the user from saving their work
 				// 3. In the worst case, the notebook will save but users may need to re-run cells
-				console.error('Failed to update notebook session URI during save:', error);
 				this._logService.error('Failed to reassign notebook session URI', error);
 			}
 		}

@@ -101,13 +101,11 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 	private readonly _onWillStartSession = new Emitter<IRuntimeSessionWillStartEvent>();
 	readonly onWillStartSession = this._onWillStartSession.event;
 
-	// Add missing properties to fix interface implementation
 	private readonly _onDidUpdateNotebookSessionUri = new Emitter<INotebookSessionUriChangedEvent>();
 	readonly onDidUpdateNotebookSessionUri = this._onDidUpdateNotebookSessionUri.event;
 
 	foregroundSession: ILanguageRuntimeSession | undefined;
 
-	// Fix implementation to match the correct signature
 	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined {
 		return undefined;
 	}
@@ -421,7 +419,6 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 		this.metadata = createSessionMetadata(sessionId);
 	}
 
-	// Add missing method to fix interface implementation
 	getLabel(): string {
 		return this.metadata.sessionName;
 	}
@@ -564,15 +561,13 @@ suite('ExecutionHistoryService', () => {
 		runtimeStartupService = new TestRuntimeStartupService();
 		storageService = new TestStorageService();
 		configurationService = new TestConfigurationService();
-		const workspaceContextService = new TestWorkspaceContextService();
 
-		// Use stub instead of set
 		instantiationService.stub(IRuntimeSessionService, runtimeSessionService);
 		instantiationService.stub(IRuntimeStartupService, runtimeStartupService);
 		instantiationService.stub(IStorageService, storageService);
 		instantiationService.stub(ILogService, new NullLogService());
 		instantiationService.stub(IConfigurationService, configurationService);
-		instantiationService.stub(IWorkspaceContextService, workspaceContextService);
+		instantiationService.stub(IWorkspaceContextService, new TestWorkspaceContextService());
 
 		executionHistoryService = instantiationService.createInstance(ExecutionHistoryService);
 		disposables.add(executionHistoryService);

@@ -27,7 +27,6 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { localize } from '../../../../nls.js';
 import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
 // --- Start Positron ---
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 // --- End Positron ---
@@ -59,7 +58,6 @@ export class ReplEditorInput extends NotebookEditorInput implements ICompositeNo
 		@ITextModelService private readonly _textModelService: ITextModelService,
 		@IConfigurationService configurationService: IConfigurationService,
 		// --- Start Positron ---
-		@ICommandService commandService: ICommandService,
 		@IRuntimeSessionService runtimeSessionService: IRuntimeSessionService,
 		@ILogService logService: ILogService,
 		// --- End Positron ---
