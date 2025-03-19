@@ -631,16 +631,16 @@ export function newCompletionProvider(config: ModelConfig): vscode.InlineComplet
 export const completionModels = [
 	AnthropicCompletion,
 	AWSCompletion,
-	// AzureCompletion,
-	// DeepSeekCompletion,
-	// MistralCompletion,
+	AzureCompletion,
+	DeepSeekCompletion,
+	MistralCompletion,
 	GoogleCompletion,
-	// OllamaCompletion,
-	// OpenAICompletion,
-	// OpenAILegacyCompletion,
-	// OpenRouterCompletion,
-	// VertexCompletion,
-	// VertexLegacyCompletion,
+	OllamaCompletion,
+	OpenAICompletion,
+	OpenAILegacyCompletion,
+	OpenRouterCompletion,
+	VertexCompletion,
+	VertexLegacyCompletion,
 ];
 
 //#endregion
