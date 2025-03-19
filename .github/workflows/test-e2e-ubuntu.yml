@@ -43,6 +43,11 @@ on:
         description: "Whether or not to install undetectable interpreters."
         type: boolean
         default: false
+      install_license:
+        required: false
+        description: "Whether or not to install positron-license"
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -117,6 +122,7 @@ jobs:
 
       - name: Install Positron License
         uses: ./.github/actions/install-license
+        if: ${{ inputs.install_license }}
         with:
           github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
