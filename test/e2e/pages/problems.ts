@@ -61,7 +61,7 @@ export class Problems {
 		errorCount?: number;
 		warningCount?: number;
 	}): Promise<void> {
-		await test.step(`Verify diagnostics - Problems: ${problemCount ?? 'N/A'}, Errors: ${errorCount ?? 'N/A'}, Warnings: ${warningCount ?? 'N/A'}`, async () => {
+		await test.step(`Expect diagnostics - Problems: ${problemCount ?? 'N/A'}, Errors: ${errorCount ?? 'N/A'}, Warnings: ${warningCount ?? 'N/A'}`, async () => {
 			// Waiting for debounce to complete, ensuring counts reflect the final state
 			await this.code.driver.page.waitForTimeout(1500);
 			await this.showProblemsView();

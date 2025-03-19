@@ -43,8 +43,10 @@ export class Editor {
 	 * @param text the text to type into the editor
 	 */
 	async selectTabAndType(filename: string, text: string): Promise<void> {
-		await this.code.driver.page.getByRole('tab', { name: filename }).click();
-		await this.type(text);
+		await test.step(`Select tab ${filename} and type text`, async () => {
+			await this.code.driver.page.getByRole('tab', { name: filename }).click();
+			await this.type(text);
+		});
 	}
 
 	async pressPlay(): Promise<void> {
