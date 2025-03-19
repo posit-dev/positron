@@ -22,7 +22,7 @@ test.describe('Problems', {
 		await editor.replaceTerm('chinook-sqlite.py', 'rows', 9, '!');
 
 		// Verify the error is present in Editor and Problems pane
-		await problems.expectSquigglyToBeVisible('error');
+		await problems.expectSquigglyCountToBe('error', 1);
 		await problems.showProblemsView();
 		await problems.expectProblemsCountToBe(4);
 
@@ -30,7 +30,7 @@ test.describe('Problems', {
 		await keyboard.hotKeys.undo();
 
 		// Verify the error is no longer present in Editor and Problems view
-		await problems.expectSquigglyNotToBeVisible('error');
+		await problems.expectSquigglyCountToBe('error', 1);
 		await problems.expectProblemsCountToBe(0);
 	});
 
@@ -42,7 +42,7 @@ test.describe('Problems', {
 		await editor.replaceTerm('chinook-sqlite.r', 'albums', 5, '!');
 
 		// Verify the error is present in Editor and Problems pane
-		await problems.expectSquigglyToBeVisible('error');
+		await problems.expectSquigglyCountToBe('error', 1);
 		await problems.showProblemsView();
 		await problems.expectProblemsCountToBe(1);
 
@@ -50,7 +50,7 @@ test.describe('Problems', {
 		await keyboard.hotKeys.undo();
 
 		// Verify the error is no longer present in Editor and Problems view
-		await problems.expectSquigglyNotToBeVisible('error');
+		await problems.expectSquigglyCountToBe('error', 1);
 		await problems.expectProblemsCountToBe(0);
 	});
 });
