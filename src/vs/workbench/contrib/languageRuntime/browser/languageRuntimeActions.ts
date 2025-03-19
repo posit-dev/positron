@@ -413,7 +413,7 @@ const selectNewLanguageRuntime = async (
 		// Add a separator for active sessions.
 		runtimeItems.push({
 			type: 'separator',
-			label: localize('positron.languageRuntime.currentSession', 'Active Sessions')
+			label: localize('positron.languageRuntime.projectRuntimes', 'Project')
 		});
 		// Add active runtimes first and foremost.
 		activeRuntimes.forEach(runtime => {
