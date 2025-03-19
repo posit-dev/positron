@@ -26,7 +26,8 @@ import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 // --- Start Positron ---
 import { DisablementReason, IUpdate, State, StateType, UpdateType } from '../common/update.js';
 // --- End Positron ---
-import { AbstractUpdateService, createUpdateURL, UpdateErrorClassification, UpdateNotAvailableClassification } from './abstractUpdateService.js';
+import { AvailableForDownload, DisablementReason, IUpdate, State, StateType, UpdateType } from '../common/update.js';
+import { AbstractUpdateService, createUpdateURL, UpdateErrorClassification } from './abstractUpdateService.js';
 
 async function pollUntil(fn: () => boolean, millis = 1000): Promise<void> {
 	while (!fn()) {
@@ -127,8 +128,6 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				const updateType = getUpdateType();
 
 				if (!update || !update.url || !update.version || !update.productVersion) {
-					this.telemetryService.publicLog2<{ explicit: boolean }, UpdateNotAvailableClassification>('update:notAvailable', { explicit: !!context });
-
 					this.setState(State.Idle(updateType));
 					return Promise.resolve(null);
 				}

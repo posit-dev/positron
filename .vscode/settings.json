@@ -173,4 +173,10 @@
 	"editor.occurrencesHighlightDelay": 0,
 	"typescript.experimental.expandableHover": true,
 	"typescript.preferences.importModuleSpecifierEnding": "js",
+	"git.diagnosticsCommitHook.Enabled": true,
+	"git.diagnosticsCommitHook.Sources": {
+		"*": "error",
+		"ts": "warning",
+		"eslint": "warning"
+	}
 }

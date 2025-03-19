@@ -66,7 +66,6 @@ export interface IEnvironment {
 	appHost: string;
 	appRoot?: URI;
 	appLanguage: string;
-	extensionTelemetryLogResource: URI;
 	isExtensionTelemetryLoggingOnly: boolean;
 	appUriScheme: string;
 	extensionDevelopmentLocationURI?: URI[];
