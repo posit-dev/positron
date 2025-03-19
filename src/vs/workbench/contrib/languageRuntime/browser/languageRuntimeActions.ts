@@ -383,25 +383,40 @@ const selectNewLanguageRuntime = async (
 	// Group runtimes by language.
 	const interpreterGroups = createInterpreterGroups(languageRuntimeService, runtimeStartupService);
 
+	// Grab the current runtime.
+	const currentRuntime = runtimeSessionService.foregroundSession?.runtimeMetadata;
+
+	// Grab the active runtimes.
+	const activeRuntimes = runtimeSessionService.activeSessions
+		// Sort by last used, descending.
+		.sort((a, b) => b.lastUsed - a.lastUsed)
+		// Map from session to runtime metadata.
+		.map(session => session.runtimeMetadata)
+		// Remove duplicates, and current runtime.
+		.filter((runtime, index, runtimes) =>
+			runtime.runtimeId !== currentRuntime?.runtimeId && runtimes.findIndex(r => r.runtimeId === runtime.runtimeId) === index
+		);
+
+	// Add current runtime first, if present.
+	// Allows for "plus" + enter behavior to clone session.
+	if (currentRuntime) {
+		activeRuntimes.unshift(currentRuntime);
+	}
+
+	// Create a set of active runtime IDs for quick comparison.
+	const activeRuntimeIds = new Set(activeRuntimes.map(runtime => runtime.runtimeId));
+
 	// Generate quick pick items for runtimes.
 	const runtimeItems: QuickPickItem[] = [];
-	interpreterGroups.forEach(group => {
-		const language = group.primaryRuntime.languageName;
-		// Add separator with language name.
-		runtimeItems.push({ type: 'separator', label: language });
-		// Add primary runtime first.
+
+	if (activeRuntimes.length > 0) {
+		// Add a separator for active sessions.
 		runtimeItems.push({
-			id: group.primaryRuntime.runtimeId,
-			label: group.primaryRuntime.runtimeName,
-			detail: group.primaryRuntime.runtimePath,
-			iconPath: {
-				dark: URI.parse(`data:image/svg+xml;base64, ${group.primaryRuntime.base64EncodedIconSvg}`),
-			},
-			picked: (group.primaryRuntime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+			type: 'separator',
+			label: localize('positron.languageRuntime.projectRuntimes', 'Project')
 		});
-		// Follow with alternate runtimes.
-		group.alternateRuntimes.sort((a, b) => a.runtimeName.localeCompare(b.runtimeName));
-		group.alternateRuntimes.forEach(runtime => {
+		// Add active runtimes first and foremost.
+		activeRuntimes.forEach(runtime => {
 			runtimeItems.push({
 				id: runtime.runtimeId,
 				label: runtime.runtimeName,
@@ -409,8 +424,42 @@ const selectNewLanguageRuntime = async (
 				iconPath: {
 					dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
 				},
-				picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+				picked: true
 			});
+		});
+	}
+
+
+	interpreterGroups.forEach(group => {
+		const language = group.primaryRuntime.languageName;
+		// Add separator with language name.
+		runtimeItems.push({ type: 'separator', label: language });
+		// Add primary runtime first.
+		if (group.primaryRuntime.runtimeId !== currentRuntime?.runtimeId && !activeRuntimeIds.has(group.primaryRuntime.runtimeId)) {
+			runtimeItems.push({
+				id: group.primaryRuntime.runtimeId,
+				label: group.primaryRuntime.runtimeName,
+				detail: group.primaryRuntime.runtimePath,
+				iconPath: {
+					dark: URI.parse(`data:image/svg+xml;base64, ${group.primaryRuntime.base64EncodedIconSvg}`),
+				},
+				picked: (group.primaryRuntime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+			});
+		}
+		// Follow with alternate runtimes.
+		group.alternateRuntimes.sort((a, b) => a.runtimeName.localeCompare(b.runtimeName));
+		group.alternateRuntimes.forEach(runtime => {
+			if (runtime.runtimeId !== currentRuntime?.runtimeId && !activeRuntimeIds.has(runtime.runtimeId)) {
+				runtimeItems.push({
+					id: runtime.runtimeId,
+					label: runtime.runtimeName,
+					detail: runtime.runtimePath,
+					iconPath: {
+						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
+					},
+					picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+				});
+			}
 		});
 	});
 

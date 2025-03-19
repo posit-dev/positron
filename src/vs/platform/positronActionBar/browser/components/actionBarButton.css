@@ -78,6 +78,11 @@
 	margin-right: 6px;
 }
 
+.action-bar-button.border .action-bar-button-face {
+	padding: 0 5px;
+	max-height: 100%;
+}
+
 .disabled .action-bar-button-text {
 	color: var(--positronActionBar-disabledForeground);
 }
