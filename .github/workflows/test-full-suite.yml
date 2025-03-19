@@ -56,6 +56,7 @@ jobs:
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/ubuntu' || 'electron/ubuntu' }}
       report_testrail: false
       install_undetectable_interpreters: true
+      install_license: false
 
   e2e-windows:
     name: e2e
@@ -80,6 +81,7 @@ jobs:
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,browser/ubuntu' || 'browser/ubuntu' }}
       report_testrail: false
       install_undetectable_interpreters: true
+      install_license: true
 
   unit-tests:
     name: test
