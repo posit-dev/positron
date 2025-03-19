@@ -84,8 +84,9 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		sources: IPositronLanguageModelSource[],
 		onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 		onCancel: () => void,
+		onClose: () => void,
 	): void {
-		showLanguageModelModalDialog(this._keybindingService, this._layoutService, this._configurationService, sources, onAction, onCancel);
+		showLanguageModelModalDialog(this._keybindingService, this._layoutService, this._configurationService, sources, onAction, onCancel, onClose);
 	}
 
 	getSupportedProviders(): string[] {

@@ -139,6 +139,7 @@ export interface MainThreadAiFeaturesShape {
 
 export interface ExtHostAiFeaturesShape {
 	$responseLanguageModelConfig(id: string, config: IPositronLanguageModelConfig, action: string): Thenable<void>;
+	$onCompleteLanguageModelConfig(id: string): void;
 }
 
 /**

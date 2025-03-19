@@ -45,14 +45,14 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		});
 	}
 
-	async showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>): Promise<void> {
+	async showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>, onClose: () => Thenable<void>): Promise<void> {
 		const id = generateUuid();
 		this._languageModelRequestRegistry.set(id, onAction);
 
 		try {
 			await this._proxy.$languageModelConfig(id, sources);
-		} finally {
-			this._languageModelRequestRegistry.delete(id);
+		} catch (err) {
+			throw err;
 		}
 	}
 
@@ -82,6 +82,10 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 			throw new Error('No matching language model configuration request found');
 		}
 		return onAction(config, action);
+	}
+
+	$onCompleteLanguageModelConfig(id: string): void {
+		this._languageModelRequestRegistry.delete(id);
 	}
 
 	async getSupportedProviders(): Promise<string[]> {

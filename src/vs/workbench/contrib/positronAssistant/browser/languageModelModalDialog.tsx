@@ -33,6 +33,7 @@ export const showLanguageModelModalDialog = (
 	sources: IPositronLanguageModelSource[],
 	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 	onCancel: () => void,
+	onClose: () => void,
 ) => {
 	const renderer = new PositronModalReactRenderer({
 		keybindingService: keybindingService,
@@ -50,6 +51,7 @@ export const showLanguageModelModalDialog = (
 				sources={sources}
 				onAction={onAction}
 				onCancel={onCancel}
+				onClose={onClose}
 			/>
 		</div>
 	);
@@ -63,6 +65,7 @@ interface LanguageModelConfigurationProps {
 	renderer: PositronModalReactRenderer;
 	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>;
 	onCancel: () => void;
+	onClose: () => void;
 }
 
 const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModelConfigurationProps>) => {
@@ -127,6 +130,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		}))
 
 	const onAccept = () => {
+		props.onClose();
 		props.renderer.dispose();
 	}
 
