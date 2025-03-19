@@ -14,38 +14,24 @@ test.describe('Outline', {
 	tag: [tags.WEB, tags.WIN, tags.OUTLINE]
 }, () => {
 
-	test('Python - Verify Outline Contents', async function ({ app, python }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
-		const outlineData = await app.workbench.outline.getOutlineData();
-		const expected = [
+	test('Python - Verify Outline Contents', async function ({ app, python, openFile }) {
+		await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
+		await app.workbench.outline.expectOutlineToContain([
 			'data_file_pathdata_file_path = os.path.join(os.getcwd(), \'data-files\', \'chinook\', \'chinook.db\')',
 			'connconn = sqlite3.connect(data_file_path)',
 			'curcur = conn.cursor()',
 			'rowsrows = cur.fetchall()',
 			'dfdf = pd.DataFrame(rows)'
-		];
-
-		const missingFromUI = expected.filter(item => !outlineData.includes(item));
-
-		if (missingFromUI.length > 0) {
-			console.log(`Missing from UI: ${missingFromUI}`);
-		}
+		]);
 	});
 
-	test('R - Verify Outline Contents', async function ({ app, r }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
-		const outlineData = await app.workbench.outline.getOutlineData();
-		const expected = [
+	test('R - Verify Outline Contents', async function ({ app, r, openFile }) {
+		await openFile(join('workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
+		await app.workbench.outline.expectOutlineToContain([
 			'con',
 			'albums',
 			'df',
-		];
-
-		const missingFromUI = expected.filter(item => !outlineData.includes(item));
-
-		if (missingFromUI.length > 0) {
-			console.log(`Missing from UI: ${missingFromUI}`);
-		}
+		]);
 	});
 });
 
