@@ -184,6 +184,11 @@ export abstract class AbstractNativeEnvironmentService implements INativeEnviron
 		return undefined;
 	}
 
+	// --- Start Positron ---
+	get bootstrapExtensionsPath(): string | undefined {
+		return this.args['bootstrap-extensions-dir'];
+	}
+	// --- End Positron ---
 	get disableExtensions(): boolean | string[] {
 		if (this.args['disable-extensions']) {
 			return true;

@@ -24,7 +24,7 @@ test.describe('Variables Pane - Notebook', {
 		await app.code.wait(1000);
 
 		await app.workbench.notebooks.selectInterpreter('Python');
-		await app.workbench.notebooks.addCodeToFirstCell('y = [2, 3, 4, 5]');
+		await app.workbench.notebooks.addCodeToCellAtIndex('y = [2, 3, 4, 5]');
 		await app.workbench.notebooks.executeCodeInCell();
 
 		const filename = 'Untitled-1.ipynb';
@@ -42,7 +42,7 @@ test.describe('Variables Pane - Notebook', {
 		await app.workbench.notebooks.createNewNotebook();
 
 		await app.workbench.notebooks.selectInterpreter('R');
-		await app.workbench.notebooks.addCodeToFirstCell('y <- c(2, 3, 4, 5)');
+		await app.workbench.notebooks.addCodeToCellAtIndex('y <- c(2, 3, 4, 5)');
 		await app.workbench.notebooks.executeCodeInCell();
 
 		const interpreter = app.workbench.variables.interpreterLocator;

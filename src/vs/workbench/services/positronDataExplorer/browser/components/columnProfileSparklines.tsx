@@ -13,6 +13,7 @@ import React from 'react';
 import { VectorHistogram } from './vectorHistogram.js';
 import { VectorFrequencyTable } from './vectorFrequencyTable.js';
 import { ColumnFrequencyTable, ColumnHistogram } from '../../../languageRuntime/common/positronDataExplorerComm.js';
+import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 
 /**
  * Constants.
@@ -26,6 +27,7 @@ const X_AXIS_HEIGHT = 0.5;
  */
 interface ColumnProfileSparklineHistogramProps {
 	readonly columnHistogram: ColumnHistogram;
+	readonly hoverManager: IHoverManager;
 }
 
 /**
@@ -34,7 +36,8 @@ interface ColumnProfileSparklineHistogramProps {
  * @returns The rendered component.
  */
 export const ColumnProfileSparklineHistogram = ({
-	columnHistogram
+	columnHistogram,
+	hoverManager
 }: ColumnProfileSparklineHistogramProps) => {
 	// Render.
 	return (
@@ -49,6 +52,7 @@ export const ColumnProfileSparklineHistogram = ({
 				columnHistogram={columnHistogram}
 				graphHeight={GRAPH_HEIGHT}
 				graphWidth={GRAPH_WIDTH}
+				hoverManager={hoverManager}
 				xAxisHeight={X_AXIS_HEIGHT}
 			/>
 		</div >
@@ -60,6 +64,7 @@ export const ColumnProfileSparklineHistogram = ({
  */
 interface ColumnProfileSparklineFrequencyTableProps {
 	readonly columnFrequencyTable: ColumnFrequencyTable;
+	readonly hoverManager: IHoverManager;
 }
 
 /**
@@ -68,7 +73,8 @@ interface ColumnProfileSparklineFrequencyTableProps {
  * @returns The rendered component.
  */
 export const ColumnProfileSparklineFrequencyTable = ({
-	columnFrequencyTable
+	columnFrequencyTable,
+	hoverManager
 }: ColumnProfileSparklineFrequencyTableProps) => {
 	// Render.
 	return (
@@ -83,6 +89,7 @@ export const ColumnProfileSparklineFrequencyTable = ({
 				columnFrequencyTable={columnFrequencyTable}
 				graphHeight={GRAPH_HEIGHT}
 				graphWidth={GRAPH_WIDTH}
+				hoverManager={hoverManager}
 				xAxisHeight={X_AXIS_HEIGHT}
 			/>
 		</div >

@@ -35,9 +35,7 @@ test.describe('Sessions: Management', {
 	test('Validate variables between sessions', {
 		tag: [tags.VARIABLES]
 	}, async function ({ app }) {
-		const sessions = app.workbench.sessions;
-		const console = app.workbench.console;
-		const variables = app.workbench.variables;
+		const { sessions, console, variables } = app.workbench;
 
 		// Ensure sessions exist and are idle
 		pythonSession1.id = await sessions.reuseIdleSessionIfExists(pythonSession1);
@@ -101,8 +99,7 @@ test.describe('Sessions: Management', {
 	});
 
 	test('Validate active session list in console matches active session list in session picker', async function ({ app }) {
-		const sessions = app.workbench.sessions;
-		const console = app.workbench.console;
+		const { sessions, console } = app.workbench;
 
 		// Start sessions and verify active sessions: order matters!
 		pythonSession1.id = await sessions.reuseIdleSessionIfExists(pythonSession1);
@@ -130,9 +127,7 @@ test.describe('Sessions: Management', {
 	});
 
 	test('Validate can delete sessions', { tag: [tags.VARIABLES] }, async function ({ app }) {
-		const sessions = app.workbench.sessions;
-		const variables = app.workbench.variables;
-		const console = app.workbench.console;
+		const { sessions, console, variables } = app.workbench;
 
 		// Ensure sessions exist and are idle
 		pythonSession1.id = await sessions.reuseIdleSessionIfExists(pythonSession1);

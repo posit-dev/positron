@@ -23,6 +23,7 @@ import archiver from 'archiver';
 // Local imports
 import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
+import { Keyboard } from '../infra/keyboard.js';
 
 // Constants
 const TEMP_DIR = `temp-${randomUUID()}`;
@@ -151,9 +152,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	// ex: await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
 	openFile: async ({ app }, use) => {
-		await use(async (filePath: string) => {
+		await use(async (filePath: string, waitForFocus = true) => {
 			await test.step(`Open file: ${path.basename(filePath)}`, async () => {
-				await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath));
+				await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath), waitForFocus);
 			});
 		});
 	},
@@ -189,8 +190,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	// ex: await runCommand('workbench.action.files.save');
 	runCommand: async ({ app }, use) => {
-		await use(async (command: string) => {
-			await app.workbench.quickaccess.runCommand(command);
+		await use(async (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => {
+			await app.workbench.quickaccess.runCommand(command, options);
 		});
 	},
 
@@ -199,6 +200,14 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(async (language: 'Python' | 'R', code: string) => {
 			await app.workbench.console.executeCode(language, code);
 		});
+	},
+
+
+	// ex: await keyboard.hotKeys.copy();
+	// ex: await keyboard.press('Enter');
+	keyboard: async ({ app }, use) => {
+		const keyboard = app.keyboard;
+		await use(keyboard);
 	},
 
 	// ex: await userSettings.set([['editor.actionBar.enabled', 'true']], false);
@@ -404,11 +413,12 @@ interface TestFixtures {
 	packages: PackageManager;
 	autoTestFixture: any;
 	devTools: void;
-	openFile: (filePath: string) => Promise<void>;
+	openFile: (filePath: string, waitForFocus?: boolean) => Promise<void>;
 	openDataFile: (filePath: string) => Promise<void>;
 	openFolder: (folderPath: string) => Promise<void>;
-	runCommand: (command: string) => Promise<void>;
+	runCommand: (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => Promise<void>;
 	executeCode: (language: 'Python' | 'R', code: string) => Promise<void>;
+	keyboard: Keyboard;
 }
 
 interface WorkerFixtures {

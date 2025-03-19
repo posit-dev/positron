@@ -10,3 +10,16 @@
 .vector-histogram .bin-count {
 	fill: var(--vscode-positronDataExplorer-sparklineFill);
 }
+
+.vector-histogram .bin-count-hover {
+	fill: var(--vscode-positronDataExplorer-sparklineHover);
+}
+
+/* Tooltip styles */
+.tooltip-container div {
+	background-color: transparent !important;
+	cursor: default;
+	pointer-events: all;
+	position: relative;
+	z-index: 100;
+}

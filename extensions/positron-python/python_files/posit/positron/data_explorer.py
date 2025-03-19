@@ -101,7 +101,6 @@ if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
 
-    # import pyarrow as pa
 
 logger = logging.getLogger(__name__)
 
@@ -850,9 +849,52 @@ def _box_date_stats(num_unique, min_date, mean_date, median_date, max_date):
     )
 
 
-def _box_datetime_stats(num_unique, min_date, mean_date, median_date, max_date, timezone):
+def _format_utc_offset(x):
+    if x.tzinfo is None:
+        return ""
+
+    offset_seconds = x.utcoffset().total_seconds()
+    sign = "+" if offset_seconds >= 0 else "-"
+
+    offset_seconds = abs(offset_seconds)
+    offset_hours = int(offset_seconds // 3600)
+    offset_minutes = int((offset_seconds % 3600) // 60)
+    return f"{sign}{offset_hours:02d}:{offset_minutes:02d}"
+
+
+def _box_datetime_stats(
+    time_unit, num_unique, min_date, mean_date, median_date, max_date, timezone
+):
+    def format_no_micros(x, utc_offset):
+        return x.strftime("%Y-%m-%d %H:%M:%S") + utc_offset
+
+    def format_micros(x, utc_offset):
+        return x.strftime("%Y-%m-%d %H:%M:%S.%f") + utc_offset
+
     def format_date(x):
-        return str(x)
+        if x is None:
+            return None
+
+        utc_offset = _format_utc_offset(x)
+        if time_unit == "s":
+            return format_no_micros(x, utc_offset)
+        elif time_unit == "ms":
+            if x.microsecond == 0:
+                return format_no_micros(x, utc_offset)
+            else:
+                # Strip final 3 digits from microseconds, taking into account whether
+                # there is a UTC offset
+                formatted = format_micros(x, utc_offset)
+                return formatted[:-9] + formatted[-6:] if utc_offset else formatted[:-3]
+        elif time_unit == "us":
+            return (
+                format_no_micros(x, utc_offset)
+                if x.microsecond == 0
+                else format_micros(x, utc_offset)
+            )
+        else:
+            # This will format the UTC offset for us
+            return str(x)
 
     return ColumnSummaryStats(
         type_display=ColumnDisplayType.Datetime,
@@ -1079,7 +1121,14 @@ def _pandas_summarize_datetime(col: pd.Series, _options: FormatOptions):
         if len(timezones) > 2:
             timezone = timezone + f", ... ({len(timezones) - 2} more)"
 
-    return _box_datetime_stats(num_unique, min_date, mean_date, median_date, max_date, timezone)
+    # May have object dtype, so we only extract the time unit if
+    # the .dt attribute is present. Also, older versions of pandas did not
+    # support units other than nanos
+    time_unit = getattr(col.dt, "unit", "ns") if hasattr(col, "dt") else None
+
+    return _box_datetime_stats(
+        time_unit, num_unique, min_date, mean_date, median_date, max_date, timezone
+    )
 
 
 def _safe_stringify(x, max_length: int):
@@ -1488,8 +1537,6 @@ class PandasView(DataExplorerTableView):
     def _format_values(self, values, options: FormatOptions) -> list[ColumnValue]:
         import pandas as pd
 
-        nat = pd.NaT
-        na = pd.NA
         float_format = _get_float_formatter(options)
         max_length = options.max_value_length
 
@@ -1503,9 +1550,9 @@ class PandasView(DataExplorerTableView):
                     return float_format(x)
             elif x is None:
                 return _VALUE_NONE
-            elif x is nat:
+            elif x is pd.NaT:
                 return _VALUE_NAT
-            elif x is na:
+            elif x is pd.NA:
                 return _VALUE_NA
             else:
                 return _safe_stringify(x, max_length)
@@ -1841,29 +1888,10 @@ class PandasView(DataExplorerTableView):
             support_status=SupportStatus.Supported,
             supported_types=[
                 ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.NullCount,
+                    profile_type=profile_type,
                     support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.SummaryStats,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.SmallHistogram,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.LargeHistogram,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.SmallFrequencyTable,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.LargeFrequencyTable,
-                    support_status=SupportStatus.Supported,
-                ),
+                )
+                for profile_type in ColumnProfileType
             ],
         ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
@@ -1964,15 +1992,23 @@ def _date_median(x):
     import pandas as pd
 
     # the np.array calls are required to please pyright
-    median_value = np.median(np.array(pd.to_numeric(x)))
+    median_value = np.int64(np.median(pd.to_numeric(x).to_numpy()))  # type: ignore
 
-    # if any datetime64 or datetimetz type in pandas
-    if x.dtype == "timedelta64[ns]":
-        return pd.to_timedelta(np.array(int(median_value)))
+    if isinstance(x.dtype, pd.DatetimeTZDtype):
+        # pandas has been buggy with datetimetz dtype other than nanosecond,
+        # so we convert to nanoseconds and then back to the original dtype
+        if x.dtype.unit == "s":
+            median_value = median_value * 1_000_000_000
+        elif x.dtype.unit == "ms":
+            median_value = median_value * 1_000_000
+        elif x.dtype.unit == "us":
+            median_value = median_value * 1_000
+
+        median_value = pd.Series([median_value], dtype=pd.DatetimeTZDtype(unit="ns", tz=x.dtype.tz))
     else:
-        # Date or datetime
-        out = pd.to_datetime(np.array(median_value), utc=True)
-        return out.tz_convert(x[0].tz)
+        median_value = pd.Series(np.array([median_value], dtype=x.dtype))
+
+    return median_value[0]
 
 
 def _possibly(f, otherwise=None):
@@ -2107,7 +2143,13 @@ def _polars_summarize_datetime(col: pl.Series, _):
     timezone = str(getattr(col.dtype, "time_zone", None))
 
     return _box_datetime_stats(
-        col.n_unique(), col.min(), mean_date, median_date, col.max(), timezone
+        getattr(col.dtype, "time_unit", None),
+        col.n_unique(),
+        col.min(),
+        mean_date,
+        median_date,
+        col.max(),
+        timezone,
     )
 
 
@@ -2687,29 +2729,10 @@ class PolarsView(DataExplorerTableView):
             support_status=SupportStatus.Supported,
             supported_types=[
                 ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.NullCount,
+                    profile_type=profile_type,
                     support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.SummaryStats,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.SmallHistogram,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.LargeHistogram,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.SmallFrequencyTable,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.LargeFrequencyTable,
-                    support_status=SupportStatus.Supported,
-                ),
+                )
+                for profile_type in ColumnProfileType
             ],
         ),
         export_data_selection=ExportDataSelectionFeatures(

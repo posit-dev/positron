@@ -1,16 +1,12 @@
 #
-#   Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+#   Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
 #
 
-from __future__ import annotations
-
-import json
 import re
 import shlex
 import shutil
 import subprocess
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -19,34 +15,31 @@ from typing import Dict, List, Optional
 
 
 def main() -> None:
-    project_path = Path()
+    # Location to unpack into.
+    destination = Path("python_files/posit/positron/_vendor/")
 
-    print(f"Working in {project_path.absolute()}")
+    # Final namespace to rewrite imports to originate from.
+    namespace = "positron._vendor"
 
-    cfg = Configuration(
-        base_directory=project_path,
-        destination=Path("python_files/posit/positron/_vendor/"),
-        namespace="positron._vendor",
-        requirements=Path(
-            "python_files/jedilsp_requirements/requirements.txt"
-        ),
-        patches_dir=Path("scripts/patches"),
-        substitutions=[
-            # Fix pygments.lexers._mapping strings, via: https://github.com/pypa/pip/blob/main/pyproject.toml
-            {
-                "match": r"\('pygments\.lexers\.",
-                "replace": r"('positron._vendor.pygments.lexers.",
-            }
-        ],
-    )
+    # Path to a pip-style requirement files.
+    requirements_file = Path("python_files/positron_requirements/requirements.txt")
+
+    # Location to ``.patch` files to apply after vendoring.
+    patches_dir = Path("scripts/patches")
+
+    # Substitutions made in addition to import rewriting.
+    substitutions = [
+        # Fix pygments.lexers._mapping strings, via: https://github.com/pypa/pip/blob/main/pyproject.toml
+        {
+            "match": r"\('pygments\.lexers\.",
+            "replace": r"('positron._vendor.pygments.lexers.",
+        }
+    ]
 
     print("Clean existing libraries")
-    if cfg.destination.exists():
+    if destination.exists():
         # Remove existing libraries in the destination dir.
-        for item in cfg.destination.iterdir():
-            # Exclude the requirements file.
-            if item == cfg.requirements:
-                continue
+        for item in destination.iterdir():
             if item.is_dir() and not item.is_symlink():
                 shutil.rmtree(item)
             else:
@@ -61,7 +54,7 @@ def main() -> None:
             "pip",
             "install",
             "-t",
-            str(cfg.destination),
+            str(destination),
             "--no-cache-dir",
             "--implementation",
             "py",
@@ -70,17 +63,17 @@ def main() -> None:
             "--only-binary",
             ":all:",
             "-r",
-            str(cfg.requirements),
+            str(requirements_file),
         ],
     )
 
     # Detect what got downloaded.
-    vendored_libs = detect_vendored_libs(cfg.destination)
+    vendored_libs = detect_vendored_libs(destination)
 
     # Apply user provided patches.
-    if cfg.patches_dir:
+    if patches_dir:
         print("Apply patches")
-        for patch_file in cfg.patches_dir.glob("*.patch"):
+        for patch_file in patches_dir.glob("*.patch"):
             run(
                 [
                     "git",
@@ -93,42 +86,20 @@ def main() -> None:
                     "--verbose",
                     str(patch_file),
                 ],
-                cwd=cfg.base_directory,
             )
 
     # Rewrite the imports to reference the parent namespace.
     print("Rewrite imports")
     rewrite_imports(
-        cfg.destination,
-        cfg.namespace,
+        destination,
+        namespace,
         vendored_libs,
-        cfg.substitutions,
+        substitutions,
     )
 
 
 class VendoringError(Exception):
     """Errors originating from this package."""
-
-
-@dataclass
-class Configuration:
-    # Base directory for all of the operation of this project
-    base_directory: Path
-
-    # Location to unpack into
-    destination: Path
-
-    # Final namespace to rewrite imports to originate from
-    namespace: str
-
-    # Path to a pip-style requirement files
-    requirements: Path
-
-    # Location to ``.patch` files to apply after vendoring
-    patches_dir: Optional[Path]
-
-    # Additional substitutions, done in addition to import rewriting
-    substitutions: List[Dict[str, str]]
 
 
 def run(args: List[str], cwd: Optional[str] = None) -> None:
@@ -153,9 +124,7 @@ def run(args: List[str], cwd: Optional[str] = None) -> None:
         if retcode is not None:
             break
     if retcode:
-        raise VendoringError(
-            f"Command exited with non-zero exit code: {retcode}"
-        )
+        raise VendoringError(f"Command exited with non-zero exit code: {retcode}")
 
 
 def detect_vendored_libs(destination: Path) -> List[str]:

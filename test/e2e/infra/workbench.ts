@@ -37,6 +37,7 @@ import { Problems } from '../pages/problems';
 import { References } from '../pages/references';
 import { SCM } from '../pages/scm';
 import { Sessions } from '../pages/sessions';
+import { Search } from '../pages/search.js';
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -77,6 +78,7 @@ export class Workbench {
 	readonly references: References;
 	readonly scm: SCM;
 	readonly sessions: Sessions;
+	readonly search: Search;
 
 	constructor(code: Code) {
 
@@ -113,5 +115,6 @@ export class Workbench {
 		this.references = new References(code);
 		this.scm = new SCM(code, this.layouts);
 		this.sessions = new Sessions(code, this.console, this.quickaccess, this.quickInput);
+		this.search = new Search(code);
 	}
 }

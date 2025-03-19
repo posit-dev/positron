@@ -327,5 +327,9 @@ export class Console {
 	async interruptExecution() {
 		await this.code.driver.page.getByLabel('Interrupt execution').click();
 	}
+
+	async expectSuggestionListCount(count: number): Promise<void> {
+		await expect(this.suggestionList).toHaveCount(count);
+	}
 }
 

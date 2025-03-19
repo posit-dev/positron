@@ -57,6 +57,9 @@ const isSupportedForCmd = (optionId: keyof RemoteParsedArgs) => {
 		case 'enable-smoke-test-driver':
 		case 'extensions-download-dir':
 		case 'builtin-extensions-dir':
+		// --- Start Positron ---
+		case 'bootstrap-extensions-dir':
+		// --- End Positron ---
 		case 'telemetry':
 			return false;
 		default:
