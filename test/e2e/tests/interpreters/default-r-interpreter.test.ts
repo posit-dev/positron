@@ -28,7 +28,9 @@ test.describe('Default Interpreters - R', {
 
 	});
 
-	test('R - Add a default interpreter', async function ({ app, runCommand }) {
+	test('R - Add a default interpreter', {
+		tag: [tags.NIGHTLY_ONLY]
+	}, async function ({ app, runCommand }) {
 
 		await app.workbench.console.waitForInterpretersToFinishLoading();
 
