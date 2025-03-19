@@ -3,14 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as nls from '../../../../../nls.js';
+import { ActivityItem } from './activityItem.js';
+import { ScrollbackStrategy } from '../positronConsoleService.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
-
-/**
- * Constants.
- */
-export const HEAD_OUTPUT_LINES = 5;
-export const TAIL_OUTPUT_LINES = 5;
 
 /**
  * ActivityItemStreamType enum.
@@ -23,7 +18,7 @@ export enum ActivityItemStreamType {
 /**
  * ActivityItemStream class.
  */
-export class ActivityItemStream {
+export class ActivityItemStream extends ActivityItem {
 	//#region Private Properties
 
 	/**
@@ -42,9 +37,9 @@ export class ActivityItemStream {
 	private ansiOutput = new ANSIOutput();
 
 	/**
-	 * Gets or sets the max output lines. This is used to truncate the output lines for display.
+	 * Gets or sets the scrollback size. This is used to truncate the output lines for display.
 	 */
-	private maxOutputLines?: number;
+	private scrollbackSize?: number;
 
 	//#endregion Private Properties
 
@@ -57,20 +52,12 @@ export class ActivityItemStream {
 		// Process the activity items streams.
 		this.processActivityItemStreams();
 
-		// If max output lines is undefined, return all the output lines.
-		if (this.maxOutputLines === undefined) {
+		// If scrollbac size is undefined, return all the output lines.
+		if (this.scrollbackSize === undefined) {
 			return this.ansiOutput.outputLines;
 		}
 
-		// Return the truncated output lines.
-		return this.ansiOutput.truncatedOutputLines(
-			HEAD_OUTPUT_LINES,
-			TAIL_OUTPUT_LINES,
-			truncatedOutputLinesLength => nls.localize(
-				'positron.truncation', "... ({0} lines)",
-				truncatedOutputLinesLength.toLocaleString()
-			)
-		);
+		return this.ansiOutput.truncatedOutputLines(this.scrollbackSize);
 	}
 
 	/**
@@ -86,19 +73,23 @@ export class ActivityItemStream {
 
 	/**
 	 * Constructor.
-	 * @param type The type.
 	 * @param id The identifier.
 	 * @param parentId The parent identifier.
 	 * @param when The date.
+	 * @param type The type.
 	 * @param text The text.
 	 */
 	constructor(
+		id: string,
+		parentId: string,
+		when: Date,
 		readonly type: ActivityItemStreamType,
-		readonly id: string,
-		readonly parentId: string,
-		readonly when: Date,
 		readonly text: string
 	) {
+		// Call the base class's constructor.
+		super(id, parentId, when);
+
+		// Initialize.
 		this.activityItemStreams.push(this);
 	}
 
@@ -166,23 +157,24 @@ export class ActivityItemStream {
 	}
 
 	/**
-	 * Optimizes output lines.
-	 * @param maxOutputLines The max output lines.
+	 * Optimizes scrollback.
+	 * @param scrollbackSize The scrollback size.
+	 * @param scrollbackStrategy The scrollback strategy.
+	 * @returns The remaining scrollback size.
 	 */
-	public optimizeOutputLines(maxOutputLines: number) {
+	public override optimizeScrollback(scrollbackSize: number, scrollbackStrategy: ScrollbackStrategy) {
 		// Process the activity items streams.
 		this.processActivityItemStreams();
 
-		// If there are fewer output lines than max output lines, clear the max output lines
-		// as all of them will be displayed, and return the remaining max output lines.
-		if (this.ansiOutput.outputLines.length <= maxOutputLines) {
-			this.maxOutputLines = undefined;
-			return maxOutputLines - this.ansiOutput.outputLines.length;
+		// If there are fewer output lines than the scrollback size, clear the scrollback size
+		// as all of them will be displayed, and return the remaining scrollback size.
+		if (this.ansiOutput.outputLines.length <= scrollbackSize) {
+			this.scrollbackSize = undefined;
+			return scrollbackSize - this.ansiOutput.outputLines.length;
 		}
 
-		// Set the max output lines and return 0, indicating that there are no remaining max
-		// output lines.
-		this.maxOutputLines = maxOutputLines;
+		// Set the scrollback size and return 0
+		this.scrollbackSize = scrollbackSize;
 		return 0;
 	}
 
@@ -197,10 +189,10 @@ export class ActivityItemStream {
 	 */
 	private clone(text: string) {
 		return new ActivityItemStream(
-			this.type,
 			this.id,
 			this.parentId,
 			this.when,
+			this.type,
 			text
 		);
 	}

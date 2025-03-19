@@ -1,8 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ActivityItem } from './activityItem.js';
 import { Emitter } from '../../../../../base/common/event.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
@@ -19,7 +20,7 @@ export const enum ActivityItemInputState {
 /**
  * ActivityItemInput class.
  */
-export class ActivityItemInput {
+export class ActivityItemInput extends ActivityItem {
 	//#region Private Properties
 
 	/**
@@ -70,23 +71,27 @@ export class ActivityItemInput {
 
 	/**
 	 * Constructor.
-	 * @param state The initial state.
 	 * @param id The identifier.
 	 * @param parentId The parent identifier.
 	 * @param when The date.
+	 * @param state The initial state.
 	 * @param inputPrompt The input prompt.
 	 * @param continuationPrompt The continuation prompt.
 	 * @param code The code.
 	 */
 	constructor(
+		id: string,
+		parentId: string,
+		when: Date,
 		state: ActivityItemInputState,
-		readonly id: string,
-		readonly parentId: string,
-		readonly when: Date,
 		readonly inputPrompt: string,
 		readonly continuationPrompt: string,
 		readonly code: string
 	) {
+		// Call the base class's constructor.
+		super(id, parentId, when);
+
+		// Initialize.
 		this._state = state;
 		this.codeOutputLines = ANSIOutput.processOutput(code);
 	}

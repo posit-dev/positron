@@ -1,14 +1,14 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { ScrollbackStrategy } from '../positronConsoleService.js';
 
 /**
- * RuntimeItem class.
+ * ActivityItemStream class.
  */
-export class RuntimeItem {
+export class ActivityItem {
 	//#region Public Properties
 
 	/**
@@ -22,9 +22,8 @@ export class RuntimeItem {
 
 	/**
 	 * Constructor.
-	 * @param id The identifier.
 	 */
-	constructor(readonly id: string) {
+	constructor(readonly id: string, readonly parentId: string, readonly when: Date) {
 	}
 
 	//#endregion Constructor

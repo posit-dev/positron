@@ -1,14 +1,15 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ActivityItem } from './activityItem.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
 /**
  * ActivityItemErrorMessage class.
  */
-export class ActivityItemErrorMessage {
+export class ActivityItemErrorMessage extends ActivityItem {
 	//#region Public Properties
 
 	/**
@@ -35,13 +36,16 @@ export class ActivityItemErrorMessage {
 	 * @param traceback The error traceback.
 	 */
 	constructor(
-		readonly id: string,
-		readonly parentId: string,
-		readonly when: Date,
+		id: string,
+		parentId: string,
+		when: Date,
 		readonly name: string,
 		readonly message: string,
 		readonly traceback: string[]
 	) {
+		// Call the base class's constructor.
+		super(id, parentId, when);
+
 		// Process the message and traceback directly into ANSI output lines suitable for rendering.
 		let detailedMessage = message;
 		if (name) {

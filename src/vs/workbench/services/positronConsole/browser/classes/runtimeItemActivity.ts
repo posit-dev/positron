@@ -4,12 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { RuntimeItem } from './runtimeItem.js';
+import { ActivityItemStream } from './activityItemStream.js';
 import { ActivityItemPrompt } from './activityItemPrompt.js';
+import { ScrollbackStrategy } from '../positronConsoleService.js';
 import { ActivityItemOutputHtml } from './activityItemOutputHtml.js';
 import { ActivityItemOutputPlot } from './activityItemOutputPlot.js';
 import { ActivityItemErrorMessage } from './activityItemErrorMessage.js';
 import { ActivityItemOutputMessage } from './activityItemOutputMessage.js';
-import { ActivityItemStream, TAIL_OUTPUT_LINES } from './activityItemStream.js';
 import { ActivityItemInput, ActivityItemInputState } from './activityItemInput.js';
 
 /**
@@ -85,7 +86,6 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 * @param activityItem The activity item to add.
 	 */
 	public addActivityItem(activityItem: ActivityItem) {
-
 		// Perform activity item processing if this is not the first activity item.
 		if (this._activityItems.length) {
 			// If the activity item being added is an ActivityItemStream, see if we can append it to
@@ -98,7 +98,6 @@ export class RuntimeItemActivity extends RuntimeItem {
 					// the same type with the same parent identifier, add the ActivityItemStream
 					// being added to the last ActivityItemStream.
 					if (isSameActivityItemStream(lastActivityItem, activityItem)) {
-
 						// Add the ActivityItemStream being added to the last ActivityItemStream. If
 						// an ActivityItemStream is returned, it becomes the next activity item to
 						// add.
@@ -111,8 +110,7 @@ export class RuntimeItemActivity extends RuntimeItem {
 						activityItem = activityItemStream;
 					}
 				}
-			} else if (activityItem instanceof ActivityItemInput &&
-				activityItem.state !== ActivityItemInputState.Provisional) {
+			} else if (activityItem instanceof ActivityItemInput && activityItem.state !== ActivityItemInputState.Provisional) {
 				// When a non-provisional ActivityItemInput is being added, see if there's a
 				// provisional ActivityItemInput for it in the activity items. If there is, replace
 				// the provisional ActivityItemInput with the actual ActivityItemInput.
@@ -135,31 +133,28 @@ export class RuntimeItemActivity extends RuntimeItem {
 	}
 
 	/**
-	 * Optimizes output lines.
-	 * @param maxOutputLines The max output lines.
-	 * @returns The number of remaining max output lines.
+	 * Optimizes scrollback.
+	 * @param scrollbackSize The scrollback size.
+	 * @param scrollbackStrategy The scrollback strategy.
+	 * @returns The remaining scrollback size.
 	 */
-	public optimizeOutputLines(maxOutputLines: number) {
-		// Optimize output lines for each activity item in reverse order.
-		for (let i = this._activityItems.length - 1; i >= 0; i--) {
-			// Get the activity item.
-			const activityItem = this._activityItems[i];
-
-			// If the activity item is an ActivityItemStream, optimize its output lines.
-			if (activityItem instanceof ActivityItemStream) {
-				// Optimize the output lines.
-				maxOutputLines = activityItem.optimizeOutputLines(maxOutputLines);
-
-				// If max output lines is less than or equal to the tail output lines, set it to 0
-				// so we tail all the remaining output lines in all the remaining activity items.
-				if (maxOutputLines <= TAIL_OUTPUT_LINES) {
-					maxOutputLines = 0;
-				}
-			}
+	public override optimizeScrollback(scrollbackSize: number, scrollbackStrategy: ScrollbackStrategy) {
+		// If scrollback size is zero, hide the item and return zero.
+		if (scrollbackSize === 0) {
+			this.isHidden = true;
+			return 0;
 		}
 
-		// Return the remaining max output lines.
-		return maxOutputLines;
+		// Unhide the item.
+		this.isHidden = false;
+
+		// Optimize scrollback for each activity item in reverse order.
+		for (let i = this._activityItems.length - 1; i >= 0; i--) {
+			scrollbackSize = this._activityItems[i].optimizeScrollback(scrollbackSize, scrollbackStrategy);
+		}
+
+		// Return the remaining scrollback size.
+		return scrollbackSize;
 	}
 
 	//#endregion Public Methods

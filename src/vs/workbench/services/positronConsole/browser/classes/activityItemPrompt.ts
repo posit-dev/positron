@@ -1,8 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ActivityItem } from './activityItem.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
 /**
@@ -17,7 +18,7 @@ export const enum ActivityItemPromptState {
 /**
  * ActivityItemPrompt class.
  */
-export class ActivityItemPrompt {
+export class ActivityItemPrompt extends ActivityItem {
 	//#region Public Properties
 
 	/**
@@ -48,12 +49,15 @@ export class ActivityItemPrompt {
 	 * @param code The code.
 	 */
 	constructor(
-		readonly id: string,
-		readonly parentId: string,
-		readonly when: Date,
+		id: string,
+		parentId: string,
+		when: Date,
 		readonly prompt: string,
 		readonly password: boolean
 	) {
+		// Call the base class's constructor.
+		super(id, parentId, when);
+
 		// Process the prompt directly into ANSI output lines suitable for rendering.
 		this.outputLines = ANSIOutput.processOutput(prompt);
 	}

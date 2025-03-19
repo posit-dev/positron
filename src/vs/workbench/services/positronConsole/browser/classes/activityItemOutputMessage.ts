@@ -1,14 +1,15 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ActivityItem } from './activityItem.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
 /**
  * ActivityItemOutputMessage class.
  */
-export class ActivityItemOutputMessage {
+export class ActivityItemOutputMessage extends ActivityItem {
 	//#region Public Properties
 
 	/**
@@ -28,11 +29,14 @@ export class ActivityItemOutputMessage {
 	 * @param data The data.
 	 */
 	constructor(
-		readonly id: string,
-		readonly parentId: string,
-		readonly when: Date,
+		id: string,
+		parentId: string,
+		when: Date,
 		readonly data: Record<string, string>
 	) {
+		// Call the base class's constructor.
+		super(id, parentId, when);
+
 		// Get the output.
 		const output = data['text/plain'];
 

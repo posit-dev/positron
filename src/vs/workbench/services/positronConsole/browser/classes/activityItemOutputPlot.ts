@@ -1,14 +1,15 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ActivityItem } from './activityItem.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
 /**
  * ActivityItemOutputPlot class.
  */
-export class ActivityItemOutputPlot {
+export class ActivityItemOutputPlot extends ActivityItem {
 	//#region Public Properties
 
 	/**
@@ -39,12 +40,15 @@ export class ActivityItemOutputPlot {
 	 * @param onSelected A callback that is invoked when the item is selected.
 	 */
 	constructor(
-		readonly id: string,
-		readonly parentId: string,
-		readonly when: Date,
+		id: string,
+		parentId: string,
+		when: Date,
 		readonly data: Record<string, string>,
 		readonly onSelected: () => void
 	) {
+		// Call the base class's constructor.
+		super(id, parentId, when);
+
 		// Get the output; this will serve as the figure caption.
 		const output = data['text/plain'];
 

@@ -80,7 +80,7 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 		return (
 			<>
 				<div className='top-spacer' />
-				{this.props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
+				{this.props.positronConsoleInstance.runtimeItems.filter(runtimeItem => !runtimeItem.isHidden).map(runtimeItem => {
 					if (runtimeItem instanceof RuntimeItemActivity) {
 						return <RuntimeActivity key={runtimeItem.id} fontInfo={this.props.editorFontInfo} positronConsoleInstance={this.props.positronConsoleInstance} runtimeItemActivity={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemPendingInput) {
@@ -104,21 +104,19 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 					} else if (runtimeItem instanceof RuntimeItemTrace) {
 						return this.props.trace && <RuntimeTrace key={runtimeItem.id} runtimeItemTrace={runtimeItem} />;
 					} else {
-						// This indicates a bug.
+						// This indicates a bug. A new runtime item was added but not handled here.
 						return null;
 					}
 				})}
-				{this.props.disconnected ?
-					(<div className='console-item-starting'>
+				{this.props.disconnected &&
+					<div className='console-item-starting'>
 						<span className='codicon codicon-loading codicon-modifier-spin'></span>
 						<span>{localize(
 							"positron.console.extensionsRestarting",
 							"Extensions restarting..."
 						)}</span>
-					</div>) :
-					null
+					</div>
 				}
-
 				<ConsoleInput
 					hidden={this.props.positronConsoleInstance.promptActive || !this.props.runtimeAttached}
 					positronConsoleInstance={this.props.positronConsoleInstance}

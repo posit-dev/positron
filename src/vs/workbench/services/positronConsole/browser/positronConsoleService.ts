@@ -42,6 +42,8 @@ import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js'
 import { IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
 import { multipleConsoleSessionsFeatureEnabled } from '../../runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
 import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } from '../../positronHistory/common/executionHistoryService.js';
+import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -54,14 +56,22 @@ const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_THRESHOLD = 20;
 const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL = 50;
 
 /**
- * The max output lines.
- */
-const MAX_OUTPUT_LINES = 1_000;
-
-/**
  * The trace output max length.
  */
-const TRACE_OUTPUT_MAX_LENGTH = 1024;
+const TRACE_OUTPUT_MAX_LENGTH = 1000;
+
+/**
+ * Scrollback strategies.
+ */
+const SCROLLBACK_STRATEGY_TRUNCATE_AT_TOP = 'truncateAtTop';
+const SCROLLBACK_STRATEGY_TRUNCATE_ADAPTIVELY = 'truncateAdaptively';
+
+/**
+ * The scrollback strategy type.
+ */
+export type ScrollbackStrategy =
+	typeof SCROLLBACK_STRATEGY_TRUNCATE_AT_TOP |
+	typeof SCROLLBACK_STRATEGY_TRUNCATE_ADAPTIVELY;
 
 //#region Helper Functions
 
@@ -146,16 +156,69 @@ const sanitizeTraceOutput = (traceOutput: string) => {
  * @returns The formatted stram length.
  */
 const formattedLength = (length: number) => {
-	if (length < 1024) {
+	if (length < 1000) {
 		return `${length} chars`;
 	}
-	if (length < 1024 * 1024) {
-		return `${(length / 1024).toFixed(1)} KB`;
+	if (length < 1000 * 1000) {
+		return `${(length / 1000).toFixed(1)} KB`;
 	}
-	return `${(length / 1024 / 1024).toFixed(1)} MB`;
+	return `${(length / 1000 / 1000).toFixed(1)} MB`;
 };
 
 //#endregion Helper Functions
+
+// Configuration registry.
+const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
+
+/**
+ * The console service configuration base node for confugurations settings below.
+ */
+const consoleServiceConfigurationBaseNode = Object.freeze<IConfigurationNode>({
+	id: 'console',
+	order: 100,
+	type: 'object',
+	title: localize('replConfigurationTitle', "Console"),
+});
+
+/**
+ * The scrollback size setting.
+ */
+export const scrollbackSizeSettingId = 'console.scrollbackSize';
+configurationRegistry.registerConfiguration({
+	...consoleServiceConfigurationBaseNode,
+	properties: {
+		'console.scrollbackSize': {
+			type: 'number',
+			'minimum': 500,
+			'maximum': 5000,
+			'default': 1000,
+			markdownDescription: localize('console.scrollbackSize', "The number of console output items to display."),
+		}
+	}
+});
+
+/**
+ * The scrollback strategy setting.
+ */
+export const scrollbackStrategySettingId = 'console.scrollbackStrategy';
+configurationRegistry.registerConfiguration({
+	...consoleServiceConfigurationBaseNode,
+	properties: {
+		'console.scrollbackStrategy': {
+			type: 'string',
+			enum: [
+				SCROLLBACK_STRATEGY_TRUNCATE_AT_TOP,
+				SCROLLBACK_STRATEGY_TRUNCATE_ADAPTIVELY
+			],
+			'default': SCROLLBACK_STRATEGY_TRUNCATE_AT_TOP,
+			markdownDescription: localize('console.scrollbackStrategy', "Controls the console scrollback strategy."),
+			enumDescriptions: [
+				localize('positron.scrollbackStrategy.truncateAtTop', "Truncates the console output at the top, like a terminal."),
+				localize('positron.scrollbackStrategy.truncateAdaptively', "Truncates the console output adaptively to preserve context."),
+			]
+		}
+	}
+});
 
 /**
  * PositronConsoleService class.
@@ -839,6 +902,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _promptActive = false;
 
 	/**
+	 * Gets or sets the scrollback size.
+	 */
+	private _scrollbackSize: number;
+
+	/**
+	 * Gets or sets the scrollback strategy.
+	 */
+	private _scrollbackStrategy: ScrollbackStrategy;
+
+	/**
 	 * Is scroll-lock engaged?
 	 */
 	private _scrollLocked = false;
@@ -957,6 +1030,22 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	) {
 		// Call the base class's constructor.
 		super();
+
+		// Initialize the scrollback configuration.
+		this._scrollbackSize = this._configurationService.getValue<number>(scrollbackSizeSettingId);
+		this._scrollbackStrategy = this._configurationService.getValue<ScrollbackStrategy>(scrollbackStrategySettingId);
+
+		// Register the onDidChangeConfiguration event handler so we can update the console scrollback
+		// configuration.
+		this._register(this._configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(scrollbackSizeSettingId)) {
+				this._scrollbackSize = this._configurationService.getValue<number>(scrollbackSizeSettingId);
+				console.log(`scrollbackSize changed to ${this._scrollbackSize}`);
+			} else if (e.affectsConfiguration(scrollbackStrategySettingId)) {
+				this._scrollbackStrategy = this._configurationService.getValue<ScrollbackStrategy>(scrollbackStrategySettingId);
+				console.log(`scrollbackStrategy changed to ${this._scrollbackStrategy}`);
+			}
+		}));
 
 		// Initialize the width in characters.
 		this._widthInChars = observableValue<number>('console-width', 80);
@@ -1281,10 +1370,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this.addOrUpdateUpdateRuntimeItemActivity(
 				id,
 				new ActivityItemInput(
-					ActivityItemInputState.Cancelled,
 					id,
 					id,
 					new Date(),
+					ActivityItemInputState.Cancelled,
 					this._session.dynState.inputPrompt,
 					this._session.dynState.continuationPrompt,
 					code,
@@ -1372,10 +1461,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				// Create the activity and the first item (the input)
 				const inputActivityItem =
 					new ActivityItemInput(
-						ActivityItemInputState.Completed,
 						entry.id + '-input',
 						entry.id,
 						new Date(entry.when),
+						ActivityItemInputState.Completed,
 						entry.prompt,
 						' '.repeat(entry.prompt.length),
 						entry.input
@@ -1855,10 +1944,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this.addOrUpdateUpdateRuntimeItemActivity(
 				languageRuntimeMessageInput.parent_id,
 				new ActivityItemInput(
-					ActivityItemInputState.Executing,
 					languageRuntimeMessageInput.id,
 					languageRuntimeMessageInput.parent_id,
 					new Date(languageRuntimeMessageInput.when),
+					ActivityItemInputState.Executing,
 					session.dynState.inputPrompt,
 					session.dynState.continuationPrompt,
 					languageRuntimeMessageInput.code
@@ -1998,10 +2087,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this.addOrUpdateUpdateRuntimeItemActivity(
 					languageRuntimeMessageStream.parent_id,
 					new ActivityItemStream(
-						ActivityItemStreamType.OUTPUT,
 						languageRuntimeMessageStream.id,
 						languageRuntimeMessageStream.parent_id,
 						new Date(languageRuntimeMessageStream.when),
+						ActivityItemStreamType.OUTPUT,
 						languageRuntimeMessageStream.text
 					)
 				);
@@ -2009,10 +2098,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this.addOrUpdateUpdateRuntimeItemActivity(
 					languageRuntimeMessageStream.parent_id,
 					new ActivityItemStream(
-						ActivityItemStreamType.ERROR,
 						languageRuntimeMessageStream.id,
 						languageRuntimeMessageStream.parent_id,
 						new Date(languageRuntimeMessageStream.when),
+						ActivityItemStreamType.ERROR,
 						languageRuntimeMessageStream.text
 					)
 				);
@@ -2454,10 +2543,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		const runtimeItemActivity = new RuntimeItemActivity(
 			id,
 			new ActivityItemInput(
-				ActivityItemInputState.Provisional,
 				id,
 				id,
 				new Date(),
+				ActivityItemInputState.Provisional,
 				this._session.dynState.inputPrompt,
 				this._session.dynState.continuationPrompt,
 				code
@@ -2530,10 +2619,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		if (mode !== RuntimeCodeExecutionMode.Silent) {
 			// Create the provisional ActivityItemInput.
 			const activityItemInput = new ActivityItemInput(
-				ActivityItemInputState.Provisional,
 				id,
 				id,
 				new Date(),
+				ActivityItemInputState.Provisional,
 				this._session.dynState.inputPrompt,
 				this._session.dynState.continuationPrompt,
 				code
@@ -2584,8 +2673,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			// Add the activity item to the activity runtime item.
 			runtimeItemActivity.addActivityItem(activityItem);
 
-			// Optimize output lines.
-			this.optimizeOutputLines();
+			// Optimize scrollback.
+			this.optimizeScrollback();
 
 			// Fire the onDidChangeRuntimeItems event.
 			this._onDidChangeRuntimeItemsEmitter.fire();
@@ -2607,29 +2696,20 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this._runtimeItemActivities.set(runtimeItem.id, runtimeItem);
 		}
 
-		// Optimize output lines.
-		this.optimizeOutputLines();
+		// Optimize scrollback.
+		this.optimizeScrollback();
 
 		// Fire the onDidChangeRuntimeItems event.
 		this._onDidChangeRuntimeItemsEmitter.fire();
 	}
 
 	/**
-	 * Optimizes output lines.
+	 * Optimizes scrollback.
 	 */
-	private optimizeOutputLines() {
-		// Optimize output lines for each runtime item in reverse order.
-		for (let maxOutputLines = MAX_OUTPUT_LINES, i = this._runtimeItems.length - 1; i >= 0; i--) {
-			// Get the runtime item.
-			const runtimeItem = this._runtimeItems[i];
-
-			// If the runtime item is an ActivityItemStream, optimize its output lines.
-			if (runtimeItem instanceof RuntimeItemActivity) {
-				const starting = maxOutputLines;
-				maxOutputLines = runtimeItem.optimizeOutputLines(maxOutputLines);
-
-				console.log(`Optimized output lines for RuntimeItemActivity ${i} starting ${starting} ending ${maxOutputLines}`);
-			}
+	private optimizeScrollback() {
+		// Optimize scrollback for each runtime item in reverse order.
+		for (let scrollbackSize = this._scrollbackSize, i = this._runtimeItems.length - 1; i >= 0; i--) {
+			scrollbackSize = this._runtimeItems[i].optimizeScrollback(scrollbackSize, this._scrollbackStrategy);
 		}
 	}
 

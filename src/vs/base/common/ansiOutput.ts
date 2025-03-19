@@ -9,11 +9,6 @@
  */
 
 /**
- * Constants.
- */
-const MIN_TRUNCATED_OUTPUT_LINES = 10;
-
-/**
  * The identifier that is handed out in the next call to `getIdentifier`.
  */
 let identifier = 0;
@@ -413,37 +408,18 @@ export class ANSIOutput {
 	}
 
 	/**
-	 * Returns truncated output lines.
-	 * @param headOutputLinesLength The head output lines length.
-	 * @param tailOutputLinesLength The tail output lines length.
-	 * @param truncationLabelCallback The truncation label callback.
+	 * Truncates the output lines.
+	 * @param maxOutputLines The maximum output lines.
 	 * @returns The truncated output lines.
 	 */
-	truncatedOutputLines(
-		headOutputLinesLength: number,
-		tailOutputLinesLength: number,
-		truncationLabelCallback: (truncatedOutputLinesLength: number) => string
-	) {
-		// Calculate the truncated output lines length.
-		const truncatedOutputLinesLength = this.outputLines.length - headOutputLinesLength - tailOutputLinesLength;
-
-		// If there are fewer than MIN_TRUNCATED_OUTPUT_LINES, just return the output lines.
-		if (truncatedOutputLinesLength <= MIN_TRUNCATED_OUTPUT_LINES) {
+	truncatedOutputLines(maxOutputLines: number) {
+		// If there are fewer output lines than the max output lines, return the output lines.
+		if (this.outputLines.length <= maxOutputLines) {
 			return this.outputLines;
 		}
 
-		// Return the truncated output lines.
-		return [
-			...this._outputLines.slice(0, headOutputLinesLength),
-			{
-				id: generateId(),
-				outputRuns: [{
-					id: generateId(),
-					text: truncationLabelCallback(truncatedOutputLinesLength)
-				}]
-			},
-			...this._outputLines.slice(-tailOutputLinesLength)
-		];
+		// Truncate the output lines.
+		return this._outputLines.slice(-maxOutputLines);
 	}
 
 	//#endregion Public Methods
