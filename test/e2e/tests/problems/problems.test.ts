@@ -23,15 +23,14 @@ test.describe('Problems', {
 
 		// Verify the error is present in Editor and Problems pane
 		await problems.expectSquigglyCountToBe('error', 1);
-		await problems.showProblemsView();
-		await problems.expectProblemsCountToBe(4);
+		await problems.expectDiagnosticsToBe({ errorCount: 4 });
 
 		// Undo the changes
 		await keyboard.hotKeys.undo();
 
 		// Verify the error is no longer present in Editor and Problems view
 		await problems.expectSquigglyCountToBe('error', 1);
-		await problems.expectProblemsCountToBe(0);
+		await problems.expectDiagnosticsToBe({ errorCount: 0 });
 	});
 
 	test('R - Verify problems are highlighted in editor and count is accurate in Problems pane', async function ({ app, r, openFile, keyboard }) {
@@ -44,14 +43,14 @@ test.describe('Problems', {
 		// Verify the error is present in Editor and Problems pane
 		await problems.expectSquigglyCountToBe('error', 1);
 		await problems.showProblemsView();
-		await problems.expectProblemsCountToBe(1);
+		await problems.expectDiagnosticsToBe({ errorCount: 1 });
 
 		// Undo the changes
 		await keyboard.hotKeys.undo();
 
 		// Verify the error is no longer present in Editor and Problems view
 		await problems.expectSquigglyCountToBe('error', 1);
-		await problems.expectProblemsCountToBe(0);
+		await problems.expectDiagnosticsToBe({ errorCount: 0 });
 	});
 });
 

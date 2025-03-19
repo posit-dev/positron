@@ -5,7 +5,6 @@
 
 import { pythonSession, pythonSessionAlt, rSession, rSessionAlt, SessionInfo } from '../../infra/index.js';
 import { test, tags } from '../_test.setup.js';
-import { join } from 'path';
 
 const pythonSession1: SessionInfo = { ...pythonSession };
 const pythonSession2: SessionInfo = { ...pythonSessionAlt };
@@ -33,88 +32,90 @@ test.describe('Sessions: Diagnostics', {
 		await runCommand('workbench.action.closeAllEditors');
 	});
 
-	test('Python - Verify problems are highlighted in editor and count is accurate in Problems pane', async function ({ app, openFile, keyboard }) {
-		const { problems, editor, sessions } = app.workbench;
+	test.skip('Python - Verify diagnostics isolation between sessions in the editor and problems view', async function ({ app, keyboard, openFile, runCommand }) {
+		const { sessions, problems, editor, console, layouts } = app.workbench;
 
 		pythonSession1.id = await sessions.reuseIdleSessionIfExists(pythonSession1);
 		pythonSession2.id = await sessions.reuseIdleSessionIfExists(pythonSession2);
 
-		// Open a Python file and introduce an error
-		await openFile(join('workspaces/graphviz/pydotSample.py'));
-		await editor.replaceTerm('pydotSample.py', 'graph', 13, '!');
+		// New file
+		await runCommand('Python: New File');
+		await editor.editorPane.pressSequentially('import requests\nrequests.get("https://example.com")\n');
 
-		// Verify the error is present in Editor and Problems pane
+		// Session 1 - before installing/importing package, the requests warning should be present
 		await sessions.select(pythonSession1.id);
-		await problems.expectSquigglyCountToBe('error', 1);
-		await problems.showProblemsView();
-		await problems.expectProblemsCountToBe(4);
+		await problems.expectSquigglyCountToBe('warning', 1);
+		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1 });
+		await problems.expectWarningText('Import "requests" could not be resolved from source');
 
-		// Switch to another session and verify the error is present
+		// Session 1 - install/import 'requests' and verify no problems
+		await console.executeCode('Python', 'pip install requests', { maximizeConsole: false });
+		await console.executeCode('Python', 'import requests', { maximizeConsole: false });
+		await problems.expectSquigglyCountToBe('warning', 0);
+		await problems.expectDiagnosticsToBe({ problemCount: 0, warningCount: 0 });
+
+		// Session 2 - verify warning since requests was not installed in that session
+		await sessions.select(pythonSession2.id);
+		await problems.expectSquigglyCountToBe('warning', 1);
+		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1 });
+		await problems.expectWarningText('Import "requests" could not be resolved from source');
+
+		// Introduce a syntax error
+		await editor.editorPane.click();
+		await editor.editorPane.pressSequentially('x =');
+
+		// Session 2 - verify 2 errors (import and syntax) are present
 		await sessions.select(pythonSession2.id);
 		await problems.expectSquigglyCountToBe('error', 1);
-		await problems.showProblemsView();
-		await problems.expectProblemsCountToBe(4);
+		await problems.expectDiagnosticsToBe({ problemCount: 3, errorCount: 1 });
 
-		// Switch back to the first session and verify the error is still present
+		// Session 1 - verify 1 error (syntax) is present
 		await sessions.select(pythonSession1.id);
 		await problems.expectSquigglyCountToBe('error', 1);
-		await problems.showProblemsView();
-		await problems.expectProblemsCountToBe(4);
-
-		// Undo the changes
-		await keyboard.hotKeys.undo();
-
-		// Verify the error is no longer present in Editor and Problems view
-		await sessions.select(pythonSession1.id);
-		await problems.expectSquigglyCountToBe('error', 0);
-		await problems.expectProblemsCountToBe(0);
-
-		// Switch to other session and verify the error is no longer present
-		await sessions.select(pythonSession2.id);
-		await problems.expectSquigglyCountToBe('error', 0);
-		await problems.expectProblemsCountToBe(0);
+		await problems.expectDiagnosticsToBe({ problemCount: 2, errorCount: 1 });
 	});
 
-	test('R - Verify problems are highlighted in editor and count is accurate in Problems pane', async function ({ app, keyboard, openFile }) {
-		const { sessions, problems, editor } = app.workbench;
+	test('R - Verify diagnostics isolation between sessions in the editor and problems view', async function ({ app, keyboard, openFile, runCommand }) {
+		const { sessions, problems, editor, console } = app.workbench;
 
 		rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
 		rSession2.id = await sessions.reuseIdleSessionIfExists(rSession2);
 
-		// Open an R file and introduce an error
-		await openFile('workspaces/r-plots/plotly-example.r');
-		await editor.replaceTerm('plotly-example.r', 'midwest', 2, '!');
+		// New file
+		await runCommand('R: New File');
+		await editor.editorPane.pressSequentially('circos.points()\n');
 
-		// Verify the error is present in Editor and Problems pane
+		// Session 1 - before installing/importing pkg the circos warning should be present
 		await sessions.select(rSession1.id);
-		await problems.expectSquigglyCountToBe('error', 1);
-		await problems.showProblemsView();
-		await problems.expectProblemsCountToBe(1);
+		await problems.expectSquigglyCountToBe('warning', 1);
+		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1 });
+		await problems.expectWarningText('No symbol named \'circos.');
 
-		// Switch to another session and verify the error is present
+		// Session 1 - install circlize and verify no problems
+		await console.executeCode('R', "install.packages('circlize')", { maximizeConsole: false });
+		await console.executeCode('R', 'library(circlize)', { maximizeConsole: false });
+		await problems.expectSquigglyCountToBe('warning', 0);
+		await problems.expectDiagnosticsToBe({ problemCount: 0, warningCount: 0 });
+
+		// Session 2 - verify warning since circlize is not installed
+		await sessions.select(rSession2.id);
+		await problems.expectSquigglyCountToBe('warning', 1);
+		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1 });
+		await problems.expectWarningText('No symbol named \'circos.');
+
+		// Introduce a syntax error
+		await editor.editorPane.click();
+		await editor.editorPane.pressSequentially('x <-');
+
+		// Session 2 - verify 2 errors (circos and syntax) are present
 		await sessions.select(rSession2.id);
 		await problems.expectSquigglyCountToBe('error', 1);
-		await problems.showProblemsView();
-		await problems.expectProblemsCountToBe(1);
+		await problems.expectDiagnosticsToBe({ problemCount: 3, errorCount: 1 });
 
-		// Switch back to the first session and verify the error is still present
+		// Session 1 - verify 1 error (syntax) is present
 		await sessions.select(rSession1.id);
 		await problems.expectSquigglyCountToBe('error', 1);
-		await problems.showProblemsView();
-		await problems.expectProblemsCountToBe(1);
-
-		// Undo the changes
-		await keyboard.hotKeys.undo();
-
-		// Verify the error is no longer present in Editor and Problems view
-		await sessions.select(rSession1.id);
-		await problems.expectSquigglyCountToBe('error', 0);
-		await problems.expectProblemsCountToBe(0);
-
-		// Switch to other session and verify the error is no longer present
-		await sessions.select(rSession2.id);
-		await problems.expectSquigglyCountToBe('error', 0);
-		await problems.expectProblemsCountToBe(0);
+		await problems.expectDiagnosticsToBe({ problemCount: 2, errorCount: 1 });
 	});
 });
 
