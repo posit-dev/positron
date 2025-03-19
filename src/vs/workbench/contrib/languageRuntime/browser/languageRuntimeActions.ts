@@ -388,11 +388,20 @@ const selectNewLanguageRuntime = async (
 
 	// Grab the active runtimes.
 	const activeRuntimes = runtimeSessionService.activeSessions
+		// Sort by last used, descending.
+		.sort((a, b) => b.lastUsed - a.lastUsed)
+		// Map from session to runtime metadata.
 		.map(session => session.runtimeMetadata)
+		// Remove duplicates, and current runtime.
 		.filter((runtime, index, runtimes) =>
-			runtimes.findIndex(r => r.runtimeId === runtime.runtimeId) === index
-		)
-		.sort((a) => a.runtimeId === currentRuntime?.runtimeId ? -1 : 0);
+			runtime.runtimeId !== currentRuntime?.runtimeId && runtimes.findIndex(r => r.runtimeId === runtime.runtimeId) === index
+		);
+
+	// Add current runtime first, if present.
+	// Allows for "plus" + enter behavior to clone session.
+	if (currentRuntime) {
+		activeRuntimes.unshift(currentRuntime);
+	}
 
 	// Create a set of active runtime IDs for quick comparison.
 	const activeRuntimeIds = new Set(activeRuntimes.map(runtime => runtime.runtimeId));
@@ -400,27 +409,13 @@ const selectNewLanguageRuntime = async (
 	// Generate quick pick items for runtimes.
 	const runtimeItems: QuickPickItem[] = [];
 
-	// if (currentRuntime) {
-	// 	runtimeItems.push({
-	// 		type: 'separator',
-	// 		label: localize('positron.languageRuntime.currentSession', 'Active Sessions')
-	// 	});
-	// 	runtimeItems.push({
-	// 		id: currentRuntime.runtimeId,
-	// 		label: currentRuntime.runtimeName,
-	// 		detail: currentRuntime.runtimePath,
-	// 		iconPath: {
-	// 			dark: URI.parse(`data:image/svg+xml;base64, ${currentRuntime.base64EncodedIconSvg}`),
-	// 		},
-	// 		picked: true
-	// 	});
-	// }
-
 	if (activeRuntimes.length > 0) {
+		// Add a separator for active sessions.
 		runtimeItems.push({
 			type: 'separator',
 			label: localize('positron.languageRuntime.currentSession', 'Active Sessions')
 		});
+		// Add active runtimes first and foremost.
 		activeRuntimes.forEach(runtime => {
 			runtimeItems.push({
 				id: runtime.runtimeId,
