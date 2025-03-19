@@ -96,11 +96,12 @@ test.describe('Reticulate', {
 	test('R - Verify Reticulate Restart', {
 		tag: [tags.RETICULATE, tags.CONSOLE]
 	}, async function ({ app, interpreter }) {
-		await app.workbench.interpreter.selectInterpreter('Python', 'Python (reticulate)', true);
-		await app.workbench.interpreter.verifyInterpreterIsRunning('Python (reticulate)');
+		const interpreterDesc = 'Python (reticulate)';
+		await app.workbench.interpreter.selectInterpreter('Python', interpreterDesc, true);
+		await app.workbench.interpreter.verifyInterpreterIsRunning(interpreterDesc);
 
-		await app.workbench.interpreter.restartPrimaryInterpreter('Python (reticulate)');
-		await app.workbench.interpreter.verifyInterpreterIsRunning('Python (reticulate)');
+		await app.workbench.interpreter.restartPrimaryInterpreter(interpreterDesc);
+		await app.workbench.interpreter.verifyInterpreterIsRunning(interpreterDesc);
 	});
 });
 
