@@ -17,7 +17,7 @@ import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 import { getInterpreterOverridePaths, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { isDirectory, isFile } from './path-utils.js';
-import { isCondaAvailable, getCondaEnvironments, getCondaRPaths } from './provider-conda.js';
+import { isCondaAvailable, getCondaEnvironments, getCondaRPaths, getCondaName } from './provider-conda.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -238,8 +238,17 @@ export async function makeMetadata(
 		isUserInstallation ?
 			RRuntimeSource.user : RRuntimeSource.system;
 
+	let runtimeShortName: string;
+	runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
 	// Short name shown to users (when disambiguating within a language)
-	const runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
+	if (rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.CONDA)) {
+		const condaName = getCondaName(rInst.homepath);
+		if (condaName === "") {
+			runtimeShortName = `${runtimeShortName} (Conda)`; // in case no conda name is detected
+		} else {
+			runtimeShortName = `${runtimeShortName} (Conda: ${condaName})`;
+		}
+	}
 
 	// Full name shown to users
 	const runtimeName = `R ${runtimeShortName}`;
