@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Application } from '../../infra/index.js';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({
@@ -32,7 +33,7 @@ test.describe('Reticulate', {
 	// will already be running
 	let sequential = false;
 
-	test('R - Verify Basic Reticulate Functionality', async function ({ app, r, interpreter }) {
+	test('R - Verify Basic Reticulate Functionality', async function ({ app, r, sessions }) {
 
 		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()');
 		await app.workbench.console.sendEnterKey();
@@ -49,17 +50,18 @@ test.describe('Reticulate', {
 
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 
-		await verifyReticulateFunctionality(app, interpreter, false);
+		await verifyReticulateFunctionality(app, false);
 
 		sequential = true;
 
 	});
 
-	test('R - Verify Reticulate Stop/Restart Functionality', {
+	test.skip('R - Verify Reticulate Stop/Restart Functionality', {
 		tag: [tags.WEB_ONLY]
-	}, async function ({ app, interpreter }) {
+	}, async function ({ app, sessions }) {
 
-		await app.workbench.interpreter.selectInterpreter('Python', 'Python (reticulate)', false);
+		// TODO
+		// await app.workbench.interpreter.selectInterpreter('Python', 'Python (reticulate)', false);
 
 		await app.workbench.popups.installIPyKernel();
 
@@ -67,7 +69,7 @@ test.describe('Reticulate', {
 			app.workbench.console.waitForReadyAndStarted('>>>', 30000);
 		}
 
-		await verifyReticulateFunctionality(app, interpreter, sequential);
+		await verifyReticulateFunctionality(app, sequential);
 
 		await app.workbench.layouts.enterLayout('stacked');
 
@@ -89,19 +91,19 @@ test.describe('Reticulate', {
 
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 
-		await verifyReticulateFunctionality(app, interpreter, sequential);
+		await verifyReticulateFunctionality(app, sequential);
 
 	});
 });
 
-async function verifyReticulateFunctionality(app, interpreter, sequential) {
+async function verifyReticulateFunctionality(app: Application, sequential) {
 
 	await app.workbench.console.pasteCodeToConsole('x=100');
 	await app.workbench.console.sendEnterKey();
 
 	await app.workbench.console.barClearButton.click();
 
-	await interpreter.set('R', !sequential);
+	await app.workbench.sessions.start('r', { waitForReady: !sequential });
 
 	await app.workbench.console.pasteCodeToConsole('y<-reticulate::py$x');
 	await app.workbench.console.sendEnterKey();

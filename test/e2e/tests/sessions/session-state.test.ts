@@ -13,10 +13,6 @@ test.describe('Sessions: State', {
 	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
-	});
-
 	test.beforeEach(async function ({ app }) {
 		await app.workbench.variables.togglePane('hide');
 	});

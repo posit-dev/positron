@@ -13,10 +13,6 @@ test.describe('Session: Outline', {
 	tag: [tags.WEB, tags.WIN, tags.SESSIONS, tags.OUTLINE]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
-	});
-
 	test('Python - Verify outline is per session', async function ({ app, openFile, sessions }) {
 		const { variables, outline, console } = app.workbench;
 

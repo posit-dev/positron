@@ -14,10 +14,6 @@ test.describe('Sessions: Diagnostics', {
 	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6872' }]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
-	});
-
 	test.afterEach(async function ({ runCommand }) {
 		await runCommand('workbench.action.closeAllEditors');
 	});

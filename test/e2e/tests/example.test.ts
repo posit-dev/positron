@@ -51,11 +51,11 @@ test.describe('Examples of Concepts', () => {
 		await expect(page.getByText(/R.*started/)).toBeVisible();
 	});
 
-	test('How to set Python/R interpreter anywhere in test', async function ({ page, interpreter }) {
-		// we can invoke the "interpreter" fixture, and then set the interpreter to Python or R
+	test('How to set Python/R interpreter anywhere in test', async function ({ page, sessions }) {
+		// we can invoke the "sessions" fixture, and then set the interpreter to Python or R
 		// from anywhere within our test
 		await expect(page.getByText(/R.*started|Start Interpreter/)).toBeVisible();
-		await interpreter.set('Python');
+		await sessions.start('python');
 		await expect(page.getByText(/Python.*started/)).toBeVisible();
 	});
 

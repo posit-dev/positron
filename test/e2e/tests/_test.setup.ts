@@ -109,19 +109,19 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		}
 	}, { scope: 'worker', auto: true, timeout: 60000 }],
 
-	interpreter: [async ({ app, page }, use) => {
-		const setInterpreter = async (desiredInterpreter: 'Python' | 'R', waitForReady = true) => {
-			const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
+	// interpreter: [async ({ app, page }, use) => {
+	// 	const setInterpreter = async (desiredInterpreter: 'Python' | 'R', waitForReady = true) => {
+	// 		const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
 
-			if (!currentInterpreter.startsWith(desiredInterpreter)) {
-				desiredInterpreter === 'Python'
-					? await app.workbench.interpreter.startInterpreterViaQuickAccess('Python', waitForReady)
-					: await app.workbench.interpreter.startInterpreterViaQuickAccess('R', waitForReady);
-			}
-		};
+	// 		if (!currentInterpreter.startsWith(desiredInterpreter)) {
+	// 			desiredInterpreter === 'Python'
+	// 				? await app.workbench.interpreter.startInterpreterViaQuickAccess('Python', waitForReady)
+	// 				: await app.workbench.interpreter.startInterpreterViaQuickAccess('R', waitForReady);
+	// 		}
+	// 	};
 
-		await use({ set: setInterpreter });
-	}, { scope: 'test', timeout: 30000 }],
+	// 	await use({ set: setInterpreter });
+	// }, { scope: 'test', timeout: 30000 }],
 
 	sessions: [
 		async ({ app }, use) => {
@@ -131,16 +131,16 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	],
 
 	r: [
-		async ({ interpreter }, use) => {
-			await interpreter.set('R');
+		async ({ sessions }, use) => {
+			await sessions.start('r');
 			await use();
 		},
 		{ scope: 'test' }
 	],
 
 	python: [
-		async ({ interpreter }, use) => {
-			await interpreter.set('Python');
+		async ({ sessions }, use) => {
+			await sessions.start('python');
 			await use();
 		},
 		{ scope: 'test' }],
@@ -414,7 +414,7 @@ interface TestFixtures {
 	page: playwright.Page;
 	attachScreenshotsToReport: any;
 	attachLogsToReport: any;
-	interpreter: { set: (interpreterName: 'Python' | 'R', waitFoReady?: boolean) => Promise<void> };
+	// interpreter: { set: (interpreterName: 'Python' | 'R', waitFoReady?: boolean) => Promise<void> };
 	sessions: Sessions;
 	r: void;
 	python: void;
