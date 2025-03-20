@@ -170,22 +170,22 @@ jobs:
         run: |
           echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
 
-          # Convert comma-separated skip_tags input into a regex pattern
-          SKIP_TAGS_REGEX=$(echo "${{ inputs.skip_tags }}" | sed 's/,/|/g')
+          # Convert comma-separated skip_tags input into a regex pattern for Playwright
+          SKIP_TAGS_REGEX=$(echo "${{ inputs.skip_tags }}" | sed 's/,/)|(?=.*/g' | sed 's/^/(?=.*/g' | sed 's/$/)/g')
 
           # Ensure @:web-only is always excluded for e2e-electron
           if [ "${{ inputs.project }}" == "e2e-electron" ]; then
             if [ -n "$SKIP_TAGS_REGEX" ]; then
-              SKIP_TAGS_REGEX="(${SKIP_TAGS_REGEX}|@:web-only)"
+              SKIP_TAGS_REGEX="(?=.*(@:web-only))|$SKIP_TAGS_REGEX"
             else
-              SKIP_TAGS_REGEX="@:web-only"
+              SKIP_TAGS_REGEX="(?=.*(@:web-only))"
             fi
           fi
 
           # Build the final --grep-invert argument
           GREP_INVERT_ARG=""
           if [ -n "$SKIP_TAGS_REGEX" ]; then
-            GREP_INVERT_ARG="--grep-invert \"$SKIP_TAGS_REGEX\""
+            GREP_INVERT_ARG="--grep-invert \"($SKIP_TAGS_REGEX)\""
           fi
 
           # Log the final grep-invert argument for debugging

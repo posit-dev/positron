@@ -13,7 +13,7 @@ test.use({
 
 // electron only for now - windows doesn't have hidden interpreters and for web the deletePositronHistoryFiles is not valid
 test.describe('Default Interpreters - R', {
-	tag: [tags.INTERPRETER]
+	tag: [tags.INTERPRETER, tags.NIGHTLY_ONLY]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
@@ -28,9 +28,7 @@ test.describe('Default Interpreters - R', {
 
 	});
 
-	test('R - Add a default interpreter', {
-		tag: [tags.NIGHTLY_ONLY]
-	}, async function ({ app, runCommand }) {
+	test('R - Add a default interpreter', async function ({ app, runCommand }) {
 
 		await app.workbench.console.waitForInterpretersToFinishLoading();
 

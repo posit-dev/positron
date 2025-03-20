@@ -13,7 +13,7 @@ test.use({
 
 // electron only for now - windows doesn't have hidden interpreters and for web the deletePositronHistoryFiles is not valid
 test.describe('Default Interpreters - Python', {
-	tag: [tags.INTERPRETER]
+	tag: [tags.INTERPRETER, tags.NIGHTLY_ONLY]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
@@ -29,9 +29,7 @@ test.describe('Default Interpreters - Python', {
 
 	});
 
-	test('Python - Add a default interpreter (Conda)', {
-		tag: [tags.NIGHTLY_ONLY]
-	}, async function ({ app, runCommand }) {
+	test('Python - Add a default interpreter (Conda)', async function ({ app, runCommand }) {
 
 		await app.workbench.console.waitForInterpretersToFinishLoading();
 
