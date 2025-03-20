@@ -55,6 +55,10 @@ export class NewSession {
     */
     'connectionTimeout'?: number = 30;
     'interruptMode': InterruptMode;
+    /**
+    * The Jupyter protocol version supported by the underlying kernel
+    */
+    'protocolVersion'?: string = '5.3';
 
     static discriminator: string | undefined = undefined;
 
@@ -113,6 +117,11 @@ export class NewSession {
             "name": "interruptMode",
             "baseName": "interrupt_mode",
             "type": "InterruptMode"
+        },
+        {
+            "name": "protocolVersion",
+            "baseName": "protocol_version",
+            "type": "string"
         }    ];
 
     static getAttributeTypeMap() {

@@ -9,7 +9,7 @@ import { Disposable, IDisposable } from '../../../../../base/common/lifecycle.js
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode, ILanguageRuntimeSessionStateEvent, ILanguageRuntimeGlobalEvent, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode, ILanguageRuntimeSessionStateEvent, ILanguageRuntimeGlobalEvent, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent, INotebookSessionUriChangedEvent } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IExecutionHistoryService, ExecutionEntryType } from '../../common/executionHistoryService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
@@ -21,6 +21,7 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/tes
 import { Emitter } from '../../../../../base/common/event.js';
 import { TestStorageService } from '../../../../test/common/workbenchTestServices.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
+import { URI } from '../../../../../base/common/uri.js';
 
 class TestWorkspaceContextService implements IWorkspaceContextService {
 	private readonly _onWillChangeWorkspaceFolders = new Emitter<IWorkspaceFoldersWillChangeEvent>();
@@ -100,7 +101,14 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 	private readonly _onWillStartSession = new Emitter<IRuntimeSessionWillStartEvent>();
 	readonly onWillStartSession = this._onWillStartSession.event;
 
+	private readonly _onDidUpdateNotebookSessionUri = new Emitter<INotebookSessionUriChangedEvent>();
+	readonly onDidUpdateNotebookSessionUri = this._onDidUpdateNotebookSessionUri.event;
+
 	foregroundSession: ILanguageRuntimeSession | undefined;
+
+	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined {
+		return undefined;
+	}
 
 	activateSession(_sessionId: string): Promise<void> {
 		throw new Error('Method not implemented.');
@@ -411,6 +419,10 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 		this.metadata = createSessionMetadata(sessionId);
 	}
 
+	getLabel(): string {
+		return this.metadata.sessionName;
+	}
+
 	isIdle(): boolean {
 		throw new Error('Method not implemented.');
 	}
@@ -555,7 +567,7 @@ suite('ExecutionHistoryService', () => {
 		instantiationService.stub(IStorageService, storageService);
 		instantiationService.stub(ILogService, new NullLogService());
 		instantiationService.stub(IConfigurationService, configurationService);
-		instantiationService.stub(IWorkspaceContextService, new TestWorkspaceContextService);
+		instantiationService.stub(IWorkspaceContextService, new TestWorkspaceContextService());
 
 		executionHistoryService = instantiationService.createInstance(ExecutionHistoryService);
 		disposables.add(executionHistoryService);
