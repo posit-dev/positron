@@ -155,7 +155,9 @@ class PositronMagics(Magics):
         # First try to find the object directly by name
         info = self.shell._ofind(args.object)  # noqa: SLF001
 
-        if not info.found:
+        if info.found:
+            obj = info.obj
+        else:
             # Check if the object name is a quoted string and remove quotes if necessary
             obj_name = args.object
             if (obj_name.startswith('"') and obj_name.endswith('"')) or (
@@ -166,22 +168,6 @@ class PositronMagics(Magics):
             # If not found as a variable, try to evaluate it as an expression
             try:
                 obj = self.shell.ev(obj_name)
-
-                # Create a similar info object to what _ofind would return
-                class SimpleNamespaceObj:
-                    def __init__(self) -> None:
-                        self.found: bool = False
-                        self.obj: Any = None
-                        self.ismagic: bool = False
-                        self.isalias: bool = False
-                        self.namespace: str = ""
-
-                info = SimpleNamespaceObj()
-                info.found = True
-                info.obj = obj
-                info.ismagic = False
-                info.isalias = False
-                info.namespace = "Interactive"
             except Exception as e:
                 raise UsageError(f"Failed to evaluate expression '{obj_name}': %s" % e) from e
 
@@ -196,7 +182,6 @@ class PositronMagics(Magics):
                 title = title[1:-1]
 
         # Register a dataset with the data explorer service.
-        obj = info.obj
         try:
             self.shell.kernel.data_explorer_service.register_table(
                 obj, title, variable_path=[encode_access_key(args.object)]
