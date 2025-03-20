@@ -132,8 +132,7 @@ export class Console {
 			await this.code.driver.page.keyboard.type(text, { delay });
 
 			if (pressEnter) {
-				await this.code.driver.page.waitForTimeout(500);
-				await this.code.driver.page.keyboard.press('Enter');
+				await this.code.driver.page.keyboard.press('Enter', { delay: 1000 });
 			}
 		});
 	}
