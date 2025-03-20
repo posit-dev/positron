@@ -20,6 +20,8 @@ export async function launch(options: LaunchOptions): Promise<{ electronProcess:
 	const { electron, context, page } = await launchElectron({ electronPath, args, env }, options);
 	const electronProcess = electron.process();
 
+	_electronApp = electron;
+
 	return {
 		electronProcess,
 		driver: new PlaywrightDriver(electron, context, page, undefined /* no server process */, Promise.resolve() /* Window is open already */, options),
