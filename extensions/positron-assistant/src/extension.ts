@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { EncryptedSecretStorage, getEnabledProviders, getModelConfiguration, getModelConfigurations, GlobalSecretStorage, ModelConfig, SecretStorage, showConfigurationDialog, showModelList, StoredModelConfig } from './config';
+import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, ModelConfig, SecretStorage, showConfigurationDialog, showModelList, StoredModelConfig } from './config';
 import { newLanguageModel } from './models';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { editsProvider } from './edits';
@@ -224,6 +224,12 @@ export function activate(context: vscode.ExtensionContext) {
 	const enabled = vscode.workspace.getConfiguration('positron.assistant').get('enable');
 	if (enabled) {
 		registerAssistant(context);
+		const storedModels = getStoredModels(context);
+		if (storedModels.length) {
+			storedModels.forEach(stored => {
+				positron.ai.addLanguageModelConfig(expandConfigToSource(stored));
+			});
+		}
 	} else {
 		// If the assistant is not enabled, listen for configuration changes so that we can
 		// enable it immediately if the user enables it in the settings.
