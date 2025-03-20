@@ -329,7 +329,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				</label>
 				{source?.supportedOptions.includes('apiKey') &&
 					(
-						<div className='language-model-authentication-container'>
+						<div className='language-model-authentication-container' id='api-key-input'>
 							<LabeledTextInput
 								label={(() => localize('positron.newConnectionModalDialog.apiKey', "API Key"))()}
 								type='password'
