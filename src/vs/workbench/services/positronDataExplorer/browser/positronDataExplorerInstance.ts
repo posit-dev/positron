@@ -171,10 +171,10 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 			this._configurationService,
 			this._keybindingService,
 			this._layoutService,
+			this._hoverService,
 			this._dataExplorerClientInstance,
 			this._tableDataCache
 		));
-
 		// Add the onDidClose event handler.
 		this._register(this._dataExplorerClientInstance.onDidClose(() => {
 			this._onDidCloseEmitter.fire();
