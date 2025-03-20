@@ -21,42 +21,39 @@ test.describe('Sessions: Session Picker', {
 	test('Python - Start and verify session via session picker', async function ({ app, sessions }) {
 		const session = app.workbench.sessions;
 
-		const [pythonSession] = await sessions.start(['python'], { triggerMode: 'session-picker' });
+		const pythonSession = await sessions.start('python', { triggerMode: 'session-picker' });
 		await session.expectSessionPickerToBe(pythonSession);
 		const { state } = await session.getMetadata();
 		expect(state).toBe('idle');
 	});
 
-	test('R - Start and verify session via session picker', async function ({ app, sessions }) {
-		const session = app.workbench.sessions;
+	test('R - Start and verify session via session picker', async function ({ sessions }) {
 
-		const [rSession] = await sessions.start(['r'], { triggerMode: 'session-picker' });
-		await session.expectSessionPickerToBe(rSession);
-		const { state } = await session.getMetadata();
+		const rSession = await sessions.start('r', { triggerMode: 'session-picker' });
+		await sessions.expectSessionPickerToBe(rSession);
+		const { state } = await sessions.getMetadata();
 		expect(state).toBe('idle');
 	});
 
-	test('Verify Session Picker updates correctly across multiple active sessions', async function ({ app, sessions }) {
-		const session = app.workbench.sessions;
-
+	test('Verify Session Picker updates correctly across multiple active sessions', async function ({ sessions }) {
 		// Start Python and R sessions
 		const [pythonSession1, rSession1] = await sessions.start(['python', 'r'], { triggerMode: 'session-picker' });
 
 		// Widen session tab list to view full runtime names
-		await session.resizeSessionList({ x: -100 });
+		await sessions.resizeSessionList({ x: -100 });
 
 		// Start another Python session and verify Active Session Picker updates
 		const [pythonSession2] = await sessions.start(['pythonAlt'], { triggerMode: 'session-picker' });
-		await expect(session.activeSessionPicker).toContainText(pythonSession2.name);
+		await expect(sessions.activeSessionPicker).toContainText(pythonSession2.name);
 
 		// Start another R session and verify Active Session Picker updates
 		const [rSession2] = await sessions.start(['rAlt'], { triggerMode: 'session-picker' });
-		await expect(session.activeSessionPicker).toContainText(rSession2.name);
+		await expect(sessions.activeSessionPicker).toContainText(rSession2.name);
 
-		await session.select(rSession1.id);
-		await expect(session.activeSessionPicker).toContainText(rSession1.name);
+		await sessions.select(rSession1.id);
+		await expect(sessions.activeSessionPicker).toContainText(rSession1.name);
 
-		await session.select(pythonSession1.id);
-		await expect(session.activeSessionPicker).toContainText(pythonSession1.name);
+		await sessions.select(pythonSession1.id);
+		await expect(sessions.activeSessionPicker).toContainText(pythonSession1.name);
 	});
 });

@@ -21,7 +21,7 @@ test.describe('Session: Autocomplete', {
 	test('Python - Verify autocomplete suggestions in Console and Editor',
 		{ annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6839' }] },
 		async function ({ app, runCommand, sessions }) {
-			const { sessions: session, variables, editors, console } = app.workbench;
+			const { variables, editors, console } = app.workbench;
 
 			const [pythonSession1a, pythonSession1b, pythonSession2] = await sessions.start(['python', 'python', 'pythonAlt']);
 			await variables.togglePane('hide');
@@ -35,7 +35,7 @@ test.describe('Session: Autocomplete', {
 			await console.expectSuggestionListCount(8);
 
 			// Session 2 - trigger and verify no console autocomplete
-			await session.select(pythonSession2.id);
+			await sessions.select(pythonSession2.id);
 			await console.typeToConsole('pd.Dat', false, 250);
 			await console.expectSuggestionListCount(0);
 
@@ -56,7 +56,7 @@ test.describe('Session: Autocomplete', {
 		});
 
 	test('R - Verify autocomplete suggestions in Console and Editor', async function ({ app, runCommand, sessions }) {
-		const { sessions: session, variables, editors, console } = app.workbench;
+		const { variables, editors, console } = app.workbench;
 
 		const [rSession1a, rSession1b, rSession2] = await sessions.start(['r', 'r', 'rAlt']);
 		await variables.togglePane('hide');
@@ -70,7 +70,7 @@ test.describe('Session: Autocomplete', {
 		await console.expectSuggestionListCount(4);
 
 		// Session 2 - verify no console autocomplete
-		await session.select(rSession2.id);
+		await sessions.select(rSession2.id);
 		await console.typeToConsole('read_p', false, 250);
 		await console.expectSuggestionListCount(0);
 

@@ -23,7 +23,7 @@ test.describe('Sessions: Diagnostics', {
 	});
 
 	test.skip('Python - Verify diagnostics isolation between sessions in the editor and problems view', async function ({ app, runCommand, sessions }) {
-		const { sessions: session, problems, editor, console } = app.workbench;
+		const { problems, editor, console } = app.workbench;
 
 		const [pythonSession1, pythonSession2] = await sessions.start(['python', 'pythonAlt']);
 
@@ -32,7 +32,7 @@ test.describe('Sessions: Diagnostics', {
 		await editor.type('import requests\nrequests.get("https://example.com")\n');
 
 		// Session 1 - before installing/importing package, the requests warning should be present
-		await session.select(pythonSession1.id);
+		await sessions.select(pythonSession1.id);
 		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1, errorCount: 0 });
 		await problems.expectWarningText('Import "requests" could not be resolved from source');
 		await problems.expectSquigglyCountToBe('warning', 1);
@@ -44,7 +44,7 @@ test.describe('Sessions: Diagnostics', {
 		await problems.expectSquigglyCountToBe('warning', 0);
 
 		// Session 2 - verify warning since requests was not installed in that session
-		await session.select(pythonSession2.id);
+		await sessions.select(pythonSession2.id);
 		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1, errorCount: 0 });
 		await problems.expectWarningText('Import "requests" could not be resolved from source');
 		await problems.expectSquigglyCountToBe('warning', 1);
@@ -53,19 +53,19 @@ test.describe('Sessions: Diagnostics', {
 		await editor.selectTabAndType('Untitled-1', 'x =');
 
 		// Session 2 - verify both errors (import and syntax) are present
-		await session.select(pythonSession2.id);
+		await sessions.select(pythonSession2.id);
 		await problems.expectDiagnosticsToBe({ problemCount: 3, warningCount: 2, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 
 		// Session 1 - verify 1 error (syntax) is present
-		await session.select(pythonSession1.id);
+		await sessions.select(pythonSession1.id);
 		await problems.expectDiagnosticsToBe({ problemCount: 2, warningCount: 1, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 
 	});
 
 	test('R - Verify diagnostics isolation between sessions in the editor and problems view', async function ({ app, runCommand, sessions }) {
-		const { sessions: session, problems, editor, console } = app.workbench;
+		const { problems, editor, console } = app.workbench;
 
 		const [rSession1, rSession2] = await sessions.start(['r', 'rAlt']);
 
@@ -74,7 +74,7 @@ test.describe('Sessions: Diagnostics', {
 		await editor.type('circos.points()\n');
 
 		// Session 1 - before installing/importing pkg the circos warning should be present
-		await session.select(rSession1.id);
+		await sessions.select(rSession1.id);
 		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1, errorCount: 0 });
 		await problems.expectWarningText('No symbol named \'circos.');
 		await problems.expectSquigglyCountToBe('warning', 1);
@@ -86,7 +86,7 @@ test.describe('Sessions: Diagnostics', {
 		await problems.expectSquigglyCountToBe('warning', 0);
 
 		// Session 2 - verify warning since circlize is not installed
-		await session.select(rSession2.id);
+		await sessions.select(rSession2.id);
 		await problems.expectSquigglyCountToBe('warning', 1);
 		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1, errorCount: 0 });
 		await problems.expectWarningText('No symbol named \'circos.');
@@ -95,12 +95,12 @@ test.describe('Sessions: Diagnostics', {
 		await editor.selectTabAndType('Untitled-1', 'x <-');
 
 		// Session 2 - verify both problems (circos and syntax) are present
-		await session.select(rSession2.id);
+		await sessions.select(rSession2.id);
 		await problems.expectDiagnosticsToBe({ problemCount: 3, warningCount: 2, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 
 		// Session 1 - verify only syntax error is present
-		await session.select(rSession1.id);
+		await sessions.select(rSession1.id);
 		await problems.expectDiagnosticsToBe({ problemCount: 2, warningCount: 1, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 	});

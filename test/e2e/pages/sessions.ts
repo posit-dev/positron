@@ -11,7 +11,6 @@ const DESIRED_PYTHON = process.env.POSITRON_PY_VER_SEL || 'missing POSITRON_PY_V
 const DESIRED_R = process.env.POSITRON_R_VER_SEL || 'missing POSITRON_R_VER_SEL';
 const ALTERNATE_PYTHON = process.env.POSITRON_PY_ALT_VER_SEL || 'missing POSITRON_PY_ALT_VER_SEL';
 const ALTERNATE_R = process.env.POSITRON_R_ALT_VER_SEL || 'missing POSITRON_R_ALT_VER_SEL';
-const sessionIdPattern = /^(python|r)-[a-zA-Z0-9]+$/i;
 const ACTIVE_STATUS_ICON = '.codicon-positron-status-active';
 
 /**
@@ -62,89 +61,45 @@ export class Sessions {
 	// -- Actions --
 
 	/**
-	 * Action: Start a session via the session picker button, quickaccess, or console session button.
-	 * @param options - Configuration options for selecting the runtime session.
-	 * @param options.language the runtime language to select (e.g., "Python" or "R").
-	 * @param options.version the specific version of runtime to select (e.g., "3.10.15").
-	 * @param options.triggerMode the method used to trigger the selection: session-picker, quickaccess, or console.
-	 * @param options.waitForReady whether to wait for the console to be ready after selecting the runtime.
+	 * Action: Starts one or more sessions
+	 *
+	 * @param sessions - The session runtime(s) to start
+	 * @param options - Configuration options for session startup
+	 * @param options.waitForReady - Whether to wait for sessions to be fully ready before returning (default: true)
+	 * @param options.triggerMode - How the session should be triggered (default: 'console')
+	 * @param options.reuse - Whether to reuse existing idle sessions if available (default: true)
+	 *
+	 * @returns returns the SessionInfo for the session(s)
 	 */
-	async launch(options: {
-		language: 'Python' | 'R';
-		version?: string;
-		triggerMode?: 'session-picker' | 'quickaccess' | 'console' | 'hotkey';
-		waitForReady?: boolean;
-	}): Promise<string> {
-
-		if (!DESIRED_PYTHON || !DESIRED_R) {
-			throw new Error('Please set env vars: POSITRON_PY_VER_SEL, POSITRON_R_VER_SEL');
+	async start<T extends SessionRuntimes | SessionRuntimes[]>(
+		sessions: T,
+		options?: {
+			waitForReady?: boolean;
+			triggerMode?: SessionTrigger;
+			reuse?: boolean;
 		}
-
-		if (!ALTERNATE_PYTHON || !ALTERNATE_R) {
-			throw new Error('Please set env vars: POSITRON_PY_ALT_VER_SEL, POSITRON_R_VER_ALT');
-		}
-
+	): Promise<T extends SessionRuntimes ? SessionInfo : { [K in keyof T]: SessionInfo }> {
 		const {
-			language,
-			version = language === 'Python' ? DESIRED_PYTHON : DESIRED_R,
 			waitForReady = true,
-			triggerMode = 'hotkey',
-		} = options;
+			triggerMode = 'console',
+			reuse = true,
+		} = options || {};
 
-		await test.step(`Start session via ${triggerMode}: ${language} ${version}`, async () => {
+		// convert to array for unified processing
+		const sessionKeys = (Array.isArray(sessions) ? sessions : [sessions]) as SessionRuntimes[];
+		const results: SessionInfo[] = [];
 
-			// Don't try to start a new runtime if one is currently starting up
-			await this.waitForReadyOrNoSessions();
+		// process sessions sequentially
+		for (const key of sessionKeys) {
+			const session = { ...availableRuntimes[key], waitForReady, triggerMode };
+			session.id = reuse
+				? await this.reuseIdleSessionIfExists(session)
+				: await this.launch(session);
+			results.push(session);
+		}
 
-			// Start the runtime via the session picker button, quickaccess or console session button
-			if (triggerMode === 'quickaccess') {
-				const command = language === 'Python' ? 'python.setInterpreter' : 'r.selectInterpreter';
-				await this.quickaccess.runCommand(command, { keepOpen: true });
-			} else if (triggerMode === 'session-picker') {
-				await this.quickPick.openSessionQuickPickMenu();
-			} else if (triggerMode === 'console') {
-				await this.console.focus();
-				await this.newConsoleButton.click();
-			} else {
-				await this.page.keyboard.press('Control+Shift+/');
-			}
-
-			await this.quickinput.type(`${language} ${version}`);
-
-			// Wait until the desired runtime appears in the list and select it.
-			// We need to click instead of using 'enter' because the Python select interpreter command
-			// may include additional items above the desired interpreter string.
-			await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`);
-			await this.quickinput.waitForQuickInputClosed();
-
-			// Move mouse to prevent tooltip hover
-			await this.code.driver.page.mouse.move(0, 0);
-
-			if (waitForReady) {
-				language === 'Python'
-					? await this.console.waitForReadyAndStarted('>>>', 90000)
-					: await this.console.waitForReadyAndStarted('>', 90000);
-			}
-		});
-
-		return this.getCurrentSessionId();
-	}
-
-	/**
-	 * Action: Select the session
-	 * @param sessionIdOrName the id or name of the session
-	 */
-	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
-		await test.step(`Select session: ${sessionIdOrName}`, async () => {
-			await this.console.focus();
-			const session = this.getSessionTab(sessionIdOrName);
-
-			if (waitForSessionIdle) {
-				await expect(this.idleStatus(session)).toBeVisible();
-			}
-
-			await this.getSessionTab(sessionIdOrName).click();
-		});
+		// return single result or array based on input type
+		return (Array.isArray(sessions) ? results : results[0]) as any;
 	}
 
 	/**
@@ -178,31 +133,13 @@ export class Sessions {
 	}
 
 	/**
-	 * Action: Start the session
-	 * @param sessionIdOrName the id or name of the session
-	 * @param waitForIdle wait for the session to display as "idle" (ready)
-	 * @returns the session ID
-	 */
-	async start(sessionIdOrName: string, waitForIdle = true): Promise<string> {
-		await test.step(`Start session: ${sessionIdOrName}`, async () => {
-			await this.getSessionTab(sessionIdOrName).click();
-			await this.newConsoleButton.click();
-
-			if (waitForIdle) {
-				await this.expectStatusToBe(sessionIdOrName, 'idle');
-			}
-		});
-
-		return this.getCurrentSessionId();
-	}
-
-	/**
 	 * Action: Restart the session
 	 * @param sessionIdOrName the id or name of the session
 	 * @param waitForIdle wait for the session to display as "idle" (ready)
 	 */
 	async restart(sessionIdOrName: string, waitForIdle = true, clearConsole = true): Promise<void> {
 		await test.step(`Restart session: ${sessionIdOrName}`, async () => {
+			// todo: make this handle case where no session tab list (aka 1 session)
 			await this.getSessionTab(sessionIdOrName).click();
 
 			if (clearConsole) {
@@ -271,7 +208,7 @@ export class Sessions {
 		});
 	}
 
-	async deleteAllSessions() {
+	async deleteAll() {
 		await test.step('Delete all sessions', async () => {
 			const sessionIds = await this.getAllSessionIds();
 			const sessionsToDelete: string[] = [];
@@ -358,9 +295,97 @@ export class Sessions {
 	 * @returns locator for the session tab
 	 */
 	private getSessionTab(sessionIdOrName: string): Locator {
+		const sessionIdPattern = /^(python|r)-[a-zA-Z0-9]+$/i;
+
 		return sessionIdPattern.test(sessionIdOrName)
 			? this.page.getByTestId(`console-tab-${sessionIdOrName}`)
 			: this.sessionTabs.getByText(sessionIdOrName).locator('..');
+	}
+
+	/**
+	 * Action: Start a session via the session picker button, quickaccess, or console session button.
+	 * @param options - Configuration options for selecting the runtime session.
+	 * @param options.language the runtime language to select (e.g., "Python" or "R").
+	 * @param options.version the specific version of runtime to select (e.g., "3.10.15").
+	 * @param options.triggerMode the method used to trigger the selection: session-picker, quickaccess, or console.
+	 * @param options.waitForReady whether to wait for the console to be ready after selecting the runtime.
+	 */
+	private async launch(options: {
+		language: 'Python' | 'R';
+		version?: string;
+		triggerMode?: 'session-picker' | 'quickaccess' | 'console' | 'hotkey';
+		waitForReady?: boolean;
+	}): Promise<string> {
+
+		if (!DESIRED_PYTHON || !DESIRED_R) {
+			throw new Error('Please set env vars: POSITRON_PY_VER_SEL, POSITRON_R_VER_SEL');
+		}
+
+		if (!ALTERNATE_PYTHON || !ALTERNATE_R) {
+			throw new Error('Please set env vars: POSITRON_PY_ALT_VER_SEL, POSITRON_R_VER_ALT');
+		}
+
+		const {
+			language,
+			version = language === 'Python' ? DESIRED_PYTHON : DESIRED_R,
+			waitForReady = true,
+			triggerMode = 'hotkey',
+		} = options;
+
+		await test.step(`Start session via ${triggerMode}: ${language} ${version}`, async () => {
+
+			// Don't try to start a new runtime if one is currently starting up
+			await this.waitForReadyOrNoSessions();
+
+			// Start the runtime via the session picker button, quickaccess or console session button
+			if (triggerMode === 'quickaccess') {
+				const command = language === 'Python' ? 'python.setInterpreter' : 'r.selectInterpreter';
+				await this.quickaccess.runCommand(command, { keepOpen: true });
+			} else if (triggerMode === 'session-picker') {
+				await this.quickPick.openSessionQuickPickMenu();
+			} else if (triggerMode === 'console') {
+				await this.console.focus();
+				await this.newConsoleButton.click();
+			} else {
+				await this.page.keyboard.press('Control+Shift+/');
+			}
+
+			await this.quickinput.type(`${language} ${version}`);
+
+			// Wait until the desired runtime appears in the list and select it.
+			// We need to click instead of using 'enter' because the Python select interpreter command
+			// may include additional items above the desired interpreter string.
+			await this.quickinput.selectQuickInputElementContaining(`${language} ${version}`);
+			await this.quickinput.waitForQuickInputClosed();
+
+			// Move mouse to prevent tooltip hover
+			await this.code.driver.page.mouse.move(0, 0);
+
+			if (waitForReady) {
+				language === 'Python'
+					? await this.console.waitForReadyAndStarted('>>>', 90000)
+					: await this.console.waitForReadyAndStarted('>', 90000);
+			}
+		});
+
+		return this.getCurrentSessionId();
+	}
+
+	/**
+	 * Action: Select the session
+	 * @param sessionIdOrName the id or name of the session
+	 */
+	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
+		await test.step(`Select session: ${sessionIdOrName}`, async () => {
+			await this.console.focus();
+			const session = this.getSessionTab(sessionIdOrName);
+
+			if (waitForSessionIdle) {
+				await expect(this.idleStatus(session)).toBeVisible();
+			}
+
+			await this.getSessionTab(sessionIdOrName).click();
+		});
 	}
 
 	/**
@@ -368,7 +393,7 @@ export class Sessions {
 	 * @param session the session to reuse / launch
 	 * @returns id of the session
 	 */
-	async reuseIdleSessionIfExists(session: SessionInfo): Promise<string> {
+	private async reuseIdleSessionIfExists(session: SessionInfo): Promise<string> {
 		return await test.step(`Reuse session: ${session.name}`, async () => {
 
 			const metadataButtonIsVisible = await this.metadataButton.isVisible();
@@ -850,8 +875,9 @@ export type SessionMetaData = {
 	path: string;
 };
 
+
 // Use this session object to manage default python env in the test
-export const pythonSession: SessionInfo = {
+const pythonSession: SessionInfo = {
 	name: `Python ${DESIRED_PYTHON}`,
 	language: 'Python',
 	version: DESIRED_PYTHON,
@@ -861,7 +887,7 @@ export const pythonSession: SessionInfo = {
 };
 
 // Use this session object to manage alternate python env in the test
-export const pythonSessionAlt: SessionInfo = {
+const pythonSessionAlt: SessionInfo = {
 	name: `Python ${ALTERNATE_PYTHON}`,
 	language: 'Python',
 	version: ALTERNATE_PYTHON,
@@ -871,7 +897,8 @@ export const pythonSessionAlt: SessionInfo = {
 };
 
 // Use this session object to manage default R env in the test
-export const rSession: SessionInfo = {
+
+const rSession: SessionInfo = {
 	name: `R ${DESIRED_R}`,
 	language: 'R',
 	version: DESIRED_R,
@@ -881,11 +908,22 @@ export const rSession: SessionInfo = {
 };
 
 // Use this session object to manage alternate R env in the test
-export const rSessionAlt: SessionInfo = {
+const rSessionAlt: SessionInfo = {
 	name: `R ${ALTERNATE_R}`,
 	language: 'R',
 	version: ALTERNATE_R,
 	triggerMode: 'hotkey',
 	id: '',
 	waitForReady: true
+};
+
+
+
+type SessionRuntimes = 'python' | 'pythonAlt' | 'r' | 'rAlt';
+
+const availableRuntimes: { [key: string]: SessionInfo } = {
+	r: { ...rSession },
+	rAlt: { ...rSessionAlt },
+	python: { ...pythonSession },
+	pythonAlt: { ...pythonSessionAlt },
 };
