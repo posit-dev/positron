@@ -24,7 +24,6 @@ const CONSOLE_LINES = `${ACTIVE_CONSOLE_INSTANCE} div span`;
  *  aren't directly console functions, but rather features needed to support console testing.
  */
 export class Console {
-	barPowerButton: Locator;
 	barRestartButton: Locator;
 	barClearButton: Locator;
 	barTrashButton: Locator;
@@ -38,7 +37,7 @@ export class Console {
 	}
 
 	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) {
-		this.barPowerButton = this.code.driver.page.getByLabel('Shutdown console');
+		// this.barPowerButton = this.code.driver.page.getByLabel('Shutdown console');
 		this.barRestartButton = this.code.driver.page.getByLabel('Restart console');
 		this.barClearButton = this.code.driver.page.getByLabel('Clear console');
 		this.barTrashButton = this.code.driver.page.getByTestId('trash-session');
@@ -176,7 +175,7 @@ export class Console {
 		await this.waitForInterpretersToFinishLoading();
 
 		// ensure we are on Console tab
-		await page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
+		await this.focus();
 
 		// Move mouse to prevent tooltip hover
 		await this.code.driver.page.mouse.move(0, 0);

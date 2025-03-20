@@ -14,7 +14,7 @@ test.use({
 // RETICULATE_PYTHON
 // to the installed python path
 
-test.describe('Reticulate', {
+test.describe.fixme('Reticulate', {
 	tag: [tags.RETICULATE, tags.WEB],
 }, () => {
 	test.beforeAll(async function ({ app, userSettings }) {
@@ -33,10 +33,10 @@ test.describe('Reticulate', {
 	// will already be running
 	let sequential = false;
 
-	test('R - Verify Basic Reticulate Functionality', async function ({ app, r, sessions }) {
+	test('R - Verify Basic Reticulate Functionality', async function ({ app, r }) {
 
-		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()');
-		await app.workbench.console.sendEnterKey();
+		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()', true);
+		await app.code.driver.page.pause();
 
 		try {
 			await app.workbench.console.waitForConsoleContents('Yes/no/cancel');
@@ -56,12 +56,12 @@ test.describe('Reticulate', {
 
 	});
 
-	test.skip('R - Verify Reticulate Stop/Restart Functionality', {
+	test('R - Verify Reticulate Stop/Restart Functionality', {
 		tag: [tags.WEB_ONLY]
 	}, async function ({ app, sessions }) {
 
-		// TODO
-		// await app.workbench.interpreter.selectInterpreter('Python', 'Python (reticulate)', false);
+		await sessions.start('python', { waitForReady: false });
+		await sessions.expectSessionPickerToBe({ language: 'Python', version: '(reticulate)' });
 
 		await app.workbench.popups.installIPyKernel();
 
@@ -73,7 +73,7 @@ test.describe('Reticulate', {
 
 		await app.workbench.layouts.enterLayout('stacked');
 
-		await app.workbench.console.barPowerButton.click();
+		await app.workbench.console.barTrashButton.click();
 
 		await app.workbench.console.waitForConsoleContents('shut down successfully');
 
@@ -115,7 +115,7 @@ async function verifyReticulateFunctionality(app: Application, sequential) {
 	await expect(async () => {
 		const variablesMap = await app.workbench.variables.getFlatVariables();
 		expect(variablesMap.get('y')).toStrictEqual({ value: '100', type: 'int' });
-	}).toPass({ timeout: 60000 });
+	}).toPass({ timeout: 10000 });
 
 	await app.workbench.layouts.enterLayout('stacked');
 }

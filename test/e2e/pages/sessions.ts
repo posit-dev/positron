@@ -392,6 +392,7 @@ export class Sessions {
 	private async reuseIdleSessionIfExists(session: SessionInfo): Promise<string> {
 		return await test.step(`Reuse session: ${session.name}`, async () => {
 
+			await this.console.focus();
 			const metadataButtonIsVisible = await this.metadataButton.isVisible();
 			const sessionTab = this.getSessionTab(session.name);
 			const sessionTabExists = await sessionTab.isVisible();
@@ -431,7 +432,7 @@ export class Sessions {
 			await this.waitForRuntimesToLoad();
 
 			// ensure we are on Console tab
-			await this.page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
+			await this.console.focus();
 
 			// Move mouse to prevent tooltip hover
 			await this.code.driver.page.mouse.move(0, 0);
