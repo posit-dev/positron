@@ -1,6 +1,6 @@
 import * as path from "path";
 import * as util from "util";
-import { LOGGER } from './extension';
+import { LOGGER } from "./extension";
 import { exec } from "child_process";
 
 const execPromise = util.promisify(exec);
@@ -35,12 +35,16 @@ export async function getCondaEnvironments(): Promise<string[]> {
  * Discover R binaries inside Conda environments
  */
 
-
 /**
  * Get expected R binary path inside a Conda environment
  */
-export function getCondaRPath(envPath: string): string {
-	return path.join(envPath, "bin", "R");
-	// path.join(envPath, "Lib", "R", "bin", "x64", "R.exe") // for future Windows support
-	// ? path.join(envPath, "Lib", "R", "bin", "R.exe")
+export function getCondaRPaths(envPath: string): string[] {
+	const paths: string[] = [];
+	if (process.platform !== "win32") {
+		paths.push(path.join(envPath, "bin", "R"));
+	} else {
+		paths.push(path.join(envPath, "Lib", "R", "bin", "x64", "R.exe")); // Prioritise x64 binaries
+		paths.push(path.join(envPath, "Lib", "R", "bin", "R.exe"));
+	}
+	return paths;
 }
