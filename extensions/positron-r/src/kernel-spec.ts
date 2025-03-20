@@ -128,7 +128,7 @@ export function createJupyterKernelSpec(
 		'language': 'R',
 		'env': env,
 		// Protocol version 5.5 signals support for JEP 66
-		'protocol_version': '5.5' // eslint-disable-line
+		'kernel_protocol_version': '5.5' // eslint-disable-line
 	};
 
 	// Unless the user has chosen to restore the workspace, pass the

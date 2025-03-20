@@ -270,7 +270,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
             // In the future this may need to be updated to reflect the exact version of
             // the protocol supported by ipykernel. For now, use 5.3 as a lowest
             // common denominator.
-            protocol_version: '5.3',
+            kernel_protocol_version: '5.3',
             env,
         };
 

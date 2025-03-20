@@ -66,7 +66,7 @@ export interface JupyterKernelSpec {
 	 * When protocol >= 5.5 is used, the supervisor will use a handshake
 	 * to negotiate ports instead of picking them ahead of time (JEP 66)
 	 */
-	protocol_version: string; // eslint-disable-line
+	kernel_protocol_version: string; // eslint-disable-line
 
 	/** Function that starts the kernel given a JupyterSession object.
 	 *  This is used to start the kernel if it's provided. In this case `argv`
