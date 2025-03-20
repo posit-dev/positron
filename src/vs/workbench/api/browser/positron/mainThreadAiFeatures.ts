@@ -97,4 +97,14 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	async $getSupportedProviders(): Promise<string[]> {
 		return this._positronAssistantService.getSupportedProviders();
 	}
+
+	$addLanguageModelConfig(source: IPositronLanguageModelSource): void {
+		source.signedIn = true;
+		this._positronAssistantService.addLanguageModelConfig(source);
+	}
+
+	$removeLanguageModelConfig(source: IPositronLanguageModelSource): void {
+		source.signedIn = false;
+		this._positronAssistantService.removeLanguageModelConfig(source);
+	}
 }

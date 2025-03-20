@@ -17,7 +17,7 @@ import { OKCancelModalDialog } from '../../../browser/positronComponents/positro
 import { VerticalStack } from '../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
 import { DropDownListBoxItem } from '../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { LabeledTextInput } from '../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
-import { IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
+import { IPositronAssistantService, IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
 import { localize } from '../../../../nls.js';
 import { ProgressBar } from '../../../../base/browser/ui/positronComponents/progressBar.js';
 import { LanguageModelButton } from './components/languageModelButton.js';
@@ -30,6 +30,7 @@ export const showLanguageModelModalDialog = (
 	keybindingService: IKeybindingService,
 	layoutService: ILayoutService,
 	configurationService: IConfigurationService,
+	positronAssistantService: IPositronAssistantService,
 	sources: IPositronLanguageModelSource[],
 	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 	onCancel: () => void,
@@ -47,6 +48,7 @@ export const showLanguageModelModalDialog = (
 				configurationService={configurationService}
 				keybindingService={keybindingService}
 				layoutService={layoutService}
+				positronAssistantService={positronAssistantService}
 				renderer={renderer}
 				sources={sources}
 				onAction={onAction}
@@ -60,6 +62,7 @@ export const showLanguageModelModalDialog = (
 interface LanguageModelConfigurationProps {
 	keybindingService: IKeybindingService;
 	layoutService: ILayoutService;
+	positronAssistantService: IPositronAssistantService;
 	sources: IPositronLanguageModelSource[];
 	configurationService: IConfigurationService;
 	renderer: PositronModalReactRenderer;
@@ -107,6 +110,22 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	useEffect(() => {
 		setSource(defaultSource);
 	}, [type, defaultSource]);
+
+	useEffect(() => {
+		props.positronAssistantService.onChangeLanguageModelConfig((newSource) => {
+			// find newSource in props.sources and update it
+			const index = props.sources.findIndex(source => source.provider.id === newSource.provider.id);
+			if (index >= 0) {
+				props.sources[index] = newSource;
+			}
+
+			// if newSource matches source, update source
+			if (source.provider.id === newSource.provider.id) {
+				setSource(newSource);
+			}
+
+		});
+	}, [props.positronAssistantService, props.sources, source.provider.id]);
 
 	useEffect(() => {
 		setModel(source.defaults.model);
