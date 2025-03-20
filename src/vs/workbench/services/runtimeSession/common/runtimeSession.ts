@@ -618,6 +618,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata,
 		activate: boolean): Promise<void> {
+		const multisessionEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
 
 		// See if we are already starting the requested session. If we
 		// are, return the promise that resolves when the session is ready to
@@ -625,9 +626,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// session to be coalesced.
 		const sessionMapKey = getSessionMapKey(
 			sessionMetadata.sessionMode, runtimeMetadata.runtimeId, sessionMetadata.notebookUri);
-		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
-		if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
-			return startingRuntimePromise.p.then(() => { });
+		if (!multisessionEnabled || sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
+			if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
+				return startingRuntimePromise.p.then(() => { });
+			}
 		}
 
 		// Ensure that the runtime is registered.
@@ -645,17 +648,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return;
 		}
 
-		// Create a promise that resolves when the runtime is ready to use.
 		const startPromise = new DeferredPromise<string>();
-		this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
+		if (!multisessionEnabled || sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			// Create a promise that resolves when the runtime is ready to use.
+			this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
 
-		// It's possible that startPromise is never awaited, so we log any errors here
-		// at the debug level since we still expect the error to be handled/logged elsewhere.
-		startPromise.p.catch((err) => this._logService.debug(`Error starting session: ${err}`));
+			// It's possible that startPromise is never awaited, so we log any errors here
+			// at the debug level since we still expect the error to be handled/logged elsewhere.
+			startPromise.p.catch((err) => this._logService.debug(`Error starting session: ${err}`));
 
-		this.setStartingSessionMaps(
-			sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
-
+			this.setStartingSessionMaps(
+				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+		}
 		// We should already have a session manager registered, since we can't
 		// get here until the extension host has been activated.
 		if (this._sessionManagers.length === 0) {
@@ -668,8 +672,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			sessionManager = await this.getManagerForRuntime(runtimeMetadata);
 		} catch (err) {
 			startPromise.error(err);
-			this.clearStartingSessionMaps(
-				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+			if (!multisessionEnabled || sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+				this.clearStartingSessionMaps(
+					sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+			}
 			throw err;
 		}
 
@@ -684,8 +690,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`Reconnecting to session '${sessionMetadata.sessionId}' for language runtime ` +
 				`${formatLanguageRuntimeMetadata(runtimeMetadata)} failed. Reason: ${err}`);
 			startPromise.error(err);
-			this.clearStartingSessionMaps(
-				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+			if (!multisessionEnabled || sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+				this.clearStartingSessionMaps(
+					sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+			}
 			throw err;
 		}
 
