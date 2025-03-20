@@ -447,6 +447,10 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			runtime_name: this.runtimeMetadata.runtimeName,
 		});
 	}
+
+	getLabel(): string {
+		return this.runtimeMetadata.runtimeName;
+	}
 }
 
 export async function waitForRuntimeState(

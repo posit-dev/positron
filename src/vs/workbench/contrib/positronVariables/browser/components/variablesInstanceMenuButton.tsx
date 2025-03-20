@@ -7,7 +7,7 @@
 import './variablesInstanceMenuButton.css';
 
 // React.
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 // Other dependencies.
 import { IAction } from '../../../../../base/common/actions.js';
@@ -15,6 +15,7 @@ import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/b
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 
 /**
  * VariablesInstanceMenuButton component.
@@ -27,10 +28,27 @@ export const VariablesInstanceMenuButton = () => {
 	// Helper method to calculate the label for a runtime.
 	const labelForRuntime = (session?: ILanguageRuntimeSession): string => {
 		if (session) {
-			return session.metadata.sessionName;
+			return session.getLabel();
 		}
 		return 'None';
 	};
+
+	// Store just the label in state instead of the entire session
+	const [sessionLabel, setSessionLabel] = useState<string>(
+		labelForRuntime(positronVariablesContext.activePositronVariablesInstance?.session)
+	);
+
+	// Use an effect to update the session label when active instance changes
+	useEffect(() => {
+		const disposables = new DisposableStore();
+
+		// Update label when active instance changes
+		disposables.add(positronVariablesContext.positronVariablesService.onDidChangeActivePositronVariablesInstance(instance => {
+			setSessionLabel(labelForRuntime(instance?.session));
+		}));
+
+		return () => disposables.dispose();
+	}, [positronVariablesContext.positronVariablesService, positronVariablesContext.runtimeSessionService, positronVariablesContext.activePositronVariablesInstance]);
 
 	// Builds the actions.
 	const actions = () => {
@@ -39,7 +57,7 @@ export const VariablesInstanceMenuButton = () => {
 		positronVariablesContext.positronVariablesInstances.map(positronVariablesInstance => {
 			actions.push({
 				id: positronVariablesInstance.session.sessionId,
-				label: positronVariablesInstance.session.metadata.sessionName,
+				label: labelForRuntime(positronVariablesInstance.session),
 				tooltip: '',
 				class: undefined,
 				enabled: true,
@@ -67,7 +85,7 @@ export const VariablesInstanceMenuButton = () => {
 	return (
 		<ActionBarMenuButton
 			actions={actions}
-			text={labelForRuntime(positronVariablesContext.activePositronVariablesInstance?.session)}
+			text={sessionLabel}
 		/>
 	);
 };
