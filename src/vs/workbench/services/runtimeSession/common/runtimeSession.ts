@@ -2110,7 +2110,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			this._logService.error('Failed to update notebook session URI', error);
 
 			// Manual restoration in reverse order to maintain consistency
-			// Why: We need to undo all the changes to return to the previous state
 
 			// 1. Try to restore old mapping if it was deleted
 			// Why: If we got as far as deleting the old mapping, we need to restore it
