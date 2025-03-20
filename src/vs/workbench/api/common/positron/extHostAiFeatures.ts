@@ -12,7 +12,7 @@ import * as typeConvert from '../extHostTypeConverters.js';
 import { ExtHostCommands } from '../extHostCommands.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { isToolInvocationContext, IToolInvocationContext } from '../../../contrib/chat/common/languageModelToolsService.js';
-import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { ChatAgentLocation } from '../../../contrib/chat/common/chatAgents.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
@@ -90,5 +90,13 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 	async getSupportedProviders(): Promise<string[]> {
 		return this._proxy.$getSupportedProviders();
+	}
+
+	addLanguageModelConfig(source: IPositronLanguageModelSource): void {
+		this._proxy.$addLanguageModelConfig(source);
+	}
+
+	removeLanguageModelConfig(source: IPositronLanguageModelSource): void {
+		this._proxy.$removeLanguageModelConfig(source);
 	}
 }

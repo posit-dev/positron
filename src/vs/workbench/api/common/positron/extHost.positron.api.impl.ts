@@ -33,6 +33,7 @@ import { UiFrontendRequest } from '../../../services/languageRuntime/common/posi
 import { ExtHostConnections } from './extHostConnections.js';
 import { ExtHostAiFeatures } from './extHostAiFeatures.js';
 import { IToolInvocationContext } from '../../../contrib/chat/common/languageModelToolsService.js';
+import { IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -237,7 +238,13 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			getSupportedProviders(): Thenable<string[]> {
 				return extHostAiFeatures.getSupportedProviders();
-			}
+			},
+			addLanguageModelConfig(source: IPositronLanguageModelSource): void {
+				return extHostAiFeatures.addLanguageModelConfig(source);
+			},
+			removeLanguageModelConfig(source: IPositronLanguageModelSource): void {
+				return extHostAiFeatures.removeLanguageModelConfig(source);
+			},
 		};
 
 		// --- End Positron ---
