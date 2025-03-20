@@ -111,6 +111,13 @@ export class Interpreter {
 				.getByTitle('Restart the interpreter')
 				.click();
 
+			// Some interpreters (in special the Reticulate interpreter) will use a modal
+			// dialog before restarting.
+			const hasModal = await this.code.driver.page.locator('.positron-modal-dialog-box').isVisible({ timeout: 5000 });
+			if (hasModal) {
+				await this.code.driver.page.keyboard.press('Enter');
+			}
+
 			await this.closeInterpreterDropdown();
 		});
 	}
