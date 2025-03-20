@@ -618,7 +618,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// session to be coalesced.
 		const sessionMapKey = getSessionMapKey(
 			sessionMetadata.sessionMode, runtimeMetadata.runtimeId, sessionMetadata.notebookUri);
-		if (!multisessionEnabled) {
+		if (!multisessionEnabled || sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 			const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
 			if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
 				return startingRuntimePromise.p.then(() => { });
@@ -641,7 +641,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 
 		const startPromise = new DeferredPromise<string>();
-		if (!multisessionEnabled) {
+		if (!multisessionEnabled || sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 			// Create a promise that resolves when the runtime is ready to use.
 			this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
 
@@ -664,7 +664,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			sessionManager = await this.getManagerForRuntime(runtimeMetadata);
 		} catch (err) {
 			startPromise.error(err);
-			if (!multisessionEnabled) {
+			if (!multisessionEnabled || sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 				this.clearStartingSessionMaps(
 					sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
 			}
@@ -682,7 +682,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`Reconnecting to session '${sessionMetadata.sessionId}' for language runtime ` +
 				`${formatLanguageRuntimeMetadata(runtimeMetadata)} failed. Reason: ${err}`);
 			startPromise.error(err);
-			if (!multisessionEnabled) {
+			if (!multisessionEnabled || sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 				this.clearStartingSessionMaps(
 					sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
 			}
