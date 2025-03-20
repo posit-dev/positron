@@ -27,6 +27,7 @@ import { PositronDataExplorerLayout } from '../../../../../services/positronData
  * Constants.
  */
 const MIN_COLUMN_WIDTH = 300;
+const DEFAULT_SUMMARY_WIDTH = 400;
 
 /**
  * DataExplorer component.
@@ -230,11 +231,13 @@ export const DataExplorer = () => {
 		// Set the initial width.
 		setWidth(dataExplorerRef.current.offsetWidth);
 
-		// Set the initial columns width.
-		setColumnsWidth(Math.max(
-			Math.trunc(context.instance.columnsWidthPercent * dataExplorerRef.current.offsetWidth),
-			MIN_COLUMN_WIDTH
-		));
+		// Set the initial columns width - use stored width or default
+		const savedWidth = context.instance.summaryWidth;
+		setColumnsWidth(
+			savedWidth > 0 ?
+				Math.max(savedWidth, MIN_COLUMN_WIDTH) :
+				DEFAULT_SUMMARY_WIDTH
+		);
 
 		// Allocate and initialize the data explorer resize observer.
 		const resizeObserver = new ResizeObserver(entries => {
@@ -246,7 +249,7 @@ export const DataExplorer = () => {
 
 		// Return the cleanup function that will disconnect the resize observer.
 		return () => resizeObserver.disconnect();
-	}, [context.instance.columnsWidthPercent]);
+	}, [context.instance.summaryWidth]);
 
 	// ColumnsWidth Layout useEffect.
 	useLayoutEffect(() => {
@@ -300,7 +303,7 @@ export const DataExplorer = () => {
 	 */
 	const resizeHandler = (newColumnsWidth: number) => {
 		setColumnsWidth(newColumnsWidth);
-		context.instance.columnsWidthPercent = newColumnsWidth / width;
+		context.instance.summaryWidth = newColumnsWidth;
 	};
 
 	// Render.
