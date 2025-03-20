@@ -9,6 +9,7 @@ import path = require('path');
 import fs = require('fs');
 import { JupyterKernelSpec, JupyterSession, JupyterKernel } from './positron-supervisor';
 import { Barrier, PromiseHandles } from './async';
+import uuid = require('uuid');
 
 export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager {
 
@@ -443,11 +444,20 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 	/** An object that emits an event when the user's session ends and the runtime exits */
 	public onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>;
 
+	/** The emitter for language runtime messages */
+	private _messageEmitter = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
+
+	/** The emitter for language runtime state changes */
+	private _stateEmitter = new vscode.EventEmitter<positron.RuntimeState>();
+
+	/** The emitter for language runtime exits */
+	private _exitEmitter = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
+
 	constructor(
 		readonly rSession: positron.LanguageRuntimeSession,
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
-		sessionMetadata: positron.RuntimeSessionMetadata,
-		sessionType: ReticulateRuntimeSessionType,
+		readonly sessionMetadata: positron.RuntimeSessionMetadata,
+		readonly sessionType: ReticulateRuntimeSessionType,
 		readonly progress: vscode.Progress<{ message?: string; increment?: number }>
 	) {
 		// When the kernelSpec is undefined, the PythonRuntimeSession
@@ -475,27 +485,50 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			};
 		}
 
+		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
+		this.onDidChangeRuntimeState = this._stateEmitter.event;
+		this.onDidEndSession = this._exitEmitter.event;
+
+		this.progress.report({ increment: 10, message: 'Creating the Python session' });
+
+		this.pythonSession = this.createPythonRuntimeSession(
+			runtimeMetadata,
+			sessionMetadata,
+			kernelSpec
+		);
+	}
+
+	createPythonRuntimeSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata, kernelSpec?: JupyterKernelSpec): positron.LanguageRuntimeSession {
 		const api = vscode.extensions.getExtension('ms-python.python');
 		if (!api) {
 			throw new Error('Failed to find the Positron Python extension API.');
 		}
-		this.progress.report({ increment: 10, message: 'Creating the Python session' });
-		this.pythonSession = api.exports.positron.createPythonRuntimeSession(
+
+		const pythonSession: positron.LanguageRuntimeSession = api.exports.positron.createPythonRuntimeSession(
 			runtimeMetadata,
 			sessionMetadata,
 			kernelSpec
 		);
 
 		// Open the start barrier once the session is ready.
-		this.pythonSession.onDidChangeRuntimeState((state) => {
+		pythonSession.onDidChangeRuntimeState((state) => {
 			if (state === positron.RuntimeState.Ready || state === positron.RuntimeState.Idle) {
 				this.started.open();
 			}
 		});
 
-		this.onDidReceiveRuntimeMessage = this.pythonSession.onDidReceiveRuntimeMessage;
-		this.onDidChangeRuntimeState = this.pythonSession.onDidChangeRuntimeState;
-		this.onDidEndSession = this.pythonSession.onDidEndSession;
+		// Forward the events from the python session to this session.
+		pythonSession.onDidReceiveRuntimeMessage((e) => {
+			this._messageEmitter.fire(e);
+		});
+		pythonSession.onDidChangeRuntimeState((e) => {
+			this._stateEmitter.fire(e);
+		});
+		pythonSession.onDidEndSession((e) => {
+			this._exitEmitter.fire(e);
+		});
+
+		return pythonSession
 	}
 
 	// A function that starts a kernel and then connects to it.
@@ -630,25 +663,65 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			this.rSession.restart(workingDirectory);
 		});
 
+		const kernelSpec: JupyterKernelSpec = {
+			'argv': [],
+			'display_name': "Reticulate Python Session", // eslint-disable-line
+			'language': 'Python',
+			'env': {},
+			'startKernel': async (session, kernel) => {
+				try {
+					await this.startKernel(session, kernel);
+				} catch (err: any) {
+					// Any error when trying to start kernel is caught and we send an error
+					// notification.
+					vscode.window.showErrorMessage(vscode.l10n.t(
+						'Failed to initialize and connect to the Reticulate Python session: {0}',
+						err.message
+					));
+					throw err;
+				}
+			},
+		};
+
 		const disposeListener = this.rSession.onDidChangeRuntimeState(async (e) => {
 			if (e === positron.RuntimeState.Ready) {
-				this.rSession.execute(
-					'reticulate::repl_python()',
-					'start-reticulate',
-					positron.RuntimeCodeExecutionMode.Interactive,
-					positron.RuntimeErrorBehavior.Continue
-				);
+
+				await vscode.window.withProgress({
+					location: vscode.ProgressLocation.Notification,
+					title: 'Creating the Reticulate Python session',
+					cancellable: false
+				}, async (progress, _token) => {
+					this.progress.report({ increment: 10, message: 'Creating the Python session' });
+					let metadata: positron.RuntimeSessionMetadata = { ...this.sessionMetadata, sessionId: `reticulate-python-${uuid.v4()}` };
+
+					// When the R session is ready, we can start a new Reticulate session.
+					this.pythonSession = this.createPythonRuntimeSession(
+						this.runtimeMetadata,
+						metadata,
+						kernelSpec
+					)
+
+					this.progress.report({ increment: 50, message: 'Initializing the Python session' });
+
+					try {
+						let sessionInfo = await this.pythonSession.start();
+					} catch (err: any) {
+						vscode.window.showErrorMessage(vscode.l10n.t(
+							'Failed to initialize and connect to the Reticulate Python session: {0}',
+							err.message
+						));
+					}
+				});
+
 				// This should only happen once, so we dispose of this event as soon
 				// as we have started reticulate.
 				disposeListener.dispose();
 			}
 		});
 
+		// We shutdown the python session to trigger the full behavior
 		await this.shutdown(positron.RuntimeExitReason.Shutdown);
-		// If the `restart` is not finished, positron won't allow another session
-		// to start. To fix that we need to throw an error (that's silently ignored
-		// by Positron) and then start a new session.
-		throw new Error('Restarting the reticulate session');
+		return;
 	}
 
 	public async shutdown(exitReason: positron.RuntimeExitReason) {
