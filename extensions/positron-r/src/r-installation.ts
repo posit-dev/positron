@@ -51,6 +51,7 @@ export enum ReasonDiscovered {
 	/* eslint-disable @typescript-eslint/naming-convention */
 	PATH = "PATH",
 	HQ = "HQ",
+	CONDA = "CONDA",
 	/* eslint-enable @typescript-eslint/naming-convention */
 	adHoc = "adHoc",
 	userSetting = "userSetting",
@@ -78,6 +79,8 @@ export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null)
 				return 'Found in PATH, via the `which` command';
 			case ReasonDiscovered.HQ:
 				return 'Found in the primary location for R versions on this operating system';
+			case ReasonDiscovered.CONDA:
+				return 'Found in a Conda environment';
 			case ReasonDiscovered.adHoc:
 				return 'Found in a conventional location for symlinked R binaries';
 			case ReasonDiscovered.userSetting:
