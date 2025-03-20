@@ -59,18 +59,18 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Constructor.
 	 * @param _commandService The command service.
 	 * @param _configurationService The configuration service.
+	 * @param _hoverService The hover service.
 	 * @param _keybindingService The keybinding service.
 	 * @param _layoutService The layout service.
-	 * @param _hoverService The hover service.
 	 * @param _dataExplorerClientInstance The data explorer client instance.
 	 * @param _tableDataCache The table data cache.
 	 */
 	constructor(
 		private readonly _commandService: ICommandService,
 		private readonly _configurationService: IConfigurationService,
-		private readonly _hoverService: IHoverService,
 		private readonly _keybindingService: IKeybindingService,
 		private readonly _layoutService: ILayoutService,
+		private readonly _hoverService: IHoverService,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
 		private readonly _tableDataCache: TableDataCache,
 	) {
@@ -100,6 +100,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		});
 
 		this._cellHoverManager = this._register(new PositronActionBarHoverManager(false, this._configurationService, this._hoverService));
+		this._cellHoverManager.setCustomHoverDelay(500);
 
 		/**
 		 * Updates the layout entries.
