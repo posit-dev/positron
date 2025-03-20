@@ -26,7 +26,6 @@ import { ITelemetryService } from '../../telemetry/common/telemetry.js';
 // --- Start Positron ---
 import { DisablementReason, IUpdate, State, StateType, UpdateType } from '../common/update.js';
 // --- End Positron ---
-import { AvailableForDownload, DisablementReason, IUpdate, State, StateType, UpdateType } from '../common/update.js';
 import { AbstractUpdateService, createUpdateURL, UpdateErrorClassification } from './abstractUpdateService.js';
 
 async function pollUntil(fn: () => boolean, millis = 1000): Promise<void> {

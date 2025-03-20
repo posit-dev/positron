@@ -267,7 +267,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 				// --- Start Positron ---
 				// Do not include this setting in Positron; it is not
 				// supported.
-				included: isNative && !isLinux && false
+				included: isNative && false
 				// --- End Positron ---
 			},
 			[AutoRestartConfigurationKey]: {

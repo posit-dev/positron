@@ -81,9 +81,6 @@ import { CSSDevelopmentService, ICSSDevelopmentService } from '../../platform/cs
 import { AllowedExtensionsService } from '../../platform/extensionManagement/common/allowedExtensionsService.js';
 import { TelemetryLogAppender } from '../../platform/telemetry/common/telemetryLogAppender.js';
 
-// -- Start PWB: Heartbeat
-import { IPwbHeartbeatService, PwbHeartbeatService } from './pwbHeartbeat.js';
-// -- End PWB: Heartbeat
 // --- Start Positron ---
 import { EphemeralStateService } from '../../platform/ephemeralState/common/ephemeralStateService.js';
 import { IEphemeralStateService } from '../../platform/ephemeralState/common/ephemeralState.js';
