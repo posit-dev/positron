@@ -5,6 +5,7 @@
 
 import { ActivityItem } from './activityItem.js';
 import { ScrollbackStrategy } from '../positronConsoleService.js';
+import { formatOutputLinesForClipboard } from '../utils/clipboardUtils.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
 /**
@@ -24,22 +25,22 @@ export class ActivityItemStream extends ActivityItem {
 	/**
 	 * Gets or sets a value which indicates whether this ActivityItemStream is terminated.
 	 */
-	private terminated = false;
+	private _terminated = false;
 
 	/**
 	 * Gets the ActivityItemStream array.
 	 */
-	private activityItemStreams: ActivityItemStream[] = [];
+	private _activityItemStreams: ActivityItemStream[] = [];
 
 	/**
 	 * Gets the ANSIOutput.
 	 */
-	private ansiOutput = new ANSIOutput();
+	private _ansiOutput = new ANSIOutput();
 
 	/**
 	 * Gets or sets the scrollback size. This is used to truncate the output lines for display.
 	 */
-	private scrollbackSize?: number;
+	private _scrollbackSize?: number;
 
 	//#endregion Private Properties
 
@@ -48,24 +49,17 @@ export class ActivityItemStream extends ActivityItem {
 	/**
 	 * Gets the output lines.
 	 */
-	get outputLines(): ANSIOutputLine[] {
+	get outputLines(): readonly ANSIOutputLine[] {
 		// Process the activity items streams.
 		this.processActivityItemStreams();
 
 		// If scrollback size is undefined, return all of the output lines.
-		if (this.scrollbackSize === undefined) {
-			return this.ansiOutput.outputLines;
+		if (this._scrollbackSize === undefined) {
+			return this._ansiOutput.outputLines;
 		}
 
 		// Return the truncated output lines.
-		return this.ansiOutput.truncatedOutputLines(this.scrollbackSize);
-	}
-
-	/**
-	 * Gets the clipboard representation.
-	 */
-	get clipboardRepresentation() {
-		return this.ansiOutput.clipboardRepresentation;
+		return this._ansiOutput.truncatedOutputLines(this._scrollbackSize);
 	}
 
 	//#endregion Public Properties
@@ -91,7 +85,7 @@ export class ActivityItemStream extends ActivityItem {
 		super(id, parentId, when);
 
 		// Initialize.
-		this.activityItemStreams.push(this);
+		this._activityItemStreams.push(this);
 	}
 
 	//#endregion Constructor
@@ -106,8 +100,8 @@ export class ActivityItemStream extends ActivityItem {
 	public addActivityItemStream(activityItemStream: ActivityItemStream): ActivityItemStream | undefined {
 		// If this ActivityItemStream is terminated, copy its styles to the ActivityItemStream being
 		// added and return it as the remainder ActivityItemStream to be processed.
-		if (this.terminated) {
-			activityItemStream.ansiOutput.copyStylesFrom(this.ansiOutput);
+		if (this._terminated) {
+			activityItemStream._ansiOutput.copyStylesFrom(this._ansiOutput);
 			return activityItemStream;
 		}
 
@@ -117,7 +111,7 @@ export class ActivityItemStream extends ActivityItem {
 		// ActivityItemStream to be processed.
 		const newlineIndex = activityItemStream.text.lastIndexOf('\n');
 		if (newlineIndex === -1) {
-			this.activityItemStreams.push(activityItemStream);
+			this._activityItemStreams.push(activityItemStream);
 			return undefined;
 		}
 
@@ -126,14 +120,14 @@ export class ActivityItemStream extends ActivityItem {
 		const remainderText = activityItemStream.text.substring(newlineIndex + 1);
 
 		// Add an ActivityItemStream with the text containing the newline.
-		this.activityItemStreams.push(activityItemStream.clone(textWithNewline));
+		this._activityItemStreams.push(activityItemStream.clone(textWithNewline));
 
 		// Process the activity item streams so we can tell if the ANSIOutput winds up in the
 		// buffering state.
 		this.processActivityItemStreams();
 
 		// Update the terminated flag.
-		this.terminated = !this.ansiOutput.isBuffering;
+		this._terminated = !this._ansiOutput.isBuffering;
 
 		// If there is no remainder text, return undefined, indicating that there is no remainder
 		// ActivityItemStream to be processed.
@@ -147,14 +141,23 @@ export class ActivityItemStream extends ActivityItem {
 		// If this ActivityItemStream isn't terminated, push the remainder ActivityItemStream to it
 		// and return undefined, indicating that there is no remainder ActivityItemStream to be
 		// processed.
-		if (!this.terminated) {
-			this.activityItemStreams.push(activityItemStream);
+		if (!this._terminated) {
+			this._activityItemStreams.push(activityItemStream);
 			return undefined;
 		}
 
 		// Return the remainder ActivityItemStream to be processed.
-		activityItemStream.ansiOutput.copyStylesFrom(this.ansiOutput);
+		activityItemStream._ansiOutput.copyStylesFrom(this._ansiOutput);
 		return activityItemStream;
+	}
+
+	/**
+	 * Gets the clipboard representation of the activity item.
+	 * @param commentPrefix The comment prefix to use.
+	 * @returns The clipboard representation of the activity item.
+	 */
+	public override getClipboardRepresentation(commentPrefix: string): string[] {
+		return formatOutputLinesForClipboard(this._ansiOutput.outputLines, commentPrefix);
 	}
 
 	/**
@@ -169,13 +172,13 @@ export class ActivityItemStream extends ActivityItem {
 
 		// If there are fewer output lines than the scrollback size, clear the scrollback size
 		// as all of them will be displayed, and return the remaining scrollback size.
-		if (this.ansiOutput.outputLines.length <= scrollbackSize) {
-			this.scrollbackSize = undefined;
-			return scrollbackSize - this.ansiOutput.outputLines.length;
+		if (this._ansiOutput.outputLines.length <= scrollbackSize) {
+			this._scrollbackSize = undefined;
+			return scrollbackSize - this._ansiOutput.outputLines.length;
 		}
 
 		// Set the scrollback size and return 0
-		this.scrollbackSize = scrollbackSize;
+		this._scrollbackSize = scrollbackSize;
 		return 0;
 	}
 
@@ -203,17 +206,17 @@ export class ActivityItemStream extends ActivityItem {
 	 */
 	private processActivityItemStreams() {
 		// If there are no activity item streams, return.
-		if (!this.activityItemStreams.length) {
+		if (!this._activityItemStreams.length) {
 			return;
 		}
 
 		// Process the activity item streams.
-		for (const activityItemStream of this.activityItemStreams) {
-			this.ansiOutput.processOutput(activityItemStream.text);
+		for (const activityItemStream of this._activityItemStreams) {
+			this._ansiOutput.processOutput(activityItemStream.text);
 		}
 
 		// Clear the activity item streams.
-		this.activityItemStreams = [];
+		this._activityItemStreams = [];
 	}
 
 	//#endregion Private Methods

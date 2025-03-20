@@ -5,6 +5,7 @@
 
 import { ActivityItem } from './activityItem.js';
 import { Emitter } from '../../../../../base/common/event.js';
+import { formatOutputLinesForClipboard } from '../utils/clipboardUtils.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
 /**
@@ -24,14 +25,19 @@ export class ActivityItemInput extends ActivityItem {
 	//#region Private Properties
 
 	/**
-	 * The state.
+	 * Gets or sets the state.
 	 */
 	private _state: ActivityItemInputState;
 
 	/**
+	 * Gets the code output lines.
+	 */
+	private readonly _codeOutputLines: readonly ANSIOutputLine[] = [];
+
+	/**
 	 * onStateChanged event emitter.
 	 */
-	private onStateChangedEmitter = new Emitter<void>();
+	private readonly _onStateChangedEmitter = new Emitter<void>();
 
 	//#endregion Private Properties
 
@@ -51,21 +57,27 @@ export class ActivityItemInput extends ActivityItem {
 	set state(state: ActivityItemInputState) {
 		if (state !== this._state) {
 			this._state = state;
-			this.onStateChangedEmitter.fire();
+			this._onStateChangedEmitter.fire();
 		}
 	}
 
 	/**
-	 * The code output lines.
+	 * Gets the code output lines.
 	 */
-	readonly codeOutputLines: ANSIOutputLine[];
+	get codeOutputLines(): readonly ANSIOutputLine[] {
+		return this._codeOutputLines;
+	}
 
 	//#endregion Public Properties
+
+	//#region Public Events
 
 	/**
 	 * An event that fires when the state changes.
 	 */
-	public onStateChanged = this.onStateChangedEmitter.event;
+	public onStateChanged = this._onStateChangedEmitter.event;
+
+	//#region Public Events
 
 	//#region Constructor
 
@@ -93,8 +105,22 @@ export class ActivityItemInput extends ActivityItem {
 
 		// Initialize.
 		this._state = state;
-		this.codeOutputLines = ANSIOutput.processOutput(code);
+		this._codeOutputLines = ANSIOutput.processOutput(code);
 	}
 
 	//#endregion Constructor
+
+	//#region Public Methods
+
+	/**
+	 * Gets the clipboard representation of the activity item.
+	 * @param commentPrefix The comment prefix to use.
+	 * @returns The clipboard representation of the activity item.
+	 */
+	public override getClipboardRepresentation(commentPrefix: string): string[] {
+		// Activity item inputs are not commented out, so ignore the comment prefix.
+		return formatOutputLinesForClipboard(this._codeOutputLines);
+	}
+
+	//#endregion Public Methods
 }

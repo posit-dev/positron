@@ -6,45 +6,67 @@
 import { ScrollbackStrategy } from '../positronConsoleService.js';
 
 /**
- * ActivityItemStream class.
+ * ActivityItem class.
  */
-export class ActivityItem {
-	//#region Public Properties
+export abstract class ActivityItem {
+	//#region Private Properties
 
 	/**
 	 * Gets or sets a value which indicates whether the item is hidden.
 	 */
-	public isHidden = false;
+	private _isHidden = false;
 
-	//#endregion Public Properties
+	//#endregion Private Properties
 
 	//#region Constructor
 
 	/**
 	 * Constructor.
+	 * @param id The identifier.
+	 * @param parentId The parent identifier.
+	 * @param when The date and time when the activity item occurred.
 	 */
 	constructor(readonly id: string, readonly parentId: string, readonly when: Date) {
 	}
 
 	//#endregion Constructor
 
+	//#region Public Properties
+
+	/**
+	 * Gets a value which indicates whether the item is hidden.
+	 */
+	public get isHidden(): boolean {
+		return this._isHidden;
+	}
+
+	//#endregion Public Properties
+
 	//#region Public Methods
 
 	/**
-	 * Optimizes scrollback.
+	 * Gets the clipboard representation of the activity item.
+	 * @param commentPrefix The comment prefix to use.
+	 * @returns The clipboard representation of the activity item.
+	 */
+	public abstract getClipboardRepresentation(commentPrefix: string): string[];
+
+	/**
+	 * Optimizes scrollback. This is the default implementation which treats an activity item
+	 * as a single item, so it is either entirely visible or entirely hidden.
 	 * @param scrollbackSize The scrollback size.
 	 * @param scrollbackStrategy The scrollback strategy.
 	 * @returns The remaining scrollback size.
 	 */
-	public optimizeScrollback(scrollbackSize: number, scrollbackStrategy: ScrollbackStrategy) {
+	public optimizeScrollback(scrollbackSize: number, scrollbackStrategy: ScrollbackStrategy): number {
 		// If scrollback size is zero, hide the item and return zero.
 		if (!scrollbackSize) {
-			this.isHidden = true;
+			this._isHidden = true;
 			return 0;
 		}
 
 		// Unhide the item and return the scrollback size minus one.
-		this.isHidden = false;
+		this._isHidden = false;
 		return scrollbackSize - 1;
 	}
 

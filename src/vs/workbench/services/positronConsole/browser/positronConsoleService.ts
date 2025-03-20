@@ -1560,6 +1560,17 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}
 	}
 
+	/**
+	 * Gets the clipboard representation of the console instance.
+	 * @param commentPrefix The comment prefix to use.
+	 * @returns The clipboard representation of the console instance.
+	 */
+	getClipboardRepresentation(commentPrefix: string): string[] {
+		return this._runtimeItems.flatMap(runtimeItem =>
+			runtimeItem.getClipboardRepresentation(commentPrefix)
+		);
+	}
+
 	//#endregion IPositronConsoleInstance Implementation
 
 	//#region Public Methods

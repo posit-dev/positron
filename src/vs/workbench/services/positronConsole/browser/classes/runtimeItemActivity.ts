@@ -133,6 +133,17 @@ export class RuntimeItemActivity extends RuntimeItem {
 	}
 
 	/**
+	 * Gets the clipboard representation of the runtime item.
+	 * @param commentPrefix The comment prefix to use.
+	 * @returns The clipboard representation of the runtime item.
+	 */
+	public override getClipboardRepresentation(commentPrefix: string): string[] {
+		return this._activityItems.flatMap(activityItem =>
+			activityItem.getClipboardRepresentation(commentPrefix)
+		);
+	}
+
+	/**
 	 * Optimizes scrollback.
 	 * @param scrollbackSize The scrollback size.
 	 * @param scrollbackStrategy The scrollback strategy.
@@ -141,12 +152,12 @@ export class RuntimeItemActivity extends RuntimeItem {
 	public override optimizeScrollback(scrollbackSize: number, scrollbackStrategy: ScrollbackStrategy) {
 		// If scrollback size is zero, hide the item and return zero.
 		if (scrollbackSize === 0) {
-			this.isHidden = true;
+			this._isHidden = true;
 			return 0;
 		}
 
 		// Unhide the item.
-		this.isHidden = false;
+		this._isHidden = false;
 
 		// Optimize scrollback for each activity item in reverse order.
 		for (let i = this._activityItems.length - 1; i >= 0; i--) {

@@ -3,7 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { localize } from '../../../../../nls.js';
 import { ActivityItem } from './activityItem.js';
+
+/**
+ * Localized strings.
+ */
+const positronHTMLOutput = localize('positronHTMLOutput', "[HTML output]");
 
 /**
  * Represents formatted HTML output by a language runtime.
@@ -30,4 +36,17 @@ export class ActivityItemOutputHtml extends ActivityItem {
 	}
 
 	//#endregion Constructor
+
+	//#region Public Methods
+
+	/**
+	 * Gets the clipboard representation of the activity item.
+	 * @param commentPrefix The comment prefix to use.
+	 * @returns The clipboard representation of the activity item.
+	 */
+	public override getClipboardRepresentation(commentPrefix: string): string[] {
+		return [commentPrefix + positronHTMLOutput];
+	}
+
+	//#endregion Public Methods
 }

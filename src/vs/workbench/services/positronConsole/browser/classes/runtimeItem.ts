@@ -4,19 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ScrollbackStrategy } from '../positronConsoleService.js';
+import { formatOutputLinesForClipboard } from '../utils/clipboardUtils.js';
+import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
 /**
  * RuntimeItem class.
  */
 export class RuntimeItem {
-	//#region Public Properties
+	//#region Protected Properties
 
 	/**
 	 * Gets or sets a value which indicates whether the item is hidden.
 	 */
-	public isHidden = false;
+	protected _isHidden = false;
 
-	//#endregion Public Properties
+	//#endregion Protected Properties
 
 	//#region Constructor
 
@@ -29,24 +31,92 @@ export class RuntimeItem {
 
 	//#endregion Constructor
 
+	//#region Public Properties
+
+	/**
+	 * Gets a value which indicates whether the item is hidden.
+	 */
+	public get isHidden(): boolean {
+		return this._isHidden;
+	}
+
+	//#endregion Public Properties
+
 	//#region Public Methods
+
+	/**
+	 * Gets the clipboard representation of the runtime item.
+	 * @param commentPrefix The comment prefix to use.
+	 * @note Override in derived classes to provide a clipboard representation.
+	 * @returns The clipboard representation of the runtime item.
+	 */
+	public getClipboardRepresentation(commentPrefix: string): string[] {
+		return [];
+	}
 
 	/**
 	 * Optimizes scrollback.
 	 * @param scrollbackSize The scrollback size.
 	 * @param scrollbackStrategy The scrollback strategy.
+	 * @note The default implementation treats a runtime item as a single item, so it is either
+	 * entirely visible or entirely hidden. Override in derived classes to provide a different
+	 * behavior.
 	 * @returns The remaining scrollback size.
 	 */
 	public optimizeScrollback(scrollbackSize: number, scrollbackStrategy: ScrollbackStrategy) {
 		// If scrollback size is zero, hide the item and return zero.
 		if (!scrollbackSize) {
-			this.isHidden = true;
+			this._isHidden = true;
 			return 0;
 		}
 
 		// Unhide the item and return the scrollback size minus one.
-		this.isHidden = false;
+		this._isHidden = false;
 		return scrollbackSize - 1;
+	}
+
+	//#endregion Public Methods
+}
+
+/**
+ * RuntimeItemStandard class.
+ */
+export class RuntimeItemStandard extends RuntimeItem {
+	//#region Public Properties
+
+	/**
+	 * Gets the output lines.
+	 */
+	readonly outputLines: readonly ANSIOutputLine[];
+
+	//#endregion Public Properties
+
+	//#region Constructor
+
+	/**
+	 * Constructor.
+	 * @param id The identifier.
+	 * @param message The message.
+	 */
+	constructor(id: string, message: string) {
+		// Call the base class's constructor.
+		super(id);
+
+		// Process the message directly into ANSI output lines suitable for rendering.
+		this.outputLines = ANSIOutput.processOutput(message);
+	}
+
+	//#endregion Constructor
+
+	//#region Public Methods
+
+	/**
+	 * Gets the clipboard representation of the activity item.
+	 * @param commentPrefix The comment prefix to use.
+	 * @returns The clipboard representation of the activity item.
+	 */
+	public override getClipboardRepresentation(commentPrefix: string): string[] {
+		return formatOutputLinesForClipboard(this.outputLines, commentPrefix);
 	}
 
 	//#endregion Public Methods

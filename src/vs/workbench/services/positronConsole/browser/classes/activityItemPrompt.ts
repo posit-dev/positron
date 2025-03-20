@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ActivityItem } from './activityItem.js';
+import { formatOutputLinesForClipboard } from '../utils/clipboardUtils.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
 /**
@@ -34,7 +35,7 @@ export class ActivityItemPrompt extends ActivityItem {
 	/**
 	 * Gets or sets the answer.
 	 */
-	answer: string | undefined = undefined;
+	answer?: string = undefined;
 
 	//#endregion Public Properties
 
@@ -63,4 +64,17 @@ export class ActivityItemPrompt extends ActivityItem {
 	}
 
 	//#endregion Constructor
+
+	//#region Public Methods
+
+	/**
+	 * Gets the clipboard representation of the activity item.
+	 * @param commentPrefix The comment prefix to use.
+	 * @returns The clipboard representation of the activity item.
+	 */
+	public override getClipboardRepresentation(commentPrefix: string): string[] {
+		return formatOutputLinesForClipboard(this.outputLines, commentPrefix);
+	}
+
+	//#endregion Public Methods
 }

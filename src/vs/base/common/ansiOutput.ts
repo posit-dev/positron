@@ -233,14 +233,6 @@ export class ANSIOutput {
 		return this._outputLines;
 	}
 
-	/**
-	 * Gets the clipboard representation.
-	 */
-	get clipboardRepresentation() {
-		this.flushBuffer();
-		return this.outputLines.map(outputLine => outputLine.outputRuns.map(outputRun => outputRun.text).join('')).join('\n');
-	}
-
 	//#endregion Public Properties
 
 	//#region Public Static Methods
