@@ -43,6 +43,7 @@ import { IPositronWebviewPreloadService } from '../../../services/positronWebvie
 import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/browser/interfaces/runtimeNotebookKernelService.js';
 import { LanguageRuntimeSessionChannel } from '../../common/positron/extHostTypes.positron.js';
+import { basename } from '../../../../base/common/resources.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -144,6 +145,12 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 			busy: false,
 			...initialState.dynState,
 		};
+
+		// If the session is a notebook session, set the current notebook URI
+		// to dynamic data so that it can be displayed in the UI.
+		if (metadata.notebookUri) {
+			this.dynState.currentNotebookUri = metadata.notebookUri;
+		}
 
 		// Bind events to emitters
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
@@ -937,6 +944,13 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		}
 	}
 
+	getLabel(): string {
+		// If we're a notebook session, use the notebook name, otherwise use the runtime name
+		if (this.dynState.currentNotebookUri) {
+			return basename(this.dynState.currentNotebookUri);
+		}
+		return this.runtimeMetadata.runtimeName;
+	}
 	static clientCounter = 0;
 
 	dispose(): void {

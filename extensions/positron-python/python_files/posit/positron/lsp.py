@@ -5,8 +5,7 @@
 
 import contextlib
 import logging
-import urllib.parse
-from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from comm.base_comm import BaseComm
 
@@ -35,18 +34,13 @@ class LSPService:
 
         # Parse the host and port from the comm open message
         data = msg["content"]["data"]
-        client_address = data.get("client_address", None)
-        if client_address is None:
-            logger.warning(f"No client_address in LSP comm open message: {msg}")
-            return
-
-        host, port = self._split_address(client_address)
-        if host is None or port is None:
-            logger.warning(f"Could not parse host and port from client address: {client_address}")
+        ip_address = data.get("ip_address", None)
+        if ip_address is None:
+            logger.warning(f"No ip_address in LSP comm open message: {msg}")
             return
 
         # Start the language server thread
-        POSITRON.start(lsp_host=host, lsp_port=port, shell=self._kernel.shell, comm=comm)
+        POSITRON.start(lsp_host=ip_address, shell=self._kernel.shell, comm=comm)
 
     def _receive_message(self, msg: Dict[str, Any]) -> None:
         """Handle messages received from the client via the positron.lsp comm."""
@@ -58,8 +52,3 @@ class LSPService:
         if self._comm is not None:
             with contextlib.suppress(Exception):
                 self._comm.close()
-
-    def _split_address(self, client_address: str) -> Tuple[Optional[str], Optional[int]]:
-        """Split an address of the form "host:port" into a tuple of (host, port)."""
-        result = urllib.parse.urlsplit("//" + client_address)
-        return (result.hostname, result.port)

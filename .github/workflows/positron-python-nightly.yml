@@ -53,26 +53,27 @@ jobs:
         with:
           path: ${{ env.special-working-directory-relative }}
 
-      - name: Use Python ${{ matrix.python }}
-        uses: actions/setup-python@v5
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python }}
+          enable-cache: true
 
       - name: Install specific pytest version
         run: |
-          python -m pip install pytest
+          uv pip install pytest
 
       - name: Install specific pytest version
-        run: python -m pytest --version
+        run: uv run pytest --version
 
       - name: Install base Python requirements
-        run: 'python -m pip install --no-deps --require-hashes --only-binary :all: -t ./python_files/lib/python --no-cache-dir --implementation py -r requirements.txt'
+        run: 'uv run pip install --no-deps --require-hashes --only-binary :all: -t ./python_files/lib/python --no-cache-dir --implementation py -r requirements.txt'
 
       - name: Install test requirements
-        run: python -m pip install -r build/test-requirements.txt
+        run: uv pip install -r build/test-requirements.txt
 
       - name: Run Python unit tests
-        run: python python_files/tests/run_all.py --junit-xml=python-unit-test-results.xml
+        run: uv run python_files/tests/run_all.py --junit-xml=python-unit-test-results.xml
 
       - name: Upload test artifacts
         uses: actions/upload-artifact@v4
@@ -105,20 +106,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Use Python ${{ matrix.python }}
-        uses: actions/setup-python@v5
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@v5
         with:
           python-version: ${{ matrix.python }}
-          cache: 'pip'
+          enable-cache: true
+
+      - name: Add pip to uv venv
+        run: uv pip install pip
 
       - name: Install Positron IPyKernel requirements
-        run: python scripts/vendor.py
+        run: uv run scripts/vendor.py
 
       - name: Install latest versions Positron IPyKernel test requirements
-        run: python -m pip install --prefer-binary --upgrade -r python_files/posit/test-requirements.txt
+        run: uv pip install --upgrade -r python_files/posit/test-requirements.txt
 
       - name: Run Positron IPyKernel unit tests
-        run: pytest python_files/posit --junit-xml=python-test-results.xml
+        run: uv run pytest python_files/posit --junit-xml=python-test-results.xml
 
       - name: Upload test artifacts
         uses: actions/upload-artifact@v4
@@ -141,4 +145,3 @@ jobs:
         channel: "#positron-test-results"
         include_jobs_time: "false"
         notify_on: "failure"
-

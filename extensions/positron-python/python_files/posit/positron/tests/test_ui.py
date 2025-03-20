@@ -244,7 +244,8 @@ def test_holoview_extension_sends_events(shell: PositronShell, ui_comm: DummyCom
     Running holoviews/holoviz code that sets an extension will trigger an event on the ui comm that
     can be used on the front end to react appropriately.
     """
-    shell.run_cell("import holoviews as hv; hv.extension('plotly')")
+    res = shell.run_cell("import holoviews as hv; hv.extension('plotly')")
+    res.raise_error()
 
     assert len(ui_comm.messages) == 1
     assert ui_comm.messages[0] == json_rpc_notification("clear_webview_preloads", {})

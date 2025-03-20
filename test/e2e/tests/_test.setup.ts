@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags } from '../infra';
+import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags, Sessions } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 import { Keyboard } from '../infra/keyboard.js';
 
@@ -122,6 +122,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 		await use({ set: setInterpreter });
 	}, { scope: 'test', timeout: 30000 }],
+
+	sessions: [
+		async ({ app }, use) => {
+			await use(app.workbench.sessions);
+		},
+		{ scope: 'test' }
+	],
 
 	r: [
 		async ({ interpreter }, use) => {
@@ -408,6 +415,7 @@ interface TestFixtures {
 	attachScreenshotsToReport: any;
 	attachLogsToReport: any;
 	interpreter: { set: (interpreterName: 'Python' | 'R', waitFoReady?: boolean) => Promise<void> };
+	sessions: Sessions;
 	r: void;
 	python: void;
 	packages: PackageManager;

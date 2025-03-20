@@ -69,10 +69,7 @@ export class ArkLsp implements vscode.Disposable {
 	 * @param port The port on which the language server is listening.
 	 * @param context The VSCode extension context.
 	 */
-	public async activate(
-		port: number,
-		_context: vscode.ExtensionContext
-	): Promise<void> {
+	public async activate(port: number): Promise<void> {
 
 		// Clean up disposables from any previous activation
 		this.activationDisposables.forEach(d => d.dispose());

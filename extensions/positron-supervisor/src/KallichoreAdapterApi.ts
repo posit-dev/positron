@@ -214,6 +214,13 @@ export class KCApi implements PositronSupervisorApi {
 		bearer.accessToken = bearerToken;
 
 		// Find a port for the server to listen on
+		// TODO: There is a race condition here because we picked a port but did
+		// not bind to it. In the time between when we pick the port and when
+		// the kallichore server binds to it, someone else could have bound to
+		// that port! Instead, we should do something similar to JEP 66 for
+		// kallichore's main port handling too
+		// (https://github.com/posit-dev/kallichore/issues/2).
+		// After we do that, remove `findAvailablePort()` entirely.
 		const port = await findAvailablePort([], 10);
 
 		// Start a timer so we can track server startup time
@@ -831,10 +838,6 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Dispose of any other disposables
 		this._disposables.forEach(disposable => disposable.dispose());
-	}
-
-	findAvailablePort(excluding: Array<number>, maxTries: number): Promise<number> {
-		return findAvailablePort(excluding, maxTries);
 	}
 
 	/**

@@ -2090,6 +2090,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			// Clear any starting item still present.
 			this.clearStartingItem();
 
+			if (exit.reason === RuntimeExitReason.ExtensionHost) {
+				this.setState(PositronConsoleState.Disconnected);
+				return;
+			}
+
 			// Add a message explaining that the exit occurred, and why.
 			let message = this.formatExit(exit);
 			if (exit.message) {
