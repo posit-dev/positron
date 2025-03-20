@@ -283,6 +283,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			username: os.userInfo().username,
 			interruptMode,
 			connectionTimeout,
+			protocolVersion: kernelSpec.kernel_protocol_version
 		};
 		await this._api.newSession(session);
 		this.log(`${kernelSpec.display_name} session '${this.metadata.sessionId}' created in ${workingDir} with command:`, vscode.LogLevel.Info);

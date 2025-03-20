@@ -459,6 +459,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 				'display_name': "Reticulate Python Session", // eslint-disable-line
 				'language': 'Python',
 				'env': {},
+				'kernel_protocol_version': '5.3',
 				'startKernel': async (session, kernel) => {
 					try {
 						await this.startKernel(session, kernel);
