@@ -17,7 +17,7 @@ import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 import { getInterpreterOverridePaths, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { isDirectory, isFile } from './path-utils.js';
-import { isCondaAvailable, getCondaEnvironments, getCondaRPath } from './provider-conda.js';
+import { isCondaAvailable, getCondaEnvironments, getCondaRPaths } from './provider-conda.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -603,21 +603,29 @@ async function discoverCondaBinaries(): Promise<RBinary[]> {
 		return [];
 	}
 
-	if (process.platform === "win32") {
-		LOGGER.info("Conda is not supported on Windows.");
-		return [];
-	}
+	// if (process.platform === "win32") {
+	// 	LOGGER.info("Conda is not supported on Windows.");
+	// 	return [];
+	// }
 
 	const condaEnvs = await getCondaEnvironments();
 	const rBinaries: RBinary[] = [];
 
 	for (const envPath of condaEnvs) {
-		const rPath = getCondaRPath(envPath);
+		const rPaths = getCondaRPaths(envPath);  // list of R binaries in this environment
 
-		if (fs.existsSync(rPath)) {
-			LOGGER.info(`Detected R in Conda environment: ${envPath}`);
-			rBinaries.push({ path: rPath, reasons: [ReasonDiscovered.HQ] });
+		if (rPaths.length === 0) {
+			continue;
 		}
+
+		for (const rPath of rPaths) {
+			if (fs.existsSync(rPath)) { // return the first existing R
+				LOGGER.info(`Detected R in Conda environment: ${rPath}`);
+				rBinaries.push({ path: rPath, reasons: [ReasonDiscovered.HQ] });
+				break;
+			}
+		}
+
 	}
 
 	return rBinaries;
