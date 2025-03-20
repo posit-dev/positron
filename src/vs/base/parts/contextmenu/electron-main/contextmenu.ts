@@ -3,11 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IpcMainEvent, Menu, MenuItem } from 'electron';
+import { app, IpcMainEvent, Menu, MenuItem } from 'electron';
 import { validatedIpcMain } from '../../ipc/electron-main/ipcMain.js';
 import { CONTEXT_MENU_CHANNEL, CONTEXT_MENU_CLOSE_CHANNEL, IPopupOptions, ISerializableContextMenuItem } from '../common/contextmenu.js';
 
 export function registerContextMenuListener(): void {
+	const contextMenus = new Map<number, Menu>();
+
 	validatedIpcMain.on(CONTEXT_MENU_CHANNEL, (event: IpcMainEvent, contextMenuId: number, items: ISerializableContextMenuItem[], onClickChannel: string, options?: IPopupOptions) => {
 		const menu = createMenu(event, onClickChannel, items);
 
@@ -32,6 +34,24 @@ export function registerContextMenuListener(): void {
 				}
 			}));
 		}
+		// TODO: Make this only execute during an e2e run.
+		const listener: any = (contextMenuId: number, label: string) => {
+			const item = contextMenus.get(contextMenuId)?.items.find(item => item.label === label);
+			if (item) {
+				item.click();
+				menu.closePopup();
+			}
+			app.removeListener('e2e:contextMenuSelect' as any, listener);
+		};
+		app.on('e2e:contextMenuSelect' as any, listener);
+
+		menu.on('menu-will-show', () => {
+			contextMenus.set(contextMenuId, menu);
+			app.emit('e2e:contextMenuShown', contextMenuId, menu.items);
+		});
+		menu.on('menu-will-close', () => {
+			contextMenus.delete(contextMenuId);
+		});
 		// --- End Positron ---
 
 		menu.popup({

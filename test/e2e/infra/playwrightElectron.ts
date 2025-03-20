@@ -10,6 +10,9 @@ import { IElectronConfiguration, resolveElectronConfiguration } from './electron
 import { measureAndLog } from './logger';
 import { ChildProcess } from 'child_process';
 
+// TODO: Should this be global? Or passed back to `launch` caller?
+export let _electronApp: playwright.ElectronApplication | undefined;
+
 export async function launch(options: LaunchOptions): Promise<{ electronProcess: ChildProcess; driver: PlaywrightDriver }> {
 
 	// Resolve electron config and update
@@ -19,6 +22,8 @@ export async function launch(options: LaunchOptions): Promise<{ electronProcess:
 	// Launch electron via playwright
 	const { electron, context, page } = await launchElectron({ electronPath, args, env }, options);
 	const electronProcess = electron.process();
+
+	_electronApp = electron;
 
 	return {
 		electronProcess,
