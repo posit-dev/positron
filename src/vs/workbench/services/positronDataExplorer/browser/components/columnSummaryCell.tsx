@@ -121,10 +121,10 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 							/>
 							<rect className='loading-indicator'
 								height={SPARKLINE_HEIGHT * 0.3}
+								rx={2}
 								width={SPARKLINE_WIDTH * 0.8}
 								x={SPARKLINE_WIDTH * 0.1}
 								y={SPARKLINE_HEIGHT * 0.5}
-								rx={2}
 							/>
 						</g>
 					</svg>
