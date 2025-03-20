@@ -33,7 +33,7 @@ export class RSessionManager {
 						.map(([, s]) => {
 							if (s.metadata.sessionId !== sessionId &&
 								s.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
-								return s.deactivateLsp();
+								return s.deactivateLsp(true);
 							}
 						})
 						// Remove undefined values
@@ -155,4 +155,3 @@ export class RSessionManager {
 		return this._lastBinpath;
 	}
 }
-

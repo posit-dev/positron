@@ -84,20 +84,19 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
      * Convenience method for starting the Positron LSP server, if the
      * language runtime supports it.
      *
-     * @param clientAddress The address of the client that will connect to the
+     * @param ipAddress The address of the client that will connect to the
      *  language server.
      */
-    startPositronLsp(clientAddress: string): Thenable<void>;
+    startPositronLsp(ipAddress: string): Thenable<number>;
 
     /**
      * Convenience method for starting the Positron DAP server, if the
      * language runtime supports it.
      *
-     * @param serverPort The port on which to bind locally.
      * @param debugType Passed as `vscode.DebugConfiguration.type`.
      * @param debugName Passed as `vscode.DebugConfiguration.name`.
      */
-    startPositronDap(serverPort: number, debugType: string, debugName: string): Thenable<void>;
+    startPositronDap(debugType: string, debugName: string): Thenable<void>;
 
     /**
      * Method for emitting a message to the language server's Jupyter output
@@ -179,15 +178,6 @@ export interface PositronSupervisorApi extends vscode.Disposable {
         runtimeMetadata: positron.LanguageRuntimeMetadata,
         sessionMetadata: positron.RuntimeSessionMetadata,
     ): Promise<JupyterLanguageRuntimeSession>;
-
-    /**
-     * Finds an available TCP port for a server
-     *
-     * @param excluding A list of ports to exclude from the search
-     * @param maxTries The maximum number of attempts
-     * @returns An available TCP port
-     */
-    findAvailablePort(excluding: Array<number>, maxTries: number): Promise<number>;
 }
 
 /** Specific functionality implemented by runtimes */

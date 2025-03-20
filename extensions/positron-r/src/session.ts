@@ -298,8 +298,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 	}
 
-	// Keep track of LSP init to avoid stopping in the middle of startup
-	private _lspStarting: Promise<void> = Promise.resolve();
+	// Keep track of LSP init to avoid stopping in the middle of startup.
+	// Resolves to the port number used to connect on the client side.
+	private _lspStarting: Thenable<number> = Promise.resolve(0);
 
 	async restart(workingDirectory: string | undefined): Promise<void> {
 		if (this._kernel) {
@@ -666,15 +667,56 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 	}
 
-	private async startLsp(): Promise<void> {
-		// The adapter API is guaranteed to exist at this point since the
-		// runtime cannot become Ready without it
-		const port = await this.adapterApi!.findAvailablePort([], 25);
-		if (this._kernel) {
-			this._kernel.emitJupyterLog(`Starting Positron LSP server on port ${port}`);
-			await this._kernel.startPositronLsp(`127.0.0.1:${port}`);
+	/**
+	 * Start the LSP
+	 *
+	 * Returns a promise that resolves when the LSP has been activated.
+	 */
+	public async activateLsp(): Promise<void> {
+		if (this._lsp.state === LspState.stopped ||
+			this._lsp.state === LspState.uninitialized) {
+			return this._queue.add(async () => {
+				await this.startLsp();
+			});
+		} else {
+			return undefined;
 		}
-		this._lsp.activate(port, this.context);
+	}
+
+	/**
+	 * Stops the LSP if it is running
+	 *
+	 * Returns a promise that resolves when the LSP has been deactivated.
+	 */
+	public async deactivateLsp(awaitStop: boolean): Promise<void> {
+		if (this._lsp.state === LspState.running) {
+			return this._queue.add(async () => {
+				if (this._kernel) {
+					this._kernel.emitJupyterLog(`Stopping Positron LSP server`);
+				}
+				await this._lsp.deactivate(awaitStop);
+			});
+		} else {
+			return undefined;
+		}
+	}
+
+	private async startLsp(): Promise<void> {
+		if (this._kernel) {
+			this._kernel.emitJupyterLog('Starting Positron LSP server');
+
+			// Create the LSP comm, which also starts the LSP server.
+			// We await the server selected port (the server selects the
+			// port since it is in charge of binding to it, which avoids
+			// race conditions). We also use this promise to avoid restarting
+			// in the middle of initialization.
+			this._lspStarting = this._kernel.startPositronLsp('127.0.0.1');
+			const port = await this._lspStarting;
+
+			this._kernel.emitJupyterLog(`Starting Positron LSP client on port ${port}`);
+
+			await this._lsp.activate(port);
+		}
 	}
 
 	/**
@@ -689,8 +731,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 	private async startDap(): Promise<void> {
 		if (this._kernel) {
-			const port = await this.adapterApi!.findAvailablePort([], 25);
-			await this._kernel.startPositronDap(port, 'ark', 'Ark Positron R');
+			await this._kernel.startPositronDap('ark', 'Ark Positron R');
 		}
 	}
 
@@ -708,7 +749,6 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 					// For background / notebook, the LSP is activated on startup
 					// (these never become foreground sessions)
 					const lsp = this.startLsp();
-					this._lspStarting = lsp;
 					await Promise.all([lsp, dap]);
 				}
 			});
@@ -733,43 +773,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			});
 
 		} else if (state === positron.RuntimeState.Exited) {
-			if (this._lsp.state === LspState.running) {
-				this._queue.add(async () => {
-					if (this._kernel) {
-						this._kernel.emitJupyterLog(`Stopping Positron LSP server`);
-					}
-					await this._lsp.deactivate(false);
-				});
-			}
-		}
-	}
-
-	/**
-	 * Start the LSP
-	 *
-	 * Returns a promise that resolves when the LSP has been activated.
-	 */
-	public async activateLsp(): Promise<void> {
-		if (this._lsp.state === LspState.stopped ||
-			this._lsp.state === LspState.uninitialized) {
-			return this._queue.add(async () => {
-				const lsp = this.startLsp();
-				this._lspStarting = lsp;
-				await lsp;
-			});
-		}
-	}
-
-	/**
-	 * Stops the LSP if it is running
-	 *
-	 * Returns a promise that resolves when the LSP has been deactivated.
-	 */
-	public async deactivateLsp(): Promise<void> {
-		if (this._lsp.state === LspState.running) {
-			return this._queue.add(async () => {
-				await this._lsp.deactivate(true);
-			});
+			this.deactivateLsp(false);
 		}
 	}
 
