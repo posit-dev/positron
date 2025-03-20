@@ -16,7 +16,7 @@ jobs:
       display_name: "electron (ubuntu)"
       currents_tags: "merge,electron/ubuntu"
       report_testrail: false
-      install_undetectable_interpreters: false
+      install_undetectable_interpreters: true
       install_license: false
       skip_tags: "@:nightly-only"
     secrets: inherit
@@ -40,7 +40,7 @@ jobs:
       project: "e2e-browser"
       currents_tags: "merge,browser/ubuntu"
       report_testrail: false
-      install_undetectable_interpreters: false
+      install_undetectable_interpreters: true
       install_license: true
       skip_tags: "@:nightly-only"
     secrets: inherit
