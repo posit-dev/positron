@@ -89,6 +89,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const [marker, setMarker] = useState(generateUuid());
 	const [runtimeAttached, setRuntimeAttached] = useState(props.positronConsoleInstance.runtimeAttached);
 	const [, setIgnoreNextScrollEvent, ignoreNextScrollEventRef] = useStateRef(false);
+	const [disconnected, setDisconnected] = useState(false);
 
 	// Determines whether the console is scrollable.
 	const scrollable = () =>
@@ -257,6 +258,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				// https://github.com/posit-dev/positron/issues/2807
 				scrollToBottom();
 			}
+
+			setDisconnected(state === PositronConsoleState.Disconnected);
 		}));
 
 		// Add the onDidChangeTrace event handler.
@@ -627,6 +630,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			>
 				<ConsoleInstanceItems
 					consoleInputWidth={consoleInputWidth}
+					disconnected={disconnected}
 					editorFontInfo={editorFontInfo}
 					positronConsoleInstance={props.positronConsoleInstance}
 					runtimeAttached={runtimeAttached}

@@ -31,7 +31,8 @@ export const enum PositronConsoleState {
 	Ready = 'Ready',
 	Offline = 'Offline',
 	Exiting = 'Exiting',
-	Exited = 'Exited'
+	Exited = 'Exited',
+	Disconnected = 'Disconnected'
 }
 
 /**
