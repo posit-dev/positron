@@ -18,7 +18,7 @@ test.describe('Interpreter Includes/Excludes', {
 
 	test('Python - Can Include an Interpreter', {
 		tag: [tags.NIGHTLY_ONLY]
-	}, async function ({ app, python, userSettings, logger }) {
+	}, async function ({ app, python, userSettings }) {
 
 		const hiddenPython = process.env.POSITRON_HIDDEN_PY;
 
@@ -44,7 +44,7 @@ test.describe('Interpreter Includes/Excludes', {
 		}
 	});
 
-	test('R - Can Exclude an Interpreter', async function ({ app, r, userSettings, logger }) {
+	test('R - Can Exclude an Interpreter', async function ({ app, r, userSettings }) {
 
 		const alternateR = process.env.POSITRON_R_ALT_VER_SEL;
 
