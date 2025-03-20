@@ -98,9 +98,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			cursorOffset: 0.5,
 		});
 
-		// Create the cell hover manager with a shorter delay (500ms) for testing
 		this._cellHoverManager = this._register(new PositronActionBarHoverManager(false, this._configurationService, this._hoverService));
-		this._cellHoverManager.setCustomHoverDelay(500);
 
 		/**
 		 * Updates the layout entries.
