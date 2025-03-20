@@ -30,99 +30,99 @@ test.describe('Sessions: State', {
 		const { console } = app.workbench;
 
 		// Start Python session
-		const pythonSession1 = await sessions.start('python', { waitForReady: false });
+		const pySession = await sessions.start('python', { waitForReady: false });
 
 		// Verify Python session is visible and transitions from starting --> idle
 		// Note displays as 'starting' in metadata dialog and as 'active' in session tab list
-		await sessions.expectStatusToBe(pythonSession1.id, 'starting');
-		await sessions.expectStatusToBe(pythonSession1.id, 'idle');
+		await sessions.expectStatusToBe(pySession.id, 'starting');
+		await sessions.expectStatusToBe(pySession.id, 'idle');
 
 		// Restart Python session and confirm state returns to starting --> idle
 		// Note displays as 'starting' in metadata dialog and as 'active' in session tab list
 		await sessions.restartButton.click();
-		await sessions.expectStatusToBe(pythonSession1.id, 'starting');
-		await sessions.expectStatusToBe(pythonSession1.id, 'idle');
+		await sessions.expectStatusToBe(pySession.id, 'starting');
+		await sessions.expectStatusToBe(pySession.id, 'idle');
 
 		// Start R session
-		const [rSession1] = await sessions.start(['r'], { waitForReady: false });
+		const rSession = await sessions.start('r', { waitForReady: false });
 
 		// Verify R session transitions from active --> idle while Python session remains idle
-		await sessions.expectStatusToBe(rSession1.id, 'active');
-		await sessions.expectStatusToBe(rSession1.id, 'idle');
-		await sessions.expectStatusToBe(pythonSession1.id, 'idle');
+		await sessions.expectStatusToBe(rSession.id, 'active');
+		await sessions.expectStatusToBe(rSession.id, 'idle');
+		await sessions.expectStatusToBe(pySession.id, 'idle');
 
 		// Restart Python session, verify Python transitions to active --> idle and R remains idle
-		await sessions.restart(pythonSession1.id, false);
-		await sessions.expectStatusToBe(pythonSession1.id, 'active');
-		await sessions.expectStatusToBe(pythonSession1.id, 'idle', { timeout: 60000 });
-		await sessions.expectStatusToBe(rSession1.id, 'idle');
+		await sessions.restart(pySession.id, false);
+		await sessions.expectStatusToBe(pySession.id, 'active');
+		await sessions.expectStatusToBe(pySession.id, 'idle', { timeout: 60000 });
+		await sessions.expectStatusToBe(rSession.id, 'idle');
 
 		// Shutdown Python session, verify Python transitions to disconnected while R remains idle
-		await sessions.select(pythonSession1.id);
+		await sessions.select(pySession.id);
 		await console.typeToConsole('exit()', true);
-		await sessions.expectStatusToBe(pythonSession1.id, 'disconnected');
-		await sessions.expectStatusToBe(rSession1.id, 'idle');
+		await sessions.expectStatusToBe(pySession.id, 'disconnected');
+		await sessions.expectStatusToBe(rSession.id, 'idle');
 
 		// Restart R session, verify R to returns to active --> idle and Python remains disconnected
-		await sessions.restart(rSession1.id, false);
-		await sessions.expectStatusToBe(rSession1.id, 'active');
-		await sessions.expectStatusToBe(rSession1.id, 'idle', { timeout: 60000 });
-		await sessions.expectStatusToBe(pythonSession1.id, 'disconnected');
+		await sessions.restart(rSession.id, false);
+		await sessions.expectStatusToBe(rSession.id, 'active');
+		await sessions.expectStatusToBe(rSession.id, 'idle', { timeout: 60000 });
+		await sessions.expectStatusToBe(pySession.id, 'disconnected');
 
 		// Shutdown R, verify both Python and R in disconnected state
-		await sessions.select(rSession1.id);
+		await sessions.select(rSession.id);
 		await console.typeToConsole('q()', true);
-		await sessions.expectStatusToBe(rSession1.id, 'disconnected');
-		await sessions.expectStatusToBe(pythonSession1.id, 'disconnected');
+		await sessions.expectStatusToBe(rSession.id, 'disconnected');
+		await sessions.expectStatusToBe(pySession.id, 'disconnected');
 	});
 
 	test('Validate state displays as active when executing code', async function ({ app, sessions }) {
 		const { console } = app.workbench;
 
 		// Start Python and R sessions
-		const [pythonSession1, rSession1] = await sessions.start(['python', 'r',]);
+		const [pySession, rSession] = await sessions.start(['python', 'r',]);
 
 		// Verify Python session transitions to active when executing code
-		await sessions.select(pythonSession1.name);
+		await sessions.select(pySession.name);
 		await console.typeToConsole('import time', true);
 		await console.typeToConsole('time.sleep(7)', true);
-		await sessions.expectStatusToBe(pythonSession1.name, 'active');
+		await sessions.expectStatusToBe(pySession.name, 'active');
 
 		// Verify R session transitions to active when executing code
 		// Verify Python session continues to run and transitions to idle when finished
-		await sessions.select(rSession1.name);
+		await sessions.select(rSession.name);
 		await console.typeToConsole('Sys.sleep(2)', true);
-		await sessions.expectStatusToBe(rSession1.name, 'active');
-		await sessions.expectStatusToBe(rSession1.name, 'idle');
-		await sessions.expectStatusToBe(pythonSession1.name, 'active');
-		await sessions.expectStatusToBe(pythonSession1.name, 'idle');
+		await sessions.expectStatusToBe(rSession.name, 'active');
+		await sessions.expectStatusToBe(rSession.name, 'idle');
+		await sessions.expectStatusToBe(pySession.name, 'active');
+		await sessions.expectStatusToBe(pySession.name, 'idle');
 	});
 
 	test('Validate metadata between sessions', async function ({ app, sessions }) {
 		const { console } = app.workbench;
 
 		// Ensure sessions exist and are idle
-		const [pythonSession1, pythonSession2, rSession1] = await sessions.start(['python', 'pythonAlt', 'r']);
+		const [pySession, pySessionAlt, rSession] = await sessions.start(['python', 'pythonAlt', 'r']);
 
 		// Verify Python session metadata
-		await sessions.expectMetaDataToBe({ ...pythonSession1, state: 'idle' });
-		await sessions.expectMetaDataToBe({ ...pythonSession2, state: 'idle' });
-		await sessions.expectMetaDataToBe({ ...rSession1, state: 'idle' });
+		await sessions.expectMetaDataToBe({ ...pySession, state: 'idle' });
+		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'idle' });
+		await sessions.expectMetaDataToBe({ ...rSession, state: 'idle' });
 
-		// Shutdown Python session 1 and verify metadata
-		await sessions.select(pythonSession1.id);
+		// Shutdown Python session and verify metadata
+		await sessions.select(pySession.id);
 		await console.typeToConsole('exit()', true);
-		await sessions.expectMetaDataToBe({ ...pythonSession1, state: 'exited' });
-		await sessions.expectMetaDataToBe({ ...pythonSession2, state: 'idle' });
+		await sessions.expectMetaDataToBe({ ...pySession, state: 'exited' });
+		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'idle' });
 
 		// Shutdown R session and verify metadata
-		await sessions.select(rSession1.id);
+		await sessions.select(rSession.id);
 		await console.typeToConsole('q()', true);
-		await sessions.expectMetaDataToBe({ ...rSession1, state: 'exited' });
-		await sessions.expectMetaDataToBe({ ...pythonSession2, state: 'idle' });
+		await sessions.expectMetaDataToBe({ ...rSession, state: 'exited' });
+		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'idle' });
 
-		// Shutdown Python session 2 and verify metadata
+		// Shutdown Alt Python session and verify metadata
 		await console.typeToConsole('exit()', true);
-		await sessions.expectMetaDataToBe({ ...pythonSession2, state: 'exited' });
+		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'exited' });
 	});
 });
