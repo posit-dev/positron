@@ -62,13 +62,17 @@ const BinItem = React.memo(({
 	const formattedMin = formatValue(binMin);
 	const formattedMax = formatValue(binMax);
 
+	// Calculate exact bin position and width to avoid 1-pixel gaps between bins
+	const binPosition = Math.round(binCountIndex * binWidth);
+	binWidth = Math.round((binCountIndex + 1) * binWidth) - binPosition;
+
 	return (
 		<foreignObject
 			key={`bin-count-container-${binCountIndex}`}
 			className='tooltip-container'
 			height={graphHeight}
 			width={binWidth}
-			x={binCountIndex * binWidth}
+			x={binPosition}
 			y={0}
 		>
 			<div
