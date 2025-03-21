@@ -60,20 +60,6 @@ export class RSessionManager {
 	}
 
 	/**
-	 * Gets the runtime with the given ID, if it's registered.
-	 *
-	 * @param id The ID of the runtime to get
-	 * @returns The runtime. Throws an error if the runtime doesn't exist.
-	 */
-	getSession(sessionId: string): RSession {
-		const session = this._sessions.get(sessionId);
-		if (!session) {
-			throw new Error(`Session ${sessionId} not found.`);
-		}
-		return session;
-	}
-
-	/**
 	 * Registers a runtime with the manager. Throws an error if a runtime with
 	 * the same ID is already registered.
 	 *
@@ -118,16 +104,6 @@ export class RSessionManager {
 		}
 
 		return consoleSessions[0];
-	}
-
-	/**
-	 * Checks to see whether a session with the given ID is registered.
-	 *
-	 * @param id The ID of the session to check
-	 * @returns Whether the session with the given ID is registered.
-	 */
-	hasSession(sessionId: string): boolean {
-		return this._sessions.has(sessionId);
 	}
 
 	/**
