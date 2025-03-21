@@ -194,14 +194,25 @@ jobs:
             GREP_INVERT_ARG="--grep-invert \"$SKIP_TAGS_REGEX\""
           fi
 
-          # Log the final grep-invert argument for debugging
+          # Build the grep argument only if PW_TAGS is non-empty
+          if [ -z "${{ env.PW_TAGS }}" ]; then
+            GREP_ARG=""
+          else
+            GREP_ARG="--grep \"${{ env.PW_TAGS }}\""
+          fi
+
+          # Log the final arguments for debugging
+          echo "Final --grep argument: $GREP_ARG"
           echo "Final --grep-invert argument: $GREP_INVERT_ARG"
 
+          # Build the full command
+          CMD="DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+
           # Log the command to be run for debugging purposes
-          echo "Running: DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 --grep \"${{ env.PW_TAGS }}\" $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          echo "Running: $CMD"
 
           # Run Playwright tests
-          DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 --grep "${{ env.PW_TAGS }}" $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          $CMD
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
