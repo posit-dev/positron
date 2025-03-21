@@ -5,7 +5,7 @@
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { getActivePythonSessions } from './util';
+import { getActivePythonSessions } from './session';
 
 export function registerLanguageServerManager(disposables: vscode.Disposable[]): void {
     disposables.push(
