@@ -1548,10 +1548,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			switch (state) {
 				case RuntimeState.Ready:
 					// If the session is a console session, make it the
-					// foreground session if it isn't already.
-					if (session !== this._foregroundSession &&
-						session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
-						activate) {
+					// foreground session. We fire the setter even if
+					// this session was already the foreground session,
+					// because we need `onDidChangeForegroundSession()`
+					// to fire on restarts.
+					if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console && activate) {
 						this.foregroundSession = session;
 					}
 
