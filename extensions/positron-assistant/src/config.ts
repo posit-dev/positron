@@ -245,11 +245,11 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 }
 
 async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], storage: SecretStorage, context: vscode.ExtensionContext) {
-	let { name, model, baseUrl, apiKey, ...otherConfig } = userConfig;
-	name = name.trim();
-	model = model.trim();
-	baseUrl = baseUrl?.trim();
-	apiKey = apiKey?.trim();
+	const { name: nameRaw, model: modelRaw, baseUrl: baseUrlRaw, apiKey: apiKeyRaw, ...otherConfig } = userConfig;
+	const name = nameRaw.trim();
+	const model = modelRaw.trim();
+	const baseUrl = baseUrlRaw?.trim();
+	const apiKey = apiKeyRaw?.trim();
 
 	// Create unique ID for the configuration
 	const id = randomUUID();
