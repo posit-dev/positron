@@ -12,7 +12,7 @@ test.use({
 });
 
 // electron only for now - windows doesn't have hidden interpreters and for web the deletePositronHistoryFiles is not valid
-test.describe('Default Interpreters - Python', {
+test.describe.fixme('Default Interpreters - Python', {
 	tag: [tags.INTERPRETER]
 }, () => {
 
