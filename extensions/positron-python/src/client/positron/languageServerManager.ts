@@ -33,7 +33,7 @@ export function registerLanguageServerManager(disposables: vscode.Disposable[]):
                             session.metadata.sessionId !== sessionId &&
                             session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console,
                     )
-                    .map((session) => session.deactivateLsp()),
+                    .map((session) => session.deactivateLsp(true)),
             );
 
             // Activate the foreground session language server.
