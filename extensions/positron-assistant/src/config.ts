@@ -334,7 +334,7 @@ export function expandConfigToSource(config: StoredModelConfig): positron.ai.Lan
 		...config,
 		provider: {
 			id: config.provider,
-			displayName: config.provider
+			displayName: config.name
 		},
 		supportedOptions: [],
 		defaults: {
