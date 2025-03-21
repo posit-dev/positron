@@ -85,6 +85,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 		try {
 			await app.start();
+			await app.workbench.console.waitForInterpretersToFinishLoading();
 
 			await use(app);
 		} catch (error) {

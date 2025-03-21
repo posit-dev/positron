@@ -731,6 +731,13 @@ export class Sessions {
 	async expectAllSessionsToBeIdle() {
 		await expect(this.activeStatusIcon).toHaveCount(0);
 	}
+
+	/**
+	 * Verify: Start a New Session menu is visible
+	 */
+	async expectStartNewSessionMenuToBeVisible() {
+		await expect(this.quickPick.allSessionsMenu).toBeVisible();
+	}
 }
 
 /**
@@ -738,7 +745,7 @@ export class Sessions {
  */
 export class SessionQuickPick {
 	private sessionQuickMenu = this.code.driver.page.getByText(/(Select a Session)|(Start a New Session)/);
-	private allSessionsMenu = this.code.driver.page.getByText(/Start a New Session/);
+	allSessionsMenu = this.code.driver.page.getByText(/Start a New Session/);
 
 	constructor(private code: Code, private sessions: Sessions) { }
 
@@ -936,7 +943,7 @@ const rSessionAlt: SessionInfo = {
 
 type SessionRuntimes = 'python' | 'pythonAlt' | 'r' | 'rAlt';
 
-const availableRuntimes: { [key: string]: SessionInfo } = {
+export const availableRuntimes: { [key: string]: SessionInfo } = {
 	r: { ...rSession },
 	rAlt: { ...rSessionAlt },
 	python: { ...pythonSession },
