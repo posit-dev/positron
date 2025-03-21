@@ -108,34 +108,6 @@ export class Application {
 		await this._code?.stopTracing(name, persist, customPath);
 	}
 
-	// TODO: right place for this?
-	async showContextMenu(trigger: () => void): Promise<{ menuId: number; items: MenuItem[] } | undefined> {
-		const shownPromise: Promise<[number, MenuItem[]]> | undefined = _electronApp?.evaluate(({ app }) => {
-			return new Promise((resolve) => {
-				const listener: any = (...args: [number, MenuItem[]]) => {
-					app.removeListener('e2e:contextMenuShown' as any, listener);
-					resolve(args);
-				};
-				app.addListener('e2e:contextMenuShown' as any, listener);
-			});
-		});
-		const [shownEvent] = await Promise.all([shownPromise, trigger()]);
-		if (shownEvent) {
-			const [menuId, items] = shownEvent;
-			return {
-				menuId,
-				items
-			};
-		}
-
-	}
-
-	async selectContextMenuItem(contextMenuId: number, label: string): Promise<void> {
-		await _electronApp?.evaluate(async ({ app }, [contextMenuId, label]) => {
-			app.emit('e2e:contextMenuSelect', contextMenuId, label);
-		}, [contextMenuId, label]);
-	}
-
 	private async startApplication(extraArgs: string[] = []): Promise<Code> {
 		const code = this._code = await launch({
 			...this.options,
