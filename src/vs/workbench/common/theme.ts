@@ -1506,15 +1506,15 @@ export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BORDER_SELECTED = registerColor(
 
 // < --- Positron Icon Button --- >
 export const POSITRON_ICON_BUTTON_BORDER = registerColor('positronIconButton.border', {
-	dark: '#175ab5',
-	light: '#70a6e0',
+	dark: '#999999',
+	light: '#3a78b1',
 	hcDark: '#ff0000',
 	hcLight: '#ff0000'
 }, localize('positronIconButton.border', "Positron icon button border color."));
 
 export const POSITRON_ICON_BUTTON_BACKGROUND = registerColor('positronIconButton.background', {
-	dark: '#214984',
-	light: '#a1c5ef',
+	dark: '#37373d',
+	light: '#e4e6f1',
 	hcDark: '#ff0000',
 	hcLight: '#ff0000'
 }, localize('positronIconButton.background', "Positron icon button background color."));
