@@ -91,7 +91,9 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 
 	getSupportedProviders(): string[] {
 		const providers = ['anthropic', 'google', 'copilot'];
-		if (IsDevelopmentContext.getValue(this._contextKeyService)) {
+		const useTestModels = this._configurationService.getValue<boolean>('positron.assistant.testModels');
+
+		if (IsDevelopmentContext.getValue(this._contextKeyService) || useTestModels) {
 			providers.push('bedrock', 'error', 'echo');
 		}
 		return providers;
