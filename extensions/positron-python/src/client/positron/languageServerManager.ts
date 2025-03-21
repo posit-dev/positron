@@ -10,8 +10,10 @@ import { IServiceContainer } from '../ioc/types';
 import { IPythonPathUpdaterServiceManager } from '../interpreter/configuration/types';
 import { IWorkspaceService } from '../common/application/types';
 
-
-export function registerLanguageServerManager(serviceContainer: IServiceContainer, disposables: vscode.Disposable[]): void {
+export function registerLanguageServerManager(
+    serviceContainer: IServiceContainer,
+    disposables: vscode.Disposable[],
+): void {
     disposables.push(
         // When the foreground session changes:
         // 1. Deactivate non-foreground session language servers.
@@ -22,8 +24,9 @@ export function registerLanguageServerManager(serviceContainer: IServiceContaine
                 return;
             }
 
-            const pythonPathUpdaterService: IPythonPathUpdaterServiceManager = serviceContainer.get<IPythonPathUpdaterServiceManager>(
-                IPythonPathUpdaterServiceManager);
+            const pythonPathUpdaterService: IPythonPathUpdaterServiceManager = serviceContainer.get<
+                IPythonPathUpdaterServiceManager
+            >(IPythonPathUpdaterServiceManager);
             const workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
 
             const sessions = await getActivePythonSessions();
@@ -63,7 +66,12 @@ export function registerLanguageServerManager(serviceContainer: IServiceContaine
                 configTarget = vscode.ConfigurationTarget.WorkspaceFolder;
             }
 
-            await pythonPathUpdaterService.updatePythonPath(foregroundSession.runtimeMetadata.runtimePath, configTarget, 'ui', folderUri);
-        })
+            await pythonPathUpdaterService.updatePythonPath(
+                foregroundSession.runtimeMetadata.runtimePath,
+                configTarget,
+                'ui',
+                folderUri,
+            );
+        }),
     );
 }
