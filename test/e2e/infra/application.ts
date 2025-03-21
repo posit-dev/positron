@@ -9,8 +9,7 @@ import { Logger, measureAndLog } from './logger';
 import { Profiler } from './profiler';
 import { Keyboard } from './keyboard.js';
 import { expect } from '@playwright/test';
-import { MenuItem } from 'electron';
-import { _electronApp } from './playwrightElectron.js';
+import { NativeMenu } from './nativeMenu.js';
 
 export const enum Quality {
 	Dev,
@@ -40,6 +39,9 @@ export class Application {
 
 	private _keyboard: Keyboard | undefined;
 	get keyboard(): Keyboard { return this._keyboard!; }
+
+	private _nativeMenu: NativeMenu | undefined;
+	get nativeMenu(): NativeMenu | undefined { return this._nativeMenu; }
 
 	get quality(): Quality {
 		return this.options.quality;
@@ -115,34 +117,6 @@ export class Application {
 		await this._code?.stopTracing(name, persist, customPath);
 	}
 
-	// TODO: right place for this?
-	async showContextMenu(trigger: () => void): Promise<{ menuId: number; items: MenuItem[] } | undefined> {
-		const shownPromise: Promise<[number, MenuItem[]]> | undefined = _electronApp?.evaluate(({ app }) => {
-			return new Promise((resolve) => {
-				const listener: any = (...args: [number, MenuItem[]]) => {
-					app.removeListener('e2e:contextMenuShown' as any, listener);
-					resolve(args);
-				};
-				app.addListener('e2e:contextMenuShown' as any, listener);
-			});
-		});
-		const [shownEvent] = await Promise.all([shownPromise, trigger()]);
-		if (shownEvent) {
-			const [menuId, items] = shownEvent;
-			return {
-				menuId,
-				items
-			};
-		}
-
-	}
-
-	async selectContextMenuItem(contextMenuId: number, label: string): Promise<void> {
-		await _electronApp?.evaluate(async ({ app }, [contextMenuId, label]) => {
-			app.emit('e2e:contextMenuSelect', contextMenuId, label);
-		}, [contextMenuId, label]);
-	}
-
 	private async startApplication(extraArgs: string[] = []): Promise<Code> {
 		const code = this._code = await launch({
 			...this.options,
@@ -152,6 +126,8 @@ export class Application {
 		this._workbench = new Workbench(this._code);
 		this._profiler = new Profiler(this.code);
 		this._keyboard = new Keyboard(this.code);
+		// Native menu optional, only if this is an electron app
+		this._nativeMenu = this.code.electronApp ? new NativeMenu(this.code) : undefined;
 
 		return code;
 	}
