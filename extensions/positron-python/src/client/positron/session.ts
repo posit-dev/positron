@@ -793,3 +793,9 @@ export function createJupyterKernelExtra(): undefined {
     // };
     return undefined;
 }
+
+/** Get the active Python language runtime sessions. */
+export async function getActivePythonSessions(): Promise<PythonRuntimeSession[]> {
+    const sessions = await positron.runtime.getActiveSessions();
+    return sessions.filter((session) => session instanceof PythonRuntimeSession) as PythonRuntimeSession[];
+}

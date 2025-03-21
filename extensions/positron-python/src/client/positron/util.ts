@@ -4,11 +4,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// eslint-disable-next-line import/no-unresolved
-import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { traceVerbose } from '../logging';
-import { PythonRuntimeSession } from './session';
 
 export class PromiseHandles<T> {
     resolve!: (value: T | Promise<T>) => void;
@@ -45,10 +42,4 @@ export async function hasFiles(includes: string[]): Promise<boolean> {
     traceVerbose(`Found _files_: ${files.map((file) => file.fsPath)}`);
 
     return files.length > 0;
-}
-
-/** Get the active Python language runtime sessions. */
-export async function getActivePythonSessions(): Promise<PythonRuntimeSession[]> {
-    const sessions = await positron.runtime.getActiveSessions();
-    return sessions.filter((session) => session instanceof PythonRuntimeSession) as PythonRuntimeSession[];
 }
