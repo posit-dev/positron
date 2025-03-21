@@ -357,19 +357,25 @@ suite('Positron - RuntimeSessionService', () => {
 
 			if (mode === LanguageRuntimeSessionMode.Console) {
 				test(`${action} ${mode} sets foregroundSession`, async () => {
-					const target = sinon.spy();
-					disposables.add(runtimeSessionService.onDidChangeForegroundSession(target));
+					const didChangeForegroundSession = sinon.spy();
+					disposables.add(runtimeSessionService.onDidChangeForegroundSession(didChangeForegroundSession));
 
 					const session = await start();
 
 					assert.strictEqual(runtimeSessionService.foregroundSession, session);
 
+					// TODO: `start()` eventually uses an internal API to set `_foregroundSession`
+					// directly, bypassing `onDidChangeForegroundSession()`. Is that right?
+					// Should the internal API be using the official `foregroundSession` setter?
+					sinon.assert.notCalled(didChangeForegroundSession);
+
 					await waitForRuntimeState(session, RuntimeState.Ready);
 
-					// TODO: Feels a bit surprising that this isn't fired. It's because we set the private
-					//       _foregroundSession property instead of the setter. When the 'ready' state is
-					//       entered, we skip setting foregroundSession because it already matches the session.
-					sinon.assert.notCalled(target);
+					// Even though `_foregroundSession` was set already to this `session`, entering
+					// the `Ready` state refires `onDidChangeForegroundSession()`. This is also
+					// important for the restart process, where we want this event to fire even
+					// though the session hasn't changed.
+					sinon.assert.calledOnceWithExactly(didChangeForegroundSession, session);
 				});
 			}
 
