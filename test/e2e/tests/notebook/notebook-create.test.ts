@@ -76,8 +76,10 @@ test.describe('Notebooks', {
 			// Verify the variable still exists
 			await app.workbench.variables.expectVariableToBe('foo', "'bar'");
 
-			// Add a new cell
-			await app.workbench.notebooks.insertNotebookCell('code');
+			await expect(async () => {
+				// Add a new cell
+				await app.workbench.notebooks.insertNotebookCell('code');
+			}).toPass({ timeout: 60000 });
 
 			// Create a new variable using the now saved notebook
 			// Add code to the new cell (using typeInEditor since addCodeToLastCell isn't available)

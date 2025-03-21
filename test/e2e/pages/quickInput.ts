@@ -29,6 +29,8 @@ export class QuickInput {
 	}
 
 	async type(value: string): Promise<void> {
+		await this.code.driver.page.locator(QuickInput.QUICK_INPUT_INPUT).selectText();
+		await this.code.driver.page.keyboard.press('Backspace');
 		await this.code.driver.page.locator(QuickInput.QUICK_INPUT_INPUT).fill(value);
 	}
 
