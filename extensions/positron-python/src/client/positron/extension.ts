@@ -19,6 +19,7 @@ import { IApplicationShell } from '../common/application/types';
 import { activateAppDetection as activateWebAppDetection } from './webAppContexts';
 import { activateWebAppCommands } from './webAppCommands';
 import { printInterpreterDebugInfo } from './interpreterSettings';
+import { registerLanguageServerManager } from './languageServerManager';
 
 export async function activatePositron(serviceContainer: IServiceContainer): Promise<void> {
     try {
@@ -92,6 +93,9 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
 
         // Activate web application commands.
         activateWebAppCommands(serviceContainer, disposables);
+
+        // Register the language server manager to support multiple console sessions.
+        registerLanguageServerManager(disposables);
 
         traceInfo('activatePositron: done!');
     } catch (ex) {

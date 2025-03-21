@@ -354,6 +354,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
+	 * List all active runtime sessions.
+	 *
+	 * @returns The active sessions.
+	 */
+	getActiveSessions(): ActiveRuntimeSession[] {
+		return Array.from(this._activeSessionsBySessionId.values());
+	}
+
+	/**
 	 * Selects and starts a new runtime session, after shutting down any currently active
 	 * sessions for the console or notebook.
 	 *

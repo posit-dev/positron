@@ -374,6 +374,11 @@ export interface IRuntimeSessionService {
 	getNotebookSessionForNotebookUri(notebookUri: URI): ILanguageRuntimeSession | undefined;
 
 	/**
+	 * List all active runtime sessions.
+	 */
+	getActiveSessions(): ActiveRuntimeSession[];
+
+	/**
 	 * Checks for a starting or running console for the given language ID.
 	 *
 	 * @param languageId The language ID to check for; if undefined, checks for
