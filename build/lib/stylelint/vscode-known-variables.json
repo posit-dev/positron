@@ -611,6 +611,8 @@
 		"--vscode-positronDropDownListBox-hoverForeground",
 		"--vscode-positronDropDownListBox-separatorBackground",
 		"--vscode-positronError-foreground",
+		"--vscode-positronIconButton-background",
+		"--vscode-positronIconButton-border",
 		"--vscode-positronModalDialog-background",
 		"--vscode-positronModalDialog-border",
 		"--vscode-positronModalDialog-buttonActiveBackground",

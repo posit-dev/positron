@@ -1658,6 +1658,7 @@ declare module 'positron' {
 				[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K] ? K : never
 			}[keyof LanguageModelConfig], undefined>[];
 			defaults: LanguageModelConfigOptions;
+			signedIn?: boolean;
 		}
 
 		/**
@@ -1708,12 +1709,14 @@ declare module 'positron' {
 			edits: vscode.TextEdit[];
 		}): void;
 
+		export function getSupportedProviders(): Thenable<string[]>;
+
 		/**
 		 * Show a modal dialog for language model configuration.
 		 */
 		export function showLanguageModelConfig(
 			sources: LanguageModelSource[],
-			onSave: (config: LanguageModelConfig) => Thenable<void>
+			onAction: (config: LanguageModelConfig, action: string) => Thenable<void>,
 		): Thenable<void>;
 
 		/**

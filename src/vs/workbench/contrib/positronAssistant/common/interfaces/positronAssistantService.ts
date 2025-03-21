@@ -45,6 +45,7 @@ export interface IPositronLanguageModelSource {
 	provider: { id: string; displayName: string };
 	supportedOptions: PositronLanguageModelOptions[];
 	defaults: Omit<IPositronLanguageModelConfig, 'provider' | 'type'>;
+	signedIn?: boolean;
 }
 
 export interface IPositronLanguageModelConfig {
@@ -88,9 +89,14 @@ export interface IPositronAssistantService {
 	 */
 	showLanguageModelModalDialog(
 		sources: IPositronLanguageModelSource[],
-		onSave: (config: IPositronLanguageModelConfig) => Promise<void>,
+		onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 		onCancel: () => void,
+		onClose: () => void,
 	): void;
+	/**
+	 * Get the supported providers for Positron Assistant.
+	 */
+	getSupportedProviders(): string[];
 	/**
 	 * Placeholder that gets called to "initialize" the PositronAssistantService.
 	 */
