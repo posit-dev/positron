@@ -95,7 +95,7 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
         activateWebAppCommands(serviceContainer, disposables);
 
         // Register the language server manager to support multiple console sessions.
-        registerLanguageServerManager(disposables);
+        registerLanguageServerManager(serviceContainer, disposables);
 
         traceInfo('activatePositron: done!');
     } catch (ex) {
