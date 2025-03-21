@@ -97,7 +97,9 @@ test.describe('Reticulate', {
 		tag: [tags.RETICULATE, tags.CONSOLE]
 	}, async function ({ app, interpreter }) {
 		const interpreterDesc = 'Python (reticulate)';
-		await app.workbench.interpreter.selectInterpreter('Python', interpreterDesc, true);
+		if (!sequential) {
+			await app.workbench.interpreter.selectInterpreter('Python', interpreterDesc, true);
+		}
 		await app.workbench.interpreter.verifyInterpreterIsRunning(interpreterDesc);
 
 		await app.workbench.interpreter.restartPrimaryInterpreter(interpreterDesc);
