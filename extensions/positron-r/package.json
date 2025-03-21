@@ -688,6 +688,14 @@
       {
         "languageId": "r"
       }
+    ],
+    "languageModelTools": [
+      {
+        "name": "getLoadedPackages",
+        "displayName": "Get Loaded R Packages",
+        "modelDescription": "Gets a list of the R packages that are loaded in the current R session.",
+        "tags": ["positron-assistant"]
+      }
     ]
   },
   "scripts": {
