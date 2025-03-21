@@ -41,6 +41,7 @@ jobs:
       enable_currents_reporter: false
       install_undetectable_interpreters: true
       install_license: false
+      skip_tags: "@:nightly-only"
     secrets: inherit
 
   e2e-windows-electron:
@@ -70,6 +71,7 @@ jobs:
       enable_currents_reporter: false
       install_undetectable_interpreters: true
       install_license: true
+      skip_tags: "@:nightly-only"
     secrets: inherit
 
   unit-tests:

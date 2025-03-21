@@ -93,7 +93,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private _dapClient: DapClient | undefined;
 
 	/** A map of pending comm startups */
-	private _startingComms: Map<string, PromiseHandles<void>> = new Map();
+	private _startingComms: Map<string, PromiseHandles<number>> = new Map();
 
 	/** The original kernelspec */
 	private _kernelSpec: JupyterKernelSpec | undefined;
@@ -298,12 +298,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * Note: This is only useful if the kernel hasn't already started an LSP
 	 * server.
 	 *
-	 * @param clientAddress The client's TCP address, e.g. '127.0.0.1:1234'
+	 * @param ipAddress The address of the client that will connect to the
+	 *  language server.
 	 */
-	async startPositronLsp(clientAddress: string) {
+	async startPositronLsp(ipAddress: string): Promise<number> {
 		// Create a unique client ID for this instance
 		const clientId = `positron-lsp-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
-		this.log(`Starting LSP server ${clientId} for ${clientAddress}`, vscode.LogLevel.Info);
+		this.log(`Starting LSP server ${clientId} for ${ipAddress}`, vscode.LogLevel.Info);
 
 		// Notify Positron that we're handling messages from this client
 		this._disposables.push(positron.runtime.registerClientInstance(clientId));
@@ -312,33 +313,28 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		await this.createClient(
 			clientId,
 			positron.RuntimeClientType.Lsp,
-			{ client_address: clientAddress }
+			{ ip_address: ipAddress }
 		);
 
 		// Create a promise that will resolve when the LSP starts on the server
 		// side.
-		const startPromise = new PromiseHandles<void>();
+		const startPromise = new PromiseHandles<number>();
 		this._startingComms.set(clientId, startPromise);
 		return startPromise.promise;
 	}
 
 	/**
 	 * Requests that the kernel start a Debug Adapter Protocol server, and
-	 * connect it to the client locally on the given TCP port.
+	 * connect it to the client locally on the given TCP address.
 	 *
-	 * @param serverPort The port on which to bind locally.
 	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
 	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
 	 */
-	async startPositronDap(
-		serverPort: number,
-		debugType: string,
-		debugName: string,
-	) {
+	async startPositronDap(debugType: string, debugName: string) {
 		// NOTE: Ideally we'd connect to any address but the
 		// `debugServer` property passed in the configuration below
-		// needs to be a port for localhost.
-		const serverAddress = `127.0.0.1:${serverPort}`;
+		// needs to be localhost.
+		const ipAddress = '127.0.0.1';
 
 		// TODO: Should we query the kernel to see if it can create a DAP
 		// (QueryInterface style) instead of just demanding it?
@@ -348,7 +344,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Create a unique client ID for this instance
 		const clientId = `positron-dap-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
-		this.log(`Starting DAP server ${clientId} for ${serverAddress}`, vscode.LogLevel.Debug);
+		this.log(`Starting DAP server ${clientId} for ${ipAddress}`, vscode.LogLevel.Debug);
 
 		// Notify Positron that we're handling messages from this client
 		this._disposables.push(positron.runtime.registerClientInstance(clientId));
@@ -356,11 +352,21 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		await this.createClient(
 			clientId,
 			positron.RuntimeClientType.Dap,
-			{ client_address: serverAddress }
+			{ ip_address: ipAddress }
 		);
 
+		// Create a promise that will resolve when the DAP starts on the server
+		// side. When the promise resolves we obtain the port the client should
+		// connect on.
+		const startPromise = new PromiseHandles<number>();
+		this._startingComms.set(clientId, startPromise);
+
+		// Immediately await that promise because `startPositronDap()` handles the full
+		// DAP setup, unlike the LSP where the extension finishes the setup.
+		const port = await startPromise.promise;
+
 		// Create the DAP client message handler
-		this._dapClient = new DapClient(clientId, serverPort, debugType, debugName, this);
+		this._dapClient = new DapClient(clientId, port, debugType, debugName, this);
 	}
 
 	/**
@@ -1500,7 +1506,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			if (commMsg.data.msg_type === 'server_started') {
 				const startingPromise = this._startingComms.get(commMsg.comm_id);
 				if (startingPromise) {
-					startingPromise.resolve();
+					startingPromise.resolve(commMsg.data.content.port);
 					this._startingComms.delete(commMsg.comm_id);
 				}
 			}

@@ -42,6 +42,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$unregisterLanguageRuntime(handle: number): void;
 	$executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior): Promise<boolean>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata>;
+	$getActiveSessions(): Promise<RuntimeSessionMetadata[]>;
 	$getForegroundSession(): Promise<string | undefined>;
 	$getNotebookSession(notebookUri: URI): Promise<string | undefined>;
 	$restartSession(handle: number): Promise<void>;
