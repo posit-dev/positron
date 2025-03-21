@@ -22,7 +22,7 @@ export class RSessionManager {
 	private _lastForegroundSessionId: string | null = null;
 
 	/// The set of sessions actively restarting
-	private _restartingConsoleSessions: Set<string> = new Set();
+	private _restartingConsoleSessionIds: Set<string> = new Set();
 
 	/// The last binpath that was used
 	private _lastBinpath = '';
@@ -71,8 +71,8 @@ export class RSessionManager {
 			// - Non-console sessions are activated immediately.
 			case positron.RuntimeState.Ready: {
 				if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
-					if (this._restartingConsoleSessions.has(session.metadata.sessionId)) {
-						this._restartingConsoleSessions.delete(session.metadata.sessionId);
+					if (this._restartingConsoleSessionIds.has(session.metadata.sessionId)) {
+						this._restartingConsoleSessionIds.delete(session.metadata.sessionId);
 						if (this._lastForegroundSessionId === session.metadata.sessionId) {
 							await this.activateConsoleSession(session);
 						}
@@ -88,13 +88,13 @@ export class RSessionManager {
 			// to only track truly restarting sessions, but kallichore doesn't
 			// emit that right now. The practical downside of this is that
 			// sessions that permanently go into `Exited` and never come back
-			// online will never be removed from `_restartingConsoleSessions`,
+			// online will never be removed from `_restartingConsoleSessionIds`,
 			// but we don't think that would get too out of control.
 			//
 			// On exit, we also double check that we are fully deactivated
 			case positron.RuntimeState.Exited: {
 				if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
-					this._restartingConsoleSessions.add(session.metadata.sessionId);
+					this._restartingConsoleSessionIds.add(session.metadata.sessionId);
 				}
 				await this.deactivateSession(session);
 			}
