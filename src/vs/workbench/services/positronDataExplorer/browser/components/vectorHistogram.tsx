@@ -64,7 +64,9 @@ const BinItem = React.memo(({
 
 	// Calculate exact bin position and width to avoid 1-pixel gaps between bins
 	const binPosition = Math.round(binCountIndex * binWidth);
-	binWidth = Math.round((binCountIndex + 1) * binWidth) - binPosition;
+
+	// Make sure bin width is at least 1
+	binWidth = Math.max(1, Math.round((binCountIndex + 1) * binWidth) - binPosition);
 
 	return (
 		<foreignObject
