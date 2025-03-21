@@ -8,7 +8,18 @@ import { getArchitectureDisplayName } from '../../../common/platform/registry';
 import { Architecture } from '../../../common/utils/platform';
 import { arePathsSame, isParentPath, normCasePath } from '../../common/externalDependencies';
 import { getKindDisplayName } from './envKind';
-import { areIdenticalVersion, areSimilarVersions, getVersionDisplayString, isVersionEmpty } from './pythonVersion';
+// --- Start Positron ---
+// Just adding toSemverLikeVersion in this first line
+import {
+    areIdenticalVersion,
+    areSimilarVersions,
+    getVersionDisplayString,
+    isVersionEmpty,
+    toSemverLikeVersion,
+} from './pythonVersion';
+import { isVersionSupported } from '../../../positron/interpreterSettings';
+import { PythonVersion as SemverLikePythonVersion } from '../../info/pythonVersion';
+// --- End Positron ---
 
 import {
     EnvPathType,
@@ -201,8 +212,17 @@ function buildEnvDisplayString(env: PythonEnvInfo, getAllDetails = false): strin
     }
     const envSuffix = envSuffixParts.length === 0 ? '' : `(${envSuffixParts.join(': ')})`;
 
+    // --- Start Positron ---
+    // If the env is unsupported, add '(Unsupported)'
+    const version = toSemverLikeVersion(env.version) as SemverLikePythonVersion;
+    let supportedSuffix = '';
+    if (!isVersionSupported(version)) {
+        supportedSuffix = ' (Unsupported)';
+    }
+    // --- End Positron ---
+
     // Pull it all together.
-    return `${displayNameParts.join(' ')} ${envSuffix}`.trim();
+    return `${displayNameParts.join(' ')} ${envSuffix}${supportedSuffix}`.trim();
 }
 
 /**
