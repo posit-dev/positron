@@ -22,6 +22,7 @@ import { Emitter } from '../../../../../base/common/event.js';
 import { TestStorageService } from '../../../../test/common/workbenchTestServices.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { ActiveRuntimeSession } from '../../../runtimeSession/common/activeRuntimeSession.js';
 
 class TestWorkspaceContextService implements IWorkspaceContextService {
 	private readonly _onWillChangeWorkspaceFolders = new Emitter<IWorkspaceFoldersWillChangeEvent>();
@@ -148,6 +149,10 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 	}
 
 	getNotebookSessionForNotebookUri(_notebookUri: any): ILanguageRuntimeSession | undefined {
+		throw new Error('Method not implemented.');
+	}
+
+	getActiveSessions(): ActiveRuntimeSession[] {
 		throw new Error('Method not implemented.');
 	}
 

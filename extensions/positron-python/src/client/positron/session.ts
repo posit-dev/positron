@@ -114,18 +114,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this.onDidChangeRuntimeState = this._stateEmitter.event;
         this.onDidEndSession = this._exitEmitter.event;
 
-        positron.runtime.onDidChangeForegroundSession(async (sessionId) => {
-            if (sessionId) {
-                if (sessionId === metadata.sessionId) {
-                    // Start LSP for the foreground session only if its been previously stopped
-                    await this.activateLsp();
-                } else if (metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
-                    // Stop LSP for other console sessions if they are running
-                    await this.deactivateLsp(true);
-                }
-            }
-        });
-
         // Extract the extra data from the runtime metadata; it contains the
         // Python path that was saved when the metadata was created.
         const extraData: PythonRuntimeExtraData = runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
@@ -804,4 +792,10 @@ export function createJupyterKernelExtra(): undefined {
     //     sleepOnStartup: new ArkDelayStartup(),
     // };
     return undefined;
+}
+
+/** Get the active Python language runtime sessions. */
+export async function getActivePythonSessions(): Promise<PythonRuntimeSession[]> {
+    const sessions = await positron.runtime.getActiveSessions();
+    return sessions.filter((session) => session instanceof PythonRuntimeSession) as PythonRuntimeSession[];
 }
