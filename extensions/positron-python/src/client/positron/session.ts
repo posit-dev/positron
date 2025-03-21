@@ -728,7 +728,12 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._state = state;
         if (state === positron.RuntimeState.Ready) {
             this._queue.add(async () => {
-                await this.startLsp();
+                if (this.metadata.sessionMode !== positron.LanguageRuntimeSessionMode.Console) {
+                    // Start the language server for non-Console sessions immediately, because
+                    // they will never become foreground sessions. Otherwise we delay LSP activation
+                    // until the session becomes the foreground session.
+                    await this.startLsp();
+                }
             });
 
             this._queue.add(async () => {
