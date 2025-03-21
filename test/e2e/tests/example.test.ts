@@ -74,3 +74,18 @@ test.describe('Examples of Concepts', () => {
 	});
 
 });
+
+
+test.describe('Example Context Menu Tests', { tag: [] }, () => {
+	test("Context Menu Open Bash", async function ({ app, page }) {
+		await app.workbench.terminal.clickTerminalTab();
+		await app.nativeMenu?.triggerAndClick(page.getByLabel('Launch Profile...'), 'bash');
+		await expect(page.getByLabel('$(terminal-bash) bash')).toBeVisible();
+	});
+
+	test("Context Menu Fail Open Bash", async function ({ app, page }) {
+		await app.workbench.terminal.clickTerminalTab();
+		await app.nativeMenu?.triggerAndClick(page.getByLabel('Launch Profile...'), 'zsh');
+		await expect(page.getByLabel('$(terminal-bash) bash')).toBeVisible();
+	});
+});
