@@ -6,8 +6,12 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { getActivePythonSessions } from './session';
+import { IServiceContainer } from '../ioc/types';
+import { IPythonPathUpdaterServiceManager } from '../interpreter/configuration/types';
+import { IWorkspaceService } from '../common/application/types';
 
-export function registerLanguageServerManager(disposables: vscode.Disposable[]): void {
+
+export function registerLanguageServerManager(serviceContainer: IServiceContainer, disposables: vscode.Disposable[]): void {
     disposables.push(
         // When the foreground session changes:
         // 1. Deactivate non-foreground session language servers.
@@ -17,6 +21,10 @@ export function registerLanguageServerManager(disposables: vscode.Disposable[]):
                 // There is no foreground session, nothing to do.
                 return;
             }
+
+            const pythonPathUpdaterService: IPythonPathUpdaterServiceManager = serviceContainer.get<IPythonPathUpdaterServiceManager>(
+                IPythonPathUpdaterServiceManager);
+            const workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
 
             const sessions = await getActivePythonSessions();
             const foregroundSession = sessions.find((session) => session.metadata.sessionId === sessionId);
@@ -38,6 +46,24 @@ export function registerLanguageServerManager(disposables: vscode.Disposable[]):
 
             // Activate the foreground session language server.
             await foregroundSession.activateLsp();
-        }),
+
+            let folderUri: vscode.Uri | undefined;
+            let configTarget: vscode.ConfigurationTarget;
+
+            const { workspaceFolders } = workspaceService;
+
+            if (workspaceFolders === undefined || workspaceFolders.length === 0) {
+                folderUri = undefined;
+                configTarget = vscode.ConfigurationTarget.Global;
+            } else if (workspaceService.workspaceFile) {
+                folderUri = workspaceService.workspaceFile;
+                configTarget = vscode.ConfigurationTarget.Workspace;
+            } else {
+                folderUri = workspaceFolders[0].uri;
+                configTarget = vscode.ConfigurationTarget.WorkspaceFolder;
+            }
+
+            await pythonPathUpdaterService.updatePythonPath(foregroundSession.runtimeMetadata.runtimePath, configTarget, 'ui', folderUri);
+        })
     );
 }
