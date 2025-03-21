@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ActivityItem } from './activityItem.js';
-import { ScrollbackStrategy } from '../positronConsoleService.js';
 import { formatOutputLinesForClipboard } from '../utils/clipboardUtils.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
@@ -163,10 +162,9 @@ export class ActivityItemStream extends ActivityItem {
 	/**
 	 * Optimizes scrollback.
 	 * @param scrollbackSize The scrollback size.
-	 * @param scrollbackStrategy The scrollback strategy.
 	 * @returns The remaining scrollback size.
 	 */
-	public override optimizeScrollback(scrollbackSize: number, scrollbackStrategy: ScrollbackStrategy) {
+	public override optimizeScrollback(scrollbackSize: number) {
 		// Process the activity items streams.
 		this.processActivityItemStreams();
 

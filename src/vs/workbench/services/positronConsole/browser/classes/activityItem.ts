@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ScrollbackStrategy } from '../positronConsoleService.js';
-
 /**
  * ActivityItem class.
  */
@@ -55,10 +53,9 @@ export abstract class ActivityItem {
 	 * Optimizes scrollback. This is the default implementation which treats an activity item
 	 * as a single item, so it is either entirely visible or entirely hidden.
 	 * @param scrollbackSize The scrollback size.
-	 * @param scrollbackStrategy The scrollback strategy.
 	 * @returns The remaining scrollback size.
 	 */
-	public optimizeScrollback(scrollbackSize: number, scrollbackStrategy: ScrollbackStrategy): number {
+	public optimizeScrollback(scrollbackSize: number): number {
 		// If scrollback size is zero, hide the item and return zero.
 		if (!scrollbackSize) {
 			this._isHidden = true;

@@ -6,7 +6,6 @@
 import { RuntimeItem } from './runtimeItem.js';
 import { ActivityItemStream } from './activityItemStream.js';
 import { ActivityItemPrompt } from './activityItemPrompt.js';
-import { ScrollbackStrategy } from '../positronConsoleService.js';
 import { ActivityItemOutputHtml } from './activityItemOutputHtml.js';
 import { ActivityItemOutputPlot } from './activityItemOutputPlot.js';
 import { ActivityItemErrorMessage } from './activityItemErrorMessage.js';
@@ -146,10 +145,9 @@ export class RuntimeItemActivity extends RuntimeItem {
 	/**
 	 * Optimizes scrollback.
 	 * @param scrollbackSize The scrollback size.
-	 * @param scrollbackStrategy The scrollback strategy.
 	 * @returns The remaining scrollback size.
 	 */
-	public override optimizeScrollback(scrollbackSize: number, scrollbackStrategy: ScrollbackStrategy) {
+	public override optimizeScrollback(scrollbackSize: number) {
 		// If scrollback size is zero, hide the item and return zero.
 		if (scrollbackSize === 0) {
 			this._isHidden = true;
@@ -161,7 +159,7 @@ export class RuntimeItemActivity extends RuntimeItem {
 
 		// Optimize scrollback for each activity item in reverse order.
 		for (let i = this._activityItems.length - 1; i >= 0; i--) {
-			scrollbackSize = this._activityItems[i].optimizeScrollback(scrollbackSize, scrollbackStrategy);
+			scrollbackSize = this._activityItems[i].optimizeScrollback(scrollbackSize);
 		}
 
 		// Return the remaining scrollback size.

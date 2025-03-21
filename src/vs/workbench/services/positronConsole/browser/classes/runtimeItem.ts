@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ScrollbackStrategy } from '../positronConsoleService.js';
 import { formatOutputLinesForClipboard } from '../utils/clipboardUtils.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
@@ -57,13 +56,12 @@ export class RuntimeItem {
 	/**
 	 * Optimizes scrollback.
 	 * @param scrollbackSize The scrollback size.
-	 * @param scrollbackStrategy The scrollback strategy.
 	 * @note The default implementation treats a runtime item as a single item, so it is either
 	 * entirely visible or entirely hidden. Override in derived classes to provide a different
 	 * behavior.
 	 * @returns The remaining scrollback size.
 	 */
-	public optimizeScrollback(scrollbackSize: number, scrollbackStrategy: ScrollbackStrategy) {
+	public optimizeScrollback(scrollbackSize: number) {
 		// If scrollback size is zero, hide the item and return zero.
 		if (!scrollbackSize) {
 			this._isHidden = true;

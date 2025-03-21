@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ActivityItem } from './activityItem.js';
-import { ScrollbackStrategy } from '../positronConsoleService.js';
 import { formatOutputLinesForClipboard } from '../utils/clipboardUtils.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
@@ -114,10 +113,9 @@ export class ActivityItemOutputPlot extends ActivityItem {
 	/**
 	 * Optimizes scrollback.
 	 * @param scrollbackSize The scrollback size.
-	 * @param scrollbackStrategy The scrollback strategy.
 	 * @returns The remaining scrollback size.
 	 */
-	public override optimizeScrollback(scrollbackSize: number, scrollbackStrategy: ScrollbackStrategy) {
+	public override optimizeScrollback(scrollbackSize: number) {
 		// If there are fewer output lines than the scrollback size, clear the scrollback size
 		// as all of them will be displayed, and return the remaining scrollback size.
 		if (this._outputLines.length <= scrollbackSize) {

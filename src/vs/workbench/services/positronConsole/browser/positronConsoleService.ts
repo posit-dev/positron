@@ -60,19 +60,6 @@ const ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL = 50;
  */
 const TRACE_OUTPUT_MAX_LENGTH = 1000;
 
-/**
- * Scrollback strategies.
- */
-const SCROLLBACK_STRATEGY_TRUNCATE_AT_TOP = 'truncateAtTop';
-const SCROLLBACK_STRATEGY_TRUNCATE_ADAPTIVELY = 'truncateAdaptively';
-
-/**
- * The scrollback strategy type.
- */
-export type ScrollbackStrategy =
-	typeof SCROLLBACK_STRATEGY_TRUNCATE_AT_TOP |
-	typeof SCROLLBACK_STRATEGY_TRUNCATE_ADAPTIVELY;
-
 //#region Helper Functions
 
 /**
@@ -193,29 +180,6 @@ configurationRegistry.registerConfiguration({
 			'maximum': 5000,
 			'default': 1000,
 			markdownDescription: localize('console.scrollbackSize', "The number of console output items to display."),
-		}
-	}
-});
-
-/**
- * The scrollback strategy setting.
- */
-export const scrollbackStrategySettingId = 'console.scrollbackStrategy';
-configurationRegistry.registerConfiguration({
-	...consoleServiceConfigurationBaseNode,
-	properties: {
-		'console.scrollbackStrategy': {
-			type: 'string',
-			enum: [
-				SCROLLBACK_STRATEGY_TRUNCATE_AT_TOP,
-				SCROLLBACK_STRATEGY_TRUNCATE_ADAPTIVELY
-			],
-			'default': SCROLLBACK_STRATEGY_TRUNCATE_AT_TOP,
-			markdownDescription: localize('console.scrollbackStrategy', "Controls the console scrollback strategy."),
-			enumDescriptions: [
-				localize('positron.scrollbackStrategy.truncateAtTop', "Truncates the console output at the top, like a terminal."),
-				localize('positron.scrollbackStrategy.truncateAdaptively', "Truncates the console output adaptively to preserve context."),
-			]
 		}
 	}
 });
@@ -907,11 +871,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _scrollbackSize: number;
 
 	/**
-	 * Gets or sets the scrollback strategy.
-	 */
-	private _scrollbackStrategy: ScrollbackStrategy;
-
-	/**
 	 * Is scroll-lock engaged?
 	 */
 	private _scrollLocked = false;
@@ -1033,7 +992,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Initialize the scrollback configuration.
 		this._scrollbackSize = this._configurationService.getValue<number>(scrollbackSizeSettingId);
-		this._scrollbackStrategy = this._configurationService.getValue<ScrollbackStrategy>(scrollbackStrategySettingId);
 
 		// Register the onDidChangeConfiguration event handler so we can update the console scrollback
 		// configuration.
@@ -1041,9 +999,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			if (e.affectsConfiguration(scrollbackSizeSettingId)) {
 				this._scrollbackSize = this._configurationService.getValue<number>(scrollbackSizeSettingId);
 				console.log(`scrollbackSize changed to ${this._scrollbackSize}`);
-			} else if (e.affectsConfiguration(scrollbackStrategySettingId)) {
-				this._scrollbackStrategy = this._configurationService.getValue<ScrollbackStrategy>(scrollbackStrategySettingId);
-				console.log(`scrollbackStrategy changed to ${this._scrollbackStrategy}`);
 			}
 		}));
 
@@ -2720,7 +2675,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private optimizeScrollback() {
 		// Optimize scrollback for each runtime item in reverse order.
 		for (let scrollbackSize = this._scrollbackSize, i = this._runtimeItems.length - 1; i >= 0; i--) {
-			scrollbackSize = this._runtimeItems[i].optimizeScrollback(scrollbackSize, this._scrollbackStrategy);
+			scrollbackSize = this._runtimeItems[i].optimizeScrollback(scrollbackSize);
 		}
 	}
 
