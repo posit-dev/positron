@@ -59,8 +59,7 @@ import { CreateEnv } from '../../../../common/utils/localize';
 import { IPythonRuntimeManager } from '../../../../positron/manager';
 import { showErrorMessage } from '../../../../common/vscodeApis/windowApis';
 import { traceError } from '../../../../logging';
-import { isVersionSupported, shouldIncludeInterpreter } from '../../../../positron/interpreterSettings';
-import { MINIMUM_PYTHON_VERSION } from '../../../../common/constants';
+import { shouldIncludeInterpreter } from '../../../../positron/interpreterSettings';
 // --- End Positron ---
 import { untildify } from '../../../../common/helpers';
 import { useEnvExtension } from '../../../../envExt/api.internal';
@@ -745,9 +744,6 @@ function getGroup(item: IInterpreterQuickPickItem, workspacePath?: string) {
  * @returns A new filter function that includes the original filter function and the additional filtering logic
  */
 function filterWrapper(filter: ((i: PythonEnvironment) => boolean) | undefined) {
-    return (i: PythonEnvironment) =>
-        (filter ? filter(i) : true) &&
-        shouldIncludeInterpreter(i.path) &&
-        isVersionSupported(i.version, MINIMUM_PYTHON_VERSION);
+    return (i: PythonEnvironment) => (filter ? filter(i) : true) && shouldIncludeInterpreter(i.path);
 }
 // --- End Positron ---
