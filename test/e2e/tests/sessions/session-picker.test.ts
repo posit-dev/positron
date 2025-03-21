@@ -37,16 +37,16 @@ test.describe('Sessions: Session Picker', {
 
 		// Start another Python session and verify Active Session Picker updates
 		const pySessionAlt = await sessions.start('pythonAlt', { triggerMode: 'session-picker' });
-		await expect(sessions.activeSessionPicker).toContainText(pySessionAlt.name);
+		await expect(sessions.sessionPicker).toContainText(pySessionAlt.name);
 
 		// Start another R session and verify Active Session Picker updates
 		const rSessionAlt = await sessions.start('rAlt', { triggerMode: 'session-picker' });
-		await expect(sessions.activeSessionPicker).toContainText(rSessionAlt.name);
+		await expect(sessions.sessionPicker).toContainText(rSessionAlt.name);
 
 		await sessions.select(rSession.id);
-		await expect(sessions.activeSessionPicker).toContainText(rSession.name);
+		await expect(sessions.sessionPicker).toContainText(rSession.name);
 
 		await sessions.select(pySession.id);
-		await expect(sessions.activeSessionPicker).toContainText(pySession.name);
+		await expect(sessions.sessionPicker).toContainText(pySession.name);
 	});
 });

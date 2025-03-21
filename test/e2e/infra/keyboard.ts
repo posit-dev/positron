@@ -37,6 +37,7 @@ export class Keyboard {
 			switchTabRight: () => this.pressHotKeys(`Cmd+Shift+]`),
 			closeAllEditors: () => this.pressHotKeys(`Cmd+K Cmd+W`),
 			visualMode: () => this.pressHotKeys(`Cmd+Shift+F4`),
+			focusConsole: () => this.pressHotKeys(`Cmd+K F`),
 		};
 	}
 

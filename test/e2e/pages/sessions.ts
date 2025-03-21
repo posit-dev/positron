@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import test, { expect, Locator } from '@playwright/test';
-import { Code, Console, QuickAccess } from '../infra';
+import { Code, Keyboard, QuickAccess } from '../infra';
 import { QuickInput } from './quickInput';
 
 const DESIRED_PYTHON = process.env.POSITRON_PY_VER_SEL;
@@ -18,13 +18,14 @@ const ACTIVE_STATUS_ICON = '.codicon-positron-status-active';
  */
 export class Sessions {
 	private page = this.code.driver.page;
+	private keyboard = new Keyboard(this.code);
 
 	// Session management and UI elements
 	private quickPick = new SessionQuickPick(this.code, this);
 	sessions = this.page.getByTestId(/console-(?!tab-)[a-zA-Z0-9-]+/);
 	sessionTabs = this.page.getByTestId(/console-tab/);
 	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
-	activeSessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').getByRole('button', { name: /(Start a New Session)|(Open Active Session Picker)/ });
+	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
@@ -44,7 +45,7 @@ export class Sessions {
 	private consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
 	private outputChannel = this.page.getByRole('combobox');
 
-	constructor(private code: Code, private console: Console, private quickaccess: QuickAccess, private quickinput: QuickInput) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) { }
 
 	// -- Actions --
 
@@ -105,13 +106,13 @@ export class Sessions {
 	 */
 	async delete(sessionId: string): Promise<void> {
 		await test.step(`Delete session: ${sessionId}`, async () => {
-			await this.console.focus();
+			await this.keyboard.hotKeys.focusConsole();
 			const sessionCount = (await this.sessions.all()).length;
 
 			if (sessionCount === 1) {
 				const currentSessionId = await this.getCurrentSessionId();
 				if (currentSessionId === sessionId) {
-					await this.console.barTrashButton.click();
+					await this.page.getByTestId('trash-session').click();
 					return;
 				} else {
 					throw new Error(`Cannot delete session ${sessionId} because it does not exist`);
@@ -141,7 +142,7 @@ export class Sessions {
 			await this.getSessionTab(sessionIdOrName).click();
 
 			if (clearConsole) {
-				await this.console.barClearButton.click();
+				await this.page.getByLabel('Clear console').click();
 			}
 
 			await this.restartButton.click();
@@ -176,7 +177,7 @@ export class Sessions {
 	 * @param menuItem - the menu item to click on the metadata dialog
 	 */
 	async selectMetadataOption(menuItem: 'Show Kernel Output Channel' | 'Show Console Output Channel' | 'Show LSP Output Channel') {
-		await this.console.focus();
+		await this.keyboard.hotKeys.focusConsole();
 		await this.metadataButton.click();
 		await this.metadataDialog.getByText(menuItem).click();
 
@@ -340,7 +341,7 @@ export class Sessions {
 			} else if (triggerMode === 'session-picker') {
 				await this.quickPick.openSessionQuickPickMenu();
 			} else if (triggerMode === 'console') {
-				await this.console.focus();
+				await this.keyboard.hotKeys.focusConsole();
 				await this.newSessionButton.click();
 			} else {
 				await this.page.keyboard.press('Control+Shift+/');
@@ -358,9 +359,9 @@ export class Sessions {
 			await this.code.driver.page.mouse.move(0, 0);
 
 			if (waitForReady) {
-				language === 'Python'
-					? await this.console.waitForReadyAndStarted('>>>', 90000)
-					: await this.console.waitForReadyAndStarted('>', 90000);
+				await expect(this.page.getByText(/starting/)).not.toBeVisible({ timeout: 90000 });
+				const prompt = language === 'Python' ? '>>>' : '> ';
+				await expect(this.page.locator('.active-line-number')).toHaveText(prompt, { timeout: 90000 });
 			}
 		});
 
@@ -373,7 +374,7 @@ export class Sessions {
 	 */
 	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
 		await test.step(`Select session: ${sessionIdOrName}`, async () => {
-			await this.console.focus();
+			await this.keyboard.hotKeys.focusConsole();
 			const session = this.getSessionTab(sessionIdOrName);
 
 			if (waitForSessionIdle) {
@@ -385,6 +386,38 @@ export class Sessions {
 	}
 
 	/**
+	 * Helper: Get the interpreter info for the currently selected runtime via the quickpick menu.
+	 * @returns The interpreter info for the selected interpreter if found, otherwise undefined.
+	 */
+	async getSelectedSessionInfo(): Promise<Omit<ExtendedSessionInfo, 'id'>> {
+		if (await this.sessionPicker.textContent() === 'Start Session') {
+			throw new Error('No session is currently active');
+		}
+
+		await this.quickPick.openSessionQuickPickMenu(false);
+		const selectedInterpreter = this.code.driver.page.locator('.quick-input-list-entry').filter({ hasText: 'Currently Selected' });
+
+		// Extract the runtime name
+		const runtime = await selectedInterpreter.locator('.monaco-icon-label-container .label-name .monaco-highlighted-label').nth(0).textContent();
+
+		// Extract the language, version, and source from runtime name
+		const { language, version, source } = await this.quickPick.parseRuntimeName(runtime);
+
+		// Extract the path
+		const path = await selectedInterpreter.locator('.quick-input-list-label-meta .monaco-icon-label-container .label-name .monaco-highlighted-label').nth(0).textContent();
+
+		await this.quickPick.closeSessionQuickPickMenu();
+
+		return {
+			name: `${language} ${version}`,
+			language: language as 'Python' | 'R',
+			version,
+			source,
+			path: path || '',
+		};
+	}
+
+	/**
 	 * Helper: Launch a session if it doesn't exist, otherwise reuse the existing session if the name matches and the state is idle
 	 * @param session - the session to reuse / launch
 	 * @returns id of the session
@@ -392,7 +425,7 @@ export class Sessions {
 	private async reuseIdleSessionIfExists(session: SessionInfo): Promise<string> {
 		return await test.step(`Reuse session: ${session.name}`, async () => {
 
-			await this.console.focus();
+			await this.keyboard.hotKeys.focusConsole();
 			const metadataButtonIsVisible = await this.metadataButton.isVisible();
 			const sessionTab = this.getSessionTab(session.name);
 			const sessionTabExists = await sessionTab.isVisible();
@@ -432,20 +465,22 @@ export class Sessions {
 			await this.waitForRuntimesToLoad();
 
 			// ensure we are on Console tab
-			await this.console.focus();
+			await this.keyboard.hotKeys.focusConsole();
 
 			// Move mouse to prevent tooltip hover
 			await this.code.driver.page.mouse.move(0, 0);
 
 			// wait for the dropdown to contain R, Python, or Start Session.
-			const currentSession = await this.activeSessionPicker.textContent() || '';
+			const currentSession = await this.sessionPicker.textContent() || '';
 
 			if (currentSession.includes('Python') || currentSession.includes('R')) {
 				const currentSessionId = await this.getCurrentSessionId();
 				await expect(this.consoleInstance(currentSessionId).locator('.current-line')).toBeVisible({ timeout: 30000 });
+				await expect(this.page.getByText(/starting/)).not.toBeVisible({ timeout: 90000 });
 				return;
 			} else if (currentSession.includes('Start Session')) {
 				await expect(this.page.getByRole('button', { name: 'Start Session', exact: true })).toBeVisible();
+				await expect(this.page.getByText(/starting/)).not.toBeVisible({ timeout: 90000 });
 				return;
 			}
 
@@ -643,7 +678,7 @@ export class Sessions {
 			await expect(this.outputChannel).toHaveValue(/Language Server \(Console\)$/);
 
 			// Go back to console when done
-			await this.console.focus();
+			await this.keyboard.hotKeys.focusConsole();
 		});
 	}
 
@@ -664,7 +699,7 @@ export class Sessions {
 			version = language === 'Python' ? DESIRED_PYTHON : DESIRED_R,
 		} = options;
 		await test.step(`Verify runtime is selected: ${language} ${version}`, async () => {
-			const runtimeInfo = await this.quickPick.getSelectedSessionInfo();
+			const runtimeInfo = await this.getSelectedSessionInfo();
 			expect(runtimeInfo.language).toContain(language);
 			expect(runtimeInfo.version).toContain(version);
 		});
@@ -759,7 +794,7 @@ export class SessionQuickPick {
 		// unfortunately we need to retry the session picker until it works
 		await expect(async () => {
 			if (!await this.sessionQuickMenu.isVisible()) {
-				await this.sessions.activeSessionPicker.click();
+				await this.sessions.sessionPicker.click();
 			}
 
 			if (viewAllRuntimes) {
@@ -811,34 +846,6 @@ export class SessionQuickPick {
 
 		await this.closeSessionQuickPickMenu();
 		return filteredSessions;
-	}
-
-	/**
-	 * Helper: Get the interpreter info for the currently selected runtime via the quickpick menu.
-	 * @returns The interpreter info for the selected interpreter if found, otherwise undefined.
-	 */
-	async getSelectedSessionInfo(): Promise<Omit<ExtendedSessionInfo, 'id'>> {
-		await this.openSessionQuickPickMenu(false);
-		const selectedInterpreter = this.code.driver.page.locator('.quick-input-list-entry').filter({ hasText: 'Currently Selected' });
-
-		// Extract the runtime name
-		const runtime = await selectedInterpreter.locator('.monaco-icon-label-container .label-name .monaco-highlighted-label').nth(0).textContent();
-
-		// Extract the language, version, and source from runtime name
-		const { language, version, source } = await this.parseRuntimeName(runtime);
-
-		// Extract the path
-		const path = await selectedInterpreter.locator('.quick-input-list-label-meta .monaco-icon-label-container .label-name .monaco-highlighted-label').nth(0).textContent();
-
-		await this.closeSessionQuickPickMenu();
-
-		return {
-			name: `${language} ${version}`,
-			language: language as 'Python' | 'R',
-			version,
-			source,
-			path: path || '',
-		};
 	}
 
 	// -- Utils --

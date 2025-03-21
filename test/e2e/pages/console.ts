@@ -7,6 +7,7 @@ import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
+import { Sessions } from './sessions';
 import { InterpreterType } from '../infra/fixtures/interpreter';
 
 const CONSOLE_INPUT = '.console-input';
@@ -36,7 +37,7 @@ export class Console {
 		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
 	}
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) {
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private sessions: Sessions) {
 		// this.barPowerButton = this.code.driver.page.getByLabel('Shutdown console');
 		this.barRestartButton = this.code.driver.page.getByLabel('Restart console');
 		this.barClearButton = this.code.driver.page.getByLabel('Clear console');
@@ -181,16 +182,16 @@ export class Console {
 		await this.code.driver.page.mouse.move(0, 0);
 
 		// wait for the dropdown to contain R, Python, or No Interpreter.
-		const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
+		// const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
+		const runtime = await this.sessions.sessionPicker.textContent() || '';
 
-		if (currentInterpreter.includes('Python')) {
+		if (runtime.includes('Python')) {
 			await expect(page.getByRole('code').getByText('>>>')).toBeVisible({ timeout: 30000 });
 			return;
-		} else if (currentInterpreter.includes('R')) {
+		} else if (runtime.includes('R')) {
 			await expect(page.getByRole('code').getByText('>')).toBeVisible({ timeout: 30000 });
 			return;
-		} else if (currentInterpreter.includes('Start Interpreter')) {
-			await expect(page.getByText('There is no interpreter')).toBeVisible();
+		} else if (runtime.includes('Start Session')) {
 			return;
 		}
 
