@@ -39,6 +39,9 @@ import { SaveReason } from '../../../common/editor.js';
 import { IPathService } from '../../path/common/pathService.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { getActiveDocument } from '../../../../base/browser/dom.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 
 // --- Start PWB: disable file downloads ---
 import { IBrowserWorkbenchEnvironmentService } from '../../environment/browser/environmentService.js';
@@ -137,6 +140,8 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 	private readonly onBusyChangeEmitter = this._register(new Emitter<boolean>());
 	private updatingPromise: CancelablePromise<boolean> | undefined;
 
+	private _showDotFiles: boolean = true;
+
 	constructor(
 		@IFileService private readonly fileService: IFileService,
 		@IQuickInputService private readonly quickInputService: IQuickInputService,
@@ -153,12 +158,33 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 		@IPathService protected readonly pathService: IPathService,
 		@IKeybindingService private readonly keybindingService: IKeybindingService,
 		@IContextKeyService contextKeyService: IContextKeyService,
-		@IAccessibilityService private readonly accessibilityService: IAccessibilityService
+		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
+		@IStorageService private readonly storageService: IStorageService
 	) {
 		super();
 		this.remoteAuthority = this.environmentService.remoteAuthority;
 		this.contextKey = RemoteFileDialogContext.bindTo(contextKeyService);
 		this.scheme = this.pathService.defaultUriScheme;
+
+		this.getShowDotFiles();
+		const disposableStore = this._register(new DisposableStore());
+		this.storageService.onDidChangeValue(StorageScope.WORKSPACE, 'remoteFileDialog.showDotFiles', disposableStore)(async _ => {
+			this.getShowDotFiles();
+			this.setButtons();
+			const startingValue = this.filePickBox.value;
+			const folderValue = this.pathFromUri(this.currentFolder, true);
+			this.filePickBox.value = folderValue;
+			await this.tryUpdateItems(folderValue, this.currentFolder, true);
+			this.filePickBox.value = startingValue;
+		});
+	}
+
+	private setShowDotFiles(showDotFiles: boolean) {
+		this.storageService.store('remoteFileDialog.showDotFiles', showDotFiles, StorageScope.WORKSPACE, StorageTarget.USER);
+	}
+
+	private getShowDotFiles() {
+		this._showDotFiles = this.storageService.getBoolean('remoteFileDialog.showDotFiles', StorageScope.WORKSPACE, true);
 	}
 
 	set busy(busy: boolean) {
@@ -292,7 +318,7 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 			this.filePickBox.sortByLabel = false;
 			this.filePickBox.ignoreFocusOut = true;
 			this.filePickBox.ok = true;
-			this.filePickBox.okLabel = this.options.openLabel;
+			this.filePickBox.okLabel = typeof this.options.openLabel === 'string' ? this.options.openLabel : this.options.openLabel?.withoutMnemonic;
 			// --- Start PWB: disable file downloads ---
 			// We just wrapped the whole block in this outer if statement.
 			// Keep the inner block unindented to avoid merge conflicts:
@@ -317,6 +343,11 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 			}
 			}
 			// --- End PWB ---
+
+			this.setButtons();
+			this._register(this.filePickBox.onDidTriggerButton(e => {
+				this.setShowDotFiles(!this._showDotFiles);
+			}));
 
 			let isResolving: number = 0;
 			let isAcceptHandled = false;
@@ -459,6 +490,14 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 		}
 	}
 
+	private setButtons() {
+		this.filePickBox.buttons = [{
+			iconClass: this._showDotFiles ? ThemeIcon.asClassName(Codicon.eye) : ThemeIcon.asClassName(Codicon.eyeClosed),
+			tooltip: this._showDotFiles ? nls.localize('remoteFileDialog.hideDotFiles', "Hide dot files") : nls.localize('remoteFileDialog.showDotFiles', "Show dot files"),
+			alwaysVisible: true
+		}];
+	}
+
 	private isBadSubpath(value: string) {
 		return this.badPath && (value.length > this.badPath.length) && equalsIgnoreCase(value.substring(0, this.badPath.length), this.badPath);
 	}
@@ -596,7 +635,7 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 		return uri;
 	}
 
-	private async tryUpdateItems(value: string, valueUri: URI): Promise<UpdateResult> {
+	private async tryUpdateItems(value: string, valueUri: URI, reset: boolean = false): Promise<UpdateResult> {
 		if ((value.length > 0) && ((value[0] === '~') || this.canTildaEscapeHatch(value))) {
 			const newDir = this.tildaReplace(value);
 			return await this.updateItems(newDir, true) ? UpdateResult.UpdatedWithTrailing : UpdateResult.Updated;
@@ -609,7 +648,7 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 			const newFolderIsSubFolder = resources.extUriIgnorePathCase.isEqual(this.currentFolder, resources.dirname(valueUri));
 			const newFolderIsParent = resources.extUriIgnorePathCase.isEqualOrParent(this.currentFolder, resources.dirname(valueUri));
 			const newFolderIsUnrelated = !newFolderIsParent && !newFolderIsSubFolder;
-			if (!newFolderIsOldFolder && (this.endsWithSlash(value) || newFolderIsParent || newFolderIsUnrelated)) {
+			if ((!newFolderIsOldFolder && (this.endsWithSlash(value) || newFolderIsParent || newFolderIsUnrelated)) || reset) {
 				let stat: IFileStatWithPartialMetadata | undefined;
 				try {
 					stat = await this.fileService.stat(valueUri);
@@ -1003,7 +1042,8 @@ export class SimpleFileDialog extends Disposable implements ISimpleFileDialog {
 			if (!folder) {
 				folder = await this.fileService.resolve(currentFolder);
 			}
-			const items = folder.children ? await Promise.all(folder.children.map(child => this.createItem(child, currentFolder, token))) : [];
+			const filteredChildren = this._showDotFiles ? folder.children : folder.children?.filter(child => !child.name.startsWith('.'));
+			const items = filteredChildren ? await Promise.all(filteredChildren.map(child => this.createItem(child, currentFolder, token))) : [];
 			for (const item of items) {
 				if (item) {
 					result.push(item);

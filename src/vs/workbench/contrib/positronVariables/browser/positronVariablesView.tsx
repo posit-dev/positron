@@ -16,7 +16,6 @@ import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IViewDescriptorService } from '../../../common/views.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { PositronVariablesFocused } from '../../../common/contextkeys.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
@@ -204,7 +203,6 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IOpenerService openerService: IOpenerService,
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
-		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
@@ -221,7 +219,6 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 			instantiationService,
 			openerService,
 			themeService,
-			telemetryService,
 			hoverService);
 
 		// Register the onDidChangeBodyVisibility event handler.

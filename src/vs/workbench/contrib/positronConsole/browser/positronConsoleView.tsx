@@ -21,7 +21,6 @@ import { IThemeService } from '../../../../platform/theme/common/themeService.js
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { PositronConsoleFocused } from '../../../common/contextkeys.js';
-import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
@@ -222,7 +221,6 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		@IPositronPlotsService private readonly positronPlotsService: IPositronPlotsService,
 		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly runtimeStartupService: IRuntimeStartupService,
-		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@IViewsService private readonly viewsService: IViewsService,
@@ -237,7 +235,6 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 			instantiationService,
 			openerService,
 			themeService,
-			telemetryService,
 			hoverService);
 
 		// Bind the PositronConsoleFocused context key.

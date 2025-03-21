@@ -353,8 +353,19 @@ class Mangler {
         this.projectPath = projectPath;
         this.log = log;
         this.config = config;
+        // --- Start Positron ---
+        // Make the worker pool size configurable via env var. We default to 4,
+        // which is the upstream VS Code value, but uses a lot of memory
+        // (empirically even 12GB of RAM isn't enough to support 4 threads).
+        const workerPoolSize = process.env.MANGLER_WORKER_POOL_SIZE ?
+            parseInt(process.env.MANGLER_WORKER_POOL_SIZE) :
+            4;
+        // --- End Positron ---
         this.renameWorkerPool = workerpool_1.default.pool(path_1.default.join(__dirname, 'renameWorker.js'), {
-            maxWorkers: 1,
+            // --- Start Positron ---
+            // maxWorkers: 4,
+            maxWorkers: workerPoolSize,
+            // --- End Positron ---
             minWorkers: 'max'
         });
     }

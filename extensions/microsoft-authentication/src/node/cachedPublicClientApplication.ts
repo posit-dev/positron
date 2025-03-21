@@ -164,7 +164,10 @@ export class CachedPublicClientApplication implements ICachedPublicClientApplica
 				if (this._isBrokerAvailable) {
 					await this._accountAccess.setAllowedAccess(result.account!, true);
 				}
-				// Force an update so that the account cache is updated
+				// Force an update so that the account cache is updated.
+				// TODO:@TylerLeonhardt The problem is, we use the sequencer for
+				// change events but we _don't_ use it for the accounts cache.
+				// We should probably use it for the accounts cache as well.
 				await this._update();
 				return result;
 			})

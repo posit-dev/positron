@@ -16,7 +16,6 @@ import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IViewDescriptorService } from '../../../common/views.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
@@ -178,13 +177,12 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 		@IOpenerService openerService: IOpenerService,
 		@IPositronPlotsService private readonly positronPlotsService: IPositronPlotsService,
 		@IPreferencesService private readonly preferencesService: IPreferencesService,
-		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
 	) {
 		// Call the base class's constructor.
-		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService, hoverService);
+		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {

@@ -348,3 +348,4 @@ knownTermMappings.set('power shell', 'PowerShell');
 knownTermMappings.set('powershell', 'PowerShell');
 knownTermMappings.set('javascript', 'JavaScript');
 knownTermMappings.set('typescript', 'TypeScript');
+knownTermMappings.set('github', 'GitHub');

@@ -584,7 +584,7 @@ export class RemoteStatusIndicator extends Disposable implements IWorkbenchContr
 				return;
 			}
 			// --- End Positron ---
-			this.remoteStatusEntry = this.statusbarService.addEntry(properties, 'status.host', StatusbarAlignment.LEFT, Number.MAX_VALUE /* first entry */);
+			this.remoteStatusEntry = this.statusbarService.addEntry(properties, 'status.host', StatusbarAlignment.LEFT, Number.POSITIVE_INFINITY /* first entry */);
 		}
 	}
 

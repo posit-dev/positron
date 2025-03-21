@@ -47,15 +47,14 @@ import { validateLicenseKey } from './remoteLicenseKey.js';
 
 // eslint-disable-next-line no-duplicate-imports
 import { MandatoryServerConnectionToken } from './serverConnectionToken.js';
-// --- End Positron ---
-
-// --- Start PWB: Server proxy support ---
-import { kProxyRegex, kSessionUrl } from './pwbConstants.js';
-import { IPwbHeartbeatService } from './pwbHeartbeat.js';
 import { PositronBootstrapExtensionsInitializer } from '../../platform/extensionManagement/node/positronBootstrapExtensionsInitializer.js';
 import { INativeEnvironmentService } from '../../platform/environment/common/environment.js';
 import { IExtensionManagementService } from '../../platform/extensionManagement/common/extensionManagement.js';
 import { IFileService } from '../../platform/files/common/files.js';
+// --- End Positron ---
+
+// --- Start PWB: Server proxy support ---
+import { kProxyRegex } from './pwbConstants.js';
 // --- End PWB ---
 
 const SHUTDOWN_TIMEOUT = 5 * 60 * 1000;
@@ -876,16 +875,6 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 		const useSSL = (args['cert'] && args['cert-key']) ? true : false;
 		console.log(`Web UI available at http${useSSL ? 's' : ''}://localhost${useSSL ? (address.port === 443 ? '' : `:${address.port}`) : (address.port === 80 ? '' : `:${address.port}`)}/${queryPart}`);
 		// -- End PWB: SSL support
-
-		// -- Start PWB: Heartbeat
-		// Inside a Posit Workbench session, send an initial heartbeat.
-		if (kSessionUrl) {
-			instantiationService.invokeFunction(async (accessor) => {
-				const pwbHeartbeatService = accessor.get(IPwbHeartbeatService);
-				pwbHeartbeatService.sendInitialHeartbeat();
-			});
-		}
-		// -- End PWB: Heartbeat
 	}
 
 	const remoteExtensionHostAgentServer = instantiationService.createInstance(RemoteExtensionHostAgentServer, socketServer, connectionToken, vsdaMod, hasWebClient, serverBasePath);

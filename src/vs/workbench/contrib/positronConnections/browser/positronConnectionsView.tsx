@@ -12,7 +12,6 @@ import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
 import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
@@ -81,7 +80,6 @@ export class PositronConnectionsView
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
 		@IOpenerService openerService: IOpenerService,
-		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@ICommandService private readonly commandService: ICommandService,
@@ -105,7 +103,6 @@ export class PositronConnectionsView
 			instantiationService,
 			openerService,
 			themeService,
-			telemetryService,
 			hoverService
 		);
 

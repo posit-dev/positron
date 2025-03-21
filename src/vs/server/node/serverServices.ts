@@ -79,9 +79,8 @@ import { RemoteUserDataProfilesServiceChannel } from '../../platform/userDataPro
 import { NodePtyHostStarter } from '../../platform/terminal/node/nodePtyHostStarter.js';
 import { CSSDevelopmentService, ICSSDevelopmentService } from '../../platform/cssDev/node/cssDevService.js';
 import { AllowedExtensionsService } from '../../platform/extensionManagement/common/allowedExtensionsService.js';
-// -- Start PWB: Heartbeat
-import { IPwbHeartbeatService, PwbHeartbeatService } from './pwbHeartbeat.js';
-// -- End PWB: Heartbeat
+import { TelemetryLogAppender } from '../../platform/telemetry/common/telemetryLogAppender.js';
+
 // --- Start Positron ---
 import { EphemeralStateService } from '../../platform/ephemeralState/common/ephemeralStateService.js';
 import { IEphemeralStateService } from '../../platform/ephemeralState/common/ephemeralState.js';
@@ -93,10 +92,6 @@ const eventPrefix = 'monacoworkbench';
 export async function setupServerServices(connectionToken: ServerConnectionToken, args: ServerParsedArgs, REMOTE_DATA_FOLDER: string, disposables: DisposableStore) {
 	const services = new ServiceCollection();
 	const socketServer = new SocketServer<RemoteAgentConnectionContext>();
-
-	// -- Start PWB: Heartbeat
-	services.set(IPwbHeartbeatService, new PwbHeartbeatService());
-	// -- End PWB: Heartbeat
 
 	const productService: IProductService = { _serviceBrand: undefined, ...product };
 	services.set(IProductService, productService);
@@ -173,7 +168,7 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 		}
 
 		const config: ITelemetryServiceConfig = {
-			appenders: [oneDsAppender],
+			appenders: [oneDsAppender, new TelemetryLogAppender('', true, loggerService, environmentService, productService)],
 			commonProperties: resolveCommonProperties(release(), hostname(), process.arch, productService.commit, productService.version + '-remote', machineId, sqmId, devDeviceId, isInternal, 'remoteAgent'),
 			piiPaths: getPiiPathsFromEnvironment(environmentService)
 		};
@@ -237,7 +232,7 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 
 		socketServer.registerChannel(REMOTE_TERMINAL_CHANNEL_NAME, new RemoteTerminalChannel(environmentService, logService, ptyHostService, productService, extensionManagementService, configurationService));
 
-		const remoteExtensionsScanner = new RemoteExtensionsScannerService(instantiationService.createInstance(ExtensionManagementCLI, logService), environmentService, userDataProfilesService, extensionsScannerService, logService, extensionGalleryService, languagePackService);
+		const remoteExtensionsScanner = new RemoteExtensionsScannerService(instantiationService.createInstance(ExtensionManagementCLI, logService), environmentService, userDataProfilesService, extensionsScannerService, logService, extensionGalleryService, languagePackService, extensionManagementService);
 		socketServer.registerChannel(RemoteExtensionsScannerChannelName, new RemoteExtensionsScannerChannel(remoteExtensionsScanner, (ctx: RemoteAgentConnectionContext) => getUriTransformer(ctx.remoteAuthority)));
 
 		const remoteFileSystemChannel = disposables.add(new RemoteAgentFileSystemProviderChannel(logService, environmentService, configurationService));

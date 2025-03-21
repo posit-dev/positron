@@ -88,11 +88,22 @@ function getExtensionDownloadStream(extension) {
             .pipe((0, gulp_rename_1.default)(p => p.dirname = `${extension.name}/${p.dirname}`));
     }
     // --- End PWB: Bundle PWB extension ---
-    // --- Start Positron ---
-    const url = extension.metadata.multiPlatformServiceUrl || productjson.extensionsGallery?.serviceUrl;
-    return (url ? ext.fromMarketplace(url, extension) : ext.fromGithub(extension))
+    let input;
+    if (extension.vsix) {
+        input = ext.fromVsix(path_1.default.join(root, extension.vsix), extension);
+    }
+    else if (productjson.extensionsGallery?.serviceUrl) {
+        input = ext.fromMarketplace(productjson.extensionsGallery.serviceUrl, extension);
+        // --- Start Positron ---
+        if (extension.metadata.multiPlatformServiceUrl) {
+            input = ext.fromMarketplace(productjson.extensionsGallery.serviceUrl, extension);
+        }
         // --- End Positron ---
-        .pipe((0, gulp_rename_1.default)(p => p.dirname = `${extension.name}/${p.dirname}`));
+    }
+    else {
+        input = ext.fromGithub(extension);
+    }
+    return input.pipe((0, gulp_rename_1.default)(p => p.dirname = `${extension.name}/${p.dirname}`));
 }
 function getExtensionStream(extension) {
     // if the extension exists on disk, use those files instead of downloading anew

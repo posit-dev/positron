@@ -31,7 +31,7 @@
 	},
 	{
 		"c": "(",
-		"t": "",
+		"t": "punctuation",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -41,7 +41,7 @@
 	},
 	{
 		"c": ")",
-		"t": "",
+		"t": "punctuation",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -51,7 +51,7 @@
 	},
 	{
 		"c": "{",
-		"t": "",
+		"t": "punctuation",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -131,7 +131,7 @@
 	},
 	{
 		"c": "[",
-		"t": "",
+		"t": "punctuation",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -171,7 +171,7 @@
 	},
 	{
 		"c": "]",
-		"t": "",
+		"t": "punctuation",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -191,7 +191,7 @@
 	},
 	{
 		"c": "}",
-		"t": "",
+		"t": "punctuation",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
