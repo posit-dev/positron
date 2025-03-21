@@ -670,52 +670,58 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 * Start the LSP
 	 *
 	 * Returns a promise that resolves when the LSP has been activated.
+	 *
+	 * Should never be called within `RSession`, only a session manager
+	 * should call this.
 	 */
 	public async activateLsp(): Promise<void> {
-		if (this._lsp.state === LspState.stopped ||
-			this._lsp.state === LspState.uninitialized) {
-			return this._queue.add(async () => {
-				await this.startLsp();
-			});
-		} else {
+		if (this._lsp.state !== LspState.stopped && this._lsp.state !== LspState.uninitialized) {
+			// Already activated
 			return undefined;
 		}
+
+		return this._queue.add(async () => {
+			if (this._kernel) {
+				this._kernel.emitJupyterLog('Starting Positron LSP server');
+
+				// Create the LSP comm, which also starts the LSP server.
+				// We await the server selected port (the server selects the
+				// port since it is in charge of binding to it, which avoids
+				// race conditions). We also use this promise to avoid restarting
+				// in the middle of initialization.
+				this._lspStarting = this._kernel.startPositronLsp('127.0.0.1');
+				const port = await this._lspStarting;
+
+				this._kernel.emitJupyterLog(`Starting Positron LSP client on port ${port}`);
+
+				await this._lsp.activate(port);
+			}
+		});
 	}
 
 	/**
 	 * Stops the LSP if it is running
 	 *
 	 * Returns a promise that resolves when the LSP has been deactivated.
+	 *
+	 * Should never be called within `RSession`, only a session manager should
+	 * call this. That said, we do sometimes call `this._lsp.deactivate()`
+	 * directly from within `RSession`. This is okay for now, the important
+	 * thing is that an LSP should only ever be started up by a session manager
+	 * to ensure that other LSPs are deactivated first.
 	 */
 	public async deactivateLsp(awaitStop: boolean): Promise<void> {
-		if (this._lsp.state === LspState.running) {
-			return this._queue.add(async () => {
-				if (this._kernel) {
-					this._kernel.emitJupyterLog(`Stopping Positron LSP server`);
-				}
-				await this._lsp.deactivate(awaitStop);
-			});
-		} else {
+		if (this._lsp.state !== LspState.running) {
+			// Nothing to deactivate
 			return undefined;
 		}
-	}
 
-	private async startLsp(): Promise<void> {
-		if (this._kernel) {
-			this._kernel.emitJupyterLog('Starting Positron LSP server');
-
-			// Create the LSP comm, which also starts the LSP server.
-			// We await the server selected port (the server selects the
-			// port since it is in charge of binding to it, which avoids
-			// race conditions). We also use this promise to avoid restarting
-			// in the middle of initialization.
-			this._lspStarting = this._kernel.startPositronLsp('127.0.0.1');
-			const port = await this._lspStarting;
-
-			this._kernel.emitJupyterLog(`Starting Positron LSP client on port ${port}`);
-
-			await this._lsp.activate(port);
-		}
+		return this._queue.add(async () => {
+			if (this._kernel) {
+				this._kernel.emitJupyterLog(`Stopping Positron LSP server`);
+			}
+			await this._lsp.deactivate(awaitStop);
+		});
 	}
 
 	/**
@@ -728,6 +734,16 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		return await this._lsp.wait();
 	}
 
+	/**
+	 * Start the DAP
+	 *
+	 * Returns a promise that resolves when the DAP has been activated.
+	 *
+	 * Unlike the LSP, the DAP can activate immediately. It is only actually
+	 * connected to a DAP client when a `start_debug` message is sent from the
+	 * foreground Ark session to Positron, so it won't interfere with any other
+	 * sessions by coming online.
+	 */
 	private async startDap(): Promise<void> {
 		if (this._kernel) {
 			await this._kernel.startPositronDap('ark', 'Ark Positron R');
@@ -736,21 +752,11 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 	private onStateChange(state: positron.RuntimeState): void {
 		this._state = state;
-		if (state === positron.RuntimeState.Ready) {
-			// Start the LSP and DAP servers
-			this._queue.add(async () => {
-				const dap = this.startDap();
 
-				if (this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
-					// For consoles, the LSP is activated when the console becomes the foreground session
-					await dap;
-				} else {
-					// For background / notebook, the LSP is activated on startup
-					// (these never become foreground sessions)
-					const lsp = this.startLsp();
-					await Promise.all([lsp, dap]);
-				}
-			});
+		if (state === positron.RuntimeState.Ready) {
+			this._queue.add(async () => {
+				await this.startDap();
+			})
 
 			this._queue.add(async () => {
 				try {
@@ -770,9 +776,6 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 					}
 				}
 			});
-
-		} else if (state === positron.RuntimeState.Exited) {
-			this.deactivateLsp(false);
 		}
 	}
 

@@ -18,34 +18,19 @@ export class RSessionManager {
 	/// Map of session IDs to RSession instances
 	private _sessions: Map<string, RSession> = new Map();
 
+	/// The most recent foreground R session (foreground implies it is a console session)
+	private _lastForegroundSessionId: string | null = null;
+
+	/// The set of sessions actively restarting
+	private _restartingConsoleSessions: Set<string> = new Set();
+
 	/// The last binpath that was used
 	private _lastBinpath = '';
 
 	/// Constructor; private since we only want one of these
 	private constructor() {
-		positron.runtime.onDidChangeForegroundSession(sessionId => {
-			if (sessionId) {
-				const session = this._sessions.get(sessionId);
-				if (session) {
-					// Stop LSPs for other console sessions
-					const stopPromises = Array.from(this._sessions)
-						// Convert RSession to Promise to stop LSP
-						.map(([, s]) => {
-							if (s.metadata.sessionId !== sessionId &&
-								s.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
-								return s.deactivateLsp(true);
-							}
-						})
-						// Remove undefined values
-						.filter(p => p !== undefined);
-
-					// Wait for all LSPs to stop before starting the foreground
-					Promise.all(stopPromises).then(async () => {
-						// Start LSP for the foreground session
-						await session.activateLsp();
-					});
-				}
-			}
+		positron.runtime.onDidChangeForegroundSession(async sessionId => {
+			await this.didChangeForegroundSession(sessionId);
 		});
 	}
 
@@ -71,6 +56,106 @@ export class RSessionManager {
 			throw new Error(`Session ${sessionId} already registered.`);
 		}
 		this._sessions.set(sessionId, session);
+		session.onDidChangeRuntimeState(async (state) => {
+			await this.didChangeSessionRuntimeState(session, state);
+		})
+	}
+
+	private async didChangeSessionRuntimeState(session: RSession, state: positron.RuntimeState): Promise<void> {
+		switch (state) {
+			// Three `Ready` states to consider:
+			// - Fresh console sessions fall through and are activated by `didChangeForegroundSession()`.
+			// - Restarted console sessions are activated here if they were previously the
+			//   foreground session before their restart, as we won't get a foreground session
+			//   notification for them otherwise.
+			// - Non-console sessions are activated immediately.
+			case positron.RuntimeState.Ready: {
+				if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
+					if (this._restartingConsoleSessions.has(session.metadata.sessionId)) {
+						this._restartingConsoleSessions.delete(session.metadata.sessionId);
+						if (this._lastForegroundSessionId === session.metadata.sessionId) {
+							await this.activateConsoleSession(session);
+						}
+					}
+				} else {
+					await this.activateSession(session);
+				}
+				break;
+			}
+
+			// Track Console session restarts for potential reactivation once
+			// the session is ready. Ideally we'd use `RuntimeState.Restarting`
+			// to only track truly restarting sessions, but kallichore doesn't
+			// emit that right now. The practical downside of this is that
+			// sessions that permanently go into `Exited` and never come back
+			// online will never be removed from `_restartingConsoleSessions`,
+			// but we don't think that would get too out of control.
+			//
+			// On exit, we also double check that we are fully deactivated
+			case positron.RuntimeState.Exited: {
+				if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
+					this._restartingConsoleSessions.add(session.metadata.sessionId);
+				}
+				await this.deactivateSession(session);
+			}
+
+			default:
+				break;
+		}
+	}
+
+	private async didChangeForegroundSession(sessionId: string | undefined): Promise<void> {
+		if (!sessionId) {
+			// There is no foreground session, nothing to do.
+			return;
+		}
+
+		// TODO: Switch to `getActiveRSessions()` built on `positron.runtime.getActiveSessions()`
+		// and remove `this._sessions` entirely.
+		const session = this._sessions.get(sessionId)
+		if (!session) {
+			// The foreground session is for another language.
+			return;
+		}
+
+		if (session.metadata.sessionMode !== positron.LanguageRuntimeSessionMode.Console) {
+			throw Error(`Foreground session with ID ${sessionId} must be a console session.`);
+		}
+
+		this._lastForegroundSessionId = session.metadata.sessionId;
+		await this.activateConsoleSession(session);
+	}
+
+	/**
+	 * Activate a console session, while first deactivating all other console sessions
+	 */
+	private async activateConsoleSession(session: RSession): Promise<void> {
+		// Deactivate other console session servers first
+		await Promise.all(Array.from(this._sessions.values())
+			.filter(s => {
+				return s.metadata.sessionId !== session.metadata.sessionId &&
+					s.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console
+			})
+			.map(s => {
+				return this.deactivateSession(s);
+			})
+		);
+		await this.activateSession(session);
+	}
+
+	/**
+	 * Activates a session
+	 *
+	 * Does not request that other sessions deactivate. Used for notebook
+	 * and background sessions, and indirectly for console sessions through
+	 * the safer `activateConsoleSession()`.
+	 */
+	private async activateSession(session: RSession): Promise<void> {
+		await session.activateLsp();
+	}
+
+	private async deactivateSession(session: RSession): Promise<void> {
+		await session.deactivateLsp(true);
 	}
 
 	/**
