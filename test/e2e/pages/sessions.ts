@@ -524,6 +524,8 @@ export class Sessions {
 	 */
 	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
 		return await test.step(`Get metadata for: ${sessionId ?? 'current session'}`, async () => {
+			await this.keyboard.hotKeys.focusConsole();
+
 			if (sessionId && await this.getSessionCount() > 1) {
 				await this.page.getByTestId(`console-tab-${sessionId}`).click();
 			}

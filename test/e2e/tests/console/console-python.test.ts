@@ -25,8 +25,8 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 	});
 
 	test('Python - Verify cancel button on console bar', async function ({ app, python }) {
-		await app.workbench.console.pasteCodeToConsole('import time; time.sleep(10)');
-		await app.workbench.console.sendEnterKey();
+		await app.workbench.console.typeToConsole('import time', true);
+		await app.workbench.console.typeToConsole('time.sleep(10)', true);
 		await app.workbench.console.interruptExecution();
 	});
 

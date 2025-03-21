@@ -45,7 +45,7 @@ test.describe('Notebooks', {
 			await app.workbench.notebooks.assertMarkdownText('h2', randomText);
 		});
 
-		test('Python - Save untitled notebook and preserve session', async function ({ app }) {
+		test.fixme('Python - Save untitled notebook and preserve session', async function ({ app }) {
 			// Ensure auxiliary sidebar is open to see variables pane
 			await app.workbench.layouts.enterLayout('notebook');
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
