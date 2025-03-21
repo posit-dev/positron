@@ -84,7 +84,6 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	constructor(
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
 		readonly metadata: positron.RuntimeSessionMetadata,
-		readonly context: vscode.ExtensionContext,
 		readonly kernelSpec?: JupyterKernelSpec,
 		readonly extra?: JupyterKernelExtra,
 	) {

@@ -206,14 +206,18 @@ export class Variables {
 	 * Verify: Confirm the variable is visible and has the expected value.
 	 * @param variableName the name of the variable to check
 	 * @param value the expected value of the variable
+	 * @param timeout (optional) timeout in milliseconds for visibility (default 15000)
 	 */
-	async expectVariableToBe(variableName: string, value: string) {
+	async expectVariableToBe(variableName: string, value: string, timeout: number = 15000) {
 		await test.step(`Verify variable: ${variableName} with value: ${value}`, async () => {
 			await this.focusVariablesView();
-			const row = this.code.driver.page.locator('.variables-instance[style*="z-index: 1"] .variable-item').filter({ hasText: variableName });
+			const row = this.code.driver.page
+				.locator('.variables-instance[style*="z-index: 1"] .variable-item')
+				.filter({ hasText: variableName });
 
-			await expect(row).toBeVisible();
+			await expect(row).toBeVisible({ timeout });
 			await expect(row.locator('.details-column .value')).toHaveText(value);
 		});
 	}
+
 }

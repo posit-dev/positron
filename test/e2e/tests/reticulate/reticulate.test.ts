@@ -99,7 +99,9 @@ test.describe.fixme('Reticulate', {
 		tag: [tags.RETICULATE, tags.CONSOLE]
 	}, async function ({ app, sessions }) {
 		// const interpreterDesc = 'Python (reticulate)';
+		// if (!sequential) {
 		// await app.workbench.interpreter.selectInterpreter('Python', interpreterDesc, true);
+		// }
 		// await app.workbench.interpreter.verifyInterpreterIsRunning(interpreterDesc);
 
 		// await app.workbench.interpreter.restartPrimaryInterpreter(interpreterDesc);

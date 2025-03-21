@@ -23,7 +23,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(LOGGER.onDidChangeLogLevel(onDidChangeLogLevel));
 	onDidChangeLogLevel(LOGGER.logLevel);
 
-	const rRuntimeManager = new RRuntimeManager(context);
+	const rRuntimeManager = new RRuntimeManager();
 	positron.runtime.registerLanguageRuntimeManager('r', rRuntimeManager);
 
 	// Set contexts.
