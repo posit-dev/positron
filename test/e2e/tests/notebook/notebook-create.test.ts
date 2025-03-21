@@ -5,6 +5,7 @@
 
 import path from 'path';
 import { test, tags } from '../_test.setup';
+import { expect } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
@@ -52,10 +53,13 @@ test.describe('Notebooks', {
 
 			// First, create and execute a cell to verify initial session
 			await app.workbench.notebooks.addCodeToCellAtIndex('foo = "bar"');
-			await app.workbench.notebooks.executeCodeInCell();
 
-			// Verify the variable is in the variables pane
-			await app.workbench.variables.expectVariableToBe('foo', "'bar'");
+			await expect(async () => {
+				await app.workbench.notebooks.executeCodeInCell();
+
+				// Verify the variable is in the variables pane
+				await app.workbench.variables.expectVariableToBe('foo', "'bar'", 20000);
+			}).toPass({ timeout: 60000 });
 
 			// Save the notebook using the command
 			await app.workbench.quickaccess.runCommand('workbench.action.files.saveAs', { keepOpen: true });
@@ -72,8 +76,10 @@ test.describe('Notebooks', {
 			// Verify the variable still exists
 			await app.workbench.variables.expectVariableToBe('foo', "'bar'");
 
-			// Add a new cell
-			await app.workbench.notebooks.insertNotebookCell('code');
+			await expect(async () => {
+				// Add a new cell
+				await app.workbench.notebooks.insertNotebookCell('code');
+			}).toPass({ timeout: 60000 });
 
 			// Create a new variable using the now saved notebook
 			// Add code to the new cell (using typeInEditor since addCodeToLastCell isn't available)

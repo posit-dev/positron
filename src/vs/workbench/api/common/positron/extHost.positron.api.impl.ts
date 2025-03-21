@@ -222,8 +222,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getCurrentPlotUri(): Thenable<string | undefined> {
 				return extHostAiFeatures.getCurrentPlotUri();
 			},
-			showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onSave: (config: positron.ai.LanguageModelConfig) => Thenable<void>): Thenable<void> {
-				return extHostAiFeatures.showLanguageModelConfig(sources, onSave);
+			showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>): Thenable<void> {
+				return extHostAiFeatures.showLanguageModelConfig(sources, onAction);
 			},
 			registerChatAgent(agentData: positron.ai.ChatAgentData): Thenable<vscode.Disposable> {
 				return extHostAiFeatures.registerChatAgent(extension, agentData);
@@ -234,6 +234,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			getPositronChatContext(request: vscode.ChatRequest): Thenable<positron.ai.ChatContext> {
 				return extHostAiFeatures.getPositronChatContext(request);
+			},
+			getSupportedProviders(): Thenable<string[]> {
+				return extHostAiFeatures.getSupportedProviders();
 			}
 		};
 
