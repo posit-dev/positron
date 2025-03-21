@@ -238,7 +238,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 				await deleteConfigurationByProvider(context, storage, userConfig.provider);
 				break;
 			default:
-				throw new Error(vscode.l10n.t('Invalid action: {0}', action));
+				throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));
 		}
 	});
 
