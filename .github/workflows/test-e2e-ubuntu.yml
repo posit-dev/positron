@@ -167,6 +167,7 @@ jobs:
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/ubuntu' }}
           ENABLE_CURRENTS_REPORTER: ${{ inputs.enable_currents_reporter }}
+        shell: bash
         run: |
           echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
 
@@ -205,8 +206,11 @@ jobs:
           echo "Final --grep argument: $GREP_ARG"
           echo "Final --grep-invert argument: $GREP_INVERT_ARG"
 
-          # Build the full command
-          CMD="DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          # Set DISPLAY variable separately
+          export DISPLAY=:10
+
+          # Build the full command without inline variable assignment
+          CMD="npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
 
           # Log the command to be run for debugging purposes
           echo "Running: $CMD"
