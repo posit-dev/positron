@@ -239,13 +239,13 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			const nullCount = props.instance.getColumnProfileNullCount(props.columnIndex);
 
 			if (nullPercent === undefined || nullCount === undefined) {
-				return 'Null Values\nCalculating...';
+				return 'Missing Values\nCalculating...';
 			} else if (nullPercent === 0) {
-				return `Null Values\nNo null values`;
+				return `Missing Values\nNo missing values`;
 			} else if (nullPercent === 100) {
-				return `Null Values\nAll values are null (${nullCount.toLocaleString()} values)`;
+				return `Missing Values\nAll values are missing (${nullCount.toLocaleString()} values)`;
 			} else {
-				return `Null Values\n${nullPercent}% of values are null (${nullCount.toLocaleString()} values)`;
+				return `Missing Values\n${nullPercent}% of values are missing (${nullCount.toLocaleString()} values)`;
 			}
 		};
 
