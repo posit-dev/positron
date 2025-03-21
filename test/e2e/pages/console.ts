@@ -8,7 +8,6 @@ import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
 import { Sessions } from './sessions';
-import { InterpreterType } from '../infra/fixtures/interpreter';
 
 const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
@@ -48,40 +47,6 @@ export class Console {
 		this.consoleTab = this.code.driver.page.getByRole('tab', { name: 'Console', exact: true });
 	}
 
-	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string, waitForReady: boolean = true): Promise<undefined> {
-
-		// don't try to start a new interpreter if one is currently starting up
-		await this.waitForReadyOrNoInterpreter();
-
-		let command: string;
-		if (desiredInterpreterType === InterpreterType.Python) {
-			command = 'python.setInterpreter';
-		} else if (desiredInterpreterType === InterpreterType.R) {
-			command = 'r.selectInterpreter';
-		} else {
-			throw new Error(`Interpreter type ${desiredInterpreterType} not supported`);
-		}
-
-		await this.quickaccess.runCommand(command, { keepOpen: true });
-		await this.quickinput.waitForQuickInputOpened();
-		await this.quickinput.type(desiredInterpreterString);
-
-		// Wait until the desired interpreter string appears in the list and select it.
-		// We need to click instead of using 'enter' because the Python select interpreter command
-		// may include additional items above the desired interpreter string.
-		await this.quickinput.selectQuickInputElementContaining(desiredInterpreterString);
-		await this.quickinput.waitForQuickInputClosed();
-
-		// Move mouse to prevent tooltip hover
-		await this.code.driver.page.mouse.move(0, 0);
-
-		if (waitForReady) {
-			desiredInterpreterType === InterpreterType.Python
-				? await this.waitForReadyAndStarted('>>>', 40000)
-				: await this.waitForReadyAndStarted('>', 40000);
-		}
-		return;
-	}
 
 	async executeCode(languageName: 'Python' | 'R', code: string, options?: { timeout?: number; maximizeConsole?: boolean }): Promise<void> {
 		return test.step(`Execute ${languageName} code in console: ${code}`, async () => {

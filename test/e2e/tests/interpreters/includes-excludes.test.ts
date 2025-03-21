@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { fail } from 'assert';
-import { InterpreterType } from '../../infra/fixtures/interpreter';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -24,7 +23,7 @@ test.describe.fixme('Interpreter Includes/Excludes', {
 
 		if (hiddenPython) {
 			await userSettings.set([['python.interpreters.include', '["/home/runner/scratch/python-env"]']], true);
-			await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, hiddenPython, true);
+			// await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, hiddenPython, true);
 		} else {
 			fail('Hidden Python version not set');
 		}
@@ -38,7 +37,7 @@ test.describe.fixme('Interpreter Includes/Excludes', {
 
 		if (hiddenR) {
 			await userSettings.set([['positron.r.customRootFolders', '["/home/runner/scratch"]']], true);
-			await app.workbench.interpreter.selectInterpreter(InterpreterType.R, hiddenR, true);
+			// await app.workbench.interpreter.selectInterpreter(InterpreterType.R, hiddenR, true);
 		} else {
 			fail('Hidden R version not set');
 		}
@@ -49,12 +48,12 @@ test.describe.fixme('Interpreter Includes/Excludes', {
 		const alternateR = process.env.POSITRON_R_ALT_VER_SEL;
 
 		if (alternateR) {
-			await app.workbench.interpreter.selectInterpreter(InterpreterType.R, alternateR, true);
+			// await app.workbench.interpreter.selectInterpreter(InterpreterType.R, alternateR, true);
 
 			const failMessage = 'selectInterpreter was supposed to fail as /opt/R/4.4.2 was excluded';
 			await userSettings.set([['positron.r.interpreters.exclude', '["/opt/R/4.4.2"]']], true);
 			try {
-				await app.workbench.interpreter.selectInterpreter(InterpreterType.R, alternateR, true);
+				// await app.workbench.interpreter.selectInterpreter(InterpreterType.R, alternateR, true);
 				fail(failMessage);
 			} catch (e) {
 				if (e instanceof Error && e.message.includes(failMessage)) {
@@ -73,12 +72,12 @@ test.describe.fixme('Interpreter Includes/Excludes', {
 		const alternatePython = process.env.POSITRON_PY_ALT_VER_SEL;
 
 		if (alternatePython) {
-			await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, alternatePython, true);
+			// await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, alternatePython, true);
 
 			const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was excluded';
 			await userSettings.set([['python.interpreters.exclude', '["~/.pyenv"]']], true);
 			try {
-				await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, alternatePython, true);
+				// await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, alternatePython, true);
 				fail(failMessage);
 			} catch (e) {
 				if (e instanceof Error && e.message.includes(failMessage)) {

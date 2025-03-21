@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
-import { expect } from '@playwright/test';
-import { deletePositronHistoryFiles, getPrimaryInterpretersText } from './helpers/default-interpreters.js';
+import { deletePositronHistoryFiles } from './helpers/default-interpreters.js';
 
 test.use({
 	suiteId: __filename
@@ -35,12 +34,12 @@ test.describe.fixme('Default Interpreters - Python', {
 
 		await runCommand('workbench.action.reloadWindow');
 
-		const interpretersText = await getPrimaryInterpretersText(app);
+		// const interpretersText = await getPrimaryInterpretersText(app);
 
 		// local debugging:
 		// expect(interpretersText.some(text => text.includes("3.13.0"))).toBe(true);
 
 		// hidden CI interpreter:
-		expect(interpretersText.some(text => text.includes("3.12.9"))).toBe(true);
+		// expect(interpretersText.some(text => text.includes("3.12.9"))).toBe(true);
 	});
 });

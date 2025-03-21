@@ -26,6 +26,7 @@ export class Sessions {
 	sessionTabs = this.page.getByTestId(/console-tab/);
 	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
+	getSessionCount = async () => (await this.sessions.all()).length;
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
@@ -107,9 +108,8 @@ export class Sessions {
 	async delete(sessionId: string): Promise<void> {
 		await test.step(`Delete session: ${sessionId}`, async () => {
 			await this.keyboard.hotKeys.focusConsole();
-			const sessionCount = (await this.sessions.all()).length;
 
-			if (sessionCount === 1) {
+			if (await this.getSessionCount() === 1) {
 				const currentSessionId = await this.getCurrentSessionId();
 				if (currentSessionId === sessionId) {
 					await this.page.getByTestId('trash-session').click();
@@ -360,8 +360,8 @@ export class Sessions {
 
 			if (waitForReady) {
 				await expect(this.page.getByText(/starting/)).not.toBeVisible({ timeout: 90000 });
-				const prompt = language === 'Python' ? '>>>' : '> ';
-				await expect(this.page.locator('.active-line-number')).toHaveText(prompt, { timeout: 90000 });
+				const sessionId = await this.getCurrentSessionId();
+				await this.expectStatusToBe(sessionId, 'idle');
 			}
 		});
 
@@ -524,7 +524,7 @@ export class Sessions {
 	 */
 	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
 		return await test.step(`Get metadata for: ${sessionId ?? 'current session'}`, async () => {
-			if (sessionId) {
+			if (sessionId && await this.getSessionCount() > 1) {
 				await this.page.getByTestId(`console-tab-${sessionId}`).click();
 			}
 			await this.metadataButton.click();
@@ -621,7 +621,7 @@ export class Sessions {
 		const timeout = options?.timeout || 30000;
 
 		await test.step(`Verify ${sessionIdOrName} session status: ${expectedStatus}`, async () => {
-			const sessionCount = (await this.sessions.all()).length;
+			const sessionCount = await this.getSessionCount();
 
 			if (sessionCount > 1) {
 				// get status from icon in tab list view
@@ -764,7 +764,11 @@ export class Sessions {
 	 * Verify: all sessions are idle (not active)
 	 */
 	async expectAllSessionsToBeIdle() {
-		await expect(this.activeStatusIcon).toHaveCount(0);
+		if (await this.getSessionCount() > 0) {
+			await expect(this.activeStatusIcon).toHaveCount(0);
+		} else {
+			await expect(this.page.getByText(/starting/)).not.toBeVisible();
+		}
 	}
 
 	/**
@@ -945,8 +949,6 @@ const rSessionAlt: SessionInfo = {
 	id: '',
 	waitForReady: true
 };
-
-
 
 type SessionRuntimes = 'python' | 'pythonAlt' | 'r' | 'rAlt';
 

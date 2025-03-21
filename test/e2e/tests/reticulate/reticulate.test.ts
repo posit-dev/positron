@@ -98,12 +98,12 @@ test.describe.fixme('Reticulate', {
 	test('R - Verify Reticulate Restart', {
 		tag: [tags.RETICULATE, tags.CONSOLE]
 	}, async function ({ app, sessions }) {
-		const interpreterDesc = 'Python (reticulate)';
-		await app.workbench.interpreter.selectInterpreter('Python', interpreterDesc, true);
-		await app.workbench.interpreter.verifyInterpreterIsRunning(interpreterDesc);
+		// const interpreterDesc = 'Python (reticulate)';
+		// await app.workbench.interpreter.selectInterpreter('Python', interpreterDesc, true);
+		// await app.workbench.interpreter.verifyInterpreterIsRunning(interpreterDesc);
 
-		await app.workbench.interpreter.restartPrimaryInterpreter(interpreterDesc);
-		await app.workbench.interpreter.verifyInterpreterIsRunning(interpreterDesc);
+		// await app.workbench.interpreter.restartPrimaryInterpreter(interpreterDesc);
+		// await app.workbench.interpreter.verifyInterpreterIsRunning(interpreterDesc);
 	});
 });
 

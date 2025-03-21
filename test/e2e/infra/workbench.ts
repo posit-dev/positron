@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Code } from './code';
-import { Interpreter } from '../infra/fixtures/interpreter';
 import { Popups } from '../pages/popups';
 import { Console } from '../pages/console';
 import { Variables } from '../pages/variables';
@@ -45,7 +44,6 @@ export interface Commands {
 
 export class Workbench {
 
-	readonly interpreter: Interpreter;
 	readonly popups: Popups;
 	readonly console: Console;
 	readonly variables: Variables;
@@ -99,7 +97,6 @@ export class Workbench {
 		this.newProjectWizard = new NewProjectWizard(code, this.quickaccess);
 		this.output = new Output(code, this.quickaccess, this.quickInput);
 		this.console = new Console(code, this.quickaccess, this.quickInput, this.sessions);
-		this.interpreter = new Interpreter(code, this.console);
 		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess);
 		this.welcome = new Welcome(code);
 		this.clipboard = new Clipboard(code);
