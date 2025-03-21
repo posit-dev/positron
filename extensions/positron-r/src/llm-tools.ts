@@ -12,7 +12,7 @@ import { RSessionManager } from './session-manager.js';
  * @param context The extension context for registering disposables
  */
 export function registerRLanguageModelTools(context: vscode.ExtensionContext): void {
-	const rTool = vscode.lm.registerTool<{}>('getLoadedPackages', {
+	const rLoadedPackagesTool = vscode.lm.registerTool<{}>('getLoadedPackages', {
 		invoke: async (options, token) => {
 			const manager = RSessionManager.instance;
 			const session = manager.getConsoleSession();
@@ -21,7 +21,7 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 					new vscode.LanguageModelTextPart('No active R session'),
 				]);
 			}
-			const packages = await session.callMethod('get_loaded_packages', token);
+			const packages = await session.callMethod('get_loaded_packages');
 			if (packages instanceof Array) {
 				const results = packages.map((pkg: string) => new vscode.LanguageModelTextPart(pkg));
 				return new vscode.LanguageModelToolResult(results);
@@ -32,6 +32,36 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 			}
 		}
 	});
+	context.subscriptions.push(rLoadedPackagesTool);
 
-	context.subscriptions.push(rTool);
+	const rPackageVersionTool = vscode.lm.registerTool<{ packageName: string }>('getInstalledPackageVersion', {
+		invoke: async (options, token) => {
+			const manager = RSessionManager.instance;
+			const session = manager.getConsoleSession();
+			if (!session) {
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart('No active R session'),
+				]);
+			}
+
+			if (!options.input.packageName) {
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart('Package name is required'),
+				]);
+			}
+
+			const version = await session.callMethod('packageVersion', options.input.packageName, null);
+			if (version === null) {
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart(`NULL`),
+				]);
+			} else {
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart(JSON.stringify(version)),
+				]);
+			}
+		}
+	});
+
+	context.subscriptions.push(rPackageVersionTool);
 }

@@ -694,6 +694,23 @@
         "name": "getLoadedPackages",
         "displayName": "Get Loaded R Packages",
         "modelDescription": "Gets a list of the R packages that are loaded in the current R session.",
+        "canBeReferencedInPrompt": false,
+        "tags": ["positron-assistant"]
+      },
+      {
+        "name": "getInstalledPackageVersion",
+        "displayName": "Get Installed R Package Version",
+        "modelDescription": "Given the name of an R package, returns the version of the package that's installed in the current R session, or NULL if the package is not installed.",
+        "canBeReferencedInPrompt": false,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "packageName": {
+              "type": "string",
+              "description": "The name of the R package to get the version of."
+            }
+          }
+        },
         "tags": ["positron-assistant"]
       }
     ]
