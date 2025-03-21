@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ActivityItem } from './activityItem.js';
-import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 import { formatOutputLinesForClipboard } from '../utils/clipboardUtils.js';
+import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
 /**
  * ActivityItemOutputMessage class.
