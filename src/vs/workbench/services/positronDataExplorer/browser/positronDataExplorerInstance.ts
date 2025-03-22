@@ -57,9 +57,9 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	private _isSummaryCollapsed = DataExplorerSummaryCollapseEnabled(this._configurationService);
 
 	/**
-	 * Gets or sets the columns width percent.
+	 * Gets or sets the summary width in pixels.
 	 */
-	private _columnsWidthPercent = 0.25;
+	private _summaryWidth = 0;
 
 	/**
 	 * Gets the TableSchemaDataGridInstance.
@@ -84,9 +84,9 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	);
 
 	/**
-	 * The onDidChangeColumnsWidthPercent event emitter.
+	 * The onDidChangeSummaryWidth event emitter.
 	 */
-	private readonly _onDidChangeColumnsWidthPercentEmitter = this._register(new Emitter<number>);
+	private readonly _onDidChangeSummaryWidthEmitter = this._register(new Emitter<number>);
 
 	/**
 	 * The onDidChangeColumnsScrollOffset event emitter.
@@ -252,18 +252,18 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
-	 * Gets the columns width percent.
+	 * Gets the summary width in pixels.
 	 */
-	get columnsWidthPercent() {
-		return this._columnsWidthPercent;
+	get summaryWidth() {
+		return this._summaryWidth;
 	}
 
 	/**
-	 * Sets the columns width percent.
+	 * Sets the summary width in pixels.
 	 */
-	set columnsWidthPercent(columnsWidthPercent: number) {
-		this._columnsWidthPercent = columnsWidthPercent;
-		this._onDidChangeColumnsWidthPercentEmitter.fire(this._columnsWidthPercent);
+	set summaryWidth(summaryWidth: number) {
+		this._summaryWidth = summaryWidth;
+		this._onDidChangeSummaryWidthEmitter.fire(this._summaryWidth);
 	}
 
 	/**
@@ -441,9 +441,9 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	readonly onDidChangeLayout = this._onDidChangeLayoutEmitter.event;
 
 	/**
-	 * onDidChangeColumnsWidthPercent event.
+	 * onDidChangeSummaryWidth event.
 	 */
-	readonly onDidChangeColumnsWidthPercent = this._onDidChangeColumnsWidthPercentEmitter.event;
+	readonly onDidChangeSummaryWidth = this._onDidChangeSummaryWidthEmitter.event;
 
 	/**
 	 * onDidChangeColumnsScrollOffset event.
