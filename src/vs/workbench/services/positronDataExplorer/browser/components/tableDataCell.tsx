@@ -7,13 +7,14 @@
 import './tableDataCell.css';
 
 // React.
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { DataCell, DataCellKind } from '../../common/tableDataCache.js';
 import { PositronDataExplorerColumn } from '../positronDataExplorerColumn.js';
+import { PositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 
 /**
  * TableDataCellProps interface.
@@ -21,6 +22,7 @@ import { PositronDataExplorerColumn } from '../positronDataExplorerColumn.js';
 interface TableDataCellProps {
 	column: PositronDataExplorerColumn;
 	dataCell: DataCell;
+	hoverManager?: PositronActionBarHoverManager;
 }
 
 export function renderLeadingTrailingWhitespace(text: string | undefined) {
@@ -96,10 +98,54 @@ export const TableDataCell = (props: TableDataCellProps) => {
 	// Set the class names.
 	const classNames = positronClassNames('text-value', { 'special-value': isSpecialValue });
 
+	// Reference to the content element to check for truncation
+	const contentRef = useRef<HTMLDivElement>(null);
+
+	// Effect to handle hover tooltip for truncated text
+	useEffect(() => {
+		const contentElement = contentRef.current;
+		if (!contentElement || !props.hoverManager) {
+			return;
+		}
+
+		const checkTruncation = () => {
+			// Check if text is truncated (offsetWidth < scrollWidth indicates truncation)
+			const isTruncated = contentElement.offsetWidth < contentElement.scrollWidth;
+			return isTruncated;
+		};
+
+		// Show tooltip when mouse enters if text is truncated
+		const showTooltip = () => {
+			if (props.dataCell.formatted && checkTruncation()) {
+				// Only show tooltip for truncated cells with non-empty content
+				props.hoverManager?.showHover(
+					contentElement,
+					props.dataCell.formatted
+				);
+			}
+		};
+
+		// Hide tooltip when mouse leaves
+		const hideTooltip = () => {
+			props.hoverManager?.hideHover();
+		};
+
+		// Add event listeners
+		contentElement.addEventListener('mouseenter', showTooltip);
+		contentElement.addEventListener('mouseleave', hideTooltip);
+
+		// Return cleanup function
+		return () => {
+			contentElement.removeEventListener('mouseenter', showTooltip);
+			contentElement.removeEventListener('mouseleave', hideTooltip);
+			props.hoverManager?.hideHover();
+		};
+	}, [props.dataCell.formatted, props.hoverManager]);
+
 	// Render.
 	return (
 		<div className={positronClassNames('text-container', props.column.alignment)}>
-			<div className={classNames}>
+			<div ref={contentRef} className={classNames}>
 				{renderedOutput}
 			</div>
 		</div>

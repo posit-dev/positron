@@ -144,14 +144,13 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		));
 
 		// Create the hover manager.
-		this._hoverManager = new PositronActionBarHoverManager(
+		this._hoverManager = this._register(new PositronActionBarHoverManager(
 			true,
 			this._configurationService,
 			this._hoverService
-		);
+		));
 		// Show tooltip hovers right away
 		this._hoverManager.setCustomHoverDelay(0);
-		this._register(this._hoverManager);
 	}
 
 	//#endregion Constructor
