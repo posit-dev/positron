@@ -10,6 +10,8 @@ COMMIT="@@COMMIT@@"
 APP_NAME="@@APPNAME@@"
 QUALITY="@@QUALITY@@"
 NAME="@@NAME@@"
+VERSION="@@POSITRONVERSION@@"
+BUILDNUMBER="@@BUILDNUMBER@@"
 SERVERDATAFOLDER="@@SERVERDATAFOLDER@@"
 VSCODE_PATH="$(dirname "$(dirname "$(realpath "$0")")")"
 ELECTRON="$VSCODE_PATH/$NAME.exe"
@@ -41,7 +43,7 @@ if [ $IN_WSL = true ]; then
 	CLI=$(wslpath -m "$VSCODE_PATH/resources/app/out/cli.js")
 
 	# use the Remote WSL extension if installed
-	WSL_EXT_ID="ms-vscode-remote.remote-wsl"
+	WSL_EXT_ID="kv9898.open-remote-wsl"
 
 	ELECTRON_RUN_AS_NODE=1 "$ELECTRON" "$CLI" --locate-extension $WSL_EXT_ID >/tmp/remote-wsl-loc.txt 2>/dev/null </dev/null
 	WSL_EXT_WLOC=$(cat /tmp/remote-wsl-loc.txt)
@@ -49,7 +51,7 @@ if [ $IN_WSL = true ]; then
 	if [ -n "$WSL_EXT_WLOC" ]; then
 		# replace \r\n with \n in WSL_EXT_WLOC
 		WSL_CODE=$(wslpath -u "${WSL_EXT_WLOC%%[[:cntrl:]]}")/scripts/wslCode.sh
-		"$WSL_CODE" "$COMMIT" "$QUALITY" "$ELECTRON" "$APP_NAME" "$SERVERDATAFOLDER" "$@"
+		"$WSL_CODE" "$COMMIT" "$QUALITY" "$ELECTRON" "$APP_NAME" "$SERVERDATAFOLDER" "$VERSION" "$BUILDNUMBER" "$@"
 		exit $?
 	fi
 
