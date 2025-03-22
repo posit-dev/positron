@@ -149,7 +149,7 @@ export const UseProposedApi = Symbol('USE_VSC_PROPOSED_API');
 
 // --- Start Positron ---
 export const IPYKERNEL_VERSION = '>=6.19.1';
-export const MINIMUM_PYTHON_VERSION = { major: 3, minor: 8, patch: 0, raw: '3.8.0' } as PythonVersion;
+export const MINIMUM_PYTHON_VERSION = { major: 3, minor: 9, patch: 0, raw: '3.9.0' } as PythonVersion;
 export const INTERPRETERS_INCLUDE_SETTING_KEY = 'interpreters.include';
 export const INTERPRETERS_EXCLUDE_SETTING_KEY = 'interpreters.exclude';
 export const INTERPRETERS_OVERRIDE_SETTING_KEY = 'interpreters.override';
