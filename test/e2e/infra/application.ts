@@ -9,6 +9,7 @@ import { Logger, measureAndLog } from './logger';
 import { Profiler } from './profiler';
 import { Keyboard } from './keyboard.js';
 import { expect } from '@playwright/test';
+import { NativeMenu } from './nativeMenu.js';
 
 export const enum Quality {
 	Dev,
@@ -38,6 +39,9 @@ export class Application {
 
 	private _keyboard: Keyboard | undefined;
 	get keyboard(): Keyboard { return this._keyboard!; }
+
+	private _nativeMenu: NativeMenu | undefined;
+	get nativeMenu(): NativeMenu | undefined { return this._nativeMenu; }
 
 	get quality(): Quality {
 		return this.options.quality;
@@ -122,6 +126,8 @@ export class Application {
 		this._workbench = new Workbench(this._code);
 		this._profiler = new Profiler(this.code);
 		this._keyboard = new Keyboard(this.code);
+		// Native menu optional, only if this is an electron app
+		this._nativeMenu = this.code.electronApp ? new NativeMenu(this.code) : undefined;
 
 		return code;
 	}
