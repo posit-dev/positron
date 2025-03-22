@@ -82,6 +82,56 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	 * @returns The rendered component.
 	 */
 	const ColumnSparkline = () => {
+		// Determines whether a sparkline is expected for this column type
+		const shouldShowSparkline = () => {
+			switch (props.columnSchema.type_display) {
+				case ColumnDisplayType.Number:
+				case ColumnDisplayType.Boolean:
+				case ColumnDisplayType.String:
+					return true;
+				default:
+					return false;
+			}
+		};
+
+		/**
+		 * SparklineLoadingIndicator component.
+		 * Displays a subtle loading animation while data is being computed.
+		 */
+		const SparklineLoadingIndicator = () => {
+			return (
+				<div
+					className='column-sparkline'
+					style={{
+						width: SPARKLINE_WIDTH,
+						height: SPARKLINE_HEIGHT + SPARKLINE_X_AXIS_HEIGHT
+					}}
+				>
+					<svg
+						className='vector-histogram loading-sparkline'
+						shapeRendering='crispEdges'
+						viewBox={`0 0 ${SPARKLINE_WIDTH} ${SPARKLINE_HEIGHT + SPARKLINE_X_AXIS_HEIGHT}`}
+					>
+						<g>
+							<rect className='x-axis'
+								height={SPARKLINE_X_AXIS_HEIGHT}
+								width={SPARKLINE_WIDTH}
+								x={0}
+								y={SPARKLINE_HEIGHT - SPARKLINE_X_AXIS_HEIGHT}
+							/>
+							<rect className='loading-indicator'
+								height={SPARKLINE_HEIGHT * 0.3}
+								rx={2}
+								width={SPARKLINE_WIDTH * 0.8}
+								x={SPARKLINE_WIDTH * 0.1}
+								y={SPARKLINE_HEIGHT * 0.5}
+							/>
+						</g>
+					</svg>
+				</div>
+			);
+		};
+
 		// Render.
 		switch (props.columnSchema.type_display) {
 			// Column display types that render a histogram sparkline.
@@ -89,7 +139,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				// Get the column histogram.
 				const columnHistogram = props.instance.getColumnProfileSmallHistogram(props.columnIndex);
 				if (!columnHistogram) {
-					return null;
+					return shouldShowSparkline() ? <SparklineLoadingIndicator /> : null;
 				}
 
 				// Render the column sparkline.
@@ -118,7 +168,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				// Get the column frequency table.
 				const columnFrequencyTable = props.instance.getColumnProfileSmallFrequencyTable(props.columnIndex);
 				if (!columnFrequencyTable) {
-					return null;
+					return shouldShowSparkline() ? <SparklineLoadingIndicator /> : null;
 				}
 
 				// Render the column sparkline.
