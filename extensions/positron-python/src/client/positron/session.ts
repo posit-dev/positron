@@ -527,9 +527,13 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         );
     }
 
+    /**
+     * Start the LSP
+     *
+     * Returns a promise that resolves when the LSP has been activated.
+     */
     async activateLsp(): Promise<void> {
-        // Start LSP for the foreground session only if its been previously stopped
-        if (this._lsp?.state === LspState.stopped) {
+        if (this._lsp?.state === LspState.stopped || this._lsp?.state === LspState.uninitialized) {
             return this._queue.add(async () => {
                 await this.startLsp();
             });
@@ -538,6 +542,11 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
+    /**
+     * Stops the LSP if it is running
+     *
+     * Returns a promise that resolves when the LSP has been deactivated.
+     */
     async deactivateLsp(awaitStop: boolean): Promise<void> {
         if (this._lsp?.state === LspState.running) {
             return this._queue.add(async () => {
@@ -728,7 +737,12 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._state = state;
         if (state === positron.RuntimeState.Ready) {
             this._queue.add(async () => {
-                await this.startLsp();
+                if (this.metadata.sessionMode !== positron.LanguageRuntimeSessionMode.Console) {
+                    // Start the language server for non-Console sessions immediately, because
+                    // they will never become foreground sessions. Otherwise we delay LSP activation
+                    // until the session becomes the foreground session.
+                    await this.startLsp();
+                }
             });
 
             this._queue.add(async () => {
