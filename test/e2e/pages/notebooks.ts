@@ -194,6 +194,7 @@ export class Notebooks {
 
 	async executeActiveCell(): Promise<void> {
 		await this.quickaccess.runCommand('notebook.cell.execute');
+		await expect(this.code.driver.page.locator('.codicon-notebook-state-executing.codicon-modifier-spin')).not.toBeVisible({ timeout: 30000 });
 	}
 
 	async focusNextCell() {

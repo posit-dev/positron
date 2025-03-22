@@ -181,7 +181,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(async (folderPath: string) => {
 			await test.step(`Open folder: ${folderPath}`, async () => {
 				await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
-				await playwright.expect(app.workbench.quickInput.quickInputList.getByLabel('..', { exact: true }).locator('a')).toBeVisible();
+				await playwright.expect(app.workbench.quickInput.quickInputList.locator('a').filter({ hasText: '..' })).toBeVisible();
 
 				const folderNames = folderPath.split('/');
 

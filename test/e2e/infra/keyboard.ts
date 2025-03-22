@@ -38,6 +38,7 @@ export class Keyboard {
 			closeAllEditors: () => this.pressHotKeys(`Cmd+K Cmd+W`),
 			visualMode: () => this.pressHotKeys(`Cmd+Shift+F4`),
 			focusConsole: () => this.pressHotKeys(`Cmd+K F`),
+			toggleBottomPanel: () => this.pressHotKeys(`Cmd+J`)
 		};
 	}
 
@@ -46,12 +47,13 @@ export class Keyboard {
 	 * Note: Supports multiple key sequences separated by spaces.
 	 * @param keyCombo the hotkeys to press (e.g. "Cmd+Shift+P").
 	 */
-	private async pressHotKeys(keyCombo: string) {
+	private async pressHotKeys(keyCombo: string, options: { platformAdjust?: boolean } = {}) {
+		const { platformAdjust = true } = options;
 		const modifierKey = this.getModifierKey();
 
 		await test.step(`Press hotkeys: ${keyCombo}`, async () => {
 			// Replace "Cmd" with the platform-appropriate modifier key
-			const keySequences = keyCombo.split(' ').map(keys => keys.replace(/Cmd/g, modifierKey));
+			const keySequences = keyCombo.split(' ').map(keys => keys.replace(/Cmd/g, platformAdjust ? modifierKey : 'Cmd'));
 
 			for (const key of keySequences) {
 				await this.code.driver.page.keyboard.press(key);

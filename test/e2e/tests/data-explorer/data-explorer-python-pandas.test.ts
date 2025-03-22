@@ -13,6 +13,7 @@ test.use({
 test.describe('Data Explorer - Python Pandas', {
 	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.DATA_EXPLORER]
 }, () => {
+	test.describe.configure({ mode: 'serial' });
 	test('Python Pandas - Verify can send code to console, open data grid, and data present', async function ({ app, python, logger }) {
 		// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 		const script = `import pandas as pd
@@ -100,6 +101,8 @@ df2 = pd.DataFrame(data)`;
 
 		await app.workbench.layouts.enterLayout('notebook');
 
+		await app.keyboard.hotKeys.toggleBottomPanel();
+
 		const col1ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(1);
 		expect(col1ProfileInfo.profileData).toStrictEqual({ 'Missing': '1', 'Min': '1.00', 'Median': '3.00', 'Mean': '3.00', 'Max': '5.00', 'SD': '1.83' });
 
@@ -115,11 +118,12 @@ df2 = pd.DataFrame(data)`;
 		const col5ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(5);
 		expect(col5ProfileInfo.profileData).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '3' });
 
-		await app.workbench.layouts.enterLayout('stacked');
-		await app.workbench.sideBar.closeSecondarySideBar();
 
-		await app.workbench.dataExplorer.closeDataExplorer();
-		await app.workbench.variables.togglePane('show');
+		// await app.workbench.layouts.enterLayout('stacked');
+		// await app.workbench.sideBar.closeSecondarySideBar();
+
+		// await app.workbench.dataExplorer.closeDataExplorer();
+		// await app.workbench.variables.togglePane('show');
 
 	});
 
@@ -138,6 +142,8 @@ df2 = pd.DataFrame(data)`;
 		await app.workbench.notebooks.selectInterpreter('Python', process.env.POSITRON_PY_VER_SEL!);
 		await app.workbench.notebooks.focusFirstCell();
 		await app.workbench.notebooks.executeActiveCell();
+		// is this an issue? the variables pane does not open up automatically after running cell
+		await app.workbench.variables.focusVariablesView();
 		await app.workbench.variables.doubleClickVariableRow('df');
 		await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true });
 
