@@ -58,6 +58,7 @@ test.describe('Data Explorer - Python Polars', {
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(5)).toBe('33%');
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(6)).toBe('33%');
 
+		await app.keyboard.hotKeys.toggleBottomPanel();
 
 		const col1ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(1);
 		expect(col1ProfileInfo.profileData).toStrictEqual({ 'Missing': '0', 'Min': '1.00', 'Median': '2.00', 'Mean': '2.00', 'Max': '3.00', 'SD': '1.00' });

@@ -100,7 +100,6 @@ df2 = pd.DataFrame(data)`;
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(5)).toBe('40%');
 
 		await app.workbench.layouts.enterLayout('notebook');
-
 		await app.keyboard.hotKeys.toggleBottomPanel();
 
 		const col1ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(1);

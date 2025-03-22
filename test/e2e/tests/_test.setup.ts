@@ -187,7 +187,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 				for (const folderName of folderNames) {
 					await app.workbench.quickInput.quickInput.pressSequentially(folderName + '/');
-					const quickInputOption = app.code.driver.page.getByRole('option', { name: folderName }).locator('a');
+					const quickInputOption = app.workbench.quickInput.quickInput.getByRole('option', { name: folderName });
 					await playwright.expect(quickInputOption).not.toBeVisible();
 				}
 
