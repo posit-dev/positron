@@ -24,12 +24,14 @@ export class ActivityItemOutputHtml extends ActivityItem {
 	 * @param parentId The parent identifier.
 	 * @param when The date.
 	 * @param html The HTML content returned from the runtime.
+	 * @param text The text content returned from the runtime.
 	 */
 	constructor(
 		id: string,
 		parentId: string,
 		when: Date,
-		readonly html: string
+		readonly html: string,
+		readonly text: string,
 	) {
 		// Call the base class's constructor.
 		super(id, parentId, when);
@@ -45,7 +47,7 @@ export class ActivityItemOutputHtml extends ActivityItem {
 	 * @returns The clipboard representation of the activity item.
 	 */
 	public override getClipboardRepresentation(commentPrefix: string): string[] {
-		return [commentPrefix + positronHTMLOutput];
+		return [commentPrefix + (this.text ?? positronHTMLOutput)];
 	}
 
 	//#endregion Public Methods

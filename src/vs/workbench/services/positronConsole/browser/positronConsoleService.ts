@@ -2014,7 +2014,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 							languageRuntimeMessageOutput.id,
 							languageRuntimeMessageOutput.parent_id,
 							new Date(languageRuntimeMessageOutput.when),
-							languageRuntimeMessageOutput.data['text/html']
+							languageRuntimeMessageOutput.data['text/html'],
+							languageRuntimeMessageOutput.data['text/plain']
 						)
 					);
 				} else {
