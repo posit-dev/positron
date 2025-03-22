@@ -998,7 +998,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(scrollbackSizeSettingId)) {
 				this._scrollbackSize = this._configurationService.getValue<number>(scrollbackSizeSettingId);
-				console.log(`scrollbackSize changed to ${this._scrollbackSize}`);
 			}
 		}));
 
