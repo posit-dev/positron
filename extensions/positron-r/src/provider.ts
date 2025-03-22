@@ -17,6 +17,7 @@ import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 import { getInterpreterOverridePaths, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { isDirectory, isFile } from './path-utils.js';
+import { isCondaAvailable, getCondaEnvironments, getCondaRPaths, getCondaName } from './provider-conda.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -156,6 +157,8 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 	// Consult various sources of R binaries
 	const currentBinaries = await currentRBinaryCandidates();
 	const systemBinaries = discoverSystemBinaries();
+	const condaBinaries = await discoverCondaBinaries();
+	// await discoverCondaBinaries();
 	const registryBinaries = await discoverRegistryBinaries();
 	const moreBinaries = discoverAdHocBinaries([
 		'/usr/bin/R',
@@ -170,6 +173,7 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 	const rBinaries: RBinary[] = [
 		...currentBinaries,
 		...systemBinaries,
+		...condaBinaries,
 		...registryBinaries,
 		...moreBinaries,
 		...userBinaries,
@@ -234,8 +238,17 @@ export async function makeMetadata(
 		isUserInstallation ?
 			RRuntimeSource.user : RRuntimeSource.system;
 
+	let runtimeShortName: string;
+	runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
 	// Short name shown to users (when disambiguating within a language)
-	const runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
+	if (rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.CONDA)) {
+		const condaName = getCondaName(rInst.homepath);
+		if (condaName === "") {
+			runtimeShortName = `${runtimeShortName} (Conda)`; // in case no conda name is detected
+		} else {
+			runtimeShortName = `${runtimeShortName} (Conda: ${condaName})`;
+		}
+	}
 
 	// Full name shown to users
 	const runtimeName = `R ${runtimeShortName}`;
@@ -587,6 +600,44 @@ function discoverAdHocBinaries(paths: string[]): RBinary[] {
  */
 function discoverSystemBinaries(): RBinary[] {
 	return discoverHQBinaries(rHeadquarters());
+}
+
+/**
+ * Discovers R binaries that are installed in conda environments.
+ * @returns conda R binaries.
+ */
+async function discoverCondaBinaries(): Promise<RBinary[]> {
+	if (!(await isCondaAvailable())) {
+		LOGGER.info("Conda is not installed or not in PATH.");
+		return [];
+	}
+
+	// if (process.platform === "win32") {
+	// 	LOGGER.info("Conda is not supported on Windows.");
+	// 	return [];
+	// }
+
+	const condaEnvs = await getCondaEnvironments();
+	const rBinaries: RBinary[] = [];
+
+	for (const envPath of condaEnvs) {
+		const rPaths = getCondaRPaths(envPath);  // list of R binaries in this environment
+
+		if (rPaths.length === 0) {
+			continue;
+		}
+
+		for (const rPath of rPaths) {
+			if (fs.existsSync(rPath)) { // return the first existing R
+				LOGGER.info(`Detected R in Conda environment: ${rPath}`);
+				rBinaries.push({ path: rPath, reasons: [ReasonDiscovered.CONDA] });
+				break;
+			}
+		}
+
+	}
+
+	return rBinaries;
 }
 
 /**
