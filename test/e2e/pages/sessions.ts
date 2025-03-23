@@ -134,12 +134,19 @@ export class Sessions {
 	 * Action: Restart the session
 	 *
 	 * @param sessionIdOrName - the id or name of the session
-	 * @param waitForIdle - wait for the session to display as "idle" (ready)
+	 * @param options - Configuration options for the restart
+	 * @param options.waitForIdle - wait for the session to display as "idle" (ready)
+	 * @param options.clearConsole - clear the console before restarting
 	 */
-	async restart(sessionIdOrName: string, waitForIdle = true, clearConsole = true): Promise<void> {
+	async restart(sessionIdOrName: string, options?: { waitForIdle?: boolean; clearConsole?: boolean }): Promise<void> {
+		const { waitForIdle = true, clearConsole = true } = options || {};
+
 		await test.step(`Restart session: ${sessionIdOrName}`, async () => {
-			// todo: make this handle case where no session tab list (aka 1 session)
-			await this.getSessionTab(sessionIdOrName).click();
+			await this.keyboard.hotKeys.focusConsole();
+
+			if (await this.getSessionCount() > 1) {
+				await this.getSessionTab(sessionIdOrName).click();
+			}
 
 			if (clearConsole) {
 				await this.page.getByLabel('Clear console').click();
@@ -149,7 +156,8 @@ export class Sessions {
 			await this.page.mouse.move(0, 0);
 
 			if (waitForIdle) {
-				this.expectStatusToBe(sessionIdOrName, 'idle', { timeout: 90000 });
+				await expect(this.page.getByText(/restarting/)).not.toBeVisible({ timeout: 90000 });
+				await this.expectStatusToBe(sessionIdOrName, 'idle');
 			}
 		});
 	}

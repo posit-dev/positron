@@ -52,7 +52,7 @@ df = pd.DataFrame(data)`;
 		await app.workbench.variables.togglePane('show');
 	});
 
-	test('Python Pandas - Verify data explorer functionality with empty fields', async function ({ app, python, logger }) {
+	test('Python Pandas - Verify data explorer functionality with empty fields', async function ({ app, logger }) {
 		const script = `import numpy as np
 import pandas as pd
 
@@ -92,15 +92,12 @@ df2 = pd.DataFrame(data)`;
 	});
 
 	// Cannot be run by itself, relies on the previous test
-	test('Python Pandas - Verify data explorer column info functionality', async function ({ app, python }) {
+	test('Python Pandas - Verify data explorer column info functionality', async function ({ app }) {
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(1)).toBe('20%');
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(2)).toBe('40%');
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(3)).toBe('40%');
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(4)).toBe('60%');
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(5)).toBe('40%');
-
-		await app.workbench.layouts.enterLayout('notebook');
-		await app.keyboard.hotKeys.toggleBottomPanel();
 
 		const col1ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(1);
 		expect(col1ProfileInfo.profileData).toStrictEqual({ 'Missing': '1', 'Min': '1.00', 'Median': '3.00', 'Mean': '3.00', 'Max': '5.00', 'SD': '1.83' });
@@ -116,25 +113,14 @@ df2 = pd.DataFrame(data)`;
 
 		const col5ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(5);
 		expect(col5ProfileInfo.profileData).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '3' });
-
-
-		// await app.workbench.layouts.enterLayout('stacked');
-		// await app.workbench.sideBar.closeSecondarySideBar();
-
-		// await app.workbench.dataExplorer.closeDataExplorer();
-		// await app.workbench.variables.togglePane('show');
-
 	});
 
 	// This test is not dependent on the previous test, so it refreshes the python environment
-	test('Python Pandas - Verify can execute cell, open data grid, and data present', async function ({ app, python }) {
+	test('Python Pandas - Verify can execute cell, open data grid, and data present', async function ({ app, runCommand, sessions }) {
 		// Restart python for clean environment & open the file
-		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.console.barClearButton.click();
-		await app.workbench.console.barRestartButton.click();
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await expect(app.workbench.console.activeConsole.getByText('restarted')).toBeVisible({ timeout: 60000 });
+		await runCommand('workbench.action.closeAllEditors', { keepOpen: false });
+		await runCommand('workbench.action.toggleAuxiliaryBar');
+		await sessions.restart('Python');
 
 		const filename = 'pandas-update-dataframe.ipynb';
 		await app.workbench.notebooks.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', filename));
@@ -179,7 +165,7 @@ df2 = pd.DataFrame(data)`;
 		await app.workbench.dataExplorer.closeDataExplorer();
 	});
 
-	test('Python Pandas - Verify opening Data Explorer for the second time brings focus back', async function ({ app, python }) {
+	test('Python Pandas - Verify opening Data Explorer for the second time brings focus back', async function ({ app }) {
 
 		const script = `import pandas as pd
 Data_Frame = pd.DataFrame({
@@ -210,7 +196,7 @@ Data_Frame = pd.DataFrame({
 		await app.workbench.variables.focusVariablesView();
 	});
 
-	test('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, python }) {
+	test('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', async function ({ app }) {
 
 		const script = `import pandas as pd
 df = pd.DataFrame({'x': ["a ", "a", "   ", ""]})`;
