@@ -110,20 +110,6 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		}
 	}, { scope: 'worker', auto: true, timeout: 60000 }],
 
-	// interpreter: [async ({ app, page }, use) => {
-	// 	const setInterpreter = async (desiredInterpreter: 'Python' | 'R', waitForReady = true) => {
-	// 		const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
-
-	// 		if (!currentInterpreter.startsWith(desiredInterpreter)) {
-	// 			desiredInterpreter === 'Python'
-	// 				? await app.workbench.interpreter.startInterpreterViaQuickAccess('Python', waitForReady)
-	// 				: await app.workbench.interpreter.startInterpreterViaQuickAccess('R', waitForReady);
-	// 		}
-	// 	};
-
-	// 	await use({ set: setInterpreter });
-	// }, { scope: 'test', timeout: 30000 }],
-
 	sessions: [
 		async ({ app }, use) => {
 			await use(app.workbench.sessions);
@@ -415,7 +401,6 @@ interface TestFixtures {
 	page: playwright.Page;
 	attachScreenshotsToReport: any;
 	attachLogsToReport: any;
-	// interpreter: { set: (interpreterName: 'Python' | 'R', waitFoReady?: boolean) => Promise<void> };
 	sessions: Sessions;
 	r: void;
 	python: void;

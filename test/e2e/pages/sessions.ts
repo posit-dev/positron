@@ -92,7 +92,7 @@ export class Sessions {
 			const session = { ...availableRuntimes[key], waitForReady, triggerMode };
 			session.id = reuse
 				? await this.reuseIdleSessionIfExists(session)
-				: await this.launch(session);
+				: await this.launchNew(session);
 			results.push(session);
 		}
 
@@ -307,7 +307,7 @@ export class Sessions {
 	}
 
 	/**
-	 * Helpers: Start a session via the session picker button, quickaccess, or console session button.
+	 * Helpers: Start a new session via the session picker button, quickaccess, or console session button.
 	 *
 	 * @param options - Configuration options for selecting the runtime session.
 	 * @param options.language - the runtime language to select (e.g., "Python" or "R").
@@ -315,7 +315,7 @@ export class Sessions {
 	 * @param options.triggerMode - the method used to trigger the selection: session-picker, quickaccess, or console.
 	 * @param options.waitForReady - whether to wait for the console to be ready after selecting the runtime.
 	 */
-	private async launch(options: {
+	private async launchNew(options: {
 		language: 'Python' | 'R';
 		version?: string;
 		triggerMode?: 'session-picker' | 'quickaccess' | 'console' | 'hotkey';
@@ -453,7 +453,7 @@ export class Sessions {
 			}
 
 			// Create a new session if none exists
-			return await this.launch(session);
+			return await this.launchNew(session);
 		});
 	}
 
