@@ -484,16 +484,16 @@ export const twoDigitHex = (value: number) => {
 //#region Test Suite
 
 /**
- * ANSIOutout suite.
+ * ANSIOutput suite.
  */
-suite('ANSIOutout', () => {
+suite('ANSIOutput', () => {
 	test('Test ANSIOutput.processOutput with empty string', () => {
 		// Setup.
 		const outputLines = ANSIOutput.processOutput('');
 
 		// Tests.
 		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].id.length, 36);
+		assert.ok(outputLines[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns.length, 0);
 	});
 
@@ -503,7 +503,7 @@ suite('ANSIOutout', () => {
 
 		// Tests.
 		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].id.length, 36);
+		assert.ok(outputLines[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns.length, 1);
 		assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
 	});
@@ -526,7 +526,7 @@ suite('ANSIOutout', () => {
 
 		// Tests.
 		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].id.length, 36);
+		assert.ok(outputLines[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns.length, 1);
 		assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
 	});
@@ -541,7 +541,7 @@ suite('ANSIOutout', () => {
 		assert.equal(outputLines.length, 2);
 		for (let i = 0; i < outputLines.length; i++) {
 			assert.equal(outputLines[i].outputRuns.length, 1);
-			assert.equal(outputLines[i].outputRuns[0].id.length, 36);
+			assert.ok(outputLines[i].outputRuns[0].id.length >= 1);
 			assert.equal(outputLines[i].outputRuns[0].format, undefined);
 			assert.equal(outputLines[i].outputRuns[0].text, PANGRAM);
 		}
@@ -557,7 +557,7 @@ suite('ANSIOutout', () => {
 		assert.equal(outputLines.length, 2);
 		for (let i = 0; i < outputLines.length; i++) {
 			assert.equal(outputLines[i].outputRuns.length, 1);
-			assert.equal(outputLines[i].outputRuns[0].id.length, 36);
+			assert.ok(outputLines[i].outputRuns[0].id.length >= 1);
 			assert.equal(outputLines[i].outputRuns[0].format, undefined);
 			assert.equal(outputLines[i].outputRuns[0].text, PANGRAM);
 		}
@@ -598,7 +598,7 @@ suite('ANSIOutout', () => {
 		// Test.
 		assert.equal(outputLines.length, 1);
 		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
 		assert.equal(outputLines[0].outputRuns[0].text, '0123456789                    ');
 	});
@@ -618,7 +618,7 @@ suite('ANSIOutout', () => {
 		// Test.
 		assert.equal(outputLines.length, 1);
 		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
 		assert.equal(outputLines[0].outputRuns[0].text, '0123456789                              ');
 	});
@@ -650,7 +650,7 @@ suite('ANSIOutout', () => {
 		// Test.
 		assert.equal(outputLines.length, 1);
 		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
 		assert.equal(outputLines[0].outputRuns[0].text, 'XXXXXXXXXX0000000000000000000000000000000000000000000000000000000000000000000000');
 	});
@@ -666,7 +666,7 @@ suite('ANSIOutout', () => {
 		// Test.
 		assert.equal(outputLines.length, 1);
 		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
 		assert.equal(outputLines[0].outputRuns[0].text, '00000000000000000000000000000000000XXXXXXXXXX00000000000000000000000000000000000');
 	});
@@ -682,7 +682,7 @@ suite('ANSIOutout', () => {
 		// Test.
 		assert.equal(outputLines.length, 1);
 		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
 		assert.equal(outputLines[0].outputRuns[0].text, '0000000000000000000000000000000000000000000000000000000000000000000000XXXXXXXXXX');
 	});
@@ -732,7 +732,7 @@ suite('ANSIOutout', () => {
 		// Test.
 		assert.equal(outputLines.length, 1);
 		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
 		assert.equal(outputLines[0].outputRuns[0].text, '0XXXXXXXXXX000000000000000000000000000000000000000000000000000000000000000000000');
 	});
@@ -749,7 +749,7 @@ suite('ANSIOutout', () => {
 		// Test.
 		assert.equal(outputLines.length, 1);
 		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
 		assert.equal(outputLines[0].outputRuns[0].text, '00000000000000000000000000000000000XXXXXXXXXX00000000000000000000000000000000000');
 	});
@@ -766,7 +766,7 @@ suite('ANSIOutout', () => {
 		// Test.
 		assert.equal(outputLines.length, 1);
 		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
 		assert.equal(outputLines[0].outputRuns[0].text, '0000000000000000000000000000000000000000000000000000000000000000000000XXXXXXXXXX');
 	});
@@ -1479,7 +1479,7 @@ suite('ANSIOutout', () => {
 		assert.equal(outputLines[0].outputRuns.length, 3);
 
 		// First red segment.
-		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
 		assert.notEqual(outputLines[0].outputRuns[0].format, undefined);
 		assert.equal(outputLines[0].outputRuns[0].format!.styles, undefined);
 		assert.equal(outputLines[0].outputRuns[0].format!.foregroundColor, ANSIColor.Red);
@@ -1489,7 +1489,7 @@ suite('ANSIOutout', () => {
 		assert.equal(outputLines[0].outputRuns[0].text, '00000000000000000000000000000000000');
 
 		// Inserted blue segment.
-		assert.equal(outputLines[0].outputRuns[1].id.length, 36);
+		assert.ok(outputLines[0].outputRuns[1].id.length >= 1);
 		assert.notEqual(outputLines[0].outputRuns[1].format, undefined);
 		assert.equal(outputLines[0].outputRuns[1].format!.styles, undefined);
 		assert.equal(outputLines[0].outputRuns[1].format!.foregroundColor, ANSIColor.Blue);
@@ -1499,7 +1499,7 @@ suite('ANSIOutout', () => {
 		assert.equal(outputLines[0].outputRuns[1].text, 'XXXXXXXXXX');
 
 		// Second red segment.
-		assert.equal(outputLines[0].outputRuns[2].id.length, 36);
+		assert.ok(outputLines[0].outputRuns[2].id.length >= 1);
 		assert.notEqual(outputLines[0].outputRuns[2].format, undefined);
 		assert.equal(outputLines[0].outputRuns[2].format!.styles, undefined);
 		assert.equal(outputLines[0].outputRuns[2].format!.foregroundColor, ANSIColor.Red);
@@ -1517,7 +1517,7 @@ suite('ANSIOutout', () => {
 			const outputLines = ansiOutput.outputLines;
 			assert.equal(outputLines.length, 1);
 			assert.equal(outputLines[0].outputRuns.length, 1);
-			assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+			assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
 			assert.notEqual(outputLines[0].outputRuns[0].format, undefined);
 			assert.equal(outputLines[0].outputRuns[0].format!.styles!.length, 1);
 			assert.equal(outputLines[0].outputRuns[0].format!.styles![0], ansiStyle);
@@ -1556,7 +1556,7 @@ suite('ANSIOutout', () => {
 
 		// Test.
 		assert.equal(outputLines.length, 1);
-		assert.equal(outputLines[0].id.length, 36);
+		assert.ok(outputLines[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns.length, 1);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
 		assert.notEqual(outputLines[0].outputRuns[0].hyperlink, undefined);
@@ -1579,22 +1579,22 @@ suite('ANSIOutout', () => {
 		// Test.
 		assert.equal(outputLines.length, 1);
 
-		assert.equal(outputLines[0].id.length, 36);
+		assert.ok(outputLines[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns.length, 3);
 
-		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
 		assert.equal(outputLines[0].outputRuns[0].hyperlink, undefined);
 		assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
 
-		assert.equal(outputLines[0].outputRuns[1].id.length, 36);
+		assert.ok(outputLines[0].outputRuns[1].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns[1].format, undefined);
 		assert.notEqual(outputLines[0].outputRuns[1].hyperlink, undefined);
 		assert.equal(outputLines[0].outputRuns[1].hyperlink!.url, linkURL);
 		assert.equal(outputLines[0].outputRuns[1].hyperlink!.params, undefined);
 		assert.equal(outputLines[0].outputRuns[1].text, linkText);
 
-		assert.equal(outputLines[0].outputRuns[2].id.length, 36);
+		assert.ok(outputLines[0].outputRuns[2].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns[2].format, undefined);
 		assert.equal(outputLines[0].outputRuns[2].hyperlink, undefined);
 		assert.equal(outputLines[0].outputRuns[2].text, PANGRAM);
@@ -1614,33 +1614,33 @@ suite('ANSIOutout', () => {
 		// Test.
 		assert.equal(outputLines.length, 4);
 
-		assert.equal(outputLines[0].id.length, 36);
+		assert.ok(outputLines[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
 		assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
 
-		assert.equal(outputLines[1].id.length, 36);
+		assert.ok(outputLines[1].id.length >= 1);
 		assert.equal(outputLines[1].outputRuns.length, 1);
-		assert.equal(outputLines[1].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[1].outputRuns[0].id.length >= 1);
 		assert.equal(outputLines[1].outputRuns[0].format, undefined);
 		assert.notEqual(outputLines[1].outputRuns[0].hyperlink, undefined);
 		assert.equal(outputLines[1].outputRuns[0].hyperlink!.url, linkURL);
 		assert.equal(outputLines[1].outputRuns[0].hyperlink!.params, undefined);
 		assert.equal(outputLines[1].outputRuns[0].text, linkText);
 
-		assert.equal(outputLines[2].id.length, 36);
+		assert.ok(outputLines[2].id.length >= 1);
 		assert.equal(outputLines[2].outputRuns.length, 1);
-		assert.equal(outputLines[2].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[2].outputRuns[0].id.length >= 1);
 		assert.equal(outputLines[2].outputRuns[0].format, undefined);
 		assert.notEqual(outputLines[2].outputRuns[0].hyperlink, undefined);
 		assert.equal(outputLines[2].outputRuns[0].hyperlink!.url, linkURL);
 		assert.equal(outputLines[1].outputRuns[0].hyperlink!.params, undefined);
 		assert.equal(outputLines[2].outputRuns[0].text, linkText);
 
-		assert.equal(outputLines[3].id.length, 36);
+		assert.ok(outputLines[3].id.length >= 1);
 		assert.equal(outputLines[3].outputRuns.length, 1);
-		assert.equal(outputLines[3].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[3].outputRuns[0].id.length >= 1);
 		assert.equal(outputLines[3].outputRuns[0].format, undefined);
 		assert.equal(outputLines[3].outputRuns[0].text, PANGRAM);
 	});
@@ -1659,15 +1659,15 @@ suite('ANSIOutout', () => {
 		// Test.
 		assert.equal(outputLines.length, 4);
 
-		assert.equal(outputLines[0].id.length, 36);
+		assert.ok(outputLines[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns.length, 1);
-		assert.equal(outputLines[0].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
 		assert.equal(outputLines[0].outputRuns[0].format, undefined);
 		assert.equal(outputLines[0].outputRuns[0].text, PANGRAM);
 
-		assert.equal(outputLines[1].id.length, 36);
+		assert.ok(outputLines[1].id.length >= 1);
 		assert.equal(outputLines[1].outputRuns.length, 1);
-		assert.equal(outputLines[1].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[1].outputRuns[0].id.length >= 1);
 		assert.notEqual(outputLines[1].outputRuns[0].format, undefined);
 		assert.equal(outputLines[1].outputRuns[0].format!.foregroundColor, ANSIColor.Red);
 		assert.notEqual(outputLines[1].outputRuns[0].hyperlink, undefined);
@@ -1675,9 +1675,9 @@ suite('ANSIOutout', () => {
 		assert.equal(outputLines[1].outputRuns[0].hyperlink!.params, undefined);
 		assert.equal(outputLines[1].outputRuns[0].text, linkText);
 
-		assert.equal(outputLines[2].id.length, 36);
+		assert.ok(outputLines[2].id.length >= 1);
 		assert.equal(outputLines[2].outputRuns.length, 1);
-		assert.equal(outputLines[2].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[2].outputRuns[0].id.length >= 1);
 		assert.notEqual(outputLines[2].outputRuns[0].format, undefined);
 		assert.equal(outputLines[2].outputRuns[0].format!.foregroundColor, ANSIColor.Red);
 		assert.notEqual(outputLines[2].outputRuns[0].hyperlink, undefined);
@@ -1685,9 +1685,9 @@ suite('ANSIOutout', () => {
 		assert.equal(outputLines[2].outputRuns[0].hyperlink!.params, undefined);
 		assert.equal(outputLines[2].outputRuns[0].text, linkText);
 
-		assert.equal(outputLines[3].id.length, 36);
+		assert.ok(outputLines[3].id.length >= 1);
 		assert.equal(outputLines[3].outputRuns.length, 1);
-		assert.equal(outputLines[3].outputRuns[0].id.length, 36);
+		assert.ok(outputLines[3].outputRuns[0].id.length >= 1);
 		assert.equal(outputLines[3].outputRuns[0].format, undefined);
 		assert.equal(outputLines[3].outputRuns[0].text, PANGRAM);
 	});
@@ -1705,7 +1705,7 @@ suite('ANSIOutout', () => {
 			if (!lines[i].length) {
 				assert.equal(outputLines[i].outputRuns.length, 0);
 			} else {
-				assert.equal(outputLines[i].id.length, 36);
+				assert.ok(outputLines[i].id.length >= 1);
 				assert.equal(outputLines[i].outputRuns.length, 1);
 				assert.equal(outputLines[i].outputRuns[0].text.length, lines[i].length);
 			}

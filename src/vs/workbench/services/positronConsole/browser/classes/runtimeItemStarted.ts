@@ -1,24 +1,14 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
-import { RuntimeItem } from './runtimeItem.js';
+import { RuntimeItemStandard } from './runtimeItem.js';
 
 /**
  * RuntimeItemStarted class.
  */
-export class RuntimeItemStarted extends RuntimeItem {
-	//#region Public Properties
-
-	/**
-	 * Gets the output lines.
-	 */
-	readonly outputLines: readonly ANSIOutputLine[];
-
-	//#endregion Public Properties
-
+export class RuntimeItemStarted extends RuntimeItemStandard {
 	//#region Constructor
 
 	/**
@@ -28,10 +18,7 @@ export class RuntimeItemStarted extends RuntimeItem {
 	 */
 	constructor(id: string, message: string) {
 		// Call the base class's constructor.
-		super(id);
-
-		// Process the message directly into ANSI output lines suitable for rendering.
-		this.outputLines = ANSIOutput.processOutput(message);
+		super(id, message);
 	}
 
 	//#endregion Constructor

@@ -41,6 +41,7 @@ import { IExecutionHistoryService } from '../../../services/positronHistory/comm
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 
 /**
  * PositronConsoleViewPane class.
@@ -178,6 +179,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 	 * @param configurationService The configuration service.
 	 * @param contextKeyService The context key service.
 	 * @param contextMenuService The context menu service.
+	 * @param editorService The editor service.
 	 * @param executionHistoryService The execution history service.
 	 * @param hoverService The hover service.
 	 * @param instantiationService The instantiation service.
@@ -206,6 +208,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
+		@IEditorService private readonly editorService: IEditorService,
 		@IExecutionHistoryService private readonly executionHistoryService: IExecutionHistoryService,
 		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
@@ -282,6 +285,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
+				editorService={this.editorService}
 				executionHistoryService={this.executionHistoryService}
 				hoverService={this.hoverService}
 				instantiationService={this.instantiationService}

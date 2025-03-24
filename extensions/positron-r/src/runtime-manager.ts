@@ -18,7 +18,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 	private readonly onDidDiscoverRuntimeEmitter = new vscode.EventEmitter<positron.LanguageRuntimeMetadata>();
 
-	constructor(private readonly _context: vscode.ExtensionContext) {
+	constructor() {
 		this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
 	}
 
@@ -67,7 +67,6 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			sessionMetadata.sessionMode);
 		const session = new RSession(runtimeMetadata,
 			sessionMetadata,
-			this._context,
 			kernelSpec,
 			kernelExtra);
 
@@ -146,9 +145,7 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		sessionMetadata: positron.RuntimeSessionMetadata): Thenable<positron.LanguageRuntimeSession> {
 
 		// When restoring an existing session, the kernelspec is stored.
-		const session = new RSession(runtimeMetadata,
-			sessionMetadata,
-			this._context);
+		const session = new RSession(runtimeMetadata, sessionMetadata);
 
 		return Promise.resolve(session);
 	}

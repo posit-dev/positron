@@ -45,7 +45,8 @@ export const RuntimeActivity = (props: RuntimeActivityProps) => {
 	// Render.
 	return (
 		<div className='runtime-activity'>
-			{props.runtimeItemActivity.activityItems.map(activityItem => {
+			{props.runtimeItemActivity.activityItems.filter(activityItem => !activityItem.isHidden).map(activityItem => {
+
 				if (activityItem instanceof ActivityItemInput) {
 					return <ActivityInput key={activityItem.id} activityItemInput={activityItem} fontInfo={props.fontInfo} positronConsoleInstance={props.positronConsoleInstance} />;
 				} else if (activityItem instanceof ActivityItemStream) {

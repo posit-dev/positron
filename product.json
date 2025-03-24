@@ -117,6 +117,7 @@
 		{
 			"name": "ms-python.black-formatter",
 			"version": "2024.6.0",
+			"sha256sum": "0f6c85ca346f9a32edbc304f330ab460b2c88c8dfc1a1f86a4506988e7a2faaa",
 			"repo": "https://github.com/microsoft/vscode-black-formatter",
 			"metadata": {
 				"id": "859e640c-c157-47da-8699-9080b81c8371",
@@ -132,6 +133,7 @@
 		{
 			"name": "ms-toolsai.vscode-jupyter-cell-tags",
 			"version": "0.1.9",
+			"sha256sum": "7cd43af55cf562a001dc475e92d9f3fd4b7173011adca0c02da22fbf891c274b",
 			"repo": "https://github.com/Microsoft/vscode-jupyter-cell-tags",
 			"metadata": {
 				"id": "ab4fb32a-befb-4102-adf9-1652d0cd6a5e",
@@ -147,6 +149,7 @@
 		{
 			"name": "ms-toolsai.jupyter-keymap",
 			"version": "1.1.2",
+			"sha256sum": "3d2998929bb43156f3b428116aee290543c437875df616ec755692219b4afa17",
 			"repo": "https://github.com/Microsoft/vscode-jupyter-keymap",
 			"metadata": {
 				"id": "9f6dc8db-620c-4844-b8c5-e74914f1be27",
@@ -162,6 +165,7 @@
 		{
 			"name": "ms-toolsai.vscode-jupyter-slideshow",
 			"version": "0.1.6",
+			"sha256sum": "5b8dee0d569b7e0990bb4847c34748cdc0102078779351ed415d9d71cfa3e945",
 			"repo": "https://github.com/Microsoft/vscode-jupyter-slideshow",
 			"metadata": {
 				"id": "e153ca70-b543-4865-b4c5-b31d34185948",
@@ -178,6 +182,7 @@
 		{
 			"name": "ms-toolsai.jupyter",
 			"version": "2024.11.0",
+			"sha256sum": "8a91481baeb1afcdc6af910e66e330b242ce414b3ee1d4b9357ad934f92971fb",
 			"repo": "https://github.com/Microsoft/vscode-jupyter",
 			"metadata": {
 				"id": "6c2f1801-1e7f-45b2-9b5c-7782f1e076e8",
@@ -192,7 +197,8 @@
 		},
 		{
 			"name": "ms-pyright.pyright",
-			"version": "1.1.395",
+			"version": "1.1.397",
+			"sha256sum": "76011d78bd75e16feadade36c517edef224677979086cd1af3df20cd5ce2b16a",
 			"repo": "https://github.com/Microsoft/pyright",
 			"metadata": {
 				"id": "593fe6a5-513e-4cb3-abfb-5b9f5fe39802",
@@ -208,6 +214,7 @@
 		{
 			"name": "ms-python.debugpy",
 			"version": "2025.0.1",
+			"sha256sum": "b6c1639cc839b671125bf5511c36eeb0512744f693925c55c5401fe7a132a978",
 			"repo": "https://github.com/microsoft/vscode-python-debugger",
 			"metadata": {
 				"id": "4bd5d2c9-9d65-401a-b0b2-7498d9f17615",
@@ -224,6 +231,7 @@
 		{
 			"name": "posit.publisher",
 			"version": "1.10.0",
+			"sha256sum": "32be8178b713656d5c532224dd7a4ce5eede7762ab87bf723e2b56ed8710cd1d",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -235,7 +243,8 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.118.0",
+			"version": "1.119.0",
+			"sha256sum": "4824c78286530b193eb3161ce7bb82c932602ba45c33b494877aec4e71a5ca38",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",

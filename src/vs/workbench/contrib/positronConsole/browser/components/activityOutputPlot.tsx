@@ -11,7 +11,7 @@ import React from 'react';
 
 // Other dependencies.
 import * as nls from '../../../../../nls.js';
-import { OutputLines } from './outputLines.js';
+import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { ActivityItemOutputPlot } from '../../../../services/positronConsole/browser/classes/activityItemOutputPlot.js';
 
 // ActivityOutputPlot interface.
@@ -36,7 +36,7 @@ export const ActivityOutputPlot = (props: ActivityOutputPlotProps) => {
 	// Render.
 	return (
 		<>
-			<OutputLines outputLines={props.activityItemOutputPlot.outputLines} />
+			<ConsoleOutputLines outputLines={props.activityItemOutputPlot.outputLines} />
 			<a className='activity-output-plot'
 				title={linkTitle}
 				onClick={handleClick}>

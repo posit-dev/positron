@@ -7,11 +7,12 @@
 import React from 'react';
 
 // Other dependencies.
-import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
-import { OutputLines as OutputLinesOriginal } from '../../../../browser/positronAnsiRenderer/outputLines.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
+import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
+import { OutputLines } from '../../../../browser/positronAnsiRenderer/outputLines.js';
 
-export interface OutputLinesProps {
+// ConsoleOutputLinesProps interface.
+export interface ConsoleOutputLinesProps {
 	readonly outputLines: readonly ANSIOutputLine[];
 }
 
@@ -22,13 +23,16 @@ export interface OutputLinesProps {
  * @param props A OutputLinesProps that contains the component properties.
  * @returns The rendered component.
  */
-export const OutputLines = (props: OutputLinesProps) => {
+export const ConsoleOutputLines = (props: ConsoleOutputLinesProps) => {
 	// Get services from the context.
 	const { openerService, notificationService } = usePositronConsoleContext();
 
-	return <OutputLinesOriginal
-		{...props}
-		notificationService={notificationService}
-		openerService={openerService}
-	/>;
+	// Render.
+	return (
+		<OutputLines
+			{...props}
+			notificationService={notificationService}
+			openerService={openerService}
+		/>
+	);
 };
