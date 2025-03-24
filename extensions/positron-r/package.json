@@ -196,7 +196,7 @@
         "title": "%r.configuration.title-dev%",
         "properties": {
           "positron.r.customRootFolders": {
-            "scope": "machine",
+            "scope": "resource",
             "type": "array",
             "items": {
               "type": "string"
@@ -209,7 +209,7 @@
             "markdownDescription": "%r.configuration.customRootFolders.markdownDescription%"
           },
           "positron.r.customBinaries": {
-            "scope": "machine",
+            "scope": "resource",
             "type": "array",
             "items": {
               "type": "string"
@@ -222,7 +222,7 @@
             "markdownDescription": "%r.configuration.customBinaries.markdownDescription%"
           },
           "positron.r.interpreters.exclude": {
-            "scope": "machine",
+            "scope": "resource",
             "type": "array",
             "items": {
               "type": "string"
@@ -235,7 +235,7 @@
             "markdownDescription": "%r.configuration.interpreters.exclude.markdownDescription%"
           },
           "positron.r.interpreters.override": {
-            "scope": "machine",
+            "scope": "resource",
             "type": "array",
             "items": {
               "type": "string"
@@ -248,7 +248,7 @@
             "markdownDescription": "%r.configuration.interpreters.override.markdownDescription%"
           },
           "positron.r.interpreters.default": {
-            "scope": "machine",
+            "scope": "resource",
             "type": "string",
             "default": null,
             "tags": [
