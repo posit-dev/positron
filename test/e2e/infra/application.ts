@@ -78,9 +78,6 @@ export class Application {
 		await measureAndLog(() => (async () => {
 			await this.stop();
 			await this._start(options?.workspaceOrFolder, options?.extraArgs);
-			if (this._code) {
-				this._workbench = new Workbench(this._code);
-			}
 		})(), 'Application#restart()', this.logger);
 	}
 

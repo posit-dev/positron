@@ -198,8 +198,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	// ex: await hotKeys.copy();
 	hotKeys: async ({ app }, use) => {
-		const keyboard = app.workbench.hotKeys;
-		await use(keyboard);
+		const hotKeys = app.workbench.hotKeys;
+		await use(hotKeys);
 	},
 
 	// ex: await userSettings.set([['editor.actionBar.enabled', 'true']], false);

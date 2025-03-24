@@ -37,7 +37,6 @@ export class Console {
 	}
 
 	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private sessions: Sessions) {
-		// this.barPowerButton = this.code.driver.page.getByLabel('Shutdown console');
 		this.barRestartButton = this.code.driver.page.getByLabel('Restart console');
 		this.barClearButton = this.code.driver.page.getByLabel('Clear console');
 		this.barTrashButton = this.code.driver.page.getByTestId('trash-session');
