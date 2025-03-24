@@ -1387,6 +1387,80 @@ declare module 'positron' {
 	}
 
 	namespace runtime {
+		/**
+		 * An object that observes an ongoing code execution invoked from the
+		 * `executeCode` API.
+		 */
+		interface ExecutionObserver {
+			/**
+			 * An optional callback to invoke when execution has started. This
+			 * may be different than the time `executeCode` was called, since
+			 * there may have been preceding statements in the queue, or we may
+			 * need to wait for the runtime to start or become ready.
+			 */
+			onStarted: () => void;
+
+			/**
+			 * An optional callback to invoke when the execution emits text
+			 * output. This can be called zero or more times during execution of
+			 * the code.
+			 *
+			 * @param message The message emitted.
+			 */
+			onOutput?: (message: string) => void;
+
+			/**
+			 * An optional callback to invoke when the execution emits error
+			 * output. This just means "output sent to standard error", and does
+			 * not mean that the execution failed.
+			 *
+			 * @param message The message emitted.
+			 */
+			onError?: (message: string) => void;
+
+			/**
+			 * An optional callback to invoke when the execution emits a plot.
+			 *
+			 * @param plotData The plot data emitted, as a string.
+			 */
+			onPlot?: (plotData: string) => void;
+
+			/**
+			 * An optional callback to invoke when the execution emits a data
+			 * frame or other rectangular data object.
+			 *
+			 * @param data The data returned.
+			 */
+			onData?: (data: any) => void;
+
+			/**
+			 * An optional callback to invoke when the execution has completed
+			 * sucessfully.
+			 *
+			 * One of `onCompleted` or `onFailed` will be called, but not both.
+			 *
+			 * @param result The result of the successful execution.
+			 */
+			onCompleted?: (result: LanguageRuntimeResult) => void;
+
+			/**
+			 * An optional callback to invoke when the execution has failed.
+			 *
+			 * One of `onCompleted` or `onFailed` will be called, but not both.
+			 *
+			 * @param error The error that caused the execution to fail.
+			 */
+			onFailed?: (error: LanguageRuntimeError) => void;
+
+			/**
+			 * An optional callback to invoke when the execution has finished,
+			 * regardless of success or failure.
+			 *
+			 * It is invoked when the runtime returns to an idle state after
+			 * fully completing the execution.
+			 */
+			onFinished?: () => void;
+		}
 
 		/**
 		 * Executes code in a language runtime's console, as though it were typed
@@ -1399,15 +1473,19 @@ declare module 'positron' {
 		 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
 		 * @param mode Possible code execution mode for a language runtime
 		 * @param errorBehavior Possible error behavior for a language runtime, currently ignored by kernels
-		 * @returns A Thenable that resolves with true if the code was sent to a
-		 *   runtime successfully, false otherwise.
+		 * @param observer An optional observer for the execution. This object will be notified of
+		 *  execution events, such as output, error, and completion.
+		 * @returns A Thenable that resolves with the result of the code execution.
+		 *
+		 * Throws a `LanguageRuntimeError` if the code execution fails.
 		 */
 		export function executeCode(languageId: string,
 			code: string,
 			focus: boolean,
 			allowIncomplete?: boolean,
 			mode?: RuntimeCodeExecutionMode,
-			errorBehavior?: RuntimeErrorBehavior): Thenable<boolean>;
+			errorBehavior?: RuntimeErrorBehavior,
+			observer?: ExecutionObserver): Thenable<LanguageRuntimeResult>;
 
 		/**
 		 * Register a language runtime manager with Positron.
