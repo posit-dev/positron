@@ -17,18 +17,21 @@ import * as fs from '../common/platform/fs-paths';
 import { IServiceContainer } from '../ioc/types';
 import { pythonRuntimeDiscoverer } from './discoverer';
 import { IInterpreterService } from '../interpreter/contracts';
-import { traceError, traceInfo } from '../logging';
-import { IConfigurationService, IDisposable } from '../common/types';
+import { traceError, traceInfo, traceLog } from '../logging';
+import { IConfigurationService, IDisposable, IInstaller, InstallerResponse, Product } from '../common/types';
 import { PythonRuntimeSession } from './session';
 import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
-import { EXTENSION_ROOT_DIR, MINIMUM_PYTHON_VERSION } from '../common/constants';
+import { Commands, EXTENSION_ROOT_DIR, MINIMUM_PYTHON_VERSION } from '../common/constants';
 import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
-import { checkAndInstallPython } from './extension';
 import { shouldIncludeInterpreter, isVersionSupported, getUserDefaultInterpreter } from './interpreterSettings';
 import { parseVersion, toSemverLikeVersion } from '../pythonEnvironments/base/info/pythonVersion';
 import { PythonVersion } from '../pythonEnvironments/info/pythonVersion';
 import { hasFiles } from './util';
+import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
+import { EnvironmentType } from '../pythonEnvironments/info';
+import { IApplicationShell } from '../common/application/types';
+import { Interpreters } from '../common/utils/localize';
 
 export const IPythonRuntimeManager = Symbol('IPythonRuntimeManager');
 
@@ -285,7 +288,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, vscode.Dispo
 
         // Create an adapter for the kernel to fulfill the LanguageRuntime interface.
         traceInfo(`createPythonSession: creating PythonRuntime`);
-        return this.createPythonSession(runtimeMetadata, sessionMetadata, this.serviceContainer, kernelSpec);
+        return this.createPythonSession(runtimeMetadata, sessionMetadata, kernelSpec);
     }
 
     /**
@@ -300,16 +303,15 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, vscode.Dispo
         runtimeMetadata: positron.LanguageRuntimeMetadata,
         sessionMetadata: positron.RuntimeSessionMetadata,
     ): Promise<positron.LanguageRuntimeSession> {
-        return this.createPythonSession(runtimeMetadata, sessionMetadata, this.serviceContainer);
+        return this.createPythonSession(runtimeMetadata, sessionMetadata);
     }
 
     private createPythonSession(
         runtimeMetadata: positron.LanguageRuntimeMetadata,
         sessionMetadata: positron.RuntimeSessionMetadata,
-        serviceContainer: IServiceContainer,
         kernelSpec?: JupyterKernelSpec,
     ): positron.LanguageRuntimeSession {
-        const session = new PythonRuntimeSession(runtimeMetadata, sessionMetadata, serviceContainer, kernelSpec);
+        const session = new PythonRuntimeSession(runtimeMetadata, sessionMetadata, this.serviceContainer, kernelSpec);
         this._onDidCreateSession.fire(session);
         return session;
     }
@@ -432,4 +434,41 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, vscode.Dispo
             traceError(`Tried to switch to a language runtime that has not been registered: ${pythonPath}`);
         }
     }
+}
+
+export async function checkAndInstallPython(
+    pythonPath: string,
+    serviceContainer: IServiceContainer,
+): Promise<InstallerResponse> {
+    const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
+    const interpreter = await interpreterService.getInterpreterDetails(pythonPath);
+    if (!interpreter) {
+        return InstallerResponse.Ignore;
+    }
+    if (
+        isProblematicCondaEnvironment(interpreter) ||
+        (interpreter.id && !fs.existsSync(interpreter.id) && interpreter.envType === EnvironmentType.Conda)
+    ) {
+        if (interpreter) {
+            const installer = serviceContainer.get<IInstaller>(IInstaller);
+            const shell = serviceContainer.get<IApplicationShell>(IApplicationShell);
+            const progressOptions: vscode.ProgressOptions = {
+                location: vscode.ProgressLocation.Window,
+                title: `[${Interpreters.installingPython}](command:${Commands.ViewOutput})`,
+            };
+            traceLog('Conda envs without Python are known to not work well; fixing conda environment...');
+            const promise = installer.install(
+                Product.python,
+                await interpreterService.getInterpreterDetails(pythonPath),
+            );
+            shell.withProgress(progressOptions, () => promise);
+
+            // If Python is not installed into the environment, install it.
+            if (!(await installer.isInstalled(Product.python))) {
+                traceInfo(`Python not able to be installed.`);
+                return InstallerResponse.Ignore;
+            }
+        }
+    }
+    return InstallerResponse.Installed;
 }
