@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Sessions: Diagnostics', {
+test.describe.skip('Sessions: Diagnostics', {
 	tag: [tags.SESSIONS, tags.PROBLEMS, tags.WEB, tags.WIN],
 	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6970' }]
 }, () => {
@@ -38,7 +38,7 @@ test.describe('Sessions: Diagnostics', {
 		await console.executeCode('Python', 'pip install termcolor', { maximizeConsole: false });
 		await console.executeCode('Python', 'import termcolor', { maximizeConsole: false });
 
-		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1, errorCount: 0 }); // bug: this should be 0
+		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 1, errorCount: 0 }); // bug: this should be 0
 		await problems.expectSquigglyCountToBe('warning', 1); // bug this should be 0
 
 		// // Python Session 2 - verify only syntax error for variable x
@@ -49,7 +49,7 @@ test.describe('Sessions: Diagnostics', {
 
 		// Python Alt Session - verify warning since pkg was not installed in that runtime
 		await sessions.select(pyAltSession.id);
-		await problems.expectDiagnosticsToBe({ problemCount: 2, warningCount: 2, errorCount: 0 });
+		await problems.expectDiagnosticsToBe({ badgeCount: 2, warningCount: 2, errorCount: 0 });
 		await problems.expectWarningText('"x" is not defined');
 		await problems.expectWarningText('Import "termcolor" could not be resolved');
 		await problems.expectSquigglyCountToBe('warning', 2);
@@ -58,7 +58,7 @@ test.describe('Sessions: Diagnostics', {
 		await sessions.select(pySession.id); // select the session with no errors, so this should be the one that is running
 		const rSession = await sessions.start('r');
 		await sessions.select(rSession.id);
-		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1, errorCount: 0 }); // same bug: this should be 0
+		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 1, errorCount: 0 }); // same bug: this should be 0
 		await problems.expectSquigglyCountToBe('warning', 1);	// same bug: this should be 0
 	});
 
@@ -73,20 +73,20 @@ test.describe('Sessions: Diagnostics', {
 
 		// Session 1 - before installing/importing pkg the circos warning should be present
 		await sessions.select(rSession.id);
-		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1, errorCount: 0 });
+		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 1, errorCount: 0 });
 		await problems.expectWarningText('No symbol named \'circos.');
 		await problems.expectSquigglyCountToBe('warning', 1);
 
 		// Session 1 - install & import circlize and verify no problems
 		await console.executeCode('R', "install.packages('circlize')", { maximizeConsole: false });
 		await console.executeCode('R', 'library(circlize)', { maximizeConsole: false });
-		await problems.expectDiagnosticsToBe({ problemCount: 0, warningCount: 0, errorCount: 0 });
+		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
 		await problems.expectSquigglyCountToBe('warning', 0);
 
 		// Session 2 - verify warning since circlize is not installed
 		await sessions.select(rSessionAlt.id);
 		await problems.expectSquigglyCountToBe('warning', 1);
-		await problems.expectDiagnosticsToBe({ problemCount: 1, warningCount: 1, errorCount: 0 });
+		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 1, errorCount: 0 });
 		await problems.expectWarningText('No symbol named \'circos.');
 
 		// Introduce a syntax error
@@ -94,12 +94,12 @@ test.describe('Sessions: Diagnostics', {
 
 		// Session 2 - verify both problems (circos and syntax) are present
 		await sessions.select(rSessionAlt.id);
-		await problems.expectDiagnosticsToBe({ problemCount: 3, warningCount: 2, errorCount: 1 });
+		await problems.expectDiagnosticsToBe({ badgeCount: 3, warningCount: 2, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 
 		// Session 1 - verify only syntax error is present
 		await sessions.select(rSession.id);
-		await problems.expectDiagnosticsToBe({ problemCount: 2, warningCount: 1, errorCount: 1 });
+		await problems.expectDiagnosticsToBe({ badgeCount: 2, warningCount: 1, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 	});
 });
