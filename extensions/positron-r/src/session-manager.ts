@@ -155,7 +155,7 @@ export class RSessionManager {
 	}
 
 	private async deactivateSession(session: RSession): Promise<void> {
-		await session.deactivateLsp(true);
+		await session.deactivateLsp();
 	}
 
 	/**
