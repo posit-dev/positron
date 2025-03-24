@@ -16,7 +16,7 @@
 import { toLower, uniq, uniqBy } from 'lodash';
 import { chain, iterable } from '../../../../common/utils/async';
 import { getOSType, OSType } from '../../../../common/utils/platform';
-import { PythonEnvKind } from '../../info';
+import { PythonEnvKind, PythonEnvSource } from '../../info';
 import { BasicEnvInfo, IPythonEnvsIterator } from '../../locator';
 import { FSWatchingLocator } from './fsWatchingLocator';
 import { findInterpretersInDir, looksLikeBasicVirtualPython } from '../../../common/commonUtils';
@@ -94,7 +94,7 @@ export class UserSpecifiedEnvironmentLocator extends FSWatchingLocator {
                             const kind = await getVirtualEnvKind(filename);
                             try {
                                 foundPythons.push(filename);
-                                yield { kind, executablePath: filename, searchLocation: undefined };
+                                yield { kind, executablePath: filename, source: [PythonEnvSource.UserSettings], searchLocation: undefined };
                                 traceVerbose(
                                     `[UserSpecifiedEnvironmentLocator] User-specified Environment: [added] ${filename}`,
                                 );
