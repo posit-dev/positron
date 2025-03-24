@@ -753,32 +753,28 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 	private async onStateChange(state: positron.RuntimeState): Promise<void> {
 		this._state = state;
-
 		if (state === positron.RuntimeState.Ready) {
-			this._queue.add(async () => {
-				await this.startDap();
-			})
-
-			this._queue.add(async () => {
-				try {
-					// Set the initial console input width
-					const width = await positron.window.getConsoleWidth();
-					this.callMethod('setConsoleWidth', width);
-					this._kernel!.emitJupyterLog(`Set initial console width to ${width}`);
-				} catch (err) {
-					// Recoverable (we'll just use the default width); but log
-					// the error.
-					if (this._kernel) {
-						const runtimeError = err as positron.RuntimeMethodError;
-						this._kernel.emitJupyterLog(
-							`Error setting initial console width: ${runtimeError.message} ` +
-							`(${runtimeError.code})`,
-							vscode.LogLevel.Error);
-					}
-				}
-			});
+			await this.startDap();
+			await this.setConsoleWidth();
 		} else if (state === positron.RuntimeState.Exited) {
 			await this.deactivateLsp();
+		}
+	}
+
+	private async setConsoleWidth(): Promise<void> {
+		try {
+			// Set the initial console width
+			const width = await positron.window.getConsoleWidth();
+			this.callMethod('setConsoleWidth', width);
+			this._kernel?.emitJupyterLog(`Set initial console width to ${width}`);
+		} catch (err) {
+			// Recoverable (we'll just use the default width); but log
+			// the error.
+			const runtimeError = err as positron.RuntimeMethodError;
+			this._kernel?.emitJupyterLog(
+				`Error setting initial console width: ${runtimeError.message} (${runtimeError.code})`,
+				vscode.LogLevel.Error,
+			);
 		}
 	}
 
