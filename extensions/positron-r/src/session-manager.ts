@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
+import * as vscode from 'vscode';
 import { RSession } from './session';
 
 /**
@@ -11,9 +12,14 @@ import { RSession } from './session';
  * singleton instance of this class so that we can invoke methods/check status
  * directly, without going through Positron's API.
  */
-export class RSessionManager {
+export class RSessionManager implements vscode.Disposable {
 	/// Singleton instance
 	private static _instance: RSessionManager;
+
+	/// Disposables managed by the `RSessionManager`
+	/// Note that these aren't currently ever disposed of because this is a singleton,
+	/// but we may improve on this in the future so it is good practice to track them.
+	private readonly _disposables: vscode.Disposable[] = [];
 
 	/// Map of session IDs to RSession instances
 	private _sessions: Map<string, RSession> = new Map();
@@ -29,9 +35,11 @@ export class RSessionManager {
 
 	/// Constructor; private since we only want one of these
 	private constructor() {
-		positron.runtime.onDidChangeForegroundSession(async sessionId => {
-			await this.didChangeForegroundSession(sessionId);
-		});
+		this._disposables.push(
+			positron.runtime.onDidChangeForegroundSession(async sessionId => {
+				await this.didChangeForegroundSession(sessionId);
+			})
+		);
 	}
 
 	/**
@@ -56,9 +64,11 @@ export class RSessionManager {
 			throw new Error(`Session ${sessionId} already registered.`);
 		}
 		this._sessions.set(sessionId, session);
-		session.onDidChangeRuntimeState(async (state) => {
-			await this.didChangeSessionRuntimeState(session, state);
-		})
+		this._disposables.push(
+			session.onDidChangeRuntimeState(async (state) => {
+				await this.didChangeSessionRuntimeState(session, state);
+			})
+		);
 	}
 
 	private async didChangeSessionRuntimeState(session: RSession, state: positron.RuntimeState): Promise<void> {
@@ -211,5 +221,9 @@ export class RSessionManager {
 	 */
 	getLastBinpath(): string {
 		return this._lastBinpath;
+	}
+
+	public dispose(): void {
+		this._disposables.forEach((disposable) => disposable.dispose());
 	}
 }
