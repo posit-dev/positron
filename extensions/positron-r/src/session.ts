@@ -317,7 +317,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 					this._kernel!.emitJupyterLog('LSP startup timed out during interpreter restart');
 				})
 			]);
-			await this._lsp.deactivate();
+			await this.deactivateLsp();
 			return this._kernel.restart(workingDirectory);
 		} else {
 			throw new Error('Cannot restart; kernel not started');
@@ -327,7 +327,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	async shutdown(exitReason = positron.RuntimeExitReason.Shutdown): Promise<void> {
 		if (this._kernel) {
 			// Stop the LSP client before shutting down the kernel
-			await this._lsp.deactivate();
+			await this.deactivateLsp();
 			return this._kernel.shutdown(exitReason);
 		} else {
 			throw new Error('Cannot shutdown; kernel not started');
@@ -343,7 +343,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			// messages if we yank the kernel out from beneath it without
 			// warning.
 			await Promise.race([
-				this._lsp.deactivate(),
+				this.deactivateLsp(),
 				delay(250)
 			]);
 			return this._kernel.forceQuit();
@@ -709,6 +709,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 * itself may need to call `deactivateLsp()`. This is okay for now, the
 	 * important thing is that an LSP should only ever be started up by a
 	 * session manager to ensure that other LSPs are deactivated first.
+	 *
+	 * Avoid calling `this._lsp.deactivate()` directly, use this instead
+	 * to enforce usage of the `_lspQueue`.
 	 */
 	public async deactivateLsp(): Promise<void> {
 		return this._lspQueue.add(async () => {
