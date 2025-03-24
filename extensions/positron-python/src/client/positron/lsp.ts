@@ -173,12 +173,9 @@ export class PythonLsp implements vscode.Disposable {
     /**
      * Stops the client instance.
      *
-     * @param awaitStop If true, waits for the client to stop before returning.
-     *   This should be set to `true` if the server process is still running, and
-     *   `false` if the server process has already exited.
      * @returns A promise that resolves when the client has been stopped.
      */
-    public async deactivate(awaitStop: boolean): Promise<void> {
+    public async deactivate(): Promise<void> {
         if (!this._client) {
             // No client to stop, so just resolve
             return;
@@ -194,32 +191,29 @@ export class PythonLsp implements vscode.Disposable {
         // partially initialized client.
         await this._initializing;
 
-        const promise = awaitStop
-            ? // If the kernel hasn't exited, we can just await the promise directly
-              this._client!.stop()
-            : // The promise returned by `stop()` never resolves if the server
-              // side is disconnected, so rather than awaiting it when the runtime
-              // has exited, we wait for the client to change state to `stopped`,
-              // which does happen reliably.
-              new Promise<void>((resolve) => {
-                  const disposable = this._client!.onDidChangeState((event) => {
-                      if (event.newState === State.Stopped) {
-                          resolve();
-                          disposable.dispose();
-                      }
-                  });
-                  this._client!.stop();
-              });
+        // Ideally we'd just wait for `this._client!.stop()`. In practice, the
+        // promise returned by `stop()` never resolves if the server side is
+        // disconnected, so rather than awaiting it when the runtime has exited,
+        // we wait for the client to change state to `stopped`, which does
+        // happen reliably.
+        const stopped = new Promise<void>((resolve) => {
+            const disposable = this._client!.onDidChangeState((event) => {
+                if (event.newState === State.Stopped) {
+                    resolve();
+                    disposable.dispose();
+                }
+            });
+            this._client!.stop();
+        });
 
-        // Don't wait more than a couple of seconds for the client to stop.
         const timeout = new Promise<void>((_, reject) => {
             setTimeout(() => {
                 reject(Error(`Timed out after 2 seconds waiting for client to stop.`));
             }, 2000);
         });
 
-        // Wait for the client to enter the stopped state, or for the timeout
-        await Promise.race([promise, timeout]);
+        // Don't wait more than a couple of seconds for the client to stop
+        await Promise.race([stopped, timeout]);
     }
 
     /**
@@ -258,7 +252,7 @@ export class PythonLsp implements vscode.Disposable {
      */
     async dispose(): Promise<void> {
         this.activationDisposables.forEach((d) => d.dispose());
-        await this.deactivate(false);
+        await this.deactivate();
     }
 
     /**

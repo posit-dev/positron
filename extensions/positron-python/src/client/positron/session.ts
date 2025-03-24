@@ -530,7 +530,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /**
      * Start the LSP
      *
-     * Returns a promise that resolves when the LSP has been activated.
+     * @returns A promise that resolves when the LSP has been activated.
      */
     async activateLsp(): Promise<void> {
         return this._queue.add(async () => {
@@ -568,7 +568,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /**
      * Stops the LSP if it is running
      *
-     * Returns a promise that resolves when the LSP has been deactivated.
+     * @returns A promise that resolves when the LSP has been deactivated.
      */
     async deactivateLsp(): Promise<void> {
         return this._queue.add(async () => {
@@ -578,7 +578,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             }
 
             this._kernel?.emitJupyterLog(`Stopping Positron LSP server`);
-            await this._lsp.deactivate(true);
+            await this._lsp.deactivate();
         });
     }
 
@@ -598,7 +598,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                     this._kernel!.emitJupyterLog('LSP startup timed out during interpreter restart');
                 }),
             ]);
-            await this._lsp?.deactivate(true);
+            await this._lsp?.deactivate();
 
             return this._kernel.restart(workingDirectory);
         } else {
@@ -609,7 +609,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     async shutdown(exitReason = positron.RuntimeExitReason.Shutdown): Promise<void> {
         if (this._kernel) {
             // Stop the LSP client before shutting down the kernel
-            await this._lsp?.deactivate(true);
+            await this._lsp?.deactivate();
             return this._kernel.shutdown(exitReason);
         } else {
             throw new Error('Cannot shutdown; kernel not started');
@@ -639,7 +639,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             // force-quit quickly with the fact that the LSP will show error
             // messages if we yank the kernel out from beneath it without
             // warning.
-            await Promise.race([this._lsp?.deactivate(true), new Promise((resolve) => setTimeout(resolve, 250))]);
+            await Promise.race([this._lsp?.deactivate(), new Promise((resolve) => setTimeout(resolve, 250))]);
             return this._kernel.forceQuit();
         } else {
             throw new Error('Cannot force quit; kernel not started');
