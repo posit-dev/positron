@@ -45,8 +45,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/** The Language Server Protocol client wrapper */
 	private _lsp: ArkLsp;
 
-	/** Queue for message handlers */
-	private _queue: PQueue;
+	/** Queue for LSP events */
+	private _lspQueue: PQueue;
 
 	/** The Jupyter kernel-based session implementing the Language Runtime API */
 	private _kernel?: JupyterLanguageRuntimeSession;
@@ -88,7 +88,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		readonly extra?: JupyterKernelExtra,
 	) {
 		this._lsp = new ArkLsp(runtimeMetadata.languageVersion, metadata);
-		this._queue = new PQueue({ concurrency: 1 });
+		this._lspQueue = new PQueue({ concurrency: 1 });
 		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
 		this.onDidEndSession = this._exitEmitter.event;
@@ -675,7 +675,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 * should call this.
 	 */
 	public async activateLsp(): Promise<void> {
-		return this._queue.add(async () => {
+		return this._lspQueue.add(async () => {
 			if (this._lsp.state !== LspState.stopped && this._lsp.state !== LspState.uninitialized) {
 				// Already activated
 				return;
@@ -711,7 +711,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 * session manager to ensure that other LSPs are deactivated first.
 	 */
 	public async deactivateLsp(): Promise<void> {
-		return this._queue.add(async () => {
+		return this._lspQueue.add(async () => {
 			if (this._lsp.state !== LspState.running) {
 				// Nothing to deactivate
 				return;
