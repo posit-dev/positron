@@ -33,6 +33,11 @@ import { hasFiles } from './util';
 export const IPythonRuntimeManager = Symbol('IPythonRuntimeManager');
 
 export interface IPythonRuntimeManager extends positron.LanguageRuntimeManager {
+    /**
+     * An event that fires when a new Python language runtime session is created or restored.
+     */
+    onDidCreateSession: Event<PythonRuntimeSession>;
+
     registerLanguageRuntimeFromPath(pythonPath: string): Promise<positron.LanguageRuntimeMetadata | undefined>;
     selectLanguageRuntimeFromPath(pythonPath: string): Promise<void>;
 }
@@ -42,7 +47,7 @@ export interface IPythonRuntimeManager extends positron.LanguageRuntimeManager {
  * implements positron.LanguageRuntimeManager.
  */
 @injectable()
-export class PythonRuntimeManager implements IPythonRuntimeManager {
+export class PythonRuntimeManager implements IPythonRuntimeManager, vscode.Disposable {
     /**
      * A map of Python interpreter paths to their language runtime metadata.
      */
@@ -50,14 +55,21 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
 
     private disposables: IDisposable[] = [];
 
-    private readonly onDidDiscoverRuntimeEmitter = new EventEmitter<positron.LanguageRuntimeMetadata>();
+    private readonly _onDidDiscoverRuntime = new EventEmitter<positron.LanguageRuntimeMetadata>();
+
+    private readonly _onDidCreateSession = new EventEmitter<PythonRuntimeSession>();
+
+    /**
+     * An event that fires when a new Python language runtime is discovered.
+     */
+    public readonly onDidDiscoverRuntime = this._onDidDiscoverRuntime.event;
+
+    public readonly onDidCreateSession = this._onDidCreateSession.event;
 
     constructor(
         @inject(IServiceContainer) private readonly serviceContainer: IServiceContainer,
         @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
     ) {
-        this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
-
         positron.runtime.registerLanguageRuntimeManager('python', this);
 
         this.disposables.push(
@@ -159,11 +171,6 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
     }
 
     /**
-     * An event that fires when a new Python language runtime is discovered.
-     */
-    onDidDiscoverRuntime: Event<positron.LanguageRuntimeMetadata>;
-
-    /**
      * Registers a new language runtime with Positron.
      *
      * @param runtimeMetadata The metadata for the runtime to register.
@@ -181,7 +188,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
         if (shouldIncludeInterpreter(extraData.pythonPath)) {
             // Save the runtime for later use
             this.registeredPythonRuntimes.set(extraData.pythonPath, runtime);
-            this.onDidDiscoverRuntimeEmitter.fire(runtime);
+            this._onDidDiscoverRuntime.fire(runtime);
         } else {
             traceInfo(`Not registering runtime ${extraData.pythonPath} as it is excluded via user settings.`);
         }
@@ -278,7 +285,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
 
         // Create an adapter for the kernel to fulfill the LanguageRuntime interface.
         traceInfo(`createPythonSession: creating PythonRuntime`);
-        return new PythonRuntimeSession(runtimeMetadata, sessionMetadata, this.serviceContainer, kernelSpec);
+        return this.createPythonSession(runtimeMetadata, sessionMetadata, this.serviceContainer, kernelSpec);
     }
 
     /**
@@ -293,7 +300,18 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
         runtimeMetadata: positron.LanguageRuntimeMetadata,
         sessionMetadata: positron.RuntimeSessionMetadata,
     ): Promise<positron.LanguageRuntimeSession> {
-        return new PythonRuntimeSession(runtimeMetadata, sessionMetadata, this.serviceContainer);
+        return this.createPythonSession(runtimeMetadata, sessionMetadata, this.serviceContainer);
+    }
+
+    private createPythonSession(
+        runtimeMetadata: positron.LanguageRuntimeMetadata,
+        sessionMetadata: positron.RuntimeSessionMetadata,
+        serviceContainer: IServiceContainer,
+        kernelSpec?: JupyterKernelSpec,
+    ): positron.LanguageRuntimeSession {
+        const session = new PythonRuntimeSession(runtimeMetadata, sessionMetadata, serviceContainer, kernelSpec);
+        this._onDidCreateSession.fire(session);
+        return session;
     }
 
     /**

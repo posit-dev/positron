@@ -47,3 +47,17 @@ export enum RuntimeOnlineState {
     Idle = 'idle',
     Busy = 'busy',
 }
+
+export enum RuntimeState {
+    Uninitialized = 'uninitialized',
+    Initializing = 'initializing',
+    Starting = 'starting',
+    Ready = 'ready',
+    Idle = 'idle',
+    Busy = 'busy',
+    Restarting = 'restarting',
+    Exiting = 'exiting',
+    Exited = 'exited',
+    Offline = 'offline',
+    Interrupting = 'interrupting',
+}
