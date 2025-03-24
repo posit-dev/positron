@@ -73,14 +73,6 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/python-lang-file-icon/);
 		});
 
-		test('Python - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app }) {
-			await app.workbench.welcome.newNotebookButton.click();
-			await app.workbench.popups.clickOnModalDialogPopupOption('Python Notebook');
-
-			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
-			await expect(app.workbench.notebooks.kernelDropdown).toHaveText(new RegExp(pythonRuntime.name, 'i'));
-		});
-
 		test('Python - Verify clicking on `new console` from the Welcome page starts interpreter', async function ({ app, sessions }) {
 			const { welcome, quickInput, console } = app.workbench;
 			await sessions.deleteAll();
@@ -94,6 +86,14 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 
 			await sessions.expectSessionCountToBe(1);
 			await sessions.expectSessionPickerToBe(pythonRuntime);
+		});
+
+		test('Python - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, python }) {
+			await app.workbench.welcome.newNotebookButton.click();
+			await app.workbench.popups.clickOnModalDialogPopupOption('Python Notebook');
+
+			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
+			await expect(app.workbench.notebooks.kernelDropdown).toHaveText(new RegExp(pythonRuntime.name, 'i'));
 		});
 	});
 
@@ -120,7 +120,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await sessions.expectSessionPickerToBe(rRuntime);
 		});
 
-		test('R - Verify clicking on `new notebook` from the Welcome page opens notebook and sets interpreter', async function ({ app, r }) {
+		test('R - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, r }) {
 			await app.workbench.welcome.newNotebookButton.click();
 			await app.workbench.popups.clickOnModalDialogPopupOption('R Notebook');
 

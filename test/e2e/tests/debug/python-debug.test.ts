@@ -12,7 +12,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe.fixme('Python Debugging', {
+test.describe('Python Debugging', {
 	tag: [tags.DEBUG, tags.WEB, tags.WIN]
 }, () => {
 

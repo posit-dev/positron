@@ -7,7 +7,6 @@ import { Workbench } from './workbench';
 import { Code, launch, LaunchOptions } from './code';
 import { Logger, measureAndLog } from './logger';
 import { Profiler } from './profiler';
-import { Keyboard } from './keyboard.js';
 import { expect } from '@playwright/test';
 
 export const enum Quality {
@@ -35,9 +34,6 @@ export class Application {
 
 	private _workbench: Workbench | undefined;
 	get workbench(): Workbench { return this._workbench!; }
-
-	private _keyboard: Keyboard | undefined;
-	get keyboard(): Keyboard { return this._keyboard!; }
 
 	get quality(): Quality {
 		return this.options.quality;
@@ -82,6 +78,9 @@ export class Application {
 		await measureAndLog(() => (async () => {
 			await this.stop();
 			await this._start(options?.workspaceOrFolder, options?.extraArgs);
+			if (this._code) {
+				this._workbench = new Workbench(this._code);
+			}
 		})(), 'Application#restart()', this.logger);
 	}
 
@@ -121,7 +120,6 @@ export class Application {
 
 		this._workbench = new Workbench(this._code);
 		this._profiler = new Profiler(this.code);
-		this._keyboard = new Keyboard(this.code);
 
 		return code;
 	}

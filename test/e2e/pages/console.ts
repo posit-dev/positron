@@ -148,7 +148,6 @@ export class Console {
 		await this.code.driver.page.mouse.move(0, 0);
 
 		// wait for the dropdown to contain R, Python, or No Interpreter.
-		// const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
 		const runtime = await this.sessions.sessionPicker.textContent() || '';
 
 		if (runtime.includes('Python')) {

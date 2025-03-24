@@ -29,11 +29,18 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 		await app.workbench.console.typeToConsole('time.sleep(10)', true);
 		await app.workbench.console.interruptExecution();
 	});
+});
 
-	test.fixme('Python - Verify alternate python can skip bundled ipykernel', async function ({ app, sessions, userSettings }) {
+// This nesting is necessary because the userSettings fixture must be used in a
+// beforeAll hook to ensure app instances pass to test correctly
+test.describe('Console Pane: Alternate Python', () => {
+
+	test.beforeAll(async ({ userSettings }) => {
 		await userSettings.set([['python.useBundledIpykernel', 'false']], true);
-		await sessions.start('pythonAlt');
+	});
 
+	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {
+		await sessions.start('pythonAlt');
 		await app.workbench.console.barClearButton.click();
 		await app.workbench.console.pasteCodeToConsole(`import ipykernel; ipykernel.__file__`, true);
 		await app.workbench.console.waitForConsoleContents('site-packages');

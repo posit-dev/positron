@@ -7,7 +7,7 @@ export * from './application';
 export * from './code';
 export * from './logger';
 export * from './workbench';
-export * from './keyboard';
+export * from '../pages/hotKeys';
 export * from './test-runner';
 
 // pages

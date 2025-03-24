@@ -109,11 +109,11 @@ async function triggerAutocompleteInEditor({ app, session, retrigger = false }: 
 	session: SessionInfo;
 	retrigger?: boolean;
 }) {
-	const { sessions } = app.workbench;
-	const keyboard = app.keyboard;
+	const { sessions, hotKeys } = app.workbench;
+	const keyboard = app.code.driver.page.keyboard;
 
 	await sessions.select(session.id);
-	await keyboard.hotKeys.firstTab();
+	await hotKeys.firstTab();
 
 	if (retrigger) {
 		await keyboard.press('Backspace', { delay: 1000 });

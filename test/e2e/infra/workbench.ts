@@ -37,6 +37,7 @@ import { References } from '../pages/references';
 import { SCM } from '../pages/scm';
 import { Sessions } from '../pages/sessions';
 import { Search } from '../pages/search.js';
+import { HotKeys } from '../pages/hotKeys.js';
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -77,9 +78,10 @@ export class Workbench {
 	readonly scm: SCM;
 	readonly sessions: Sessions;
 	readonly search: Search;
+	readonly hotKeys: HotKeys;
 
 	constructor(code: Code) {
-
+		this.hotKeys = new HotKeys(code);
 		this.popups = new Popups(code);
 		this.variables = new Variables(code);
 		this.dataExplorer = new DataExplorer(code, this);
@@ -92,7 +94,7 @@ export class Workbench {
 		this.quickInput = new QuickInput(code);
 		this.editors = new Editors(code);
 		this.quickaccess = new QuickAccess(code, this.editors, this.quickInput);
-		this.sessions = new Sessions(code, this.quickaccess, this.quickInput);
+		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.hotKeys);
 		this.connections = new Connections(code, this.quickaccess);
 		this.newProjectWizard = new NewProjectWizard(code, this.quickaccess);
 		this.output = new Output(code, this.quickaccess, this.quickInput);
@@ -112,7 +114,7 @@ export class Workbench {
 		this.problems = new Problems(code, this.quickaccess);
 		this.references = new References(code);
 		this.scm = new SCM(code, this.layouts);
-
 		this.search = new Search(code);
+
 	}
 }

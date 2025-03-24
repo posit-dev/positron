@@ -19,12 +19,9 @@ test.describe('Console Pane: R', {
 
 	test('R - Verify restart button on console bar', {
 		tag: [tags.WIN]
-	}, async function ({ app, r }) {
-		await expect(async () => {
-			await app.workbench.console.barClearButton.click();
-			await app.workbench.console.barRestartButton.click();
-			await app.workbench.console.waitForReady('>');
-		}).toPass();
+	}, async function ({ sessions }) {
+		const rSession = await sessions.start('r');
+		await sessions.restart(rSession.id);
 	});
 
 	test('R - Verify cancel button on console bar', {
@@ -37,12 +34,11 @@ test.describe('Console Pane: R', {
 		// nothing appears in console after interrupting execution
 	});
 
-	test.fixme('R - Verify password prompt', {
+	test('R - Verify password prompt', {
 		tag: [tags.WIN]
 	}, async function ({ app, r }) {
 
-		await app.workbench.console.pasteCodeToConsole('out <- rstudioapi::askForPassword("enter password")');
-		await app.workbench.console.sendEnterKey();
+		await app.workbench.console.pasteCodeToConsole('out <- rstudioapi::askForPassword("enter password")', true);
 
 		await app.workbench.quickInput.type('password');
 		await app.code.driver.page.keyboard.press('Enter');

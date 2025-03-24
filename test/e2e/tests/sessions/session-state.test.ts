@@ -22,7 +22,6 @@ test.describe('Sessions: State', {
 	});
 
 	test('Validate state between sessions (active, idle, disconnect)', async function ({ app, sessions }) {
-
 		const { console } = app.workbench;
 
 		// Start Python session

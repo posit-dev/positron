@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import test, { expect, Locator } from '@playwright/test';
-import { Code, Keyboard, QuickAccess } from '../infra';
+import { Code, HotKeys, QuickAccess } from '../infra';
 import { QuickInput } from './quickInput';
 
 const DESIRED_PYTHON = process.env.POSITRON_PY_VER_SEL;
@@ -18,7 +18,6 @@ const ACTIVE_STATUS_ICON = '.codicon-positron-status-active';
  */
 export class Sessions {
 	private page = this.code.driver.page;
-	private keyboard = new Keyboard(this.code);
 
 	// Session management and UI elements
 	private quickPick = new SessionQuickPick(this.code, this);
@@ -46,7 +45,7 @@ export class Sessions {
 	private consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
 	private outputChannel = this.page.getByRole('combobox');
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private hotKeys: HotKeys) { }
 
 	// -- Actions --
 
@@ -107,7 +106,7 @@ export class Sessions {
 	 */
 	async delete(sessionId: string): Promise<void> {
 		await test.step(`Delete session: ${sessionId}`, async () => {
-			await this.keyboard.hotKeys.focusConsole();
+			await this.hotKeys.focusConsole();
 
 			if (await this.getSessionCount() === 1) {
 				const currentSessionId = await this.getCurrentSessionId();
@@ -142,7 +141,7 @@ export class Sessions {
 		const { waitForIdle = true, clearConsole = true } = options || {};
 
 		await test.step(`Restart session: ${sessionIdOrName}`, async () => {
-			await this.keyboard.hotKeys.focusConsole();
+			await this.hotKeys.focusConsole();
 
 			if (await this.getSessionCount() > 1) {
 				await this.getSessionTab(sessionIdOrName).click();
@@ -185,7 +184,7 @@ export class Sessions {
 	 * @param menuItem - the menu item to click on the metadata dialog
 	 */
 	async selectMetadataOption(menuItem: 'Show Kernel Output Channel' | 'Show Console Output Channel' | 'Show LSP Output Channel') {
-		await this.keyboard.hotKeys.focusConsole();
+		await this.hotKeys.focusConsole();
 		await this.metadataButton.click();
 		await this.metadataDialog.getByText(menuItem).click();
 
@@ -312,7 +311,7 @@ export class Sessions {
 	 * @param options - Configuration options for selecting the runtime session.
 	 * @param options.language - the runtime language to select (e.g., "Python" or "R").
 	 * @param options.version - the specific version of runtime to select (e.g., "3.10.15").
-	 * @param options.triggerMode - the method used to trigger the selection: session-picker, quickaccess, or console.
+	 * @param options.triggerMode - the method used to trigger the selection: session-picker, quickaccess, hotkey, or console.
 	 * @param options.waitForReady - whether to wait for the console to be ready after selecting the runtime.
 	 */
 	private async launchNew(options: {
@@ -349,7 +348,7 @@ export class Sessions {
 			} else if (triggerMode === 'session-picker') {
 				await this.quickPick.openSessionQuickPickMenu();
 			} else if (triggerMode === 'console') {
-				await this.keyboard.hotKeys.focusConsole();
+				await this.hotKeys.focusConsole();
 				await this.newSessionButton.click();
 			} else {
 				await this.page.keyboard.press('Control+Shift+/');
@@ -382,7 +381,7 @@ export class Sessions {
 	 */
 	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
 		await test.step(`Select session: ${sessionIdOrName}`, async () => {
-			await this.keyboard.hotKeys.focusConsole();
+			await this.hotKeys.focusConsole();
 			const session = this.getSessionTab(sessionIdOrName);
 
 			if (waitForSessionIdle) {
@@ -433,7 +432,7 @@ export class Sessions {
 	private async reuseIdleSessionIfExists(session: SessionInfo): Promise<string> {
 		return await test.step(`Reuse session: ${session.name}`, async () => {
 
-			await this.keyboard.hotKeys.focusConsole();
+			await this.hotKeys.focusConsole();
 			const metadataButtonIsVisible = await this.metadataButton.isVisible();
 			const sessionTab = this.getSessionTab(session.name);
 			const sessionTabExists = await sessionTab.isVisible();
@@ -473,7 +472,7 @@ export class Sessions {
 			await this.waitForRuntimesToLoad();
 
 			// ensure we are on Console tab
-			await this.keyboard.hotKeys.focusConsole();
+			await this.hotKeys.focusConsole();
 
 			// Move mouse to prevent tooltip hover
 			await this.code.driver.page.mouse.move(0, 0);
@@ -532,7 +531,7 @@ export class Sessions {
 	 */
 	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
 		return await test.step(`Get metadata for: ${sessionId ?? 'current session'}`, async () => {
-			await this.keyboard.hotKeys.focusConsole();
+			await this.hotKeys.focusConsole();
 
 			if (sessionId && await this.getSessionCount() > 1) {
 				await this.page.getByTestId(`console-tab-${sessionId}`).click();
@@ -642,10 +641,13 @@ export class Sessions {
 				await expect(sessionTab.locator(statusClass)).toBeVisible({ timeout });
 			} else if (sessionCount === 1) {
 				// get status from metadata dialog because there is no tab list view
-				await expect(async () => {
-					const { state } = await this.getMetadata();
-					expect(state).toBe(expectedStatus);
-				}).toPass({ timeout });
+				await expect.poll(
+					async () => (await this.getMetadata()).state,
+					{
+						timeout: 15000,
+						intervals: [1000]
+					}
+				).toBe(expectedStatus);
 			} else {
 				throw new Error('No sessions found');
 			}
@@ -688,7 +690,7 @@ export class Sessions {
 			await expect(this.outputChannel).toHaveValue(/Language Server \(Console\)$/);
 
 			// Go back to console when done
-			await this.keyboard.hotKeys.focusConsole();
+			await this.hotKeys.focusConsole();
 		});
 	}
 
