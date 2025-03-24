@@ -104,8 +104,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		// Register this session with the session manager
 		RSessionManager.instance.setSession(metadata.sessionId, this);
 
-		this.onDidChangeRuntimeState((state) => {
-			this.onStateChange(state);
+		this.onDidChangeRuntimeState(async (state) => {
+			await this.onStateChange(state);
 		});
 	}
 
@@ -704,11 +704,11 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 *
 	 * Returns a promise that resolves when the LSP has been deactivated.
 	 *
-	 * Should never be called within `RSession`, only a session manager should
-	 * call this. That said, we do sometimes call `this._lsp.deactivate()`
-	 * directly from within `RSession`. This is okay for now, the important
-	 * thing is that an LSP should only ever be started up by a session manager
-	 * to ensure that other LSPs are deactivated first.
+	 * The session manager is in charge of starting up the LSP, so
+	 * `activateLsp()` should never be called from `RSession`, but the session
+	 * itself may need to call `deactivateLsp()`. This is okay for now, the
+	 * important thing is that an LSP should only ever be started up by a
+	 * session manager to ensure that other LSPs are deactivated first.
 	 */
 	public async deactivateLsp(): Promise<void> {
 		return this._queue.add(async () => {
@@ -751,7 +751,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 	}
 
-	private onStateChange(state: positron.RuntimeState): void {
+	private async onStateChange(state: positron.RuntimeState): Promise<void> {
 		this._state = state;
 
 		if (state === positron.RuntimeState.Ready) {
@@ -777,6 +777,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 					}
 				}
 			});
+		} else if (state === positron.RuntimeState.Exited) {
+			await this.deactivateLsp();
 		}
 	}
 

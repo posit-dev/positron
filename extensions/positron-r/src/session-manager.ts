@@ -90,13 +90,10 @@ export class RSessionManager {
 			// sessions that permanently go into `Exited` and never come back
 			// online will never be removed from `_restartingConsoleSessionIds`,
 			// but we don't think that would get too out of control.
-			//
-			// On exit, we also double check that we are fully deactivated
 			case positron.RuntimeState.Exited: {
 				if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
 					this._restartingConsoleSessionIds.add(session.metadata.sessionId);
 				}
-				await this.deactivateSession(session);
 			}
 
 			default:
