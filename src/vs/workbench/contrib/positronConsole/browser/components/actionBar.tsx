@@ -63,6 +63,7 @@ const positronRestartConsole = localize('positronRestartConsole', "Restart conso
 const positronShutdownConsole = localize('positronShutdownConsole', "Shutdown console");
 const positronStartConsole = localize('positronStartConsole', "Start console");
 const positronDeleteConsole = localize('positronDeleteConsole', "Delete console");
+const positronOpenInEditor = localize('positronOpenInEditor', "Open in editor");
 
 /**
  * Provides a localized label for the given runtime state. Only the transient
@@ -350,6 +351,22 @@ export const ActionBar = (props: ActionBarProps) => {
 			positronConsoleContext.activePositronConsoleInstance.sessionId);
 	};
 
+	// Open in editor event handler.
+	const openInEditorHandler = async () => {
+		// Ensure we're acting on a valid console instance.
+		if (!positronConsoleContext.activePositronConsoleInstance) {
+			return;
+		}
+
+		// Open an editor on the clipboard representation of the active console. R and Python use the same comment prefix,
+		// so nothing more fancy is needed.
+		positronConsoleContext.editorService.openEditor({
+			resource: undefined,
+			languageId: positronConsoleContext.activePositronConsoleInstance.runtimeMetadata.languageId,
+			contents: positronConsoleContext.activePositronConsoleInstance.getClipboardRepresentation('# ').join('\n'),
+		});
+	};
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...positronConsoleContext}>
@@ -441,6 +458,14 @@ export const ActionBar = (props: ActionBarProps) => {
 							iconId='word-wrap'
 							tooltip={positronToggleWordWrap}
 							onPressed={toggleWordWrapHandler}
+						/>
+						<ActionBarSeparator />
+						<ActionBarButton
+							align='right'
+							ariaLabel={positronOpenInEditor}
+							iconId='positron-open-in-editor'
+							tooltip={positronOpenInEditor}
+							onPressed={openInEditorHandler}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton

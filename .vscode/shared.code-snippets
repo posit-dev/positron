@@ -56,7 +56,7 @@
 		"description": "Add Positron overlay markers",
 		"body": [
 			"// --- Start Positron ---",
-			"$0",
+			"$TM_SELECTED_TEXT$0",
 			"// --- End Positron ---"
 		]
 	}

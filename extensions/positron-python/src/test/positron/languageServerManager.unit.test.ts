@@ -14,6 +14,8 @@ import { mock } from './utils';
 import { createUniqueId, PythonRuntimeSession } from '../../client/positron/session';
 import * as util from '../../client/positron/util';
 import { IServiceContainer } from '../../client/ioc/types';
+import { IPythonPathUpdaterServiceManager } from '../../client/interpreter/configuration/types';
+import { IWorkspaceService } from '../../client/common/application/types';
 
 function mockSession(sessionMode = positron.LanguageRuntimeSessionMode.Console): PythonRuntimeSession {
     return new PythonRuntimeSession(
@@ -56,7 +58,26 @@ suite('Language server manager', () => {
             getActiveSessions: async () => [foregroundSession, nonForegroundSession],
         });
 
-        registerLanguageServerManager(disposables);
+        const pythonPathUpdaterService = mock<IPythonPathUpdaterServiceManager>({
+            updatePythonPath: sinon.stub(),
+        });
+
+        const workspaceService = mock<IWorkspaceService>({});
+
+        const serviceContainer = {
+            get(serviceIdentifier) {
+                switch (serviceIdentifier) {
+                    case IPythonPathUpdaterServiceManager:
+                        return pythonPathUpdaterService;
+                    case IWorkspaceService:
+                        return workspaceService;
+                    default:
+                        throw new Error('Unknown service');
+                }
+            },
+        } as IServiceContainer;
+
+        registerLanguageServerManager(serviceContainer, disposables);
     });
 
     teardown(() => {

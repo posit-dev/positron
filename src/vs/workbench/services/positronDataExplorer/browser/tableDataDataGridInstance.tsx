@@ -13,6 +13,8 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { IColumnSortKey } from '../../../browser/positronDataGrid/interfaces/columnSortKey.js';
 import { TableDataCell } from './components/tableDataCell.js';
 import { AnchorPoint } from '../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
@@ -44,6 +46,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	private readonly _onAddFilterEmitter = this._register(new Emitter<ColumnSchema>);
 
+	/**
+	 * The cell hover manager with longer delay for data cell tooltips.
+	 */
+	private readonly _cellHoverManager: PositronActionBarHoverManager;
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -52,6 +59,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Constructor.
 	 * @param _commandService The command service.
 	 * @param _configurationService The configuration service.
+	 * @param _hoverService The hover service.
 	 * @param _keybindingService The keybinding service.
 	 * @param _layoutService The layout service.
 	 * @param _dataExplorerClientInstance The data explorer client instance.
@@ -62,6 +70,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		private readonly _configurationService: IConfigurationService,
 		private readonly _keybindingService: IKeybindingService,
 		private readonly _layoutService: ILayoutService,
+		private readonly _hoverService: IHoverService,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
 		private readonly _tableDataCache: TableDataCache,
 	) {
@@ -89,6 +98,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			internalCursor: true,
 			cursorOffset: 0.5,
 		});
+
+		this._cellHoverManager = this._register(new PositronActionBarHoverManager(false, this._configurationService, this._hoverService));
+		this._cellHoverManager.setCustomHoverDelay(500);
 
 		/**
 		 * Updates the layout entries.
@@ -294,6 +306,20 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @param rowIndex The row index.
 	 * @returns The cell value.
 	 */
+	/**
+	 * Gets the cell hover manager.
+	 * @returns The cell hover manager.
+	 */
+	get cellHoverManager(): PositronActionBarHoverManager {
+		return this._cellHoverManager;
+	}
+
+	/**
+	 * Gets a data cell.
+	 * @param columnIndex The column index.
+	 * @param rowIndex The row index.
+	 * @returns The cell value.
+	 */
 	cell(columnIndex: number, rowIndex: number): JSX.Element | undefined {
 		// Get the column.
 		const column = this.column(columnIndex);
@@ -312,6 +338,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			<TableDataCell
 				column={column}
 				dataCell={dataCell}
+				hoverManager={this._cellHoverManager}
 			/>
 		);
 	}
