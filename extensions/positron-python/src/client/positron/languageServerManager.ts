@@ -99,9 +99,6 @@ class LanguageServerManager implements vscode.Disposable {
                     } else if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Notebook) {
                         await session.activateLsp();
                     }
-                } else if (state === positron.RuntimeState.Exited) {
-                    // The session has exited, deactivate the LSP.
-                    await session.deactivateLsp();
                 }
             }),
         );
