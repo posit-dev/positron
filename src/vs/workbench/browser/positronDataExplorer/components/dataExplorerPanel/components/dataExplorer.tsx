@@ -27,7 +27,7 @@ import { PositronDataExplorerLayout } from '../../../../../services/positronData
  * Constants.
  */
 const MIN_COLUMN_WIDTH = 300;
-const DEFAULT_SUMMARY_WIDTH = 400;
+const DEFAULT_SUMMARY_WIDTH = 350;
 
 /**
  * DataExplorer component.
