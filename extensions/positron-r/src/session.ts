@@ -675,12 +675,12 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 * should call this.
 	 */
 	public async activateLsp(): Promise<void> {
-		if (this._lsp.state !== LspState.stopped && this._lsp.state !== LspState.uninitialized) {
-			// Already activated
-			return undefined;
-		}
-
 		return this._queue.add(async () => {
+			if (this._lsp.state !== LspState.stopped && this._lsp.state !== LspState.uninitialized) {
+				// Already activated
+				return;
+			}
+
 			if (this._kernel) {
 				this._kernel.emitJupyterLog('Starting Positron LSP server');
 
@@ -711,15 +711,16 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 * to ensure that other LSPs are deactivated first.
 	 */
 	public async deactivateLsp(): Promise<void> {
-		if (this._lsp.state !== LspState.running) {
-			// Nothing to deactivate
-			return undefined;
-		}
-
 		return this._queue.add(async () => {
+			if (this._lsp.state !== LspState.running) {
+				// Nothing to deactivate
+				return;
+			}
+
 			if (this._kernel) {
 				this._kernel.emitJupyterLog(`Stopping Positron LSP server`);
 			}
+
 			await this._lsp.deactivate();
 		});
 	}
