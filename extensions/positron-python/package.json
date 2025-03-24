@@ -541,7 +541,7 @@
                         }
                     ],
                     "markdownDescription": "%python.environmentProviders.enable.markdownDescription%",
-                    "scope": "machine-overridable",
+                    "scope": "resource",
                     "type": "object",
                     "properties": {
                         "Venv": {
@@ -556,7 +556,7 @@
                 "python.defaultInterpreterPath": {
                     "default": "python",
                     "markdownDescription": "%python.defaultInterpreterPath.description%",
-                    "scope": "machine-overridable",
+                    "scope": "resource",
                     "type": "string",
                     "tags": [
                         "interpreterSettings"
@@ -565,7 +565,7 @@
                 "python.interpreters.include": {
                     "default": [],
                     "markdownDescription": "%python.interpreters.include.markdownDescription%",
-                    "scope": "machine",
+                    "scope": "resource",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -578,7 +578,7 @@
                 "python.interpreters.exclude": {
                     "default": [],
                     "markdownDescription": "%python.interpreters.exclude.markdownDescription%",
-                    "scope": "machine",
+                    "scope": "resource",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -591,7 +591,7 @@
                 "python.interpreters.override": {
                     "default": [],
                     "markdownDescription": "%python.interpreters.override.markdownDescription%",
-                    "scope": "machine",
+                    "scope": "resource",
                     "type": "array",
                     "items": {
                         "type": "string"
