@@ -50,8 +50,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The Language Server Protocol client wrapper, if created */
     private _lsp: PythonLsp | undefined;
 
-    /** Queue for message handlers */
-    private _queue: PQueue;
+    /** Queue for language server activation/deactivation */
+    private _lspQueue: PQueue;
 
     /** The Jupyter kernel-based implementation of the Language Runtime API */
     private _kernel?: JupyterLanguageRuntimeSession;
@@ -123,7 +123,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._pythonPath = extraData.pythonPath;
         this._ipykernelBundle = extraData.ipykernelBundle;
 
-        this._queue = new PQueue({ concurrency: 1 });
+        this._lspQueue = new PQueue({ concurrency: 1 });
 
         this.dynState = {
             inputPrompt: '>>>',
@@ -533,7 +533,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
      * @returns A promise that resolves when the LSP has been activated.
      */
     async activateLsp(): Promise<void> {
-        return this._queue.add(async () => {
+        return this._lspQueue.add(async () => {
             if (!this._lsp) {
                 this._kernel?.emitJupyterLog('Tried to start LSP but no LSP instance available');
                 return;
@@ -571,7 +571,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
      * @returns A promise that resolves when the LSP has been deactivated.
      */
     async deactivateLsp(): Promise<void> {
-        return this._queue.add(async () => {
+        return this._lspQueue.add(async () => {
             if (!this._lsp || this._lsp.state !== LspState.running) {
                 // LSP is already stopped.
                 return;
