@@ -31,8 +31,13 @@ test.describe('Headless Data Explorer', {
 	tag: [tags.WEB, tags.DATA_EXPLORER, tags.DUCK_DB, tags.WIN]
 }, () => {
 
+	test.beforeEach(async function ({ app }) {
+		await app.workbench.layouts.enterLayout('notebook'); // Make data explorer larger
+	});
+
 	test.afterEach(async function ({ app }) {
 		await app.workbench.dataExplorer.closeDataExplorer();
+		await app.workbench.layouts.enterLayout('stacked'); //return to default layout
 	});
 
 	testCases.forEach(({ name, file, copyValue }) => {
