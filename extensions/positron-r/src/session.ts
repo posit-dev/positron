@@ -681,21 +681,25 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				return;
 			}
 
-			if (this._kernel) {
-				this._kernel.emitJupyterLog('Starting Positron LSP server');
-
-				// Create the LSP comm, which also starts the LSP server.
-				// We await the server selected port (the server selects the
-				// port since it is in charge of binding to it, which avoids
-				// race conditions). We also use this promise to avoid restarting
-				// in the middle of initialization.
-				this._lspStarting = this._kernel.startPositronLsp('127.0.0.1');
-				const port = await this._lspStarting;
-
-				this._kernel.emitJupyterLog(`Starting Positron LSP client on port ${port}`);
-
-				await this._lsp.activate(port);
+			if (!this._kernel) {
+				// TODO: Can we log this somewhere?
+				// Cannot start LSP, kernel not started
+				return;
 			}
+
+			this._kernel.emitJupyterLog('Starting Positron LSP server');
+
+			// Create the LSP comm, which also starts the LSP server.
+			// We await the server selected port (the server selects the
+			// port since it is in charge of binding to it, which avoids
+			// race conditions). We also use this promise to avoid restarting
+			// in the middle of initialization.
+			this._lspStarting = this._kernel.startPositronLsp('127.0.0.1');
+			const port = await this._lspStarting;
+
+			this._kernel.emitJupyterLog(`Starting Positron LSP client on port ${port}`);
+
+			await this._lsp.activate(port);
 		});
 	}
 
@@ -719,11 +723,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				// Nothing to deactivate
 				return;
 			}
-
-			if (this._kernel) {
-				this._kernel.emitJupyterLog(`Stopping Positron LSP server`);
-			}
-
+			this._kernel?.emitJupyterLog(`Stopping Positron LSP server`);
 			await this._lsp.deactivate();
 		});
 	}
