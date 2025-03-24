@@ -1,10 +1,6 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-// --- Start Positron ---
-import path from 'path';
-// --- End Positron ---
-
 import * as os from 'os';
 import { gte } from 'semver';
 import { PythonEnvKind, PythonEnvSource } from '../../info';
@@ -43,20 +39,25 @@ export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
                 // those binaries as environments.
                 const knownDirs = (await commonPosixBinPaths()).filter((dirname) => !isPyenvShimDir(dirname));
 
-                // --- Start Positron ---
-                const additionalDirs = getAdditionalPosixDirs();
-                for await (const dir of additionalDirs) {
-                    knownDirs.push(dir);
-                }
-                // --- End Positron ---
-
                 let pythonBinaries = await getPythonBinFromPosixPaths(knownDirs);
                 traceVerbose(`Found ${pythonBinaries.length} python binaries in posix paths`);
+
+                // --- Start Positron ---
+                const additionalBinaries = getAdditionalPosixBinaries();
+                for await (const bin of additionalBinaries) {
+                    pythonBinaries.push(bin);
+                }
+                // --- End Positron ---
 
                 // Filter out MacOS system installs of Python 2 if necessary.
                 if (isMacPython2Deprecated) {
                     pythonBinaries = pythonBinaries.filter((binary) => !isMacDefaultPythonPath(binary));
                 }
+
+                // --- Start Positron ---
+                // Filter out any duplicates
+                pythonBinaries = [...new Set(pythonBinaries)];
+                // --- End Positron ---
 
                 for (const bin of pythonBinaries) {
                     try {
@@ -78,9 +79,9 @@ export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
 
 // --- Start Positron ---
 /**
- * Gets additional directories to look for Python binaries on Posix systems.
+ * Gets additional Python binaries on Posix systems.
  *
- * For example, `/opt/python/3.10.4/bin` will be returned if the machine has Python 3.10.4 installed
+ * For example, `/opt/python/3.10.4/bin/python` will be returned if the machine has Python 3.10.4 installed
  * in `/opt/python/3.10.4/bin/python`.
  *
  * See extensions/positron-python/src/client/pythonEnvironments/base/locators/common/nativePythonFinder.ts
@@ -90,18 +91,18 @@ export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
  *                    Default is 2 levels.
  * @returns Paths to Python binaries found in additional locations for Posix systems.
  */
-export async function* getAdditionalPosixDirs(searchDepth = 2): AsyncGenerator<string> {
+export async function* getAdditionalPosixBinaries(searchDepth = 2): AsyncGenerator<string> {
     const additionalLocations = [
         // /opt/python is a recommended Python installation location on Posit Workbench.
         // see: https://docs.posit.co/ide/server-pro/python/installing_python.html
         '/opt/python',
     ];
     for (const location of additionalLocations) {
-        const additionalDirs = findInterpretersInDir(location, searchDepth);
-        for await (const dir of additionalDirs) {
-            const { filename } = dir;
+        const executables = findInterpretersInDir(location, searchDepth);
+        for await (const entry of executables) {
+            const { filename } = entry;
             if (await looksLikeBasicGlobalPython(filename)) {
-                yield path.dirname(filename);
+                yield filename;
             }
         }
     }
