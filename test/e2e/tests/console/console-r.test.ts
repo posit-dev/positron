@@ -38,6 +38,7 @@ test.describe('Console Pane: R', {
 			await app.workbench.console.barClearButton.click();
 			await app.workbench.console.barRestartButton.click();
 			await app.workbench.console.waitForReady('>');
+			await app.workbench.console.waitForConsoleContents('cat from .Rprofile'); // 6344 validation
 		}).toPass();
 	});
 
