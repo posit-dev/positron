@@ -40,18 +40,21 @@ class LanguageServerManager implements vscode.Disposable {
                     return;
                 }
 
-                // Update the last foreground session.
-                this._lastForegroundSessionId = sessionId;
-
-                this.updatePythonPath(sessionId);
-
-                // Activate the LSP for the foreground session.
+                // Get the foreground session.
                 const sessions = await getActivePythonSessions();
                 const foregroundSession = sessions.find((session) => session.metadata.sessionId === sessionId);
                 if (!foregroundSession) {
                     // The foreground session is for another language.
                     return;
                 }
+
+                // Update the last foreground session.
+                this._lastForegroundSessionId = sessionId;
+
+                // Update the Python path as expected by Pyright.
+                this.updatePythonPath(foregroundSession.runtimeMetadata.runtimePath);
+
+                // Activate the LSP for the foreground session.
                 await activateConsoleLsp(foregroundSession);
             }),
         );
