@@ -69,7 +69,7 @@ suite('Python Runtime Session', () => {
         interpreter = mock<PythonEnvironment>({
             id: 'pythonEnvironmentId',
             path: '/path/to/python',
-            version: mock<PythonVersion>({ major: 3, minor: 8 }),
+            version: mock<PythonVersion>({ major: 3, minor: 9 }),
         });
 
         runtimeMetadata = mock<positron.LanguageRuntimeMetadata>({
@@ -239,7 +239,7 @@ suite('Python Runtime Session', () => {
         const arch = os.arch();
         assert.deepStrictEqual(envVarsServiceSpy.appendPythonPath.args[0], [
             kernelSpec.env,
-            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', arch, 'cp38'),
+            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', arch, 'cp39'),
         ]);
         assert.deepStrictEqual(envVarsServiceSpy.appendPythonPath.args[1], [
             kernelSpec.env,

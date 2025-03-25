@@ -236,7 +236,6 @@ show(p)
     assert tempfile.gettempdir() in params["path"]
 
 
-@pytest.mark.skipif(sys.version_info < (3, 9), reason="requires Python 3.9 or higher")
 def test_holoview_extension_sends_events(shell: PositronShell, ui_comm: DummyComm) -> None:
     """
     Test events are sent.
