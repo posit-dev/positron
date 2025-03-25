@@ -127,7 +127,7 @@ test.describe('Sessions: Management', {
 
 		// Delete 2nd session and verify no active sessions or runtime in session picker
 		await console.barTrashButton.click();
-		await sessions.expectSessionPickerToBe({ language: 'Start Session' });
+		await sessions.expectSessionPickerToBe('Start Session');
 		await sessions.expectSessionCountToBe(0);
 		await sessions.expectActiveSessionListsToMatch();
 		await variables.expectRuntimeToBe('not.visible', `${rSession.name}|${pySession.name}|None`);

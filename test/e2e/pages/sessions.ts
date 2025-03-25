@@ -722,25 +722,34 @@ export class Sessions {
 	 * @param version - The descriptive string of the runtime to verify.
 	 */
 	async expectSessionPickerToBe(
-		options: { language?: 'Python' | 'R' | 'Start Session'; version?: string } = {}
+		options: { language?: 'Python' | 'R'; version?: string } | 'Start Session' = {}
 	) {
 		if (!DESIRED_PYTHON || !DESIRED_R) {
 			throw new Error('Please set env vars: POSITRON_PY_VER_SEL, POSITRON_R_VER_SEL');
 		}
 
-		const {
-			language = 'Python',
-			version = language === 'Python' ? DESIRED_PYTHON : DESIRED_R,
-		} = options;
-		await test.step(`Verify runtime is selected: ${language} ${version}`, async () => {
-			if (language === 'Start Session') {
-				await expect(this.sessionPicker).toHaveText('Start Session');
-			} else {
-				const runtimeInfo = await this.getSelectedSessionInfo();
-				expect(runtimeInfo.language).toContain(language);
-				expect(runtimeInfo.version).toContain(version);
+		const isStartSession = options === 'Start Session';
+
+		const language = !isStartSession && typeof options === 'object'
+			? options.language ?? 'Python'
+			: undefined;
+
+		const version = !isStartSession && typeof options === 'object'
+			? options.version ?? (language === 'Python' ? DESIRED_PYTHON : DESIRED_R)
+			: '';
+
+		await test.step(
+			`Verify runtime is selected: ${isStartSession ? 'Start Session' : `${language} ${version}`}`,
+			async () => {
+				if (isStartSession) {
+					await expect(this.sessionPicker).toHaveText('Start Session');
+				} else {
+					const runtimeInfo = await this.getSelectedSessionInfo();
+					expect(runtimeInfo.language).toContain(language);
+					expect(runtimeInfo.version).toContain(version);
+				}
 			}
-		});
+		);
 	}
 
 	async expectSessionCountToBe(count: number, sessionType: 'all' | 'active' = 'all') {
