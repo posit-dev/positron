@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Uni
 from comm.base_comm import BaseComm
 
 from ._vendor import attrs, cattrs
-from ._vendor.jedi.api import Interpreter, Project
+from ._vendor.jedi.api import Interpreter, Project, Script
 from ._vendor.jedi.api.classes import Completion
 from ._vendor.jedi_language_server import jedi_utils, notebook_utils, pygls_utils, server
 from ._vendor.jedi_language_server.server import (
@@ -830,11 +830,23 @@ def positron_hover(
     return None
 
 
+@notebook_utils.supports_notebooks
 @POSITRON.feature(TEXT_DOCUMENT_REFERENCES)
 def positron_references(
     server: PositronJediLanguageServer, params: TextDocumentPositionParams
 ) -> Optional[List[Location]]:
-    return references(server, params)
+    document = server.workspace.get_text_document(params.text_document.uri)
+    # TODO: Don't use an Interpreter until we debug the corresponding test on Python <= 3.9.
+    #       Not missing out on much since references don't use namespace information anyway.
+    jedi_script = Script(code=document.source, path=document.path, project=server.project)
+    jedi_lines = jedi_utils.line_column(params.position)
+    names = jedi_script.get_references(*jedi_lines)
+    locations = [
+        location
+        for location in (jedi_utils.lsp_location(name) for name in names)
+        if location is not None
+    ]
+    return locations if locations else None
 
 
 @POSITRON.feature(TEXT_DOCUMENT_DOCUMENT_SYMBOL)
