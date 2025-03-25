@@ -3,10 +3,8 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
-import sys
+from typing import Any, Dict
 from unittest.mock import patch
-
-import pytest
 
 from positron.positron_ipkernel import PositronShell
 
@@ -55,16 +53,22 @@ result
     assert result.success
     patch_result = result.result
 
+    # Ensure patch_result is not None and is a dictionary
+    assert patch_result is not None, "Result from cell execution is None"
+    result_dict: Dict[str, Any] = patch_result
+
     # We should have at least one of the modules
-    assert patch_result.get("has_haystack_ai", False) or patch_result.get("has_haystack", False), "No haystack modules found"
+    has_haystack_ai = result_dict.get("has_haystack_ai", False)
+    has_haystack = result_dict.get("has_haystack", False)
+    assert has_haystack_ai or has_haystack, "No haystack modules found"
 
     # Verify haystack_ai function is already patched if available
-    if patch_result.get("has_haystack_ai", False):
-        assert patch_result["haystack_ai_is_in_jupyter"] is True, "haystack_ai.utils.is_in_jupyter not automatically patched"
+    if has_haystack_ai:
+        assert result_dict["haystack_ai_is_in_jupyter"] is True, "haystack_ai.utils.is_in_jupyter not automatically patched"
 
     # Verify haystack function is already patched if available
-    if patch_result.get("has_haystack", False):
-        assert patch_result["haystack_is_in_jupyter"] is True, "haystack.utils.is_in_jupyter not automatically patched"
+    if has_haystack:
+        assert result_dict["haystack_is_in_jupyter"] is True, "haystack.utils.is_in_jupyter not automatically patched"
 
 
 @patch("importlib.util.find_spec")
