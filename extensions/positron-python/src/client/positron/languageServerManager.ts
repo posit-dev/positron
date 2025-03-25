@@ -54,11 +54,8 @@ class LanguageServerManager implements vscode.Disposable {
                     // Update the last foreground session.
                     lastForegroundSessionIdState.updateValue(sessionId),
 
-                    // Update the Python path as expected by Pyright.
-                    this.updatePythonPath(foregroundSession.runtimeMetadata.runtimePath),
-
                     // Activate the LSP for the foreground session.
-                    activateConsoleLsp(foregroundSession, sessions),
+                    this.activateConsoleLsp(foregroundSession, sessions),
                 ]);
             }),
         );
@@ -79,9 +76,11 @@ class LanguageServerManager implements vscode.Disposable {
         );
     }
 
+    /**
+     * Update the Python path as required by Pyright.
+     * This behavior only applies to workspaces; non-workspace editors do not update properly yet.
+     */
     private async updatePythonPath(pythonPath: string): Promise<void> {
-        // Pyright expects the Python path to be updated.
-        // This behavior only applies to workspaces; non-workspace editors do not update properly yet.
         let folderUri: vscode.Uri | undefined;
         let configTarget: vscode.ConfigurationTarget;
 
@@ -101,6 +100,40 @@ class LanguageServerManager implements vscode.Disposable {
         await this._pythonPathUpdaterService.updatePythonPath(pythonPath, configTarget, 'ui', folderUri);
     }
 
+    /**
+     *
+     * Activates the console LSP for the given session. Deactivates all other console LSPs first.
+     * Also updates the Python path to the given session's runtime path as required by Pyright.
+     *
+     * @param session The Python runtime session to activate the language server for.
+     * @param allSessions Python runtime sessions to deactivate, defaults to all non-foreground sessions.
+     */
+    private async activateConsoleLsp(
+        session: PythonRuntimeSession,
+        allSessions?: PythonRuntimeSession[],
+    ): Promise<void> {
+        // Deactivate non-foreground console session LSPs.
+        const { sessionId: foregroundSessionId } = session.metadata;
+        const sessions = allSessions ?? (await getActivePythonSessions());
+        await Promise.all(
+            sessions
+                .filter(
+                    (session) =>
+                        session.metadata.sessionId !== foregroundSessionId &&
+                        session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console,
+                )
+                .map((session) => session.deactivateLsp()),
+        );
+
+        await Promise.all([
+            // Activate the foreground session LSP.
+            session.activateLsp(),
+
+            // Update the Python path as required by Pyright.
+            this.updatePythonPath(session.runtimeMetadata.runtimePath),
+        ]);
+    }
+
     private registerSession(session: PythonRuntimeSession): void {
         this._disposables.push(
             session.onDidChangeRuntimeState(async (state) => {
@@ -110,7 +143,7 @@ class LanguageServerManager implements vscode.Disposable {
                         // If this was the last foreground session, activate its LSP.
                         const lastForegroundSessionIdState = this.getLastForegroundSessionIdState();
                         if (lastForegroundSessionIdState.value === session.metadata.sessionId) {
-                            await activateConsoleLsp(session);
+                            await this.activateConsoleLsp(session);
                         }
                     } else if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Notebook) {
                         // Always activate notebook LSPs.
@@ -124,31 +157,6 @@ class LanguageServerManager implements vscode.Disposable {
     public dispose(): void {
         this._disposables.forEach((disposable) => disposable.dispose());
     }
-}
-
-/**
- *
- * Activates the console LSP for the given session. Deactivates all other console LSPs first.
- *
- * @param session The Python runtime session to activate the language server for.
- * @param allSessions Python runtime sessions to deactivate, defaults to all non-foreground sessions.
- */
-async function activateConsoleLsp(session: PythonRuntimeSession, allSessions?: PythonRuntimeSession[]): Promise<void> {
-    // Deactivate non-foreground console session LSPs.
-    const { sessionId: foregroundSessionId } = session.metadata;
-    const sessions = allSessions ?? (await getActivePythonSessions());
-    await Promise.all(
-        sessions
-            .filter(
-                (session) =>
-                    session.metadata.sessionId !== foregroundSessionId &&
-                    session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console,
-            )
-            .map((session) => session.deactivateLsp()),
-    );
-
-    // Activate the foreground session LSP.
-    await session.activateLsp();
 }
 
 export function registerLanguageServerManager(
