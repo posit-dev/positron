@@ -78,7 +78,7 @@ export class RSessionManager implements vscode.Disposable {
 			// - Restarted console sessions are activated here if they were previously the
 			//   foreground session before their restart, as we won't get a foreground session
 			//   notification for them otherwise.
-			// - Non-console sessions are activated immediately.
+			// - Notebook sessions are activated immediately (Background sessions never have their LSP activated).
 			case positron.RuntimeState.Ready: {
 				if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
 					if (this._restartingConsoleSessionIds.has(session.metadata.sessionId)) {
@@ -87,7 +87,7 @@ export class RSessionManager implements vscode.Disposable {
 							await this.activateConsoleSession(session);
 						}
 					}
-				} else {
+				} else if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Notebook) {
 					await this.activateSession(session);
 				}
 				break;
