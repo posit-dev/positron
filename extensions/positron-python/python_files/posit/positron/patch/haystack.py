@@ -39,6 +39,7 @@ def patch_haystack_is_in_jupyter() -> None:
 
             # Try to patch in older haystack package
             try:
+                # pyright: ignore[reportMissingImports]
                 import haystack.utils
 
                 if hasattr(haystack.utils, "is_in_jupyter"):
@@ -53,6 +54,7 @@ def patch_haystack_is_in_jupyter() -> None:
         try:
             # Try to import as haystack_ai (which is the import path used in newer versions)
             try:
+                # pyright: ignore[reportMissingImports]
                 import haystack_ai.utils
 
                 if hasattr(haystack_ai.utils, "is_in_jupyter"):
@@ -61,6 +63,7 @@ def patch_haystack_is_in_jupyter() -> None:
             except ImportError:
                 # Try fallback to haystack.utils for newer haystack-ai package
                 # (sometimes the package is haystack-ai but the import is still haystack)
+                # pyright: ignore[reportMissingImports]
                 import haystack.utils
 
                 if hasattr(haystack.utils, "is_in_jupyter"):
