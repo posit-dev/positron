@@ -15,6 +15,7 @@ import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
 import { randomUUID } from 'crypto';
 import { handleRCode } from './hyperlink';
 import { RSessionManager } from './session-manager';
+import { LOGGER } from './extension.js';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -676,14 +677,13 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 */
 	public async activateLsp(): Promise<void> {
 		return this._lspQueue.add(async () => {
-			if (this._lsp.state !== LspState.stopped && this._lsp.state !== LspState.uninitialized) {
-				// Already activated
+			if (!this._kernel) {
+				LOGGER.warn('Cannot activate LSP; kernel not started');
 				return;
 			}
 
-			if (!this._kernel) {
-				// TODO: Can we log this somewhere?
-				// Cannot start LSP, kernel not started
+			if (this._lsp.state !== LspState.stopped && this._lsp.state !== LspState.uninitialized) {
+				// Already activated
 				return;
 			}
 
