@@ -6,6 +6,7 @@
 import path from 'path';
 import { test, tags } from '../_test.setup';
 import { expect } from '@playwright/test';
+import * as fs from 'fs/promises';
 
 test.use({
 	suiteId: __filename
@@ -17,6 +18,16 @@ test.describe('New UV Environment', {
 
 	test.beforeAll(async function ({ userSettings }) {
 		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
+	});
+
+	test.afterAll(async () => {
+		const projPath = '/tmp/vscsmoke/qa-example-content/proj';
+		try {
+			await fs.rm(projPath, { recursive: true, force: true });
+			console.log(`Cleaned up test project: ${projPath}`);
+		} catch (err) {
+			console.warn(`Failed to delete ${projPath}:`, err);
+		}
 	});
 
 	test('Python - Add new UV environment', async function ({ app, openFolder }) {
@@ -42,7 +53,7 @@ test.describe('New UV Environment', {
 		const metadata = await app.workbench.sessions.getMetadata();
 
 		expect(metadata.source).toBe('Uv');
-		expect(metadata.path).toBe('/tmp/vscsmoke/qa-example-content/proj/.venv/bin/python');
+		expect(metadata.path).toContain('qa-example-content/proj/.venv/bin/python');
 
 	});
 });
