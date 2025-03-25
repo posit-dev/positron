@@ -41,7 +41,7 @@ test.describe('New UV Environment', {
 
 		const metadata = await app.workbench.sessions.getMetadata();
 
-		expect(metadata.source).toBe('Venv');
+		expect(metadata.source).toBe('Uv');
 		expect(metadata.path).toBe('/tmp/vscsmoke/qa-example-content/proj/.venv/bin/python');
 
 	});
