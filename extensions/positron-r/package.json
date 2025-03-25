@@ -688,6 +688,50 @@
       {
         "languageId": "r"
       }
+    ],
+    "languageModelTools": [
+      {
+        "name": "getAttachedPackages",
+        "displayName": "Get attached R Packages",
+        "modelDescription": "Gets a list of the R packages that are loaded and attached in the current R session.",
+        "canBeReferencedInPrompt": false,
+        "tags": ["positron-assistant"]
+      },
+      {
+        "name": "getInstalledPackageVersion",
+        "displayName": "Get Installed R Package Version",
+        "modelDescription": "Given the name of an R package, returns the version of the package that's installed in the current R session, or NULL if the package is not installed.",
+        "canBeReferencedInPrompt": false,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "packageName": {
+              "type": "string",
+              "description": "The name of the R package to get the version of."
+            }
+          }
+        },
+        "tags": ["positron-assistant"]
+      },
+      {
+        "name": "installRPackage",
+        "displayName": "Install R package",
+        "modelDescription": "Given the names of one or more R packages, installs the packages in the current R environment.",
+        "canBeReferencedInPrompt": false,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "packageNames": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "The list of R packages to install."
+            }
+          }
+        },
+        "tags": ["positron-assistant"]
+      }
     ]
   },
   "scripts": {
@@ -741,7 +785,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.174"
+      "ark": "0.1.175"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"
