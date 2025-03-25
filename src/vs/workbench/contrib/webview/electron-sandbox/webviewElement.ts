@@ -18,14 +18,13 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { INativeHostService } from '../../../../platform/native/common/native.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IRemoteAuthorityResolverService } from '../../../../platform/remote/common/remoteAuthorityResolver.js';
-import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { ITunnelService } from '../../../../platform/tunnel/common/tunnel.js';
 import { FindInFrameOptions, IWebviewManagerService } from '../../../../platform/webview/common/webviewManagerService.js';
+import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { WebviewThemeDataProvider } from '../browser/themeing.js';
 import { WebviewInitInfo } from '../browser/webview.js';
 import { WebviewElement } from '../browser/webviewElement.js';
 import { WindowIgnoreMenuShortcutsManager } from './windowIgnoreMenuShortcutsManager.js';
-import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
@@ -53,7 +52,6 @@ export class ElectronWebviewElement extends WebviewElement {
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@ITunnelService tunnelService: ITunnelService,
 		@IFileService fileService: IFileService,
-		@ITelemetryService telemetryService: ITelemetryService,
 		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService,
 		@IRemoteAuthorityResolverService remoteAuthorityResolverService: IRemoteAuthorityResolverService,
 		@ILogService logService: ILogService,
@@ -66,7 +64,7 @@ export class ElectronWebviewElement extends WebviewElement {
 	) {
 		super(initInfo, webviewThemeDataProvider,
 			configurationService, contextMenuService, notificationService, environmentService,
-			fileService, logService, remoteAuthorityResolverService, telemetryService, tunnelService, instantiationService, accessibilityService);
+			fileService, logService, remoteAuthorityResolverService, tunnelService, instantiationService, accessibilityService);
 
 		this._webviewKeyboardHandler = new WindowIgnoreMenuShortcutsManager(configurationService, mainProcessService, _nativeHostService);
 

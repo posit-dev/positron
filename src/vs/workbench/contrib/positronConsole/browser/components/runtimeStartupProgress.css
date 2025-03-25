@@ -3,26 +3,26 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.runtime-starting {
+.runtime-startup-progress {
 	display: flex;
 	flex-direction: column;
 }
 
-.runtime-starting .action,
-.runtime-starting .runtime-name {
+.runtime-startup-progress .action,
+.runtime-startup-progress .runtime-name {
 	margin: 2px;
 	text-transform: uppercase;
 	text-align: center;
 }
 
-.runtime-starting .action {
+.runtime-startup-progress .action {
 	font-size: 11px;
 }
 
-.runtime-starting .runtime-name {
+.runtime-startup-progress .runtime-name {
 	font-weight: bold;
 }
 
-.runtime-starting-icon {
+.runtime-startup-progress-icon {
 	height: 50px;
 }

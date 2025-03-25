@@ -10,16 +10,16 @@ import './outputLine.css';
 import React from 'react';
 
 // Other dependencies.
-import { ANSIOutputLine } from '../../../base/common/ansiOutput.js';
 import { OutputRun } from './outputRun.js';
+import { ANSIOutputLine } from '../../../base/common/ansiOutput.js';
 import { IOpenerService } from '../../../platform/opener/common/opener.js';
 import { INotificationService } from '../../../platform/notification/common/notification.js';
 
 // OutputLineProps interface.
 export interface OutputLineProps {
-	readonly outputLine: ANSIOutputLine;
 	readonly openerService: IOpenerService;
 	readonly notificationService: INotificationService;
+	readonly outputLine: ANSIOutputLine;
 }
 
 /**
@@ -28,21 +28,22 @@ export interface OutputLineProps {
  * @returns The rendered component.
  */
 export const OutputLine = (props: OutputLineProps) => {
+	// If there are no output runs, render a line break for an empty line.
+	if (!props.outputLine.outputRuns.length) {
+		return <br />;
+	}
 
 	// Render.
 	return (
 		<div>
-			{!props.outputLine.outputRuns.length ?
-				<br /> :
-				props.outputLine.outputRuns.map(outputRun =>
-					<OutputRun
-						key={outputRun.id}
-						notificationService={props.notificationService}
-						openerService={props.openerService}
-						outputRun={outputRun}
-					/>
-				)
-			}
+			{props.outputLine.outputRuns.map(outputRun =>
+				<OutputRun
+					key={outputRun.id}
+					notificationService={props.notificationService}
+					openerService={props.openerService}
+					outputRun={outputRun}
+				/>
+			)}
 		</div>
 	);
 };

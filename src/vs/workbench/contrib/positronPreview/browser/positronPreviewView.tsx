@@ -11,7 +11,6 @@ import * as DOM from '../../../../base/browser/dom.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IViewDescriptorService } from '../../../common/views.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
-import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IElementPosition, IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
@@ -85,7 +84,6 @@ export class PositronPreviewViewPane extends PositronViewPane implements IReactC
 		@IKeybindingService keybindingService: IKeybindingService,
 		@INotificationService private readonly notificationService: INotificationService,
 		@IOpenerService openerService: IOpenerService,
-		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
@@ -94,7 +92,7 @@ export class PositronPreviewViewPane extends PositronViewPane implements IReactC
 		@IPositronPreviewService private readonly positronPreviewService: IPositronPreviewService,
 		@IHoverService hoverService: IHoverService,
 	) {
-		super({ ...options, openFromCollapsedSize: '50%' }, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService, hoverService);
+		super({ ...options, openFromCollapsedSize: '50%' }, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
 		this._positronPreviewContainer = DOM.$('.positron-preview-container');

@@ -25,6 +25,7 @@ export class Sessions {
 	sessionTabs = this.page.getByTestId(/console-tab/);
 	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 	activeSessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').getByRole('button', { name: /(Start a New Session)|(Open Active Session Picker)/ });
+	getSessionCount = async () => (await this.sessions.all()).length;
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
@@ -728,7 +729,15 @@ export class Sessions {
 	 * Verify: all sessions are idle (not active)
 	 */
 	async expectAllSessionsToBeIdle() {
-		await expect(this.activeStatusIcon).toHaveCount(0);
+		if (await this.getSessionCount() > 1) {
+			console.log('xyz');
+			await expect(this.activeStatusIcon).toHaveCount(0);
+		} else {
+			await expect(this.page.getByText(/starting/)).not.toBeVisible();
+			await this.metadataButton.click();
+			await expect(this.page.getByText('State: idle')).toBeVisible({ timeout: 60000 });
+			await this.page.keyboard.press('Escape');
+		}
 	}
 }
 
@@ -755,7 +764,7 @@ export class SessionQuickPick {
 			}
 
 			if (viewAllRuntimes) {
-				await this.code.driver.page.getByRole('combobox', { name: 'input' }).fill('New Session');
+				await this.code.driver.page.getByRole('textbox', { name: 'input' }).fill('New Session');
 				await this.code.driver.page.keyboard.press('Enter');
 				await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible({ timeout: 1000 });
 			}

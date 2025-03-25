@@ -102,6 +102,19 @@
 	grid-column: sparkline / missing-values;
 }
 
+.data-grid-row-cell .content .column-summary .basic-info .column-sparkline .loading-sparkline .loading-indicator {
+	fill: var(--vscode-positronDataExplorer-columnNullPercentGraphBackgroundFill);
+	stroke: var(--vscode-positronDataExplorer-columnNullPercentGraphBackgroundStroke);
+	opacity: 0.5;
+	animation: pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse {
+	0% { opacity: 0.2; }
+	50% { opacity: 0.5; }
+	100% { opacity: 0.2; }
+}
+
 /* column-null-percent */
 
 .data-grid-row-cell .content .column-summary .basic-info .column-null-percent {

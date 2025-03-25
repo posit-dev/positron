@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ActivityItem } from './activityItem.js';
 import { Emitter } from '../../../../../base/common/event.js';
+import { formatOutputLinesForClipboard } from '../utils/clipboardUtils.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
 /**
@@ -19,18 +21,23 @@ export const enum ActivityItemInputState {
 /**
  * ActivityItemInput class.
  */
-export class ActivityItemInput {
+export class ActivityItemInput extends ActivityItem {
 	//#region Private Properties
 
 	/**
-	 * The state.
+	 * Gets or sets the state.
 	 */
 	private _state: ActivityItemInputState;
 
 	/**
+	 * Gets the code output lines.
+	 */
+	private readonly _codeOutputLines: readonly ANSIOutputLine[] = [];
+
+	/**
 	 * onStateChanged event emitter.
 	 */
-	private onStateChangedEmitter = new Emitter<void>();
+	private readonly _onStateChangedEmitter = new Emitter<void>();
 
 	//#endregion Private Properties
 
@@ -50,46 +57,70 @@ export class ActivityItemInput {
 	set state(state: ActivityItemInputState) {
 		if (state !== this._state) {
 			this._state = state;
-			this.onStateChangedEmitter.fire();
+			this._onStateChangedEmitter.fire();
 		}
 	}
 
 	/**
-	 * The code output lines.
+	 * Gets the code output lines.
 	 */
-	readonly codeOutputLines: ANSIOutputLine[];
+	get codeOutputLines(): readonly ANSIOutputLine[] {
+		return this._codeOutputLines;
+	}
 
 	//#endregion Public Properties
+
+	//#region Public Events
 
 	/**
 	 * An event that fires when the state changes.
 	 */
-	public onStateChanged = this.onStateChangedEmitter.event;
+	public onStateChanged = this._onStateChangedEmitter.event;
+
+	//#region Public Events
 
 	//#region Constructor
 
 	/**
 	 * Constructor.
-	 * @param state The initial state.
 	 * @param id The identifier.
 	 * @param parentId The parent identifier.
 	 * @param when The date.
+	 * @param state The initial state.
 	 * @param inputPrompt The input prompt.
 	 * @param continuationPrompt The continuation prompt.
 	 * @param code The code.
 	 */
 	constructor(
+		id: string,
+		parentId: string,
+		when: Date,
 		state: ActivityItemInputState,
-		readonly id: string,
-		readonly parentId: string,
-		readonly when: Date,
 		readonly inputPrompt: string,
 		readonly continuationPrompt: string,
 		readonly code: string
 	) {
+		// Call the base class's constructor.
+		super(id, parentId, when);
+
+		// Initialize.
 		this._state = state;
-		this.codeOutputLines = ANSIOutput.processOutput(code);
+		this._codeOutputLines = ANSIOutput.processOutput(code);
 	}
 
 	//#endregion Constructor
+
+	//#region Public Methods
+
+	/**
+	 * Gets the clipboard representation of the activity item.
+	 * @param commentPrefix The comment prefix to use.
+	 * @returns The clipboard representation of the activity item.
+	 */
+	public override getClipboardRepresentation(commentPrefix: string): string[] {
+		// Activity item inputs are not commented out, so ignore the comment prefix.
+		return formatOutputLinesForClipboard(this._codeOutputLines);
+	}
+
+	//#endregion Public Methods
 }

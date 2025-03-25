@@ -3,15 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { RuntimeItem } from '../classes/runtimeItem.js';
 import { Event } from '../../../../../base/common/event.js';
+import { IDisposable } from '../../../../../base/common/lifecycle.js';
+import { ActivityItemPrompt } from '../classes/activityItemPrompt.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
-import { RuntimeItem } from '../classes/runtimeItem.js';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
-import { ActivityItemPrompt } from '../classes/activityItemPrompt.js';
-import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
-import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IExecutionHistoryEntry } from '../../../positronHistory/common/executionHistoryService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
 
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
@@ -357,6 +357,13 @@ export interface IPositronConsoleInstance {
 	 * Interrupts the console.
 	 */
 	interrupt(code: string): void;
+
+	/**
+	 * Gets the clipboard representation of the console instance.
+	 * @param commentPrefix The comment prefix to use.
+	 * @returns The clipboard representation of the console instance.
+	 */
+	getClipboardRepresentation(commentPrefix: string): string[];
 
 	/**
 	 * Replays execution history entries, adding their input and output to the
