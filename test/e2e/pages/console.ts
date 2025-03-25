@@ -177,21 +177,22 @@ export class Console {
 		await this.waitForInterpretersToFinishLoading();
 
 		// ensure we are on Console tab
-		await this.focus();
+		await page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
 
 		// Move mouse to prevent tooltip hover
 		await this.code.driver.page.mouse.move(0, 0);
 
 		// wait for the dropdown to contain R, Python, or No Interpreter.
-		const runtime = await this.code.driver.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first().textContent() || '';
+		const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
 
-		if (runtime.includes('Python')) {
+		if (currentInterpreter.includes('Python')) {
 			await expect(page.getByRole('code').getByText('>>>')).toBeVisible({ timeout: 30000 });
 			return;
-		} else if (runtime.includes('R')) {
+		} else if (currentInterpreter.includes('R')) {
 			await expect(page.getByRole('code').getByText('>')).toBeVisible({ timeout: 30000 });
 			return;
-		} else if (runtime.includes('Start Session')) {
+		} else if (currentInterpreter.includes('Start Interpreter')) {
+			await expect(page.getByText('There is no interpreter')).toBeVisible();
 			return;
 		}
 

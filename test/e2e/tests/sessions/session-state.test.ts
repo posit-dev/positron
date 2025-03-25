@@ -17,12 +17,13 @@ test.describe('Sessions: State', {
 		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
 	});
 
-	test.beforeEach(async function ({ app }) {
+	test.beforeEach(async function ({ app, sessions }) {
 		await app.workbench.variables.togglePane('hide');
+		await sessions.deleteDisconnectedSessions();
 	});
 
-	test.afterEach(async function ({ app }) {
-		await app.workbench.sessions.deleteDisconnectedSessions();
+	test.afterEach(async function ({ sessions }) {
+		await sessions.clearConsoleAllSessions();
 	});
 
 	test('Validate state between sessions (active, idle, disconnect)', async function ({ app, sessions }) {
@@ -114,15 +115,20 @@ test.describe('Sessions: State', {
 		await console.typeToConsole('exit()', true);
 		await sessions.expectMetaDataToBe({ ...pySession, state: 'exited' });
 		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'idle' });
+		await sessions.expectMetaDataToBe({ ...rSession, state: 'idle' });
 
 		// Shutdown R session and verify metadata
 		await sessions.select(rSession.id);
 		await console.typeToConsole('q()', true);
-		await sessions.expectMetaDataToBe({ ...rSession, state: 'exited' });
+		await sessions.expectMetaDataToBe({ ...pySession, state: 'exited' });
 		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'idle' });
+		await sessions.expectMetaDataToBe({ ...rSession, state: 'exited' });
 
 		// Shutdown Alt Python session and verify metadata
+		await sessions.select(pySessionAlt.id);
 		await console.typeToConsole('exit()', true);
+		await sessions.expectMetaDataToBe({ ...pySession, state: 'exited' });
 		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'exited' });
+		await sessions.expectMetaDataToBe({ ...rSession, state: 'exited' });
 	});
 });

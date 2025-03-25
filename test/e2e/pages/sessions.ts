@@ -235,6 +235,26 @@ export class Sessions {
 	}
 
 	/**
+	 * Action: Clear the Console for all active Sessions
+	 */
+	async clearConsoleAllSessions() {
+		await test.step('Clear all sessions', async () => {
+			const sessionIds = await this.getAllSessionIds();
+
+			if (sessionIds.length === 1) {
+				await this.page.getByRole('button', { name: 'Clear console' }).click();
+			} else if (sessionIds.length > 1) {
+				for (let i = 0; i < sessionIds.length; i++) {
+					await this.select(sessionIds[i]);
+					await this.page.getByRole('button', { name: 'Clear console' }).click();
+				}
+
+				await this.select(sessionIds[0]);
+			}
+		});
+	}
+
+	/**
 	 * Action: Move the session tab list divider to a specific position from the bottom of the window.
 	 * Positions the divider `distanceFromBottom` pixels above the bottom of the window.
 	 *
