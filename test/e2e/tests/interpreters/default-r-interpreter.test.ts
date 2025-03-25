@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 import { deletePositronHistoryFiles } from './helpers/default-interpreters.js';
 
@@ -11,7 +12,7 @@ test.use({
 });
 
 // electron only for now - windows doesn't have hidden interpreters and for web the deletePositronHistoryFiles is not valid
-test.describe.fixme('Default Interpreters - R', {
+test.describe('Default Interpreters - R', {
 	tag: [tags.INTERPRETER, tags.NIGHTLY_ONLY]
 }, () => {
 
@@ -27,19 +28,18 @@ test.describe.fixme('Default Interpreters - R', {
 
 	});
 
-	test('R - Add a default interpreter', async function ({ app, runCommand }) {
-
+	test('R - Add a default interpreter', async function ({ app, runCommand, sessions }) {
 		await app.workbench.console.waitForInterpretersToFinishLoading();
-
 		await runCommand('workbench.action.reloadWindow');
 
-		// const interpretersText = await getPrimaryInterpretersText(app);
+		const { name, path } = await sessions.getMetadata();
 
-		// local debugging:
-		// expect(interpretersText.some(text => text.includes("4.3.3"))).toBe(true);
+		// Local debugging sample:
+		// expect(name).toContain('R 4.3.3');
+		// expect(path).toContain('R.framework/Versions/4.3-arm64/Resources/R');
 
 		// hidden CI interpreter:
-		// expect(interpretersText.some(text => text.includes("4.4.1"))).toBe(true);
-
+		expect(name).toContain('R 4.4.1');
+		expect(path).toContain('R-4.4.1/bin/R');
 	});
 });

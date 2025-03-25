@@ -11,6 +11,8 @@ const DESIRED_PYTHON = process.env.POSITRON_PY_VER_SEL;
 const DESIRED_R = process.env.POSITRON_R_VER_SEL;
 const ALTERNATE_PYTHON = process.env.POSITRON_PY_ALT_VER_SEL;
 const ALTERNATE_R = process.env.POSITRON_R_ALT_VER_SEL;
+const HIDDEN_PYTHON = process.env.POSITRON_HIDDEN_PY;
+const HIDDEN_R = process.env.POSITRON_HIDDEN_R;
 const ACTIVE_STATUS_ICON = '.codicon-positron-status-active';
 
 /**
@@ -52,7 +54,7 @@ export class Sessions {
 	/**
 	 * Action: Starts one or more sessions
 	 *
-	 * @param sessions - The session runtime(s) to start: 'python', 'r', 'pythonAlt', 'rAlt'
+	 * @param sessions - The session runtime(s) to start: 'python', 'pythonAlt', 'pythonHidden', 'r', 'rAlt'
 	 * @param options - Configuration options for session startup
 	 * @param options.waitForReady - Whether to wait for sessions to be fully ready before returning (default: true)
 	 * @param options.triggerMode - How the session should be triggered: session-picker, quickaccess, hotkey, or console (default: hotkey)
@@ -941,8 +943,17 @@ const pythonSessionAlt: SessionInfo = {
 	waitForReady: true
 };
 
-// Use this session object to manage default R env in the test
+// Use this session object to manage hidden python env in the test
+const pythonSessionHidden: SessionInfo = {
+	name: `Python ${HIDDEN_PYTHON}`,
+	language: 'Python',
+	version: HIDDEN_PYTHON || '',
+	triggerMode: 'session-picker',
+	id: '',
+	waitForReady: true
+};
 
+// Use this session object to manage default R env in the test
 const rSession: SessionInfo = {
 	name: `R ${DESIRED_R}`,
 	language: 'R',
@@ -962,11 +973,23 @@ const rSessionAlt: SessionInfo = {
 	waitForReady: true
 };
 
-type SessionRuntimes = 'python' | 'pythonAlt' | 'r' | 'rAlt';
+// Use this session object to manage hidden R env in the test
+const rSessionHidden: SessionInfo = {
+	name: `R ${HIDDEN_R}`,
+	language: 'R',
+	version: HIDDEN_R || '',
+	triggerMode: 'session-picker',
+	id: '',
+	waitForReady: true
+};
+
+type SessionRuntimes = 'python' | 'pythonAlt' | 'pythonHidden' | 'r' | 'rAlt' | 'rHidden';
 
 export const availableRuntimes: { [key: string]: SessionInfo } = {
 	r: { ...rSession },
 	rAlt: { ...rSessionAlt },
+	rHidden: { ...rSessionHidden },
 	python: { ...pythonSession },
 	pythonAlt: { ...pythonSessionAlt },
+	pythonHidden: { ...pythonSessionHidden },
 };

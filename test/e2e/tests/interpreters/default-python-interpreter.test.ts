@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 import { deletePositronHistoryFiles } from './helpers/default-interpreters.js';
 
@@ -11,7 +12,7 @@ test.use({
 });
 
 // electron only for now - windows doesn't have hidden interpreters and for web the deletePositronHistoryFiles is not valid
-test.describe.fixme('Default Interpreters - Python', {
+test.describe('Default Interpreters - Python', {
 	tag: [tags.INTERPRETER, tags.NIGHTLY_ONLY]
 }, () => {
 
@@ -28,18 +29,18 @@ test.describe.fixme('Default Interpreters - Python', {
 
 	});
 
-	test('Python - Add a default interpreter (Conda)', async function ({ app, runCommand }) {
-
+	test('Python - Add a default interpreter (Conda)', async function ({ app, runCommand, sessions }) {
 		await app.workbench.console.waitForInterpretersToFinishLoading();
-
 		await runCommand('workbench.action.reloadWindow');
 
-		// const interpretersText = await getPrimaryInterpretersText(app);
+		const { name, path } = await sessions.getMetadata();
 
-		// local debugging:
-		// expect(interpretersText.some(text => text.includes("3.13.0"))).toBe(true);
+		// Local debugging sample:
+		// expect(name).toContain('Python 3.13.0');
+		// expect(path).toContain('.pyenv/versions/3.13.0/bin/python');
 
 		// hidden CI interpreter:
-		// expect(interpretersText.some(text => text.includes("3.12.9"))).toBe(true);
+		expect(name).toContain('Python 3.12.9');
+		expect(path).toContain('python-env/bin/python');
 	});
 });
