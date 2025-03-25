@@ -523,25 +523,28 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         );
     }
 
-    /**
+    /*
      * Start the LSP
      *
-     * @returns A promise that resolves when the LSP has been activated.
+     * Returns a promise that resolves when the LSP has been activated.
+     *
+     * Should never be called within `PythonSession`, only the language server manager
+     * should call this.
      */
     async activateLsp(): Promise<void> {
         return this._lspQueue.add(async () => {
+            if (!this._kernel) {
+                traceWarn('Cannot activate LSP; kernel not started');
+                return;
+            }
+
             if (!this._lsp) {
-                this._kernel?.emitJupyterLog('Tried to start LSP but no LSP instance available');
+                this._kernel.emitJupyterLog('Tried to activate LSP but no LSP instance available');
                 return;
             }
 
             if (this._lsp.state !== LspState.stopped && this._lsp.state !== LspState.uninitialized) {
-                // LSP is already started.
-                return;
-            }
-
-            if (!this._kernel) {
-                traceWarn('Cannot start LSP; kernel not started');
+                // Already activated
                 return;
             }
 
@@ -564,12 +567,21 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /**
      * Stops the LSP if it is running
      *
-     * @returns A promise that resolves when the LSP has been deactivated.
+     * Returns a promise that resolves when the LSP has been deactivated.
+     *
+     * The language server manager is in charge of starting up the LSP, so
+     * `activateLsp()` should never be called from `PythonSession`, but the session
+     * itself may need to call `deactivateLsp()`. This is okay for now, the
+     * important thing is that an LSP should only ever be started up by the
+     * manager to ensure that other LSPs are deactivated first.
+     *
+     * Avoid calling `this._lsp.deactivate()` directly, use this instead
+     * to enforce usage of the `_lspQueue`.
      */
     async deactivateLsp(): Promise<void> {
         return this._lspQueue.add(async () => {
             if (!this._lsp || this._lsp.state !== LspState.running) {
-                // LSP is already stopped.
+                // Nothing to deactivate
                 return;
             }
 
