@@ -83,8 +83,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		// --- Start Positron ---
 		const runtime: typeof positron.runtime = {
-			executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior): Thenable<boolean> {
-				return extHostLanguageRuntime.executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior);
+			executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, observer): Thenable<positron.LanguageRuntimeResult> {
+				return extHostLanguageRuntime.executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, observer);
 			},
 			registerLanguageRuntimeManager(
 				languageId: string,

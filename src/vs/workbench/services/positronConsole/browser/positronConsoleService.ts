@@ -539,9 +539,17 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
 	 * @param mode Possible code execution modes for a language runtime
 	 * @param errorBehavior Possible error behavior for a language runtime
+	 * @param executionId An optional ID that can be used to identify the execution
+	 *   (e.g. for tracking execution history). If not provided, one will be assigned.
 	 * @returns A value which indicates whether the code could be executed.
 	 */
-	async executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior) {
+	async executeCode(languageId: string,
+		code: string,
+		focus: boolean,
+		allowIncomplete?: boolean,
+		mode?: RuntimeCodeExecutionMode,
+		errorBehavior?: RuntimeErrorBehavior,
+		executionId?: string): Promise<boolean> {
 		const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
 
 		// When code is executed in the console service, open the console view. This opens
@@ -614,9 +622,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		}
 
 		// Enqueue the code in the Positron console instance.
-		await positronConsoleInstance.enqueueCode(code, allowIncomplete, mode, errorBehavior);
-
-		// Success.
+		await positronConsoleInstance.enqueueCode(code, allowIncomplete, mode, errorBehavior, executionId);
 		return Promise.resolve(true);
 	}
 
@@ -803,6 +809,13 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 */
 class PositronConsoleInstance extends Disposable implements IPositronConsoleInstance {
 	//#region Private Properties
+
+	/**
+	 * Maps pending code fragments to their execution IDs.
+	 * This allows us to associate execution observer callbacks with the right code
+	 * when it is eventually executed.
+	 */
+	private _pendingExecutionIds: Map<string, string> = new Map<string, string>();
 
 	/**
 	 * Gets or sets the session, if attached.
@@ -1344,12 +1357,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param mode Possible code execution modes for a language runtime
 	 * @param errorBehavior Possible error behavior for a language runtime
 	 */
-	async enqueueCode(code: string, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior) {
+	async enqueueCode(code: string, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string) {
 		// If there is a pending input runtime item, all the code in it was enqueued before this
 		// code, so add this code to it and wait for it to be processed the next time the runtime
 		// becomes idle.
 		if (this._runtimeItemPendingInput) {
-			this.addPendingInput(code);
+			this.addPendingInput(code, executionId);
 			return;
 		}
 
@@ -1358,7 +1371,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// time the runtime becomes idle.
 		const runtimeState = this.session?.getRuntimeState() || RuntimeState.Uninitialized;
 		if (!(runtimeState === RuntimeState.Idle || runtimeState === RuntimeState.Ready)) {
-			this.addPendingInput(code);
+			this.addPendingInput(code, executionId);
 			return;
 		}
 
@@ -1383,7 +1396,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			pendingCode += '\n' + code;
 			if (await shouldExecuteCode(pendingCode)) {
 				this.setPendingCode();
-				this.doExecuteCode(pendingCode, mode, errorBehavior);
+				this.doExecuteCode(pendingCode, mode, errorBehavior, executionId);
 			} else {
 				// Update the pending code. More will be revealed.
 				this.setPendingCode(pendingCode);
@@ -1395,12 +1408,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Figure out whether this code can be executed. If it can be, execute it immediately.
 		if (await shouldExecuteCode(code)) {
-			this.doExecuteCode(code, mode, errorBehavior);
+			this.doExecuteCode(code, mode, errorBehavior, executionId);
 			return;
 		}
 
 		// The code cannot be executed. Set the pending code.
-		this.setPendingCode(code);
+		this.setPendingCode(code, executionId);
 	}
 
 	/**
@@ -1475,9 +1488,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param mode Possible code execution modes for a language runtime.
 	 * @param errorBehavior Possible error behavior for a language runtime.
 	 */
-	executeCode(code: string, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior) {
+	executeCode(code: string, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string) {
 		this.setPendingCode();
-		this.doExecuteCode(code, mode, errorBehavior);
+		this.doExecuteCode(code, mode, errorBehavior, executionId);
 	}
 
 	/**
@@ -2332,7 +2345,15 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Sets pending code.
 	 * @param pendingCode The pending code to set.
 	 */
-	setPendingCode(pendingCode?: string) {
+	setPendingCode(pendingCode?: string, executionId?: string) {
+		// If we have both pending code and an execution ID, store it for later use
+		if (pendingCode && executionId) {
+			this._pendingExecutionIds.set(pendingCode, executionId);
+		} else if (!pendingCode) {
+			// Clear any pending execution IDs when clearing pending code
+			this._pendingExecutionIds.clear();
+		}
+
 		this._onDidSetPendingCodeEmitter.fire(pendingCode);
 	}
 
@@ -2340,7 +2361,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Adds pending input.
 	 * @param code The code for the pending input.
 	 */
-	private addPendingInput(code: string) {
+	private addPendingInput(code: string, executionId?: string) {
 		// If there is a pending input runtime item, remove it.
 		if (this._runtimeItemPendingInput) {
 			// Get the index of the pending input runtime item.
@@ -2503,7 +2524,15 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}
 
 		// Create the ID for the code fragment that will be executed.
-		const id = `fragment-${generateUuid()}`;
+		let id = `fragment-${generateUuid()}`;
+		// Check if there's a stored execution ID for this code. If so, use that instead of
+		// generating a new one.
+		const storedExecutionId = this._pendingExecutionIds.get(code);
+		if (storedExecutionId) {
+			// Clear it from the map as we're about to use it
+			id = storedExecutionId;
+			this._pendingExecutionIds.delete(code);
+		}
 
 		// Add the provisional ActivityItemInput for the code fragment.
 		const runtimeItemActivity = new RuntimeItemActivity(
@@ -2549,11 +2578,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Execute the code fragment.
 		const mode = RuntimeCodeExecutionMode.Interactive;
 		const errorBehavior = RuntimeErrorBehavior.Continue;
+
 		this._session.execute(
 			code,
 			id,
 			mode,
-			errorBehavior
+			errorBehavior,
 		);
 
 		// Fire the onDidExecuteCode event.
@@ -2569,7 +2599,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private doExecuteCode(
 		code: string,
 		mode: RuntimeCodeExecutionMode = RuntimeCodeExecutionMode.Interactive,
-		errorBehavior: RuntimeErrorBehavior = RuntimeErrorBehavior.Continue
+		errorBehavior: RuntimeErrorBehavior = RuntimeErrorBehavior.Continue,
+		executionId?: string
 	) {
 		// Create the ID for the code that will be executed.
 		const id = `fragment-${generateUuid()}`;
@@ -2607,6 +2638,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		 * The kernels don't rebroadcast silent input and thus will not be
 		 * added back into the runtimeItemActivities list which powers the UI.
 		 */
+
+		// Check if there's a stored execution ID for this code
+		const storedExecutionId = this._pendingExecutionIds.get(code);
+		if (storedExecutionId) {
+			// Clear it from the map as we're about to use it
+			this._pendingExecutionIds.delete(code);
+		}
+
 		this._session.execute(
 			code,
 			id,

@@ -1391,7 +1391,7 @@ declare module 'positron' {
 		 * An object that observes an ongoing code execution invoked from the
 		 * `executeCode` API.
 		 */
-		interface ExecutionObserver {
+		export interface ExecutionObserver {
 			/**
 			 * An optional callback to invoke when execution has started. This
 			 * may be different than the time `executeCode` was called, since

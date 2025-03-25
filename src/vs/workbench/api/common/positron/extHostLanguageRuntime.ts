@@ -5,7 +5,7 @@
 
 import type * as positron from 'positron';
 import { debounce } from '../../../../base/common/decorators.js';
-import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
@@ -19,6 +19,36 @@ import { IRuntimeSessionMetadata } from '../../../services/runtimeSession/common
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
+
+/**
+ * Interface for code execution observers
+ */
+interface IExecutionObserver {
+	/** Called when execution starts */
+	onStarted: () => void;
+
+	/** Called when text output is produced */
+	onOutput?: (message: string) => void;
+
+	/** Called when error output is produced */
+	onError?: (message: string) => void;
+
+	/** Called when a plot is generated */
+	onPlot?: (plotData: string) => void;
+
+	/** Called when data (like a dataframe) is produced */
+	onData?: (data: any) => void;
+
+	/** Called on successful completion with a result */
+	onCompleted?: (result: any) => void;
+
+	/** Called when execution fails with an error */
+	onFailed?: (error: any) => void;
+
+	/** Called when execution finishes (after success or failure) */
+	onFinished?: () => void;
+}
 
 /**
  * A language runtime manager and metadata about the extension that registered it.
@@ -333,6 +363,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				// Wrap buffers in VSBuffer so that they can be sent to the main thread
 				buffers: message.buffers?.map(buffer => VSBuffer.wrap(buffer)),
 			};
+
+			// First check if this message relates to an execution with an observer
+			if (message.parent_id && this._executionObservers.has(message.parent_id)) {
+				// Get the observer for this execution
+				const observer = this._executionObservers.get(message.parent_id);
+
+				// Handle the message based on its type
+				if (observer) {
+					this.handleObserverMessage(runtimeMessage, observer);
+				}
+			}
 
 			// Dispatch the message to the appropriate handler
 			switch (message.type) {
@@ -861,8 +902,31 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
-	public executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior): Promise<boolean> {
-		return this._proxy.$executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior);
+	// Map to track execution observers by execution ID
+	private _executionObservers = new Map<string, IExecutionObserver>();
+
+	public executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean,
+		mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, observer?: IExecutionObserver): Promise<any> {
+
+		// Generate an execution ID if an observer is provided
+		let executionId: string | undefined;
+		if (observer) {
+			executionId = generateUuid();
+			this._executionObservers.set(executionId, observer);
+		}
+
+		return this._proxy.$executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, executionId);
+	}
+
+	/**
+	 * Notifies an execution observer that execution has started
+	 * @param executionId The ID of the execution
+	 */
+	public $notifyExecutionStarted(executionId: string): void {
+		const observer = this._executionObservers.get(executionId);
+		if (observer && observer.onStarted) {
+			observer.onStarted();
+		}
 	}
 
 	/**
@@ -1016,5 +1080,81 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 
 		this._proxy.$emitLanguageRuntimeMessage(handle, handled, new SerializableObjectWithBuffers(message));
+	}
+
+	/**
+	 * Handles a message for an execution with an observer
+	 * @param message The message to handle
+	 * @param observer The observer for the execution
+	 */
+	private handleObserverMessage(message: ILanguageRuntimeMessage, observer: IExecutionObserver): void {
+		switch (message.type) {
+			case LanguageRuntimeMessageType.Stream:
+				const streamMessage = message as ILanguageRuntimeMessageStream;
+				if (streamMessage.name === 'stdout' && observer.onOutput) {
+					observer.onOutput(streamMessage.text);
+				} else if (streamMessage.name === 'stderr' && observer.onError) {
+					observer.onError(streamMessage.text);
+				}
+				break;
+
+			case LanguageRuntimeMessageType.Output:
+				const outputMessage = message as ILanguageRuntimeMessageOutput;
+				// Check if this is plot data
+				if (outputMessage.data && outputMessage.data['image/png'] && observer.onPlot) {
+					observer.onPlot(outputMessage.data['image/png']);
+				}
+				// Check if this might be a data frame or similar structured data
+				else if (outputMessage.data && observer.onData) {
+					if (outputMessage.data['application/vnd.positron.structured+json']) {
+						observer.onData(outputMessage.data['application/vnd.positron.structured+json']);
+					} else if (outputMessage.data['application/json']) {
+						observer.onData(outputMessage.data['application/json']);
+					}
+				}
+				break;
+
+			case LanguageRuntimeMessageType.State:
+				const stateMessage = message as ILanguageRuntimeMessageState;
+				if (stateMessage.state === 'idle') {
+					// Execution is finished
+					if (observer.onFinished) {
+						observer.onFinished();
+					}
+
+					// Clean up the observer
+					const executionId = message.parent_id;
+					if (executionId) {
+						this._executionObservers.delete(executionId);
+					}
+				}
+				break;
+
+			case LanguageRuntimeMessageType.Result:
+				if (observer.onCompleted) {
+					observer.onCompleted(message);
+				}
+
+				// If this is the completion of the execution, we need to clean up the observer
+				const resultExecutionId = message.parent_id;
+				if (resultExecutionId && observer.onFinished) {
+					observer.onFinished();
+					this._executionObservers.delete(resultExecutionId);
+				}
+				break;
+
+			case LanguageRuntimeMessageType.Error:
+				if (observer.onFailed) {
+					observer.onFailed(message);
+				}
+
+				// If this is the completion of the execution with an error, we need to clean up
+				const errorExecutionId = message.parent_id;
+				if (errorExecutionId && observer.onFinished) {
+					observer.onFinished();
+					this._executionObservers.delete(errorExecutionId);
+				}
+				break;
+		}
 	}
 }
