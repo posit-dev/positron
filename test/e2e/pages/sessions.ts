@@ -672,7 +672,7 @@ export class Sessions {
 			await expect(this.metadataDialog.getByText(new RegExp(`Session ID: ${session.language.toLowerCase()}-[a-zA-Z0-9]+`))).toBeVisible();
 			await expect(this.metadataDialog.getByText(`State: ${session.state}`)).toBeVisible();
 			await expect(this.metadataDialog.getByText(/^Path: [\/~a-zA-Z0-9.]+/)).toBeVisible();
-			await expect(this.metadataDialog.getByText(/^Source: (Pyenv|System|Global|VirtualEnv)$/)).toBeVisible();
+			await expect(this.metadataDialog.getByText(/^Source: (Pyenv|System|Global|VirtualEnv|Conda: base)$/)).toBeVisible();
 			await this.page.keyboard.press('Escape');
 
 			// Verify Language Console
@@ -778,10 +778,13 @@ export class Sessions {
 	 * Verify: all sessions are idle (not active)
 	 */
 	async expectAllSessionsToBeIdle() {
-		if (await this.getSessionCount() > 0) {
+		if (await this.getSessionCount() > 1) {
 			await expect(this.activeStatusIcon).toHaveCount(0);
 		} else {
 			await expect(this.page.getByText(/starting/)).not.toBeVisible();
+			await this.metadataButton.click();
+			await expect(this.page.getByText('State: idle')).toBeVisible({ timeout: 60000 });
+			await this.page.keyboard.press('Escape');
 		}
 	}
 

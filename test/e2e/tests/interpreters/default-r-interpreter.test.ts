@@ -31,6 +31,7 @@ test.describe('Default Interpreters - R', {
 	test('R - Add a default interpreter', async function ({ app, runCommand, sessions }) {
 		await app.workbench.console.waitForInterpretersToFinishLoading();
 		await runCommand('workbench.action.reloadWindow');
+		await app.workbench.console.waitForInterpretersToFinishLoading();
 
 		const { name, path } = await sessions.getMetadata();
 
@@ -39,7 +40,7 @@ test.describe('Default Interpreters - R', {
 		// expect(path).toContain('R.framework/Versions/4.3-arm64/Resources/R');
 
 		// hidden CI interpreter:
-		expect(name).toContain('R 4.4.1');
+		expect(name).toContain(/R 4.4.1/);
 		expect(path).toContain('R-4.4.1/bin/R');
 	});
 });

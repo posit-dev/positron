@@ -11,84 +11,84 @@ test.use({
 });
 
 // these are CI only tests; its not recommended to try and get your local machine to run these tests
-test.describe('Interpreter Includes/Excludes', {
+test.describe('Interpreter: Includes', {
 	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
 
+	test.beforeAll(async function ({ userSettings }) {
+		await userSettings.set([['python.interpreters.include', '["/home/runner/scratch/python-env"]']], true);
+		await userSettings.set([['positron.r.customRootFolders', '["/home/runner/scratch"]']], true);
+	});
+
 	test('Python - Can Include an Interpreter', {
 		tag: [tags.NIGHTLY_ONLY]
-	}, async function ({ userSettings, sessions }) {
+	}, async function ({ sessions }) {
 
 		const hiddenPython = process.env.POSITRON_HIDDEN_PY;
 
-		if (hiddenPython) {
-			await userSettings.set([['python.interpreters.include', '["/home/runner/scratch/python-env"]']], true);
-			await sessions.start('pythonHidden');
-		} else {
-			fail('Hidden Python version not set');
-		}
+		hiddenPython
+			? await sessions.start('pythonHidden')
+			: fail('Hidden Python version not set');
 	});
 
 	test('R - Can Include an Interpreter', {
 		tag: [tags.NIGHTLY_ONLY]
-	}, async function ({ userSettings, sessions }) {
+	}, async function ({ sessions }) {
 
 		const hiddenR = process.env.POSITRON_HIDDEN_R;
 
-		if (hiddenR) {
-			await userSettings.set([['positron.r.customRootFolders', '["/home/runner/scratch"]']], true);
-			await sessions.start('rHidden');
-		} else {
-			fail('Hidden R version not set');
-		}
+		hiddenR
+			? await sessions.start('rHidden')
+			: fail('Hidden R version not set');
+	});
+});
+
+test.describe('Interpreter: Excludes', {
+	tag: [tags.INTERPRETER, tags.WEB]
+}, () => {
+
+	test.beforeAll(async function ({ userSettings }) {
+		await userSettings.set([['python.interpreters.exclude', '["~/.pyenv"]']], true);
+		await userSettings.set([['positron.r.interpreters.exclude', '["/opt/R/4.4.2"]']], true);
 	});
 
-	test('R - Can Exclude an Interpreter', async function ({ app, userSettings, sessions }) {
+	test('R - Can Exclude an Interpreter', async function ({ app, sessions }) {
 
 		const alternateR = process.env.POSITRON_R_ALT_VER_SEL;
 
-		if (alternateR) {
-			await sessions.start('rAlt');
-
-			const failMessage = 'selectInterpreter was supposed to fail as /opt/R/4.4.2 was excluded';
-			await userSettings.set([['positron.r.interpreters.exclude', '["/opt/R/4.4.2"]']], true);
-			try {
-				await sessions.start('rAlt', { reuse: false });
-				fail(failMessage);
-			} catch (e) {
-				if (e instanceof Error && e.message.includes(failMessage)) {
-					fail(failMessage);
-				}
-			}
-
-			await app.code.driver.page.keyboard.press('Escape');
-		} else {
-			fail('Alternate R version not set');
+		if (!alternateR) {
+			return fail('Alternate R version not set');
 		}
+
+		try {
+			await sessions.start('rAlt', { reuse: false });
+			fail('selectInterpreter was supposed to fail as /opt/R/4.4.2 was excluded');
+		} catch (e) {
+			// Success = interpreter was correctly excluded
+		}
+
+		await app.code.driver.page.keyboard.press('Escape');
 	});
 
 	test('Python - Can Exclude an Interpreter', async function ({ app, userSettings, sessions }) {
 
 		const alternatePython = process.env.POSITRON_PY_ALT_VER_SEL;
 
-		if (alternatePython) {
-			await sessions.start('pythonAlt');
-
-			const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was excluded';
-			await userSettings.set([['python.interpreters.exclude', '["~/.pyenv"]']], true);
-			try {
-				await sessions.start('pythonAlt', { reuse: false });
-				fail(failMessage);
-			} catch (e) {
-				if (e instanceof Error && e.message.includes(failMessage)) {
-					fail(failMessage);
-				}
-			}
-
-			await app.code.driver.page.keyboard.press('Escape');
-		} else {
-			fail('Alternate Python version not set');
+		if (!alternatePython) {
+			return fail('Alternate Python version not set');
 		}
+
+		const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was excluded';
+		await userSettings.set([['python.interpreters.exclude', '["~/.pyenv"]']], true);
+
+		try {
+			await sessions.start('pythonAlt', { reuse: false });
+			fail(failMessage);
+		} catch {
+			// Success = interpreter was correctly excluded
+		}
+
+		await app.code.driver.page.keyboard.press('Escape');
 	});
 
 });

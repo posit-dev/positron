@@ -26,12 +26,12 @@ test.describe('Default Interpreters - Python', {
 		await userSettings.set([['python.defaultInterpreterPath', '"/home/runner/scratch/python-env/bin/python"']], false);
 
 		await deletePositronHistoryFiles();
-
 	});
 
 	test('Python - Add a default interpreter (Conda)', async function ({ app, runCommand, sessions }) {
 		await app.workbench.console.waitForInterpretersToFinishLoading();
 		await runCommand('workbench.action.reloadWindow');
+		await app.workbench.console.waitForInterpretersToFinishLoading();
 
 		const { name, path } = await sessions.getMetadata();
 
@@ -40,7 +40,7 @@ test.describe('Default Interpreters - Python', {
 		// expect(path).toContain('.pyenv/versions/3.13.0/bin/python');
 
 		// hidden CI interpreter:
-		expect(name).toContain('Python 3.12.9');
+		expect(name).toContain(/Python 3.12.9/);
 		expect(path).toContain('python-env/bin/python');
 	});
 });
