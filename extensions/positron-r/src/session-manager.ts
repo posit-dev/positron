@@ -27,9 +27,6 @@ export class RSessionManager implements vscode.Disposable {
 	/// The most recent foreground R session (foreground implies it is a console session)
 	private _lastForegroundSessionId: string | null = null;
 
-	/// The set of sessions actively restarting
-	private _restartingConsoleSessionIds: Set<string> = new Set();
-
 	/// The last binpath that was used
 	private _lastBinpath = '';
 
@@ -72,48 +69,33 @@ export class RSessionManager implements vscode.Disposable {
 	}
 
 	private async didChangeSessionRuntimeState(session: RSession, state: positron.RuntimeState): Promise<void> {
-		switch (state) {
-			// Three `Ready` states to consider:
-			// - Fresh console sessions fall through and are activated by `didChangeForegroundSession()`.
-			// - Restarted console sessions are activated here if they were previously the
-			//   foreground session before their restart, as we won't get a foreground session
-			//   notification for them otherwise.
-			// - Notebook sessions are activated immediately (Background sessions never have their LSP activated).
-			case positron.RuntimeState.Ready: {
-				if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
-					if (this._restartingConsoleSessionIds.has(session.metadata.sessionId)) {
-						this._restartingConsoleSessionIds.delete(session.metadata.sessionId);
-						if (this._lastForegroundSessionId === session.metadata.sessionId) {
-							await this.activateConsoleSession(session);
-						}
-					}
-				} else if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Notebook) {
-					await this.activateSession(session);
+		// Three `Ready` states to keep in mind:
+		// - Fresh console sessions fall through and are activated by `didChangeForegroundSession()`.
+		// - Restarted console sessions are activated here if they were previously the
+		//   foreground session before their restart, as we won't get a foreground session
+		//   notification for them otherwise.
+		// - Notebook sessions are activated immediately (Background sessions never have their LSP activated).
+		if (state === positron.RuntimeState.Ready) {
+			if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
+				if (this._lastForegroundSessionId === session.metadata.sessionId) {
+					await this.activateConsoleSession(session);
 				}
-				break;
+			} else if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Notebook) {
+				await this.activateSession(session);
 			}
-
-			// Track Console session restarts for potential reactivation once
-			// the session is ready. Ideally we'd use `RuntimeState.Restarting`
-			// to only track truly restarting sessions, but kallichore doesn't
-			// emit that right now. The practical downside of this is that
-			// sessions that permanently go into `Exited` and never come back
-			// online will never be removed from `_restartingConsoleSessionIds`,
-			// but we don't think that would get too out of control.
-			case positron.RuntimeState.Exited: {
-				if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
-					this._restartingConsoleSessionIds.add(session.metadata.sessionId);
-				}
-			}
-
-			default:
-				break;
 		}
 	}
 
 	private async didChangeForegroundSession(sessionId: string | undefined): Promise<void> {
 		if (!sessionId) {
-			// There is no foreground session, nothing to do.
+			// There is no foreground session.
+			return;
+		}
+
+		if (this._lastForegroundSessionId === sessionId) {
+			// The foreground session has not changed.
+			// This happens when we switch from R, to Python, and back to R, where the foreground
+			// session for R hasn't changed.
 			return;
 		}
 
