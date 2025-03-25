@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, expect, tags } from '../_test.setup';
+import { join } from 'path';
 
 test.use({
 	suiteId: __filename
@@ -41,6 +42,18 @@ test.describe('Positron Assistant', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] 
 		await app.workbench.assistant.clickSignOutButton();
 		await app.workbench.assistant.verifySignInButtonVisible();
 		await app.workbench.assistant.clickDoneButton();
+	});
+
+	test('Verify Inline Chat opens', async function ({ app, openFile }) {
+		await app.workbench.assistant.openPositronAssistantChat();
+		await app.workbench.assistant.clickAddModelButton();
+		await app.workbench.assistant.selectModelProvider('echo');
+		await app.workbench.assistant.clickSignInButton();
+		await app.workbench.assistant.clickDoneButton();
+		await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
+		await app.workbench.editor.clickOnTerm('chinook-sqlite.py', 'data_file_path', 4);
+		await app.code.driver.page.keyboard.press('Control+I');
+		await app.code.driver.page.locator('.chat-widget > .interactive-session').isVisible();
 	});
 
 });
