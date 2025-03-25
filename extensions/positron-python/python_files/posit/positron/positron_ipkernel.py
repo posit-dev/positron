@@ -33,8 +33,8 @@ from .data_explorer import DataExplorerService
 from .help import HelpService, help  # noqa: A004
 from .lsp import LSPService
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
-from .patch.holoviews import set_holoviews_extension
 from .patch.haystack import patch_haystack_is_in_jupyter
+from .patch.holoviews import set_holoviews_extension
 from .plots import PlotsService
 from .session_mode import SessionMode
 from .ui import UiService

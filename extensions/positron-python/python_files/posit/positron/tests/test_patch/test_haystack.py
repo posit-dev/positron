@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from positron.positron_ipkernel import PositronShell
 
+
 def test_haystack_patch_automatically_applied(shell: PositronShell):
     """
     Test that the haystack is_in_jupyter function is automatically patched to return True.
@@ -64,11 +65,15 @@ result
 
     # Verify haystack_ai function is already patched if available
     if has_haystack_ai:
-        assert result_dict["haystack_ai_is_in_jupyter"] is True, "haystack_ai.utils.is_in_jupyter not automatically patched"
+        assert result_dict["haystack_ai_is_in_jupyter"] is True, (
+            "haystack_ai.utils.is_in_jupyter not automatically patched"
+        )
 
     # Verify haystack function is already patched if available
     if has_haystack:
-        assert result_dict["haystack_is_in_jupyter"] is True, "haystack.utils.is_in_jupyter not automatically patched"
+        assert result_dict["haystack_is_in_jupyter"] is True, (
+            "haystack.utils.is_in_jupyter not automatically patched"
+        )
 
 
 @patch("importlib.util.find_spec")
