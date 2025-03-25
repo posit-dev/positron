@@ -107,8 +107,8 @@ class LanguageServerManager implements vscode.Disposable {
                 if (state === positron.RuntimeState.Ready) {
                     // The session is ready, check if we should activate its LSP.
                     if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
-                        const lastForegroundSessionIdState = this.getLastForegroundSessionIdState();
                         // If this was the last foreground session, activate its LSP.
+                        const lastForegroundSessionIdState = this.getLastForegroundSessionIdState();
                         if (lastForegroundSessionIdState.value === session.metadata.sessionId) {
                             await activateConsoleLsp(session);
                         }
@@ -131,6 +131,7 @@ class LanguageServerManager implements vscode.Disposable {
  * Activates the console LSP for the given session. Deactivates all other console LSPs first.
  *
  * @param session The Python runtime session to activate the language server for.
+ * @param allSessions Python runtime sessions to deactivate, defaults to all non-foreground sessions.
  */
 async function activateConsoleLsp(session: PythonRuntimeSession, allSessions?: PythonRuntimeSession[]): Promise<void> {
     // Deactivate non-foreground console session LSPs.
