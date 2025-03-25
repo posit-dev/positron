@@ -10,14 +10,15 @@ import { IPythonRuntimeManager } from './manager';
 import { IServiceContainer } from '../ioc/types';
 import { IWorkspaceService } from '../common/application/types';
 import { IPythonPathUpdaterServiceManager } from '../interpreter/configuration/types';
+import { IPersistentState, IPersistentStateFactory } from '../common/types';
+
+const lastForegroundSessionIdKey = 'positron.lastForegroundSessionId';
 
 class LanguageServerManager implements vscode.Disposable {
     private readonly _disposables: vscode.Disposable[] = [];
 
-    /// The most recent foreground Python session (foreground implies it is a console session).
-    private _lastForegroundSessionId?: string;
-
     constructor(
+        private readonly _persistentStateFactory: IPersistentStateFactory,
         private readonly _pythonPathUpdaterService: IPythonPathUpdaterServiceManager,
         private readonly _pythonRuntimeManager: IPythonRuntimeManager,
         private readonly _workspaceService: IWorkspaceService,
@@ -35,7 +36,8 @@ class LanguageServerManager implements vscode.Disposable {
                     return;
                 }
 
-                if (this._lastForegroundSessionId === sessionId) {
+                const lastForegroundSessionIdState = this.getLastForegroundSessionIdState();
+                if (lastForegroundSessionIdState.value === sessionId) {
                     // The foreground session has not changed.
                     return;
                 }
@@ -48,15 +50,32 @@ class LanguageServerManager implements vscode.Disposable {
                     return;
                 }
 
-                // Update the last foreground session.
-                this._lastForegroundSessionId = sessionId;
+                await Promise.all([
+                    // Update the last foreground session.
+                    lastForegroundSessionIdState.updateValue(sessionId),
 
-                // Update the Python path as expected by Pyright.
-                this.updatePythonPath(foregroundSession.runtimeMetadata.runtimePath);
+                    // Update the Python path as expected by Pyright.
+                    this.updatePythonPath(foregroundSession.runtimeMetadata.runtimePath),
 
-                // Activate the LSP for the foreground session.
-                await activateConsoleLsp(foregroundSession);
+                    // Activate the LSP for the foreground session.
+                    activateConsoleLsp(foregroundSession, sessions),
+                ]);
             }),
+        );
+    }
+
+    /**
+     * Get the persistent state for the most recent foreground Python session
+     * (foreground implies it is a console session).
+     *
+     * This is stored in persistent state in order to activate the LSP for a
+     * session that was the most recent foreground *Python* session before the
+     * window is reloaded, but another language session is the current foreground,
+     * e.g. in multilanguage workspaces.
+     */
+    private getLastForegroundSessionIdState(): IPersistentState<string | undefined> {
+        return this._persistentStateFactory.createWorkspacePersistentState<string | undefined>(
+            lastForegroundSessionIdKey,
         );
     }
 
@@ -86,20 +105,15 @@ class LanguageServerManager implements vscode.Disposable {
         this._disposables.push(
             session.onDidChangeRuntimeState(async (state) => {
                 if (state === positron.RuntimeState.Ready) {
-                    // The session is ready, activate the LSP.
+                    // The session is ready, check if we should activate its LSP.
                     if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
-                        // If no foreground session was set yet, set this as the foreground session.
-                        // This may happen e.g. after reloading the window with a non-foreground
-                        // Python console in a multilanguage workspace.
-                        if (!this._lastForegroundSessionId) {
-                            this._lastForegroundSessionId = session.metadata.sessionId;
-                        }
-
-                        // If this is the foreground session, activate the LSP.
-                        if (this._lastForegroundSessionId === session.metadata.sessionId) {
+                        const lastForegroundSessionIdState = this.getLastForegroundSessionIdState();
+                        // If this was the last foreground session, activate its LSP.
+                        if (lastForegroundSessionIdState.value === session.metadata.sessionId) {
                             await activateConsoleLsp(session);
                         }
                     } else if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Notebook) {
+                        // Always activate notebook LSPs.
                         await session.activateLsp();
                     }
                 }
@@ -118,10 +132,10 @@ class LanguageServerManager implements vscode.Disposable {
  *
  * @param session The Python runtime session to activate the language server for.
  */
-async function activateConsoleLsp(session: PythonRuntimeSession): Promise<void> {
-    // Deactivate non-foreground console session language servers.
+async function activateConsoleLsp(session: PythonRuntimeSession, allSessions?: PythonRuntimeSession[]): Promise<void> {
+    // Deactivate non-foreground console session LSPs.
     const { sessionId: foregroundSessionId } = session.metadata;
-    const sessions = await getActivePythonSessions();
+    const sessions = allSessions ?? (await getActivePythonSessions());
     await Promise.all(
         sessions
             .filter(
@@ -132,7 +146,7 @@ async function activateConsoleLsp(session: PythonRuntimeSession): Promise<void> 
             .map((session) => session.deactivateLsp()),
     );
 
-    // Activate the foreground session language server.
+    // Activate the foreground session LSP.
     await session.activateLsp();
 }
 
@@ -140,10 +154,18 @@ export function registerLanguageServerManager(
     serviceContainer: IServiceContainer,
     disposables: vscode.Disposable[],
 ): void {
+    const persistentStateFactory = serviceContainer.get<IPersistentStateFactory>(IPersistentStateFactory);
     const pythonRuntimeManager = serviceContainer.get<IPythonRuntimeManager>(IPythonRuntimeManager);
-    const workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
     const pythonPathUpdaterService: IPythonPathUpdaterServiceManager = serviceContainer.get<
         IPythonPathUpdaterServiceManager
     >(IPythonPathUpdaterServiceManager);
-    disposables.push(new LanguageServerManager(pythonPathUpdaterService, pythonRuntimeManager, workspaceService));
+    const workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+    disposables.push(
+        new LanguageServerManager(
+            persistentStateFactory,
+            pythonPathUpdaterService,
+            pythonRuntimeManager,
+            workspaceService,
+        ),
+    );
 }
