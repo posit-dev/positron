@@ -1,7 +1,12 @@
-import * as path from "path";
-import * as util from "util";
-import { LOGGER } from "./extension";
-import { exec } from "child_process";
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import * as path from 'path';
+import * as util from 'util';
+import { LOGGER } from './extension';
+import { exec } from 'child_process';
 
 const execPromise = util.promisify(exec);
 
@@ -10,7 +15,7 @@ const execPromise = util.promisify(exec);
  */
 export async function isCondaAvailable(): Promise<boolean> {
 	try {
-		await execPromise("conda --version");
+		await execPromise('conda --version');
 		return true;
 	} catch {
 		return false;
@@ -22,11 +27,11 @@ export async function isCondaAvailable(): Promise<boolean> {
  */
 export async function getCondaEnvironments(): Promise<string[]> {
 	try {
-		const { stdout } = await execPromise("conda env list --json");
+		const { stdout } = await execPromise('conda env list --json');
 		const envs = JSON.parse(stdout).envs as string[];
 		return envs;
 	} catch (error) {
-		LOGGER.error("Failed to retrieve Conda environments:", error);
+		LOGGER.error('Failed to retrieve Conda environments:', error);
 		return [];
 	}
 }
@@ -40,11 +45,11 @@ export async function getCondaEnvironments(): Promise<string[]> {
  */
 export function getCondaRPaths(envPath: string): string[] {
 	const paths: string[] = [];
-	if (process.platform !== "win32") {
-		paths.push(path.join(envPath, "bin", "R"));
+	if (process.platform !== 'win32') {
+		paths.push(path.join(envPath, 'bin', 'R'));
 	} else {
-		paths.push(path.join(envPath, "Lib", "R", "bin", "x64", "R.exe")); // Prioritise x64 binaries
-		paths.push(path.join(envPath, "Lib", "R", "bin", "R.exe"));
+		paths.push(path.join(envPath, 'Lib', 'R', 'bin', 'x64', 'R.exe')); // Prioritise x64 binaries
+		paths.push(path.join(envPath, 'Lib', 'R', 'bin', 'R.exe'));
 	}
 	return paths;
 }
@@ -53,12 +58,12 @@ export function getCondaName(homePath: string): string {
 	const parts = homePath.split(path.sep); // Split path into components
 	let targetIndex = -1;
 
-	targetIndex = parts.lastIndexOf("Lib");
+	targetIndex = parts.lastIndexOf('Lib');
 
-	// The Conda env name should be the directory before "Lib" or "bin"
+	// The Conda env name should be the directory before 'Lib' or 'bin'
 	if (targetIndex > 0) {
-		return parts[targetIndex - 1]; // Get the folder before "Lib" or "bin"
+		return parts[targetIndex - 1]; // Get the folder before 'Lib' or 'bin'
 	}
 
-	return ""; // Return empty if no valid Conda env name is found
+	return ''; // Return empty if no valid Conda env name is found
 }

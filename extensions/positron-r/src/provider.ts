@@ -158,7 +158,6 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 	const currentBinaries = await currentRBinaryCandidates();
 	const systemBinaries = discoverSystemBinaries();
 	const condaBinaries = await discoverCondaBinaries();
-	// await discoverCondaBinaries();
 	const registryBinaries = await discoverRegistryBinaries();
 	const moreBinaries = discoverAdHocBinaries([
 		'/usr/bin/R',
@@ -608,14 +607,9 @@ function discoverSystemBinaries(): RBinary[] {
  */
 async function discoverCondaBinaries(): Promise<RBinary[]> {
 	if (!(await isCondaAvailable())) {
-		LOGGER.info("Conda is not installed or not in PATH.");
+		LOGGER.info('Conda is not installed or not in PATH.');
 		return [];
 	}
-
-	// if (process.platform === "win32") {
-	// 	LOGGER.info("Conda is not supported on Windows.");
-	// 	return [];
-	// }
 
 	const condaEnvs = await getCondaEnvironments();
 	const rBinaries: RBinary[] = [];
