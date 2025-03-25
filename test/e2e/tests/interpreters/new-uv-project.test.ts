@@ -5,13 +5,14 @@
 
 import path from 'path';
 import { test, tags } from '../_test.setup';
+import { expect } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('New UV Environment', {
-	tag: [tags.INTERPRETER, tags.WEB]
+	tag: [tags.INTERPRETER]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
@@ -38,7 +39,10 @@ test.describe('New UV Environment', {
 
 		await app.workbench.sessions.expectAllSessionsToBeIdle();
 
-		await app.workbench.sessions.expectSessionPickerToBe({ language: 'Python', version: '3.13.1' });
+		const metadata = await app.workbench.sessions.getMetadata();
+
+		expect(metadata.source).toBe('Venv');
+		expect(metadata.path).toBe('/tmp/vscsmoke/qa-example-content/proj/.venv/bin/python');
 
 	});
 });
