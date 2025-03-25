@@ -24,6 +24,7 @@ export interface IExtensionDefinition {
 	// --- Start PWB: Bundle PWB extension ---
 	positUrl?: string;
 	// --- End PWB: Bundle PWB extension ---
+	vsix?: string;
 	metadata: {
 		id: string;
 		publisherId: {
@@ -81,11 +82,22 @@ function getExtensionDownloadStream(extension: IExtensionDefinition) {
 			.pipe(rename(p => p.dirname = `${extension.name}/${p.dirname}`));
 	}
 	// --- End PWB: Bundle PWB extension ---
-	// --- Start Positron ---
-	const url = extension.metadata.multiPlatformServiceUrl || productjson.extensionsGallery?.serviceUrl;
-	return (url ? ext.fromMarketplace(url, extension) : ext.fromGithub(extension))
+	let input: Stream;
+
+	if (extension.vsix) {
+		input = ext.fromVsix(path.join(root, extension.vsix), extension);
+	} else if (productjson.extensionsGallery?.serviceUrl) {
+		input = ext.fromMarketplace(productjson.extensionsGallery.serviceUrl, extension);
+		// --- Start Positron ---
+		if (extension.metadata.multiPlatformServiceUrl) {
+			input = ext.fromMarketplace(productjson.extensionsGallery.serviceUrl, extension);
+		}
 		// --- End Positron ---
-		.pipe(rename(p => p.dirname = `${extension.name}/${p.dirname}`));
+	} else {
+		input = ext.fromGithub(extension);
+	}
+
+	return input.pipe(rename(p => p.dirname = `${extension.name}/${p.dirname}`));
 }
 
 export function getExtensionStream(extension: IExtensionDefinition) {
