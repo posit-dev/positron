@@ -13,8 +13,8 @@ is running in a Jupyter notebook. However, it doesn't recognize Positron's custo
 This patch overrides the function to always return True when run in Positron.
 """
 
-import logging
 import importlib.util
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -65,9 +65,7 @@ def patch_haystack_is_in_jupyter() -> None:
 
                 if hasattr(haystack.utils, "is_in_jupyter"):
                     haystack.utils.is_in_jupyter = _patched_is_in_jupyter
-                    logger.debug(
-                        "Patched haystack.utils.is_in_jupyter for haystack-ai package"
-                    )
+                    logger.debug("Patched haystack.utils.is_in_jupyter for haystack-ai package")
         except ImportError:
             pass
 
