@@ -24,10 +24,9 @@ import {
 } from '../common/types';
 import { IServiceContainer } from '../ioc/types';
 import { PositronSupervisorApi, JupyterKernelSpec, JupyterLanguageRuntimeSession } from '../positron-supervisor.d';
-import { traceInfo } from '../logging';
+import { traceInfo, traceWarn } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { PythonLsp, LspState } from './lsp';
-import { whenTimeout } from './util';
 import { IPYKERNEL_VERSION } from '../common/constants';
 import { IEnvironmentVariablesProvider, IEnvironmentVariablesService } from '../common/variables/types';
 import { PythonRuntimeExtraData } from './runtime';
@@ -38,6 +37,7 @@ import { IInterpreterService } from '../interpreter/contracts';
 import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
 import { getIpykernelBundle, IPykernelBundle } from './ipykernel';
+import { whenTimeout } from './util';
 
 /** Regex for commands to uninstall packages using supported Python package managers. */
 const _uninstallCommandRegex = /(pip|pipenv|conda).*uninstall|poetry.*remove/;
@@ -50,8 +50,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The Language Server Protocol client wrapper, if created */
     private _lsp: PythonLsp | undefined;
 
-    /** Queue for message handlers */
-    private _queue: PQueue;
+    /** Queue for language server activation/deactivation */
+    private _lspQueue: PQueue;
 
     /** The Jupyter kernel-based implementation of the Language Runtime API */
     private _kernel?: JupyterLanguageRuntimeSession;
@@ -104,16 +104,18 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     dynState: positron.LanguageRuntimeDynState;
 
+    onDidReceiveRuntimeMessage = this._messageEmitter.event;
+
+    onDidChangeRuntimeState = this._stateEmitter.event;
+
+    onDidEndSession = this._exitEmitter.event;
+
     constructor(
         readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
         readonly metadata: positron.RuntimeSessionMetadata,
         readonly serviceContainer: IServiceContainer,
         readonly kernelSpec?: JupyterKernelSpec | undefined,
     ) {
-        this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
-        this.onDidChangeRuntimeState = this._stateEmitter.event;
-        this.onDidEndSession = this._exitEmitter.event;
-
         // Extract the extra data from the runtime metadata; it contains the
         // Python path that was saved when the metadata was created.
         const extraData: PythonRuntimeExtraData = runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
@@ -123,15 +125,15 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._pythonPath = extraData.pythonPath;
         this._ipykernelBundle = extraData.ipykernelBundle;
 
-        this._queue = new PQueue({ concurrency: 1 });
+        this._lspQueue = new PQueue({ concurrency: 1 });
 
         this.dynState = {
             inputPrompt: '>>>',
             continuationPrompt: '...',
         };
 
-        this.onDidChangeRuntimeState((state) => {
-            this.onStateChange(state);
+        this.onDidChangeRuntimeState(async (state) => {
+            await this.onStateChange(state);
         });
 
         this._installer = this.serviceContainer.get<IInstaller>(IInstaller);
@@ -139,12 +141,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._interpreterPathService = serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
         this._envVarsService = serviceContainer.get<IEnvironmentVariablesService>(IEnvironmentVariablesService);
     }
-
-    onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
-
-    onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
-
-    onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>;
 
     execute(
         code: string,
@@ -527,32 +523,31 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         );
     }
 
+    /*
+     * Start the LSP
+     *
+     * Returns a promise that resolves when the LSP has been activated.
+     *
+     * Should never be called within `PythonSession`, only the language server manager
+     * should call this.
+     */
     async activateLsp(): Promise<void> {
-        // Start LSP for the foreground session only if its been previously stopped
-        if (this._lsp?.state === LspState.stopped) {
-            return this._queue.add(async () => {
-                await this.startLsp();
-            });
-        } else {
-            return undefined;
-        }
-    }
+        return this._lspQueue.add(async () => {
+            if (!this._kernel) {
+                traceWarn('Cannot activate LSP; kernel not started');
+                return;
+            }
 
-    async deactivateLsp(awaitStop: boolean): Promise<void> {
-        if (this._lsp?.state === LspState.running) {
-            return this._queue.add(async () => {
-                if (this._kernel) {
-                    this._kernel.emitJupyterLog(`Stopping Positron LSP server`);
-                }
-                await this._lsp?.deactivate(awaitStop);
-            });
-        } else {
-            return undefined;
-        }
-    }
+            if (!this._lsp) {
+                this._kernel.emitJupyterLog('Tried to activate LSP but no LSP instance available');
+                return;
+            }
 
-    private async startLsp(): Promise<void> {
-        if (this._kernel) {
+            if (this._lsp.state !== LspState.stopped && this._lsp.state !== LspState.uninitialized) {
+                // Already activated
+                return;
+            }
+
             this._kernel.emitJupyterLog('Starting Positron LSP server');
 
             // Create the LSP comm, which also starts the LSP server.
@@ -565,8 +560,34 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
             this._kernel.emitJupyterLog(`Starting Positron LSP client on port ${port}`);
 
-            await this._lsp?.activate(port);
-        }
+            await this._lsp.activate(port);
+        });
+    }
+
+    /**
+     * Stops the LSP if it is running
+     *
+     * Returns a promise that resolves when the LSP has been deactivated.
+     *
+     * The language server manager is in charge of starting up the LSP, so
+     * `activateLsp()` should never be called from `PythonSession`, but the session
+     * itself may need to call `deactivateLsp()`. This is okay for now, the
+     * important thing is that an LSP should only ever be started up by the
+     * manager to ensure that other LSPs are deactivated first.
+     *
+     * Avoid calling `this._lsp.deactivate()` directly, use this instead
+     * to enforce usage of the `_lspQueue`.
+     */
+    async deactivateLsp(): Promise<void> {
+        return this._lspQueue.add(async () => {
+            if (!this._lsp || this._lsp.state !== LspState.running) {
+                // Nothing to deactivate
+                return;
+            }
+
+            this._kernel?.emitJupyterLog(`Stopping Positron LSP server`);
+            await this._lsp.deactivate();
+        });
     }
 
     async restart(workingDirectory?: string): Promise<void> {
@@ -585,8 +606,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                     this._kernel!.emitJupyterLog('LSP startup timed out during interpreter restart');
                 }),
             ]);
-            await this._lsp?.deactivate(true);
-
+            await this.deactivateLsp();
             return this._kernel.restart(workingDirectory);
         } else {
             throw new Error('Cannot restart; kernel not started');
@@ -596,7 +616,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     async shutdown(exitReason = positron.RuntimeExitReason.Shutdown): Promise<void> {
         if (this._kernel) {
             // Stop the LSP client before shutting down the kernel
-            await this._lsp?.deactivate(true);
+            await this.deactivateLsp();
             return this._kernel.shutdown(exitReason);
         } else {
             throw new Error('Cannot shutdown; kernel not started');
@@ -626,7 +646,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             // force-quit quickly with the fact that the LSP will show error
             // messages if we yank the kernel out from beneath it without
             // warning.
-            await Promise.race([this._lsp?.deactivate(true), new Promise((resolve) => setTimeout(resolve, 250))]);
+            await Promise.race([this.deactivateLsp(), new Promise((resolve) => setTimeout(resolve, 250))]);
             return this._kernel.forceQuit();
         } else {
             throw new Error('Cannot force quit; kernel not started');
@@ -724,33 +744,29 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         return kernel;
     }
 
-    private onStateChange(state: positron.RuntimeState): void {
+    private async onStateChange(state: positron.RuntimeState): Promise<void> {
         this._state = state;
         if (state === positron.RuntimeState.Ready) {
-            this._queue.add(async () => {
-                await this.startLsp();
-            });
-
-            this._queue.add(async () => {
-                try {
-                    // Set the initial console width
-                    const width = await positron.window.getConsoleWidth();
-                    this.callMethod('setConsoleWidth', width);
-                    this._kernel!.emitJupyterLog(`Set initial console width to ${width}`);
-                } catch (err) {
-                    // Recoverable (we'll just use the default width); but log
-                    // the error.
-                    if (this._kernel) {
-                        const runtimeError = err as positron.RuntimeMethodError;
-                        this._kernel.emitJupyterLog(
-                            `Error setting initial console width: ${runtimeError.message} (${runtimeError.code})`,
-                            vscode.LogLevel.Error,
-                        );
-                    }
-                }
-            });
+            await this.setConsoleWidth();
         } else if (state === positron.RuntimeState.Exited) {
-            this.deactivateLsp(false);
+            await this.deactivateLsp();
+        }
+    }
+
+    private async setConsoleWidth(): Promise<void> {
+        try {
+            // Set the initial console width
+            const width = await positron.window.getConsoleWidth();
+            this.callMethod('setConsoleWidth', width);
+            this._kernel?.emitJupyterLog(`Set initial console width to ${width}`);
+        } catch (err) {
+            // Recoverable (we'll just use the default width); but log
+            // the error.
+            const runtimeError = err as positron.RuntimeMethodError;
+            this._kernel?.emitJupyterLog(
+                `Error setting initial console width: ${runtimeError.message} (${runtimeError.code})`,
+                vscode.LogLevel.Error,
+            );
         }
     }
 
