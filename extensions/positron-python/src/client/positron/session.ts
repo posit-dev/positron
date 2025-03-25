@@ -37,6 +37,7 @@ import { IInterpreterService } from '../interpreter/contracts';
 import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
 import { getIpykernelBundle, IPykernelBundle } from './ipykernel';
+import { whenTimeout } from './util';
 
 /** Regex for commands to uninstall packages using supported Python package managers. */
 const _uninstallCommandRegex = /(pip|pipenv|conda).*uninstall|poetry.*remove/;
@@ -489,6 +490,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
+    // Keep track of LSP init to avoid stopping in the middle of startup.
+    // Resolves to the port number used to connect on the client side.
+    private _lspStarting: Thenable<number> = Promise.resolve(0);
+
     private async createLsp(interpreter: PythonEnvironment): Promise<void> {
         traceInfo(`createPythonSession: resolving LSP services`);
         const environmentService = this.serviceContainer.get<IEnvironmentVariablesProvider>(
@@ -547,7 +552,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             // port since it is in charge of binding to it, which avoids
             // race conditions). We also use this promise to avoid restarting
             // in the middle of initialization.
-            const port = await this._kernel.startPositronLsp('127.0.0.1');
+            this._lspStarting = this._kernel.startPositronLsp('127.0.0.1');
+            const port = await this._lspStarting;
 
             this._kernel.emitJupyterLog(`Starting Positron LSP client on port ${port}`);
 
@@ -574,6 +580,20 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     async restart(workingDirectory?: string): Promise<void> {
         if (this._kernel) {
+            // Stop the LSP client before restarting the kernel. Don't stop it
+            // until fully started to avoid an inconsistent state where the
+            // deactivation request comes in between the creation of the LSP
+            // comm and the LSP client.
+            //
+            // A cleaner way to set this up might be to put `this._lsp` in
+            // charge of creating the LSP comm, then `deactivate()` could
+            // keep track of this state itself.
+            await Promise.race([
+                this._lspStarting,
+                whenTimeout(400, () => {
+                    this._kernel!.emitJupyterLog('LSP startup timed out during interpreter restart');
+                }),
+            ]);
             await this.deactivateLsp();
             return this._kernel.restart(workingDirectory);
         } else {
