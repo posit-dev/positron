@@ -201,7 +201,7 @@ def test_positron_help_topic_request(
     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
 
     params = HelpTopicParams(TextDocumentIdentifier(text_document.uri), Position(0, 0))
-    topic = positron_help_topic_request(server, params)
+    topic = positron_help_topic_request(server, params)  # type: ignore
 
     if expected_topic is None:
         assert topic is None
