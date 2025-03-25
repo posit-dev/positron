@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2025 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -40,6 +40,7 @@ def patch_haystack_is_in_jupyter() -> None:
             # Try to patch in older haystack package
             try:
                 import haystack.utils
+
                 if hasattr(haystack.utils, "is_in_jupyter"):
                     haystack.utils.is_in_jupyter = _patched_is_in_jupyter
                     logger.debug("Patched haystack.utils.is_in_jupyter")
@@ -53,6 +54,7 @@ def patch_haystack_is_in_jupyter() -> None:
             # Try to import as haystack_ai (which is the import path used in newer versions)
             try:
                 import haystack_ai.utils
+
                 if hasattr(haystack_ai.utils, "is_in_jupyter"):
                     haystack_ai.utils.is_in_jupyter = _patched_is_in_jupyter
                     logger.debug("Patched haystack_ai.utils.is_in_jupyter")
@@ -60,9 +62,12 @@ def patch_haystack_is_in_jupyter() -> None:
                 # Try fallback to haystack.utils for newer haystack-ai package
                 # (sometimes the package is haystack-ai but the import is still haystack)
                 import haystack.utils
+
                 if hasattr(haystack.utils, "is_in_jupyter"):
                     haystack.utils.is_in_jupyter = _patched_is_in_jupyter
-                    logger.debug("Patched haystack.utils.is_in_jupyter for haystack-ai package")
+                    logger.debug(
+                        "Patched haystack.utils.is_in_jupyter for haystack-ai package"
+                    )
         except ImportError:
             pass
 
