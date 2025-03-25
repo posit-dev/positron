@@ -11,7 +11,9 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { toErrorMessage } from '../../../../base/common/errorMessage.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { FuzzyScore } from '../../../../base/common/filters.js';
-import { MarkdownString } from '../../../../base/common/htmlContent.js';
+// --- Start Positron ---
+// import { MarkdownString } from '../../../../base/common/htmlContent.js';
+// --- End Positron ---
 import { combinedDisposable, Disposable, DisposableStore, IDisposable, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { ResourceSet } from '../../../../base/common/map.js';
 import { Schemas } from '../../../../base/common/network.js';
@@ -630,17 +632,21 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		const welcomeContent = this.viewModel?.model.welcomeMessage ?? this.persistedWelcomeMessage;
 		if (welcomeContent && !numItems && (this.welcomeMessageContainer.children.length === 0 || this.location === ChatAgentLocation.EditingSession)) {
 			dom.clearNode(this.welcomeMessageContainer);
-			const tips = this.viewOptions.supportsAdditionalParticipants
-				? new MarkdownString(localize('chatWidget.tips', "{0} or type {1} to attach context\n\n{2} to chat with extensions\n\nType {3} to use commands", '$(attach)', '#', '$(mention)', '/'), { supportThemeIcons: true })
-				: new MarkdownString(localize('chatWidget.tips.withoutParticipants', "{0} or type {1} to attach context", '$(attach)', '#'), { supportThemeIcons: true });
+			// --- Start Positron ---
+			// Remove tips here since it is included in our own welcome message with our preferred formatting.
+
+			// const tips = this.viewOptions.supportsAdditionalParticipants
+			// 	? new MarkdownString(localize('chatWidget.tips', "{0} or type {1} to attach context\n\n{2} to chat with extensions\n\nType {3} to use commands", '$(attach)', '#', '$(mention)', '/'), { supportThemeIcons: true })
+			// 	: new MarkdownString(localize('chatWidget.tips.withoutParticipants', "{0} or type {1} to attach context", '$(attach)', '#'), { supportThemeIcons: true });
 			const welcomePart = this._register(this.instantiationService.createInstance(
 				ChatViewWelcomePart,
-				{ ...welcomeContent, tips, },
+				{ ...welcomeContent, },
 				{
 					location: this.location,
 					isWidgetWelcomeViewContent: true
 				}
 			));
+			// --- End Positron ---
 			dom.append(this.welcomeMessageContainer, welcomePart.element);
 		}
 
