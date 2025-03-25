@@ -3,10 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as fs from 'fs';
 import * as path from 'path';
 import * as util from 'util';
 import { LOGGER } from './extension';
 import { exec } from 'child_process';
+import { RBinary } from './provider.js';
+import { ReasonDiscovered } from './r-installation.js';
 
 const execPromise = util.promisify(exec);
 
@@ -66,4 +69,37 @@ export function getCondaName(homePath: string): string {
 	}
 
 	return ''; // Return empty if no valid Conda env name is found
+}
+
+/**
+ * Discovers R binaries that are installed in conda environments.
+ * @returns conda R binaries.
+ */
+export async function discoverCondaBinaries(): Promise<RBinary[]> {
+	if (!(await isCondaAvailable())) {
+		LOGGER.info('Conda is not installed or not in PATH.');
+		return [];
+	}
+
+	const condaEnvs = await getCondaEnvironments();
+	const rBinaries: RBinary[] = [];
+
+	for (const envPath of condaEnvs) {
+		const rPaths = getCondaRPaths(envPath);  // list of R binaries in this environment
+
+		if (rPaths.length === 0) {
+			continue;
+		}
+
+		for (const rPath of rPaths) {
+			if (fs.existsSync(rPath)) { // return the first existing R
+				LOGGER.info(`Detected R in Conda environment: ${rPath}`);
+				rBinaries.push({ path: rPath, reasons: [ReasonDiscovered.CONDA] });
+				break;
+			}
+		}
+
+	}
+
+	return rBinaries;
 }
