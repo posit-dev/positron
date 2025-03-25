@@ -3,6 +3,7 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+import contextlib
 import logging
 import os
 from pathlib import Path
@@ -355,4 +356,6 @@ def test_console_warning_logger(shell: PositronShell, caplog, warning_kwargs):
 def test_import_lightning_and_torch_dynamo(shell: PositronShell) -> None:
     # See: https://github.com/posit-dev/positron/issues/5879
     shell.run_cell("import lightning").raise_error()
-    shell.run_cell("import torch._dynamo").raise_error()
+    # Earlier versions of torch will not have the dynamo module.
+    with contextlib.suppress(ModuleNotFoundError):
+        shell.run_cell("import torch._dynamo").raise_error()

@@ -4,18 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ProgressLocation, ProgressOptions } from 'vscode';
-import * as fs from 'fs';
 import { IDisposableRegistry, IInstaller, InstallerResponse, Product, ProductInstallStatus } from '../common/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IServiceContainer } from '../ioc/types';
-import { traceError, traceInfo, traceLog } from '../logging';
+import { traceError, traceInfo } from '../logging';
 import { IPYKERNEL_VERSION, MINIMUM_PYTHON_VERSION, Commands } from '../common/constants';
 import { InstallOptions } from '../common/installer/types';
-import { EnvironmentType } from '../pythonEnvironments/info';
-import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
-import { Interpreters } from '../common/utils/localize';
-import { IApplicationShell } from '../common/application/types';
 import { activateAppDetection as activateWebAppDetection } from './webAppContexts';
 import { activateWebAppCommands } from './webAppCommands';
 import { printInterpreterDebugInfo } from './interpreterSettings';
@@ -101,41 +95,4 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
     } catch (ex) {
         traceError('activatePositron() failed.', ex);
     }
-}
-
-export async function checkAndInstallPython(
-    pythonPath: string,
-    serviceContainer: IServiceContainer,
-): Promise<InstallerResponse> {
-    const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
-    const interpreter = await interpreterService.getInterpreterDetails(pythonPath);
-    if (!interpreter) {
-        return InstallerResponse.Ignore;
-    }
-    if (
-        isProblematicCondaEnvironment(interpreter) ||
-        (interpreter.id && !fs.existsSync(interpreter.id) && interpreter.envType === EnvironmentType.Conda)
-    ) {
-        if (interpreter) {
-            const installer = serviceContainer.get<IInstaller>(IInstaller);
-            const shell = serviceContainer.get<IApplicationShell>(IApplicationShell);
-            const progressOptions: ProgressOptions = {
-                location: ProgressLocation.Window,
-                title: `[${Interpreters.installingPython}](command:${Commands.ViewOutput})`,
-            };
-            traceLog('Conda envs without Python are known to not work well; fixing conda environment...');
-            const promise = installer.install(
-                Product.python,
-                await interpreterService.getInterpreterDetails(pythonPath),
-            );
-            shell.withProgress(progressOptions, () => promise);
-
-            // If Python is not installed into the environment, install it.
-            if (!(await installer.isInstalled(Product.python))) {
-                traceInfo(`Python not able to be installed.`);
-                return InstallerResponse.Ignore;
-            }
-        }
-    }
-    return InstallerResponse.Installed;
 }

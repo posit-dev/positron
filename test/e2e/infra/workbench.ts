@@ -37,6 +37,7 @@ import { References } from '../pages/references';
 import { SCM } from '../pages/scm';
 import { Sessions } from '../pages/sessions';
 import { Search } from '../pages/search.js';
+import { Assistant } from '../pages/positronAssistant.js';
 import { HotKeys } from '../pages/hotKeys.js';
 
 export interface Commands {
@@ -79,6 +80,7 @@ export class Workbench {
 	readonly sessions: Sessions;
 	readonly search: Search;
 	readonly hotKeys: HotKeys;
+	readonly assistant: Assistant;
 
 	constructor(code: Code) {
 		this.hotKeys = new HotKeys(code);
@@ -115,6 +117,7 @@ export class Workbench {
 		this.references = new References(code);
 		this.scm = new SCM(code, this.layouts);
 		this.search = new Search(code);
+		this.assistant = new Assistant(code);
 
 	}
 }

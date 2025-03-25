@@ -19,6 +19,7 @@
 export enum TestTags {
 	// feature tags
 	APPS = '@:apps',
+	ASSISTANT = '@:assistant',
 	CONNECTIONS = '@:connections',
 	CONSOLE = '@:console',
 	CRITICAL = '@:critical',
