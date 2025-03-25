@@ -31,7 +31,7 @@ test.describe('Default Interpreters - Python', {
 	test('Python - Add a default interpreter (Conda)', async function ({ app, runCommand, sessions }) {
 		await app.workbench.console.waitForInterpretersToFinishLoading();
 		await runCommand('workbench.action.reloadWindow');
-		await app.workbench.console.waitForInterpretersToFinishLoading();
+		await app.workbench.console.waitForReady('>>>');
 
 		const { name, path } = await sessions.getMetadata();
 
