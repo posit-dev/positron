@@ -51,9 +51,9 @@ interface IExecutionObserver {
 }
 
 class ExecutionObserver {
-	public readonly promise: DeferredPromise<ILanguageRuntimeMessageResult>;
+	public readonly promise: DeferredPromise<Record<string, any>>;
 	constructor(public readonly observer: IExecutionObserver | undefined) {
-		this.promise = new DeferredPromise<ILanguageRuntimeMessageResult>();
+		this.promise = new DeferredPromise<Record<string, any>>();
 	}
 }
 
@@ -1143,6 +1143,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 						observer.onFinished();
 					}
 
+					// Ensure we're settled if we aren't yet
+					if (!o.promise.isSettled) {
+						o.promise.complete({});
+					}
+
 					// Clean up the observer
 					const executionId = message.parent_id;
 					if (executionId) {
@@ -1155,14 +1160,20 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				if (observer?.onCompleted) {
 					observer.onCompleted(message);
 				}
-				o.promise.complete(message as ILanguageRuntimeMessageResult);
+				const data = (message as ILanguageRuntimeMessageResult).data;
+				o.promise.complete(data);
 				break;
 
 			case LanguageRuntimeMessageType.Error:
 				if (observer?.onFailed) {
 					observer.onFailed(message);
 				}
-				o.promise.error(message as ILanguageRuntimeMessageError);
+				const error = message as ILanguageRuntimeMessageError;
+				o.promise.error({
+					message: error.message,
+					traceback: error.traceback,
+					name: error.name,
+				});
 		}
 	}
 }

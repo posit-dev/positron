@@ -125,7 +125,6 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 			let outputText: string = "";
 			let outputError: string = "";
 			const result: Record<string, any> = {};
-			const parts = [] as vscode.LanguageModelTextPart[];
 			const observer: positron.runtime.ExecutionObserver = {
 				onOutput: (output) => {
 					outputText += output;
@@ -150,7 +149,7 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 						observer);
 
 				// Currently just the text/plain output is returned
-				const output = result['text/plain'];
+				const output = execResult['text/plain'];
 				if (output) {
 					result.result = output;
 				}

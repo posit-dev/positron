@@ -2602,8 +2602,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		errorBehavior: RuntimeErrorBehavior = RuntimeErrorBehavior.Continue,
 		executionId?: string
 	) {
-		// Create the ID for the code that will be executed.
-		const id = `fragment-${generateUuid()}`;
+		// Create the ID for the code that will be executed, if one was not provided.
+		const id = executionId || `fragment-${generateUuid()}`;
 
 		if (!this._session) {
 			return;
