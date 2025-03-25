@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as DOM from '../../../base/browser/dom.js';
@@ -12,7 +12,6 @@ import { IHoverService } from '../../../platform/hover/browser/hover.js';
 import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
 import { IOpenerService } from '../../../platform/opener/common/opener.js';
-import { ITelemetryService } from '../../../platform/telemetry/common/telemetry.js';
 import { IThemeService } from '../../../platform/theme/common/themeService.js';
 import { IViewPaneOptions, ViewPane } from '../parts/views/viewPane.js';
 import { IViewDescriptorService } from '../../common/views.js';
@@ -55,7 +54,6 @@ export abstract class PositronViewPane extends ViewPane {
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IOpenerService openerService: IOpenerService,
 		@IThemeService themeService: IThemeService,
-		@ITelemetryService telemetryService: ITelemetryService,
 		@IHoverService hoverService: IHoverService,
 	) {
 		super(
@@ -68,7 +66,6 @@ export abstract class PositronViewPane extends ViewPane {
 			instantiationService,
 			openerService,
 			themeService,
-			telemetryService,
 			hoverService
 		);
 

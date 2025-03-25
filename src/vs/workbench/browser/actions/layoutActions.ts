@@ -33,6 +33,7 @@ import { IKeybindingService } from '../../../platform/keybinding/common/keybindi
 import { TitlebarStyle } from '../../../platform/window/common/window.js';
 import { IPreferencesService } from '../../services/preferences/common/preferences.js';
 import { QuickInputAlignmentContextKey } from '../../../platform/quickinput/browser/quickInput.js';
+import { IEditorGroupsService } from '../../services/editor/common/editorGroupsService.js';
 
 // --- Start Positron ---
 import { PositronToggleTopActionBarVisibilityAction } from '../parts/positronTopActionBar/positronTopActionBarActions.js';
@@ -93,8 +94,10 @@ registerAction2(class extends Action2 {
 
 	run(accessor: ServicesAccessor): void {
 		const layoutService = accessor.get(IWorkbenchLayoutService);
+		const editorGroupService = accessor.get(IEditorGroupsService);
 
 		layoutService.centerMainEditorLayout(!layoutService.isMainEditorLayoutCentered());
+		editorGroupService.activeGroup.focus();
 	}
 });
 

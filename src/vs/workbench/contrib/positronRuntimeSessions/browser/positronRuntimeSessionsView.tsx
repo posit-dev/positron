@@ -16,7 +16,6 @@ import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IViewDescriptorService } from '../../../common/views.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -172,7 +171,6 @@ export class PositronRuntimeSessionsViewPane extends PositronViewPane implements
 	 * @param _runtimeSessionService The runtime session service.
 	 * @param openerService The opener service.
 	 * @param _positronSessionsService The Positron variables service.
-	 * @param telemetryService The ITelemetryService.
 	 * @param themeService The IThemeService.
 	 * @param viewDescriptorService The IViewDescriptorService.
 	 * @param _layoutService The layout service.
@@ -190,7 +188,6 @@ export class PositronRuntimeSessionsViewPane extends PositronViewPane implements
 		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IOpenerService openerService: IOpenerService,
-		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 	) {
@@ -205,7 +202,6 @@ export class PositronRuntimeSessionsViewPane extends PositronViewPane implements
 			instantiationService,
 			openerService,
 			themeService,
-			telemetryService,
 			hoverService);
 
 		// Register the onDidChangeBodyVisibility event handler.
