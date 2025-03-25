@@ -53,10 +53,12 @@ export const LanguageModelButton = (props: LanguageModelButtonProps) => {
 				{ 'selected': props.selected }
 			)}
 			onPressed={props.onClick}>
-			<VerticalStack>
-				{getIcon()}
-				{props.displayName}
-			</VerticalStack>
+			<div id={`${props.identifier}-provider-button`}>
+				<VerticalStack>
+					{getIcon()}
+					{props.displayName}
+				</VerticalStack>
+			</div>
 		</Button>
 	);
 };

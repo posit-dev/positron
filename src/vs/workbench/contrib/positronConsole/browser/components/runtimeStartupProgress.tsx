@@ -35,8 +35,8 @@ const reconnecting = localize('positron.runtimeStartup.existingSession', "Reconn
 export const RuntimeStartupProgress = (props: RuntimeStartupProgressProps) => {
 	// Render.
 	return (
-		<div className='runtime-starting'>
-			<img className='runtime-starting-icon' src={`data:image/svg+xml;base64,${props.evt.runtime.base64EncodedIconSvg}`} />
+		<div className='runtime-startup-progress'>
+			<img className='runtime-startup-progress-icon' src={`data:image/svg+xml;base64,${props.evt.runtime.base64EncodedIconSvg}`} />
 			<div className='runtime-name'>{props.evt.runtime.runtimeName}</div>
 			<div className='action'>{props.evt.newSession ? preparing : reconnecting}</div>
 		</div>
