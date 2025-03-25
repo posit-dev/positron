@@ -7,7 +7,7 @@ import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
-import { InterpreterType } from '../infra/fixtures/interpreter';
+import { InterpreterType } from '../infra/fixtures/interpreter.js';
 
 const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
@@ -138,7 +138,8 @@ export class Console {
 	}
 
 	async sendEnterKey() {
-		await this.activeConsole.click();
+		await this.focus();
+		await this.code.driver.page.waitForTimeout(500);
 		await this.code.driver.page.keyboard.press('Enter');
 	}
 
@@ -176,22 +177,21 @@ export class Console {
 		await this.waitForInterpretersToFinishLoading();
 
 		// ensure we are on Console tab
-		await page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
+		await this.focus();
 
 		// Move mouse to prevent tooltip hover
 		await this.code.driver.page.mouse.move(0, 0);
 
 		// wait for the dropdown to contain R, Python, or No Interpreter.
-		const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
+		const runtime = await this.code.driver.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first().textContent() || '';
 
-		if (currentInterpreter.includes('Python')) {
+		if (runtime.includes('Python')) {
 			await expect(page.getByRole('code').getByText('>>>')).toBeVisible({ timeout: 30000 });
 			return;
-		} else if (currentInterpreter.includes('R')) {
+		} else if (runtime.includes('R')) {
 			await expect(page.getByRole('code').getByText('>')).toBeVisible({ timeout: 30000 });
 			return;
-		} else if (currentInterpreter.includes('Start Interpreter')) {
-			await expect(page.getByText('There is no interpreter')).toBeVisible();
+		} else if (runtime.includes('Start Session')) {
 			return;
 		}
 
@@ -334,4 +334,3 @@ export class Console {
 		await expect(this.suggestionList).toHaveCount(count);
 	}
 }
-

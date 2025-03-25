@@ -4,13 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import test, { expect, Locator } from '@playwright/test';
-import { Code, Console, QuickAccess } from '../infra';
+import { Code, HotKeys, QuickAccess } from '../infra';
 import { QuickInput } from './quickInput';
 
 const DESIRED_PYTHON = process.env.POSITRON_PY_VER_SEL;
 const DESIRED_R = process.env.POSITRON_R_VER_SEL;
 const ALTERNATE_PYTHON = process.env.POSITRON_PY_ALT_VER_SEL;
 const ALTERNATE_R = process.env.POSITRON_R_ALT_VER_SEL;
+const HIDDEN_PYTHON = process.env.POSITRON_HIDDEN_PY;
+const HIDDEN_R = process.env.POSITRON_HIDDEN_R;
 const ACTIVE_STATUS_ICON = '.codicon-positron-status-active';
 
 /**
@@ -24,7 +26,8 @@ export class Sessions {
 	sessions = this.page.getByTestId(/console-(?!tab-)[a-zA-Z0-9-]+/);
 	sessionTabs = this.page.getByTestId(/console-tab/);
 	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
-	activeSessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').getByRole('button', { name: /(Start a New Session)|(Open Active Session Picker)/ });
+	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
+	getSessionCount = async () => (await this.sessions.all()).length;
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
@@ -44,14 +47,14 @@ export class Sessions {
 	private consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
 	private outputChannel = this.page.getByRole('combobox');
 
-	constructor(private code: Code, private console: Console, private quickaccess: QuickAccess, private quickinput: QuickInput) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private hotKeys: HotKeys) { }
 
 	// -- Actions --
 
 	/**
 	 * Action: Starts one or more sessions
 	 *
-	 * @param sessions - The session runtime(s) to start: 'python', 'r', 'pythonAlt', 'rAlt'
+	 * @param sessions - The session runtime(s) to start: 'python', 'pythonAlt', 'pythonHidden', 'r', 'rAlt'
 	 * @param options - Configuration options for session startup
 	 * @param options.waitForReady - Whether to wait for sessions to be fully ready before returning (default: true)
 	 * @param options.triggerMode - How the session should be triggered: session-picker, quickaccess, hotkey, or console (default: hotkey)
@@ -90,7 +93,7 @@ export class Sessions {
 			const session = { ...availableRuntimes[key], waitForReady, triggerMode };
 			session.id = reuse
 				? await this.reuseIdleSessionIfExists(session)
-				: await this.launch(session);
+				: await this.launchNew(session);
 			results.push(session);
 		}
 
@@ -105,13 +108,12 @@ export class Sessions {
 	 */
 	async delete(sessionId: string): Promise<void> {
 		await test.step(`Delete session: ${sessionId}`, async () => {
-			await this.console.focus();
-			const sessionCount = (await this.sessions.all()).length;
+			await this.hotKeys.focusConsole();
 
-			if (sessionCount === 1) {
+			if (await this.getSessionCount() === 1) {
 				const currentSessionId = await this.getCurrentSessionId();
 				if (currentSessionId === sessionId) {
-					await this.console.barTrashButton.click();
+					await this.page.getByTestId('trash-session').click();
 					return;
 				} else {
 					throw new Error(`Cannot delete session ${sessionId} because it does not exist`);
@@ -133,22 +135,30 @@ export class Sessions {
 	 * Action: Restart the session
 	 *
 	 * @param sessionIdOrName - the id or name of the session
-	 * @param waitForIdle - wait for the session to display as "idle" (ready)
+	 * @param options - Configuration options for the restart
+	 * @param options.waitForIdle - wait for the session to display as "idle" (ready)
+	 * @param options.clearConsole - clear the console before restarting
 	 */
-	async restart(sessionIdOrName: string, waitForIdle = true, clearConsole = true): Promise<void> {
+	async restart(sessionIdOrName: string, options?: { waitForIdle?: boolean; clearConsole?: boolean }): Promise<void> {
+		const { waitForIdle = true, clearConsole = true } = options || {};
+
 		await test.step(`Restart session: ${sessionIdOrName}`, async () => {
-			// todo: make this handle case where no session tab list (aka 1 session)
-			await this.getSessionTab(sessionIdOrName).click();
+			await this.hotKeys.focusConsole();
+
+			if (await this.getSessionCount() > 1) {
+				await this.getSessionTab(sessionIdOrName).click();
+			}
 
 			if (clearConsole) {
-				await this.console.barClearButton.click();
+				await this.page.getByLabel('Clear console').click();
 			}
 
 			await this.restartButton.click();
 			await this.page.mouse.move(0, 0);
 
 			if (waitForIdle) {
-				this.expectStatusToBe(sessionIdOrName, 'idle', { timeout: 90000 });
+				await expect(this.page.getByText(/restarting/)).not.toBeVisible({ timeout: 90000 });
+				await this.expectStatusToBe(sessionIdOrName, 'idle');
 			}
 		});
 	}
@@ -176,7 +186,7 @@ export class Sessions {
 	 * @param menuItem - the menu item to click on the metadata dialog
 	 */
 	async selectMetadataOption(menuItem: 'Show Kernel Output Channel' | 'Show Console Output Channel' | 'Show LSP Output Channel') {
-		await this.console.focus();
+		await this.hotKeys.focusConsole();
 		await this.metadataButton.click();
 		await this.metadataDialog.getByText(menuItem).click();
 
@@ -298,15 +308,15 @@ export class Sessions {
 	}
 
 	/**
-	 * Helpers: Start a session via the session picker button, quickaccess, or console session button.
+	 * Helpers: Start a new session via the session picker button, quickaccess, or console session button.
 	 *
 	 * @param options - Configuration options for selecting the runtime session.
 	 * @param options.language - the runtime language to select (e.g., "Python" or "R").
 	 * @param options.version - the specific version of runtime to select (e.g., "3.10.15").
-	 * @param options.triggerMode - the method used to trigger the selection: session-picker, quickaccess, or console.
+	 * @param options.triggerMode - the method used to trigger the selection: session-picker, quickaccess, hotkey, or console.
 	 * @param options.waitForReady - whether to wait for the console to be ready after selecting the runtime.
 	 */
-	private async launch(options: {
+	private async launchNew(options: {
 		language: 'Python' | 'R';
 		version?: string;
 		triggerMode?: 'session-picker' | 'quickaccess' | 'console' | 'hotkey';
@@ -340,7 +350,7 @@ export class Sessions {
 			} else if (triggerMode === 'session-picker') {
 				await this.quickPick.openSessionQuickPickMenu();
 			} else if (triggerMode === 'console') {
-				await this.console.focus();
+				await this.hotKeys.focusConsole();
 				await this.newSessionButton.click();
 			} else {
 				await this.page.keyboard.press('Control+Shift+/');
@@ -358,9 +368,9 @@ export class Sessions {
 			await this.code.driver.page.mouse.move(0, 0);
 
 			if (waitForReady) {
-				language === 'Python'
-					? await this.console.waitForReadyAndStarted('>>>', 90000)
-					: await this.console.waitForReadyAndStarted('>', 90000);
+				await expect(this.page.getByText(/starting/)).not.toBeVisible({ timeout: 90000 });
+				const sessionId = await this.getCurrentSessionId();
+				await this.expectStatusToBe(sessionId, 'idle');
 			}
 		});
 
@@ -373,7 +383,7 @@ export class Sessions {
 	 */
 	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
 		await test.step(`Select session: ${sessionIdOrName}`, async () => {
-			await this.console.focus();
+			await this.hotKeys.focusConsole();
 			const session = this.getSessionTab(sessionIdOrName);
 
 			if (waitForSessionIdle) {
@@ -385,6 +395,38 @@ export class Sessions {
 	}
 
 	/**
+	 * Helper: Get the interpreter info for the currently selected runtime via the quickpick menu.
+	 * @returns The interpreter info for the selected interpreter if found, otherwise undefined.
+	 */
+	async getSelectedSessionInfo(): Promise<Omit<ExtendedSessionInfo, 'id'>> {
+		if (await this.sessionPicker.textContent() === 'Start Session') {
+			throw new Error('No session is currently active');
+		}
+
+		await this.quickPick.openSessionQuickPickMenu(false);
+		const selectedInterpreter = this.code.driver.page.locator('.quick-input-list-entry').filter({ hasText: 'Currently Selected' });
+
+		// Extract the runtime name
+		const runtime = await selectedInterpreter.locator('.monaco-icon-label-container .label-name .monaco-highlighted-label').nth(0).textContent();
+
+		// Extract the language, version, and source from runtime name
+		const { language, version, source } = await this.quickPick.parseRuntimeName(runtime);
+
+		// Extract the path
+		const path = await selectedInterpreter.locator('.quick-input-list-label-meta .monaco-icon-label-container .label-name .monaco-highlighted-label').nth(0).textContent();
+
+		await this.quickPick.closeSessionQuickPickMenu();
+
+		return {
+			name: `${language} ${version}`,
+			language: language as 'Python' | 'R',
+			version,
+			source,
+			path: path || '',
+		};
+	}
+
+	/**
 	 * Helper: Launch a session if it doesn't exist, otherwise reuse the existing session if the name matches and the state is idle
 	 * @param session - the session to reuse / launch
 	 * @returns id of the session
@@ -392,6 +434,7 @@ export class Sessions {
 	private async reuseIdleSessionIfExists(session: SessionInfo): Promise<string> {
 		return await test.step(`Reuse session: ${session.name}`, async () => {
 
+			await this.hotKeys.focusConsole();
 			const metadataButtonIsVisible = await this.metadataButton.isVisible();
 			const sessionTab = this.getSessionTab(session.name);
 			const sessionTabExists = await sessionTab.isVisible();
@@ -411,7 +454,7 @@ export class Sessions {
 			}
 
 			// Create a new session if none exists
-			return await this.launch(session);
+			return await this.launchNew(session);
 		});
 	}
 
@@ -431,20 +474,22 @@ export class Sessions {
 			await this.waitForRuntimesToLoad();
 
 			// ensure we are on Console tab
-			await this.page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
+			await this.hotKeys.focusConsole();
 
 			// Move mouse to prevent tooltip hover
 			await this.code.driver.page.mouse.move(0, 0);
 
 			// wait for the dropdown to contain R, Python, or Start Session.
-			const currentSession = await this.activeSessionPicker.textContent() || '';
+			const currentSession = await this.sessionPicker.textContent() || '';
 
 			if (currentSession.includes('Python') || currentSession.includes('R')) {
 				const currentSessionId = await this.getCurrentSessionId();
 				await expect(this.consoleInstance(currentSessionId).locator('.current-line')).toBeVisible({ timeout: 30000 });
+				await expect(this.page.getByText(/starting/)).not.toBeVisible({ timeout: 90000 });
 				return;
 			} else if (currentSession.includes('Start Session')) {
 				await expect(this.page.getByRole('button', { name: 'Start Session', exact: true })).toBeVisible();
+				await expect(this.page.getByText(/starting/)).not.toBeVisible({ timeout: 90000 });
 				return;
 			}
 
@@ -488,7 +533,9 @@ export class Sessions {
 	 */
 	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
 		return await test.step(`Get metadata for: ${sessionId ?? 'current session'}`, async () => {
-			if (sessionId) {
+			await this.hotKeys.focusConsole();
+
+			if (sessionId && await this.getSessionCount() > 1) {
 				await this.page.getByTestId(`console-tab-${sessionId}`).click();
 			}
 			await this.metadataButton.click();
@@ -585,7 +632,7 @@ export class Sessions {
 		const timeout = options?.timeout || 30000;
 
 		await test.step(`Verify ${sessionIdOrName} session status: ${expectedStatus}`, async () => {
-			const sessionCount = (await this.sessions.all()).length;
+			const sessionCount = await this.getSessionCount();
 
 			if (sessionCount > 1) {
 				// get status from icon in tab list view
@@ -596,10 +643,13 @@ export class Sessions {
 				await expect(sessionTab.locator(statusClass)).toBeVisible({ timeout });
 			} else if (sessionCount === 1) {
 				// get status from metadata dialog because there is no tab list view
-				await expect(async () => {
-					const { state } = await this.getMetadata();
-					expect(state).toBe(expectedStatus);
-				}).toPass({ timeout });
+				await expect.poll(
+					async () => (await this.getMetadata()).state,
+					{
+						timeout: 15000,
+						intervals: [1000]
+					}
+				).toBe(expectedStatus);
 			} else {
 				throw new Error('No sessions found');
 			}
@@ -622,7 +672,7 @@ export class Sessions {
 			await expect(this.metadataDialog.getByText(new RegExp(`Session ID: ${session.language.toLowerCase()}-[a-zA-Z0-9]+`))).toBeVisible();
 			await expect(this.metadataDialog.getByText(`State: ${session.state}`)).toBeVisible();
 			await expect(this.metadataDialog.getByText(/^Path: [\/~a-zA-Z0-9.]+/)).toBeVisible();
-			await expect(this.metadataDialog.getByText(/^Source: (Pyenv|System|Global|VirtualEnv)$/)).toBeVisible();
+			await expect(this.metadataDialog.getByText(/^Source: (Pyenv|System|Global|VirtualEnv|Conda: base)$/)).toBeVisible();
 			await this.page.keyboard.press('Escape');
 
 			// Verify Language Console
@@ -642,7 +692,7 @@ export class Sessions {
 			await expect(this.outputChannel).toHaveValue(/Language Server \(Console\)$/);
 
 			// Go back to console when done
-			await this.console.focus();
+			await this.hotKeys.focusConsole();
 		});
 	}
 
@@ -652,7 +702,7 @@ export class Sessions {
 	 * @param version - The descriptive string of the runtime to verify.
 	 */
 	async expectSessionPickerToBe(
-		options: { language?: 'Python' | 'R'; version?: string } = {}
+		options: { language?: 'Python' | 'R' | 'Start Session'; version?: string } = {}
 	) {
 		if (!DESIRED_PYTHON || !DESIRED_R) {
 			throw new Error('Please set env vars: POSITRON_PY_VER_SEL, POSITRON_R_VER_SEL');
@@ -663,9 +713,13 @@ export class Sessions {
 			version = language === 'Python' ? DESIRED_PYTHON : DESIRED_R,
 		} = options;
 		await test.step(`Verify runtime is selected: ${language} ${version}`, async () => {
-			const runtimeInfo = await this.quickPick.getSelectedSessionInfo();
-			expect(runtimeInfo.language).toContain(language);
-			expect(runtimeInfo.version).toContain(version);
+			if (language === 'Start Session') {
+				await expect(this.sessionPicker).toHaveText('Start Session');
+			} else {
+				const runtimeInfo = await this.getSelectedSessionInfo();
+				expect(runtimeInfo.language).toContain(language);
+				expect(runtimeInfo.version).toContain(version);
+			}
 		});
 	}
 
@@ -728,7 +782,21 @@ export class Sessions {
 	 * Verify: all sessions are idle (not active)
 	 */
 	async expectAllSessionsToBeIdle() {
-		await expect(this.activeStatusIcon).toHaveCount(0);
+		if (await this.getSessionCount() > 1) {
+			await expect(this.activeStatusIcon).toHaveCount(0);
+		} else {
+			await expect(this.page.getByText(/starting/)).not.toBeVisible();
+			await this.metadataButton.click();
+			await expect(this.page.getByText('State: idle')).toBeVisible({ timeout: 60000 });
+			await this.page.keyboard.press('Escape');
+		}
+	}
+
+	/**
+	 * Verify: Start a New Session menu is visible
+	 */
+	async expectStartNewSessionMenuToBeVisible() {
+		await expect(this.quickPick.allSessionsMenu).toBeVisible();
 	}
 }
 
@@ -737,7 +805,7 @@ export class Sessions {
  */
 export class SessionQuickPick {
 	private sessionQuickMenu = this.code.driver.page.getByText(/(Select a Session)|(Start a New Session)/);
-	private allSessionsMenu = this.code.driver.page.getByText(/Start a New Session/);
+	allSessionsMenu = this.code.driver.page.getByText(/Start a New Session/);
 
 	constructor(private code: Code, private sessions: Sessions) { }
 
@@ -751,7 +819,7 @@ export class SessionQuickPick {
 		// unfortunately we need to retry the session picker until it works
 		await expect(async () => {
 			if (!await this.sessionQuickMenu.isVisible()) {
-				await this.sessions.activeSessionPicker.click();
+				await this.sessions.sessionPicker.click();
 			}
 
 			if (viewAllRuntimes) {
@@ -803,34 +871,6 @@ export class SessionQuickPick {
 
 		await this.closeSessionQuickPickMenu();
 		return filteredSessions;
-	}
-
-	/**
-	 * Helper: Get the interpreter info for the currently selected runtime via the quickpick menu.
-	 * @returns The interpreter info for the selected interpreter if found, otherwise undefined.
-	 */
-	async getSelectedSessionInfo(): Promise<Omit<ExtendedSessionInfo, 'id'>> {
-		await this.openSessionQuickPickMenu(false);
-		const selectedInterpreter = this.code.driver.page.locator('.quick-input-list-entry').filter({ hasText: 'Currently Selected' });
-
-		// Extract the runtime name
-		const runtime = await selectedInterpreter.locator('.monaco-icon-label-container .label-name .monaco-highlighted-label').nth(0).textContent();
-
-		// Extract the language, version, and source from runtime name
-		const { language, version, source } = await this.parseRuntimeName(runtime);
-
-		// Extract the path
-		const path = await selectedInterpreter.locator('.quick-input-list-label-meta .monaco-icon-label-container .label-name .monaco-highlighted-label').nth(0).textContent();
-
-		await this.closeSessionQuickPickMenu();
-
-		return {
-			name: `${language} ${version}`,
-			language: language as 'Python' | 'R',
-			version,
-			source,
-			path: path || '',
-		};
 	}
 
 	// -- Utils --
@@ -910,8 +950,17 @@ const pythonSessionAlt: SessionInfo = {
 	waitForReady: true
 };
 
-// Use this session object to manage default R env in the test
+// Use this session object to manage hidden python env in the test
+const pythonSessionHidden: SessionInfo = {
+	name: `Python ${HIDDEN_PYTHON}`,
+	language: 'Python',
+	version: HIDDEN_PYTHON || '',
+	triggerMode: 'session-picker',
+	id: '',
+	waitForReady: true
+};
 
+// Use this session object to manage default R env in the test
 const rSession: SessionInfo = {
 	name: `R ${DESIRED_R}`,
 	language: 'R',
@@ -931,13 +980,23 @@ const rSessionAlt: SessionInfo = {
 	waitForReady: true
 };
 
+// Use this session object to manage hidden R env in the test
+const rSessionHidden: SessionInfo = {
+	name: `R ${HIDDEN_R}`,
+	language: 'R',
+	version: HIDDEN_R || '',
+	triggerMode: 'session-picker',
+	id: '',
+	waitForReady: true
+};
 
+type SessionRuntimes = 'python' | 'pythonAlt' | 'pythonHidden' | 'r' | 'rAlt' | 'rHidden';
 
-type SessionRuntimes = 'python' | 'pythonAlt' | 'r' | 'rAlt';
-
-const availableRuntimes: { [key: string]: SessionInfo } = {
+export const availableRuntimes: { [key: string]: SessionInfo } = {
 	r: { ...rSession },
 	rAlt: { ...rSessionAlt },
+	rHidden: { ...rSessionHidden },
 	python: { ...pythonSession },
 	pythonAlt: { ...pythonSessionAlt },
+	pythonHidden: { ...pythonSessionHidden },
 };

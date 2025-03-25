@@ -42,6 +42,7 @@ export * from '../pages/problems';
 export * from '../pages/references';
 export * from '../pages/scm';
 export * from '../pages/sessions';
+export * from '../pages/hotKeys';
 
 // fixtures
 export * from './fixtures/userSettings';
