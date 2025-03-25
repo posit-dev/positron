@@ -39,6 +39,7 @@ import { SCM } from '../pages/scm';
 import { Sessions } from '../pages/sessions';
 import { Search } from '../pages/search.js';
 import { HotKeys } from '../pages/hotKeys.js';
+import { Assistant } from '../pages/positronAssistant.js';
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -80,6 +81,7 @@ export class Workbench {
 	readonly scm: SCM;
 	readonly sessions: Sessions;
 	readonly search: Search;
+	readonly assistant: Assistant;
 	readonly hotKeys: HotKeys;
 
 	constructor(code: Code) {
@@ -118,5 +120,6 @@ export class Workbench {
 		this.references = new References(code);
 		this.scm = new SCM(code, this.layouts);
 		this.search = new Search(code);
+		this.assistant = new Assistant(code);
 	}
 }
