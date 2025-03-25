@@ -755,7 +755,7 @@ export class SessionQuickPick {
 			}
 
 			if (viewAllRuntimes) {
-				await this.code.driver.page.getByRole('combobox', { name: 'input' }).fill('New Session');
+				await this.code.driver.page.getByRole('textbox', { name: 'input' }).fill('New Session');
 				await this.code.driver.page.keyboard.press('Enter');
 				await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible({ timeout: 1000 });
 			}

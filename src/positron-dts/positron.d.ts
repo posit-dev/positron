@@ -1796,6 +1796,23 @@ declare module 'positron' {
 		): Thenable<void>;
 
 		/**
+		 * Adds the model to the service's known configurations and notifies its listeners.
+		 * @param id the model id
+		 * @param config the model config
+		 */
+		export function addLanguageModelConfig(
+			source: LanguageModelSource,
+		): void;
+
+		/**
+		 * Removes the model from the service's known configurations and notifies its listeners.
+		 * @param id the model id
+		 */
+		export function removeLanguageModelConfig(
+			source: LanguageModelSource,
+		): void;
+
+		/**
 		 * The context in which a chat request is made.
 		 */
 		export interface ChatContext {
