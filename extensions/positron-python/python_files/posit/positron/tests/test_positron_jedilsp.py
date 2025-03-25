@@ -7,7 +7,7 @@ import json
 import os
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, cast
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -26,6 +26,7 @@ from positron._vendor.lsprotocol.types import (
     CompletionItem,
     CompletionParams,
     DidCloseTextDocumentParams,
+    DidOpenNotebookDocumentParams,
     DocumentHighlight,
     DocumentSymbol,
     DocumentSymbolParams,
@@ -36,6 +37,9 @@ from positron._vendor.lsprotocol.types import (
     Location,
     MarkupContent,
     MarkupKind,
+    NotebookCell,
+    NotebookCellKind,
+    NotebookDocument,
     ParameterInformation,
     Position,
     Range,
@@ -58,7 +62,6 @@ from positron.positron_jedilsp import (
     HelpTopicParams,
     PositronInitializationOptions,
     PositronJediLanguageServer,
-    PositronJediLanguageServerProtocol,
     _MagicType,
     _publish_diagnostics,
     _publish_diagnostics_debounced,
@@ -75,6 +78,9 @@ from positron.positron_jedilsp import (
     positron_rename,
     positron_signature_help,
     positron_type_definition,
+)
+from positron.positron_jedilsp import (
+    create_server as create_positron_server,
 )
 from positron.utils import get_qualname
 
@@ -100,11 +106,7 @@ def create_server(
     notebook_path: Optional[Path] = None,
 ) -> PositronJediLanguageServer:
     # Create a server.
-    server = PositronJediLanguageServer(
-        name="test-server",
-        version="0.0.0test",
-        protocol_cls=PositronJediLanguageServerProtocol,
-    )
+    server = create_positron_server()
 
     # Initialize the server.
     server.lsp.lsp_initialize(
@@ -144,9 +146,41 @@ def create_server(
     return server
 
 
-def create_text_document(server: PositronJediLanguageServer, uri: str, source: str):
+def create_text_document(server: PositronJediLanguageServer, uri: str, source: str) -> TextDocument:
     server.workspace.put_text_document(TextDocumentItem(uri, "python", 0, source))
     return server.workspace.text_documents[uri]
+
+
+def create_notebook_document(
+    server: PositronJediLanguageServer, uri: str, cells: List[str]
+) -> List[str]:
+    cell_uris = [f"uri-{i}" for i in range(len(cells))]
+    server.workspace.put_notebook_document(
+        DidOpenNotebookDocumentParams(
+            cell_text_documents=[
+                TextDocumentItem(
+                    uri=cell_uri,
+                    language_id="python",
+                    text=cell,
+                    version=0,
+                )
+                for cell_uri, cell in zip(cell_uris, cells)
+            ],
+            notebook_document=NotebookDocument(
+                uri=uri,
+                version=0,
+                cells=[
+                    NotebookCell(
+                        document=cell_uri,
+                        kind=NotebookCellKind.Code,
+                    )
+                    for cell_uri in cell_uris
+                ],
+                notebook_type="jupyter-notebook",
+            ),
+        )
+    )
+    return cell_uris
 
 
 @pytest.mark.parametrize(
@@ -167,7 +201,9 @@ def test_positron_help_topic_request(
     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
 
     params = HelpTopicParams(TextDocumentIdentifier(text_document.uri), Position(0, 0))
-    topic = positron_help_topic_request(server, params)
+    # Ignore the type since HelpTopicParams is a custom (but valid) Positron type
+    # that is not known to jedi-language-server.
+    topic = positron_help_topic_request(server, params)  # type: ignore
 
     if expected_topic is None:
         assert topic is None
@@ -203,13 +239,10 @@ def _completions(
         _end_of_document(text_document, character),
     )
     completion_list = positron_completion(server, params)
-
-    assert completion_list is not None, "No completions returned"
-
-    return completion_list.items
+    return [] if completion_list is None else completion_list.items
 
 
-_environment_variable_key = "SOME_ENVIRONMENT_VARIABLE"
+TEST_ENVIRONMENT_VARIABLE = "SOME_ENVIRONMENT_VARIABLE"
 
 
 @pytest.mark.parametrize(
@@ -265,98 +298,98 @@ _environment_variable_key = "SOME_ENVIRONMENT_VARIABLE"
             'os.environ["',
             {"os": os},
             None,
-            [f'{_environment_variable_key}"'],
+            [f'{TEST_ENVIRONMENT_VARIABLE}"'],
             id="os_environ",
         ),
         pytest.param(
             'import os; os.environ[""]',
             {},
             -2,
-            [_environment_variable_key],
+            [TEST_ENVIRONMENT_VARIABLE],
             id="os_environ_from_source",
         ),
         pytest.param(
             'import os; os.environ["',
             {},
             None,
-            [f'{_environment_variable_key}"'],
+            [f'{TEST_ENVIRONMENT_VARIABLE}"'],
             id="os_environ_from_source_unclosed",
         ),
         pytest.param(
             'os.getenv("")',
             {"os": os},
             -2,
-            [_environment_variable_key],
+            [TEST_ENVIRONMENT_VARIABLE],
             id="os_getenv",
         ),
         pytest.param(
             'import os; os.getenv("")',
             {},
             -2,
-            [_environment_variable_key],
+            [TEST_ENVIRONMENT_VARIABLE],
             id="os_getenv_from_source",
         ),
         pytest.param(
             'os.getenv(key="")',
             {"os": os},
             -2,
-            [_environment_variable_key],
+            [TEST_ENVIRONMENT_VARIABLE],
             id="os_getenv_keyword",
         ),
         pytest.param(
             'os.getenv(default="")',
             {"os": os},
             -2,
-            lambda completions: _environment_variable_key not in completions,
+            [],
             id="os_getenv_keyword_default",
         ),
         pytest.param(
             'os.getenv(key="',
             {"os": os},
             None,
-            [f'{_environment_variable_key}"'],
+            [f'{TEST_ENVIRONMENT_VARIABLE}"'],
             id="os_getenv_keyword_unclosed",
         ),
         pytest.param(
             'os.getenv(default="',
             {"os": os},
             None,
-            lambda completions: f'{_environment_variable_key}"' not in completions,
+            [],
             id="os_getenv_keyword_default_unclosed",
         ),
         pytest.param(
             'os.getenv("", "")',
             {"os": os},
             len('os.getenv("'),
-            [_environment_variable_key],
+            [TEST_ENVIRONMENT_VARIABLE],
             id="os_getenv_with_default",
         ),
         pytest.param(
             'os.getenv("", default="")',
             {"os": os},
             len('os.getenv("'),
-            [_environment_variable_key],
+            [TEST_ENVIRONMENT_VARIABLE],
             id="os_getenv_with_keyword_default",
         ),
         pytest.param(
             'os.getenv("',
             {"os": os},
             None,
-            [f'{_environment_variable_key}"'],
+            [f'{TEST_ENVIRONMENT_VARIABLE}"'],
             id="os_getenv_unclosed",
         ),
         pytest.param(
             'os.getenv("", "")',
             {"os": os},
             -2,
-            lambda completions: _environment_variable_key not in completions,
+            [],
             id="os_getenv_wrong_arg",
         ),
         pytest.param(
             'os.getenv("", "',
             {"os": os},
             None,
-            lambda completions: f'{_environment_variable_key}"' not in completions,
+            [],
             id="os_getenv_wrong_arg_unclosed",
         ),
     ],
@@ -365,26 +398,42 @@ def test_positron_completion(
     source: str,
     namespace: Dict[str, Any],
     character: Optional[int],
-    expected_labels: Union[List[str], Callable[[List[Optional[str]]], bool]],
+    expected_labels: List[str],
     monkeypatch,
+    tmp_path,
 ) -> None:
-    server = create_server(namespace)
+    # Set the root path to an empty temporary directory so there are no file completions.
+    server = create_server(namespace, root_path=tmp_path)
     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
 
-    # Patch environment variables for the `os.environ` test.
+    # Patch os.environ so that only the test environment variable's completion is ever present.
     with patch.dict(os.environ, clear=True):
-        monkeypatch.setenv(_environment_variable_key, "")
+        monkeypatch.setenv(TEST_ENVIRONMENT_VARIABLE, "")
 
         completions = _completions(server, text_document, character)
 
+    assert_completion_labels_equals(completions, expected_labels)
+
+
+def test_positron_completion_notebook(tmp_path) -> None:
+    # Set the root path to an empty temporary directory so there are no file completions.
+    server = create_server(root_path=tmp_path)
+
+    # Create a notebook which defines a variable in one cell and uses it in another.
+    cell_uris = create_notebook_document(server, "uri", ["x = {'a': 0}", "x['"])
+    text_document = server.workspace.get_text_document(cell_uris[1])
+
+    completions = _completions(server, text_document)
+
+    assert_completion_labels_equals(completions, ["a'"])
+
+
+def assert_completion_labels_equals(completions, expected_labels):
     completion_labels = [
         completion.text_edit.new_text if completion.text_edit else completion.insert_text
         for completion in completions
     ]
-    if callable(expected_labels):
-        assert expected_labels(completion_labels)
-    else:
-        assert completion_labels == expected_labels
+    assert completion_labels == expected_labels
 
 
 def test_parameter_completions_appear_first() -> None:
@@ -704,6 +753,35 @@ _func_str = f'''\
 def test_positron_signature_help(source: str, namespace: Dict[str, Any]) -> None:
     server = create_server(namespace)
     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+    params = TextDocumentPositionParams(
+        TextDocumentIdentifier(text_document.uri), _end_of_document(text_document)
+    )
+
+    signature_help = positron_signature_help(server, params)
+
+    assert signature_help == SignatureHelp(
+        signatures=[
+            SignatureInformation(
+                label=_func_label,
+                documentation=MarkupContent(
+                    MarkupKind.Markdown,
+                    f"```text\n{_func_doc}\n```",
+                ),
+                parameters=[ParameterInformation(label=label) for label in _func_params],
+            )
+        ],
+        active_parameter=0,
+        active_signature=0,
+    )
+
+
+def test_positron_signature_help_notebook(tmp_path) -> None:
+    # Set the root path to an empty temporary directory so there are no file completions.
+    server = create_server(root_path=tmp_path)
+
+    # Create a notebook which defines a variable in one cell and uses it in another.
+    cell_uris = create_notebook_document(server, "uri", [_func_str, "func("])
+    text_document = server.workspace.get_text_document(cell_uris[1])
     params = TextDocumentPositionParams(
         TextDocumentIdentifier(text_document.uri), _end_of_document(text_document)
     )
