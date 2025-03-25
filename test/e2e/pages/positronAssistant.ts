@@ -33,10 +33,8 @@ export class Assistant {
 	async openPositronAssistantChat() {
 		await test.step('Verify Assistant is enabled and Open it.', async () => {
 			await this.verifyChatButtonVisible();
-			try {
-				await this.verifyAddModelLinkVisible();
-			}
-			catch (e) {
+			const addModelLinkIsVisible = await this.code.driver.page.locator(ADD_MODEL_LINK).isVisible();
+			if (!addModelLinkIsVisible) {
 				await this.code.driver.page.locator(CHATBUTTON).click();
 			}
 		});
