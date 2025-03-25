@@ -136,18 +136,21 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 							style={{ height: props.height, width: consolePaneWidth }}
 						>
 							<ActionBar {...props} showDeleteButton={positronConsoleContext.consoleSessionListCollapsed} />
-							<div className='console-instances-container'>
-								{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
-									<ConsoleInstance
-										key={positronConsoleInstance.sessionId}
-										active={positronConsoleInstance.sessionId === positronConsoleContext.activePositronConsoleInstance?.sessionId}
-										height={adjustedHeight}
-										positronConsoleInstance={positronConsoleInstance}
-										reactComponentContainer={props.reactComponentContainer}
-										width={consolePaneWidth}
-									/>
-								)}
-							</div>
+							{/* #6845 - Only render console instances when the console pane width is greater than 0. */}
+							{consolePaneWidth > 0 &&
+								<div className='console-instances-container'>
+									{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
+										<ConsoleInstance
+											key={positronConsoleInstance.sessionId}
+											active={positronConsoleInstance.sessionId === positronConsoleContext.activePositronConsoleInstance?.sessionId}
+											height={adjustedHeight}
+											positronConsoleInstance={positronConsoleInstance}
+											reactComponentContainer={props.reactComponentContainer}
+											width={consolePaneWidth}
+										/>
+									)}
+								</div>
+							}
 						</div>
 						<VerticalSplitter
 							configurationService={positronConsoleContext.configurationService}
