@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -28,8 +28,71 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 		readonly metadata: positron.RuntimeSessionMetadata
 	) { }
 
-	execute(_code: string, _id: string, _mode: positron.RuntimeCodeExecutionMode, _errorBehavior: positron.RuntimeErrorBehavior): void {
-		throw new Error('Not implemented.');
+	execute(code: string, _id: string, _mode: positron.RuntimeCodeExecutionMode): void {
+		// Simulate an error if the code is 'error'
+		if (code === 'error') {
+			this.executeError();
+			return;
+		}
+
+		// Simulate starting with busy state
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Busy);
+
+		// Simulate output
+		this._onDidReceiveRuntimeMessage.fire({
+			id: '1',
+			parent_id: '',
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Stream,
+			name: positron.LanguageRuntimeStreamName.Stdout,
+			text: `Output: ${code}`
+		} as positron.LanguageRuntimeStream);
+
+		// Simulate error output
+		this._onDidReceiveRuntimeMessage.fire({
+			id: '2',
+			parent_id: '',
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Stream,
+			name: positron.LanguageRuntimeStreamName.Stderr,
+			text: 'Warning message'
+		} as positron.LanguageRuntimeStream);
+
+		// Simulate result
+		setTimeout(() => {
+			this._onDidReceiveRuntimeMessage.fire({
+				id: '3',
+				parent_id: '',
+				when: new Date().toISOString(),
+				type: positron.LanguageRuntimeMessageType.Result,
+				data: { 'text/plain': 'Test result' }
+			} as positron.LanguageRuntimeResult);
+
+			// Return to idle state
+			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Idle);
+		}, 10);
+	}
+
+	executeError() {
+
+		// Simulate starting with busy state
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Busy);
+
+		// Simulate error
+		this._onDidReceiveRuntimeMessage.fire({
+			id: '1',
+			parent_id: '',
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Error,
+			name: 'TestError',
+			message: 'Test error occurred',
+			traceback: ['Line 1', 'Line 2']
+		} as positron.LanguageRuntimeError);
+
+		// Return to idle state
+		setTimeout(() => {
+			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Idle);
+		}, 10);
 	}
 
 	async isCodeFragmentComplete(_code: string): Promise<positron.RuntimeCodeFragmentStatus> {
@@ -170,4 +233,147 @@ suite('positron API - runtime', () => {
 		// );
 	});
 
+});
+
+suite('positron API - executeCode', () => {
+	let disposables: Disposable[];
+
+	setup(() => {
+		disposables = [];
+	});
+
+	teardown(async () => {
+		assertNoRpcFromEntry([positron, 'positron']);
+		disposeAll(disposables);
+	});
+
+	test('observer events fire correctly', async () => {
+		// Setup a runtime manager and session
+		const manager = new TestLanguageRuntimeManager();
+		const managerDisposable = positron.runtime.registerLanguageRuntimeManager('test', manager);
+		disposables.push(managerDisposable);
+
+		// Wait for the runtime to be registered
+		await poll(
+			async () => (await positron.runtime.getRegisteredRuntimes())
+				.filter(runtime => runtime.languageId === 'test'),
+			runtimes => runtimes.length > 0,
+			'test runtime should be registered'
+		);
+
+		// Test results tracking
+		const observerEvents: string[] = [];
+		let startCalled = false;
+		let finishCalled = false;
+		let outputText: string | undefined;
+		let errorText: string | undefined;
+		let completionResult: Record<string, any> | undefined;
+
+		// Create the observer
+		const observer: positron.runtime.ExecutionObserver = {
+			onStarted: () => {
+				startCalled = true;
+				observerEvents.push('started');
+			},
+
+			onOutput: (message: string) => {
+				outputText = message;
+				observerEvents.push('output');
+			},
+
+			onError: (message: string) => {
+				errorText = message;
+				observerEvents.push('error');
+			},
+
+			onCompleted: (result: Record<string, any>) => {
+				completionResult = result;
+				observerEvents.push('completed');
+			},
+
+			onFinished: () => {
+				finishCalled = true;
+				observerEvents.push('finished');
+			}
+		};
+
+		// Execute the code with our observer
+		const result = await positron.runtime.executeCode(
+			'test',           // languageId
+			'print("Hello")', // code
+			false,            // focus
+			false,            // allowIncomplete
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Stop,
+			observer
+		);
+
+		// Verify the execution produced a result
+		assert.ok(result, 'executeCode should return a result object');
+
+		// Verify that all expected observer callbacks were called
+		assert.strictEqual(startCalled, true, 'onStarted should be called');
+		assert.strictEqual(finishCalled, true, 'onFinished should be called');
+		assert.ok(outputText, 'onOutput should be called with text');
+		assert.ok(errorText, 'onError should be called with text');
+		assert.ok(completionResult, 'onCompleted should be called with result');
+
+		// Verify events were called in correct order
+		assert.deepStrictEqual(
+			observerEvents,
+			['started', 'output', 'error', 'completed', 'finished'],
+			'Observer events should be called in the expected order'
+		);
+	});
+
+	test('executeCode handles errors correctly', async () => {
+		// Setup a runtime manager and session
+		const manager = new TestLanguageRuntimeManager();
+		const managerDisposable = positron.runtime.registerLanguageRuntimeManager('test', manager);
+		disposables.push(managerDisposable);
+
+		// Wait for the runtime to be registered
+		await poll(
+			async () => (await positron.runtime.getRegisteredRuntimes())
+				.filter(runtime => runtime.languageId === 'test'),
+			runtimes => runtimes.length > 0,
+			'test runtime should be registered'
+		);
+
+
+		// Observer tracking for failures
+		let failureCalled = false;
+		let failureError: any;
+
+		// Create the observer that expects failure
+		const observer: positron.runtime.ExecutionObserver = {
+			onStarted: () => { },
+
+			onFailed: (error: any) => {
+				failureCalled = true;
+				failureError = error;
+			},
+
+			onFinished: () => { }
+		};
+
+		// Execute the code with our observer
+		try {
+			await positron.runtime.executeCode(
+				'test',
+				'error',
+				false,
+				false,
+				positron.RuntimeCodeExecutionMode.Interactive,
+				positron.RuntimeErrorBehavior.Stop,
+				observer
+			);
+		} catch (e) {
+			// Expected to either throw or call onFailed
+		}
+
+		// Verify the failure handler was called
+		assert.strictEqual(failureCalled, true, 'onFailed should be called');
+		assert.ok(failureError, 'onFailed should receive an error object');
+	});
 });
