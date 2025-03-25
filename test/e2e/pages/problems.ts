@@ -53,23 +53,23 @@ export class Problems {
 	 * @param warningCount - The expected warning count shown in the Problems view
 	 */
 	async expectDiagnosticsToBe({
-		problemCount,
+		badgeCount,
 		errorCount,
 		warningCount
 	}: {
-		problemCount?: number;
+		badgeCount?: number;
 		errorCount?: number;
 		warningCount?: number;
 	}): Promise<void> {
-		await test.step(`Expect diagnostics - Problems: ${problemCount ?? 'N/A'}, Errors: ${errorCount ?? 'N/A'}, Warnings: ${warningCount ?? 'N/A'}`, async () => {
+		await test.step(`Expect diagnostics - Problems: ${badgeCount ?? 'N/A'}, Errors: ${errorCount ?? 'N/A'}, Warnings: ${warningCount ?? 'N/A'}`, async () => {
 			// Waiting for debounce to complete, ensuring counts reflect the final state
 			await this.code.driver.page.waitForTimeout(1500);
 			await this.showProblemsView();
 
-			if (problemCount !== undefined) {
-				problemCount === 0
+			if (badgeCount !== undefined) {
+				badgeCount === 0
 					? await expect(this.problemsCount).not.toBeVisible()
-					: await expect(this.problemsCount).toHaveText(problemCount.toString());
+					: await expect(this.problemsCount).toHaveText(badgeCount.toString());
 			}
 
 			if (errorCount !== undefined) {
