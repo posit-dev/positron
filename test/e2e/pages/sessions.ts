@@ -717,7 +717,7 @@ export class Sessions {
 	}
 
 	/**
-	 * Verify: the selected runtime matches the runtime in the Session Picker button
+	 * Verify: the runtime matches the runtime in the Session Picker button
 	 *
 	 * @param version - The descriptive string of the runtime to verify.
 	 */
@@ -741,13 +741,9 @@ export class Sessions {
 		await test.step(
 			`Verify runtime is selected: ${isStartSession ? 'Start Session' : `${language} ${version}`}`,
 			async () => {
-				if (isStartSession) {
-					await expect(this.sessionPicker).toHaveText('Start Session');
-				} else {
-					const runtimeInfo = await this.getSelectedSessionInfo();
-					expect(runtimeInfo.language).toContain(language);
-					expect(runtimeInfo.version).toContain(version);
-				}
+				isStartSession
+					? await expect(this.sessionPicker).toHaveText('Start Session')
+					: await expect(this.sessionPicker).toContainText(`${language} ${version}`);
 			}
 		);
 	}
