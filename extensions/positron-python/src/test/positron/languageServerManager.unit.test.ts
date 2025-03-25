@@ -17,6 +17,8 @@ import { IServiceContainer } from '../../client/ioc/types';
 import { IPythonPathUpdaterServiceManager } from '../../client/interpreter/configuration/types';
 import { IWorkspaceService } from '../../client/common/application/types';
 import { IPythonRuntimeManager } from '../../client/positron/manager';
+import { IPersistentState, IPersistentStateFactory } from '../../client/common/types';
+import { MockState } from '../interpreters/mocks';
 
 class TestPythonRuntimeSession extends PythonRuntimeSession {
     onDidChangeRuntimeStateEmitter = new vscode.EventEmitter<positron.RuntimeState>();
@@ -34,6 +36,7 @@ suite('Language server manager', () => {
     let serviceContainer: IServiceContainer;
     let onDidChangeForegroundSession: vscode.EventEmitter<string | undefined>;
     let onDidCreateSession: vscode.EventEmitter<PythonRuntimeSession>;
+    let persistentState: IPersistentState<string | undefined>;
     let foregroundSession: TestPythonRuntimeSession;
     let nonForegroundSession: TestPythonRuntimeSession;
     let notebookSession: TestPythonRuntimeSession;
@@ -47,18 +50,22 @@ suite('Language server manager', () => {
         onDidCreateSession = new vscode.EventEmitter();
         disposables.push(onDidChangeForegroundSession, onDidCreateSession);
 
+        persistentState = new MockState(undefined);
+        const persistentStateFactory = mock<IPersistentStateFactory>({
+            createWorkspacePersistentState: <T>() => persistentState as T,
+        });
         const pythonPathUpdaterService = mock<IPythonPathUpdaterServiceManager>({
             updatePythonPath: sinon.stub(),
         });
-
-        const workspaceService = mock<IWorkspaceService>({});
-
         const pythonRuntimeManager = mock<IPythonRuntimeManager>({
             onDidCreateSession: onDidCreateSession.event,
         });
+        const workspaceService = mock<IWorkspaceService>({});
         serviceContainer = mock<IServiceContainer>({
             get: <T>(serviceIdentifier: interfaces.ServiceIdentifier<T>) => {
                 switch (serviceIdentifier) {
+                    case IPersistentStateFactory:
+                        return persistentStateFactory as T;
                     case IPythonRuntimeManager:
                         return pythonRuntimeManager as T;
                     case IPythonPathUpdaterServiceManager:
@@ -171,25 +178,6 @@ suite('Language server manager', () => {
         await util.delay(0);
         foregroundSessionSpy.activateLsp.resetHistory();
         nonForegroundSessionSpy.deactivateLsp.resetHistory();
-
-        // Set the session to ready.
-        foregroundSession.onDidChangeRuntimeStateEmitter.fire(positron.RuntimeState.Ready);
-
-        // Wait for the event loop to run.
-        await util.delay(0);
-
-        sinon.assert.calledOnce(foregroundSessionSpy.activateLsp);
-        sinon.assert.calledOnce(nonForegroundSessionSpy.deactivateLsp);
-        sinon.assert.callOrder(nonForegroundSessionSpy.deactivateLsp, foregroundSessionSpy.activateLsp);
-        sinon.assert.notCalled(nonForegroundSessionSpy.activateLsp);
-        sinon.assert.notCalled(foregroundSessionSpy.deactivateLsp);
-        sinon.assert.notCalled(notebookSessionSpy.activateLsp);
-        sinon.assert.notCalled(notebookSessionSpy.deactivateLsp);
-    });
-
-    test('should change foreground lsp when console is ready and there is no foreground console yet', async () => {
-        // Register the session with the manager.
-        onDidCreateSession.fire(foregroundSession);
 
         // Set the session to ready.
         foregroundSession.onDidChangeRuntimeStateEmitter.fire(positron.RuntimeState.Ready);
