@@ -16,6 +16,12 @@ SERVERDATAFOLDER="@@SERVERDATAFOLDER@@"
 VSCODE_PATH="$(dirname "$(dirname "$(realpath "$0")")")"
 ELECTRON="$VSCODE_PATH/$NAME.exe"
 
+# Use the provided extension ID from environment variable.
+powershell.exe -Command "\$env:POSITRON_WSL_EXTENSION_NAME" > /tmp/positron-wsl-ext-id.txt
+sed -i 's/\r$//' /tmp/positron-wsl-ext-id.txt # Strip carriage return from the line endings (Windows \r\n → Unix \n)
+WSL_EXT_ID=$(cat /tmp/positron-wsl-ext-id.txt 2>/dev/null | tr -d '\r')
+WSL_EXT_ID="${WSL_EXT_ID:-ms-vscode-remote.remote-wsl}" # fall back to "ms-vscode-remote.remote-wsl"
+
 IN_WSL=false
 if [ -n "$WSL_DISTRO_NAME" ]; then
 	# $WSL_DISTRO_NAME is available since WSL builds 18362, also for WSL2
@@ -42,9 +48,7 @@ if [ $IN_WSL = true ]; then
 	export WSLENV="ELECTRON_RUN_AS_NODE/w:$WSLENV"
 	CLI=$(wslpath -m "$VSCODE_PATH/resources/app/out/cli.js")
 
-	# use the Remote WSL extension if installed
-	WSL_EXT_ID="kv9898.open-remote-wsl"
-
+	# Use the Remote WSL extension if installed
 	ELECTRON_RUN_AS_NODE=1 "$ELECTRON" "$CLI" --locate-extension $WSL_EXT_ID >/tmp/remote-wsl-loc.txt 2>/dev/null </dev/null
 	WSL_EXT_WLOC=$(cat /tmp/remote-wsl-loc.txt)
 
