@@ -28,8 +28,7 @@ test.describe('Default Interpreters - R', {
 
 	});
 
-	test('R - Add a default interpreter', async function ({ app, runCommand, sessions }) {
-		await app.workbench.console.waitForInterpretersToFinishLoading();
+	test('R - Add a default interpreter', async function ({ app, runCommand, sessions, r }) {
 		await runCommand('workbench.action.reloadWindow');
 		await app.workbench.console.waitForInterpretersToFinishLoading();
 
