@@ -26,7 +26,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
  */
 interface IExecutionObserver {
 	/** Called when execution starts */
-	onStarted: () => void;
+	onStarted?: () => void;
 
 	/** Called when text output is produced */
 	onOutput?: (message: string) => void;

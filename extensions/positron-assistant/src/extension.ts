@@ -10,6 +10,7 @@ import { newLanguageModel } from './models';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { editsProvider } from './edits';
 import { createParticipants } from './participants';
+import { registerAssistantTools } from './tools.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -224,6 +225,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const enabled = vscode.workspace.getConfiguration('positron.assistant').get('enable');
 	if (enabled) {
 		registerAssistant(context);
+		registerAssistantTools(context);
 		const storedModels = getStoredModels(context);
 		if (storedModels.length) {
 			storedModels.forEach(stored => {

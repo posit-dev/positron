@@ -1398,7 +1398,7 @@ declare module 'positron' {
 			 * there may have been preceding statements in the queue, or we may
 			 * need to wait for the runtime to start or become ready.
 			 */
-			onStarted: () => void;
+			onStarted?: () => void;
 
 			/**
 			 * An optional callback to invoke when the execution emits text

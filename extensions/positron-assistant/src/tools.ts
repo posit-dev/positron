@@ -99,3 +99,76 @@ export const positronToolAdapters: Record<string, PositronToolAdapter> = {
 	[textEditToolAdapter.toolData.name]: textEditToolAdapter,
 };
 
+/**
+ * Registers tools for the Positron Assistant.
+ *
+ * @param context The extension context for registering disposables
+ */
+export function registerAssistantTools(context: vscode.ExtensionContext): void {
+	const executeCodeTool = vscode.lm.registerTool<{ code: string, language: string }>('executeCode', {
+		prepareInvocation: async (options, token) => {
+
+			// Ask user for confirmation before proceeding
+			const result: vscode.PreparedToolInvocation = {
+				invocationMessage: 'Running',
+				confirmationMessages: {
+					title: vscode.l10n.t('Execute Code'),
+					message: new vscode.MarkdownString(
+						'```' + options.input.language + '\n' +
+						options.input.code + '\n' +
+						'```'),
+				}
+			}
+			return result;
+		},
+		invoke: async (options, token) => {
+			let outputText: string = "";
+			let outputError: string = "";
+			const result: Record<string, any> = {};
+			const parts = [] as vscode.LanguageModelTextPart[];
+			const observer: positron.runtime.ExecutionObserver = {
+				onOutput: (output) => {
+					outputText += output;
+				},
+				onError: (error) => {
+					outputError += error;
+				}
+			};
+			// Convert the language name into a language id
+			// Consider: works okay for R and Python but may not work for
+			// all languages
+			const languageId = options.input.language.toLowerCase();
+			try {
+				const execResult =
+					await positron.runtime.executeCode(
+						languageId,
+						options.input.code,
+						true,  // focus console
+						false, // do not allow incomplete input
+						positron.RuntimeCodeExecutionMode.Interactive,
+						positron.RuntimeErrorBehavior.Stop,
+						observer);
+
+				// Currently just the text/plain output is returned
+				const output = result['text/plain'];
+				if (output) {
+					result.result = output;
+				}
+			} catch (e) {
+				result.error = e;
+			}
+			if (outputText) {
+				result.outputText = outputText;
+			}
+			if (outputError) {
+				result.outputError = outputError;
+			}
+
+			return new vscode.LanguageModelToolResult([
+				new vscode.LanguageModelTextPart(JSON.stringify(result))
+			]);
+		}
+	});
+
+	context.subscriptions.push(executeCodeTool);
+}
