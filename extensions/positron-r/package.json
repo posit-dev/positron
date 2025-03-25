@@ -691,9 +691,9 @@
     ],
     "languageModelTools": [
       {
-        "name": "getLoadedPackages",
-        "displayName": "Get Loaded R Packages",
-        "modelDescription": "Gets a list of the R packages that are loaded in the current R session.",
+        "name": "getAttachedPackages",
+        "displayName": "Get attached R Packages",
+        "modelDescription": "Gets a list of the R packages that are loaded and attached in the current R session.",
         "canBeReferencedInPrompt": false,
         "tags": ["positron-assistant"]
       },

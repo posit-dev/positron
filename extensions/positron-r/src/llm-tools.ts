@@ -12,7 +12,7 @@ import { RSessionManager } from './session-manager.js';
  * @param context The extension context for registering disposables
  */
 export function registerRLanguageModelTools(context: vscode.ExtensionContext): void {
-	const rLoadedPackagesTool = vscode.lm.registerTool<{}>('getLoadedPackages', {
+	const rLoadedPackagesTool = vscode.lm.registerTool<{}>('getAttachedPackages', {
 		invoke: async (options, token) => {
 			const manager = RSessionManager.instance;
 			const session = manager.getConsoleSession();
@@ -21,13 +21,13 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 					new vscode.LanguageModelTextPart('No active R session'),
 				]);
 			}
-			const packages = await session.callMethod('get_loaded_packages');
+			const packages = await session.callMethod('get_attached_packages');
 			if (packages instanceof Array) {
 				const results = packages.map((pkg: string) => new vscode.LanguageModelTextPart(pkg));
 				return new vscode.LanguageModelToolResult(results);
 			} else {
 				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('Failed to retrieve loaded packages'),
+					new vscode.LanguageModelTextPart('Failed to retrieve attached packages'),
 				]);
 			}
 		}
