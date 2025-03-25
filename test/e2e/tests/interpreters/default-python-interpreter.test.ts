@@ -28,7 +28,8 @@ test.describe('Default Interpreters - Python', {
 		await deletePositronHistoryFiles();
 	});
 
-	test('Python - Add a default interpreter (Conda)', async function ({ app, runCommand, sessions, python }) {
+	test('Python - Add a default interpreter (Conda)', async function ({ app, runCommand, sessions }) {
+		await app.workbench.console.waitForInterpretersToFinishLoading();
 		await runCommand('workbench.action.reloadWindow');
 		await app.workbench.console.waitForInterpretersToFinishLoading();
 
