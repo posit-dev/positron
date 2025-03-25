@@ -31,13 +31,12 @@ def patch_haystack_is_in_jupyter() -> None:
     This ensures haystack-ai correctly identifies Positron notebooks as Jupyter environments.
     """
     try:
-        # Check if haystack_ai is installed
-        if importlib.util.find_spec("haystack_ai") is None:
-            # Also check for older haystack package
-            if importlib.util.find_spec("haystack") is None:
-                return
-
-            # Try to patch in older haystack package
+        # Try to patch in haystack_ai package (newer version)
+        # Both use the same import structure so the patching looks the same for both
+        if (
+            importlib.util.find_spec("haystack_ai") is not None
+            or importlib.util.find_spec("haystack") is not None
+        ):
             try:
                 import haystack.utils  # type: ignore
 
@@ -45,29 +44,7 @@ def patch_haystack_is_in_jupyter() -> None:
                     haystack.utils.is_in_jupyter = _patched_is_in_jupyter
                     logger.debug("Patched haystack.utils.is_in_jupyter")
             except ImportError:
-                pass
-
-            return
-
-        # Patch in newer haystack_ai package
-        try:
-            # Try to import as haystack_ai (which is the import path used in newer versions)
-            try:
-                import haystack_ai.utils  # type: ignore
-
-                if hasattr(haystack_ai.utils, "is_in_jupyter"):
-                    haystack_ai.utils.is_in_jupyter = _patched_is_in_jupyter
-                    logger.debug("Patched haystack_ai.utils.is_in_jupyter")
-            except ImportError:
-                # Try fallback to haystack.utils for newer haystack-ai package
-                # (sometimes the package is haystack-ai but the import is still haystack)
-                import haystack.utils  # type: ignore
-
-                if hasattr(haystack.utils, "is_in_jupyter"):
-                    haystack.utils.is_in_jupyter = _patched_is_in_jupyter
-                    logger.debug("Patched haystack.utils.is_in_jupyter for haystack-ai package")
-        except ImportError:
-            pass
+                logger.debug("haystack package found but couldn't import haystack.utils")
 
     except Exception as e:
         logger.debug(f"Failed to patch haystack is_in_jupyter: {e}")
