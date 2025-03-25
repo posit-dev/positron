@@ -9,6 +9,7 @@ import { Code } from '../infra/code';
 
 const CHATBUTTON = '.action-label.codicon-comment-discussion[aria-label="Chat (Ctrl+Alt+I)"]';
 const ADD_MODEL_LINK = 'a[data-href="command:positron-assistant.addModelConfiguration"]';
+const ADD_MODEL_BUTTON = 'a.action-label[aria-label="Add Language Model"]';
 const APIKEY_INPUT = 'input.text-input[type="password"]';
 const DONE_BUTTON = 'button.positron-button.action-bar-button.default';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
@@ -18,7 +19,7 @@ const AWS_BEDROCK_BUTTON = 'button.positron-button.language-model.button:has(svg
 const ECHO_MODEL_BUTTON = 'button.positron-button.language-model.button:has(.codicon-info)';
 const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(.codicon-error)';
 const GEMINI_BUTTON = 'button.positron-button.language-model.button:has(svg path[fill="url(#gemini-color_svg__a)"])';
-
+const CHAT_PANEL = '#workbench\\.panel\\.chat';
 /*
  *  Reuseable Positron Assistant functionality for tests to leverage.
  */
@@ -33,7 +34,7 @@ export class Assistant {
 	async openPositronAssistantChat() {
 		await test.step('Verify Assistant is enabled and Open it.', async () => {
 			await this.verifyChatButtonVisible();
-			const addModelLinkIsVisible = await this.code.driver.page.locator(ADD_MODEL_LINK).isVisible();
+			const addModelLinkIsVisible = await this.code.driver.page.locator(CHAT_PANEL).isVisible();
 			if (!addModelLinkIsVisible) {
 				await this.code.driver.page.locator(CHATBUTTON).click();
 			}
@@ -44,9 +45,18 @@ export class Assistant {
 		await this.code.driver.page.locator(ADD_MODEL_LINK).click();
 	}
 
+	async clickAddModelButton() {
+		await this.code.driver.page.locator(ADD_MODEL_BUTTON).click();
+	}
+
 	async verifyAddModelLinkVisible() {
 		await expect(this.code.driver.page.locator(ADD_MODEL_LINK)).toBeVisible();
 		await expect(this.code.driver.page.locator(ADD_MODEL_LINK)).toHaveText('Add a Language Model.');
+	}
+
+	async verifyAddModelButtonVisible() {
+		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toBeVisible();
+		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toHaveText('Add Language Model');
 	}
 
 	async selectModelProvider(provider: string) {

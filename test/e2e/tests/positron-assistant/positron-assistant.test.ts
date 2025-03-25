@@ -19,13 +19,12 @@ test.describe('Positron Assistant', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] 
 
 	test('Verify Positron Assistant enabled', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await expect(app.code.driver.page.locator('.chat-welcome-view-title')).toBeVisible();
-		await app.workbench.assistant.verifyAddModelLinkVisible();
+		await app.workbench.assistant.verifyAddModelButtonVisible();
 	});
 
 	test('Antropic: Verfy Bad API key results in error', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.clickAddModelLink();
+		await app.workbench.assistant.clickAddModelButton();
 		await app.workbench.assistant.selectModelProvider('Anthropic');
 		await app.workbench.assistant.enterApiKey('1234');
 		await app.workbench.assistant.clickSignInButton();
@@ -35,7 +34,7 @@ test.describe('Positron Assistant', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] 
 
 	test('Echo: Verify Successful API Key Sign in and Sign Out', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.assistant.clickAddModelLink();
+		await app.workbench.assistant.clickAddModelButton();
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignInButton();
 		await app.workbench.assistant.verifySignOutButtonVisible();
