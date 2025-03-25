@@ -40,7 +40,7 @@ test.describe('Default Interpreters - Python', {
 		// expect(path).toContain('.pyenv/versions/3.13.0/bin/python');
 
 		// hidden CI interpreter:
-		expect(name).toContain(/Python 3.12.9/);
-		expect(path).toContain('python-env/bin/python');
+		expect(name).toMatch(/Python 3\.12\.9/);
+		expect(path).toMatch(/python-env\/bin\/python/);
 	});
 });

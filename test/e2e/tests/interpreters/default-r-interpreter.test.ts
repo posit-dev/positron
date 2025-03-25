@@ -40,7 +40,7 @@ test.describe('Default Interpreters - R', {
 		// expect(path).toContain('R.framework/Versions/4.3-arm64/Resources/R');
 
 		// hidden CI interpreter:
-		expect(name).toContain(/R 4.4.1/);
-		expect(path).toContain('R-4.4.1/bin/R');
+		expect(name).toMatch(/R 4\.4\.1/);
+		expect(path).toMatch(/R-4\.4\.1\/bin\/R/);
 	});
 });
