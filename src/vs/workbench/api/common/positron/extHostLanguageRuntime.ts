@@ -5,7 +5,7 @@
 
 import type * as positron from 'positron';
 import { debounce } from '../../../../base/common/decorators.js';
-import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
@@ -48,6 +48,13 @@ interface IExecutionObserver {
 
 	/** Called when execution finishes (after success or failure) */
 	onFinished?: () => void;
+}
+
+class ExecutionObserver {
+	public readonly promise: DeferredPromise<ILanguageRuntimeMessageResult>;
+	constructor(public readonly observer: IExecutionObserver | undefined) {
+		this.promise = new DeferredPromise<ILanguageRuntimeMessageResult>();
+	}
 }
 
 /**
@@ -107,6 +114,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	// The event that fires when the foreground session changes.
 	public onDidChangeForegroundSession = this._onDidChangeForegroundSessionEmitter.event;
+
+	// Map to track execution observers by execution ID
+	private _executionObservers = new Map<string, ExecutionObserver>();
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
@@ -902,30 +912,48 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
-	// Map to track execution observers by execution ID
-	private _executionObservers = new Map<string, IExecutionObserver>();
+	public executeCode(
+		languageId: string,
+		code: string,
+		focus: boolean,
+		allowIncomplete?: boolean,
+		mode?: RuntimeCodeExecutionMode,
+		errorBehavior?: RuntimeErrorBehavior,
+		observer?: IExecutionObserver): Promise<Record<string, any>> {
 
-	public executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean,
-		mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, observer?: IExecutionObserver): Promise<any> {
+		// Create a UUID and an observer for this execution request
+		const executionId = generateUuid();
+		const executionObserver = new ExecutionObserver(observer);
+		this._executionObservers.set(executionId, executionObserver);
 
-		// Generate an execution ID if an observer is provided
-		let executionId: string | undefined;
-		if (observer) {
-			executionId = generateUuid();
-			this._executionObservers.set(executionId, observer);
-		}
+		// Begin the code execution. Note that this
+		this._proxy.$executeCode(
+			languageId, code, focus, allowIncomplete, mode, errorBehavior, executionId).then(
+				(executed) => {
+					if (!executed) {
+						// Notify the observer that the execution has failed
+						executionObserver.promise.error(
+							new Error(`Could not find a ${languageId} interpreter to execute the code.`));
+					}
+				},
+				(err) => {
+					// Propagate the error to the observer
+					executionObserver.promise.error(err);
+				}
+			);
 
-		return this._proxy.$executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, executionId);
+		return executionObserver.promise.p;
 	}
 
 	/**
 	 * Notifies an execution observer that execution has started
+	 *
 	 * @param executionId The ID of the execution
 	 */
 	public $notifyExecutionStarted(executionId: string): void {
-		const observer = this._executionObservers.get(executionId);
-		if (observer && observer.onStarted) {
-			observer.onStarted();
+		const o = this._executionObservers.get(executionId);
+		if (o?.observer?.onStarted) {
+			o.observer.onStarted();
 		}
 	}
 
@@ -1087,13 +1115,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * @param message The message to handle
 	 * @param observer The observer for the execution
 	 */
-	private handleObserverMessage(message: ILanguageRuntimeMessage, observer: IExecutionObserver): void {
+	private handleObserverMessage(message: ILanguageRuntimeMessage, o: ExecutionObserver): void {
+		const observer = o.observer;
 		switch (message.type) {
 			case LanguageRuntimeMessageType.Stream:
 				const streamMessage = message as ILanguageRuntimeMessageStream;
-				if (streamMessage.name === 'stdout' && observer.onOutput) {
+				if (streamMessage.name === 'stdout' && observer?.onOutput) {
 					observer.onOutput(streamMessage.text);
-				} else if (streamMessage.name === 'stderr' && observer.onError) {
+				} else if (streamMessage.name === 'stderr' && observer?.onError) {
 					observer.onError(streamMessage.text);
 				}
 				break;
@@ -1101,16 +1130,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			case LanguageRuntimeMessageType.Output:
 				const outputMessage = message as ILanguageRuntimeMessageOutput;
 				// Check if this is plot data
-				if (outputMessage.data && outputMessage.data['image/png'] && observer.onPlot) {
+				if (outputMessage.data && outputMessage.data['image/png'] && observer?.onPlot) {
 					observer.onPlot(outputMessage.data['image/png']);
-				}
-				// Check if this might be a data frame or similar structured data
-				else if (outputMessage.data && observer.onData) {
-					if (outputMessage.data['application/vnd.positron.structured+json']) {
-						observer.onData(outputMessage.data['application/vnd.positron.structured+json']);
-					} else if (outputMessage.data['application/json']) {
-						observer.onData(outputMessage.data['application/json']);
-					}
 				}
 				break;
 
@@ -1118,7 +1139,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				const stateMessage = message as ILanguageRuntimeMessageState;
 				if (stateMessage.state === 'idle') {
 					// Execution is finished
-					if (observer.onFinished) {
+					if (observer?.onFinished) {
 						observer.onFinished();
 					}
 
@@ -1131,30 +1152,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				break;
 
 			case LanguageRuntimeMessageType.Result:
-				if (observer.onCompleted) {
+				if (observer?.onCompleted) {
 					observer.onCompleted(message);
 				}
-
-				// If this is the completion of the execution, we need to clean up the observer
-				const resultExecutionId = message.parent_id;
-				if (resultExecutionId && observer.onFinished) {
-					observer.onFinished();
-					this._executionObservers.delete(resultExecutionId);
-				}
+				o.promise.complete(message as ILanguageRuntimeMessageResult);
 				break;
 
 			case LanguageRuntimeMessageType.Error:
-				if (observer.onFailed) {
+				if (observer?.onFailed) {
 					observer.onFailed(message);
 				}
-
-				// If this is the completion of the execution with an error, we need to clean up
-				const errorExecutionId = message.parent_id;
-				if (errorExecutionId && observer.onFinished) {
-					observer.onFinished();
-					this._executionObservers.delete(errorExecutionId);
-				}
-				break;
+				o.promise.error(message as ILanguageRuntimeMessageError);
 		}
 	}
 }

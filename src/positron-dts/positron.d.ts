@@ -1441,7 +1441,7 @@ declare module 'positron' {
 			 *
 			 * @param result The result of the successful execution.
 			 */
-			onCompleted?: (result: LanguageRuntimeResult) => void;
+			onCompleted?: (result: Record<string, any>) => void;
 
 			/**
 			 * An optional callback to invoke when the execution has failed.
@@ -1450,7 +1450,7 @@ declare module 'positron' {
 			 *
 			 * @param error The error that caused the execution to fail.
 			 */
-			onFailed?: (error: LanguageRuntimeError) => void;
+			onFailed?: (error: any) => void;
 
 			/**
 			 * An optional callback to invoke when the execution has finished,
@@ -1476,8 +1476,6 @@ declare module 'positron' {
 		 * @param observer An optional observer for the execution. This object will be notified of
 		 *  execution events, such as output, error, and completion.
 		 * @returns A Thenable that resolves with the result of the code execution.
-		 *
-		 * Throws a `LanguageRuntimeError` if the code execution fails.
 		 */
 		export function executeCode(languageId: string,
 			code: string,
@@ -1485,7 +1483,7 @@ declare module 'positron' {
 			allowIncomplete?: boolean,
 			mode?: RuntimeCodeExecutionMode,
 			errorBehavior?: RuntimeErrorBehavior,
-			observer?: ExecutionObserver): Thenable<LanguageRuntimeResult>;
+			observer?: ExecutionObserver): Thenable<Record<string, any>>;
 
 		/**
 		 * Register a language runtime manager with Positron.
