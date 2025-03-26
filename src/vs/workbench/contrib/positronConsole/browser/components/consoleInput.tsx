@@ -889,7 +889,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			// Update just the line number options.
 			codeEditorWidget.updateOptions(createLineNumbersOptions());
 			if (state === PositronConsoleState.Ready && shouldExecuteOnStartRef.current) {
-				shouldExecuteOnStartRef.current = false;
+				setShouldExecuteOnStart(false);
 				executeCodeEditorWidgetCodeIfPossible();
 			}
 		}));
