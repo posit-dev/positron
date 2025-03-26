@@ -221,12 +221,11 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		});
 
-		test.skip('Python - Verify bokeh Python widget', {
+		test('Python - Verify bokeh Python widget', {
 			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6045' }],
 			tag: [tags.WEB, tags.WIN]
 		}, async function ({ app }) {
-			await app.workbench.console.pasteCodeToConsole(bokeh);
-			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.executeCode('Python', bokeh);
 
 			// selector not factored out as it is unique to bokeh
 			const bokehCanvas = '.bk-Canvas';
@@ -633,7 +632,9 @@ const ipywidgetOutput = `import ipywidgets
 output = ipywidgets.Output()
 output`;
 
-const bokeh = `from bokeh.plotting import figure, output_file, show
+const bokeh = `from bokeh.plotting import figure, output_file, show, reset_output
+# Proactively reset output in case hvplot has changed anything
+reset_output()
 
 # instantiating the figure object
 graph = figure(title = "Bokeh Line Graph")
