@@ -31,6 +31,7 @@ import { traceError } from '../../../../logging';
 import { getCustomEnvDirs } from '../../../../positron/interpreterSettings';
 import { traceVerbose } from '../../../../logging';
 import { ADDITIONAL_POSIX_BIN_PATHS } from '../../../common/posixUtils';
+import { PythonEnvSource } from '../../info/index';
 // --- End Positron ---
 
 const PYTHON_ENV_TOOLS_PATH = isWindows()
@@ -54,6 +55,9 @@ export interface NativeEnvInfo {
     project?: string;
     arch?: 'x64' | 'x86';
     symlinks?: string[];
+    // --- Start Positron ---
+    source?: PythonEnvSource[];
+    // --- End Positron ---
 }
 
 export interface NativeEnvManagerInfo {
