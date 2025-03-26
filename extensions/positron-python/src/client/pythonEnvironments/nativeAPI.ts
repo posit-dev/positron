@@ -3,7 +3,8 @@
 
 import * as path from 'path';
 import { Disposable, Event, EventEmitter, Uri, WorkspaceFoldersChangeEvent } from 'vscode';
-import { PythonEnvInfo, PythonEnvKind, PythonEnvSource, PythonEnvType, PythonVersion } from './base/info';
+// eslint-disable-next-line import/no-duplicates
+import { PythonEnvInfo, PythonEnvKind, PythonEnvType, PythonVersion } from './base/info';
 import {
     GetRefreshEnvironmentsOptions,
     IDiscoveryAPI,
@@ -40,6 +41,8 @@ import { getWorkspaceFolders, onDidChangeWorkspaceFolders } from '../common/vsco
 import { isUvEnvironment } from './common/environmentManagers/uv';
 import { isCustomEnvironment } from '../positron/interpreterSettings';
 import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalInstalledEnvs';
+// eslint-disable-next-line import/no-duplicates
+import { PythonEnvSource } from './base/info';
 // --- End Positron ---
 
 function makeExecutablePath(prefix?: string): string {
@@ -235,6 +238,7 @@ function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[]): Pyth
         }
     }
     // --- End Positron ---
+
     const arch = toArch(nativeEnv.arch);
     const version: PythonVersion = parseVersion(nativeEnv.version ?? '');
     const name = getName(nativeEnv, kind, condaEnvDirs);

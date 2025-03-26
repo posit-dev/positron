@@ -30,7 +30,7 @@ export async function isGloballyInstalledEnv(executablePath: string): Promise<bo
     //     }
     // }
     // --- Start Positron ---
-    return await isFoundInPathEnvVar(executablePath) || isAdditionalGlobalBinPath(executablePath);
+    return (await isFoundInPathEnvVar(executablePath)) || isAdditionalGlobalBinPath(executablePath);
     // --- End Positron ---
 }
 

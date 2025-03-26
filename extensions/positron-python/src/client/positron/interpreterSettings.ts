@@ -156,7 +156,7 @@ export function shouldIncludeInterpreter(interpreterPath: string): boolean {
  * @returns Whether the interpreter is a custom environment.
  */
 export function isCustomEnvironment(interpreterPath: string): boolean {
-    return isOverrideInterpreter(interpreterPath) || !!isIncludedInterpreter(interpreterPath);
+    return !!isIncludedInterpreter(interpreterPath) || !!isOverrideInterpreter(interpreterPath);
 }
 
 /**
