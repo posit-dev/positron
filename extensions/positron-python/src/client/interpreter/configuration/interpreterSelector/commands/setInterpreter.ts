@@ -95,7 +95,6 @@ export namespace EnvGroups {
     export const Pixi = 'Pixi';
     // --- Start Positron ---
     export const Uv = 'Uv';
-    export const Custom = 'Custom';
     // --- End Positron ---
     export const VirtualEnvWrapper = 'VirtualEnvWrapper';
     export const ActiveState = 'ActiveState';
@@ -696,18 +695,6 @@ function getGroupedQuickPickItems(
         updatedItems.push({ label: EnvGroups.Recommended, kind: QuickPickItemKind.Separator }, recommended);
     }
     let previousGroup = EnvGroups.Recommended;
-    // --- Start Positron ---
-    // Move the Custom group to the top of the list
-    const customItems = items.filter((item) => item.interpreter.envType === EnvironmentType.Custom);
-    if (customItems.length) {
-        for (const item of customItems) {
-            previousGroup = addSeparatorIfApplicable(updatedItems, item, workspacePath, previousGroup);
-            updatedItems.push(item);
-        }
-        // Remove Custom env items from the original list so they aren't duplicated
-        items = items.filter((item) => item.interpreter.envType !== EnvironmentType.Custom);
-    }
-    // --- End Positron ---
     for (const item of items) {
         previousGroup = addSeparatorIfApplicable(updatedItems, item, workspacePath, previousGroup);
         updatedItems.push(item);
@@ -740,6 +727,10 @@ function getGroup(item: IInterpreterQuickPickItem, workspacePath?: string) {
         return EnvGroups.Workspace;
     }
     switch (item.interpreter.envType) {
+        // --- Start Positron ---
+        case EnvironmentType.Custom:
+            return EnvGroups.Global;
+        // --- End Positron ---
         case EnvironmentType.Global:
         case EnvironmentType.System:
         case EnvironmentType.Unknown:
