@@ -946,18 +946,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
-	 * Notifies an execution observer that execution has started
-	 *
-	 * @param executionId The ID of the execution
-	 */
-	public $notifyExecutionStarted(executionId: string): void {
-		const o = this._executionObservers.get(executionId);
-		if (o?.observer?.onStarted) {
-			o.observer.onStarted();
-		}
-	}
-
-	/**
 	 * Selects and starts a language runtime.
 	 *
 	 * @param runtimeId The runtime ID to select and start.
@@ -1137,6 +1125,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 			case LanguageRuntimeMessageType.State:
 				const stateMessage = message as ILanguageRuntimeMessageState;
+
+				// When entering the busy state, consider code execution to have
+				// started
+				if (stateMessage.state === 'busy' && observer?.onStarted) {
+					observer.onStarted();
+				}
+
+				// When entering the idle state, consider code execution to have
+				// finished
 				if (stateMessage.state === 'idle') {
 					// Execution is finished
 					if (observer?.onFinished) {

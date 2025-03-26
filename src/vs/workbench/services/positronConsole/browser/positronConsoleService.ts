@@ -1391,6 +1391,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// see if adding this code to it creates code that can be executed.
 		let pendingCode = this.codeEditor?.getValue();
 		if (pendingCode) {
+
+			// No ID supplied; check if there's a stored execution ID for this
+			// code.
+			if (!executionId) {
+				const storedExecutionId = this._pendingExecutionIds.get(code);
+				if (storedExecutionId) {
+					executionId = storedExecutionId;
+				}
+			}
+
 			// Figure out whether adding this code to the pending code results in code that can be
 			// executed. If so, execute it.
 			pendingCode += '\n' + code;
@@ -1399,7 +1409,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this.doExecuteCode(pendingCode, mode, errorBehavior, executionId);
 			} else {
 				// Update the pending code. More will be revealed.
-				this.setPendingCode(pendingCode);
+				this.setPendingCode(pendingCode, executionId);
 			}
 
 			// In either case, return.
@@ -2381,6 +2391,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this._runtimeItemPendingInput = new RuntimeItemPendingInput(
 			generateUuid(),
 			this._session?.dynState.inputPrompt ?? '',
+			executionId,
 			code
 		);
 
@@ -2515,7 +2526,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			// The pending input line(s) now become the pending code.
 			// This fires an event allowing the `ConsoleInput` to update its code editor widget,
 			// allowing the user to keep typing to eventually generate a complete code chunk.
-			this.setPendingCode(this._runtimeItemPendingInput.code);
+			this.setPendingCode(
+				this._runtimeItemPendingInput.code,
+				this._runtimeItemPendingInput.executionId);
 
 			// And we no longer have a pending input item.
 			this._runtimeItemPendingInput = undefined;
@@ -2524,15 +2537,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}
 
 		// Create the ID for the code fragment that will be executed.
-		let id = `fragment-${generateUuid()}`;
-		// Check if there's a stored execution ID for this code. If so, use that instead of
-		// generating a new one.
-		const storedExecutionId = this._pendingExecutionIds.get(code);
-		if (storedExecutionId) {
-			// Clear it from the map as we're about to use it
-			id = storedExecutionId;
-			this._pendingExecutionIds.delete(code);
-		}
+		let id = this._runtimeItemPendingInput.executionId || this.genenerateExecutionId(code);
 
 		// Add the provisional ActivityItemInput for the code fragment.
 		const runtimeItemActivity = new RuntimeItemActivity(
@@ -2560,7 +2565,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this._runtimeItemPendingInput = new RuntimeItemPendingInput(
 				generateUuid(),
 				this._session.dynState.inputPrompt,
-				pendingInputLines.slice(nCodeLines).join('\n')
+				id,
+				pendingInputLines.slice(nCodeLines).join('\n'),
 			);
 
 			// Add the pending input runtime item.
@@ -2591,6 +2597,23 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
+	 * Gets or generates an execution ID for the given code.
+	 *
+	 * @param code The code to check for a stored execution ID.
+	 * @returns
+	 */
+	private genenerateExecutionId(code: string): string {
+		const storedExecutionId = this._pendingExecutionIds.get(code);
+		if (storedExecutionId) {
+			// Clear it from the map as we're about to use it
+			this._pendingExecutionIds.delete(code);
+			return storedExecutionId;
+		}
+
+		return `fragment-${generateUuid()}`;
+	}
+
+	/**
 	 * Executes code.
 	 * @param code The code to execute.
 	 * @param mode Possible code execution modes for a language runtime
@@ -2602,8 +2625,8 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		errorBehavior: RuntimeErrorBehavior = RuntimeErrorBehavior.Continue,
 		executionId?: string
 	) {
-		// Create the ID for the code that will be executed, if one was not provided.
-		const id = executionId || `fragment-${generateUuid()}`;
+		// Use the supplied execution ID if known; otherwise, generate one
+		let id = executionId || this.genenerateExecutionId(code);
 
 		if (!this._session) {
 			return;
@@ -2638,13 +2661,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		 * The kernels don't rebroadcast silent input and thus will not be
 		 * added back into the runtimeItemActivities list which powers the UI.
 		 */
-
-		// Check if there's a stored execution ID for this code
-		const storedExecutionId = this._pendingExecutionIds.get(code);
-		if (storedExecutionId) {
-			// Clear it from the map as we're about to use it
-			this._pendingExecutionIds.delete(code);
-		}
 
 		this._session.execute(
 			code,
