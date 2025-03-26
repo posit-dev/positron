@@ -150,6 +150,16 @@ export function shouldIncludeInterpreter(interpreterPath: string): boolean {
 }
 
 /**
+ * Check if an interpreter path is a custom environment. An interpreter is a custom environment if it is
+ * included in the settings or specified to override the discovered interpreters.
+ * @param interpreterPath The interpreter path to check
+ * @returns Whether the interpreter is a custom environment.
+ */
+export async function isCustomEnvironment(interpreterPath: string): Promise<boolean> {
+    return shouldIncludeInterpreter(interpreterPath);
+}
+
+/**
  * Checks if an interpreter path is included in the settings.
  * @param interpreterPath The interpreter path to check
  * @returns True if the interpreter is included in the settings, false if it is not included
