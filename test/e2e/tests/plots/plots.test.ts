@@ -632,7 +632,9 @@ const ipywidgetOutput = `import ipywidgets
 output = ipywidgets.Output()
 output`;
 
-const bokeh = `from bokeh.plotting import figure, output_file, show
+const bokeh = `from bokeh.plotting import figure, output_file, show, reset_output
+# Proactively reset output in case hvplot has changed anything
+reset_output()
 
 # instantiating the figure object
 graph = figure(title = "Bokeh Line Graph")
