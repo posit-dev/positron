@@ -1427,6 +1427,8 @@ declare module 'positron' {
 			/**
 			 * An optional callback to invoke when the execution emits a plot.
 			 *
+			 * NOTE: Currently only fired for static plots, not dynamic plots.
+			 *
 			 * @param plotData The plot data emitted, as a string.
 			 */
 			onPlot?: (plotData: string) => void;
@@ -1434,6 +1436,8 @@ declare module 'positron' {
 			/**
 			 * An optional callback to invoke when the execution emits a data
 			 * frame or other rectangular data object.
+			 *
+			 * NOTE: Not currently fired.
 			 *
 			 * @param data The data returned.
 			 */

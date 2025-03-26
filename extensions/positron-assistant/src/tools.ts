@@ -147,9 +147,16 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 		 * @returns A vscode.LanguageModelToolResult.
 		 */
 		invoke: async (options, token) => {
+			/** The accumulated output text */
 			let outputText: string = "";
+
+			/** The accumulated error text */
 			let outputError: string = "";
+
+			/** The execution result, as a map of MIME types to values */
 			const result: Record<string, any> = {};
+
+			/** The execution observer */
 			const observer: positron.runtime.ExecutionObserver = {
 				token,
 				onOutput: (output) => {
@@ -165,6 +172,7 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 			// all languages
 			const languageId = options.input.language.toLowerCase();
 			try {
+				// Attempt to execute the code
 				const execResult =
 					await positron.runtime.executeCode(
 						languageId,

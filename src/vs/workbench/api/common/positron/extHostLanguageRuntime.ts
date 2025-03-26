@@ -985,6 +985,19 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 						const token = observer.token;
 						executionObserver.store.add(
 							token.onCancellationRequested(async () => {
+								// We can't interrupt the code if it hasn't started yet.
+								//
+								// CONSIDER: We could handle this by reaching
+								// back into the main thread and asking it to
+								// cancel the execution request that has not yet
+								// been dispatched
+								if (executionObserver.state === 'pending') {
+									this._logService.warn(
+										`Cannot interrupt execution of ${code}: ` +
+										`it has not yet started.`);
+								}
+
+								// If the code is running, interrupt the session
 								if (executionObserver.state === 'running') {
 									await this.interruptSession(sessionId);
 								}
@@ -1188,9 +1201,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 			case LanguageRuntimeMessageType.Output:
 				const outputMessage = message as ILanguageRuntimeMessageOutput;
-				// Check if this is plot data
-				if (outputMessage.data && outputMessage.data['image/png'] && observer?.onPlot) {
-					observer.onPlot(outputMessage.data['image/png']);
+				const imageMimeTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
+				for (const mimeType of imageMimeTypes) {
+					if (outputMessage.data && outputMessage.data[mimeType] && observer?.onPlot) {
+						observer.onPlot(outputMessage.data[mimeType]);
+					}
 				}
 				break;
 
