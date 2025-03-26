@@ -3,7 +3,7 @@
 
 import * as path from 'path';
 import { Disposable, Event, EventEmitter, Uri, WorkspaceFoldersChangeEvent } from 'vscode';
-import { PythonEnvInfo, PythonEnvKind, PythonEnvType, PythonVersion } from './base/info';
+import { PythonEnvInfo, PythonEnvKind, PythonEnvSource, PythonEnvType, PythonVersion } from './base/info';
 import {
     GetRefreshEnvironmentsOptions,
     IDiscoveryAPI,
@@ -38,6 +38,7 @@ import { getWorkspaceFolders, onDidChangeWorkspaceFolders } from '../common/vsco
 
 // --- Start Positron ---
 import { isUvEnvironment } from './common/environmentManagers/uv';
+import { isCustomEnvironment } from '../positron/interpreterSettings';
 // --- End Positron ---
 
 function makeExecutablePath(prefix?: string): string {
@@ -218,7 +219,17 @@ function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[]): Pyth
     if (!validEnv(nativeEnv)) {
         return undefined;
     }
-    const kind = categoryToKind(nativeEnv.kind);
+    // --- Start Positron ---
+    const source: PythonEnvSource[] = [];
+    const executable = nativeEnv.executable ?? makeExecutablePath(nativeEnv.prefix);
+    let kind = categoryToKind(nativeEnv.kind);
+
+    // Ensure the kind and source are set correctly for custom environments
+    if (kind === PythonEnvKind.Unknown && isCustomEnvironment(executable)) {
+        kind = PythonEnvKind.Custom;
+        source.push(PythonEnvSource.UserSettings);
+    }
+    // --- End Positron ---
     const arch = toArch(nativeEnv.arch);
     const version: PythonVersion = parseVersion(nativeEnv.version ?? '');
     const name = getName(nativeEnv, kind, condaEnvDirs);
@@ -226,7 +237,11 @@ function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[]): Pyth
         ? getDisplayName(version, kind, arch, name)
         : nativeEnv.displayName ?? 'Python';
 
-    const executable = nativeEnv.executable ?? makeExecutablePath(nativeEnv.prefix);
+    // --- Start Positron ---
+    // This is now defined earlier in the function
+    // const executable = nativeEnv.executable ?? makeExecutablePath(nativeEnv.prefix);
+    // --- End Positron ---
+
     return {
         name,
         location: getLocation(nativeEnv, executable),
@@ -248,7 +263,9 @@ function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[]): Pyth
         distro: {
             org: '',
         },
-        source: [],
+        // --- Start Positron ---
+        source,
+        // --- End Positron ---
         detailedDisplayName: displayName,
         display: displayName,
         type: getEnvType(kind),

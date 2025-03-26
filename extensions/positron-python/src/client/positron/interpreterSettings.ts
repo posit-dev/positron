@@ -155,8 +155,8 @@ export function shouldIncludeInterpreter(interpreterPath: string): boolean {
  * @param interpreterPath The interpreter path to check
  * @returns Whether the interpreter is a custom environment.
  */
-export async function isCustomEnvironment(interpreterPath: string): Promise<boolean> {
-    return shouldIncludeInterpreter(interpreterPath);
+export function isCustomEnvironment(interpreterPath: string): boolean {
+    return isOverrideInterpreter(interpreterPath) || !!isIncludedInterpreter(interpreterPath);
 }
 
 /**
