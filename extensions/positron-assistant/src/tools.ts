@@ -106,13 +106,29 @@ export const positronToolAdapters: Record<string, PositronToolAdapter> = {
  */
 export function registerAssistantTools(context: vscode.ExtensionContext): void {
 	const executeCodeTool = vscode.lm.registerTool<{ code: string, language: string }>('executeCode', {
+		/**
+		 * Called by Positron to prepare for tool invocation. We use this hook
+		 * to show the user the code that we are about to run, and ask for
+		 * confirmation.
+		 *
+		 * @param options The options for the tool invocation
+		 * @param token A cancellation token
+		 *
+		 * @returns A vscode.PreparedToolInvocation object
+		 */
 		prepareInvocation: async (options, token) => {
 
 			// Ask user for confirmation before proceeding
 			const result: vscode.PreparedToolInvocation = {
-				invocationMessage: 'Running',
+				/// The message shown when the code is actually executing.
+				/// Positron appends '...' to this message.
+				invocationMessage: vscode.l10n.t('Running'),
+
+				/// The message shown to confirm that the user wants to run the code.
 				confirmationMessages: {
 					title: vscode.l10n.t('Execute Code'),
+					/// Generate a MarkdownString to show the code with syntax
+					/// highlighting
 					message: new vscode.MarkdownString(
 						'```' + options.input.language + '\n' +
 						options.input.code + '\n' +
@@ -121,11 +137,21 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 			}
 			return result;
 		},
+
+		/**
+		 * Called by Positron to execute the tool and thus the code.
+		 *
+		 * @param options The options for the tool invocation.
+		 * @param token The cancellation token.
+		 *
+		 * @returns A vscode.LanguageModelToolResult.
+		 */
 		invoke: async (options, token) => {
 			let outputText: string = "";
 			let outputError: string = "";
 			const result: Record<string, any> = {};
 			const observer: positron.runtime.ExecutionObserver = {
+				token,
 				onOutput: (output) => {
 					outputText += output;
 				},
@@ -133,6 +159,7 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 					outputError += error;
 				}
 			};
+
 			// Convert the language name into a language id
 			// Consider: works okay for R and Python but may not work for
 			// all languages

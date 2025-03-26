@@ -819,6 +819,21 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`and cannot be restarted.`);
 		}
 	}
+	/**
+	 * Interrupt a runtime session.
+	 *
+	 * @param sessionId The session ID of the runtime to interrupt.
+	 */
+	async interruptSession(sessionId: string): Promise<void> {
+		const session = this.getSession(sessionId);
+		if (!session) {
+			throw new Error(`No session with ID '${sessionId}' was found.`);
+		}
+		this._logService.info(
+			`Interrupting session ${formatLanguageRuntimeSession(session)}'`);
+
+		return session.interrupt();
+	}
 
 	/**
 	 * Internal method to restart a runtime session.

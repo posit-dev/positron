@@ -20,11 +20,15 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 
 /**
  * Interface for code execution observers
  */
 interface IExecutionObserver {
+	/** A cancellation token for interrupting execution */
+	token?: CancellationToken;
+
 	/** Called when execution starts */
 	onStarted?: () => void;
 
@@ -50,10 +54,53 @@ interface IExecutionObserver {
 	onFinished?: () => void;
 }
 
-class ExecutionObserver {
+class ExecutionObserver implements IDisposable {
 	public readonly promise: DeferredPromise<Record<string, any>>;
+	public readonly store: DisposableStore = new DisposableStore();
+
+	public state: 'pending' | 'running' | 'completed';
+
 	constructor(public readonly observer: IExecutionObserver | undefined) {
+		this.state = 'pending';
 		this.promise = new DeferredPromise<Record<string, any>>();
+	}
+
+	onStarted() {
+		this.state = 'running';
+		if (this.observer?.onStarted) {
+			this.observer.onStarted();
+		}
+	}
+
+	onFinished() {
+		this.state = 'completed';
+		if (this.observer?.onFinished) {
+			this.observer.onFinished();
+		}
+		// Ensure we're settled if we aren't yet
+		if (!this.promise.isSettled) {
+			this.promise.complete({});
+		}
+	}
+
+	onFailed(error: any) {
+		this.state = 'completed';
+		if (this.observer?.onFailed) {
+			this.observer.onFailed(error);
+		}
+		this.promise.error(error);
+	}
+
+	onCompleted(result: Record<string, any>) {
+		this.state = 'completed';
+		if (this.observer?.onCompleted) {
+			this.observer.onCompleted(result);
+		}
+		this.promise.complete(result);
+	}
+
+	dispose(): void {
+		this.store.dispose();
 	}
 }
 
@@ -926,14 +973,21 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		const executionObserver = new ExecutionObserver(observer);
 		this._executionObservers.set(executionId, executionObserver);
 
-		// Begin the code execution. Note that this
+
+		// Begin the code execution. This returns a promise that resolves a
+		// boolean indicating whether the execution was successfully started or
+		// enqueued.
 		this._proxy.$executeCode(
 			languageId, code, focus, allowIncomplete, mode, errorBehavior, executionId).then(
-				(executed) => {
-					if (!executed) {
-						// Notify the observer that the execution has failed
-						executionObserver.promise.error(
-							new Error(`Could not find a ${languageId} interpreter to execute the code.`));
+				(sessionId) => {
+					if (observer?.token) {
+						const token = observer.token;
+						executionObserver.store.add(
+							token.onCancellationRequested(async () => {
+								if (executionObserver.state === 'running') {
+									await this.interruptSession(sessionId);
+								}
+							}));
 					}
 				},
 				(err) => {
@@ -1002,6 +1056,22 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				`it can be restarted.`));
 	}
 
+	/**
+	 * Restarts an active session.
+	 *
+	 * @param sessionId The session ID to restart.
+	 */
+	interruptSession(sessionId: string): Promise<void> {
+		// Look for the runtime with the given ID
+		for (let i = 0; i < this._runtimeSessions.length; i++) {
+			if (this._runtimeSessions[i].metadata.sessionId === sessionId) {
+				return this._proxy.$interruptSession(i);
+			}
+		}
+		return Promise.reject(
+			new Error(`Session with ID '${sessionId}' must be started before ` +
+				`it can be interrupted.`));
+	}
 	/**
 	 * Handles a comm open message from the language runtime by either creating
 	 * a client instance for it or passing it to a registered client handler.
@@ -1135,42 +1205,30 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				// When entering the idle state, consider code execution to have
 				// finished
 				if (stateMessage.state === 'idle') {
-					// Execution is finished
-					if (observer?.onFinished) {
-						observer.onFinished();
-					}
-
-					// Ensure we're settled if we aren't yet
-					if (!o.promise.isSettled) {
-						o.promise.complete({});
-					}
-
+					o.onFinished();
 					// Clean up the observer
 					const executionId = message.parent_id;
 					if (executionId) {
+						o.dispose();
 						this._executionObservers.delete(executionId);
 					}
 				}
 				break;
 
 			case LanguageRuntimeMessageType.Result:
-				if (observer?.onCompleted) {
-					observer.onCompleted(message);
-				}
 				const data = (message as ILanguageRuntimeMessageResult).data;
-				o.promise.complete(data);
+				o.onCompleted(data);
 				break;
 
 			case LanguageRuntimeMessageType.Error:
-				if (observer?.onFailed) {
-					observer.onFailed(message);
-				}
 				const error = message as ILanguageRuntimeMessageError;
-				o.promise.error({
+				const result = {
 					message: error.message,
 					traceback: error.traceback,
 					name: error.name,
-				});
+				};
+				o.onFailed(result);
+				break;
 		}
 	}
 }

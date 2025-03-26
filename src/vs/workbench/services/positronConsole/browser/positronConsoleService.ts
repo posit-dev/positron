@@ -541,7 +541,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @param errorBehavior Possible error behavior for a language runtime
 	 * @param executionId An optional ID that can be used to identify the execution
 	 *   (e.g. for tracking execution history). If not provided, one will be assigned.
-	 * @returns A value which indicates whether the code could be executed.
+	 * @returns The session ID that will be used to execute the code.
 	 */
 	async executeCode(languageId: string,
 		code: string,
@@ -549,7 +549,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		allowIncomplete?: boolean,
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
-		executionId?: string): Promise<boolean> {
+		executionId?: string): Promise<string> {
 		const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
 
 		// When code is executed in the console service, open the console view. This opens
@@ -564,11 +564,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		if (!runningLanguageRuntimeSessions.length) {
 			// Get the preferred runtime for the language.
 			let languageRuntime: ILanguageRuntimeMetadata;
-			try {
-				languageRuntime = this._runtimeStartupService.getPreferredRuntime(languageId);
-			} catch {
-				return false;
-			}
+			languageRuntime = this._runtimeStartupService.getPreferredRuntime(languageId);
 
 			// Start the preferred runtime.
 			this._logService.trace(`Language runtime ` +
@@ -604,7 +600,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		}
 
 		if (!positronConsoleInstance) {
-			return false;
+			throw new Error(
+				`Could not find or create console for language ID ${languageId} ` +
+				`(attempting to execute ${code})`);
 		}
 
 		// Activate the Positron console instance.
@@ -623,7 +621,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		// Enqueue the code in the Positron console instance.
 		await positronConsoleInstance.enqueueCode(code, allowIncomplete, mode, errorBehavior, executionId);
-		return Promise.resolve(true);
+		return Promise.resolve(positronConsoleInstance.sessionId);
 	}
 
 	//#endregion IPositronConsoleService Implementation

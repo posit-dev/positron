@@ -1393,6 +1393,12 @@ declare module 'positron' {
 		 */
 		export interface ExecutionObserver {
 			/**
+			 * An optional cancellation token that can be used to cancel the
+			 * execution.
+			 */
+			token?: vscode.CancellationToken;
+
+			/**
 			 * An optional callback to invoke when execution has started. This
 			 * may be different than the time `executeCode` was called, since
 			 * there may have been preceding statements in the queue, or we may

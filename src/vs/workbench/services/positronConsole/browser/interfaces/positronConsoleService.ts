@@ -123,7 +123,7 @@ export interface IPositronConsoleService {
 	 * @param mode Possible code execution modes for a language runtime
 	 * @param errorBehavior Possible error behavior for a language runtime
 	 * @param executionId An optional ID to track this execution for observation
-	 * @returns A value which indicates whether the code could be executed.
+	 * @returns The session ID that was assigned to execute the code.
 	 */
 	executeCode(languageId: string,
 		code: string,
@@ -131,7 +131,7 @@ export interface IPositronConsoleService {
 		allowIncomplete?: boolean,
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
-		executionId?: string): Promise<boolean>;
+		executionId?: string): Promise<string>;
 }
 
 /**
