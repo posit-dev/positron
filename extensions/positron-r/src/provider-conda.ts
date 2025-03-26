@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as util from 'util';
+import * as vscode from 'vscode';
 import { LOGGER } from './extension';
 import { exec } from 'child_process';
 import { RBinary } from './provider.js';
@@ -76,29 +77,34 @@ export function getCondaName(homePath: string): string {
  * @returns conda R binaries.
  */
 export async function discoverCondaBinaries(): Promise<RBinary[]> {
-	if (!(await isCondaAvailable())) {
-		LOGGER.info('Conda is not installed or not in PATH.');
-		return [];
-	}
 
-	const condaEnvs = await getCondaEnvironments();
 	const rBinaries: RBinary[] = [];
 
-	for (const envPath of condaEnvs) {
-		const rPaths = getCondaRPaths(envPath);  // list of R binaries in this environment
-
-		if (rPaths.length === 0) {
-			continue;
+	const enabled = vscode.workspace.getConfiguration('positron.r').get<boolean>('interpreters.condaDiscovery');
+	if (enabled) {
+		if (!(await isCondaAvailable())) {
+			LOGGER.info('Conda is not installed or not in PATH.');
+			return [];
 		}
 
-		for (const rPath of rPaths) {
-			if (fs.existsSync(rPath)) { // return the first existing R
-				LOGGER.info(`Detected R in Conda environment: ${rPath}`);
-				rBinaries.push({ path: rPath, reasons: [ReasonDiscovered.CONDA] });
-				break;
+		const condaEnvs = await getCondaEnvironments();
+
+		for (const envPath of condaEnvs) {
+			const rPaths = getCondaRPaths(envPath);  // list of R binaries in this environment
+
+			if (rPaths.length === 0) {
+				continue;
 			}
-		}
 
+			for (const rPath of rPaths) {
+				if (fs.existsSync(rPath)) { // return the first existing R
+					LOGGER.info(`Detected R in Conda environment: ${rPath}`);
+					rBinaries.push({ path: rPath, reasons: [ReasonDiscovered.CONDA] });
+					break;
+				}
+			}
+
+		}
 	}
 
 	return rBinaries;
