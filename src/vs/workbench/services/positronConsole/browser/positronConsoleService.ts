@@ -816,6 +816,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _pendingExecutionIds: Map<string, string> = new Map<string, string>();
 
 	/**
+	 * The set of external execution IDs. This is used to track execution
+	 * requests that did not initiate from the console but are nonetheless run
+	 * in the console.
+	 */
+	private _externalExecutionIds: Set<string> = new Set<string>();
+
+	/**
 	 * Gets or sets the session, if attached.
 	 */
 	private _session: ILanguageRuntimeSession | undefined;
@@ -1354,8 +1361,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
 	 * @param mode Possible code execution modes for a language runtime
 	 * @param errorBehavior Possible error behavior for a language runtime
+	 * @param executionId An optional ID that can be used to identify the execution
+	 *   (e.g. for tracking execution history). If not provided, one will be assigned.
 	 */
 	async enqueueCode(code: string, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string) {
+		// If a manually assigned execution ID is provided, add it to the set of
+		// external execution IDs.
+		if (executionId) {
+			this._externalExecutionIds.add(executionId);
+		}
+
 		// If there is a pending input runtime item, all the code in it was enqueued before this
 		// code, so add this code to it and wait for it to be processed the next time the runtime
 		// becomes idle.
@@ -2145,6 +2160,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						// are currently in the Offline state, the message that
 						// brings us back online may not be one of our own messages.
 						if (languageRuntimeMessageState.parent_id.startsWith('fragment-') ||
+							this._externalExecutionIds.has(languageRuntimeMessageState.parent_id) ||
 							this.state === PositronConsoleState.Offline) {
 							this.setState(PositronConsoleState.Busy);
 						}
@@ -2155,11 +2171,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 					case RuntimeOnlineState.Idle: {
 						if (languageRuntimeMessageState.parent_id.startsWith('fragment-') ||
+							this._externalExecutionIds.has(languageRuntimeMessageState.parent_id) ||
 							this.state === PositronConsoleState.Offline) {
 							this.setState(PositronConsoleState.Ready);
 						}
 						// Mark the associated input as idle.
 						this.markInputBusyState(languageRuntimeMessageState.parent_id, false);
+						// This external execution ID has completed, so we can remove it.
+						this._externalExecutionIds.delete(languageRuntimeMessageState.parent_id);
 						break;
 					}
 				}
