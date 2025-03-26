@@ -58,20 +58,6 @@ export function getCondaRPaths(envPath: string): string[] {
 	return paths;
 }
 
-export function getCondaName(homePath: string): string {
-	const parts = homePath.split(path.sep); // Split path into components
-	let targetIndex = -1;
-
-	targetIndex = parts.lastIndexOf('Lib');
-
-	// The Conda env name should be the directory before 'Lib' or 'bin'
-	if (targetIndex > 0) {
-		return parts[targetIndex - 1]; // Get the folder before 'Lib' or 'bin'
-	}
-
-	return ''; // Return empty if no valid Conda env name is found
-}
-
 /**
  * Discovers R binaries that are installed in conda environments.
  * @returns conda R binaries.
