@@ -18,11 +18,11 @@ import { IInstaller, Product, ProductInstallStatus } from '../common/types';
 import { IApplicationEnvironment, IWorkspaceService } from '../common/application/types';
 import { EXTENSION_ROOT_DIR, IPYKERNEL_VERSION, PYTHON_LANGUAGE } from '../common/constants';
 import { EnvLocationHeuristic, getEnvLocationHeuristic } from '../interpreter/configuration/environmentTypeComparer';
-import { getIpykernelBundle, IPykernelBundle } from './ipykernel';
+import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
 
 export interface PythonRuntimeExtraData {
     pythonPath: string;
-    ipykernelBundle?: IPykernelBundle;
+    ipykernelBundle?: IpykernelBundle;
 }
 
 export async function createPythonRuntimeMetadata(

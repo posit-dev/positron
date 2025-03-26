@@ -36,7 +36,7 @@ import { IWorkspaceService } from '../common/application/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
-import { IPykernelBundle } from './ipykernel';
+import { IpykernelBundle } from './ipykernel';
 import { whenTimeout } from './util';
 
 /** Regex for commands to uninstall packages using supported Python package managers. */
@@ -100,7 +100,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     private _pythonPath: string;
 
     /** The IPykernel bundle paths */
-    private _ipykernelBundle: IPykernelBundle;
+    private _ipykernelBundle: IpykernelBundle;
 
     dynState: positron.LanguageRuntimeDynState;
 
