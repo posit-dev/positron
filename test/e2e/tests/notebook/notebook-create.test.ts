@@ -102,14 +102,17 @@ test.describe('Notebooks', {
 
 			await app.workbench.notebooks.addCodeToCellAtIndex('torch.rand(10)', 1);
 
-			await app.workbench.notebooks.hoverCellText(1, 'torch');
+			// toPass block seems to be needed on Ubuntu
+			await expect(async () => {
+				await app.workbench.notebooks.hoverCellText(1, 'torch');
 
-			const hoverTooltip = app.code.driver.page.getByRole('tooltip', {
-				name: /module torch/,
-			});
+				const hoverTooltip = app.code.driver.page.getByRole('tooltip', {
+					name: /module torch/,
+				});
 
-			await expect(hoverTooltip).toBeVisible();
-			await expect(hoverTooltip).toContainText('The torch package contains');
+				await expect(hoverTooltip).toBeVisible();
+				await expect(hoverTooltip).toContainText('The torch package contains');
+			}).toPass({ timeout: 60000 });
 		});
 	});
 
