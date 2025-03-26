@@ -18,44 +18,42 @@ test.describe('Session: Autocomplete', {
 		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
 	});
 
-	test('Python - Verify autocomplete suggestions in Console and Editor',
-		{ annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6839' }] },
-		async function ({ app, runCommand, sessions }) {
-			const { variables, editors, console } = app.workbench;
+	test('Python - Verify autocomplete suggestions in Console and Editor', async function ({ app, runCommand, sessions }) {
+		const { variables, editors, console } = app.workbench;
 
-			const [pySession1, pySession2, pyAltSession] = await sessions.start(['python', 'python', 'pythonAlt'], { reuse: false });
-			await variables.togglePane('hide');
+		const [pySession1, pySession2, pyAltSession] = await sessions.start(['python', 'python', 'pythonAlt'], { reuse: false });
+		await variables.togglePane('hide');
 
-			// Session 1 - trigger and verify console autocomplete
-			await sessions.select(pySession1.id);
-			await triggerAutocompleteInConsole(app, pySession1);
-			await console.expectSuggestionListCount(8);
+		// Session 1 - trigger and verify console autocomplete
+		await sessions.select(pySession1.id);
+		await triggerAutocompleteInConsole(app, pySession1);
+		await console.expectSuggestionListCount(8);
 
-			// Session 2 - trigger and verify console autocomplete
-			await sessions.select(pySession2.id);
-			await triggerAutocompleteInConsole(app, pySession2);
-			await console.expectSuggestionListCount(8);
+		// Session 2 - trigger and verify console autocomplete
+		await sessions.select(pySession2.id);
+		await triggerAutocompleteInConsole(app, pySession2);
+		await console.expectSuggestionListCount(8);
 
-			// Alt Session 1 - trigger and verify no console autocomplete
-			await sessions.select(pyAltSession.id);
-			await console.typeToConsole('pd.Dat', false, 250);
-			await console.expectSuggestionListCount(0);
+		// Alt Session 1 - trigger and verify no console autocomplete
+		await sessions.select(pyAltSession.id);
+		await console.typeToConsole('pd.Dat', false, 250);
+		await console.expectSuggestionListCount(0);
 
-			// Open a new Python file
-			await runCommand('Python: New Python File');
+		// Open a new Python file
+		await runCommand('Python: New Python File');
 
-			// Session 1 - trigger and verify editor autocomplete
-			await triggerAutocompleteInEditor({ app, session: pySession1, retrigger: false });
-			await editors.expectSuggestionListCount(8);
+		// Session 1 - trigger and verify editor autocomplete
+		await triggerAutocompleteInEditor({ app, session: pySession1, retrigger: false });
+		await editors.expectSuggestionListCount(8);
 
-			// Session 2 - retrigger and verify editor autocomplete
-			await triggerAutocompleteInEditor({ app, session: pySession2, retrigger: true });
-			await editors.expectSuggestionListCount(5); // issue 6839, should be 8
+		// Session 2 - retrigger and verify editor autocomplete
+		await triggerAutocompleteInEditor({ app, session: pySession2, retrigger: true });
+		await editors.expectSuggestionListCount(8);
 
-			// Alt Session 1 - retrigger and verify no editor autocomplete
-			await triggerAutocompleteInEditor({ app, session: pyAltSession, retrigger: true });
-			await editors.expectSuggestionListCount(0);
-		});
+		// Alt Session 1 - retrigger and verify no editor autocomplete
+		await triggerAutocompleteInEditor({ app, session: pyAltSession, retrigger: true });
+		await editors.expectSuggestionListCount(0);
+	});
 
 	test('R - Verify autocomplete suggestions in Console and Editor', async function ({ app, runCommand, sessions }) {
 		const { variables, editors, console } = app.workbench;
@@ -122,8 +120,11 @@ async function triggerAutocompleteInEditor({ app, session, retrigger = false }: 
 	await hotKeys.firstTab();
 
 	if (retrigger) {
-		await keyboard.press('Backspace', { delay: 1000 });
-		await keyboard.type(session.language === 'Python' ? 't' : 'p', { delay: 1000 });
+		await keyboard.press('Backspace', { delay: 250 });
+		await keyboard.press('Backspace', { delay: 250 });
+		await keyboard.press('Backspace', { delay: 250 });
+		await keyboard.press('Backspace', { delay: 250 });
+		await keyboard.type(session.language === 'Python' ? '.Dat' : 'ad_p', { delay: 1000 });
 	} else {
 		await keyboard.type(
 			session.language === 'Python' ? 'pd.Dat' : 'read_p',
