@@ -812,6 +812,9 @@ async function getRSession_(progress: vscode.Progress<{ message?: string; increm
 class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 	extraRuntimeData: any = {
 		pythonPath: 'Managed by the reticulate package',
+		ipykernelBundle: {
+			disabledReason: 'Cannot bundle ipkernel for reticulate sessions',
+		},
 	};
 	base64EncodedIconSvg: string | undefined;
 	constructor() {

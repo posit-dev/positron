@@ -49,8 +49,8 @@ export async function createPythonRuntimeMetadata(
     let hasCompatibleKernel: boolean;
     if (ipykernelBundle.disabledReason) {
         traceInfo(
-            `createPythonRuntime: ipykernel bundling is disabled, ` +
-                `reason: ${ipykernelBundle.disabledReason}. ` +
+            `createPythonRuntime: ipykernel bundling is disabled ` +
+                `(reason: ${ipykernelBundle.disabledReason}). ` +
                 `Checking if ipykernel is installed`,
         );
         const productInstallStatus = await installer.isProductVersionCompatible(
@@ -59,6 +59,11 @@ export async function createPythonRuntimeMetadata(
             interpreter,
         );
         hasCompatibleKernel = productInstallStatus === ProductInstallStatus.Installed;
+        if (hasCompatibleKernel) {
+            traceInfo(`createPythonRuntime: ipykernel installed`);
+        } else {
+            traceInfo('createPythonRuntime: ipykernel not installed');
+        }
     } else {
         hasCompatibleKernel = true;
     }

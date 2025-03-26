@@ -36,7 +36,7 @@ import { IWorkspaceService } from '../common/application/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { showErrorMessage } from '../common/vscodeApis/windowApis';
 import { Console } from '../common/utils/localize';
-import { getIpykernelBundle, IPykernelBundle } from './ipykernel';
+import { IPykernelBundle } from './ipykernel';
 import { whenTimeout } from './util';
 
 /** Regex for commands to uninstall packages using supported Python package managers. */
@@ -100,7 +100,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     private _pythonPath: string;
 
     /** The IPykernel bundle paths */
-    private _ipykernelBundle: IPykernelBundle | undefined;
+    private _ipykernelBundle: IPykernelBundle;
 
     dynState: positron.LanguageRuntimeDynState;
 
@@ -121,6 +121,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         const extraData: PythonRuntimeExtraData = runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
         if (!extraData || !extraData.pythonPath) {
             throw new Error(`Runtime metadata missing Python path: ${JSON.stringify(runtimeMetadata)}`);
+        }
+        if (!extraData.ipykernelBundle) {
+            throw new Error(`Runtime metadata missing ipykernel bundle data: ${JSON.stringify(runtimeMetadata)}`);
         }
         this._pythonPath = extraData.pythonPath;
         this._ipykernelBundle = extraData.ipykernelBundle;
@@ -171,7 +174,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
         // It's an uninstall command.
         // Check if any bundled packages are being uninstalled.
-        const protectedPackages = (this._ipykernelBundle?.paths ?? [])
+        const protectedPackages = (this._ipykernelBundle.paths ?? [])
             .flatMap((path) => fs.readdirSync(path).map((name) => ({ parent: path, name })))
             .filter(({ name }) => code.includes(name));
         if (!protectedPackages) {
@@ -310,17 +313,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         interpreter: PythonEnvironment,
         kernelSpec: JupyterKernelSpec,
     ): Promise<boolean> {
-        if (kernelSpec.startKernel) {
-            // The kernel is expected to be started differently (eg reticulate sessions), there's
-            // nothing we can do to use the bundled ipykernel.
-            return false;
-        }
-
-        if (!this._ipykernelBundle) {
-            this._ipykernelBundle = await getIpykernelBundle(interpreter, this.serviceContainer);
-        }
-
-        if (!this._ipykernelBundle.paths) {
+        if (this._ipykernelBundle.disabledReason || !this._ipykernelBundle.paths) {
             traceInfo(`Not using bundled ipykernel. Reason: ${this._ipykernelBundle.disabledReason}`);
             return false;
         }
@@ -495,7 +488,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     private _lspStarting: Thenable<number> = Promise.resolve(0);
 
     private async createLsp(interpreter: PythonEnvironment): Promise<void> {
-        traceInfo(`createPythonSession: resolving LSP services`);
         const environmentService = this.serviceContainer.get<IEnvironmentVariablesProvider>(
             IEnvironmentVariablesProvider,
         );
@@ -503,7 +495,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         const configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
         const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
 
-        traceInfo(`createPythonSession: creating LSP`);
         const analysisOptions = new JediLanguageServerAnalysisOptions(
             environmentService,
             outputChannel,
