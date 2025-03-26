@@ -696,6 +696,18 @@ function getGroupedQuickPickItems(
         updatedItems.push({ label: EnvGroups.Recommended, kind: QuickPickItemKind.Separator }, recommended);
     }
     let previousGroup = EnvGroups.Recommended;
+    // --- Start Positron ---
+    // Move the Custom group to the top of the list
+    const customItems = items.filter((item) => item.interpreter.envType === EnvironmentType.Custom);
+    if (customItems.length) {
+        for (const item of customItems) {
+            previousGroup = addSeparatorIfApplicable(updatedItems, item, workspacePath, previousGroup);
+            updatedItems.push(item);
+        }
+        // Remove Custom env items from the original list so they aren't duplicated
+        items = items.filter((item) => item.interpreter.envType !== EnvironmentType.Custom);
+    }
+    // --- End Positron ---
     for (const item of items) {
         previousGroup = addSeparatorIfApplicable(updatedItems, item, workspacePath, previousGroup);
         updatedItems.push(item);
