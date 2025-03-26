@@ -1,17 +1,11 @@
 """Entry point for launching Positron's extensions to Jedi and IPyKernel in the same environment."""  # noqa: INP001
 
 import argparse
-import asyncio
-import asyncio.events
 import logging
 import os
-import sys
+import threading
 
-from positron.positron_ipkernel import (
-    PositronIPKernelApp,
-    PositronIPyKernel,
-    PositronShell,
-)
+from positron.positron_ipkernel import PositronIPKernelApp
 from positron.positron_jedilsp import POSITRON
 from positron.session_mode import SessionMode
 
@@ -70,8 +64,6 @@ def parse_args() -> argparse.Namespace:
 
 
 if __name__ == "__main__":
-    exit_status = 0
-
     # Parse command-line arguments
     args = parse_args()
 
@@ -121,45 +113,20 @@ if __name__ == "__main__":
         logging_config=logging_config,
         session_mode=args.session_mode,
     )
+
     # Initialize with empty argv, otherwise BaseIPythonApplication.initialize reuses our
     # command-line arguments in unexpected ways (e.g. logfile instructs it to log executed code).
     app.initialize(argv=[])
-    assert app.kernel is not None, "Kernel was not initialized"
+
     # Disable the banner if running in quiet mode.
     if args.quiet:
         app.kernel.shell.banner1 = ""
 
-    app.kernel.start()
+    logger.info(f"Process ID: {os.getpid()}. Thread ID: {threading.get_ident()}")
 
-    logger.info(f"Process ID {os.getpid()}")
-
-    # IPyKernel uses Tornado which (as of version 5.0) shares the same event
-    # loop as asyncio.
-    loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop_policy().get_event_loop()
-
-    # Enable asyncio debug mode.
+    # Set the language server's debug mode.
     if args.loglevel == "DEBUG":
-        loop.set_debug(True)
         POSITRON.set_debug(True)
 
-        # Log all callbacks that take longer than 0.5 seconds (the current default is too noisy).
-        loop.slow_callback_duration = 0.5
-
-    try:
-        loop.run_forever()
-    except (KeyboardInterrupt, SystemExit):
-        logger.exception("Unexpected exception in event loop")
-        exit_status = 1
-    finally:
-        loop.close()
-
-    # When the app is gone, it should be safe to clear singleton instances.
-    # This allows re-starting the ipykernel in the same process, using different
-    # connection strings, etc.
-    PositronShell.clear_instance()
-    PositronIPyKernel.clear_instance()
-    PositronIPKernelApp.clear_instance()
-    app.close()
-
-    logger.info(f"Exiting process with status {exit_status}")
-    sys.exit(exit_status)
+    # Start the kernel application.
+    app.start()

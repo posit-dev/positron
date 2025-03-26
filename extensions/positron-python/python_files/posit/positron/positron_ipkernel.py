@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import enum
 import logging
 import os
@@ -579,6 +580,34 @@ class PositronIPKernelApp(IPKernelApp):
             os.environ["MPLBACKEND"] = "module://positron.matplotlib_backend"
 
         return super().init_gui_pylab()
+
+    def start(self) -> Any:
+        """Start the application."""
+        # Set asyncio debug mode for the current context's event loop.
+        # ipykernel uses tornado which (as of version 5.0) reuses this asyncio event loop.
+        loop = asyncio.get_event_loop_policy().get_event_loop()
+        if self.log_level == "DEBUG":
+            loop.set_debug(True)
+
+        # Only log callbacks that take longer than 0.5 seconds (the current default is too noisy).
+        loop.slow_callback_duration = 0.5
+
+        try:
+            # This will block the thread while running the kernel's event loop.
+            return super().start()
+        finally:
+            # The ipykernel app is not designed to be run in a separate thread, as done by
+            # Reticulate. However, it seems to work with the following changes:
+
+            # Clear the app's singleton instances to allow reinitialization with different
+            # parameters in a future thread.
+            PositronShell.clear_instance()
+            PositronIPyKernel.clear_instance()
+            PositronIPKernelApp.clear_instance()
+
+            # close() runs when the process exits (via atexit.register), but we also need to
+            # run it when this thread exits.
+            self.close()
 
 
 #
