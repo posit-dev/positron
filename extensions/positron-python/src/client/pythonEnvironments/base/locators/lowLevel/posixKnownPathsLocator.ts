@@ -5,7 +5,7 @@ import * as os from 'os';
 import { gte } from 'semver';
 import { PythonEnvKind, PythonEnvSource } from '../../info';
 import { BasicEnvInfo, IPythonEnvsIterator, Locator } from '../../locator';
-import { commonPosixBinPaths, getPythonBinFromPosixPaths } from '../../../common/posixUtils';
+import { ADDITIONAL_POSIX_BIN_PATHS, commonPosixBinPaths, getPythonBinFromPosixPaths } from '../../../common/posixUtils';
 import { isPyenvShimDir } from '../../../common/environmentManagers/pyenv';
 import { getOSType, OSType } from '../../../../common/utils/platform';
 import { isMacDefaultPythonPath } from '../../../common/environmentManagers/macDefault';
@@ -92,12 +92,7 @@ export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
  * @returns Paths to Python binaries found in additional locations for Posix systems.
  */
 export async function* getAdditionalPosixBinaries(searchDepth = 2): AsyncGenerator<string> {
-    const additionalLocations = [
-        // /opt/python is a recommended Python installation location on Posit Workbench.
-        // see: https://docs.posit.co/ide/server-pro/python/installing_python.html
-        '/opt/python',
-    ];
-    for (const location of additionalLocations) {
+    for (const location of ADDITIONAL_POSIX_BIN_PATHS) {
         const executables = findInterpretersInDir(location, searchDepth);
         for await (const entry of executables) {
             const { filename } = entry;
