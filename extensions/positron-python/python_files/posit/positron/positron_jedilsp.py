@@ -23,6 +23,9 @@ from ._vendor.jedi_language_server import jedi_utils, notebook_utils, pygls_util
 from ._vendor.jedi_language_server.server import (
     JediLanguageServer,
     JediLanguageServerProtocol,
+    LogMessageParams,
+    PublishDiagnosticsParams,
+    ShowMessageParams,
     _choose_markup,
     code_action,
     completion_item_resolve,
@@ -46,7 +49,6 @@ from ._vendor.jedi_language_server.server import (
     workspace_symbol,
 )
 from ._vendor.lsprotocol.types import (
-    CANCEL_REQUEST,
     COMPLETION_ITEM_RESOLVE,
     INITIALIZE,
     NOTEBOOK_DOCUMENT_DID_CHANGE,
@@ -98,9 +100,9 @@ from ._vendor.lsprotocol.types import (
     InsertTextFormat,
     Location,
     MessageType,
+    NotebookCellLanguage,
+    NotebookDocumentFilterWithCells,
     NotebookDocumentSyncOptions,
-    NotebookDocumentSyncOptionsNotebookSelectorType2,
-    NotebookDocumentSyncOptionsNotebookSelectorType2CellsType,
     Position,
     Range,
     RenameParams,
@@ -114,6 +116,7 @@ from ._vendor.lsprotocol.types import (
 )
 from ._vendor.pygls.capabilities import get_capability
 from ._vendor.pygls.feature_manager import has_ls_param_or_annotation
+from ._vendor.pygls.io_ import run_async
 from ._vendor.pygls.protocol import lsp_method
 from ._vendor.pygls.workspace.text_document import TextDocument
 from .help_comm import ShowHelpTopicParams
@@ -212,7 +215,7 @@ def _publish_diagnostics(
         diagnostic = jedi_utils.lsp_python_diagnostic(filename, source)
 
     diagnostics = [diagnostic] if diagnostic else []
-    server.publish_diagnostics(uri, diagnostics)
+    server.text_document_publish_diagnostics(PublishDiagnosticsParams(uri, diagnostics))
 
 
 def _apply_jedi_language_server_patches() -> None:
@@ -280,8 +283,8 @@ class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
         except cattrs.BaseValidationError as error:
             # Show an error message in the client.
             msg = f"Invalid PositronInitializationOptions, using defaults: {cattrs.transform_error(error)}"
-            server.show_message(msg, msg_type=MessageType.Error)
-            server.show_message_log(msg, msg_type=MessageType.Error)
+            server.window_show_message(ShowMessageParams(MessageType.Error, msg))
+            server.window_log_message(LogMessageParams(MessageType.Error, msg))
             initialization_options = PositronInitializationOptions()
 
         # If a notebook path was provided, set the project path to the notebook's parent.
@@ -306,58 +309,11 @@ class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
 
         return result
 
-    def _data_received(self, data: bytes) -> None:
-        # Workaround to a pygls performance issue where the server still executes requests
-        # even if they're immediately cancelled.
-        # See: https://github.com/openlawlibrary/pygls/issues/517.
-
-        # This should parse `data` and call `self._procedure_handler` with each parsed message.
-        # That usually handles each message, but we've overridden it to just add them to a queue.
-        self._messages_to_handle = []
-        super()._data_received(data)
-
-        def is_request(message):
-            return hasattr(message, "method") and hasattr(message, "id")
-
-        def is_cancel_notification(message):
-            return getattr(message, "method", None) == CANCEL_REQUEST
-
-        # First pass: find all requests that were cancelled in the same batch of `data`.
-        request_ids = set()
-        cancelled_ids = set()
-        for message in self._messages_to_handle:
-            if is_request(message):
-                request_ids.add(message.id)
-            elif is_cancel_notification(message) and message.params.id in request_ids:
-                cancelled_ids.add(message.params.id)
-
-        # Second pass: remove all requests that were cancelled in the same batch of `data`,
-        # and the cancel notifications themselves.
-        self._messages_to_handle = [
-            msg
-            for msg in self._messages_to_handle
-            if not (
-                # Remove cancel notifications whose params.id is in cancelled_ids...
-                (is_cancel_notification(msg) and msg.params.id in cancelled_ids)
-                # ...or original messages whose id is in cancelled_ids.
-                or (is_request(msg) and msg.id in cancelled_ids)
-            )
-        ]
-
-        # Now handle the messages.
-        for message in self._messages_to_handle:
-            super()._procedure_handler(message)
-
-    def _procedure_handler(self, message) -> None:
-        # Overridden to just queue messages which are handled later in `self._data_received`.
-        self._messages_to_handle.append(message)
-
 
 class PositronJediLanguageServer(JediLanguageServer):
     """Positron extension to the Jedi language server."""
 
-    loop: asyncio.AbstractEventLoop
-    lsp: PositronJediLanguageServerProtocol  # type: ignore reportIncompatibleVariableOverride
+    protocol: PositronJediLanguageServerProtocol  # type: ignore reportIncompatibleVariableOverride
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -382,59 +338,68 @@ class PositronJediLanguageServer(JediLanguageServer):
                 return None
 
             """(Re-)register a feature with the LSP."""
-            lsp = self.lsp
+            protocol = self.protocol
 
-            if feature_name in lsp.fm.features:
-                del lsp.fm.features[feature_name]
-            if feature_name in lsp.fm.feature_options:
-                del lsp.fm.feature_options[feature_name]
+            if feature_name in protocol.fm.features:
+                del protocol.fm.features[feature_name]
+            if feature_name in protocol.fm.feature_options:
+                del protocol.fm.feature_options[feature_name]
 
-            return lsp.fm.feature(feature_name, options)(f)
+            return protocol.fm.feature(feature_name, options)(f)
 
         return decorator
 
-    def start_tcp(self, host: str) -> None:
+    def _start_tcp(self, host: str) -> None:
         """Starts TCP server."""
-        # Create a new event loop for the LSP server thread.
-        self.loop = asyncio.new_event_loop()
+        self._stop_event = stop_event = threading.Event()
 
-        # Set the event loop's debug mode.
-        self.loop.set_debug(self._debug)
-
-        # Use our event loop as the thread's current event loop.
-        asyncio.set_event_loop(self.loop)
-
-        self._stop_event = threading.Event()
-        # Using the default `port` of `None` to allow the OS to pick a port for us, which
-        # we extract and send back below
-        self._server = self.loop.run_until_complete(self.loop.create_server(self.lsp, host))
-
-        listeners = self._server.sockets
-        for socket in listeners:
-            addr, port = socket.getsockname()
-            if addr == host:
-                logger.info("LSP server is listening on %s:%d", host, port)
-                break
-        else:
-            raise AssertionError("Unable to determine LSP server port")
-
-        # Notify the frontend that the LSP server is ready
-        if self._comm is None:
-            logger.warning("LSP comm was not set, could not send server_started message")
-        else:
-            logger.info("LSP server is ready, sending server_started message")
-            self._comm.send({"msg_type": "server_started", "content": {"port": port}})
-
-        # Run the event loop until the stop event is set.
-        try:
-            while not self._stop_event.is_set():
-                self.loop.run_until_complete(asyncio.sleep(1))
-        except (KeyboardInterrupt, SystemExit):
-            pass
-        finally:
+        async def lsp_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+            logger.debug("Connected to client")
+            self.protocol.set_writer(writer)
+            await run_async(
+                stop_event=stop_event,
+                reader=reader,
+                protocol=self.protocol,
+                logger=logger,
+                error_handler=self.report_server_error,
+            )
+            logger.debug("Main loop finished")
             self.shutdown()
 
-    def start(self, lsp_host: str, shell: "PositronShell", comm: BaseComm) -> None:
+        async def tcp_server(host: str):
+            # Set the event loop's debug mode.
+            loop = asyncio.get_running_loop()
+            loop.set_debug(self._debug)
+
+            # Using the default `port` of `None` to allow the OS to pick a port for us, which
+            # we extract and send back below
+            self._server = await asyncio.start_server(lsp_connection, host)
+
+            listeners = self._server.sockets
+            for socket in listeners:
+                addr, port = socket.getsockname()
+                if addr == host:
+                    logger.info("LSP server is listening on %s:%d", host, port)
+                    break
+            else:
+                raise AssertionError("Unable to determine LSP server port")
+
+            # Notify the frontend that the LSP server is ready
+            if self._comm is None:
+                logger.warning("LSP comm was not set, could not send server_started message")
+            else:
+                logger.info("LSP server is ready, sending server_started message")
+                self._comm.send({"msg_type": "server_started", "content": {"port": port}})
+
+            async with self._server:
+                await self._server.serve_forever()
+
+        try:
+            asyncio.run(tcp_server(host))
+        except asyncio.CancelledError:
+            logger.debug("Server was cancelled")
+
+    def start(self, host: str, shell: "PositronShell", comm: BaseComm) -> None:
         """
         Start the LSP.
 
@@ -447,10 +412,11 @@ class PositronJediLanguageServer(JediLanguageServer):
         # Give the LSP server access to the kernel to enhance completions with live variables
         self.shell = shell
 
-        # If self.lsp has been used previously in this process and sucessfully exited, it will be
-        # marked with a shutdown flag, which makes it ignore all messages.
-        # We reset it here, so we allow the server to start again.
-        self.lsp._shutdown = False  # noqa: SLF001
+        # If self.protocol has been used previously in this process and sucessfully exited
+        # (e.g. when the kernel is run in a separate thread as done by Reticulate),
+        # it will be marked with a shutdown flag, which makes it ignore all non-exit messages while
+        # shutting down. We reset it here so that the server responds to messages.
+        self.protocol._shutdown = False  # noqa: SLF001
 
         if self._server_thread is not None:
             logger.warning("LSP server thread was not properly shutdown")
@@ -459,36 +425,14 @@ class PositronJediLanguageServer(JediLanguageServer):
         # Start Jedi LSP as an asyncio TCP server in a separate thread.
         logger.info("Starting LSP server thread")
         self._server_thread = threading.Thread(
-            target=self.start_tcp, args=(lsp_host,), name="LSPServerThread"
+            target=self._start_tcp, args=(host,), name="LSPServerThread"
         )
         self._server_thread.start()
 
     def shutdown(self) -> None:
-        logger.info("Shutting down LSP server thread")
-
-        # Below is taken as-is from pygls.server.Server.shutdown to remove awaiting
-        # server.wait_closed since it is a no-op if called after server.close in <=3.11 and blocks
-        # forever in >=3.12 when exit() is called in the console.
-        # See: https://github.com/python/cpython/issues/79033 for more.
-        if self._stop_event is not None:
-            self._stop_event.set()
-
-        if self._thread_pool:
-            self._thread_pool.terminate()
-            self._thread_pool.join()
-
-        if self._thread_pool_executor:
-            self._thread_pool_executor.shutdown()
-
-        if self._server:
-            self._server.close()
-            # This is where we should wait for the server to close but don't due to the issue
-            # described above.
-
-        # Close the loop and reset the thread reference to allow starting a new server in the same
+        super().shutdown()
+        # Reset the thread reference to allow starting a new server thread in the same
         # process e.g. when a browser-based Positron is refreshed.
-        if not self.loop.is_closed():
-            self.loop.close()
         self._server_thread = None
 
     def stop(self) -> None:
@@ -508,20 +452,10 @@ def create_server() -> PositronJediLanguageServer:
         name="jedi-language-server",
         version="0.18.2",
         protocol_cls=PositronJediLanguageServerProtocol,
-        # Provide an arbitrary not-None value for the event loop to stop `pygls.server.Server.__init__`
-        # from creating a new event loop and setting it as the current loop for the current OS thread
-        # when this module is imported in the main thread. This allows the kernel to control the event
-        # loop for its thread. The LSP's event loop will be created in its own thread in the `start_tcp`
-        # method. This may break in future versions of pygls.
-        loop=object(),
         # Advertise support for Python notebook cells.
         notebook_document_sync=NotebookDocumentSyncOptions(
             notebook_selector=[
-                NotebookDocumentSyncOptionsNotebookSelectorType2(
-                    cells=[
-                        NotebookDocumentSyncOptionsNotebookSelectorType2CellsType(language="python")
-                    ]
-                )
+                NotebookDocumentFilterWithCells(cells=[NotebookCellLanguage(language="python")])
             ]
         ),
     )

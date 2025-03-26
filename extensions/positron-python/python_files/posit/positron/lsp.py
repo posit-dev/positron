@@ -40,7 +40,7 @@ class LSPService:
             return
 
         # Start the language server thread
-        POSITRON.start(lsp_host=ip_address, shell=self._kernel.shell, comm=comm)
+        POSITRON.start(host=ip_address, shell=self._kernel.shell, comm=comm)
 
     def _receive_message(self, msg: Dict[str, Any]) -> None:
         """Handle messages received from the client via the positron.lsp comm."""
