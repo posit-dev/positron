@@ -815,7 +815,6 @@ def positron_highlight(
     return highlight(server, params)
 
 
-@POSITRON.thread()
 @POSITRON.feature(TEXT_DOCUMENT_HOVER)
 def positron_hover(
     server: PositronJediLanguageServer, params: TextDocumentPositionParams
