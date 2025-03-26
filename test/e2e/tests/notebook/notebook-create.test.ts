@@ -91,6 +91,26 @@ test.describe('Notebooks', {
 			// Verify the variable is in the variables pane
 			await app.workbench.variables.expectVariableToBe('baz', "'baz'");
 		});
+
+		test('Python - Ensure LSP works across cells', async function ({ app }) {
+
+			await app.workbench.notebooks.insertNotebookCell('code');
+
+			await app.workbench.notebooks.addCodeToCellAtIndex('import torch');
+
+			await app.workbench.notebooks.insertNotebookCell('code');
+
+			await app.workbench.notebooks.addCodeToCellAtIndex('torch.rand(10)', 1);
+
+			await app.workbench.notebooks.hoverCellText(1, 'torch');
+
+			const hoverTooltip = app.code.driver.page.getByRole('tooltip', {
+				name: /module torch/,
+			});
+
+			await expect(hoverTooltip).toBeVisible();
+			await expect(hoverTooltip).toContainText('The torch package contains');
+		});
 	});
 
 	test.describe('R Notebooks', () => {

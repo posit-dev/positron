@@ -102,6 +102,17 @@ export class Notebooks {
 		});
 	}
 
+	async hoverCellText(cellIndex: number, text: string) {
+		await test.step(`Hover cell ${cellIndex} text: "${text}"`, async () => {
+
+			const cellText = this.code.driver.page.locator(CELL_LINE).nth(cellIndex).locator('span').locator('span').filter(
+				{ hasText: text }
+			);
+			await cellText.click();
+			await cellText.hover();
+		});
+	}
+
 	async executeCodeInCell() {
 		await test.step('Execute code in cell', async () => {
 			await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
