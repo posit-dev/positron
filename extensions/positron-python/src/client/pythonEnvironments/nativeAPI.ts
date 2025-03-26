@@ -39,6 +39,7 @@ import { getWorkspaceFolders, onDidChangeWorkspaceFolders } from '../common/vsco
 // --- Start Positron ---
 import { isUvEnvironment } from './common/environmentManagers/uv';
 import { isCustomEnvironment } from '../positron/interpreterSettings';
+import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalInstalledEnvs';
 // --- End Positron ---
 
 function makeExecutablePath(prefix?: string): string {
@@ -224,10 +225,14 @@ function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[]): Pyth
     const executable = nativeEnv.executable ?? makeExecutablePath(nativeEnv.prefix);
     let kind = categoryToKind(nativeEnv.kind);
 
-    // Ensure the kind and source are set correctly for custom environments
-    if (kind === PythonEnvKind.Unknown && isCustomEnvironment(executable)) {
-        kind = PythonEnvKind.Custom;
-        source.push(PythonEnvSource.UserSettings);
+    // Fix up the kind and source for custom/additional environments
+    if (kind === PythonEnvKind.Unknown) {
+        if (isCustomEnvironment(executable)) {
+            kind = PythonEnvKind.Custom;
+            source.push(PythonEnvSource.UserSettings);
+        } else if (isAdditionalGlobalBinPath(executable)) {
+            kind = PythonEnvKind.OtherGlobal;
+        }
     }
     // --- End Positron ---
     const arch = toArch(nativeEnv.arch);

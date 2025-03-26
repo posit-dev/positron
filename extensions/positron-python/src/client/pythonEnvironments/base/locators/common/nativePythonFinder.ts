@@ -30,6 +30,7 @@ import { traceError } from '../../../../logging';
 // --- Start Positron ---
 import { getCustomEnvDirs } from '../../../../positron/interpreterSettings';
 import { traceVerbose } from '../../../../logging';
+import { ADDITIONAL_POSIX_BIN_PATHS } from '../../../common/posixUtils';
 // --- End Positron ---
 
 const PYTHON_ENV_TOOLS_PATH = isWindows()
@@ -467,13 +468,13 @@ function getAdditionalEnvDirs(): string[] {
     const additionalDirs: string[] = [];
 
     // Add additional dirs to search for Python environments on non-Windows platforms.
+    // See JS locator equivalent `getAdditionalPosixBinaries` in extensions/positron-python/src/client/pythonEnvironments/base/locators/lowLevel/posixKnownPathsLocator.ts
     if (!isWindows()) {
-        // /opt/python is a recommended Python installation location on Posit Workbench.
-        // see: https://docs.posit.co/ide/server-pro/python/installing_python.html
-        additionalDirs.push('/opt/python');
+        additionalDirs.push(...ADDITIONAL_POSIX_BIN_PATHS);
     }
 
     // Add user-specified Python search directories.
+    // See JS locator equivalent in extensions/positron-python/src/client/pythonEnvironments/base/locators/lowLevel/userSpecifiedEnvLocator.ts
     const customEnvDirs = getCustomEnvDirs();
     additionalDirs.push(...customEnvDirs);
 

@@ -29,7 +29,9 @@ export async function isGloballyInstalledEnv(executablePath: string): Promise<bo
     //         return true;
     //     }
     // }
-    return isFoundInPathEnvVar(executablePath);
+    // --- Start Positron ---
+    return await isFoundInPathEnvVar(executablePath) || isAdditionalGlobalBinPath(executablePath);
+    // --- End Positron ---
 }
 
 async function isFoundInPathEnvVar(executablePath: string): Promise<boolean> {
@@ -38,9 +40,6 @@ async function isFoundInPathEnvVar(executablePath: string): Promise<boolean> {
         searchPathEntries = getSearchPathEntries();
     } else {
         searchPathEntries = await commonPosixBinPaths();
-        // --- Start Positron ---
-        searchPathEntries.push(...ADDITIONAL_POSIX_BIN_PATHS);
-        // --- End Positron ---
     }
     // Filter out pyenv shims. They are not actual python binaries, they are used to launch
     // the binaries specified in .python-version file in the cwd. We should not be reporting
@@ -53,3 +52,23 @@ async function isFoundInPathEnvVar(executablePath: string): Promise<boolean> {
     }
     return false;
 }
+
+// --- Start Positron ---
+/**
+ * Checks if the given executable is in one of the additional paths searched by Positron.
+ * @param executablePath The path to the executable to check
+ * @returns Whether the executable is in one of the additional paths
+ */
+export function isAdditionalGlobalBinPath(executablePath: string): boolean {
+    if (getOSType() === OSType.Windows) {
+        return false;
+    }
+    const searchPathEntries = ADDITIONAL_POSIX_BIN_PATHS;
+    for (const searchPath of searchPathEntries) {
+        if (isParentPath(executablePath, searchPath)) {
+            return true;
+        }
+    }
+    return false;
+}
+// --- End Positron ---

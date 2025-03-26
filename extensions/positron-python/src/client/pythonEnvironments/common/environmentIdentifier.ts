@@ -43,10 +43,10 @@ function getIdentifiers(): Map<PythonEnvKind, (path: string) => Promise<boolean>
     identifier.set(PythonEnvKind.ActiveState, isActiveStateEnvironment);
     // --- Start Positron ---
     identifier.set(PythonEnvKind.Uv, isUvEnvironment);
-    identifier.set(PythonEnvKind.OtherGlobal, isGloballyInstalledEnv);
     identifier.set(PythonEnvKind.Custom, async (path: string) => isCustomEnvironment(path));
-    identifier.set(PythonEnvKind.Unknown, defaultTrue);
     // --- End Positron ---
+    identifier.set(PythonEnvKind.OtherGlobal, isGloballyInstalledEnv);
+    identifier.set(PythonEnvKind.Unknown, defaultTrue);
     return identifier;
 }
 
