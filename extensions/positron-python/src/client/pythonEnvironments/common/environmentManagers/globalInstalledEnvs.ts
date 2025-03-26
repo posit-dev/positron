@@ -4,8 +4,14 @@
 import { getSearchPathEntries } from '../../../common/utils/exec';
 import { getOSType, OSType } from '../../../common/utils/platform';
 import { isParentPath } from '../externalDependencies';
+// eslint-disable-next-line import/no-duplicates
 import { commonPosixBinPaths } from '../posixUtils';
 import { isPyenvShimDir } from './pyenv';
+
+// --- Start Positron ---
+// eslint-disable-next-line import/no-duplicates
+import { ADDITIONAL_POSIX_BIN_PATHS } from '../posixUtils';
+// --- End Positron ---
 
 /**
  * Checks if the given interpreter belongs to known globally installed types. If an global
@@ -32,6 +38,9 @@ async function isFoundInPathEnvVar(executablePath: string): Promise<boolean> {
         searchPathEntries = getSearchPathEntries();
     } else {
         searchPathEntries = await commonPosixBinPaths();
+        // --- Start Positron ---
+        searchPathEntries.concat(ADDITIONAL_POSIX_BIN_PATHS);
+        // --- End Positron ---
     }
     // Filter out pyenv shims. They are not actual python binaries, they are used to launch
     // the binaries specified in .python-version file in the cwd. We should not be reporting

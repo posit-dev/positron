@@ -71,6 +71,14 @@ export async function commonPosixBinPaths(): Promise<string[]> {
     return paths.filter((_, index) => exists[index]);
 }
 
+// --- Start Positron ---
+export const ADDITIONAL_POSIX_BIN_PATHS = [
+    // /opt/python is a recommended Python installation location on Posit Workbench.
+    // see: https://docs.posit.co/ide/server-pro/python/installing_python.html
+    '/opt/python',
+];
+// --- End Positron ---
+
 /**
  * Finds python interpreter binaries or symlinks in a given directory.
  * @param searchDir : Directory to search in
