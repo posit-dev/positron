@@ -242,6 +242,7 @@ export async function makeMetadata(
 			isHomebrewInstallation ? RRuntimeSource.homebrew :
 				isUserInstallation ? RRuntimeSource.user : RRuntimeSource.system;
 
+	// Short name shown to users (when disambiguating within a language)
 	const runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
 
 	// Full name shown to users
