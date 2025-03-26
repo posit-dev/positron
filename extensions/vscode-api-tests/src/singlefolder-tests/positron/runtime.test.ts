@@ -13,6 +13,8 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	private readonly _onDidReceiveRuntimeMessage = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
 	private readonly _onDidChangeRuntimeState = new vscode.EventEmitter<positron.RuntimeState>();
 	private readonly _onDidEndSession = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
+	static messageId = 0;
+	private executionCount = 0;
 
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage> = this._onDidReceiveRuntimeMessage.event;
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState> = this._onDidChangeRuntimeState.event;
@@ -28,20 +30,43 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 		readonly metadata: positron.RuntimeSessionMetadata
 	) { }
 
-	execute(code: string, _id: string, _mode: positron.RuntimeCodeExecutionMode): void {
-		// Simulate an error if the code is 'error'
-		if (code === 'error') {
-			this.executeError();
-			return;
-		}
+	generateMessageId(): string {
+		return `msg-${TestLanguageRuntimeSession.messageId++}`;
+	}
+
+	execute(code: string, id: string, _mode: positron.RuntimeCodeExecutionMode): void {
+		// Emit the busy message
+		this._onDidReceiveRuntimeMessage.fire({
+			id: this.generateMessageId(),
+			parent_id: id,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.State,
+			state: positron.RuntimeOnlineState.Busy,
+		} as positron.LanguageRuntimeState);
 
 		// Simulate starting with busy state
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Busy);
 
+		// Acknowledge the input
+		this._onDidReceiveRuntimeMessage.fire({
+			id: this.generateMessageId(),
+			parent_id: id,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.Input,
+			code,
+			execution_count: ++this.executionCount,
+		} as positron.LanguageRuntimeInput);
+
+		// Simulate an error if the code is 'error'
+		if (code === 'error') {
+			this.executeError(id);
+			return;
+		}
+
 		// Simulate output
 		this._onDidReceiveRuntimeMessage.fire({
-			id: '1',
-			parent_id: '',
+			id: this.generateMessageId(),
+			parent_id: id,
 			when: new Date().toISOString(),
 			type: positron.LanguageRuntimeMessageType.Stream,
 			name: positron.LanguageRuntimeStreamName.Stdout,
@@ -50,8 +75,8 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 
 		// Simulate error output
 		this._onDidReceiveRuntimeMessage.fire({
-			id: '2',
-			parent_id: '',
+			id: this.generateMessageId(),
+			parent_id: id,
 			when: new Date().toISOString(),
 			type: positron.LanguageRuntimeMessageType.Stream,
 			name: positron.LanguageRuntimeStreamName.Stderr,
@@ -61,27 +86,26 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 		// Simulate result
 		setTimeout(() => {
 			this._onDidReceiveRuntimeMessage.fire({
-				id: '3',
-				parent_id: '',
+				id: this.generateMessageId(),
+				parent_id: id,
 				when: new Date().toISOString(),
 				type: positron.LanguageRuntimeMessageType.Result,
 				data: { 'text/plain': 'Test result' }
 			} as positron.LanguageRuntimeResult);
 
-			// Return to idle state
-			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Idle);
+			this.returnToIdle(id);
 		}, 10);
 	}
 
-	executeError() {
+	executeError(id: string) {
 
 		// Simulate starting with busy state
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Busy);
 
 		// Simulate error
 		this._onDidReceiveRuntimeMessage.fire({
-			id: '1',
-			parent_id: '',
+			id: this.generateMessageId(),
+			parent_id: id,
 			when: new Date().toISOString(),
 			type: positron.LanguageRuntimeMessageType.Error,
 			name: 'TestError',
@@ -91,28 +115,42 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 
 		// Return to idle state
 		setTimeout(() => {
-			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Idle);
+			this.returnToIdle(id);
 		}, 10);
 	}
 
+	returnToIdle(id: string) {
+		// Emit the idle message
+		this._onDidReceiveRuntimeMessage.fire({
+			id: this.generateMessageId(),
+			parent_id: id,
+			when: new Date().toISOString(),
+			type: positron.LanguageRuntimeMessageType.State,
+			state: positron.RuntimeOnlineState.Idle,
+		} as positron.LanguageRuntimeState);
+
+		// Update state
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Idle);
+	}
+
 	async isCodeFragmentComplete(_code: string): Promise<positron.RuntimeCodeFragmentStatus> {
-		throw new Error('Not implemented.');
+		return Promise.resolve(positron.RuntimeCodeFragmentStatus.Complete);
 	}
 
 	async createClient(_id: string, _type: positron.RuntimeClientType, _params: any, _metadata?: any): Promise<void> {
-		throw new Error('Not implemented.');
+		return Promise.resolve();
 	}
 
 	async listClients(_type?: positron.RuntimeClientType | undefined): Promise<Record<string, string>> {
-		throw new Error('Not implemented.');
+		return Promise.resolve({});
 	}
 
 	removeClient(_id: string): void {
-		throw new Error('Not implemented.');
+		return;
 	}
 
 	sendClientMessage(_client_id: string, _message_id: string, _message: any): void {
-		throw new Error('Not implemented.');
+		return;
 	}
 
 	replyToPrompt(_id: string, _reply: string): void {
@@ -124,7 +162,18 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	}
 
 	async start(): Promise<positron.LanguageRuntimeInfo> {
-		throw new Error('Not implemented.');
+		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
+		const info: positron.LanguageRuntimeInfo = {
+			banner: 'Test runtime',
+			implementation_version: '0.0.1',
+			language_version: '0.0.1',
+			continuation_prompt: this.dynState.continuationPrompt,
+			input_prompt: this.dynState.inputPrompt,
+		};
+		setTimeout(() => {
+			this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
+		}, 10);
+		return Promise.resolve(info);
 	}
 
 	async interrupt(): Promise<void> {
@@ -298,15 +347,22 @@ suite('positron API - executeCode', () => {
 		};
 
 		// Execute the code with our observer
-		const result = await positron.runtime.executeCode(
-			'test',           // languageId
-			'print("Hello")', // code
-			false,            // focus
-			false,            // allowIncomplete
-			positron.RuntimeCodeExecutionMode.Interactive,
-			positron.RuntimeErrorBehavior.Stop,
-			observer
-		);
+		const result = await Promise.race([
+			positron.runtime.executeCode(
+				'test',           // languageId
+				'print("Hello")', // code
+				false,            // focus
+				false,            // allowIncomplete
+				positron.RuntimeCodeExecutionMode.Interactive,
+				positron.RuntimeErrorBehavior.Stop,
+				observer
+			),
+			new Promise<any>((_, reject) => {
+				setTimeout(() => {
+					reject(new Error('Execution timed out after 2 seconds'));
+				}, 2000);
+			})
+		]);
 
 		// Verify the execution produced a result
 		assert.ok(result, 'executeCode should return a result object');
