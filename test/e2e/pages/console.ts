@@ -7,7 +7,7 @@ import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
-import { InterpreterType } from '../infra/fixtures/interpreter';
+import { InterpreterType } from '../infra/fixtures/interpreter.js';
 
 const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
@@ -138,7 +138,8 @@ export class Console {
 	}
 
 	async sendEnterKey() {
-		await this.activeConsole.click();
+		await this.focus();
+		await this.code.driver.page.waitForTimeout(500);
 		await this.code.driver.page.keyboard.press('Enter');
 	}
 
@@ -334,4 +335,3 @@ export class Console {
 		await expect(this.suggestionList).toHaveCount(count);
 	}
 }
-

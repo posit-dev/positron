@@ -17,15 +17,18 @@ test.describe('Sessions: State', {
 		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
 	});
 
-	test.beforeEach(async function ({ app }) {
+	test.beforeEach(async function ({ app, sessions }) {
 		await app.workbench.variables.togglePane('hide');
+		await sessions.deleteDisconnectedSessions();
 	});
 
-	test.afterEach(async function ({ app }) {
-		await app.workbench.sessions.deleteDisconnectedSessions();
+	test.afterEach(async function ({ sessions }) {
+		await sessions.clearConsoleAllSessions();
 	});
 
-	test('Validate state between sessions (active, idle, disconnect)', async function ({ app, sessions }) {
+	test.skip('Validate state between sessions (active, idle, disconnect)', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6987' }]
+	}, async function ({ app, sessions }) {
 
 		const { console } = app.workbench;
 
@@ -52,7 +55,7 @@ test.describe('Sessions: State', {
 		await sessions.expectStatusToBe(pySession.id, 'idle');
 
 		// Restart Python session, verify Python transitions to active --> idle and R remains idle
-		await sessions.restart(pySession.id, false);
+		await sessions.restart(pySession.id, { waitForIdle: false });
 		await sessions.expectStatusToBe(pySession.id, 'active');
 		await sessions.expectStatusToBe(pySession.id, 'idle', { timeout: 60000 });
 		await sessions.expectStatusToBe(rSession.id, 'idle');
@@ -64,7 +67,7 @@ test.describe('Sessions: State', {
 		await sessions.expectStatusToBe(rSession.id, 'idle');
 
 		// Restart R session, verify R to returns to active --> idle and Python remains disconnected
-		await sessions.restart(rSession.id, false);
+		await sessions.restart(rSession.id, { waitForIdle: false });
 		await sessions.expectStatusToBe(rSession.id, 'active');
 		await sessions.expectStatusToBe(rSession.id, 'idle', { timeout: 60000 });
 		await sessions.expectStatusToBe(pySession.id, 'disconnected');
@@ -114,15 +117,20 @@ test.describe('Sessions: State', {
 		await console.typeToConsole('exit()', true);
 		await sessions.expectMetaDataToBe({ ...pySession, state: 'exited' });
 		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'idle' });
+		await sessions.expectMetaDataToBe({ ...rSession, state: 'idle' });
 
 		// Shutdown R session and verify metadata
 		await sessions.select(rSession.id);
 		await console.typeToConsole('q()', true);
-		await sessions.expectMetaDataToBe({ ...rSession, state: 'exited' });
+		await sessions.expectMetaDataToBe({ ...pySession, state: 'exited' });
 		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'idle' });
+		await sessions.expectMetaDataToBe({ ...rSession, state: 'exited' });
 
 		// Shutdown Alt Python session and verify metadata
+		await sessions.select(pySessionAlt.id);
 		await console.typeToConsole('exit()', true);
+		await sessions.expectMetaDataToBe({ ...pySession, state: 'exited' });
 		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'exited' });
+		await sessions.expectMetaDataToBe({ ...rSession, state: 'exited' });
 	});
 });

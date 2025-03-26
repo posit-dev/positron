@@ -5,7 +5,6 @@
 
 import { test, tags } from '../_test.setup';
 import { Application, SessionInfo } from '../../infra';
-import { expect } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
@@ -128,7 +127,7 @@ test.describe('Sessions: Management', {
 
 		// Delete 2nd session and verify no active sessions or runtime in session picker
 		await console.barTrashButton.click();
-		await expect(sessions.activeSessionPicker).toHaveText('Start Session');
+		await sessions.expectSessionPickerToBe('Start Session');
 		await sessions.expectSessionCountToBe(0);
 		await sessions.expectActiveSessionListsToMatch();
 		await variables.expectRuntimeToBe('not.visible', `${rSession.name}|${pySession.name}|None`);

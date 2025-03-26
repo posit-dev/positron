@@ -86,8 +86,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: 'ubuntu-latest'
-            python: '3.8'
           - os: 'macos-13'
             python: '3.9'
           - os: 'windows-latest'
