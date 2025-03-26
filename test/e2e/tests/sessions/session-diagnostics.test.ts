@@ -25,8 +25,7 @@ test.describe.skip('Sessions: Diagnostics', {
 	test('Python - Verify diagnostics isolation between sessions in the editor and problems view', async function ({ app, runCommand, sessions }) {
 		const { problems, editor, console } = app.workbench;
 
-		// @ts-ignore - need pySession2 once the bug is fixed
-		const [pySession, pySession2, pyAltSession] = await sessions.start(['python', 'python', 'pythonAlt']);
+		const [pySession, pyAltSession] = await sessions.start(['python', 'pythonAlt'], { reuse: false });
 
 		// Open new Python file
 		await runCommand('Python: New File');

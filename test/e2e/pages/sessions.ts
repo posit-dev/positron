@@ -66,6 +66,7 @@ export class Sessions {
 	 * @example - start multiple sessions with custom options
 	 * const [pySession1, pySession2, rSession, rSessionAlt] = await sessions.start(['python', 'python', 'r', 'rAlt'], {
 	 *   triggerMode: 'quickaccess',
+	 *   reuse: false,
 	 * });
 	 *
 	 * @returns returns the SessionInfo for the session(s)
@@ -311,6 +312,26 @@ export class Sessions {
 		}
 	}
 
+	/**
+	 * Action: Select the session
+	 * @param sessionIdOrName - the id or name of the session
+	 */
+	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
+		await test.step(`Select session: ${sessionIdOrName}`, async () => {
+			await this.hotKeys.focusConsole();
+			const session = this.getSessionTab(sessionIdOrName);
+
+			if (waitForSessionIdle) {
+				await expect(this.idleStatus(session)).toBeVisible();
+			}
+
+			// workaround for issue: https://github.com/posit-dev/positron/issues/6997
+			await this.getSessionTab(sessionIdOrName).click();
+			await this.page.waitForTimeout(1000);
+			await this.getSessionTab(sessionIdOrName).click();
+		});
+	}
+
 	// -- Helpers --
 
 	/**
@@ -395,23 +416,6 @@ export class Sessions {
 		});
 
 		return this.getCurrentSessionId();
-	}
-
-	/**
-	 * Action: Select the session
-	 * @param sessionIdOrName - the id or name of the session
-	 */
-	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
-		await test.step(`Select session: ${sessionIdOrName}`, async () => {
-			await this.hotKeys.focusConsole();
-			const session = this.getSessionTab(sessionIdOrName);
-
-			if (waitForSessionIdle) {
-				await expect(this.idleStatus(session)).toBeVisible();
-			}
-
-			await this.getSessionTab(sessionIdOrName).click();
-		});
 	}
 
 	/**
@@ -748,6 +752,11 @@ export class Sessions {
 		);
 	}
 
+	/**
+	 * Verify: the session count in the console
+	 * @param count - the expected number of sessions
+	 * @param sessionType - the type of session to count: 'all' or 'active'
+	 */
 	async expectSessionCountToBe(count: number, sessionType: 'all' | 'active' = 'all') {
 		await test.step(`Verify session count: ${count}`, async () => {
 			await expect(async () => {
@@ -822,6 +831,10 @@ export class Sessions {
 	 */
 	async expectStartNewSessionMenuToBeVisible() {
 		await expect(this.quickPick.allSessionsMenu).toBeVisible();
+	}
+
+	async expectStatusBarToContain(runtimePath: string): Promise<void> {
+		await expect(this.code.driver.page.locator('footer').getByText(runtimePath)).toBeVisible({ timeout: 30000 });
 	}
 }
 

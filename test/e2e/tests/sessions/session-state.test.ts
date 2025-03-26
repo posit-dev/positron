@@ -101,36 +101,37 @@ test.describe('Sessions: State', {
 		await sessions.expectStatusToBe(pySession.name, 'idle');
 	});
 
+	// BUG: why is a new session starting at the end of this test?
 	test('Validate metadata between sessions', async function ({ app, sessions }) {
 		const { console } = app.workbench;
 
 		// Ensure sessions exist and are idle
-		const [pySession, pySessionAlt, rSession] = await sessions.start(['python', 'pythonAlt', 'r']);
+		const [pySession, rSession, pySessionAlt] = await sessions.start(['python', 'r', 'pythonAlt']);
 
 		// Verify Python session metadata
 		await sessions.expectMetaDataToBe({ ...pySession, state: 'idle' });
-		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'idle' });
 		await sessions.expectMetaDataToBe({ ...rSession, state: 'idle' });
+		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'idle' });
 
 		// Shutdown Python session and verify metadata
 		await sessions.select(pySession.id);
 		await console.typeToConsole('exit()', true);
 		await sessions.expectMetaDataToBe({ ...pySession, state: 'exited' });
-		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'idle' });
 		await sessions.expectMetaDataToBe({ ...rSession, state: 'idle' });
+		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'idle' });
 
 		// Shutdown R session and verify metadata
 		await sessions.select(rSession.id);
 		await console.typeToConsole('q()', true);
 		await sessions.expectMetaDataToBe({ ...pySession, state: 'exited' });
-		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'idle' });
 		await sessions.expectMetaDataToBe({ ...rSession, state: 'exited' });
+		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'idle' });
 
 		// Shutdown Alt Python session and verify metadata
 		await sessions.select(pySessionAlt.id);
 		await console.typeToConsole('exit()', true);
 		await sessions.expectMetaDataToBe({ ...pySession, state: 'exited' });
-		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'exited' });
 		await sessions.expectMetaDataToBe({ ...rSession, state: 'exited' });
+		await sessions.expectMetaDataToBe({ ...pySessionAlt, state: 'exited' });
 	});
 });
