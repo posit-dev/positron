@@ -973,13 +973,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		const executionObserver = new ExecutionObserver(observer);
 		this._executionObservers.set(executionId, executionObserver);
 
-
 		// Begin the code execution. This returns a promise that resolves a
 		// boolean indicating whether the execution was successfully started or
 		// enqueued.
 		this._proxy.$executeCode(
 			languageId, code, focus, allowIncomplete, mode, errorBehavior, executionId).then(
 				(sessionId) => {
+					// If a cancellation token was provided, then add a cancellation
+					// request handler so we can interrupt the session if requested
 					if (observer?.token) {
 						const token = observer.token;
 						executionObserver.store.add(
@@ -1198,8 +1199,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 				// When entering the busy state, consider code execution to have
 				// started
-				if (stateMessage.state === 'busy' && observer?.onStarted) {
-					observer.onStarted();
+				if (stateMessage.state === 'busy') {
+					o.onStarted();
 				}
 
 				// When entering the idle state, consider code execution to have

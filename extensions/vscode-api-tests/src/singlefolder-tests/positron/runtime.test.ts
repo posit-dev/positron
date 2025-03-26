@@ -14,7 +14,8 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	private readonly _onDidChangeRuntimeState = new vscode.EventEmitter<positron.RuntimeState>();
 	private readonly _onDidEndSession = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
 	static messageId = 0;
-	private executionCount = 0;
+	private _executionCount = 0;
+	private _currentExecutionId = '';
 
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage> = this._onDidReceiveRuntimeMessage.event;
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState> = this._onDidChangeRuntimeState.event;
@@ -35,6 +36,8 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	}
 
 	execute(code: string, id: string, _mode: positron.RuntimeCodeExecutionMode): void {
+		this._currentExecutionId = id;
+
 		// Emit the busy message
 		this._onDidReceiveRuntimeMessage.fire({
 			id: this.generateMessageId(),
@@ -54,7 +57,7 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 			when: new Date().toISOString(),
 			type: positron.LanguageRuntimeMessageType.Input,
 			code,
-			execution_count: ++this.executionCount,
+			execution_count: ++this._executionCount,
 		} as positron.LanguageRuntimeInput);
 
 		// Simulate an error if the code is 'error'
@@ -94,7 +97,9 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 			} as positron.LanguageRuntimeResult);
 
 			this.returnToIdle(id);
-		}, 10);
+		},
+			// The "slow" code simulates a long-running operation
+			code === 'slow' ? 10000 : 10);
 	}
 
 	executeError(id: string) {
@@ -131,6 +136,9 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 
 		// Update state
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Idle);
+
+		// No more current execution
+		this._currentExecutionId = '';
 	}
 
 	async isCodeFragmentComplete(_code: string): Promise<positron.RuntimeCodeFragmentStatus> {
@@ -177,7 +185,8 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	}
 
 	async interrupt(): Promise<void> {
-		throw new Error('Not implemented.');
+		console.log(`Interrupting '${this._currentExecutionId}'`);
+		this.returnToIdle(this._currentExecutionId);
 	}
 
 	async restart(): Promise<void> {
@@ -431,5 +440,55 @@ suite('positron API - executeCode', () => {
 		// Verify the failure handler was called
 		assert.strictEqual(failureCalled, true, 'onFailed should be called');
 		assert.ok(failureError, 'onFailed should receive an error object');
+	});
+
+	test('executeCode can be cancelled', async () => {
+		// Tracks whether the finished event was called
+		let finishedCalled = false;
+
+		// Create a cancellation token source
+		const tokenSource = new vscode.CancellationTokenSource();
+		const token = tokenSource.token;
+
+		// Create the observer that simulates cancellation
+		const observer: positron.runtime.ExecutionObserver = {
+			token,
+
+			onStarted: () => {
+				// Once the request has started, let it run for 50ms and then
+				// cancel it
+				setTimeout(() => {
+					tokenSource.cancel();
+				}, 50);
+			},
+
+			onFinished: () => {
+				finishedCalled = true;
+			}
+		};
+
+		// Execute the code with our observer. This code takes 10 seconds to
+		// "execute" but has a timeout after 1 second, so it will only succeed
+		// if cancelled.
+		await Promise.race([
+			positron.runtime.executeCode(
+				'test',           // languageId
+				'slow',           // code
+				false,            // focus
+				false,            // allowIncomplete
+				positron.RuntimeCodeExecutionMode.Interactive,
+				positron.RuntimeErrorBehavior.Stop,
+				observer
+			),
+			new Promise<any>((_resolve, reject) => {
+				// timeout after 1 second
+				setTimeout(() => {
+					reject(new Error('Execution timed out after 1 second'));
+				}, 1000);
+			})
+		]);
+
+		// Verify that the execution was "finished"
+		assert.ok(finishedCalled, 'onFinished should be called');
 	});
 });
