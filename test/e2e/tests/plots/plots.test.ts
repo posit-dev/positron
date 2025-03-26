@@ -221,12 +221,11 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		});
 
-		test.skip('Python - Verify bokeh Python widget', {
+		test('Python - Verify bokeh Python widget', {
 			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6045' }],
 			tag: [tags.WEB, tags.WIN]
 		}, async function ({ app }) {
-			await app.workbench.console.pasteCodeToConsole(bokeh);
-			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.executeCode('Python', bokeh);
 
 			// selector not factored out as it is unique to bokeh
 			const bokehCanvas = '.bk-Canvas';
