@@ -236,9 +236,10 @@ export async function makeMetadata(
 
 	const isCondaInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.CONDA);
 
+	// Be sure to check for conda installations first, as conda can be installed via Homebrew
 	const runtimeSource =
-		isHomebrewInstallation ? RRuntimeSource.homebrew :
-			isCondaInstallation ? RRuntimeSource.conda :
+		isCondaInstallation ? RRuntimeSource.conda :
+			isHomebrewInstallation ? RRuntimeSource.homebrew :
 				isUserInstallation ? RRuntimeSource.user : RRuntimeSource.system;
 
 	const runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;
