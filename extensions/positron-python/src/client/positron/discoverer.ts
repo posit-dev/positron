@@ -14,8 +14,7 @@ import { traceError, traceInfo } from '../logging';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { createPythonRuntimeMetadata } from './runtime';
 import { comparePythonVersionDescending } from '../interpreter/configuration/environmentTypeComparer';
-import { MINIMUM_PYTHON_VERSION } from '../common/constants';
-import { isVersionSupported, shouldIncludeInterpreter } from './interpreterSettings';
+import { shouldIncludeInterpreter } from './interpreterSettings';
 import { hasFiles } from './util';
 
 /**
@@ -109,19 +108,12 @@ export async function* pythonRuntimeDiscoverer(
 }
 
 /**
- * Returns a list of Python interpreters with unsupported and user-excluded interpreters removed.
+ * Returns a list of Python interpreters with user-excluded interpreters removed.
  * @param interpreters The list of Python interpreters to filter.
- * @returns A list of Python interpreters that are supported and not user-excluded.
+ * @returns A list of Python interpreters that are not user-excluded.
  */
 function filterInterpreters(interpreters: PythonEnvironment[]): PythonEnvironment[] {
     return interpreters.filter((interpreter) => {
-        // Check if the interpreter version is supported
-        const isSupported = isVersionSupported(interpreter.version, MINIMUM_PYTHON_VERSION);
-        if (!isSupported) {
-            traceInfo(`pythonRuntimeDiscoverer: filtering out unsupported interpreter ${interpreter.path}`);
-            return false;
-        }
-
         // Check if the interpreter is excluded by the user
         const shouldInclude = shouldIncludeInterpreter(interpreter.path);
         if (!shouldInclude) {

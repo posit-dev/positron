@@ -26,6 +26,7 @@ import { arePathsSame } from '../../common/platform/fs-paths';
 // --- Start Positron ---
 import { getPyenvDir } from '../../pythonEnvironments/common/environmentManagers/pyenv';
 import { readFileSync, pathExistsSync, checkParentDirs } from '../../pythonEnvironments/common/externalDependencies';
+import { isVersionSupported } from '../../positron/interpreterSettings';
 // --- End Positron ---
 
 export enum EnvLocationHeuristic {
@@ -67,6 +68,14 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
         if (isProblematicCondaEnvironment(b)) {
             return -1;
         }
+        // --- Start Positron ---
+        if (!isVersionSupported(a.version)) {
+            return 1;
+        }
+        if (!isVersionSupported(b.version)) {
+            return -1;
+        }
+        // --- End Positron ---
         // Check environment location.
         const envLocationComparison = compareEnvironmentLocation(a, b, this.workspaceFolderPath);
         if (envLocationComparison !== 0) {
@@ -141,6 +150,12 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
             if (isProblematicCondaEnvironment(i)) {
                 return false;
             }
+            // --- Start Positron ---
+            // Never recommend interpreters with unsupported versions.
+            if (!isVersionSupported(i.version)) {
+                return false;
+            }
+            // --- End Positron ---
             if (
                 i.envType === EnvironmentType.ActiveState &&
                 (!i.path ||

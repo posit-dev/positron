@@ -11,6 +11,7 @@ import {
     INTERPRETERS_EXCLUDE_SETTING_KEY,
     INTERPRETERS_INCLUDE_SETTING_KEY,
     INTERPRETERS_OVERRIDE_SETTING_KEY,
+    MAXIMUM_PYTHON_VERSION_EXCLUSIVE,
     MINIMUM_PYTHON_VERSION,
 } from '../common/constants';
 import { untildify } from '../common/helpers';
@@ -199,14 +200,15 @@ function isOverrideInterpreter(interpreterPath: string): boolean | undefined {
 }
 
 /**
- * Check if a version is supported (i.e. >= the minimum supported version).
+ * Check if a version is supported (i.e. >= the minimum supported version and < the maximum).
  * Also returns true if the version could not be determined.
  */
-export function isVersionSupported(
-    version: PythonVersion | undefined,
-    minimumSupportedVersion: PythonVersion,
-): boolean {
-    return !version || comparePythonVersionDescending(minimumSupportedVersion, version) >= 0;
+export function isVersionSupported(version: PythonVersion | undefined): boolean {
+    return (
+        !version ||
+        (comparePythonVersionDescending(MINIMUM_PYTHON_VERSION, version) >= 0 &&
+            comparePythonVersionDescending(MAXIMUM_PYTHON_VERSION_EXCLUSIVE, version) < 0)
+    );
 }
 
 /**
@@ -259,7 +261,7 @@ export function printInterpreterDebugInfo(interpreters: PythonEnvironment[]): vo
                 path: interpreter.path,
                 versionInfo: {
                     version: interpreter.version?.raw ?? 'Unknown',
-                    supportedVersion: isVersionSupported(interpreter.version, MINIMUM_PYTHON_VERSION),
+                    supportedVersion: isVersionSupported(interpreter.version),
                 },
                 envInfo: {
                     envType: interpreter.envType,

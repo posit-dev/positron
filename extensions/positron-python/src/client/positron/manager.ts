@@ -21,12 +21,10 @@ import { traceError, traceInfo, traceLog } from '../logging';
 import { IConfigurationService, IDisposable, IInstaller, InstallerResponse, Product } from '../common/types';
 import { PythonRuntimeSession } from './session';
 import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
-import { Commands, EXTENSION_ROOT_DIR, MINIMUM_PYTHON_VERSION } from '../common/constants';
+import { Commands, EXTENSION_ROOT_DIR } from '../common/constants';
 import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
-import { shouldIncludeInterpreter, isVersionSupported, getUserDefaultInterpreter } from './interpreterSettings';
-import { parseVersion, toSemverLikeVersion } from '../pythonEnvironments/base/info/pythonVersion';
-import { PythonVersion } from '../pythonEnvironments/info/pythonVersion';
+import { shouldIncludeInterpreter, getUserDefaultInterpreter } from './interpreterSettings';
 import { hasFiles } from './util';
 import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
 import { EnvironmentType } from '../pythonEnvironments/info';
@@ -180,13 +178,6 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, vscode.Dispo
      */
     public registerLanguageRuntime(runtime: positron.LanguageRuntimeMetadata): void {
         const extraData = runtime.extraRuntimeData as PythonRuntimeExtraData;
-        const pythonVersion: PythonVersion = toSemverLikeVersion(parseVersion(runtime.languageVersion));
-
-        // Check if the interpreter should be included in the list of registered runtimes
-        if (!isVersionSupported(pythonVersion, MINIMUM_PYTHON_VERSION)) {
-            traceInfo(`Not registering runtime ${extraData.pythonPath} as it is not a supported version.`);
-            return;
-        }
 
         if (shouldIncludeInterpreter(extraData.pythonPath)) {
             // Save the runtime for later use
