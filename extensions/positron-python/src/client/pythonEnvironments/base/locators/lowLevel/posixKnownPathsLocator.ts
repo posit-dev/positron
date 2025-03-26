@@ -5,7 +5,8 @@ import * as os from 'os';
 import { gte } from 'semver';
 import { PythonEnvKind, PythonEnvSource } from '../../info';
 import { BasicEnvInfo, IPythonEnvsIterator, Locator } from '../../locator';
-import { ADDITIONAL_POSIX_BIN_PATHS, commonPosixBinPaths, getPythonBinFromPosixPaths } from '../../../common/posixUtils';
+// eslint-disable-next-line import/no-duplicates
+import { commonPosixBinPaths, getPythonBinFromPosixPaths } from '../../../common/posixUtils';
 import { isPyenvShimDir } from '../../../common/environmentManagers/pyenv';
 import { getOSType, OSType } from '../../../../common/utils/platform';
 import { isMacDefaultPythonPath } from '../../../common/environmentManagers/macDefault';
@@ -14,6 +15,8 @@ import { StopWatch } from '../../../../common/utils/stopWatch';
 
 // --- Start Positron ---
 import { findInterpretersInDir, looksLikeBasicGlobalPython } from '../../../common/commonUtils';
+// eslint-disable-next-line import/no-duplicates
+import { ADDITIONAL_POSIX_BIN_PATHS } from '../../../common/posixUtils';
 // --- End Positron ---
 
 export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {

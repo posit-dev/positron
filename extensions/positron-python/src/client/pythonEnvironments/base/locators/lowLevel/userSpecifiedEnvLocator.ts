@@ -94,7 +94,12 @@ export class UserSpecifiedEnvironmentLocator extends FSWatchingLocator {
                             const kind = await getVirtualEnvKind(filename);
                             try {
                                 foundPythons.push(filename);
-                                yield { kind, executablePath: filename, source: [PythonEnvSource.UserSettings], searchLocation: undefined };
+                                yield {
+                                    kind,
+                                    executablePath: filename,
+                                    source: [PythonEnvSource.UserSettings],
+                                    searchLocation: undefined,
+                                };
                                 traceVerbose(
                                     `[UserSpecifiedEnvironmentLocator] User-specified Environment: [added] ${filename}`,
                                 );
