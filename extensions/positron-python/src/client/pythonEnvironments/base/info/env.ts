@@ -199,6 +199,13 @@ function buildEnvDisplayString(env: PythonEnvInfo, getAllDetails = false): strin
             envSuffixParts.push(kindName);
         }
     }
+    // --- Start Positron ---
+    // For any environments added via user settings, tag them as "custom". Custom environments
+    // will already include "custom" as part of the name, so we don't need to duplicate the info.
+    if (env.source.includes(PythonEnvSource.UserSettings) && env.kind !== PythonEnvKind.Custom) {
+        envSuffixParts.push('custom');
+    }
+    // --- End Positron ---
     const envSuffix = envSuffixParts.length === 0 ? '' : `(${envSuffixParts.join(': ')})`;
 
     // Pull it all together.
