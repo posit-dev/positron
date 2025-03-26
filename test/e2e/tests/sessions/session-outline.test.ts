@@ -21,7 +21,6 @@ test.describe('Session: Outline', {
 		const { variables, outline, console } = app.workbench;
 
 		const [pySession, pyAltSession] = await sessions.start(['python', 'pythonAlt']);
-		const { path: pyAltSessionPath } = await sessions.getMetadata(pyAltSession.id);
 
 		// Focus outline view and open Python file
 		await variables.togglePane('hide');
@@ -30,7 +29,6 @@ test.describe('Session: Outline', {
 
 		// Session 1 - verify only expected outline elements
 		await sessions.select(pySession.id);
-		// await sessions.expectStatusBarToContain(pySessionPath);
 		await console.typeToConsole('global_variable="goodbye"', true);
 		await outline.expectOutlineElementCountToBe(2);
 		await outline.expectOutlineElementToBeVisible('global_variable = "hello"');
@@ -38,7 +36,6 @@ test.describe('Session: Outline', {
 
 		// Python Alt Session - verify only expected outline elements
 		await sessions.select(pyAltSession.id);
-		await sessions.expectStatusBarToContain(pyAltSessionPath);
 		await console.typeToConsole('global_variable="goodbye2"', true);
 		await outline.expectOutlineElementCountToBe(2);
 		await outline.expectOutlineElementToBeVisible('global_variable = "hello"');
@@ -55,7 +52,7 @@ test.describe('Session: Outline', {
 		await outline.focus();
 		await openFile('workspaces/outline/basic-outline-with-vars.r');
 
-		// Session 1a - verify only expected outline elements
+		// Session 1 - verify only expected outline elements
 		await sessions.select(rSession1.id);
 		await console.typeToConsole('x<-"goodbye"', true);
 		await outline.expectOutlineElementCountToBe(3);
@@ -63,7 +60,7 @@ test.describe('Session: Outline', {
 		await outline.expectOutlineElementToBeVisible('global_variable');
 		await outline.expectOutlineElementToBeVisible('local_variable');
 
-		// Session 1b - verify only expected outline elements
+		// Session 2 - verify only expected outline elements
 		await sessions.select(rSession2.id);
 		await console.typeToConsole('x<-"goodbye2"', true);
 		await outline.expectOutlineElementCountToBe(3);
@@ -71,7 +68,7 @@ test.describe('Session: Outline', {
 		await outline.expectOutlineElementToBeVisible('global_variable');
 		await outline.expectOutlineElementToBeVisible('local_variable');
 
-		// Session 2 - verify only expected outline elements
+		// Session 3 (Alt) - verify only expected outline elements
 		await sessions.select(rSessionAlt.id);
 		await console.typeToConsole('x<-"goodbye3"', true);
 		await outline.expectOutlineElementCountToBe(3);

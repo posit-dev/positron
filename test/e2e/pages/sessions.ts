@@ -319,16 +319,16 @@ export class Sessions {
 	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
 		await test.step(`Select session: ${sessionIdOrName}`, async () => {
 			await this.hotKeys.focusConsole();
-			const session = this.getSessionTab(sessionIdOrName);
+			const sessionTab = this.getSessionTab(sessionIdOrName);
 
 			if (waitForSessionIdle) {
-				await expect(this.idleStatus(session)).toBeVisible();
+				await expect(this.idleStatus(sessionTab)).toBeVisible();
 			}
 
 			// workaround for issue: https://github.com/posit-dev/positron/issues/6997
-			await this.getSessionTab(sessionIdOrName).click();
+			await sessionTab.click();
 			await this.page.waitForTimeout(1000);
-			await this.getSessionTab(sessionIdOrName).click();
+			await sessionTab.click();
 		});
 	}
 

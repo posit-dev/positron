@@ -13,7 +13,7 @@ test.describe('Sessions: State', {
 	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings }) {
+	test.beforeAll(async function ({ userSettings, sessions }) {
 		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
 	});
 
@@ -22,9 +22,9 @@ test.describe('Sessions: State', {
 		await sessions.deleteDisconnectedSessions();
 	});
 
-	test.afterEach(async function ({ sessions }) {
-		await sessions.clearConsoleAllSessions();
-	});
+	// test.afterEach(async function ({ sessions }) {
+	// 	await sessions.clearConsoleAllSessions();
+	// });
 
 	test.skip('Validate state between sessions (active, idle, disconnect)', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6987' }]
@@ -101,12 +101,12 @@ test.describe('Sessions: State', {
 		await sessions.expectStatusToBe(pySession.name, 'idle');
 	});
 
-	// BUG: why is a new session starting at the end of this test?
 	test('Validate metadata between sessions', async function ({ app, sessions }) {
 		const { console } = app.workbench;
 
 		// Ensure sessions exist and are idle
 		const [pySession, rSession, pySessionAlt] = await sessions.start(['python', 'r', 'pythonAlt']);
+		await sessions.resizeSessionList({ x: -100 });
 
 		// Verify Python session metadata
 		await sessions.expectMetaDataToBe({ ...pySession, state: 'idle' });
