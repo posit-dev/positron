@@ -39,7 +39,7 @@ async function isFoundInPathEnvVar(executablePath: string): Promise<boolean> {
     } else {
         searchPathEntries = await commonPosixBinPaths();
         // --- Start Positron ---
-        searchPathEntries.concat(ADDITIONAL_POSIX_BIN_PATHS);
+        searchPathEntries.push(...ADDITIONAL_POSIX_BIN_PATHS);
         // --- End Positron ---
     }
     // Filter out pyenv shims. They are not actual python binaries, they are used to launch
