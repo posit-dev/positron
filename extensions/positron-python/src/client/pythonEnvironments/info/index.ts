@@ -23,6 +23,7 @@ export enum EnvironmentType {
     Pixi = 'Pixi',
     // --- Start Positron ---
     Uv = 'Uv',
+    Custom = 'Custom',
     // --- End Positron ---
     VirtualEnvWrapper = 'VirtualEnvWrapper',
     ActiveState = 'ActiveState',

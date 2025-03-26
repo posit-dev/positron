@@ -95,6 +95,7 @@ export namespace EnvGroups {
     export const Pixi = 'Pixi';
     // --- Start Positron ---
     export const Uv = 'Uv';
+    export const Custom = 'Custom';
     // --- End Positron ---
     export const VirtualEnvWrapper = 'VirtualEnvWrapper';
     export const ActiveState = 'ActiveState';
