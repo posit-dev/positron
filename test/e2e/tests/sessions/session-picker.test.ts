@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -37,16 +36,16 @@ test.describe('Sessions: Session Picker', {
 
 		// Start another Python session and verify Active Session Picker updates
 		const pySessionAlt = await sessions.start('pythonAlt', { triggerMode: 'session-picker' });
-		await expect(sessions.sessionPicker).toContainText(pySessionAlt.name);
+		await sessions.expectSessionPickerToBe(pySessionAlt);
 
 		// Start another R session and verify Active Session Picker updates
 		const rSessionAlt = await sessions.start('rAlt', { triggerMode: 'session-picker' });
-		await expect(sessions.sessionPicker).toContainText(rSessionAlt.name);
+		await sessions.expectSessionPickerToBe(rSessionAlt);
 
 		await sessions.select(rSession.id);
-		await expect(sessions.sessionPicker).toContainText(rSession.name);
+		await sessions.expectSessionPickerToBe(rSession);
 
 		await sessions.select(pySession.id);
-		await expect(sessions.sessionPicker).toContainText(pySession.name);
+		await sessions.expectSessionPickerToBe(pySession);
 	});
 });

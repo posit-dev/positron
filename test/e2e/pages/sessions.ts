@@ -235,6 +235,26 @@ export class Sessions {
 	}
 
 	/**
+	 * Action: Clear the Console for all active Sessions
+	 */
+	async clearConsoleAllSessions() {
+		await test.step('Clear all sessions', async () => {
+			const sessionIds = await this.getAllSessionIds();
+
+			if (sessionIds.length === 1) {
+				await this.page.getByRole('button', { name: 'Clear console' }).click();
+			} else if (sessionIds.length > 1) {
+				for (let i = 0; i < sessionIds.length; i++) {
+					await this.select(sessionIds[i]);
+					await this.page.getByRole('button', { name: 'Clear console' }).click();
+				}
+
+				await this.select(sessionIds[0]);
+			}
+		});
+	}
+
+	/**
 	 * Action: Move the session tab list divider to a specific position from the bottom of the window.
 	 * Positions the divider `distanceFromBottom` pixels above the bottom of the window.
 	 *
@@ -697,26 +717,35 @@ export class Sessions {
 	}
 
 	/**
-	 * Verify: the selected runtime matches the runtime in the Session Picker button
+	 * Verify: the runtime matches the runtime in the Session Picker button
 	 *
 	 * @param version - The descriptive string of the runtime to verify.
 	 */
 	async expectSessionPickerToBe(
-		options: { language?: 'Python' | 'R'; version?: string } = {}
+		options: { language?: 'Python' | 'R'; version?: string } | 'Start Session' = {}
 	) {
 		if (!DESIRED_PYTHON || !DESIRED_R) {
 			throw new Error('Please set env vars: POSITRON_PY_VER_SEL, POSITRON_R_VER_SEL');
 		}
 
-		const {
-			language = 'Python',
-			version = language === 'Python' ? DESIRED_PYTHON : DESIRED_R,
-		} = options;
-		await test.step(`Verify runtime is selected: ${language} ${version}`, async () => {
-			const runtimeInfo = await this.getSelectedSessionInfo();
-			expect(runtimeInfo.language).toContain(language);
-			expect(runtimeInfo.version).toContain(version);
-		});
+		const isStartSession = options === 'Start Session';
+
+		const language = !isStartSession && typeof options === 'object'
+			? options.language ?? 'Python'
+			: undefined;
+
+		const version = !isStartSession && typeof options === 'object'
+			? options.version ?? (language === 'Python' ? DESIRED_PYTHON : DESIRED_R)
+			: '';
+
+		await test.step(
+			`Verify runtime is selected: ${isStartSession ? 'Start Session' : `${language} ${version}`}`,
+			async () => {
+				isStartSession
+					? await expect(this.sessionPicker).toHaveText('Start Session')
+					: await expect(this.sessionPicker).toContainText(`${language} ${version}`);
+			}
+		);
 	}
 
 	async expectSessionCountToBe(count: number, sessionType: 'all' | 'active' = 'all') {

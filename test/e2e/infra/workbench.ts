@@ -79,8 +79,8 @@ export class Workbench {
 	readonly scm: SCM;
 	readonly sessions: Sessions;
 	readonly search: Search;
-	readonly hotKeys: HotKeys;
 	readonly assistant: Assistant;
+	readonly hotKeys: HotKeys;
 
 	constructor(code: Code) {
 		this.hotKeys = new HotKeys(code);

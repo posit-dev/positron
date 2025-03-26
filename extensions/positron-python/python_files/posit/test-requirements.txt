@@ -23,3 +23,4 @@ ipython<=8.31.0
 # putting this last because holoviews is picky about dependency versions (including bokeh),
 # so uv's resolver needs to tackle holoviews first
 bokeh
+haystack-ai
