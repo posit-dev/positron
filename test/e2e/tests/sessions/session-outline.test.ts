@@ -21,7 +21,6 @@ test.describe('Session: Outline', {
 		const { variables, outline, console } = app.workbench;
 
 		const [pySession, pyAltSession] = await sessions.start(['python', 'pythonAlt']);
-		const { path: pySessionPath } = await sessions.getMetadata(pySession.id);
 		const { path: pyAltSessionPath } = await sessions.getMetadata(pyAltSession.id);
 
 		// Focus outline view and open Python file
