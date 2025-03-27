@@ -48,12 +48,17 @@ interface IExecutionObserver {
 	onCompleted?: (result: any) => void;
 
 	/** Called when execution fails with an error */
-	onFailed?: (error: any) => void;
+	onFailed?: (error: Error) => void;
 
 	/** Called when execution finishes (after success or failure) */
 	onFinished?: () => void;
 }
 
+/**
+ * Wraps an IExecutionObserver and provides a promise that resolves when the
+ * execution is completed. This allows us to track the state of the
+ * execution and notify when it is completed.
+ */
 class ExecutionObserver implements IDisposable {
 	public readonly promise: DeferredPromise<Record<string, any>>;
 	public readonly store: DisposableStore = new DisposableStore();
@@ -83,7 +88,7 @@ class ExecutionObserver implements IDisposable {
 		}
 	}
 
-	onFailed(error: any) {
+	onFailed(error: Error) {
 		this.state = 'completed';
 		if (this.observer?.onFailed) {
 			this.observer.onFailed(error);
@@ -973,42 +978,40 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		const executionObserver = new ExecutionObserver(observer);
 		this._executionObservers.set(executionId, executionObserver);
 
-		// Begin the code execution. This returns a promise that resolves a
-		// boolean indicating whether the execution was successfully started or
-		// enqueued.
+		// Begin the code execution. This returns a promise that resolves to the
+		// session ID of the session assigned (or created) to run the code.
 		this._proxy.$executeCode(
 			languageId, code, focus, allowIncomplete, mode, errorBehavior, executionId).then(
 				(sessionId) => {
 					// If a cancellation token was provided, then add a cancellation
 					// request handler so we can interrupt the session if requested
-					if (observer?.token) {
-						const token = observer.token;
-						executionObserver.store.add(
-							token.onCancellationRequested(async () => {
-								// We can't interrupt the code if it hasn't started yet.
-								//
-								// CONSIDER: We could handle this by reaching
-								// back into the main thread and asking it to
-								// cancel the execution request that has not yet
-								// been dispatched
-								if (executionObserver.state === 'pending') {
-									this._logService.warn(
-										`Cannot interrupt execution of ${code}: ` +
-										`it has not yet started.`);
-								}
-
-								// If the code is running, interrupt the session
-								if (executionObserver.state === 'running') {
-									await this.interruptSession(sessionId);
-								}
-							}));
+					if (!observer?.token) {
+						return;
 					}
-				},
-				(err) => {
+					const token = observer.token;
+					executionObserver.store.add(
+						token.onCancellationRequested(async () => {
+							// We can't interrupt the code if it hasn't started yet.
+							//
+							// CONSIDER: We could handle this by reaching
+							// back into the main thread and asking it to
+							// cancel the execution request that has not yet
+							// been dispatched
+							if (executionObserver.state === 'pending') {
+								this._logService.warn(
+									`Cannot interrupt execution of ${code}: ` +
+									`it has not yet started.`);
+							}
+
+							// If the code is running, interrupt the session
+							if (executionObserver.state === 'running') {
+								await this.interruptSession(sessionId);
+							}
+						}));
+				}).catch((err) => {
 					// Propagate the error to the observer
 					executionObserver.promise.error(err);
-				}
-			);
+				});
 
 		return executionObserver.promise.p;
 	}
@@ -1238,11 +1241,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 			case LanguageRuntimeMessageType.Error:
 				const error = message as ILanguageRuntimeMessageError;
-				const result = {
+				const result: Error = {
 					message: error.message,
-					traceback: error.traceback,
 					name: error.name,
-				};
+					stack: error.traceback.join('\n'),
+				}
 				o.onFailed(result);
 				break;
 		}

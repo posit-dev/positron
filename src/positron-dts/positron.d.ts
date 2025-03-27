@@ -1461,7 +1461,7 @@ declare module 'positron' {
 			 *
 			 * @param error The error that caused the execution to fail.
 			 */
-			onFailed?: (error: any) => void;
+			onFailed?: (error: Error) => void;
 
 			/**
 			 * An optional callback to invoke when the execution has finished,
@@ -1487,7 +1487,7 @@ declare module 'positron' {
 		 * @param observer An optional observer for the execution. This object will be notified of
 		 *  execution events, such as output, error, and completion.
 		 * @returns A Thenable that resolves with the result of the code execution,
-		   as a map of MIME types to values.
+		 *  as a map of MIME types to values.
 		 */
 		export function executeCode(languageId: string,
 			code: string,

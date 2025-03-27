@@ -408,13 +408,13 @@ suite('positron API - executeCode', () => {
 
 		// Observer tracking for failures
 		let failureCalled = false;
-		let failureError: any;
+		let failureError: Error | undefined;
 
 		// Create the observer that expects failure
 		const observer: positron.runtime.ExecutionObserver = {
 			onStarted: () => { },
 
-			onFailed: (error: any) => {
+			onFailed: (error: Error) => {
 				failureCalled = true;
 				failureError = error;
 			},
