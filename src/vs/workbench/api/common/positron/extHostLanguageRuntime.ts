@@ -60,10 +60,22 @@ interface IExecutionObserver {
  * execution and notify when it is completed.
  */
 class ExecutionObserver implements IDisposable {
+
+	/** The promise that resolves when the computation completes */
 	public readonly promise: DeferredPromise<Record<string, any>>;
+
+	/** Store of disposables to be cleaned up */
 	public readonly store: DisposableStore = new DisposableStore();
 
+	/** The current state of the computation */
 	public state: 'pending' | 'running' | 'completed';
+
+	/**
+	 * The session ID in which the computation is running. This is not always
+	 * known when creating the observer since the it is possible we need to
+	 * create a new session to fulfill the request.
+	 */
+	public sessionId: string | undefined;
 
 	constructor(public readonly observer: IExecutionObserver | undefined) {
 		this.state = 'pending';
@@ -130,7 +142,7 @@ class ExecutionObserver implements IDisposable {
 		const err: Error = {
 			message: message.message,
 			name: message.name,
-			stack: message.traceback.join('\n'),
+			stack: message.traceback?.join('\n'),
 		};
 		this.onFailed(err);
 	}
@@ -461,6 +473,27 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		session.onDidChangeRuntimeState(state => {
 			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
 			this._proxy.$emitLanguageRuntimeState(handle, tick, state);
+
+			// When the session exits, make sure to shut down any of its
+			// remaining execution observers cleanly so they aren't left
+			// hanging.
+			if (state === RuntimeState.Exited) {
+				this._executionObservers.forEach((observer, id) => {
+					if (observer.sessionId === session.metadata.sessionId) {
+						// The observer is associated with this session, so we
+						// need to clean it up. Reject its promise if it hasn't
+						// already been settled.
+						if (!observer.promise.isSettled) {
+							observer.onFailed({
+								message: 'The session exited unexpectedly.',
+								name: 'Interrupted',
+							});
+						}
+						observer.dispose();
+						this._executionObservers.delete(id);
+					}
+				});
+			}
 		});
 
 		session.onDidReceiveRuntimeMessage(message => {
@@ -1030,6 +1063,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		this._proxy.$executeCode(
 			languageId, code, focus, allowIncomplete, mode, errorBehavior, executionId).then(
 				(sessionId) => {
+					// Bind the session ID to the observer so we can use it later
+					executionObserver.sessionId = sessionId;
+
 					// If a cancellation token was provided, then add a cancellation
 					// request handler so we can interrupt the session if requested
 					if (!observer?.token) {
