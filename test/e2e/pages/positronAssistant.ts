@@ -10,16 +10,19 @@ import { Code } from '../infra/code';
 const CHATBUTTON = '.action-label.codicon-comment-discussion[aria-label="Chat (Ctrl+Alt+I)"]';
 const ADD_MODEL_LINK = 'a[data-href="command:positron-assistant.addModelConfiguration"]';
 const ADD_MODEL_BUTTON = 'a.action-label[aria-label="Add Language Model"]';
-const APIKEY_INPUT = 'input.text-input[type="password"]';
+const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
 const DONE_BUTTON = 'button.positron-button.action-bar-button.default';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
 const SIGN_OUT_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign out")';
-const ANTHROPIC_BUTTON = 'button.positron-button.language-model.button:has(svg path[fill="#D97757"])';
-const AWS_BEDROCK_BUTTON = 'button.positron-button.language-model.button:has(svg[id*="bedrock"])';
-const ECHO_MODEL_BUTTON = 'button.positron-button.language-model.button:has(.codicon-info)';
-const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(.codicon-error)';
-const GEMINI_BUTTON = 'button.positron-button.language-model.button:has(svg path[fill="url(#gemini-color_svg__a)"])';
+const ANTHROPIC_BUTTON = 'button.positron-button.language-model.button:has(#anthropic-provider-button)';
+const AWS_BEDROCK_BUTTON = 'button.positron-button.language-model.button:has(#bedrock-provider-button)';
+const ECHO_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-info)';
+const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div.codicon-error)';
+const GEMINI_BUTTON = 'button.positron-button.language-model.button:has(#google-provider-button)';
+const COPILOT_BUTTON = 'button.positron-button.language-model.button:has(#copilot-provider-button)';
 const CHAT_PANEL = '#workbench\\.panel\\.chat';
+const OATH_RADIO = '.language-model-authentication-method-container input#oauth[type="radio"]';
+const APIKEY_RADIO = '.language-model-authentication-method-container input#apiKey[type="radio"]';
 /*
  *  Reuseable Positron Assistant functionality for tests to leverage.
  */
@@ -77,6 +80,9 @@ export class Assistant {
 				break;
 			case 'gemini':
 				await this.code.driver.page.locator(GEMINI_BUTTON).click();
+				break;
+			case 'copilot':
+				await this.code.driver.page.locator(COPILOT_BUTTON).click();
 				break;
 			default:
 				throw new Error(`Unsupported model provider: ${provider}`);
