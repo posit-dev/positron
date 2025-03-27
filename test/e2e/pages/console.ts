@@ -344,4 +344,10 @@ export class Console {
 			await expect(this.suggestionList).toHaveCount(count);
 		});
 	}
+
+	async expectSuggestionListToContain(label: string): Promise<void> {
+		await test.step(`Expect console suggestion list to contain: ${label}`, async () => {
+			await this.code.driver.page.locator('.suggest-widget').getByLabel(label).isVisible();
+		});
+	}
 }

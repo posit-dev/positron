@@ -70,27 +70,25 @@ test.describe('Session: Autocomplete', {
 		// Session 1 - verify console autocomplete
 		await sessions.select(pySession.id);
 		await console.typeToConsole('import os', true, 0);
-		await console.typeToConsole('os.path', false, 250);
-		await console.expectSuggestionListCount(6);
+		await console.typeToConsole('os.path.', false, 250);
+		await console.expectSuggestionListToContain('abspath, def abspath(path)');
 		await console.clearInput();
 
 		// Session 2 - verify console autocomplete
 		await sessions.select(pyAltSession.id);
 		await console.typeToConsole('import os', true, 0);
-		await console.typeToConsole('os.path', false, 250);
-		await console.expectSuggestionListCount(6);
+		await console.typeToConsole('os.path.', false, 250);
+		await console.expectSuggestionListToContain('abspath, def abspath(path)');
 		await console.clearInput();
 
 		// Session 1 - restart and verify console autocomplete
 		await sessions.restart(pySession.id);
 		await console.typeToConsole('import os', true, 0);
-		await console.typeToConsole('os.path', false, 250);
-		await console.expectSuggestionListCount(6);
+		await console.expectSuggestionListToContain('abspath, def abspath(path)');
 
 		// Session 2 - verify console autocomplete
 		await sessions.select(pyAltSession.id);
-		await console.typeToConsole('os.path', false, 250);
-		await console.expectSuggestionListCount(6);
+		await console.expectSuggestionListToContain('abspath, def abspath(path)');
 	});
 
 	test('R - Verify autocomplete suggestions in Console and Editor', async function ({ app, runCommand, sessions }) {
@@ -140,25 +138,25 @@ test.describe('Session: Autocomplete', {
 
 		// Session 1 - verify console autocomplete
 		await sessions.select(rSession.id);
-		await console.typeToConsole('base::');
-		await console.expectSuggestionListCount(12);
+		await console.typeToConsole('base::abb');
+		await console.expectSuggestionListToContain('abbreviate, {base}');
 
 		// Session 2 - verify console autocomplete
 		await sessions.select(rSessionAlt.id);
-		await console.typeToConsole('base::');
-		await console.expectSuggestionListCount(12);
+		await console.typeToConsole('base::abb');
+		await console.expectSuggestionListToContain('abbreviate, {base}');
 
 		// Session 1 - restart and verify console autocomplete
 		await sessions.restart(rSession.id);
-		await app.code.driver.page.keyboard.press('Backspace');
-		await console.typeToConsole(':');
-		await console.expectSuggestionListCount(12);
+		await console.clearInput();
+		await console.typeToConsole('base::abb');
+		await console.expectSuggestionListToContain('abbreviate, {base}');
 
 		// Session 2 - verify console autocomplete
 		await sessions.select(rSessionAlt.id);
-		await app.code.driver.page.keyboard.press('Backspace');
-		await console.typeToConsole(':');
-		await console.expectSuggestionListCount(12);
+		await console.clearInput();
+		await console.typeToConsole('base::abb');
+		await console.expectSuggestionListToContain('abbreviate, {base}');
 	});
 });
 
