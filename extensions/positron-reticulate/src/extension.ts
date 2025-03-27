@@ -813,7 +813,7 @@ class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 	extraRuntimeData: any = {
 		pythonPath: 'Managed by the reticulate package',
 		ipykernelBundle: {
-			disabledReason: 'Cannot bundle ipkernel for reticulate sessions',
+			disabledReason: 'Cannot bundle ipykernel for reticulate sessions',
 		},
 	};
 	base64EncodedIconSvg: string | undefined;
