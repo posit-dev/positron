@@ -2554,7 +2554,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}
 
 		// Create the ID for the code fragment that will be executed.
-		let id = this._runtimeItemPendingInput.executionId || this.genenerateExecutionId(code);
+		const id = this._runtimeItemPendingInput.executionId || this.genenerateExecutionId(code);
 
 		// Add the provisional ActivityItemInput for the code fragment.
 		const runtimeItemActivity = new RuntimeItemActivity(
@@ -2619,7 +2619,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param code The code to check for a stored execution ID.
 	 * @returns
 	 */
-	private genenerateExecutionId(code: string): string {
+	private generateExecutionId(code: string): string {
 		const storedExecutionId = this._pendingExecutionIds.get(code);
 		if (storedExecutionId) {
 			// Clear it from the map as we're about to use it
@@ -2643,7 +2643,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		executionId?: string
 	) {
 		// Use the supplied execution ID if known; otherwise, generate one
-		let id = executionId || this.genenerateExecutionId(code);
+		const id = executionId || this.genenerateExecutionId(code);
 
 		if (!this._session) {
 			return;

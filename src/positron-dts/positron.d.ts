@@ -1418,7 +1418,8 @@ declare module 'positron' {
 			/**
 			 * An optional callback to invoke when the execution emits error
 			 * output. This just means "output sent to standard error", and does
-			 * not mean that the execution failed.
+			 * not mean that the execution failed. This can be called zero or more
+			 * times during execution of the code.
 			 *
 			 * @param message The message emitted.
 			 */
@@ -1449,7 +1450,7 @@ declare module 'positron' {
 			 *
 			 * One of `onCompleted` or `onFailed` will be called, but not both.
 			 *
-			 * @param result The result of the successful execution.
+			 * @param result The result of the successful execution, as a map of MIME types to values.
 			 */
 			onCompleted?: (result: Record<string, any>) => void;
 
@@ -1485,7 +1486,8 @@ declare module 'positron' {
 		 * @param errorBehavior Possible error behavior for a language runtime, currently ignored by kernels
 		 * @param observer An optional observer for the execution. This object will be notified of
 		 *  execution events, such as output, error, and completion.
-		 * @returns A Thenable that resolves with the result of the code execution.
+		 * @returns A Thenable that resolves with the result of the code execution,
+		   as a map of MIME types to values.
 		 */
 		export function executeCode(languageId: string,
 			code: string,
