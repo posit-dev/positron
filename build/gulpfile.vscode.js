@@ -476,11 +476,11 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 				.pipe(replace('@@NAME@@', product.nameShort))
 				.pipe(replace('@@PRODNAME@@', product.nameLong))
 				// --- Start Positron ---
-				// These are commented out since they're not currently used in 'resources/win32/bin/code.sh'
+				// This is commented out since it's not currently used in 'resources/win32/bin/code.sh'
 				// .pipe(replace('@@VERSION@@', version))
-				// --- End Positron ---
 				.pipe(replace('@@POSITRONVERSION@@', positronVersion))
 				.pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
+				// --- End Positron ---
 				.pipe(replace('@@COMMIT@@', commit))
 				.pipe(replace('@@APPNAME@@', product.applicationName))
 				.pipe(replace('@@SERVERDATAFOLDER@@', product.serverDataFolderName || '.vscode-remote'))
