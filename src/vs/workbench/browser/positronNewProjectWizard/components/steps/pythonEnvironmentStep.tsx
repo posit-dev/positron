@@ -281,10 +281,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			);
 		}
 
-		// If an interpreter is selected and ipykernel will be installed,
-		// show a message to notify the user that ipykernel will be installed.
-		if (selectedInterpreter && willInstallIpykernel
-		) {
+		// If ipykernel will be installed, show a message to notify the user.
+		if (willInstallIpykernel) {
 			return (
 				<WizardFormattedText type={WizardFormattedTextType.Info}>
 					<code>ipykernel</code>
