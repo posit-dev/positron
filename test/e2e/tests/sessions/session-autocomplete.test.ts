@@ -18,6 +18,10 @@ test.describe('Session: Autocomplete', {
 		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
 	});
 
+	test.afterEach(async function ({ hotKeys }) {
+		await hotKeys.closeAllEditors();
+	});
+
 	test('Python - Verify autocomplete suggestions in Console and Editor', async function ({ app, runCommand, sessions }) {
 		const { variables, editors, console } = app.workbench;
 
@@ -53,6 +57,38 @@ test.describe('Session: Autocomplete', {
 		// Alt Session 1 - retrigger and verify no editor autocomplete
 		await triggerAutocompleteInEditor({ app, session: pyAltSession, retrigger: true });
 		await editors.expectSuggestionListCount(0);
+
+		await sessions.deleteAll();
+	});
+
+	test('Python - Verify autocomplete suggestions (LSP is alive) after restart', async function ({ app, hotKeys, sessions }) {
+		const { variables, console } = app.workbench;
+
+		const [pySession, pyAltSession] = await sessions.start(['python', 'pythonAlt']);
+		await variables.togglePane('hide');
+
+		// Session 1 - verify console autocomplete
+		await sessions.select(pySession.id);
+		await console.typeToConsole('import os', true, 0);
+		await console.typeToConsole('os.path.', false, 250);
+		await console.expectSuggestionListToContain('abspath, def abspath(path)');
+		await console.clearInput();
+
+		// Session 2 - verify console autocomplete
+		await sessions.select(pyAltSession.id);
+		await console.typeToConsole('import os', true, 0);
+		await console.typeToConsole('os.path.', false, 250);
+		await console.expectSuggestionListToContain('abspath, def abspath(path)');
+		await console.clearInput();
+
+		// Session 1 - restart and verify console autocomplete
+		await sessions.restart(pySession.id);
+		await console.typeToConsole('import os', true, 0);
+		await console.expectSuggestionListToContain('abspath, def abspath(path)');
+
+		// Session 2 - verify console autocomplete
+		await sessions.select(pyAltSession.id);
+		await console.expectSuggestionListToContain('abspath, def abspath(path)');
 	});
 
 	test('R - Verify autocomplete suggestions in Console and Editor', async function ({ app, runCommand, sessions }) {
@@ -90,6 +126,37 @@ test.describe('Session: Autocomplete', {
 		// Alt Session 1 - retrigger verify no editor autocomplete
 		await triggerAutocompleteInEditor({ app, session: rSessionAlt, retrigger: true });
 		await editors.expectSuggestionListCount(0);
+
+		await sessions.deleteAll();
+	});
+
+	test('R - Verify autocomplete suggestions (LSP is alive) after restart', async function ({ app, runCommand, sessions }) {
+		const { variables, console } = app.workbench;
+
+		const [rSession, rSessionAlt] = await sessions.start(['r', 'rAlt'], { reuse: false });
+		await variables.togglePane('hide');
+
+		// Session 1 - verify console autocomplete
+		await sessions.select(rSession.id);
+		await console.typeToConsole('base::abb');
+		await console.expectSuggestionListToContain('abbreviate, {base}');
+
+		// Session 2 - verify console autocomplete
+		await sessions.select(rSessionAlt.id);
+		await console.typeToConsole('base::abb');
+		await console.expectSuggestionListToContain('abbreviate, {base}');
+
+		// Session 1 - restart and verify console autocomplete
+		await sessions.restart(rSession.id);
+		await console.clearInput();
+		await console.typeToConsole('base::abb');
+		await console.expectSuggestionListToContain('abbreviate, {base}');
+
+		// Session 2 - verify console autocomplete
+		await sessions.select(rSessionAlt.id);
+		await console.clearInput();
+		await console.typeToConsole('base::abb');
+		await console.expectSuggestionListToContain('abbreviate, {base}');
 	});
 });
 
