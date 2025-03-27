@@ -2397,7 +2397,7 @@ export abstract class DataGridInstance extends Disposable {
 			return this.columnSelectionState(columnIndex) | this.rowSelectionState(rowIndex);
 		}
 
-		// If the cell is selected, return the cell selection state. yaya
+		// If the cell is selected, return the cell selection state.
 		if (this._cellSelectionRange?.contains(columnIndex, rowIndex)) {
 			// Set the selected bit.
 			let cellSelectionState = CellSelectionState.Selected;
