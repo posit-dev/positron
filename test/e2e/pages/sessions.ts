@@ -159,7 +159,7 @@ export class Sessions {
 
 			if (waitForIdle) {
 				await expect(this.page.getByText('Restarting')).not.toBeVisible({ timeout: 90000 });
-				await expect(this.page.getByText('restarted')).toBeVisible();
+				await expect(this.page.locator('.console-instance[style*="z-index: auto"]').getByText('restarted.')).toBeVisible();
 				await this.expectStatusToBe(sessionIdOrName, 'idle');
 			}
 		});
