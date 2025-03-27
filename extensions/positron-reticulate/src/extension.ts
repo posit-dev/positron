@@ -785,40 +785,31 @@ class RSessionError extends Error {
 }
 
 async function getRSession_(progress: vscode.Progress<{ message?: string; increment?: number }>): Promise<positron.LanguageRuntimeSession> {
-	let session = await positron.runtime.getForegroundSession();
 
-	if (session && session.callMethod && session.runtimeMetadata.languageId === 'r') {
-		// Get foreground session will return a runtime session even if it has
-		// already exited. We check that it's still there before proceeding.
-		// TODO: it would be nice to have an API to check for the session state.
-		try {
-			await withTimeout(
-				Promise.resolve(session.callMethod('is_installed', 'reticulate', '1.39')),
-				2000,
-				'Timed out trying to reach the session'
-			);
-		} catch (err) {
-			session = undefined;
-		}
+	let sessions = await positron.runtime.getActiveSessions();
+	let r_sessions = sessions.filter((s) => s.runtimeMetadata.languageId === 'r');
+
+	if (r_sessions.length > 0) {
+		progress.report({ increment: 10, message: 'Found an R session' });
+		return r_sessions[0];
 	}
 
-	if (!session || session.runtimeMetadata.languageId !== 'r') {
-		progress.report({ increment: 10, message: 'Looking for prefered runtime...' });
+	progress.report({ increment: 10, message: 'Looking for prefered runtime...' });
+	const runtime = await positron.runtime.getPreferredRuntime('r');
 
-		const runtime = await positron.runtime.getPreferredRuntime('r');
+	progress.report({ increment: 10, message: 'Starting R runtime...' });
+	await positron.runtime.selectLanguageRuntime(runtime.runtimeId);
 
-		progress.report({ increment: 10, message: 'Starting R runtime...' });
-		await positron.runtime.selectLanguageRuntime(runtime.runtimeId);
+	progress.report({ increment: 10, message: 'Getting R session...' });
+	// now we expect that there will be at least one r_session
+	sessions = await positron.runtime.getActiveSessions();
+	r_sessions = sessions.filter((s) => s.runtimeMetadata.languageId === 'r');
 
-		progress.report({ increment: 10, message: 'Getting R session...' });
-		session = await positron.runtime.getForegroundSession();
-	}
-
-	if (!session) {
+	if (r_sessions.length === 0) {
 		throw new RSessionError(`No available R session to execute reticulate`);
 	}
 
-	return session;
+	return r_sessions[0];
 }
 
 class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
@@ -869,6 +860,7 @@ export class ReticulateProvider {
 	}
 
 	async registerClient(client: positron.RuntimeClientInstance, input?: string) {
+
 		if (this._client) {
 			this._client.dispose();
 		}
