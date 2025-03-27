@@ -59,6 +59,8 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                                 `Could not install ipykernel for interpreter: ${pythonPath}. Install result - ${installResult}`,
                             );
                         }
+                    } else {
+                        traceInfo(`Already bundling ipykernel for interpreter ${pythonPath}. No need to install it.`);
                     }
                 } else {
                     traceError(`Could not install ipykernel due to an invalid interpreter path: ${pythonPath}`);
