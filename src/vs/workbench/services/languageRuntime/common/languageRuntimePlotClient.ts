@@ -6,7 +6,7 @@
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronPlotClient } from '../../positronPlots/common/positronPlots.js';
-import { IntrinsicSize, RenderFormat } from './positronPlotComm.js';
+import { IntrinsicSize, PlotResult, RenderFormat } from './positronPlotComm.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../positronPlots/common/sizingPolicy.js';
 import { DeferredRender, IRenderedPlot, PositronPlotCommProxy, RenderRequest } from './positronPlotCommProxy.js';
 import { PlotSizingPolicyCustom } from '../../positronPlots/common/sizingPolicyCustom.js';
@@ -63,6 +63,9 @@ export interface IPositronPlotMetadata {
 
 	/** The plot's location for display. */
 	location?: PlotClientLocation;
+
+	/** The pre-rendering of the plot for initial display, if any. */
+	pre_render?: PlotResult;
 }
 
 /**

@@ -628,6 +628,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				const code = this._recentExecutions.has(event.message.parent_id) ?
 					this._recentExecutions.get(event.message.parent_id)! : '';
 
+				const data = event.message.data as any;
+
 				// Create the metadata object
 				const metadata: IPositronPlotMetadata = {
 					created: Date.parse(event.message.when),
@@ -635,6 +637,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					session_id: session.sessionId,
 					parent_id: event.message.parent_id,
 					code,
+					pre_render: data.pre_render,
 				};
 
 				// Register the plot client
