@@ -11,23 +11,24 @@ import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { CurrentWorkingDirectory } from './currentWorkingDirectory.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { ConsoleInstanceMenuButton } from './consoleInstanceMenuButton.js';
+import { ConsoleInstanceInfoButton } from './consoleInstanceInfoButton.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { IsDevelopmentContext } from '../../../../../platform/contextkey/common/contextkeys.js';
-import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
 import { UiFrontendEvent } from '../../../../services/languageRuntime/common/positronUiComm.js';
+import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
-import { usePositronConsoleContext } from '../positronConsoleContext.js';
-import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
-import { PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { PositronDynamicActionBar } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 import { ILanguageRuntimeSession, RuntimeStartMode } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
-import { ConsoleInstanceMenuButton } from './consoleInstanceMenuButton.js';
+import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { multipleConsoleSessionsFeatureEnabled } from '../../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
-import { ConsoleInstanceInfoButton } from './consoleInstanceInfoButton.js';
-import { CurrentWorkingDirectory } from './currentWorkingDirectory.js';
 
 /**
  * Constants.
@@ -370,6 +371,15 @@ export const ActionBar = (props: ActionBarProps) => {
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...positronConsoleContext}>
+			<div className='action-bar'>
+				<PositronDynamicActionBar
+					borderBottom={false}
+					borderTop={true}
+					paddingLeft={kPaddingLeft}
+					paddingRight={kPaddingRight}
+					size='small'
+				/>
+			</div>
 			<div className='action-bar'>
 				<PositronActionBar
 					borderBottom={true}

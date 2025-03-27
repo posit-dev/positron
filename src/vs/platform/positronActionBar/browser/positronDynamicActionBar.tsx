@@ -1,13 +1,13 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import './positronActionBar.css';
+import './positronDynamicActionBar.css';
 
 // React.
-import React, { KeyboardEvent, PropsWithChildren, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { KeyboardEvent, useEffect, useLayoutEffect, useRef } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../base/browser/dom.js';
@@ -18,7 +18,7 @@ import { optionalValue, positronClassNames } from '../../../base/common/positron
 /**
  * CommonPositronActionBarProps interface.
  */
-interface CommonPositronActionBarProps {
+interface CommonPositronDynamicActionBarProps {
 	size: 'small' | 'large';
 	gap?: number;
 	paddingLeft?: number;
@@ -26,23 +26,31 @@ interface CommonPositronActionBarProps {
 }
 
 /**
- * NestedPositronActionBarProps interface.
+ * NestedPositronDynamicActionBarProps interface.
  */
-type NestedPositronActionBarProps =
-	| { nestedActionBar?: true; borderTop?: never; borderBottom?: never }
-	| { nestedActionBar?: false | undefined; borderTop?: boolean; borderBottom?: boolean };
+type NestedPositronDynamicActionBarProps = | {
+	nestedActionBar?: true;
+	borderTop?: never;
+	borderBottom?: never
+} | {
+	nestedActionBar?: false | undefined;
+	borderTop?: boolean;
+	borderBottom?: boolean
+};
 
 /**
- * PositronActionBarProps interface.
+ * PositronDynamicActionBarProps interface.
  */
-type PositronActionBarProps = CommonPositronActionBarProps & NestedPositronActionBarProps;
+type PositronDynamicActionBarProps =
+	CommonPositronDynamicActionBarProps &
+	NestedPositronDynamicActionBarProps;
 
 /**
- * PositronActionBar component.
- * @param props A PositronActionBarProps that contains the component properties.
+ * PositronDynamicActionBar component.
+ * @param props A PositronDynamicActionBarProps that contains the component properties.
  * @returns The rendered component.
  */
-export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProps>) => {
+export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) => {
 	// Context hooks.
 	const context = usePositronActionBarContext();
 
@@ -53,14 +61,24 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 	const [focusedIndex, setFocusedIndex] = React.useState(0);
 	const [prevIndex, setPrevIndex] = React.useState(-1);
 
-	// Create the class names.
-	const classNames = positronClassNames(
-		'positron-action-bar',
-		{ 'border-top': props?.borderTop },
-		{ 'border-bottom': props?.borderBottom },
-		{ 'transparent-background': props?.nestedActionBar },
-		props.size
-	);
+	// Automatic layout useEffect.
+	useLayoutEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Allocate and initialize the resize observer.
+		const resizeObserver = new ResizeObserver(entries => {
+		});
+
+		// Start observing the size of the action bar.
+		resizeObserver.observe(ref.current);
+
+		// Add the resize observer to the disposable store.
+		disposableStore.add(toDisposable(() => resizeObserver.disconnect()));
+
+		// Return the cleanup function that will dispose of the disposables.
+		return () => disposableStore.dispose();
+	}, [context]);
 
 	// Handle keyboard navigation
 	const keyDownHandler = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -112,25 +130,6 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 		}
 	};
 
-	// Automatic layout useEffect.
-	useLayoutEffect(() => {
-		// Create the disposable store for cleanup.
-		const disposableStore = new DisposableStore();
-
-		// Allocate and initialize the resize observer.
-		const resizeObserver = new ResizeObserver(entries => {
-		});
-
-		// Start observing the size of the action bar.
-		resizeObserver.observe(ref.current);
-
-		// Add the resize observer to the disposable store.
-		disposableStore.add(toDisposable(() => resizeObserver.disconnect()));
-
-		// Return the cleanup function that will dispose of the disposables.
-		return () => disposableStore.dispose();
-	}, [context]);
-
 	useEffect(() => {
 		if (!props.nestedActionBar && prevIndex >= 0 && (focusedIndex !== prevIndex)) {
 			const items = Array.from(context.focusableComponents);
@@ -147,6 +146,14 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 		}
 	}, [context.focusableComponents, focusedIndex, prevIndex, props.nestedActionBar]);
 
+	// Create the class names.
+	const classNames = positronClassNames(
+		'positron-action-bar',
+		{ 'border-top': props?.borderTop },
+		{ 'border-bottom': props?.borderBottom },
+		{ 'transparent-background': props?.nestedActionBar },
+		props.size
+	);
 
 	// Render.
 	return (
@@ -158,8 +165,9 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 				paddingLeft: optionalValue(props.paddingLeft, 0),
 				paddingRight: optionalValue(props.paddingRight, 0)
 			}}
-			onKeyDown={props.nestedActionBar ? undefined : keyDownHandler}>
-			{props.children}
+			onKeyDown={props.nestedActionBar ? undefined : keyDownHandler}
+		>
+			Dynamic Action Bar
 		</div>
 	);
 };

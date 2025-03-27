@@ -116,7 +116,7 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 		>
 			<span className='codicon codicon-folder' role='presentation' />
 			<span className='label'>
-				{!positronActionBarContext.conserveSpace ? props.directoryLabel : '...'}
+				{props.directoryLabel}
 			</span>
 		</div>
 	);
