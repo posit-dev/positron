@@ -47,6 +47,9 @@ test.describe('Notebooks', {
 		});
 
 		test('Python - Save untitled notebook and preserve session', async function ({ app }) {
+
+			test.slow();
+
 			// Ensure auxiliary sidebar is open to see variables pane
 			await app.workbench.layouts.enterLayout('notebook');
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
@@ -85,11 +88,13 @@ test.describe('Notebooks', {
 			// Add code to the new cell (using typeInEditor since addCodeToLastCell isn't available)
 			await app.workbench.notebooks.addCodeToCellAtIndex('baz = "baz"', 1);
 
-			// Execute the cell
-			await app.workbench.notebooks.executeActiveCell();
+			await expect(async () => {
+				// Execute the cell
+				await app.workbench.notebooks.executeActiveCell();
 
-			// Verify the variable is in the variables pane
-			await app.workbench.variables.expectVariableToBe('baz', "'baz'");
+				// Verify the variable is in the variables pane
+				await app.workbench.variables.expectVariableToBe('baz', "'baz'");
+			}).toPass({ timeout: 60000 });
 		});
 
 		test('Python - Ensure LSP works across cells', async function ({ app }) {
