@@ -138,6 +138,7 @@ export class Console {
 	}
 
 	async sendEnterKey() {
+		await this.focus();
 		await this.code.driver.page.waitForTimeout(500);
 		await this.code.driver.page.keyboard.press('Enter');
 	}
