@@ -23,7 +23,7 @@ test.describe('Sessions: State', {
 		await sessions.clearConsoleAllSessions();
 	});
 
-	test.skip('Validate state between sessions (active, idle, disconnect)', {
+	test('Validate state between sessions (active, idle, disconnect)', {
 		annotation: [{ type: 'issue', description: 'python session restart is hanging?' },]
 	}, async function ({ app, sessions }) {
 
