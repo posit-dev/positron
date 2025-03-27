@@ -5,7 +5,7 @@
 
 import type * as positron from 'positron';
 import { debounce } from '../../../../base/common/decorators.js';
-import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
@@ -70,6 +70,44 @@ class ExecutionObserver implements IDisposable {
 		this.promise = new DeferredPromise<Record<string, any>>();
 	}
 
+	onOutputMessage(message: ILanguageRuntimeMessageOutput) {
+		if (this.observer && message.data) {
+			const imageMimeTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
+			for (const mimeType of imageMimeTypes) {
+				if (message.data[mimeType] && this.observer.onPlot) {
+					this.observer.onPlot(message.data[mimeType]);
+				}
+			}
+			if (message.data['text/plain'] && this.observer.onOutput) {
+				this.observer.onOutput(message.data['text/plain']);
+			}
+		}
+	}
+
+	onStateMessage(message: ILanguageRuntimeMessageState) {
+		// When entering the busy state, consider code execution to have
+		// started
+		if (message.state === RuntimeOnlineState.Busy) {
+			this.onStarted();
+		}
+
+		// When entering the idle state, consider code execution to have
+		// finished
+		if (message.state === RuntimeOnlineState.Idle) {
+			this.onFinished();
+		}
+	}
+
+	onStreamMessage(message: ILanguageRuntimeMessageStream) {
+		if (this.observer) {
+			if (message.name === 'stdout' && this.observer.onOutput) {
+				this.observer.onOutput(message.text);
+			} else if (message.name === 'stderr' && this.observer.onError) {
+				this.observer.onError(message.text);
+			}
+		}
+	}
+
 	onStarted() {
 		this.state = 'running';
 		if (this.observer?.onStarted) {
@@ -86,6 +124,15 @@ class ExecutionObserver implements IDisposable {
 		if (!this.promise.isSettled) {
 			this.promise.complete({});
 		}
+	}
+
+	onErrorMessage(message: ILanguageRuntimeMessageError) {
+		const err: Error = {
+			message: message.message,
+			name: message.name,
+			stack: message.traceback.join('\n'),
+		};
+		this.onFailed(err);
 	}
 
 	onFailed(error: Error) {
@@ -1191,63 +1238,38 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * @param observer The observer for the execution
 	 */
 	private handleObserverMessage(message: ILanguageRuntimeMessage, o: ExecutionObserver): void {
-		const observer = o.observer;
 		switch (message.type) {
 			case LanguageRuntimeMessageType.Stream:
-				const streamMessage = message as ILanguageRuntimeMessageStream;
-				if (streamMessage.name === 'stdout' && observer?.onOutput) {
-					observer.onOutput(streamMessage.text);
-				} else if (streamMessage.name === 'stderr' && observer?.onError) {
-					observer.onError(streamMessage.text);
-				}
+				o.onStreamMessage(message as ILanguageRuntimeMessageStream);
 				break;
 
 			case LanguageRuntimeMessageType.Output:
-				const outputMessage = message as ILanguageRuntimeMessageOutput;
-				const imageMimeTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
-				for (const mimeType of imageMimeTypes) {
-					if (outputMessage.data && outputMessage.data[mimeType] && observer?.onPlot) {
-						observer.onPlot(outputMessage.data[mimeType]);
-					}
-				}
+				o.onOutputMessage(message as ILanguageRuntimeMessageOutput);
 				break;
 
 			case LanguageRuntimeMessageType.State:
-				const stateMessage = message as ILanguageRuntimeMessageState;
-
-				// When entering the busy state, consider code execution to have
-				// started
-				if (stateMessage.state === 'busy') {
-					o.onStarted();
-				}
-
-				// When entering the idle state, consider code execution to have
-				// finished
-				if (stateMessage.state === 'idle') {
-					o.onFinished();
-					// Clean up the observer
-					const executionId = message.parent_id;
-					if (executionId) {
-						o.dispose();
-						this._executionObservers.delete(executionId);
-					}
-				}
+				o.onStateMessage(message as ILanguageRuntimeMessageState);
 				break;
 
 			case LanguageRuntimeMessageType.Result:
-				const data = (message as ILanguageRuntimeMessageResult).data;
-				o.onCompleted(data);
+				o.onCompleted((message as ILanguageRuntimeMessageResult).data);
 				break;
 
 			case LanguageRuntimeMessageType.Error:
-				const error = message as ILanguageRuntimeMessageError;
-				const result: Error = {
-					message: error.message,
-					name: error.name,
-					stack: error.traceback.join('\n'),
-				}
-				o.onFailed(result);
+				o.onErrorMessage(message as ILanguageRuntimeMessageError);
 				break;
+		}
+
+		if (message.type === LanguageRuntimeMessageType.State) {
+			const stateMessage = message as ILanguageRuntimeMessageState;
+			if (stateMessage.state === RuntimeOnlineState.Idle) {
+				// Clean up the observer
+				const executionId = message.parent_id;
+				if (executionId) {
+					o.dispose();
+					this._executionObservers.delete(executionId);
+				}
+			}
 		}
 	}
 }

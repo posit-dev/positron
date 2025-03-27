@@ -1049,7 +1049,7 @@ declare module 'positron' {
 	 * `WebviewPanel` interface, but omits elements that don't apply to
 	 * preview panels, such as `viewColumn`.
 	 */
-	interface PreviewPanel {
+	export interface PreviewPanel {
 		/**
 		 * Identifies the type of the preview panel, such as `'markdown.preview'`.
 		 */
