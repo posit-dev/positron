@@ -25,7 +25,7 @@ import { ICommandService } from '../../../platform/commands/common/commands.js';
 import { ILogService } from '../../../platform/log/common/log.js';
 import { IOpenerService } from '../../../platform/opener/common/opener.js';
 import { IPositronNewProjectService, NewProjectConfiguration } from '../../services/positronNewProject/common/positronNewProject.js';
-import { EnvironmentSetupType, NewProjectWizardStep } from './interfaces/newProjectWizardEnums.js';
+import { NewProjectWizardStep } from './interfaces/newProjectWizardEnums.js';
 import { IWorkspaceTrustManagementService } from '../../../platform/workspace/common/workspaceTrust.js';
 import { showChooseNewProjectWindowModalDialog } from './chooseNewProjectWindowModalDialog.js';
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
@@ -89,14 +89,8 @@ export const showNewProjectModalDialog = async (
 						await fileService.createFolder(folder);
 					}
 
-					// Install ipykernel if applicable for an existing environment.
-					// For new environments, ipykernel will be installed as part of the environment
-					// creation and setup process once the new project is opened.
-					if (
-						result.pythonEnvSetupType ===
-						EnvironmentSetupType.ExistingEnvironment &&
-						result.installIpykernel
-					) {
+					// Install ipykernel if applicable.
+					if (result.installIpykernel) {
 						const pythonPath =
 							result.selectedRuntime?.extraRuntimeData
 								?.pythonPath ??
