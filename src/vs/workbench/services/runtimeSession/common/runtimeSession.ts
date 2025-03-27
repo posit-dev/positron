@@ -302,7 +302,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @returns The console session with the given runtime identifier, or undefined if
 	 *  no console session with the given runtime identifier exists.
 	 */
-	getConsoleSessionForRuntime(runtimeId: string): ILanguageRuntimeSession | undefined {
+	getConsoleSessionForRuntime(runtimeId: string, includeExited: boolean = false): ILanguageRuntimeSession | undefined {
 		// It's possible that there are multiple consoles for the same runtime.
 		// In that case, we return the most recently created.
 		return Array.from(this._activeSessionsBySessionId.values())
@@ -314,7 +314,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			.find(({ info }) =>
 				info.session.runtimeMetadata.runtimeId === runtimeId &&
 				info.session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
-				info.state !== RuntimeState.Exited)
+				(includeExited || info.state !== RuntimeState.Exited)
+			)
 			?.info.session;
 	}
 
@@ -436,7 +437,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		} else {
 			if (multiSessionsEnabled) {
 				// Check if there is a console session for this runtime already
-				const activeSession = this.getConsoleSessionForRuntime(runtimeId);
+				const activeSession = this.getConsoleSessionForRuntime(runtimeId, true);
 				if (activeSession) {
 					// Set it as the foreground session and return.
 					this.foregroundSession = activeSession;
