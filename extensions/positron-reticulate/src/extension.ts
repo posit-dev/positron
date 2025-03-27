@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import path = require('path');
 import fs = require('fs');
 import { JupyterKernelSpec, JupyterSession, JupyterKernel } from './positron-supervisor';
-import { Barrier, PromiseHandles } from './async';
+import { Barrier, PromiseHandles, withTimeout } from './async';
 import uuid = require('uuid');
 
 export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager {
@@ -779,12 +779,16 @@ class RSessionError extends Error {
 async function getRSession_(progress: vscode.Progress<{ message?: string; increment?: number }>): Promise<positron.LanguageRuntimeSession> {
 	let session = await positron.runtime.getForegroundSession();
 
-	if (session) {
+	if (session && session.callMethod && session.runtimeMetadata.languageId === 'r') {
 		// Get foreground session will return a runtime session even if it has
 		// already exited. We check that it's still there before proceeding.
 		// TODO: it would be nice to have an API to check for the session state.
 		try {
-			await session.callMethod?.('is_installed', 'reticulate', '1.39');
+			await withTimeout(
+				Promise.resolve(session.callMethod('is_installed', 'reticulate', '1.39')),
+				2000,
+				'Timed out trying to reach the session'
+			);
 		} catch (err) {
 			session = undefined;
 		}
