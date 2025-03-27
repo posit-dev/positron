@@ -20,7 +20,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJEC
 			type: ProjectType.PYTHON_PROJECT,
 			title: projectTitle,
 			status: 'existing',
-			ipykernelFeedback: 'show', // change to 'hide' when https://github.com/posit-dev/positron/issues/6386 is fixed
+			ipykernelFeedback: 'hide',
 			interpreterPath: await getInterpreterPath(app),
 		});
 
