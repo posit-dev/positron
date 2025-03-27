@@ -68,7 +68,7 @@ export class Plots {
 			.locator(selector);
 	}
 
-	getRWebWebviewPlotLocator(selector: string): Locator {
+	getDeepWebWebviewPlotLocator(selector: string): Locator {
 		return this.code.driver.page
 			.locator(OUTER_WEBVIEW_FRAME).last().contentFrame()
 			.locator(INNER_WEBVIEW_FRAME).last().contentFrame()
@@ -77,7 +77,7 @@ export class Plots {
 	}
 
 	async waitForWebviewPlot(selector: string, state: 'attached' | 'visible' = 'visible', RWeb = false) {
-		const locator = RWeb ? this.getRWebWebviewPlotLocator(selector) : this.getWebviewPlotLocator(selector);
+		const locator = RWeb ? this.getDeepWebWebviewPlotLocator(selector) : this.getWebviewPlotLocator(selector);
 
 		if (state === 'attached') {
 			await expect(locator).toBeAttached({ timeout: 30000 });
