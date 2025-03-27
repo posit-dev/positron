@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Outline } from '../../pages/outline.js';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -25,7 +26,10 @@ test.describe('Session: Outline', {
 		await openFile('workspaces/outline/basic-outline-with-vars.py');
 		await openFile('workspaces/outline/basic-outline-with-vars.r');
 
-		// No Session - verify no outline elements
+		// No active session - verify no outlines
+		await editor.selectTab('basic-outline-with-vars.py');
+		await outline.expectOutlineToBeEmpty();
+		await editor.selectTab('basic-outline-with-vars.r');
 		await outline.expectOutlineToBeEmpty();
 
 		// Start sessions
@@ -33,39 +37,50 @@ test.describe('Session: Outline', {
 
 		// Select Python file
 		await editor.selectTab('basic-outline-with-vars.py');
+		await verifyPythonOutline(outline);
 
-		// Python Session 1 - verify only expected outline elements
+		// Select R Session 1 - verify Python outline
+		// Use last-active Python session's LSP for Python files, even if foreground session is R.
+		await sessions.select(rSession1.id);
+		await verifyPythonOutline(outline);
+
+		// Select Python Session 1 - verify Python outline
 		await sessions.select(pySession1.id);
 		await console.typeToConsole('global_variable="goodbye"', true);
-		await outline.expectOutlineElementCountToBe(2);
-		await outline.expectOutlineElementToBeVisible('global_variable = "hello"');
-		await outline.expectOutlineElementToBeVisible('def demonstrate_scope');
+		await verifyPythonOutline(outline);
 
 		// Select R file
 		await editor.selectTab('basic-outline-with-vars.r');
+		await verifyROutline(outline);
 
-		// R Session 1 - verify only expected outline elements
+		// Select R Session 1 - verify R outline
 		await sessions.select(rSession1.id);
-		await outline.expectOutlineElementCountToBe(3);
-		await outline.expectOutlineElementToBeVisible('demonstrate_scope');
-		await outline.expectOutlineElementToBeVisible('global_variable');
-		await outline.expectOutlineElementToBeVisible('local_variable');
+		await verifyROutline(outline);
 
-		// R Session 2 - verify only expected outline elements
+		// Select R Session 2 - verify R outline
 		await sessions.select(rSession2.id);
-		await outline.expectOutlineElementCountToBe(3);
-		await outline.expectOutlineElementToBeVisible('demonstrate_scope');
-		await outline.expectOutlineElementToBeVisible('global_variable');
-		await outline.expectOutlineElementToBeVisible('local_variable');
+		await verifyROutline(outline);
 
-		// Select Python file
+		// Select Python file - verify Python outline
 		await editor.selectTab('basic-outline-with-vars.py');
+		await verifyPythonOutline(outline);
 
-		// Python Session 2 - verify only expected outline elements
+		// Python Session 2 - verify Python outline
 		await sessions.select(pySession2.id);
 		await console.typeToConsole('global_variable="goodbye2"', true);
-		await outline.expectOutlineElementCountToBe(2);
-		await outline.expectOutlineElementToBeVisible('global_variable = "hello"');
-		await outline.expectOutlineElementToBeVisible('def demonstrate_scope');
+		await verifyPythonOutline(outline);
 	});
 });
+
+async function verifyPythonOutline(outline: Outline) {
+	await outline.expectOutlineElementCountToBe(2); // ensure no dupes from multisessions
+	await outline.expectOutlineElementToBeVisible('global_variable = "hello"');
+	await outline.expectOutlineElementToBeVisible('def demonstrate_scope');
+}
+
+async function verifyROutline(outline: Outline) {
+	await outline.expectOutlineElementCountToBe(3); // ensure no dupes from multisessions
+	await outline.expectOutlineElementToBeVisible('demonstrate_scope');
+	await outline.expectOutlineElementToBeVisible('global_variable');
+	await outline.expectOutlineElementToBeVisible('local_variable');
+}
