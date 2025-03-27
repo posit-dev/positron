@@ -631,7 +631,7 @@ def positron_completion(
 
                 # If Jedi knows how to complete the expression, use its suggestion.
                 new_text = completion.complete
-                if new_text is not None:
+                if completion.type == "path":
                     # Using the text_edit attribute (instead of insert_text used in
                     # lsp_completion_item) notifies the client to use the text as is,
                     # which is required to complete paths across `-` symbols,
