@@ -21,8 +21,8 @@ const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div
 const GEMINI_BUTTON = 'button.positron-button.language-model.button:has(#google-provider-button)';
 const COPILOT_BUTTON = 'button.positron-button.language-model.button:has(#copilot-provider-button)';
 const CHAT_PANEL = '#workbench\\.panel\\.chat';
-const OATH_RADIO = '.language-model-authentication-method-container input#oauth[type="radio"]';
-const APIKEY_RADIO = '.language-model-authentication-method-container input#apiKey[type="radio"]';
+// const OATH_RADIO = '.language-model-authentication-method-container input#oauth[type="radio"]';
+// const APIKEY_RADIO = '.language-model-authentication-method-container input#apiKey[type="radio"]';
 /*
  *  Reuseable Positron Assistant functionality for tests to leverage.
  */
