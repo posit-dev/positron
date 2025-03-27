@@ -10,6 +10,7 @@ import './columnSummaryCell.css';
 import React, { useRef, useEffect } from 'react';
 
 // Other dependencies.
+import * as nls from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { usePositronDataGridContext } from '../../../../browser/positronDataGrid/positronDataGridContext.js';
 import { VectorHistogram } from './vectorHistogram.js';
@@ -239,13 +240,27 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			const nullCount = props.instance.getColumnProfileNullCount(props.columnIndex);
 
 			if (nullPercent === undefined || nullCount === undefined) {
-				return 'Missing Values\nCalculating...';
+				return nls.localize(
+					'positron.missingValues.calculating',
+					'Missing Values\nCalculating...'
+				);
 			} else if (nullPercent === 0) {
-				return `Missing Values\nNo missing values`;
+				return nls.localize(
+					'positron.missingValues.none',
+					'Missing Values\nNo missing values'
+				);
 			} else if (nullPercent === 100) {
-				return `Missing Values\nAll values are missing (${nullCount.toLocaleString()} values)`;
+				return nls.localize(
+					'positron.missingValues.all',
+					'Missing Values\nAll values are missing ({0} values)', nullCount.toLocaleString()
+				);
 			} else {
-				return `Missing Values\n${nullPercent}% of values are missing (${nullCount.toLocaleString()} values)`;
+				return nls.localize(
+					'positron.missingValues.some',
+					'Missing Values\n{0}% of values are missing ({1} values)',
+					nullPercent,
+					nullCount.toLocaleString()
+				);
 			}
 		};
 
