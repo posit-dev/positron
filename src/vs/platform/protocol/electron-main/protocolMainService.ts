@@ -104,14 +104,6 @@ export class ProtocolMainService extends Disposable implements IProtocolMainServ
 			}
 		}
 
-		// --- Start Positron ---
-		// In development, disable caching of resources so that every resource is reloaded when the
-		// window is reloaded.
-		if (!this.environmentService.isBuilt) {
-			headers = { ...headers, 'Cache-Control': 'no-store' };
-		}
-		// --- End Positron ---
-
 		// In OSS, evict resources from the memory cache in the renderer process
 		// Refs https://github.com/microsoft/vscode/issues/148541#issuecomment-2670891511
 		if (!this.environmentService.isBuilt) {
