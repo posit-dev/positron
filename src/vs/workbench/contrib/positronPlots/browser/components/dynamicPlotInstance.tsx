@@ -51,9 +51,13 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		const ratio = DOM.getActiveWindow().devicePixelRatio;
 		const disposables = new DisposableStore();
 
-		// If the plot is already rendered, use the old image until the new one is ready.
 		if (props.plotClient.lastRender) {
+			// If the plot is already rendered, use the old image until the new one is ready.
 			setUri(props.plotClient.lastRender.uri);
+		} else if (props.plotClient.metadata.pre_render) {
+			// Otherwise use the pre-render if we have one.
+			const preRender = props.plotClient.metadata.pre_render;
+			setUri(`data:${preRender.mime_type};base64,${preRender.data}`);
 		}
 
 		// Request a plot render at the current viewport size, using a given sizing policy.
