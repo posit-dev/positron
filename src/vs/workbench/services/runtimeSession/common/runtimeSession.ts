@@ -437,10 +437,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		} else {
 			if (multiSessionsEnabled) {
 				// Check if there is a console session for this runtime already
-				const activeSession = this.getConsoleSessionForRuntime(runtimeId, true);
-				if (activeSession) {
+				const existingSession = this.getConsoleSessionForRuntime(runtimeId, true);
+				if (existingSession) {
 					// Set it as the foreground session and return.
-					this.foregroundSession = activeSession;
+					this.foregroundSession = existingSession;
 					return;
 				}
 			} else {
