@@ -738,6 +738,14 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		return this.pythonSession.forceQuit();
 	}
 
+	public listOutputChannels(): positron.LanguageRuntimeSessionChannel[] {
+		return this.pythonSession.listOutputChannels?.() ?? [];
+	}
+
+	public showOutput(channel?: positron.LanguageRuntimeSessionChannel): void {
+		this.pythonSession.showOutput?.(channel);
+	}
+
 	public dispose() {
 		return this.pythonSession.dispose();
 	}
