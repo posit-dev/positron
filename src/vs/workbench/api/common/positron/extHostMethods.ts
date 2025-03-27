@@ -315,7 +315,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		return result;
 	}
 
-	async executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean): Promise<boolean> {
+	async executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean): Promise<Record<string, any>> {
 		return this.runtime.executeCode(languageId, code, focus, allowIncomplete);
 	}
 

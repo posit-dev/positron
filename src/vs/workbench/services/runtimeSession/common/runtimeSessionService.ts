@@ -472,6 +472,13 @@ export interface IRuntimeSessionService {
 	restartSession(sessionId: string, source: string): Promise<void>;
 
 	/**
+	 * Interrupt a runtime session.
+	 *
+	 * @param sessionId The identifier of the session to interrupt.
+	 */
+	interruptSession(sessionId: string): Promise<void>;
+
+	/**
 	 * Shutdown a runtime session for a notebook.
 	 *
 	 * @param notebookUri The notebook's URI.
