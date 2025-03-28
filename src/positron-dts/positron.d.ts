@@ -1565,6 +1565,11 @@ declare module 'positron' {
 		export function restartSession(sessionId: string): Thenable<void>;
 
 		/**
+		 * Focus a running session
+		 */
+		export function focusSession(sessionId: string): void;
+
+		/**
 		 * Register a handler for runtime client instances. This handler will be called
 		 * whenever a new client instance is created by a language runtime of the given
 		 * type.

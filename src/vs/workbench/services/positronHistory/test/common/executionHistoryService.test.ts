@@ -184,6 +184,10 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
+	focusSession(_sessionId: string): void {
+		throw new Error('Method not implemented.');
+	}
+
 	restartSession(_sessionId: string, _source: string): Promise<void> {
 		throw new Error('Method not implemented.');
 	}
