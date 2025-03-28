@@ -19,12 +19,12 @@ import { getOSType, OSType } from '../../../../common/utils/platform';
 import { PythonEnvKind, PythonEnvSource } from '../../info';
 import { BasicEnvInfo, IPythonEnvsIterator } from '../../locator';
 import { FSWatchingLocator } from './fsWatchingLocator';
-import { findInterpretersInDir, looksLikeBasicVirtualPython } from '../../../common/commonUtils';
+import { findInterpretersInDir } from '../../../common/commonUtils';
 import '../../../../common/extensions';
-import { traceError, traceInfo, traceVerbose, traceWarn } from '../../../../logging';
+import { traceInfo, traceVerbose, traceWarn } from '../../../../logging';
 import { StopWatch } from '../../../../common/utils/stopWatch';
 import { getCustomEnvDirs } from '../../../../positron/interpreterSettings';
-import { isParentPath } from '../../../common/externalDependencies';
+import { getShortestString } from '../../../../common/stringUtils';
 
 /**
  * Default number of levels of sub-directories to recurse when looking for interpreters.
@@ -78,50 +78,45 @@ export class UserSpecifiedEnvironmentLocator extends FSWatchingLocator {
                         `[UserSpecifiedEnvironmentLocator] Searching for user-specified envs in: ${envRootDir}`,
                     );
 
-                    const foundPythons: string[] = [];
+                    // Find Python executables in the directory.
                     const executables = findInterpretersInDir(envRootDir, searchDepth, undefined, false);
-
+                    const filenames: string[] = [];
                     for await (const entry of executables) {
-                        const { filename } = entry;
-                        // We only care about python.exe (on windows) and python (on linux/mac)
-                        // Other version like python3.exe or python3.8 are often symlinks to
-                        // python.exe or python in the same directory in the case of virtual
-                        // environments.
-                        if (await looksLikeBasicVirtualPython(entry)) {
-                            // We should extract the kind here to avoid doing is*Environment()
-                            // check multiple times. Those checks are file system heavy and
-                            // we can use the kind to determine this anyway.
-                            const kind = await getVirtualEnvKind(filename);
-                            try {
-                                foundPythons.push(filename);
-                                yield {
-                                    kind,
-                                    executablePath: filename,
-                                    source: [PythonEnvSource.UserSettings],
-                                    searchLocation: undefined,
-                                };
-                                traceVerbose(
-                                    `[UserSpecifiedEnvironmentLocator] User-specified Environment: [added] ${filename}`,
-                                );
-                            } catch (ex) {
-                                traceError(
-                                    `[UserSpecifiedEnvironmentLocator] Failed to process environment: ${filename}`,
-                                    ex,
-                                );
-                            }
-                        } else {
-                            traceVerbose(
-                                `[UserSpecifiedEnvironmentLocator] User-specified Environment: [skipped] ${filename}`,
-                            );
-                        }
+                        filenames.push(entry.filename);
                     }
+                    traceVerbose(
+                        `[UserSpecifiedEnvironmentLocator] Found ${filenames.length} user-specified envs in: ${envRootDir}`,
+                    )
 
-                    // If no environments are found in the directory, log a warning.
-                    if (!foundPythons.find((entry) => isParentPath(entry, envRootDir))) {
+                    // No environments found in the directory, log a warning.
+                    if (filenames.length === 0) {
                         traceWarn(
                             `[UserSpecifiedEnvironmentLocator] No environments found in: ${envRootDir}. The directory may not contain Python installations or is an invalid path.`,
                         );
+                        return;
                     }
+
+                    // We try to get the basic python (python.exe on windows; python on linux/mac), as other versions
+                    // like python3.exe or python3.8 are often symlinks to python.exe or python.
+                    // However, it's possible that the basic python does not exist in the directory, so we opt for the
+                    // shortest path to generalize the logic.
+                    const filename = getShortestString(filenames);
+                    const kind = await getVirtualEnvKind(filename);
+                    yield {
+                        kind,
+                        executablePath: filename,
+                        source: [PythonEnvSource.UserSettings],
+                        searchLocation: undefined,
+                    };
+                    traceVerbose(
+                        `[UserSpecifiedEnvironmentLocator] User-specified Environment: [added] ${filename}`,
+                    );
+                    const skippedEnvs = filenames.filter((f) => f !== filename);
+                    skippedEnvs.forEach((f) => {
+                        traceVerbose(
+                            `[UserSpecifiedEnvironmentLocator] User-specified Environment: [skipped] ${f}`,
+                        );
+                    });
                 }
                 return generator();
             });
