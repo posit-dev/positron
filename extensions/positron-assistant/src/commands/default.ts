@@ -9,7 +9,7 @@ import * as fs from 'fs';
 
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { arrayBufferToBase64, BinaryMessageReferences, toLanguageModelChatMessage } from '../utils';
-import { getPlotToolAdapter, textEditToolAdapter } from '../tools';
+import { documentEditToolAdapter, getPlotToolAdapter, selectionEditToolAdapter } from '../tools';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
@@ -129,10 +129,17 @@ export async function defaultHandler(
 
 	// When invoked from the editor, add selection context and editor tool
 	if (request.location2 instanceof vscode.ChatRequestEditorData) {
-		system += await fs.promises.readFile(`${mdDir}/prompts/chat/editor.md`, 'utf8');
 		const document = request.location2.document;
 		const selection = request.location2.selection;
 		const selectedText = document.getText(selection);
+		const hasSelection = selection && !selection.isEmpty;
+		if (hasSelection) {
+			// If the user has selected text, generate a new version of the selection.
+			system += await fs.promises.readFile(`${mdDir}/prompts/chat/selection.md`, 'utf8');
+		} else {
+			// If the user has not selected text, use the prompt for the whole document.
+			system += await fs.promises.readFile(`${mdDir}/prompts/chat/editor.md`, 'utf8');
+		}
 		const documentText = document.getText();
 		const ref = {
 			id: document.uri.toString(),
@@ -150,9 +157,18 @@ export async function defaultHandler(
 			vscode.LanguageModelChatMessage.Assistant('Acknowledged.')
 		);
 
-		// Add tool to output text edits
-		tools.push(textEditToolAdapter.toolData);
-		toolOptions[textEditToolAdapter.toolData.name] = { document, selection };
+		if (hasSelection) {
+			// If we have a selection, use the selection editor tool.
+			tools.push(selectionEditToolAdapter.toolData);
+			toolOptions[selectionEditToolAdapter.toolData.name] = { document, selection };
+		} else {
+			// If we don't have a selection, use the document editor tool.
+			tools.push(documentEditToolAdapter.toolData);
+			toolOptions[documentEditToolAdapter.toolData.name] = {
+				documentUri: document.uri.toString(),
+				selection
+			};
+		}
 	}
 
 	// When invoked from the terminal, add additional instructions.
