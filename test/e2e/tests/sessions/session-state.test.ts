@@ -23,9 +23,7 @@ test.describe('Sessions: State', {
 		await sessions.clearConsoleAllSessions();
 	});
 
-	test('Validate state between sessions (active, idle, disconnect)', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7005' },]
-	}, async function ({ app, sessions }) {
+	test('Validate state between sessions (active, idle, disconnect)', async function ({ app, sessions }) {
 
 		const { console } = app.workbench;
 
