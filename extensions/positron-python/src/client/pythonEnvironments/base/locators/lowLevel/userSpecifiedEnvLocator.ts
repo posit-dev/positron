@@ -21,10 +21,11 @@ import { BasicEnvInfo, IPythonEnvsIterator } from '../../locator';
 import { FSWatchingLocator } from './fsWatchingLocator';
 import { findInterpretersInDir } from '../../../common/commonUtils';
 import '../../../../common/extensions';
-import { traceInfo, traceVerbose, traceWarn } from '../../../../logging';
+import { traceError, traceInfo, traceVerbose, traceWarn } from '../../../../logging';
 import { StopWatch } from '../../../../common/utils/stopWatch';
 import { getCustomEnvDirs } from '../../../../positron/interpreterSettings';
 import { getShortestString } from '../../../../common/stringUtils';
+import { resolveSymbolicLink } from '../../../common/externalDependencies';
 
 /**
  * Default number of levels of sub-directories to recurse when looking for interpreters.
@@ -96,23 +97,23 @@ export class UserSpecifiedEnvironmentLocator extends FSWatchingLocator {
                         return;
                     }
 
-                    // We try to get the basic python (python.exe on windows; python on linux/mac), as other versions
-                    // like python3.exe or python3.8 are often symlinks to python.exe or python.
-                    // However, it's possible that the basic python does not exist in the directory, so we opt for the
-                    // shortest path to generalize the logic.
-                    const filename = getShortestString(filenames);
-                    const kind = await getVirtualEnvKind(filename);
-                    yield {
-                        kind,
-                        executablePath: filename,
-                        source: [PythonEnvSource.UserSettings],
-                        searchLocation: undefined,
-                    };
-                    traceVerbose(`[UserSpecifiedEnvironmentLocator] User-specified Environment: [added] ${filename}`);
-                    const skippedEnvs = filenames.filter((f) => f !== filename);
-                    skippedEnvs.forEach((f) => {
-                        traceVerbose(`[UserSpecifiedEnvironmentLocator] User-specified Environment: [skipped] ${f}`);
-                    });
+                    // Reduce the found binaries to unique set by resolving symlinks,
+                    const uniquePythonBins = await getUniquePythonBins(filenames);
+
+                    for (const filename of uniquePythonBins) {
+                        const kind = await getVirtualEnvKind(filename);
+                        yield {
+                            kind,
+                            executablePath: filename,
+                            source: [PythonEnvSource.UserSettings],
+                            searchLocation: undefined,
+                        };
+                        traceVerbose(`[UserSpecifiedEnvironmentLocator] User-specified Environment: [added] ${filename}`);
+                        const skippedEnvs = filenames.filter((f) => f !== filename);
+                        skippedEnvs.forEach((f) => {
+                            traceVerbose(`[UserSpecifiedEnvironmentLocator] User-specified Environment: [skipped] ${f}`);
+                        });
+                    }
                 }
                 return generator();
             });
@@ -125,4 +126,34 @@ export class UserSpecifiedEnvironmentLocator extends FSWatchingLocator {
 
         return iterator();
     }
+}
+
+/**
+ * Gets unique Python binaries from a list of file paths.
+ * This function resolves symbolic links to their target binaries and
+ * returns the shortest paths to the unique binaries.
+ * Implementation adapted from getPythonBinFromPosixPaths in extensions/positron-python/src/client/pythonEnvironments/common/posixUtils.ts
+ * @param filenames List of file paths to Python binaries.
+ */
+async function getUniquePythonBins(filenames: string[]): Promise<string[]> {
+    const binToLinkMap = new Map<string, string[]>();
+    for (const filepath of filenames) {
+        // Ensure that we have a collection of unique binaries by
+        // resolving all symlinks to the target binaries.
+        try {
+            traceVerbose(`Attempting to resolve symbolic link: ${filepath}`);
+            const resolvedBin = await resolveSymbolicLink(filepath);
+            if (binToLinkMap.has(resolvedBin)) {
+                binToLinkMap.get(resolvedBin)?.push(filepath);
+            } else {
+                binToLinkMap.set(resolvedBin, [filepath]);
+            }
+            traceInfo(`Found: ${filepath} --> ${resolvedBin}`);
+        } catch (ex) {
+            traceError('Failed to resolve symbolic link: ', ex);
+        }
+    }
+    const keys = Array.from(binToLinkMap.keys());
+    const pythonPaths = keys.map((key) => getShortestString([key, ...(binToLinkMap.get(key) ?? [])]));
+    return uniq(pythonPaths);
 }

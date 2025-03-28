@@ -119,6 +119,10 @@ function pickShortestPath(pythonPaths: string[]) {
  * Finds python binaries in given directories. This function additionally reduces the
  * found binaries to unique set be resolving symlinks, and returns the shortest paths
  * to the said unique binaries.
+ * --- Start Positron ---
+ * Please update the implementation in extensions/positron-python/src/client/pythonEnvironments/base/locators/lowLevel/userSpecifiedEnvLocator.ts
+ * if you change the logic here.
+ * --- End Positron ---
  * @param searchDirs : Directories to search for python binaries
  * @returns : Unique paths to python interpreters found in the search dirs.
  */
