@@ -44,3 +44,14 @@ export function replaceAll(source: string, substr: string, newSubstr: string): s
 
     return source.replace(new RegExp(escapeRegExp(substr), 'g'), newSubstr);
 }
+
+// --- Start Positron ---
+/**
+ * Returns the shortest string from an array of strings.
+ * @param strings - The strings to compare.
+ * @returns The shortest string.
+ */
+export function getShortestString(strings: string[]): string {
+    return strings.reduce((a, b) => (a.length <= b.length ? a : b));
+}
+// --- End Positron ---

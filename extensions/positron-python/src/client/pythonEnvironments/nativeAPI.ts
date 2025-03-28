@@ -3,6 +3,7 @@
 
 import * as path from 'path';
 import { Disposable, Event, EventEmitter, Uri, WorkspaceFoldersChangeEvent } from 'vscode';
+// eslint-disable-next-line import/no-duplicates
 import { PythonEnvInfo, PythonEnvKind, PythonEnvType, PythonVersion } from './base/info';
 import {
     GetRefreshEnvironmentsOptions,
@@ -14,6 +15,7 @@ import {
 } from './base/locator';
 import { PythonEnvCollectionChangedEvent } from './base/watcher';
 import {
+    getAdditionalEnvDirs,
     isNativeEnvInfo,
     NativeEnvInfo,
     NativeEnvManagerInfo,
@@ -23,7 +25,7 @@ import { createDeferred, Deferred } from '../common/utils/async';
 import { Architecture, getPathEnvVariable, getUserHomeDir } from '../common/utils/platform';
 import { parseVersion } from './base/info/pythonVersion';
 import { cache } from '../common/utils/decorators';
-import { traceError, traceInfo, traceLog, traceWarn } from '../logging';
+import { traceError, traceInfo, traceLog, traceVerbose, traceWarn } from '../logging';
 import { StopWatch } from '../common/utils/stopWatch';
 import { FileChangeType } from '../common/platform/fileSystemWatcher';
 import { categoryToKind, NativePythonEnvironmentKind } from './base/locators/common/nativePythonUtils';
@@ -38,6 +40,12 @@ import { getWorkspaceFolders, onDidChangeWorkspaceFolders } from '../common/vsco
 
 // --- Start Positron ---
 import { isUvEnvironment } from './common/environmentManagers/uv';
+import { isCustomEnvironment } from '../positron/interpreterSettings';
+import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalInstalledEnvs';
+// eslint-disable-next-line import/no-duplicates
+import { PythonEnvSource } from './base/info';
+import { getShortestString } from '../common/stringUtils';
+import { arePathsSame, isParentPath, resolveSymbolicLinkSync } from './common/externalDependencies';
 // --- End Positron ---
 
 function makeExecutablePath(prefix?: string): string {
@@ -248,7 +256,9 @@ function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[]): Pyth
         distro: {
             org: '',
         },
-        source: [],
+        // --- Start Positron ---
+        source: nativeEnv.source ?? [],
+        // --- End Positron ---
         detailedDisplayName: displayName,
         display: displayName,
         type: getEnvType(kind),
@@ -456,7 +466,22 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     private addEnv(native: NativeEnvInfo, searchLocation?: Uri): PythonEnvInfo | undefined {
         const info = toPythonEnvInfo(native, this._condaEnvDirs);
         if (info) {
-            const old = this._envs.find((item) => item.executable.filename === info.executable.filename);
+            // --- Start Positron ---
+            let old = this._envs.find((item) => item.executable.filename === info.executable.filename);
+            if (!old) {
+                // If there isn't an old env based on filename match, there may still be an old env if the env
+                // being added is in one of the additional env directories specified by Positron. This is
+                // because the Native Python Finder may return multiple equivalent python executables when
+                // searching in the additional env directories.
+                const result = handleDuplicateEnvInAdditionalDirs(this._envs, info);
+                if (result) {
+                    if (result.skipAddEnv) {
+                        return undefined;
+                    }
+                    old = result.duplicateEnv;
+                }
+            }
+            // --- End Positron ---
             if (old) {
                 this._envs = this._envs.filter((item) => item.executable.filename !== info.executable.filename);
                 this._envs.push(info);
@@ -494,6 +519,13 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             if (native.executable && (await isUvEnvironment(native.executable))) {
                 traceInfo(`Found uv environment: ${native.executable}`);
                 native.kind = NativePythonEnvironmentKind.Uv;
+            }
+            if (!native.kind && native.executable && (await isCustomEnvironment(native.executable))) {
+                native.kind = NativePythonEnvironmentKind.Custom;
+                native.source = [PythonEnvSource.UserSettings];
+            }
+            if (!native.kind && native.executable && isAdditionalGlobalBinPath(native.executable)) {
+                native.kind = NativePythonEnvironmentKind.GlobalPaths;
             }
             // --- End Positron ---
             if (native.kind === NativePythonEnvironmentKind.Conda && this._condaEnvDirs.length === 0) {
@@ -560,3 +592,57 @@ export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscov
     native.triggerRefresh().ignoreErrors();
     return native;
 }
+
+// --- Start Positron ---
+type DuplicateEnvResult = {
+    duplicateEnv: PythonEnvInfo | undefined;
+    skipAddEnv: boolean;
+} | undefined;
+
+/**
+ * Handles duplicate environments in additional environment directories.
+ * @param envs The current list of environments
+ * @param info The new environment to be added
+ * @returns An object containing the duplicate environment (if any) and whether to skip adding the new environment
+ */
+function handleDuplicateEnvInAdditionalDirs(envs: PythonEnvInfo[], info: PythonEnvInfo): DuplicateEnvResult {
+    const additionalEnvDirs = getAdditionalEnvDirs();
+    const envDir = additionalEnvDirs.find((dir) => isParentPath(info.executable.filename, dir));
+
+    // This only applies to environments in additional environment directories
+    if (!envDir) {
+        return undefined;
+    }
+
+    // Look for an existing environment in the same additional environment directory
+    const resolvedEnv = resolveSymbolicLinkSync(info.executable.filename);
+    const duplicateEnv = envs.find((item) => arePathsSame(resolvedEnv, resolveSymbolicLinkSync(item.executable.filename)));
+    if (!duplicateEnv) {
+        return undefined;
+    }
+
+    const shortestEnv = getShortestString([info.executable.filename, duplicateEnv.executable.filename]);
+    if (!shortestEnv) {
+        // This shouldn't happen
+        return undefined;
+    }
+
+    // If the environment being added isn't the shortest, skip it
+    // e.g. we are trying to add ~/scratch/3.10.4/bin/python3, but we already added ~/scratch/3.10.4/bin/python, so
+    // we shouldn't add ~/scratch/3.10.4/bin/python3.
+    if (info.executable.filename !== shortestEnv) {
+        traceVerbose(
+            `[addEnv] Not adding ${info.executable.filename} because it's a duplicate of ${duplicateEnv.executable.filename}`,
+        );
+        return { duplicateEnv, skipAddEnv: true };
+    }
+
+    // If the environment being added is the shortest, replace the duplicate
+    // e.g. we are trying to add ~/scratch/3.10.4/bin/python, and we already added ~/scratch/3.10.4/bin/python3.10, so
+    // we should replace ~/scratch/3.10.4/bin/python3.10 with ~/scratch/3.10.4/bin/python.
+    traceVerbose(
+        `[addEnv] Replacing ${duplicateEnv.executable.filename} with ${info.executable.filename}`,
+    );
+    return { duplicateEnv, skipAddEnv: false };
+}
+// --- End Positron ---

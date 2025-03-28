@@ -19,6 +19,7 @@ import { isActiveStateEnvironment } from './environmentManagers/activestate';
 import { isPixiEnvironment } from './environmentManagers/pixi';
 // --- Start Positron ---
 import { isUvEnvironment } from './environmentManagers/uv';
+import { isCustomEnvironment } from '../../positron/interpreterSettings';
 // --- End Positron ---
 
 const notImplemented = () => Promise.resolve(false);
@@ -42,6 +43,7 @@ function getIdentifiers(): Map<PythonEnvKind, (path: string) => Promise<boolean>
     identifier.set(PythonEnvKind.ActiveState, isActiveStateEnvironment);
     // --- Start Positron ---
     identifier.set(PythonEnvKind.Uv, isUvEnvironment);
+    identifier.set(PythonEnvKind.Custom, isCustomEnvironment);
     // --- End Positron ---
     identifier.set(PythonEnvKind.Unknown, defaultTrue);
     identifier.set(PythonEnvKind.OtherGlobal, isGloballyInstalledEnv);

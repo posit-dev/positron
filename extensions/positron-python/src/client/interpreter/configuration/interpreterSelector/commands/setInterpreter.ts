@@ -727,6 +727,10 @@ function getGroup(item: IInterpreterQuickPickItem, workspacePath?: string) {
         return EnvGroups.Workspace;
     }
     switch (item.interpreter.envType) {
+        // --- Start Positron ---
+        case EnvironmentType.Custom:
+            return EnvGroups.Global;
+        // --- End Positron ---
         case EnvironmentType.Global:
         case EnvironmentType.System:
         case EnvironmentType.Unknown:

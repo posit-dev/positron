@@ -90,14 +90,14 @@ function getOverrideInterpreters(): string[] {
  * @returns List of custom environment directories to look for environments.
  */
 export function getCustomEnvDirs(): string[] {
-    const overrideDirs = getOverrideInterpreters();
-    if (overrideDirs.length > 0) {
-        return mapInterpretersToInstallDirs(overrideDirs);
+    const overrideInterpreters = getOverrideInterpreters();
+    if (overrideInterpreters.length > 0) {
+        return mapInterpretersToInstallDirs(overrideInterpreters);
     }
 
-    const includeDirs = getIncludedInterpreters();
-    if (includeDirs.length > 0) {
-        return mapInterpretersToInstallDirs(includeDirs);
+    const includedInterpreters = getIncludedInterpreters();
+    if (includedInterpreters.length > 0) {
+        return mapInterpretersToInstallDirs(includedInterpreters);
     }
 
     return [];
@@ -147,6 +147,19 @@ export function shouldIncludeInterpreter(interpreterPath: string): boolean {
     // If the interpreter is not included or excluded in the settings, include it.
     traceVerbose(`[shouldIncludeInterpreter] Interpreter ${interpreterPath} not explicitly included or excluded`);
     return true;
+}
+
+/**
+ * Check if an interpreter path is a custom environment.
+ * An interpreter is a custom environment if it exists in any of the custom search directories.
+ * @param interpreterPath The interpreter path to check
+ * @returns Whether the interpreter is a custom environment.
+ */
+export async function isCustomEnvironment(interpreterPath: string): Promise<boolean> {
+    const overrideInterpreters = getOverrideInterpreters();
+    const includeInterpreters = getIncludedInterpreters();
+    const customDirs = mapInterpretersToInstallDirs([...overrideInterpreters, ...includeInterpreters]);
+    return customDirs.some((dir) => isParentPath(interpreterPath, dir));
 }
 
 /**
@@ -287,54 +300,52 @@ export function printInterpreterDebugInfo(interpreters: PythonEnvironment[]): vo
 /**
  * Maps a list of interpreter paths to their installation directories.
  * @param interpreterPaths List of interpreter paths to map to their installation directories.
- * @returns
+ * @returns List of unique installation directories.
  */
 function mapInterpretersToInstallDirs(interpreterPaths: string[]): string[] {
-    return interpreterPaths.map((interpreterPath) => {
-        // If it's already a directory, return it as-is.
-        if (isDirectorySync(interpreterPath)) {
-            return interpreterPath;
-        }
+    return Array.from(
+        new Set(
+            interpreterPaths.map((interpreterPath) => {
+                // If it's already a directory, return it as-is.
+                if (isDirectorySync(interpreterPath)) {
+                    return interpreterPath;
+                }
 
-        // If it's a file, we need to return the installation directory so that the Python locators can find it.
-        // e.g. ~/scratch/3.10.4/bin/python -> ~/scratch/3.10.4
-        // The locators expect a list of environment directories and don't seem to handle individual interpreter files.
-        // The installation directory is the grandparent directory, which upholds the JS locator's DEFAULT_SEARCH_DEPTH of 2
-        // see extensions/positron-python/src/client/pythonEnvironments/base/locators/lowLevel/userSpecifiedEnvLocator.ts
-        // The Native Python Locator seems to use the same search depth of 2, although not explicitly documented in the python extension.
-        let parentDir: string | undefined;
-        let installDir: string | undefined;
-        try {
-            // parentDir tends to be the bin directory, which is the parent of the interpreter file.
-            parentDir = path.dirname(interpreterPath);
-            // installDir tends to be the python version directory, AKA the installation directory, which is the parent of the bin directory.
-            installDir = path.dirname(parentDir);
-        } catch (error) {
-            traceError(
-                `[mapInterpretersToInterpreterDirs]: Failed to get install directory for Python interpreter ${interpreterPath}`,
-                error,
-            );
-        }
+                // If it's a file, we need to return the installation directory so that the Python locators can find it.
+                // e.g. ~/scratch/3.10.4/bin/python -> ~/scratch/3.10.4
+                let parentDir: string | undefined;
+                let installDir: string | undefined;
+                try {
+                    parentDir = path.dirname(interpreterPath);
+                    installDir = path.dirname(parentDir);
+                } catch (error) {
+                    traceError(
+                        `[mapInterpretersToInterpreterDirs]: Failed to get install directory for Python interpreter ${interpreterPath}`,
+                        error,
+                    );
+                }
 
-        if (installDir) {
-            traceVerbose(
-                `[mapInterpretersToInterpreterDirs]: Mapped ${interpreterPath} to installation directory ${installDir}`,
-            );
-            return installDir;
-        }
+                if (installDir) {
+                    traceVerbose(
+                        `[mapInterpretersToInterpreterDirs]: Mapped ${interpreterPath} to installation directory ${installDir}`,
+                    );
+                    return installDir;
+                }
 
-        if (parentDir) {
-            traceInfo(
-                `[mapInterpretersToInterpreterDirs]: Expected ${interpreterPath} to be located in a Python installation directory. It may not be discoverable.`,
-            );
-            return parentDir;
-        }
+                if (parentDir) {
+                    traceInfo(
+                        `[mapInterpretersToInterpreterDirs]: Expected ${interpreterPath} to be located in a Python installation directory. It may not be discoverable.`,
+                    );
+                    return parentDir;
+                }
 
-        traceInfo(
-            `[mapInterpretersToInterpreterDirs]: Unable to map ${interpreterPath} to an installation directory. It may not be discoverable.`,
-        );
-        return interpreterPath;
-    });
+                traceInfo(
+                    `[mapInterpretersToInterpreterDirs]: Unable to map ${interpreterPath} to an installation directory. It may not be discoverable.`,
+                );
+                return interpreterPath;
+            }),
+        ),
+    );
 }
 
 /**

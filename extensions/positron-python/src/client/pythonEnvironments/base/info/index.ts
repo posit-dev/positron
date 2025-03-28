@@ -102,6 +102,12 @@ export enum PythonEnvSource {
      */
     WindowsRegistry = 'windows registry',
     // If source turns out to be useful we will expand this enum to contain more details sources.
+    // --- Start Positron ---
+    /**
+     * Environment was found via user settings
+     */
+    UserSettings = 'user settings',
+    // --- End Positron ---
 }
 
 /**

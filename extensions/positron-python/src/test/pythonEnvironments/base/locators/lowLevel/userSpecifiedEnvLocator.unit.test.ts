@@ -11,7 +11,7 @@ import * as TypeMoq from 'typemoq';
 import { WorkspaceConfiguration } from 'vscode';
 import * as fs from '../../../../../client/common/platform/fs-paths';
 import * as workspaceApis from '../../../../../client/common/vscodeApis/workspaceApis';
-import { PythonEnvKind } from '../../../../../client/pythonEnvironments/base/info';
+import { PythonEnvKind, PythonEnvSource } from '../../../../../client/pythonEnvironments/base/info';
 import { getEnvs } from '../../../../../client/pythonEnvironments/base/locatorUtils';
 import { UserSpecifiedEnvironmentLocator } from '../../../../../client/pythonEnvironments/base/locators/lowLevel/userSpecifiedEnvLocator';
 import { createBasicEnv } from '../../common';
@@ -127,7 +127,9 @@ suite('UserSpecifiedEnvironment Locator', () => {
             ]);
 
         // These are the expected environments that should be located
-        const expectedEnvs = userSpecifiedEnvs.executables.map((e: string) => createBasicEnv(PythonEnvKind.Custom, e));
+        const expectedEnvs = userSpecifiedEnvs.executables.map((e: string) =>
+            createBasicEnv(PythonEnvKind.Custom, e, [PythonEnvSource.UserSettings]),
+        );
 
         // Locate the environments and compare them to the expected environments
         const iterator = locator.iterEnvs();
@@ -150,7 +152,9 @@ suite('UserSpecifiedEnvironment Locator', () => {
             ]);
 
         // These are the expected environments that should be located
-        const expectedEnvs = userSpecifiedEnvs.executables.map((e: string) => createBasicEnv(PythonEnvKind.Custom, e));
+        const expectedEnvs = userSpecifiedEnvs.executables.map((e: string) =>
+            createBasicEnv(PythonEnvKind.Custom, e, [PythonEnvSource.UserSettings]),
+        );
 
         // Locate the environments and compare them to the expected environments
         const iterator = locator.iterEnvs();
