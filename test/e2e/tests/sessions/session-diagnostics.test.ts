@@ -24,14 +24,15 @@ test.describe('Sessions: Diagnostics', {
 	test('Python - Verify diagnostics isolation between sessions in the editor and problems view', async function ({ app, runCommand, sessions }) {
 		const { problems, editor, console } = app.workbench;
 
-		// Start Python Session and open new Python file
+		// Start Python Session and install 'termcolor'
 		const pySession = await sessions.start('python');
-		await runCommand('Python: New File');
-		await editor.type('import termcolor\ntermcolor.COLORS.copy()\n');
-
-		// Python Session 1 - install & import 'termcolor', verify no problems
 		await console.executeCode('Python', 'pip install termcolor', { maximizeConsole: false });
-		await console.executeCode('Python', 'import termcolor', { maximizeConsole: false });
+
+		// Open new Python file and use 'termcolor'
+		await runCommand('Python: New File');
+		await editor.type('import termcolor\n\ntermcolor.COLORS.copy()\n');
+
+		// Python Session 1 - verify no problems
 		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
 		await problems.expectSquigglyCountToBe('warning', 0);
 
@@ -46,7 +47,7 @@ test.describe('Sessions: Diagnostics', {
 		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
 		await problems.expectSquigglyCountToBe('warning', 0);
 
-		// Python Alt Session - verify warning since pkg was not installed in that runtime
+		// Python Alt Session - verify warning since pkg not installed
 		await sessions.start('pythonAlt');
 		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 1, errorCount: 0 });
 		await problems.expectWarningText('Import "termcolor" could not be resolved');
@@ -62,21 +63,21 @@ test.describe('Sessions: Diagnostics', {
 	test('R - Verify diagnostics isolation between sessions in the editor and problems view', async function ({ app, runCommand, sessions }) {
 		const { problems, editor, console } = app.workbench;
 
-		const [rSession, rSessionAlt] = await sessions.start(['r', 'rAlt']);
+		// Start R Session and install 'circlize'
+		const rSession = await sessions.start('r');
+		await console.executeCode('R', "install.packages('circlize')", { maximizeConsole: false });
+		await console.executeCode('R', 'library(circlize)', { maximizeConsole: false });
 
-		// Open new R file
+		// Open new R file and use 'circlize'
 		await runCommand('R: New File');
 		await editor.type('library(circlize)\ncircos.points()\n');
 
-		// Session 1 - install & import circlize and verify no problems
-		await sessions.select(rSession.id);
-		await console.executeCode('R', "install.packages('circlize')", { maximizeConsole: false });
-		await console.executeCode('R', 'library(circlize)', { maximizeConsole: false });
+		// Session 1 - verify no problems
 		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
 		await problems.expectSquigglyCountToBe('warning', 0);
 
-		// Session 2 - verify warning since circlize is not installed
-		await sessions.select(rSessionAlt.id);
+		// Start R Session 2 - verify warning since circlize is not installed
+		const rSessionAlt = await sessions.start('rAlt');
 		await problems.expectSquigglyCountToBe('warning', 1);
 		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 1, errorCount: 0 });
 		await problems.expectWarningText('No symbol named \'circos.');
@@ -96,8 +97,8 @@ test.describe('Sessions: Diagnostics', {
 
 		// Session 1 - restart session and verify only syntax error is present
 		await sessions.restart(rSession.id);
-		// TODO: i'm not sure the expected behavior here?
-		// await problems.expectDiagnosticsToBe({ badgeCount: 2, warningCount: 1, errorCount: 1 });
+		await sessions.select(rSession.id); // I prob shouldn't need to select...
+		await problems.expectDiagnosticsToBe({ badgeCount: 2, warningCount: 1, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 	});
 });
