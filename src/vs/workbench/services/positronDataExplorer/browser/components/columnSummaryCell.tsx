@@ -7,9 +7,10 @@
 import './columnSummaryCell.css';
 
 // React.
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 
 // Other dependencies.
+import * as nls from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { usePositronDataGridContext } from '../../../../browser/positronDataGrid/positronDataGridContext.js';
 import { VectorHistogram } from './vectorHistogram.js';
@@ -212,7 +213,6 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 
 	/**
 	 * ColumnNullPercent component.
-	 * @param props A ColumnNullPercentProps that contains the component properties.
 	 * @returns The rendered component.
 	 */
 	const ColumnNullPercent = () => {
@@ -231,9 +231,69 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			}
 		}
 
+		// Create a reference to the container div
+		const containerRef = useRef<HTMLDivElement>(null);
+
+		// Create tooltip text based on nullPercent
+		const getTooltipText = () => {
+			// Get the null count for this column
+			const nullCount = props.instance.getColumnProfileNullCount(props.columnIndex);
+
+			if (nullPercent === undefined || nullCount === undefined) {
+				return nls.localize(
+					'positron.missingValues.calculating',
+					'Missing Values\nCalculating...'
+				);
+			} else if (nullPercent === 0) {
+				return nls.localize(
+					'positron.missingValues.none',
+					'Missing Values\nNo missing values'
+				);
+			} else if (nullPercent === 100) {
+				return nls.localize(
+					'positron.missingValues.all',
+					'Missing Values\nAll values are missing ({0} values)', nullCount.toLocaleString()
+				);
+			} else {
+				return nls.localize(
+					'positron.missingValues.some',
+					'Missing Values\n{0}% of values are missing ({1} values)',
+					nullPercent,
+					nullCount.toLocaleString()
+				);
+			}
+		};
+
+		// Show tooltip when mouse enters
+		const showTooltip = () => {
+			if (containerRef.current) {
+				props.instance.hoverManager.showHover(
+					containerRef.current,
+					getTooltipText()
+				);
+			}
+		};
+
+		// Hide tooltip when mouse leaves
+		const hideTooltip = () => {
+			props.instance.hoverManager.hideHover();
+		};
+
+		// Cleanup when component unmounts
+		useEffect(() => {
+			return () => {
+				props.instance.hoverManager.hideHover();
+			};
+		}, []);
+
 		// Render.
 		return (
-			<div className='column-null-percent'>
+			<div
+				ref={containerRef}
+				className='column-null-percent'
+				onMouseEnter={showTooltip}
+				onMouseLeave={hideTooltip}
+			>
 				{nullPercent !== undefined &&
 					<div className={positronClassNames('text-percent', { 'zero': nullPercent === 0 })}>
 						{nullPercent}%
