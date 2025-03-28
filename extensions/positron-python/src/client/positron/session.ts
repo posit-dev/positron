@@ -523,11 +523,18 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
      * should call this.
      */
     async activateLsp(): Promise<void> {
+        this._kernel?.emitJupyterLog(
+            `Queuing LSP activation. Queue size: ${this._lspQueue.size}, pending: ${this._lspQueue.pending}`,
+        );
         return this._lspQueue.add(async () => {
             if (!this._kernel) {
                 traceWarn('Cannot activate LSP; kernel not started');
                 return;
             }
+
+            this._kernel.emitJupyterLog(
+                `LSP activation started. Queue size: ${this._lspQueue.size}, pending: ${this._lspQueue.pending}`,
+            );
 
             if (!this._lsp) {
                 this._kernel.emitJupyterLog('Tried to activate LSP but no LSP instance available');
@@ -535,7 +542,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             }
 
             if (this._lsp.state !== LspState.stopped && this._lsp.state !== LspState.uninitialized) {
-                // Already activated
+                this._kernel.emitJupyterLog('LSP already active');
                 return;
             }
 
@@ -552,6 +559,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this._kernel.emitJupyterLog(`Starting Positron LSP client on port ${port}`);
 
             await this._lsp.activate(port);
+
+            this._kernel.emitJupyterLog(`Positron LSP client started on port ${port}`);
         });
     }
 
@@ -570,14 +579,19 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
      * to enforce usage of the `_lspQueue`.
      */
     async deactivateLsp(): Promise<void> {
+        this._kernel?.emitJupyterLog(
+            `Queuing LSP deactivation. Queue size: ${this._lspQueue.size}, pending: ${this._lspQueue.pending}`,
+        );
         return this._lspQueue.add(async () => {
             if (!this._lsp || this._lsp.state !== LspState.running) {
-                // Nothing to deactivate
+                this._kernel?.emitJupyterLog('LSP already deactivated');
                 return;
             }
 
             this._kernel?.emitJupyterLog(`Stopping Positron LSP server`);
-            await this._lsp.deactivate();
+            await this._lsp.deactivate(this._kernel?.emitJupyterLog);
+
+            this._kernel?.emitJupyterLog(`Positron LSP server stopped`);
         });
     }
 

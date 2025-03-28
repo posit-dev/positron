@@ -186,20 +186,23 @@ export class PythonLsp implements vscode.Disposable {
      *
      * @returns A promise that resolves when the client has been stopped.
      */
-    public async deactivate(): Promise<void> {
+    public async deactivate(log?: (message: string) => void): Promise<void> {
         if (!this._client) {
             // No client to stop, so just resolve
+            log?.('No client to stop');
             return;
         }
 
         // If we don't need to stop the client, just resolve
         if (!this._client.needsStop()) {
+            log?.('Client does not need to stop');
             return;
         }
 
         // First wait for initialization to complete.
         // `stop()` should not be called on a
         // partially initialized client.
+        log?.('Waiting for client to initialize before stopping');
         await this._initializing;
 
         // Ideally we'd just wait for `this._client!.stop()`. In practice, the
@@ -207,18 +210,22 @@ export class PythonLsp implements vscode.Disposable {
         // disconnected, so rather than awaiting it when the runtime has exited,
         // we wait for the client to change state to `stopped`, which does
         // happen reliably.
+        log?.('Client initialized, stopping');
         const stopped = new Promise<void>((resolve) => {
             const disposable = this._client!.onDidChangeState((event) => {
+                log?.(`Client stopped state change: ${event.newState}`);
                 if (event.newState === State.Stopped) {
+                    log?.('Client stopped');
                     resolve();
                     disposable.dispose();
                 }
             });
-            this._client!.stop();
         });
+        this._client.stop();
 
         const timeout = new Promise<void>((_, reject) => {
             setTimeout(() => {
+                log?.(`Timed out after 2 seconds waiting for client to stop.`);
                 reject(Error(`Timed out after 2 seconds waiting for client to stop.`));
             }, 2000);
         });
