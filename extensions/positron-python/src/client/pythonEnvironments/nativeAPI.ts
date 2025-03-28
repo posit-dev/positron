@@ -473,29 +473,12 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
                 // being added is in one of the additional env directories specified by Positron. This is
                 // because the Native Python Finder may return multiple equivalent python executables when
                 // searching in the additional env directories.
-                const additionalEnvDirs = getAdditionalEnvDirs();
-                const envDir = additionalEnvDirs.find((dir) => isParentPath(info.executable.filename, dir));
-                // If the env being added is in one of the additional env directories, check if we already added an equivalent env.
-                // e.g. we may be trying to add ~/scratch/3.10.4/bin/python3, but we already added ~/scratch/3.10.4/bin/python or ~/scratch/3.10.4/bin/python3.10.
-                if (envDir) {
-                    const duplicateEnv = this._envs.find((item) => isParentPath(item.executable.filename, envDir));
-                    if (duplicateEnv) {
-                        const shortestEnv = getShortestEnvPath([duplicateEnv, info]);
-                        if (shortestEnv) {
-                            if (hasChanged(info, shortestEnv)) {
-                                // If the env being added isn't the shortest, then we don't want to add it
-                                traceVerbose(
-                                    `[addEnv] Not adding ${info.executable.filename} because it's a duplicate of ${shortestEnv.executable.filename}`,
-                                );
-                                return undefined;
-                            }
-                            // If the env being added is the shortest, we want it to replace the duplicate
-                            traceVerbose(
-                                `[addEnv] Replacing ${duplicateEnv.executable.filename} with ${info.executable.filename}`,
-                            );
-                            old = duplicateEnv;
-                        }
+                const result = handleDuplicateEnvInAdditionalDirs(this._envs, info);
+                if (result) {
+                    if (result.skipAddEnv) {
+                        return undefined;
                     }
+                    old = result.duplicateEnv;
                 }
             }
             // --- End Positron ---
@@ -611,6 +594,56 @@ export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscov
 }
 
 // --- Start Positron ---
+type DuplicateEnvResult = {
+    duplicateEnv: PythonEnvInfo | undefined;
+    skipAddEnv: boolean;
+} | undefined;
+
+/**
+ * Handles duplicate environments in additional environment directories.
+ * @param envs The current list of environments
+ * @param info The new environment to be added
+ * @returns An object containing the duplicate environment (if any) and whether to skip adding the new environment
+ */
+function handleDuplicateEnvInAdditionalDirs(envs: PythonEnvInfo[], info: PythonEnvInfo): DuplicateEnvResult {
+    const additionalEnvDirs = getAdditionalEnvDirs();
+    const envDir = additionalEnvDirs.find((dir) => isParentPath(info.executable.filename, dir));
+
+    // This only applies to environments in additional environment directories
+    if (!envDir) {
+        return undefined;
+    }
+
+    // Look for an existing environment in the same additional environment directory
+    const duplicateEnv = envs.find((item) => isParentPath(item.executable.filename, envDir));
+    if (!duplicateEnv) {
+        return undefined;
+    }
+
+    const shortestEnv = getShortestEnvPath([duplicateEnv, info]);
+    // This shouldn't happen, but if we somehow don't have a shortest env, just return
+    if (!shortestEnv) {
+        return undefined;
+    }
+
+    // If the environment being added isn't the shortest, skip it
+    // e.g. we are trying to add ~/scratch/3.10.4/bin/python3, but we already added ~/scratch/3.10.4/bin/python, so
+    // we shouldn't add ~/scratch/3.10.4/bin/python3.
+    if (hasChanged(info, shortestEnv)) {
+        traceVerbose(
+            `[addEnv] Not adding ${info.executable.filename} because it's a duplicate of ${shortestEnv.executable.filename}`,
+        );
+        return { duplicateEnv: undefined, skipAddEnv: true };
+    }
+
+    // If the environment being added is the shortest, replace the duplicate
+    // e.g. we are trying to add ~/scratch/3.10.4/bin/python, and we should replace the already added ~/scratch/3.10.4/bin/python3.10.
+    traceVerbose(
+        `[addEnv] Replacing ${duplicateEnv.executable.filename} with ${info.executable.filename}`,
+    );
+    return { duplicateEnv, skipAddEnv: false };
+}
+
 /**
  * Get the shortest environment path from a list of environments.
  * @example Given ~/scratch/3.10.4/bin/python, ~/scratch/3.10.4/bin/python3, and ~/scratch/3.10.4/bin/python3.10,
