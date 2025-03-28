@@ -299,6 +299,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * Used to associated a session with a runtime.
 	 *
 	 * @param runtimeId The runtime identifier of the session to retrieve.
+	 * @param includeExited Whether to include exited sessions in the search. (default false, optional)
 	 * @returns The console session with the given runtime identifier, or undefined if
 	 *  no console session with the given runtime identifier exists.
 	 */
