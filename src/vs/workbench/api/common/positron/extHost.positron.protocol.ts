@@ -16,6 +16,7 @@ import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnec
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IChatAgentData } from '../../../contrib/chat/common/chatAgents.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { PlotsRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -157,6 +158,14 @@ export interface ExtHostAiFeaturesShape {
 	$onCompleteLanguageModelConfig(id: string): void;
 }
 
+export interface MainThreadPlotsServiceShape {
+	$getPlotsRenderSettings(): Promise<PlotsRenderSettings>;
+}
+
+export interface ExtHostPlotsServiceShape {
+	$onDidChangePlotsRenderSettings(settings: PlotsRenderSettings): void;
+}
+
 /**
  * The view state of a preview in the Preview panel. Only one preview can be
  * active at a time (the one currently loaded into the panel); the active
@@ -233,6 +242,7 @@ export const ExtHostPositronContext = {
 	ExtHostConnections: createProxyIdentifier<ExtHostConnectionsShape>('ExtHostConnections'),
 	ExtHostAiFeatures: createProxyIdentifier<ExtHostAiFeaturesShape>('ExtHostAiFeatures'),
 	ExtHostQuickOpen: createProxyIdentifier<ExtHostQuickOpenShape>('ExtHostQuickOpen'),
+	ExtHostPlotsService: createProxyIdentifier<ExtHostPlotsServiceShape>('ExtHostPlotsService'),
 };
 
 export const MainPositronContext = {
@@ -245,4 +255,5 @@ export const MainPositronContext = {
 	MainThreadMethods: createProxyIdentifier<MainThreadMethodsShape>('MainThreadMethods'),
 	MainThreadConnections: createProxyIdentifier<MainThreadConnectionsShape>('MainThreadConnections'),
 	MainThreadAiFeatures: createProxyIdentifier<MainThreadAiFeaturesShape>('MainThreadAiFeatures'),
+	MainThreadPlotsService: createProxyIdentifier<MainThreadPlotsServiceShape>('MainThreadPlotsService'),
 };
