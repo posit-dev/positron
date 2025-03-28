@@ -6,6 +6,9 @@
 import { Outline } from '../../pages/outline.js';
 import { test, tags } from '../_test.setup';
 
+const R_FILE = 'basic-outline-with-vars.r';
+const PY_FILE = 'basic-outline-with-vars.py';
+
 test.use({
 	suiteId: __filename
 });
@@ -14,8 +17,11 @@ test.describe('Session: Outline', {
 	tag: [tags.WEB, tags.WIN, tags.SESSIONS, tags.OUTLINE]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings }) {
+	test.beforeAll(async function ({ userSettings, openFile }) {
 		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
+
+		await openFile(`workspaces/outline/${PY_FILE}`);
+		await openFile(`workspaces/outline/${R_FILE}`);
 	});
 
 	test('Verify outline is based on editor and per session', async function ({ app, openFile, sessions }) {
@@ -23,20 +29,17 @@ test.describe('Session: Outline', {
 		await variables.togglePane('hide');
 		await outline.focus();
 
-		await openFile('workspaces/outline/basic-outline-with-vars.py');
-		await openFile('workspaces/outline/basic-outline-with-vars.r');
-
 		// No active session - verify no outlines
-		await editor.selectTab('basic-outline-with-vars.py');
+		await editor.selectTab(PY_FILE);
 		await outline.expectOutlineToBeEmpty();
-		await editor.selectTab('basic-outline-with-vars.r');
+		await editor.selectTab(R_FILE);
 		await outline.expectOutlineToBeEmpty();
 
 		// Start sessions
 		const [pySession1, pySession2, rSession1, rSession2] = await sessions.start(['python', 'pythonAlt', 'r', 'rAlt']);
 
 		// Select Python file
-		await editor.selectTab('basic-outline-with-vars.py');
+		await editor.selectTab(PY_FILE);
 		await verifyPythonOutline(outline);
 
 		// Select R Session 1 - verify Python outline
@@ -50,7 +53,7 @@ test.describe('Session: Outline', {
 		await verifyPythonOutline(outline);
 
 		// Select R file
-		await editor.selectTab('basic-outline-with-vars.r');
+		await editor.selectTab(R_FILE);
 		await verifyROutline(outline);
 
 		// Select R Session 1 - verify R outline
@@ -62,13 +65,40 @@ test.describe('Session: Outline', {
 		await verifyROutline(outline);
 
 		// Select Python file - verify Python outline
-		await editor.selectTab('basic-outline-with-vars.py');
+		await editor.selectTab(PY_FILE);
 		await verifyPythonOutline(outline);
 
 		// Python Session 2 - verify Python outline
 		await sessions.select(pySession2.id);
 		await console.typeToConsole('global_variable="goodbye2"', true);
 		await verifyPythonOutline(outline);
+	});
+
+	test('Verify outline after reload with R in foreground and Python in background', async function ({ app, runCommand, sessions }) {
+		const { outline, editor, variables } = app.workbench;
+		await variables.togglePane('hide');
+		await outline.focus();
+
+		// Start sessions
+		const [, rSession] = await sessions.start(['python', 'r']);
+
+		// Verify outlines for both file types
+		await editor.selectTab(PY_FILE);
+		await verifyPythonOutline(outline);
+
+		await editor.selectTab(R_FILE);
+		await verifyROutline(outline);
+
+		// Reload window
+		await runCommand('workbench.action.reloadWindow');
+
+		// Verify outlines for both file types
+		await editor.selectTab(PY_FILE);
+		await verifyPythonOutline(outline);
+
+		await editor.selectTab(R_FILE);
+		await sessions.select(rSession.id); // Even though the session displays as green ("idle"), I have to click on it in order to get outline to come back. Is this expected?
+		await verifyROutline(outline);
 	});
 });
 
