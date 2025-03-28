@@ -45,7 +45,7 @@ import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalIn
 // eslint-disable-next-line import/no-duplicates
 import { PythonEnvSource } from './base/info';
 import { getShortestString } from '../common/stringUtils';
-import { isParentPath } from './common/externalDependencies';
+import { arePathsSame, isParentPath, resolveSymbolicLinkSync } from './common/externalDependencies';
 // --- End Positron ---
 
 function makeExecutablePath(prefix?: string): string {
@@ -615,45 +615,34 @@ function handleDuplicateEnvInAdditionalDirs(envs: PythonEnvInfo[], info: PythonE
     }
 
     // Look for an existing environment in the same additional environment directory
-    const duplicateEnv = envs.find((item) => isParentPath(item.executable.filename, envDir));
+    const resolvedEnv = resolveSymbolicLinkSync(info.executable.filename);
+    const duplicateEnv = envs.find((item) => arePathsSame(resolvedEnv, resolveSymbolicLinkSync(item.executable.filename)));
     if (!duplicateEnv) {
         return undefined;
     }
 
-    const shortestEnv = getShortestEnvPath([duplicateEnv, info]);
-    // This shouldn't happen, but if we somehow don't have a shortest env, just return
+    const shortestEnv = getShortestString([info.executable.filename, duplicateEnv.executable.filename]);
     if (!shortestEnv) {
+        // This shouldn't happen
         return undefined;
     }
 
     // If the environment being added isn't the shortest, skip it
     // e.g. we are trying to add ~/scratch/3.10.4/bin/python3, but we already added ~/scratch/3.10.4/bin/python, so
     // we shouldn't add ~/scratch/3.10.4/bin/python3.
-    if (hasChanged(info, shortestEnv)) {
+    if (info.executable.filename !== shortestEnv) {
         traceVerbose(
-            `[addEnv] Not adding ${info.executable.filename} because it's a duplicate of ${shortestEnv.executable.filename}`,
+            `[addEnv] Not adding ${info.executable.filename} because it's a duplicate of ${duplicateEnv.executable.filename}`,
         );
-        return { duplicateEnv: undefined, skipAddEnv: true };
+        return { duplicateEnv, skipAddEnv: true };
     }
 
     // If the environment being added is the shortest, replace the duplicate
-    // e.g. we are trying to add ~/scratch/3.10.4/bin/python, and we should replace the already added ~/scratch/3.10.4/bin/python3.10.
+    // e.g. we are trying to add ~/scratch/3.10.4/bin/python, and we already added ~/scratch/3.10.4/bin/python3.10, so
+    // we should replace ~/scratch/3.10.4/bin/python3.10 with ~/scratch/3.10.4/bin/python.
     traceVerbose(
         `[addEnv] Replacing ${duplicateEnv.executable.filename} with ${info.executable.filename}`,
     );
     return { duplicateEnv, skipAddEnv: false };
-}
-
-/**
- * Get the shortest environment path from a list of environments.
- * @example Given ~/scratch/3.10.4/bin/python, ~/scratch/3.10.4/bin/python3, and ~/scratch/3.10.4/bin/python3.10,
- * ~/scratch/3.10.4/bin/python will be returned.
- * @param envs List of environments
- * @returns The shortest environment path
- */
-function getShortestEnvPath(envs: PythonEnvInfo[]): PythonEnvInfo | undefined {
-    const shortestEnvPath = getShortestString(envs.map((e) => e.executable.filename));
-    const shortestEnv = envs.find((e) => e.executable.filename === shortestEnvPath);
-    return shortestEnv;
 }
 // --- End Positron ---
