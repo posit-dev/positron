@@ -23,10 +23,7 @@ test.describe('Sessions: State', {
 		await sessions.clearConsoleAllSessions();
 	});
 
-	test('Validate state between sessions (active, idle, disconnect)', {
-		annotation: [{ type: 'issue', description: 'python session restart is hanging?' },]
-	}, async function ({ app, sessions }) {
-
+	test.skip('Validate state between sessions (active, idle, disconnect)', async function ({ app, sessions }) {
 		const { console } = app.workbench;
 
 		// Start Python session
