@@ -485,7 +485,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     // Keep track of LSP init to avoid stopping in the middle of startup.
     // Resolves to the port number used to connect on the client side.
-    private _lspStarting: Thenable<number> = Promise.resolve(0);
+    private _lspStarting: Promise<number> = Promise.resolve(0);
 
     private async createLsp(interpreter: PythonEnvironment): Promise<void> {
         const environmentService = this.serviceContainer.get<IEnvironmentVariablesProvider>(
@@ -522,20 +522,36 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
      * Should never be called within `PythonSession`, only the language server manager
      * should call this.
      */
-    async activateLsp(): Promise<void> {
+    async activateLsp(reason: string): Promise<void> {
+        this._kernel?.emitJupyterLog(
+            `Queuing LSP activation. Reason: ${reason}. ` +
+                `Queue size: ${this._lspQueue.size}, ` +
+                `pending: ${this._lspQueue.pending}`,
+            vscode.LogLevel.Debug,
+        );
         return this._lspQueue.add(async () => {
             if (!this._kernel) {
                 traceWarn('Cannot activate LSP; kernel not started');
                 return;
             }
 
+            this._kernel.emitJupyterLog(
+                `LSP activation started. Reason: ${reason}. ` +
+                    `Queue size: ${this._lspQueue.size}, ` +
+                    `pending: ${this._lspQueue.pending}`,
+                vscode.LogLevel.Debug,
+            );
+
             if (!this._lsp) {
-                this._kernel.emitJupyterLog('Tried to activate LSP but no LSP instance available');
+                this._kernel.emitJupyterLog(
+                    'Tried to activate LSP but no LSP instance is available',
+                    vscode.LogLevel.Warning,
+                );
                 return;
             }
 
             if (this._lsp.state !== LspState.stopped && this._lsp.state !== LspState.uninitialized) {
-                // Already activated
+                this._kernel.emitJupyterLog('LSP already active', vscode.LogLevel.Debug);
                 return;
             }
 
@@ -547,7 +563,13 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             // race conditions). We also use this promise to avoid restarting
             // in the middle of initialization.
             this._lspStarting = this._kernel.startPositronLsp('127.0.0.1');
-            const port = await this._lspStarting;
+            let port: number;
+            try {
+                port = await this._lspStarting;
+            } catch (err) {
+                this._kernel.emitJupyterLog(`Error starting Positron LSP: ${err}`, vscode.LogLevel.Error);
+                return;
+            }
 
             this._kernel.emitJupyterLog(`Starting Positron LSP client on port ${port}`);
 
@@ -569,20 +591,35 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
      * Avoid calling `this._lsp.deactivate()` directly, use this instead
      * to enforce usage of the `_lspQueue`.
      */
-    async deactivateLsp(): Promise<void> {
+    async deactivateLsp(reason: string): Promise<void> {
+        this._kernel?.emitJupyterLog(
+            `Queuing LSP deactivation. Reason: ${reason}. ` +
+                `Queue size: ${this._lspQueue.size}, ` +
+                `pending: ${this._lspQueue.pending}`,
+            vscode.LogLevel.Debug,
+        );
         return this._lspQueue.add(async () => {
+            this._kernel?.emitJupyterLog(
+                `LSP deactivation started. Reason: ${reason}. ` +
+                    `Queue size: ${this._lspQueue.size}, ` +
+                    `pending: ${this._lspQueue.pending}`,
+                vscode.LogLevel.Debug,
+            );
             if (!this._lsp || this._lsp.state !== LspState.running) {
-                // Nothing to deactivate
+                this._kernel?.emitJupyterLog('LSP already deactivated', vscode.LogLevel.Debug);
                 return;
             }
 
-            this._kernel?.emitJupyterLog(`Stopping Positron LSP server`);
+            this._kernel?.emitJupyterLog(`Stopping Positron LSP server, reason: ${reason}`);
             await this._lsp.deactivate();
+
+            this._kernel?.emitJupyterLog(`Positron LSP server stopped`, vscode.LogLevel.Debug);
         });
     }
 
     async restart(workingDirectory?: string): Promise<void> {
         if (this._kernel) {
+            this._kernel.emitJupyterLog('Restarting');
             // Stop the LSP client before restarting the kernel. Don't stop it
             // until fully started to avoid an inconsistent state where the
             // deactivation request comes in between the creation of the LSP
@@ -591,13 +628,18 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             // A cleaner way to set this up might be to put `this._lsp` in
             // charge of creating the LSP comm, then `deactivate()` could
             // keep track of this state itself.
-            await Promise.race([
-                this._lspStarting,
-                whenTimeout(400, () => {
-                    this._kernel!.emitJupyterLog('LSP startup timed out during interpreter restart');
-                }),
+            const timedOut = await Promise.race([
+                // No need to log LSP start failures here; they're logged on activation.
+                this._lspStarting.ignoreErrors(),
+                whenTimeout(400, () => true),
             ]);
-            await this.deactivateLsp();
+            if (timedOut) {
+                this._kernel.emitJupyterLog(
+                    'LSP startup timed out during interpreter restart',
+                    vscode.LogLevel.Warning,
+                );
+            }
+            await this.deactivateLsp('restarting session');
             return this._kernel.restart(workingDirectory);
         } else {
             throw new Error('Cannot restart; kernel not started');
@@ -606,8 +648,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     async shutdown(exitReason = positron.RuntimeExitReason.Shutdown): Promise<void> {
         if (this._kernel) {
+            this._kernel.emitJupyterLog('Shutting down');
             // Stop the LSP client before shutting down the kernel
-            await this.deactivateLsp();
+            await this.deactivateLsp('shutting down session');
             return this._kernel.shutdown(exitReason);
         } else {
             throw new Error('Cannot shutdown; kernel not started');
@@ -631,13 +674,17 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     async forceQuit(): Promise<void> {
         if (this._kernel) {
+            this._kernel.emitJupyterLog('Force quitting');
             // Stop the LSP client before shutting down the kernel. We only give
             // the LSP a quarter of a second to shut down before we force the
             // kernel to quit; we need to balance the need to respond to the
             // force-quit quickly with the fact that the LSP will show error
             // messages if we yank the kernel out from beneath it without
             // warning.
-            await Promise.race([this.deactivateLsp(), new Promise((resolve) => setTimeout(resolve, 250))]);
+            await Promise.race([
+                this.deactivateLsp('force quitting session'),
+                new Promise((resolve) => setTimeout(resolve, 250)),
+            ]);
             return this._kernel.forceQuit();
         } else {
             throw new Error('Cannot force quit; kernel not started');
@@ -740,7 +787,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         if (state === positron.RuntimeState.Ready) {
             await this.setConsoleWidth();
         } else if (state === positron.RuntimeState.Exited) {
-            await this.deactivateLsp();
+            await this.deactivateLsp('session exited');
         }
     }
 

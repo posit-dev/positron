@@ -1361,6 +1361,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// All comms are now closed
 		this._comms.clear();
 
+		// Clear any starting comms
+		this._startingComms.forEach((promise) => {
+			promise.reject(new Error('Kernel exited'));
+		});
+		this._startingComms.clear();
+
 		// Clear any pending requests
 		this._pendingRequests.clear();
 		this._pendingUiCommRequests.forEach((req) => {
