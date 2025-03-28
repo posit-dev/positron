@@ -252,6 +252,9 @@ export namespace InterpreterQuickPickList {
     export const create = {
         label: l10n.t('Create Virtual Environment...'),
     };
+    // --- Start Positron ---
+    export const unsupportedVersionTooltip = l10n.t('This version of Python is not supported');
+    // --- End Positron ---
 }
 
 export namespace OutputChannelNames {
