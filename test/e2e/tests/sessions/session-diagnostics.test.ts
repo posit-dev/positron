@@ -97,7 +97,6 @@ test.describe('Sessions: Diagnostics', {
 
 		// Session 1 - restart session and verify only syntax error is present
 		await sessions.restart(rSession.id);
-		await sessions.select(rSession.id); // I prob shouldn't need to select...
 		await problems.expectDiagnosticsToBe({ badgeCount: 2, warningCount: 1, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 	});
