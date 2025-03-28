@@ -23,7 +23,8 @@ test.describe('Sessions: State', {
 		await sessions.clearConsoleAllSessions();
 	});
 
-	test.skip('Validate state between sessions (active, idle, disconnect)', async function ({ app, sessions }) {
+	test('Validate state between sessions (active, idle, disconnect)', async function ({ app, sessions }) {
+
 		const { console } = app.workbench;
 
 		// Start Python session

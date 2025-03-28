@@ -83,6 +83,7 @@ export const ConsoleInstanceInfoButton = () => {
 			ref={ref}
 			align='right'
 			ariaLabel={positronConsoleInfo}
+			dataTestId={`info-${positronConsoleContext.activePositronConsoleInstance?.sessionId ?? 'unknown'}`}
 			iconId='info'
 			tooltip={positronConsoleInfo}
 			onPressed={handlePressed}
