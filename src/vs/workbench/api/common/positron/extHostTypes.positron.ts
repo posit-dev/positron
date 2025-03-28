@@ -371,3 +371,14 @@ export enum CodeAttributionSource {
 	Paste = 'paste',
 	Script = 'script',
 }
+
+/**
+ * Possible formats for rendering a plot.
+ */
+export enum RenderFormat {
+	Png = 'png',
+	Jpeg = 'jpeg',
+	Svg = 'svg',
+	Pdf = 'pdf',
+	Tiff = 'tiff'
+}

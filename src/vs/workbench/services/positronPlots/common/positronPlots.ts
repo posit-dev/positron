@@ -8,6 +8,7 @@ import { Event } from '../../../../base/common/event.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from './sizingPolicy.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { IPositronPlotMetadata } from '../../languageRuntime/common/languageRuntimePlotClient.js';
+import { RenderFormat } from '../../languageRuntime/common/positronPlotComm.js';
 
 export const POSITRON_PLOTS_VIEW_ID = 'workbench.panel.positronPlots';
 
@@ -42,6 +43,18 @@ export enum DarkFilter {
 
 	/** The dark filter follows the current theme (i.e. it's on in dark themes and off in light themes) */
 	Auto = 'auto'
+}
+
+/**
+ * Settings necessary to render a plot in the format expected by the plot widget.
+ */
+export interface PlotsRenderSettings {
+	size: {
+		width: number;
+		height: number;
+	};
+	pixel_ratio: number;
+	format: RenderFormat;
 }
 
 /**
@@ -115,6 +128,12 @@ export interface IPositronPlotsService {
 	 * plots to display.
 	 */
 	readonly onDidReplacePlots: Event<IPositronPlotClient[]>;
+
+	/**
+	 * Notifies subscribers when the settings for rendering a plot have changed.
+	 * This typically happens when the plot viewpane has been resized.
+	 */
+	readonly onDidChangePlotsRenderSettings: Event<PlotsRenderSettings>;
 
 	/**
 	 * Selects the plot with the specified ID.
@@ -248,6 +267,18 @@ export interface IPositronPlotsService {
 	 * @param plotClient the plot client to unregister
 	 */
 	unregisterPlotClient(plotClient: IPositronPlotClient): void;
+
+	/**
+	 * Gets the current plot rendering settings.
+	 */
+	getPlotsRenderSettings(): PlotsRenderSettings;
+
+	/**
+	 * Sets the current plot rendering settings.
+	 *
+	 * @param settings The new settings.
+	 */
+	setPlotsRenderSettings(settings: PlotsRenderSettings): void;
 
 	/**
 	 * Placeholder for service initialization.

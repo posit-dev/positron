@@ -1330,6 +1330,29 @@ declare module 'positron' {
 		installDependencies?: () => Promise<boolean>;
 	}
 
+	/**
+	 * Settings necessary to render a plot in the format expected by the plot widget.
+	 */
+	export interface PlotsRenderSettings {
+		size: {
+			width: number;
+			height: number;
+		};
+		pixel_ratio: number;
+		format: RenderFormat;
+	}
+
+	/**
+	 * Possible formats for rendering a plot.
+	 */
+	export enum RenderFormat {
+		Png = 'png',
+		Jpeg = 'jpeg',
+		Svg = 'svg',
+		Pdf = 'pdf',
+		Tiff = 'tiff'
+	}
+
 	namespace languages {
 		/**
 		 * Register a statement range provider.
@@ -1452,6 +1475,18 @@ declare module 'positron' {
 		 * Returns the current width of the console input, in characters.
 		 */
 		export function getConsoleWidth(): Thenable<number>;
+
+		/**
+		 * Fires when the settings necessary to render a plot in the format expected by
+		 * plot widget have changed.
+		 */
+		export const onDidChangePlotsRenderSettings: vscode.Event<PlotsRenderSettings>;
+
+		/**
+		 * Returns the settings necessary to render a plot in the format expected by
+		 * plot widget.
+		 */
+		export function getPlotsRenderSettings(): Thenable<PlotsRenderSettings>;
 	}
 
 	namespace runtime {

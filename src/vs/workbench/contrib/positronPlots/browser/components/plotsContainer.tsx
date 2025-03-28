@@ -7,9 +7,10 @@
 import './plotsContainer.css';
 
 // React.
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
+import * as DOM from '../../../../../base/browser/dom.js';
 import { DynamicPlotInstance } from './dynamicPlotInstance.js';
 import { DynamicPlotThumbnail } from './dynamicPlotThumbnail.js';
 import { PlotGalleryThumbnail } from './plotGalleryThumbnail.js';
@@ -20,13 +21,15 @@ import { WebviewPlotThumbnail } from './webviewPlotThumbnail.js';
 import { usePositronPlotsContext } from '../positronPlotsContext.js';
 import { WebviewPlotClient } from '../webviewPlotClient.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { DarkFilter, IPositronPlotClient } from '../../../../services/positronPlots/common/positronPlots.js';
+import { DarkFilter, IPositronPlotClient, IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
+import { RenderFormat } from 'positron';
 
 /**
  * PlotContainerProps interface.
  */
 interface PlotContainerProps {
+	positronPlotsService: IPositronPlotsService,
 	width: number;
 	height: number;
 	x: number;
@@ -64,6 +67,8 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	const plotHeight = historyBottom ? props.height - historyPx : props.height;
 	const plotWidth = historyBottom ? props.width : props.width - historyPx;
 
+	const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | undefined>(undefined);
+
 	useEffect(() => {
 		// Ensure the selected plot is visible. We do this so that the history
 		// filmstrip automatically scrolls to new plots as they are emitted, or
@@ -82,7 +87,23 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				plotHistory.scrollTop = plotHistory.scrollHeight;
 			}
 		}
-	});
+
+		// Propagate current render settings. Use a debouncer to avoid excessive
+		// messaging to language kernels.
+		if (debounceTimer) {
+			clearTimeout(debounceTimer);
+		}
+		setDebounceTimer(setTimeout(() => {
+			props.positronPlotsService.setPlotsRenderSettings({
+				size: {
+					width: plotWidth,
+					height: plotHeight,
+				},
+				pixel_ratio: DOM.getActiveWindow().devicePixelRatio,
+				format: RenderFormat.Png, // Currently hard-coded
+			});
+		}, 500));
+	}, [plotWidth, plotHeight, props.positronPlotsService, plotHistoryRef, debounceTimer]);
 
 	/**
 	 * Renders either a DynamicPlotInstance (resizable plot), a
@@ -113,6 +134,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				visible={props.visible}
 				width={plotWidth} />;
 		}
+
 		return null;
 	};
 

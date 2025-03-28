@@ -10,7 +10,7 @@ import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutpu
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlFileSystemProvider.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
+import { DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotsRenderSettings, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { IStorageService, StorageTarget, StorageScope } from '../../../../platform/storage/common/storage.js';
@@ -52,6 +52,8 @@ import { ILabelService } from '../../../../platform/label/common/label.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { DynamicPlotInstance } from './components/dynamicPlotInstance.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
+import { RenderFormat } from '../../../services/languageRuntime/common/positronPlotComm.js';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -114,6 +116,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** The emitter for the onDidRemovePlot event */
 	private readonly _onDidRemovePlot = new Emitter<string>();
 
+	/** The emitter for the onDidChangePlotsRenderSettings event */
+	private readonly _onDidChangePlotsRenderSettings = new Emitter<PlotsRenderSettings>();
+
 	/** The ID Of the currently selected plot, if any */
 	private _selectedPlotId: string | undefined;
 
@@ -150,6 +155,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 */
 	private readonly _recentExecutions = new Map<string, string>();
 	private readonly _recentExecutionIds = new Array<string>();
+
+	/** The current plot rendering settings. */
+	private readonly _plotsRenderSettings: ISettableObservable<PlotsRenderSettings>;
 
 	/** Creates the Positron plots service instance */
 	constructor(
@@ -350,6 +358,18 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					}
 				}
 			}, WebviewPlotInactiveInterval));
+
+		// Initialise current render settings state. These defaults will be changed
+		// at the first render of the plots pane.
+		this._plotsRenderSettings = observableValue<PlotsRenderSettings>('plots-render-settings', {
+			size: {
+				width: 640,
+				height: 400,
+			},
+			pixel_ratio: 1,
+			format: RenderFormat.Png,
+		});
+		this.onDidChangePlotsRenderSettings = Event.fromObservable(this._plotsRenderSettings);
 	}
 
 	private _showPlotsPane() {
@@ -818,6 +838,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	onDidReplacePlots: Event<IPositronPlotClient[]> = this._onDidReplacePlots.event;
 	onDidChangeHistoryPolicy: Event<HistoryPolicy> = this._onDidChangeHistoryPolicy.event;
 	onDidChangeDarkFilterMode: Event<DarkFilter> = this._onDidChangeDarkFilterMode.event;
+	onDidChangePlotsRenderSettings: Event<PlotsRenderSettings> = this._onDidChangePlotsRenderSettings.event;
 
 	// Gets the individual plot instances.
 	get positronPlotInstances(): IPositronPlotClient[] {
@@ -1285,6 +1306,22 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this.storePlotMetadata({ ...metadata, location });
 
 		return plotClient;
+	}
+
+	/**
+	 * Gets the current plot rendering settings.
+	 */
+	public getPlotsRenderSettings(): PlotsRenderSettings {
+		return this._plotsRenderSettings.get();
+	}
+
+	/**
+	 * Sets the current plot rendering settings.
+	 *
+	 * @param settings The new settings.
+	 */
+	setPlotsRenderSettings(settings: PlotsRenderSettings): void {
+		this._plotsRenderSettings.set(settings, undefined);
 	}
 
 	/**
