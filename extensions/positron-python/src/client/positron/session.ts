@@ -485,7 +485,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     // Keep track of LSP init to avoid stopping in the middle of startup.
     // Resolves to the port number used to connect on the client side.
-    private _lspStarting: Thenable<number> = Promise.resolve(0);
+    private _lspStarting: Promise<number> = Promise.resolve(0);
 
     private async createLsp(interpreter: PythonEnvironment): Promise<void> {
         const environmentService = this.serviceContainer.get<IEnvironmentVariablesProvider>(
@@ -547,7 +547,13 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             // race conditions). We also use this promise to avoid restarting
             // in the middle of initialization.
             this._lspStarting = this._kernel.startPositronLsp('127.0.0.1');
-            const port = await this._lspStarting;
+            let port: number;
+            try {
+                port = await this._lspStarting;
+            } catch (err) {
+                this._kernel.emitJupyterLog(`Error starting Positron LSP: ${err}`, vscode.LogLevel.Error);
+                return;
+            }
 
             this._kernel.emitJupyterLog(`Starting Positron LSP client on port ${port}`);
 
@@ -591,13 +597,17 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             // A cleaner way to set this up might be to put `this._lsp` in
             // charge of creating the LSP comm, then `deactivate()` could
             // keep track of this state itself.
-            await Promise.race([
-                this._lspStarting,
-                whenTimeout(400, () => {
-                    this._kernel!.emitJupyterLog('LSP startup timed out during interpreter restart');
-                }),
+            const timedOut = await Promise.race([
+                // No need to log LSP start failures here; they're logged on activation.
+                this._lspStarting.ignoreErrors(),
+                whenTimeout(400, () => true),
             ]);
-            await this.deactivateLsp();
+            if (timedOut) {
+                this._kernel.emitJupyterLog(
+                    'LSP startup timed out during interpreter restart',
+                    vscode.LogLevel.Warning,
+                );
+            }
             return this._kernel.restart(workingDirectory);
         } else {
             throw new Error('Cannot restart; kernel not started');

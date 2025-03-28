@@ -87,7 +87,7 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
      * @param ipAddress The address of the client that will connect to the
      *  language server.
      */
-    startPositronLsp(ipAddress: string): Thenable<number>;
+    startPositronLsp(ipAddress: string): Promise<number>;
 
     /**
      * Convenience method for starting the Positron DAP server, if the
@@ -96,7 +96,7 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
      * @param debugType Passed as `vscode.DebugConfiguration.type`.
      * @param debugName Passed as `vscode.DebugConfiguration.name`.
      */
-    startPositronDap(debugType: string, debugName: string): Thenable<void>;
+    startPositronDap(debugType: string, debugName: string): Promise<void>;
 
     /**
      * Method for emitting a message to the language server's Jupyter output
