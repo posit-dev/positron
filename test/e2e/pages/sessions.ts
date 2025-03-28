@@ -159,7 +159,7 @@ export class Sessions {
 
 			if (waitForIdle) {
 				await expect(this.page.getByText('Restarting')).not.toBeVisible({ timeout: 90000 });
-				await expect(this.page.locator('.console-instance[style*="z-index: auto"]').getByText('restarted.')).toBeVisible();
+				await expect(this.page.locator('.console-instance[style*="z-index: auto"]').getByText('restarted.')).toBeVisible({ timeout: 60000 });
 				await this.expectStatusToBe(sessionIdOrName, 'idle');
 			}
 		});
@@ -547,7 +547,13 @@ export class Sessions {
 	 * @returns the session ID or undefined if no session is selected
 	 */
 	async getCurrentSessionId(): Promise<string> {
-		return (await this.getMetadata()).id;
+		const testId = await this.page.getByTestId(/info-(python|r)-[a-z0-9]+/i).getAttribute('data-testid');
+
+		if (!testId || !/^info-((python|r)-[a-z0-9]+)$/i.test(testId)) {
+			throw new Error('No active session or unexpected session ID format');
+		}
+
+		return testId.replace(/^info-/, '');
 	}
 
 	/**
