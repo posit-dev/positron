@@ -180,7 +180,7 @@ function registerConfigureModelsCommand(context: vscode.ExtensionContext, storag
 
 function registerMappedEditsProvider(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
-		vscode.chat.registerMappedEditsProvider({ pattern: '**/*' }, editsProvider)
+		vscode.chat.registerMappedEditsProvider2(editsProvider)
 	);
 }
 
