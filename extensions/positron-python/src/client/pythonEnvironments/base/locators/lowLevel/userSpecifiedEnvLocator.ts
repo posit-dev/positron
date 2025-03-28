@@ -86,7 +86,7 @@ export class UserSpecifiedEnvironmentLocator extends FSWatchingLocator {
                     }
                     traceVerbose(
                         `[UserSpecifiedEnvironmentLocator] Found ${filenames.length} user-specified envs in: ${envRootDir}`,
-                    )
+                    );
 
                     // No environments found in the directory, log a warning.
                     if (filenames.length === 0) {
@@ -108,14 +108,10 @@ export class UserSpecifiedEnvironmentLocator extends FSWatchingLocator {
                         source: [PythonEnvSource.UserSettings],
                         searchLocation: undefined,
                     };
-                    traceVerbose(
-                        `[UserSpecifiedEnvironmentLocator] User-specified Environment: [added] ${filename}`,
-                    );
+                    traceVerbose(`[UserSpecifiedEnvironmentLocator] User-specified Environment: [added] ${filename}`);
                     const skippedEnvs = filenames.filter((f) => f !== filename);
                     skippedEnvs.forEach((f) => {
-                        traceVerbose(
-                            `[UserSpecifiedEnvironmentLocator] User-specified Environment: [skipped] ${f}`,
-                        );
+                        traceVerbose(`[UserSpecifiedEnvironmentLocator] User-specified Environment: [skipped] ${f}`);
                     });
                 }
                 return generator();

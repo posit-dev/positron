@@ -468,7 +468,7 @@ function getEnvironmentDirs(): string[] {
  * Gets the list of additional directories to add to environment directories.
  * @returns List of directories to add to environment directories.
  */
-function getAdditionalEnvDirs(): string[] {
+export function getAdditionalEnvDirs(): string[] {
     const additionalDirs: string[] = [];
 
     // Add additional dirs to search for Python environments on non-Windows platforms.

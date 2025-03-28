@@ -15,6 +15,7 @@ import {
 } from './base/locator';
 import { PythonEnvCollectionChangedEvent } from './base/watcher';
 import {
+    getAdditionalEnvDirs,
     isNativeEnvInfo,
     NativeEnvInfo,
     NativeEnvManagerInfo,
@@ -24,7 +25,7 @@ import { createDeferred, Deferred } from '../common/utils/async';
 import { Architecture, getPathEnvVariable, getUserHomeDir } from '../common/utils/platform';
 import { parseVersion } from './base/info/pythonVersion';
 import { cache } from '../common/utils/decorators';
-import { traceError, traceInfo, traceLog, traceWarn } from '../logging';
+import { traceError, traceInfo, traceLog, traceVerbose, traceWarn } from '../logging';
 import { StopWatch } from '../common/utils/stopWatch';
 import { FileChangeType } from '../common/platform/fileSystemWatcher';
 import { categoryToKind, NativePythonEnvironmentKind } from './base/locators/common/nativePythonUtils';
@@ -43,6 +44,8 @@ import { isCustomEnvironment } from '../positron/interpreterSettings';
 import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalInstalledEnvs';
 // eslint-disable-next-line import/no-duplicates
 import { PythonEnvSource } from './base/info';
+import { getShortestString } from '../common/stringUtils';
+import { isParentPath } from './common/externalDependencies';
 // --- End Positron ---
 
 function makeExecutablePath(prefix?: string): string {
@@ -463,7 +466,39 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     private addEnv(native: NativeEnvInfo, searchLocation?: Uri): PythonEnvInfo | undefined {
         const info = toPythonEnvInfo(native, this._condaEnvDirs);
         if (info) {
-            const old = this._envs.find((item) => item.executable.filename === info.executable.filename);
+            // --- Start Positron ---
+            let old = this._envs.find((item) => item.executable.filename === info.executable.filename);
+            if (!old) {
+                // If there isn't an old env based on filename match, there may still be an old env if the env
+                // being added is in one of the additional env directories specified by Positron. This is
+                // because the Native Python Finder may return multiple equivalent python executables when
+                // searching in the additional env directories.
+                const additionalEnvDirs = getAdditionalEnvDirs();
+                const envDir = additionalEnvDirs.find((dir) => isParentPath(info.executable.filename, dir));
+                // If the env being added is in one of the additional env directories, check if we already added an equivalent env.
+                // e.g. we may be trying to add ~/scratch/3.10.4/bin/python3, but we already added ~/scratch/3.10.4/bin/python or ~/scratch/3.10.4/bin/python3.10.
+                if (envDir) {
+                    const duplicateEnv = this._envs.find((item) => isParentPath(item.executable.filename, envDir));
+                    if (duplicateEnv) {
+                        const shortestEnv = getShortestEnvPath([duplicateEnv, info]);
+                        if (shortestEnv) {
+                            if (hasChanged(info, shortestEnv)) {
+                                // If the env being added isn't the shortest, then we don't want to add it
+                                traceVerbose(
+                                    `[addEnv] Not adding ${info.executable.filename} because it's a duplicate of ${shortestEnv.executable.filename}`,
+                                );
+                                return undefined;
+                            }
+                            // If the env being added is the shortest, we want it to replace the duplicate
+                            traceVerbose(
+                                `[addEnv] Replacing ${duplicateEnv.executable.filename} with ${info.executable.filename}`,
+                            );
+                            old = duplicateEnv;
+                        }
+                    }
+                }
+            }
+            // --- End Positron ---
             if (old) {
                 this._envs = this._envs.filter((item) => item.executable.filename !== info.executable.filename);
                 this._envs.push(info);
@@ -574,3 +609,18 @@ export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscov
     native.triggerRefresh().ignoreErrors();
     return native;
 }
+
+// --- Start Positron ---
+/**
+ * Get the shortest environment path from a list of environments.
+ * @example Given ~/scratch/3.10.4/bin/python, ~/scratch/3.10.4/bin/python3, and ~/scratch/3.10.4/bin/python3.10,
+ * ~/scratch/3.10.4/bin/python will be returned.
+ * @param envs List of environments
+ * @returns The shortest environment path
+ */
+function getShortestEnvPath(envs: PythonEnvInfo[]): PythonEnvInfo | undefined {
+    const shortestEnvPath = getShortestString(envs.map((e) => e.executable.filename));
+    const shortestEnv = envs.find((e) => e.executable.filename === shortestEnvPath);
+    return shortestEnv;
+}
+// --- End Positron ---
