@@ -668,13 +668,9 @@ export class Sessions {
 				await expect(sessionTab.locator(statusClass)).toBeVisible({ timeout });
 			} else if (sessionCount === 1) {
 				// get status from metadata dialog because there is no tab list view
-				await expect.poll(
-					async () => (await this.getMetadata()).state,
-					{
-						timeout: 15000,
-						intervals: [1000]
-					}
-				).toBe(expectedStatus);
+				await this.metadataButton.click();
+				await expect(this.metadataDialog.getByText(`State: ${expectedStatus}`)).toBeVisible({ timeout });
+				await this.page.keyboard.press('Escape');
 			} else {
 				throw new Error('No sessions found');
 			}
