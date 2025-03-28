@@ -17,17 +17,22 @@ test.describe('Session: Outline', {
 	tag: [tags.WEB, tags.WIN, tags.SESSIONS, tags.OUTLINE]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings, openFile }) {
+	test.beforeAll(async function ({ userSettings }) {
 		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
+	});
+
+	test.beforeAll(async function ({ app, openFile }) {
+		const { variables, outline } = app.workbench;
 
 		await openFile(`workspaces/outline/${PY_FILE}`);
 		await openFile(`workspaces/outline/${R_FILE}`);
+
+		await variables.togglePane('hide');
+		await outline.focus();
 	});
 
 	test('Verify outline is based on editor and per session', async function ({ app, openFile, sessions }) {
-		const { variables, outline, console, editor } = app.workbench;
-		await variables.togglePane('hide');
-		await outline.focus();
+		const { outline, console, editor } = app.workbench;
 
 		// No active session - verify no outlines
 		await editor.selectTab(PY_FILE);
@@ -75,9 +80,7 @@ test.describe('Session: Outline', {
 	});
 
 	test('Verify outline after reload with R in foreground and Python in background', async function ({ app, runCommand, sessions }) {
-		const { outline, editor, variables } = app.workbench;
-		await variables.togglePane('hide');
-		await outline.focus();
+		const { outline, editor } = app.workbench;
 
 		// Start sessions
 		const [, rSession] = await sessions.start(['python', 'r']);
