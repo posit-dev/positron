@@ -14,9 +14,11 @@ import { traceError, traceInfo, traceVerbose } from '../../../../logging';
 import { StopWatch } from '../../../../common/utils/stopWatch';
 
 // --- Start Positron ---
-import { findInterpretersInDir, looksLikeBasicGlobalPython } from '../../../common/commonUtils';
+// eslint-disable-next-line import/order
+import path from 'path';
 // eslint-disable-next-line import/no-duplicates
 import { ADDITIONAL_POSIX_BIN_PATHS } from '../../../common/posixUtils';
+import { findInterpretersInDir } from '../../../common/commonUtils';
 // --- End Positron ---
 
 export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
@@ -42,25 +44,22 @@ export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
                 // those binaries as environments.
                 const knownDirs = (await commonPosixBinPaths()).filter((dirname) => !isPyenvShimDir(dirname));
 
+                // --- Start Positron ---
+                const additionalDirs = await getAdditionalPosixBinDirs();
+                knownDirs.push(...additionalDirs);
+                // --- End Positron ---
+
                 let pythonBinaries = await getPythonBinFromPosixPaths(knownDirs);
                 traceVerbose(`Found ${pythonBinaries.length} python binaries in posix paths`);
 
                 // --- Start Positron ---
-                const additionalBinaries = getAdditionalPosixBinaries();
-                for await (const bin of additionalBinaries) {
-                    pythonBinaries.push(bin);
-                }
+                traceVerbose(`[PosixKnownPathsLocator] Python binaries found in posix paths: ${pythonBinaries.join(', ')}`);
                 // --- End Positron ---
 
                 // Filter out MacOS system installs of Python 2 if necessary.
                 if (isMacPython2Deprecated) {
                     pythonBinaries = pythonBinaries.filter((binary) => !isMacDefaultPythonPath(binary));
                 }
-
-                // --- Start Positron ---
-                // Filter out any duplicates
-                pythonBinaries = [...new Set(pythonBinaries)];
-                // --- End Positron ---
 
                 for (const bin of pythonBinaries) {
                     try {
@@ -82,9 +81,9 @@ export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
 
 // --- Start Positron ---
 /**
- * Gets additional Python binaries on Posix systems.
+ * Gets additional Python bin dirs on Posix systems.
  *
- * For example, `/opt/python/3.10.4/bin/python` will be returned if the machine has Python 3.10.4 installed
+ * For example, `/opt/python/3.10.4/bin` will be returned if the machine has Python 3.10.4 installed
  * in `/opt/python/3.10.4/bin/python`.
  *
  * See extensions/positron-python/src/client/pythonEnvironments/base/locators/common/nativePythonFinder.ts
@@ -94,15 +93,15 @@ export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
  *                    Default is 2 levels.
  * @returns Paths to Python binaries found in additional locations for Posix systems.
  */
-export async function* getAdditionalPosixBinaries(searchDepth = 2): AsyncGenerator<string> {
+async function getAdditionalPosixBinDirs(searchDepth = 2): Promise<string[]> {
+    const additionalDirs = [];
     for (const location of ADDITIONAL_POSIX_BIN_PATHS) {
         const executables = findInterpretersInDir(location, searchDepth);
         for await (const entry of executables) {
             const { filename } = entry;
-            if (await looksLikeBasicGlobalPython(filename)) {
-                yield filename;
-            }
+            additionalDirs.push(path.dirname(filename));
         }
     }
+    return Array.from(new Set(additionalDirs));
 }
 // --- End Positron ---
