@@ -9,8 +9,6 @@ test.use({
 	suiteId: __filename
 });
 
-const desiredPython = process.env.POSITRON_PY_VER_SEL!;
-
 test.describe('Top Action Bar - Interpreter Dropdown', {
 	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.TOP_ACTION_BAR, tags.INTERPRETER]
 }, () => {
@@ -23,9 +21,9 @@ test.describe('Top Action Bar - Interpreter Dropdown', {
 		await userSettings.set([['python.locator', 'native']]);
 	});
 
-	test('Python - Verify interpreter starts and displays as running', async function ({ app }) {
-		await app.workbench.interpreter.selectInterpreter('Python', desiredPython);
-		await app.workbench.interpreter.verifyInterpreterIsSelected(desiredPython);
-		await app.workbench.interpreter.verifyInterpreterIsRunning(desiredPython);
+	test('Python - Verify interpreter starts and displays as running', async function ({ app, sessions }) {
+		const pythonSession = await sessions.start('python');
+		await sessions.expectSessionPickerToBe(pythonSession);
+		await sessions.expectAllSessionsToBeIdle();
 	});
 });

@@ -5,7 +5,6 @@
 
 import { execSync } from 'child_process';
 import path from 'path';
-import { Application } from '../../../infra/index.js';
 
 
 export const deletePositronHistoryFiles = async (): Promise<void> => {
@@ -30,23 +29,4 @@ export const deletePositronHistoryFiles = async (): Promise<void> => {
 	}
 
 	execSync(`rm -rf ${vscodePath} ${positronPath}`);
-};
-
-export const getPrimaryInterpretersText = async (app: Application): Promise<string[]> => {
-
-	await app.workbench.interpreter.openInterpreterDropdown();
-
-	const primaryInterpreters = await app.code.driver.page.locator('.primary-interpreter').all();
-
-	const interpretersText: string[] = [];
-	for (const interpreter of primaryInterpreters) {
-		const text = await interpreter.textContent();
-		if (text) {
-			interpretersText.push(text);
-		}
-	}
-
-	await app.code.driver.page.keyboard.press('Escape');
-
-	return interpretersText;
 };

@@ -39,9 +39,9 @@ jobs:
       currents_tags: "pull-request,electron/ubuntu,${{ needs.pr-tags.outputs.tags }}"
       report_testrail: false
       enable_currents_reporter: false
-      install_undetectable_interpreters: false
+      install_undetectable_interpreters: true
       install_license: false
-      skip_tags: "@:nightly-only"
+      # skip_tags: "@:nightly-only"
     secrets: inherit
 
   e2e-windows-electron:

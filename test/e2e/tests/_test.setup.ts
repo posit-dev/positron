@@ -84,6 +84,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 		try {
 			await app.start();
+			await app.workbench.console.waitForInterpretersToFinishLoading();
 
 			await use(app);
 		} catch (error) {
@@ -108,20 +109,6 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		}
 	}, { scope: 'worker', auto: true, timeout: 60000 }],
 
-	interpreter: [async ({ app, page }, use) => {
-		const setInterpreter = async (desiredInterpreter: 'Python' | 'R', waitForReady = true) => {
-			const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
-
-			if (!currentInterpreter.startsWith(desiredInterpreter)) {
-				desiredInterpreter === 'Python'
-					? await app.workbench.interpreter.startInterpreterViaQuickAccess('Python', waitForReady)
-					: await app.workbench.interpreter.startInterpreterViaQuickAccess('R', waitForReady);
-			}
-		};
-
-		await use({ set: setInterpreter });
-	}, { scope: 'test', timeout: 30000 }],
-
 	sessions: [
 		async ({ app }, use) => {
 			await use(app.workbench.sessions);
@@ -130,16 +117,16 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	],
 
 	r: [
-		async ({ interpreter }, use) => {
-			await interpreter.set('R');
+		async ({ sessions }, use) => {
+			await sessions.start('r', { waitForReady: true, reuse: true });
 			await use();
 		},
 		{ scope: 'test' }
 	],
 
 	python: [
-		async ({ interpreter }, use) => {
-			await interpreter.set('Python');
+		async ({ sessions }, use) => {
+			await sessions.start('python', { waitForReady: true, reuse: true });
 			await use();
 		},
 		{ scope: 'test' }],
@@ -179,13 +166,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(async (folderPath: string) => {
 			await test.step(`Open folder: ${folderPath}`, async () => {
 				await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
-				await playwright.expect(app.workbench.quickInput.quickInputList.getByLabel('..', { exact: true }).locator('a')).toBeVisible();
+				await playwright.expect(app.workbench.quickInput.quickInputList.locator('a').filter({ hasText: '..' })).toBeVisible();
 
 				const folderNames = folderPath.split('/');
 
 				for (const folderName of folderNames) {
 					await app.workbench.quickInput.quickInput.pressSequentially(folderName + '/');
-					const quickInputOption = app.code.driver.page.getByRole('option', { name: folderName }).locator('a');
+					const quickInputOption = app.workbench.quickInput.quickInput.getByRole('option', { name: folderName });
 					await playwright.expect(quickInputOption).not.toBeVisible();
 				}
 
@@ -412,7 +399,6 @@ interface TestFixtures {
 	page: playwright.Page;
 	attachScreenshotsToReport: any;
 	attachLogsToReport: any;
-	interpreter: { set: (interpreterName: 'Python' | 'R', waitFoReady?: boolean) => Promise<void> };
 	sessions: Sessions;
 	r: void;
 	python: void;

@@ -7,7 +7,7 @@ import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
-import { InterpreterType } from '../infra/fixtures/interpreter.js';
+import { Sessions } from './sessions';
 import { HotKeys } from './hotKeys.js';
 
 const CONSOLE_INPUT = '.console-input';
@@ -25,7 +25,6 @@ const CONSOLE_LINES = `${ACTIVE_CONSOLE_INSTANCE} div span`;
  *  aren't directly console functions, but rather features needed to support console testing.
  */
 export class Console {
-	barPowerButton: Locator;
 	barRestartButton: Locator;
 	barClearButton: Locator;
 	barTrashButton: Locator;
@@ -38,8 +37,7 @@ export class Console {
 		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
 	}
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private hotKeys: HotKeys) {
-		this.barPowerButton = this.code.driver.page.getByLabel('Shutdown console');
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private hotKeys: HotKeys, private sessions: Sessions) {
 		this.barRestartButton = this.code.driver.page.getByLabel('Restart console');
 		this.barClearButton = this.code.driver.page.getByLabel('Clear console');
 		this.barTrashButton = this.code.driver.page.getByTestId('trash-session');
@@ -49,40 +47,6 @@ export class Console {
 		this.consoleTab = this.code.driver.page.getByRole('tab', { name: 'Console', exact: true });
 	}
 
-	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string, waitForReady: boolean = true): Promise<undefined> {
-
-		// don't try to start a new interpreter if one is currently starting up
-		await this.waitForReadyOrNoInterpreter();
-
-		let command: string;
-		if (desiredInterpreterType === InterpreterType.Python) {
-			command = 'python.setInterpreter';
-		} else if (desiredInterpreterType === InterpreterType.R) {
-			command = 'r.selectInterpreter';
-		} else {
-			throw new Error(`Interpreter type ${desiredInterpreterType} not supported`);
-		}
-
-		await this.quickaccess.runCommand(command, { keepOpen: true });
-		await this.quickinput.waitForQuickInputOpened();
-		await this.quickinput.type(desiredInterpreterString);
-
-		// Wait until the desired interpreter string appears in the list and select it.
-		// We need to click instead of using 'enter' because the Python select interpreter command
-		// may include additional items above the desired interpreter string.
-		await this.quickinput.selectQuickInputElementContaining(desiredInterpreterString);
-		await this.quickinput.waitForQuickInputClosed();
-
-		// Move mouse to prevent tooltip hover
-		await this.code.driver.page.mouse.move(0, 0);
-
-		if (waitForReady) {
-			desiredInterpreterType === InterpreterType.Python
-				? await this.waitForReadyAndStarted('>>>', 40000)
-				: await this.waitForReadyAndStarted('>', 40000);
-		}
-		return;
-	}
 
 	async executeCode(languageName: 'Python' | 'R', code: string, options?: { timeout?: number; maximizeConsole?: boolean }): Promise<void> {
 		return test.step(`Execute ${languageName} code in console: ${code}`, async () => {
@@ -149,6 +113,8 @@ export class Console {
 	async sendEnterKey() {
 		await this.focus();
 		await this.code.driver.page.waitForTimeout(500);
+		await this.focus();
+		await this.code.driver.page.waitForTimeout(500);
 		await this.code.driver.page.keyboard.press('Enter');
 	}
 
@@ -173,7 +139,7 @@ export class Console {
 
 	async waitForInterpretersToFinishLoading() {
 		// ensure interpreter(s) containing starting/discovering do not exist in DOM
-		await expect(this.code.driver.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 80000 });
+		await expect(this.code.driver.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting|reconnecting\\.$/i')).toHaveCount(0, { timeout: 80000 });
 	}
 
 	/**
@@ -186,22 +152,21 @@ export class Console {
 		await this.waitForInterpretersToFinishLoading();
 
 		// ensure we are on Console tab
-		await page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
+		await this.focus();
 
 		// Move mouse to prevent tooltip hover
 		await this.code.driver.page.mouse.move(0, 0);
 
 		// wait for the dropdown to contain R, Python, or No Interpreter.
-		const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
+		const runtime = await this.sessions.sessionPicker.textContent() || '';
 
-		if (currentInterpreter.includes('Python')) {
+		if (runtime.includes('Python')) {
 			await expect(page.getByRole('code').getByText('>>>')).toBeVisible({ timeout: 30000 });
 			return;
-		} else if (currentInterpreter.includes('R')) {
+		} else if (runtime.includes('R')) {
 			await expect(page.getByRole('code').getByText('>')).toBeVisible({ timeout: 30000 });
 			return;
-		} else if (currentInterpreter.includes('Start Interpreter')) {
-			await expect(page.getByText('There is no interpreter')).toBeVisible();
+		} else if (runtime.includes('Start Session')) {
 			return;
 		}
 

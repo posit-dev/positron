@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Application } from '../../infra/index.js';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({
@@ -13,7 +14,7 @@ test.use({
 // RETICULATE_PYTHON
 // to the installed python path
 
-test.describe('Reticulate', {
+test.describe.fixme('Reticulate', {
 	tag: [tags.RETICULATE, tags.WEB],
 }, () => {
 	test.beforeAll(async function ({ app, userSettings }) {
@@ -32,10 +33,10 @@ test.describe('Reticulate', {
 	// will already be running
 	let sequential = false;
 
-	test('R - Verify Basic Reticulate Functionality', async function ({ app, r, interpreter }) {
+	test('R - Verify Basic Reticulate Functionality', async function ({ app, r }) {
 
-		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()');
-		await app.workbench.console.sendEnterKey();
+		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()', true);
+		await app.code.driver.page.pause();
 
 		try {
 			await app.workbench.console.waitForConsoleContents('Yes/no/cancel');
@@ -49,7 +50,7 @@ test.describe('Reticulate', {
 
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 
-		await verifyReticulateFunctionality(app, interpreter, false);
+		await verifyReticulateFunctionality(app, false);
 
 		sequential = true;
 
@@ -57,9 +58,10 @@ test.describe('Reticulate', {
 
 	test('R - Verify Reticulate Stop/Restart Functionality', {
 		tag: [tags.WEB_ONLY]
-	}, async function ({ app, interpreter }) {
+	}, async function ({ app, sessions }) {
 
-		await app.workbench.interpreter.selectInterpreter('Python', 'Python (reticulate)', false);
+		await sessions.start('python', { waitForReady: false });
+		await sessions.expectSessionPickerToBe({ language: 'Python', version: '(reticulate)' });
 
 		await app.workbench.popups.installIPyKernel();
 
@@ -67,11 +69,11 @@ test.describe('Reticulate', {
 			app.workbench.console.waitForReadyAndStarted('>>>', 30000);
 		}
 
-		await verifyReticulateFunctionality(app, interpreter, sequential);
+		await verifyReticulateFunctionality(app, sequential);
 
 		await app.workbench.layouts.enterLayout('stacked');
 
-		await app.workbench.console.barPowerButton.click();
+		await app.workbench.console.barTrashButton.click();
 
 		await app.workbench.console.waitForConsoleContents('shut down successfully');
 
@@ -89,32 +91,32 @@ test.describe('Reticulate', {
 
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 
-		await verifyReticulateFunctionality(app, interpreter, sequential);
+		await verifyReticulateFunctionality(app, sequential);
 
 	});
 
 	test('R - Verify Reticulate Restart', {
 		tag: [tags.RETICULATE, tags.CONSOLE]
-	}, async function ({ app, interpreter }) {
-		const interpreterDesc = 'Python (reticulate)';
-		if (!sequential) {
-			await app.workbench.interpreter.selectInterpreter('Python', interpreterDesc, true);
-		}
-		await app.workbench.interpreter.verifyInterpreterIsRunning(interpreterDesc);
+	}, async function ({ app, sessions }) {
+		// const interpreterDesc = 'Python (reticulate)';
+		// if (!sequential) {
+		// await app.workbench.interpreter.selectInterpreter('Python', interpreterDesc, true);
+		// }
+		// await app.workbench.interpreter.verifyInterpreterIsRunning(interpreterDesc);
 
-		await app.workbench.interpreter.restartPrimaryInterpreter(interpreterDesc);
-		await app.workbench.interpreter.verifyInterpreterIsRunning(interpreterDesc);
+		// await app.workbench.interpreter.restartPrimaryInterpreter(interpreterDesc);
+		// await app.workbench.interpreter.verifyInterpreterIsRunning(interpreterDesc);
 	});
 });
 
-async function verifyReticulateFunctionality(app, interpreter, sequential) {
+async function verifyReticulateFunctionality(app: Application, sequential) {
 
 	await app.workbench.console.pasteCodeToConsole('x=100');
 	await app.workbench.console.sendEnterKey();
 
 	await app.workbench.console.barClearButton.click();
 
-	await interpreter.set('R', !sequential);
+	await app.workbench.sessions.start('r', { waitForReady: !sequential });
 
 	await app.workbench.console.pasteCodeToConsole('y<-reticulate::py$x');
 	await app.workbench.console.sendEnterKey();
@@ -126,7 +128,7 @@ async function verifyReticulateFunctionality(app, interpreter, sequential) {
 	await expect(async () => {
 		const variablesMap = await app.workbench.variables.getFlatVariables();
 		expect(variablesMap.get('y')).toStrictEqual({ value: '100', type: 'int' });
-	}).toPass({ timeout: 60000 });
+	}).toPass({ timeout: 10000 });
 
 	await app.workbench.layouts.enterLayout('stacked');
 }

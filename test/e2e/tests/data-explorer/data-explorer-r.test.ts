@@ -96,7 +96,7 @@ test.describe('Data Explorer - R ', {
 
 		await test.step('Verify disconnect dialog', async () => {
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-			await app.workbench.console.barPowerButton.click();
+			await app.workbench.console.barTrashButton.click();
 			await expect(app.code.driver.page.locator('.dialog-box .message')).toHaveText('Connection Closed');
 		});
 	});
