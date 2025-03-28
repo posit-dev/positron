@@ -51,6 +51,28 @@
       {
         "vendor": "positron"
       }
+    ],
+    "languageModelTools": [
+      {
+        "name": "executeCode",
+        "displayName": "Execute Code",
+        "modelDescription": "Execute a piece of code in the specified programming language.",
+        "canBeReferencedInPrompt": false,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "description": "The code to execute."
+            },
+            "language": {
+              "type": "string",
+              "description": "The programming language of the code."
+            }
+          }
+        },
+        "tags": ["positron-assistant"]
+      }
     ]
   },
   "scripts": {

@@ -105,6 +105,7 @@ suite('Language server manager', () => {
             mock<positron.LanguageRuntimeMetadata>({
                 extraRuntimeData: {
                     pythonPath: 'python',
+                    ipykernelBundle: {},
                 },
             }),
             mock<positron.RuntimeSessionMetadata>({

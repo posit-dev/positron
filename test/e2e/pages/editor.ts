@@ -37,6 +37,13 @@ export class Editor {
 		await this.editorPane.pressSequentially(text);
 	}
 
+	/** Action: Select tab by name
+	 * @param filename the name of the tab to select
+	 */
+	async selectTab(filename: string): Promise<void> {
+		await this.code.driver.page.getByRole('tab', { name: filename }).click();
+	}
+
 	/**
 	 * Action: Select a file in the editor and enter text
 	 * @param filename the name of the file to select
@@ -44,7 +51,7 @@ export class Editor {
 	 */
 	async selectTabAndType(filename: string, text: string): Promise<void> {
 		await test.step(`Select tab ${filename} and type text`, async () => {
-			await this.code.driver.page.getByRole('tab', { name: filename }).click();
+			await this.selectTab(filename);
 			await this.type(text);
 		});
 	}

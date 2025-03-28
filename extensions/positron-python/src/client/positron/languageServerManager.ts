@@ -55,7 +55,7 @@ class LanguageServerManager implements vscode.Disposable {
                     lastForegroundSessionIdState.updateValue(sessionId),
 
                     // Activate the LSP for the foreground session.
-                    this.activateConsoleLsp(foregroundSession, sessions),
+                    this.activateConsoleLsp(foregroundSession, 'foreground session changed', sessions),
                 ]);
             }),
         );
@@ -110,6 +110,7 @@ class LanguageServerManager implements vscode.Disposable {
      */
     private async activateConsoleLsp(
         session: PythonRuntimeSession,
+        reason: string,
         allSessions?: PythonRuntimeSession[],
     ): Promise<void> {
         // Deactivate non-foreground console session LSPs.
@@ -122,12 +123,12 @@ class LanguageServerManager implements vscode.Disposable {
                         session.metadata.sessionId !== foregroundSessionId &&
                         session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console,
                 )
-                .map((session) => session.deactivateLsp()),
+                .map((session) => session.deactivateLsp(reason)),
         );
 
         await Promise.all([
             // Activate the foreground session LSP.
-            session.activateLsp(),
+            session.activateLsp(reason),
 
             // Update the Python path as required by Pyright.
             this.updatePythonPath(session.runtimeMetadata.runtimePath),
@@ -143,11 +144,11 @@ class LanguageServerManager implements vscode.Disposable {
                         // If this was the last foreground session, activate its LSP.
                         const lastForegroundSessionIdState = this.getLastForegroundSessionIdState();
                         if (lastForegroundSessionIdState.value === session.metadata.sessionId) {
-                            await this.activateConsoleLsp(session);
+                            await this.activateConsoleLsp(session, 'foreground session is ready');
                         }
                     } else if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Notebook) {
                         // Always activate notebook LSPs.
-                        await session.activateLsp();
+                        await session.activateLsp('notebook session is ready');
                     }
                 }
             }),

@@ -70,7 +70,14 @@ export class Outline {
 			: await expect(this.outlineElement.filter({ hasText: text })).not.toBeVisible();
 	}
 
+	async expectOutlineToBeEmpty(): Promise<void> {
+		await expect(this.code.driver.page.getByText(/^No symbols found in document/)).toBeVisible();
+	}
+
 	async expectOutlineElementCountToBe(count: number): Promise<void> {
+		if (count === 0) {
+			await expect(this.outlineElement).not.toBeVisible();
+		}
 		await expect(this.outlineElement).toHaveCount(count);
 	}
 

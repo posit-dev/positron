@@ -631,7 +631,7 @@ def positron_completion(
 
                 # If Jedi knows how to complete the expression, use its suggestion.
                 new_text = completion.complete
-                if new_text is not None:
+                if completion.type == "path" and new_text is not None:
                     # Using the text_edit attribute (instead of insert_text used in
                     # lsp_completion_item) notifies the client to use the text as is,
                     # which is required to complete paths across `-` symbols,
@@ -815,7 +815,6 @@ def positron_highlight(
     return highlight(server, params)
 
 
-@POSITRON.thread()
 @POSITRON.feature(TEXT_DOCUMENT_HOVER)
 def positron_hover(
     server: PositronJediLanguageServer, params: TextDocumentPositionParams

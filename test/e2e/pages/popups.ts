@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 
 const POSITRON_MODAL_DIALOG_BOX = '.positron-modal-dialog-box';
@@ -147,5 +147,26 @@ export class Popups {
 			const textContent = await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_TITLE).textContent();
 			expect(textContent).toContain(title);
 		}).toPass({ timeout: 10000 });
+	}
+
+
+	/**
+	 * Right clicks and selects a menu item, waiting for menu dismissal.
+	 * @param locator Where to right click to get a context menu
+	 * @param action Which action to perform on the context menu
+	 */
+	async handleContextMenu(locator: Locator, action: 'Select All' | 'Copy' | 'Paste') {
+		await locator.click({ button: 'right' });
+		const menu = this.code.driver.page.locator('.monaco-menu');
+
+		// dismissing dialog can be erratic, allow retries
+		for (let i = 0; i < 4; i++) {
+			try {
+				await menu.locator(`[aria-label="${action}"]`).click();
+				await expect(menu).toBeHidden({ timeout: 2000 });
+				break;
+			} catch {
+			}
+		}
 	}
 }

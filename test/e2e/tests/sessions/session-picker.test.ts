@@ -29,7 +29,7 @@ test.describe('Sessions: Session Picker', {
 
 	test('Verify Session Picker updates correctly across multiple active sessions', async function ({ sessions }) {
 		// Start Python and R sessions
-		const [pySession, rSession] = await sessions.start(['python', 'r'], { triggerMode: 'session-picker' });
+		const [pySession, rSession] = await sessions.start(['python', 'r']);
 
 		// Widen session tab list to view full runtime names
 		await sessions.resizeSessionList({ x: -100 });

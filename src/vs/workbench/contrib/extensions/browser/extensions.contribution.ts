@@ -262,7 +262,9 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 			'extensions.verifySignature': {
 				type: 'boolean',
 				description: localize('extensions.verifySignature', "When enabled, extensions are verified to be signed before getting installed."),
-				default: true,
+				// --- Start PWB: disable extension verification ---
+				default: false,
+				// --- End PWB: disable extension verification ---
 				scope: ConfigurationScope.APPLICATION,
 				// --- Start Positron ---
 				// Do not include this setting in Positron; it is not

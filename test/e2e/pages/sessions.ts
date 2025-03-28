@@ -66,6 +66,7 @@ export class Sessions {
 	 * @example - start multiple sessions with custom options
 	 * const [pySession1, pySession2, rSession, rSessionAlt] = await sessions.start(['python', 'python', 'r', 'rAlt'], {
 	 *   triggerMode: 'quickaccess',
+	 *   reuse: false,
 	 * });
 	 *
 	 * @returns returns the SessionInfo for the session(s)
@@ -157,7 +158,8 @@ export class Sessions {
 			await this.page.mouse.move(0, 0);
 
 			if (waitForIdle) {
-				await expect(this.page.getByText(/restarting/)).not.toBeVisible({ timeout: 90000 });
+				await expect(this.page.getByText('Restarting')).not.toBeVisible({ timeout: 90000 });
+				await expect(this.page.locator('.console-instance[style*="z-index: auto"]').getByText('restarted.')).toBeVisible({ timeout: 90000 });
 				await this.expectStatusToBe(sessionIdOrName, 'idle');
 			}
 		});
@@ -311,6 +313,26 @@ export class Sessions {
 		}
 	}
 
+	/**
+	 * Action: Select the session
+	 * @param sessionIdOrName - the id or name of the session
+	 */
+	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
+		await test.step(`Select session: ${sessionIdOrName}`, async () => {
+			await this.hotKeys.focusConsole();
+			const sessionTab = this.getSessionTab(sessionIdOrName);
+
+			if (waitForSessionIdle) {
+				await expect(this.idleStatus(sessionTab)).toBeVisible();
+			}
+
+			// workaround for issue: https://github.com/posit-dev/positron/issues/6997
+			await sessionTab.click();
+			await this.page.waitForTimeout(1000);
+			await sessionTab.click();
+		});
+	}
+
 	// -- Helpers --
 
 	/**
@@ -395,23 +417,6 @@ export class Sessions {
 		});
 
 		return this.getCurrentSessionId();
-	}
-
-	/**
-	 * Action: Select the session
-	 * @param sessionIdOrName - the id or name of the session
-	 */
-	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
-		await test.step(`Select session: ${sessionIdOrName}`, async () => {
-			await this.hotKeys.focusConsole();
-			const session = this.getSessionTab(sessionIdOrName);
-
-			if (waitForSessionIdle) {
-				await expect(this.idleStatus(session)).toBeVisible();
-			}
-
-			await this.getSessionTab(sessionIdOrName).click();
-		});
 	}
 
 	/**
@@ -542,7 +547,13 @@ export class Sessions {
 	 * @returns the session ID or undefined if no session is selected
 	 */
 	async getCurrentSessionId(): Promise<string> {
-		return (await this.getMetadata()).id;
+		const testId = await this.page.getByTestId(/info-(python|r)-[a-z0-9]+/i).getAttribute('data-testid');
+
+		if (!testId || !/^info-((python|r)-[a-z0-9]+)$/i.test(testId)) {
+			throw new Error('No active session or unexpected session ID format');
+		}
+
+		return testId.replace(/^info-/, '');
 	}
 
 	/**
@@ -663,13 +674,9 @@ export class Sessions {
 				await expect(sessionTab.locator(statusClass)).toBeVisible({ timeout });
 			} else if (sessionCount === 1) {
 				// get status from metadata dialog because there is no tab list view
-				await expect.poll(
-					async () => (await this.getMetadata()).state,
-					{
-						timeout: 15000,
-						intervals: [1000]
-					}
-				).toBe(expectedStatus);
+				await this.metadataButton.click();
+				await expect(this.metadataDialog.getByText(`State: ${expectedStatus}`)).toBeVisible({ timeout });
+				await this.page.keyboard.press('Escape');
 			} else {
 				throw new Error('No sessions found');
 			}
@@ -748,6 +755,11 @@ export class Sessions {
 		);
 	}
 
+	/**
+	 * Verify: the session count in the console
+	 * @param count - the expected number of sessions
+	 * @param sessionType - the type of session to count: 'all' or 'active'
+	 */
 	async expectSessionCountToBe(count: number, sessionType: 'all' | 'active' = 'all') {
 		await test.step(`Verify session count: ${count}`, async () => {
 			await expect(async () => {
@@ -822,6 +834,10 @@ export class Sessions {
 	 */
 	async expectStartNewSessionMenuToBeVisible() {
 		await expect(this.quickPick.allSessionsMenu).toBeVisible();
+	}
+
+	async expectStatusBarToContain(runtimePath: string): Promise<void> {
+		await expect(this.code.driver.page.locator('footer').getByText(runtimePath)).toBeVisible({ timeout: 30000 });
 	}
 }
 

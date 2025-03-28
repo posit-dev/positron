@@ -8,6 +8,7 @@ import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
 import { Sessions } from './sessions';
+import { HotKeys } from './hotKeys.js';
 
 const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
@@ -36,7 +37,7 @@ export class Console {
 		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
 	}
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private sessions: Sessions) {
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private hotKeys: HotKeys, private sessions: Sessions) {
 		this.barRestartButton = this.code.driver.page.getByLabel('Restart console');
 		this.barClearButton = this.code.driver.page.getByLabel('Clear console');
 		this.barTrashButton = this.code.driver.page.getByTestId('trash-session');
@@ -98,6 +99,14 @@ export class Console {
 			if (pressEnter) {
 				await this.code.driver.page.keyboard.press('Enter', { delay: 1000 });
 			}
+		});
+	}
+
+	async clearInput() {
+		await test.step('Clear console input', async () => {
+			await this.focus();
+			await this.hotKeys.selectAll();
+			await this.code.driver.page.keyboard.press('Backspace');
 		});
 	}
 
@@ -275,8 +284,7 @@ export class Console {
 	}
 
 	async focus() {
-		await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? `Meta+K` : `Control+K`);
-		await this.code.driver.page.keyboard.press('F');
+		await this.hotKeys.focusConsole();
 	}
 
 	async clickConsoleTab() {
@@ -297,6 +305,14 @@ export class Console {
 	}
 
 	async expectSuggestionListCount(count: number): Promise<void> {
-		await expect(this.suggestionList).toHaveCount(count);
+		await test.step(`Expect console suggestion list count to be ${count}`, async () => {
+			await expect(this.suggestionList).toHaveCount(count);
+		});
+	}
+
+	async expectSuggestionListToContain(label: string): Promise<void> {
+		await test.step(`Expect console suggestion list to contain: ${label}`, async () => {
+			await this.code.driver.page.locator('.suggest-widget').getByLabel(label).isVisible();
+		});
 	}
 }

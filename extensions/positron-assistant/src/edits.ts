@@ -12,22 +12,22 @@ const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 type LMTextEdit = { append: string } | { delete: string; replace: string };
 
 /**
- * A provider for the copilot "Apply in Editor" functionality. Send text content of code blocks and
- * documents to a Language Model to calculate how to apply the code block within the document.
+ * A provider for the copilot "Apply in Editor" functionality. Send text content
+ * of code blocks and documents to a Language Model to calculate how to apply
+ * the code block within the document.
  */
-export const editsProvider: vscode.MappedEditsProvider = {
+export const editsProvider: vscode.MappedEditsProvider2 = {
 	provideMappedEdits: async function (
-		document: vscode.TextDocument,
-		codeBlocks: string[],
-		context: vscode.MappedEditsContext,
+		request: vscode.MappedEditsRequest,
+		result: vscode.MappedEditsResponseStream,
 		token: vscode.CancellationToken
-	): Promise<vscode.WorkspaceEdit | null> {
-		const workspaceEdit = new vscode.WorkspaceEdit();
-		for (const block of codeBlocks) {
+	): Promise<vscode.MappedEditsResult> {
+		for (const block of request.codeBlocks) {
+			const document = await vscode.workspace.openTextDocument(block.resource);
 			const text = document.getText();
-			const json = await mapEdit(text, block, token);
+			const json = await mapEdit(text, block.code, token);
 			if (!json) {
-				return null;
+				return {};
 			}
 
 			const edits = JSON.parse(json) as LMTextEdit[];
@@ -36,18 +36,20 @@ export const editsProvider: vscode.MappedEditsProvider = {
 					const lastLine = document.lineAt(document.lineCount - 1);
 					const endPosition = lastLine.range.end;
 					const append = lastLine.isEmptyOrWhitespace ? edit.append : `\n${edit.append}`;
-					workspaceEdit.insert(document.uri, endPosition, append);
+					const textEdit = vscode.TextEdit.insert(endPosition, append);
+					result.textEdit(block.resource, textEdit);
 				} else {
 					const deleteText = edit.delete;
 					const startPos = text.indexOf(deleteText);
 					const startPosition = document.positionAt(startPos);
 					const endPosition = document.positionAt(startPos + deleteText.length);
 					const range = new vscode.Range(startPosition, endPosition);
-					workspaceEdit.replace(document.uri, range, edit.replace);
+					const textEdit = vscode.TextEdit.replace(range, edit.replace);
+					result.textEdit(block.resource, textEdit);
 				}
 			}
 		}
-		return workspaceEdit;
+		return {};
 	}
 };
 

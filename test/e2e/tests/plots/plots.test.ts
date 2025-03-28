@@ -10,6 +10,7 @@ import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
 import { fail } from 'assert';
 import { Application } from '../../infra';
+import { Locator } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
@@ -221,21 +222,25 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		});
 
-		test.skip('Python - Verify bokeh Python widget', {
-			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6045' }],
+		test('Python - Verify bokeh Python widget', {
 			tag: [tags.WEB, tags.WIN]
 		}, async function ({ app }) {
-			await app.workbench.console.pasteCodeToConsole(bokeh);
-			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.executeCode('Python', bokeh);
 
 			// selector not factored out as it is unique to bokeh
 			const bokehCanvas = '.bk-Canvas';
-			await app.workbench.plots.waitForWebviewPlot(bokehCanvas);
+			await app.workbench.plots.waitForWebviewPlot(bokehCanvas, 'visible', app.web);
 			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 
 			// selector not factored out as it is unique to bokeh
-			await app.workbench.plots.getWebviewPlotLocator('.bk-tool-icon-box-zoom').click();
-			const canvasLocator = app.workbench.plots.getWebviewPlotLocator(bokehCanvas);
+			let canvasLocator: Locator;
+			if (!app.web) {
+				await app.workbench.plots.getWebviewPlotLocator('.bk-tool-icon-box-zoom').click();
+				canvasLocator = app.workbench.plots.getWebviewPlotLocator(bokehCanvas);
+			} else {
+				await app.workbench.plots.getDeepWebWebviewPlotLocator('.bk-tool-icon-box-zoom').click();
+				canvasLocator = app.workbench.plots.getDeepWebWebviewPlotLocator(bokehCanvas);
+			}
 			const boundingBox = await canvasLocator.boundingBox();
 
 			// plot capture before zoom
@@ -633,7 +638,9 @@ const ipywidgetOutput = `import ipywidgets
 output = ipywidgets.Output()
 output`;
 
-const bokeh = `from bokeh.plotting import figure, output_file, show
+const bokeh = `from bokeh.plotting import figure, output_file, show, reset_output
+# Proactively reset output in case hvplot has changed anything
+reset_output()
 
 # instantiating the figure object
 graph = figure(title = "Bokeh Line Graph")

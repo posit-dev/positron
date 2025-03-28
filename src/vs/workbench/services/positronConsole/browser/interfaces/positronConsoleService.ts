@@ -122,9 +122,16 @@ export interface IPositronConsoleService {
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
 	 * @param mode Possible code execution modes for a language runtime
 	 * @param errorBehavior Possible error behavior for a language runtime
-	 * @returns A value which indicates whether the code could be executed.
+	 * @param executionId An optional ID to track this execution for observation
+	 * @returns The session ID that was assigned to execute the code.
 	 */
-	executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior): Promise<boolean>;
+	executeCode(languageId: string,
+		code: string,
+		focus: boolean,
+		allowIncomplete?: boolean,
+		mode?: RuntimeCodeExecutionMode,
+		errorBehavior?: RuntimeErrorBehavior,
+		executionId?: string): Promise<string>;
 }
 
 /**
@@ -387,16 +394,18 @@ export interface IPositronConsoleInstance {
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
 	 * @param mode Possible code execution modes for a language runtime.
 	 * @param errorBehavior Possible error behavior for a language runtime
+	 * @param executionId An optional ID to track this execution for observation
 	 */
-	enqueueCode(code: string, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode): Promise<void>;
+	enqueueCode(code: string, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): Promise<void>;
 
 	/**
 	 * Executes code.
 	 * @param code The code to execute.
 	 * @param mode Possible code execution modes for a language runtime.
 	 * @param errorBehavior Possible error behavior for a language runtime
+	 * @param executionId An optional ID to track this execution for observation
 	 */
-	executeCode(code: string, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior): void;
+	executeCode(code: string, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): void;
 
 	/**
 	 * Replies to a prompt.

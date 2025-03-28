@@ -281,13 +281,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			);
 		}
 
-		// For existing environments, if an interpreter is selected and ipykernel will be installed,
-		// show a message to notify the user that ipykernel will be installed.
-		if (
-			envSetupType === EnvironmentSetupType.ExistingEnvironment &&
-			selectedInterpreter &&
-			willInstallIpykernel
-		) {
+		// If ipykernel will be installed, show a message to notify the user.
+		if (willInstallIpykernel) {
 			return (
 				<WizardFormattedText type={WizardFormattedTextType.Info}>
 					<code>ipykernel</code>
@@ -408,11 +403,6 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 							{(() => localize(
 								'pythonEnvironmentSubStep.description',
 								"Select an environment type for your project."
-							))()}
-							<code>ipykernel</code>
-							{(() => localize(
-								'pythonInterpreterSubStep.feedback',
-								" will be installed for Python language support."
 							))()}
 						</WizardFormattedText>
 					}
