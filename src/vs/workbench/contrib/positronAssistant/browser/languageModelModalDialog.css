@@ -20,9 +20,18 @@
 	scrollbar-width: thin;
 }
 
+.language-model.button-container .language-model.button {
+	width: 170px;
+}
+
+.language-model.button .vertical-stack {
+	text-align: center;
+}
+
 .language-model.icon {
 	height: 3rem;
 	width: 3rem;
+	margin: 0 15px;
 	align-self: center;
 }
 
@@ -44,10 +53,7 @@
 	border: 1px solid var(--vscode-positronModalDialog-background);
 }
 
-.language-model.button.selected {
-	background: var(--vscode-positronIconButton-background);
-}
-
+.language-model.button.selected,
 .language-model.button:hover {
 	border: 1px solid var(--vscode-positronIconButton-border);
 	background: var(--vscode-positronIconButton-background);
@@ -58,11 +64,30 @@
 }
 
 .language-model.button.sign-in {
-	align-self: center;
+	align-self: end;
 	font-weight: 600;
 	text-wrap: nowrap;
 	height: 2rem;
 	border-radius: 5px;
 	border: 1px solid var(--vscode-positronModalDialog-buttonBorder);
 	background: var(--vscode-positronModalDialog-buttonBackground);
+}
+
+/** layout the children of this container horizontally */
+.language-model-authentication-method-container .radio-group {
+	display: flex;
+	flex-direction: row;
+	column-gap: 10px;
+}
+
+.language-model-modal-dialog .content-area > .vertical-stack {
+	row-gap: 2px;
+}
+
+.language-model-authentication-method-container div.radio-button.disabled {
+	color: var(--vscode-disabledForeground);
+}
+
+#model-tos {
+	font-size: 0.7rem;
 }
