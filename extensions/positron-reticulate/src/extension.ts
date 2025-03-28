@@ -16,6 +16,7 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 	// The reticulate runtime manager can only have a single reticulate runtime session
 	// that's currently running. This `_session` field contains this session.
 	_session?: positron.LanguageRuntimeSession;
+	_sessions: Map<string, positron.LanguageRuntimeSession> = new Map();
 
 	// This field contains the reticulate runtime metadata. It's only set once the
 	// runtime has been registered.
@@ -108,7 +109,32 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 
 	async createSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata): Promise<positron.LanguageRuntimeSession> {
 		try {
-			this._session = await ReticulateRuntimeSession.create(runtimeMetadata, sessionMetadata);
+			// TODO: this should probably own the progress for notifications.
+			// We need to figure out if the user wants to attach this new reticulate session to an existing R session,
+			// or if they want us to create an R session to host this new session.
+			// If there's a running R session that has no reticulate session attached, we attach to it.
+			// If there's no 'free' R session, we create a new one.
+			const sessions = await positron.runtime.getActiveSessions();
+			const free_r_sessions = sessions.filter(sess => sess.runtimeMetadata.languageId === 'r' && !this._sessions.has(sess.metadata.sessionId));
+
+			const rSession = await (async () => {
+				if (free_r_sessions.length > 0) {
+					// We have a free R session, we can attach to it. First we need to figure out if there's
+					// a prefered one.
+					// TODO: maybe show a quick menu so the user can select the session they want to attach to?
+					return free_r_sessions[0];
+				} else {
+					// We need to create a new R session.
+					const rRuntime = await positron.runtime.getPreferredRuntime('r');
+					return await positron.runtime.startLanguageRuntime(rRuntime.runtimeId, rRuntime.runtimeName)
+				}
+			})();
+
+			this._session = await ReticulateRuntimeSession.create(runtimeMetadata, sessionMetadata, rSession);
+
+			// Attach the reticulate session to the R session if the reticulate session was successfully created.
+			this._sessions.set(rSession.metadata.sessionId, this._session);
+
 			return this._session;
 		} catch (err: any) {
 			// When an error happens trying to create a session, we'll create a notification
@@ -195,6 +221,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 	static async create(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
 		sessionMetadata: positron.RuntimeSessionMetadata,
+		rSession: positron.LanguageRuntimeSession
 	): Promise<ReticulateRuntimeSession> {
 
 		// A deferred promise that will resolve when the session is created.
@@ -208,10 +235,6 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		}, async (progress, _token) => {
 			let session: ReticulateRuntimeSession | undefined;
 			try {
-				// Get the R session that we'll use to start the reticulate session.
-				progress.report({ increment: 10, message: 'Initializing the host R session' });
-				const rSession = await getRSession(progress);
-
 				// Make sure the R session has the necessary packages installed.
 				progress.report({ increment: 10, message: 'Checking prerequisites' });
 				const config = await ReticulateRuntimeSession.checkRSession(rSession);
@@ -246,7 +269,8 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
 		sessionMetadata: positron.RuntimeSessionMetadata,
 	): Promise<ReticulateRuntimeSession> {
-
+		// TODO: question, do we have the same sessionId when restoring?
+		// how does restoring works with multi-console?
 		const sessionPromise = new PromiseHandles<ReticulateRuntimeSession>();
 
 		vscode.window.withProgress({
