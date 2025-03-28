@@ -29,7 +29,23 @@ export async function defaultHandler(
 	// List of tools for use by the Language Model
 	const toolOptions: Record<string, any> = {};
 	const tools: vscode.LanguageModelChatTool[] = [
-		...vscode.lm.tools.filter(tool => tool.tags.includes('positron-assistant')),
+		...vscode.lm.tools.filter(tool => {
+			// Ignore tools that are not applicable for the Positron Assistant
+			if (!tool.tags.includes('positron-assistant')) {
+				return false;
+			}
+			// Do not offer to execute code when the request isn't coming from
+			// the Chat pane; the other panes do not have an affordance for
+			// confirming executions.
+			//
+			// CONSIDER: It would be better for us to introspect the tool itself
+			// to see if it requires confirmation, but that information isn't
+			// currently exposed in `vscode.LanguageModelChatTool`.
+			if (tool.name === 'executeCode' && request.location2) {
+				return false;
+			}
+			return true;
+		}),
 		getPlotToolAdapter.toolData,
 	];
 
