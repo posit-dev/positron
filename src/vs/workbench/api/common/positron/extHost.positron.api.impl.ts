@@ -130,6 +130,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			restartSession(sessionId: string): Thenable<void> {
 				return extHostLanguageRuntime.restartSession(sessionId);
 			},
+			focusSession(sessionId: string): void {
+				return extHostLanguageRuntime.focusSession(sessionId);
+			},
 			registerClientHandler(handler: positron.RuntimeClientHandler): vscode.Disposable {
 				return extHostLanguageRuntime.registerClientHandler(handler);
 			},
