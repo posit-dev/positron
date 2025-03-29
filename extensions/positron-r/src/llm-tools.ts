@@ -64,46 +64,4 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 	});
 
 	context.subscriptions.push(rPackageVersionTool);
-
-	const rPackageInstallTool = vscode.lm.registerTool<{ packageNames: string[] }>('installRPackage', {
-		prepareInvocation: async (options, token) => {
-			if (!options.input.packageNames || options.input.packageNames.length === 0) {
-				throw new Error('Supply one or more package names to install');
-			}
-
-			// Ask user for confirmation before proceeding
-			const packageList = options.input.packageNames.join(', ');
-			const result: vscode.PreparedToolInvocation = {
-				invocationMessage: 'Installing R packages: ' + packageList + '...',
-				confirmationMessages: {
-					title: 'Install',
-					message: 'Install the following R packages?\n' + packageList,
-				}
-				,
-			}
-			return result;
-		},
-		invoke: async (options, token) => {
-			const manager = RSessionManager.instance;
-			const session = manager.getConsoleSession();
-			if (!session) {
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('No active R session'),
-				]);
-			}
-
-			if (!options.input.packageNames || options.input.packageNames.length === 0) {
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('Supply one or more package names to install'),
-				]);
-			}
-
-			await session.callMethod('install_packages', options.input.packageNames);
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart('Installed packages: ' + options.input.packageNames.join(', ')),
-			]);
-		}
-	});
-
-	context.subscriptions.push(rPackageInstallTool);
 }
