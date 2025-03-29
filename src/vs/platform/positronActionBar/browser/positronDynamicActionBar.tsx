@@ -11,13 +11,18 @@ import React, { CSSProperties, KeyboardEvent, useEffect, useLayoutEffect, useRef
 
 // Other dependencies.
 import * as DOM from '../../../base/browser/dom.js';
-// import { ActionBarSeparator } from './components/actionBarSeparator.js';
+import { ActionBarSeparator } from './components/actionBarSeparator.js';
 import { usePositronActionBarContext } from './positronActionBarContext.js';
 import { DisposableStore, toDisposable } from '../../../base/common/lifecycle.js';
 import { optionalValue, positronClassNames } from '../../../base/common/positronUtilities.js';
 
 /**
- * DynamicActionBarAction type.
+ * Constants.
+ */
+const SEPARATOR_WIDTH = 7;
+
+/**
+ * DynamicActionBarAction interface.
  */
 export interface DynamicActionBarAction {
 	width: number;
@@ -187,7 +192,7 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 		}
 
 		/**
-		 * Measures text width.
+		 * Measures the width of text in the canvas.
 		 * @param text The text.
 		 * @returns The text width.
 		 */
@@ -203,11 +208,11 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 		 * @returns
 		 */
 		const processActions = (actions: DynamicActionBarAction[]): [gridColumns: string[], gridElements: JSX.Element[]] => {
-			//
+			// Process the actions into grid columns and grid elements.
 			const gridColumns: string[] = [];
 			const gridElements: JSX.Element[] = [];
 			let appendSeparator = false;
-			actions.forEach(action => {
+			actions.forEach((action, index) => {
 				// Measure the width of the text.
 				const width = action.width + (!action.text ? 0 : measureTextWidth(action.text));
 
@@ -216,23 +221,30 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 					action.component() :
 					action.component;
 
-				if (appendSeparator) {
-				}
-
-				if (width > layoutWidth) {
+				if (width + (appendSeparator ? SEPARATOR_WIDTH : 0) > layoutWidth) {
 					// Append to the menu...
 					return;
 				}
 
+				// Append the separator.
+				if (appendSeparator && index <= actions.length - 1) {
+					gridColumns.push(`${SEPARATOR_WIDTH}px`);
+					gridElements.push(<ActionBarSeparator />);
+					layoutWidth -= SEPARATOR_WIDTH;
+					appendSeparator = false;
+				}
+
+				// Append the action.
 				gridColumns.push(`${width}px`);
 				gridElements.push(component);
 				layoutWidth -= width;
 
-				if (props.gap && gridColumns.length > 1) {
-					// Add the gap if this is not the first element.
+				// Account for the gap.
+				if (props.gap && props.gap <= layoutWidth && index <= actions.length - 1) {
 					layoutWidth -= props.gap;
 				}
 
+				// Set the append separator flag for the next iteration.
 				appendSeparator = action.separator;
 			});
 

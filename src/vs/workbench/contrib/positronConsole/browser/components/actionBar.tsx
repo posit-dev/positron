@@ -416,6 +416,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		)
 	});
 
+	// Delete session action.
 	if (props.showDeleteButton) {
 		rightActions.push({
 			width: 28,
@@ -434,14 +435,16 @@ export const ActionBar = (props: ActionBarProps) => {
 		});
 	}
 
+	// Console info action.
 	if (multiSessionsEnabled) {
 		rightActions.push({
 			width: 28,
-			separator: false,
+			separator: true,
 			component: <ConsoleInstanceInfoButton />
 		})
 	}
 
+	// Toggle trace action.
 	if (showDeveloperUI) {
 		rightActions.push({
 			width: 28,
@@ -458,6 +461,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		})
 	}
 
+	// Toggle word wrap action.
 	rightActions.push({
 		width: 28,
 		separator: true,
@@ -472,6 +476,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		)
 	})
 
+	// Open in editor action.
 	rightActions.push({
 		width: 28,
 		separator: true,
@@ -486,6 +491,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		)
 	});
 
+	// Clear console action.
 	rightActions.push({
 		width: 28,
 		separator: false,
