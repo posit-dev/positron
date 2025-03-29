@@ -7,7 +7,6 @@
 	display: flex;
 	font-size: 12px;
 	overflow: hidden;
-	max-width: 200px;
 	align-items: center;
 	color: var(--positronActionBar-foreground);
 }

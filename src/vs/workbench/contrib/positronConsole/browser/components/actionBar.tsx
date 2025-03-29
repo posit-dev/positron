@@ -25,10 +25,10 @@ import { ActionBarButton } from '../../../../../platform/positronActionBar/brows
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { PositronDynamicActionBar } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 import { ILanguageRuntimeSession, RuntimeStartMode } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { multipleConsoleSessionsFeatureEnabled } from '../../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
+import { PositronDynamicActionBar, DynamicActionBarAction } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 
 /**
  * Constants.
@@ -368,6 +368,137 @@ export const ActionBar = (props: ActionBarProps) => {
 		});
 	};
 
+	const leftActions: DynamicActionBarAction[] = [];
+
+	// if (!multiSessionsEnabled) {
+	// 	leftActions.push({
+	// 		id: '1',
+	// 		width: 'auto',
+	// 		component: (
+	// 			<>
+	// 				<ConsoleInstanceMenuButton {...props} />
+	// 				<ActionBarSeparator />
+	// 			</>
+	// 		)
+	// 	});
+	// }
+
+	// leftActions.push({
+	// 	width: 7,
+	// 	component: <ActionBarSeparator />
+	// });
+
+	leftActions.push({
+		width: 28,
+		text: directoryLabel,
+		separator: false,
+		component: (
+			<CurrentWorkingDirectory directoryLabel={directoryLabel} />
+		)
+	});
+
+	// Right actions.
+	const rightActions: DynamicActionBarAction[] = [];
+
+	// Restart runtime action.
+	rightActions.push({
+		width: 28,
+		separator: false,
+		component: (
+			<ActionBarButton
+				align='right'
+				ariaLabel={positronRestartConsole}
+				disabled={!canShutdown}
+				iconId='positron-restart-runtime-thin'
+				tooltip={positronRestartConsole}
+				onPressed={restartConsoleHandler}
+			/>
+		)
+	});
+
+	if (props.showDeleteButton) {
+		rightActions.push({
+			width: 28,
+			separator: false,
+			component: (
+				<ActionBarButton
+					align='right'
+					ariaLabel={positronDeleteConsole}
+					dataTestId='trash-session'
+					disabled={!(canShutdown || canStart)}
+					iconId='trash'
+					tooltip={positronDeleteConsole}
+					onPressed={deleteSessionHandler}
+				/>
+			)
+		});
+	}
+
+	if (multiSessionsEnabled) {
+		rightActions.push({
+			width: 28,
+			separator: false,
+			component: <ConsoleInstanceInfoButton />
+		})
+	}
+
+	if (showDeveloperUI) {
+		rightActions.push({
+			width: 28,
+			separator: false,
+			component: (
+				<ActionBarButton
+					align='right'
+					ariaLabel={positronToggleTrace}
+					iconId='wand'
+					tooltip={positronToggleTrace}
+					onPressed={toggleTraceHandler}
+				/>
+			)
+		})
+	}
+
+	rightActions.push({
+		width: 28,
+		separator: true,
+		component: (
+			<ActionBarButton
+				align='right'
+				ariaLabel={positronToggleWordWrap}
+				iconId='word-wrap'
+				tooltip={positronToggleWordWrap}
+				onPressed={toggleWordWrapHandler}
+			/>
+		)
+	})
+
+	rightActions.push({
+		width: 28,
+		separator: true,
+		component: (
+			<ActionBarButton
+				align='right'
+				ariaLabel={positronOpenInEditor}
+				iconId='positron-open-in-editor'
+				tooltip={positronOpenInEditor}
+				onPressed={openInEditorHandler}
+			/>
+		)
+	});
+
+	rightActions.push({
+		width: 28,
+		separator: false,
+		component:
+			<ActionBarButton
+				align='right'
+				ariaLabel={positronClearConsole}
+				iconId='clear-all'
+				tooltip={positronClearConsole}
+				onPressed={clearConsoleHandler}
+			/>
+	});
+
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...positronConsoleContext}>
@@ -375,8 +506,11 @@ export const ActionBar = (props: ActionBarProps) => {
 				<PositronDynamicActionBar
 					borderBottom={false}
 					borderTop={true}
+					gap={1}
+					leftActions={leftActions}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
+					rightActions={rightActions}
 					size='small'
 				/>
 			</div>

@@ -7,13 +7,24 @@
 import './positronDynamicActionBar.css';
 
 // React.
-import React, { KeyboardEvent, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { CSSProperties, KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../base/browser/dom.js';
+// import { ActionBarSeparator } from './components/actionBarSeparator.js';
 import { usePositronActionBarContext } from './positronActionBarContext.js';
 import { DisposableStore, toDisposable } from '../../../base/common/lifecycle.js';
 import { optionalValue, positronClassNames } from '../../../base/common/positronUtilities.js';
+
+/**
+ * DynamicActionBarAction type.
+ */
+export interface DynamicActionBarAction {
+	width: number;
+	text?: string;
+	separator: boolean;
+	component: JSX.Element | (() => JSX.Element);
+}
 
 /**
  * CommonPositronActionBarProps interface.
@@ -23,6 +34,8 @@ interface CommonPositronDynamicActionBarProps {
 	gap?: number;
 	paddingLeft?: number;
 	paddingRight?: number;
+	leftActions: DynamicActionBarAction[];
+	rightActions: DynamicActionBarAction[];
 }
 
 /**
@@ -55,33 +68,45 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 	const context = usePositronActionBarContext();
 
 	// Reference hooks.
-	const ref = useRef<HTMLDivElement>(undefined!);
+	const refActionBar = useRef<HTMLDivElement>(undefined!);
+	const refExemplar = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
+	const [width, setWidth] = useState(0);
 	const [focusedIndex, setFocusedIndex] = React.useState(0);
 	const [prevIndex, setPrevIndex] = React.useState(-1);
 
-	// Automatic layout useEffect.
+	// Width useLayoutEffect. This is only for setting or updating the width state.
 	useLayoutEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
+		// Set the initial width.
+		setWidth(refActionBar.current.offsetWidth);
+
 		// Allocate and initialize the resize observer.
 		const resizeObserver = new ResizeObserver(entries => {
+			setWidth(refActionBar.current.offsetWidth);
+			// Update the width state.
+			// setWidth(entries[0].contentRect.width);
 		});
 
 		// Start observing the size of the action bar.
-		resizeObserver.observe(ref.current);
+		resizeObserver.observe(refActionBar.current);
 
 		// Add the resize observer to the disposable store.
 		disposableStore.add(toDisposable(() => resizeObserver.disconnect()));
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
-	}, [context]);
+	}, []);
 
 	// Handle keyboard navigation
 	const keyDownHandler = (e: KeyboardEvent<HTMLDivElement>) => {
+		if (props.nestedActionBar) {
+			return;
+		}
+
 		// Let keyboard events pass through to text controls
 		if (DOM.isHTMLInputElement(e.target)) {
 			const input = e.target as HTMLInputElement;
@@ -146,28 +171,117 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 		}
 	}, [context.focusableComponents, focusedIndex, prevIndex, props.nestedActionBar]);
 
+	// If the exemplar is available, we can calculate widths and construct the grid.
+	const gridColumns: string[] = [];
+	const gridElements: JSX.Element[] = [];
+	if (refExemplar.current) {
+		// Get the exemplar window and style.
+		const exemplarWindow = DOM.getWindow(refExemplar.current);
+		const style = DOM.getComputedStyle(refExemplar.current);
+
+		// Create a canvas in the exemplar window, get it's 2D context, and set its font.
+		const canvas = exemplarWindow.document.createElement('canvas');
+		const canvasRenderingContext2D = canvas.getContext('2d');
+		if (canvasRenderingContext2D) {
+			canvasRenderingContext2D.font = style.font;
+		}
+
+		/**
+		 * Measures text width.
+		 * @param text The text.
+		 * @returns The text width.
+		 */
+		const measureTextWidth = (text: string) =>
+			canvasRenderingContext2D ? Math.ceil(canvasRenderingContext2D.measureText(text).width) : 0;
+
+		// Set the layout width.
+		let layoutWidth = width - (props.paddingLeft ?? 0) - (props.paddingRight ?? 0);
+
+		/**
+		 * Processes actions into grid columns and grid elements.
+		 * @param actions
+		 * @returns
+		 */
+		const processActions = (actions: DynamicActionBarAction[]): [gridColumns: string[], gridElements: JSX.Element[]] => {
+			//
+			const gridColumns: string[] = [];
+			const gridElements: JSX.Element[] = [];
+			let appendSeparator = false;
+			actions.forEach(action => {
+				// Measure the width of the text.
+				const width = action.width + (!action.text ? 0 : measureTextWidth(action.text));
+
+				// Get the component.
+				const component = action.component instanceof Function ?
+					action.component() :
+					action.component;
+
+				if (appendSeparator) {
+				}
+
+				if (width > layoutWidth) {
+					// Append to the menu...
+					return;
+				}
+
+				gridColumns.push(`${width}px`);
+				gridElements.push(component);
+				layoutWidth -= width;
+
+				if (props.gap && gridColumns.length > 1) {
+					// Add the gap if this is not the first element.
+					layoutWidth -= props.gap;
+				}
+
+				appendSeparator = action.separator;
+			});
+
+			// Return the layout width.
+			return [gridColumns, gridElements];
+		}
+
+		// Process the left and right actions into grid columns and grid elements.
+		const [rightGridColumns, rightGridElements] = processActions(props.rightActions);
+		const [leftGridColumns, leftGridElements] = processActions(props.leftActions);
+
+		// Remove the canvas.
+		canvas.remove();
+
+		// Construct the grid columns.
+		gridColumns.push(...leftGridColumns);
+		gridColumns.push('1fr');
+		gridColumns.push(...rightGridColumns);
+
+		// Construct the grid elements.
+		gridElements.push(...leftGridElements);
+		gridElements.push(<div />);
+		gridElements.push(...rightGridElements);
+	}
+
 	// Create the class names.
 	const classNames = positronClassNames(
-		'positron-action-bar',
+		'positron-dynamic-action-bar',
 		{ 'border-top': props?.borderTop },
 		{ 'border-bottom': props?.borderBottom },
 		{ 'transparent-background': props?.nestedActionBar },
 		props.size
 	);
 
+	// Create the dynamic style.
+	const style: CSSProperties = {
+		gap: optionalValue(props.gap, 0),
+		paddingLeft: optionalValue(props.paddingLeft, 0),
+		paddingRight: optionalValue(props.paddingRight, 0),
+		gridTemplateColumns: gridColumns.join(' ')
+	};
+
 	// Render.
 	return (
-		<div
-			ref={ref}
-			className={classNames}
-			style={{
-				gap: optionalValue(props.gap, 0),
-				paddingLeft: optionalValue(props.paddingLeft, 0),
-				paddingRight: optionalValue(props.paddingRight, 0)
-			}}
-			onKeyDown={props.nestedActionBar ? undefined : keyDownHandler}
-		>
-			Dynamic Action Bar
-		</div>
+		<>
+			<div ref={refExemplar} className='exemplar'>test</div>
+			<div ref={refActionBar} className={classNames} style={style} onKeyDown={keyDownHandler}>
+				{gridElements}
+			</div>
+		</>
 	);
 };

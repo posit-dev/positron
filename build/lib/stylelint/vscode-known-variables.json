@@ -567,6 +567,7 @@
 		"--positronActionBar-foreground",
 		"--positronActionBar-hoverBackground",
 		"--positronActionBar-iconSize",
+		"--positronActionBar-separator",
 		"--positronActionBar-textInputBackground",
 		"--positronActionBar-textInputSelectionBackground",
 		"--positronActionBar-textInputSelectionForeground",
