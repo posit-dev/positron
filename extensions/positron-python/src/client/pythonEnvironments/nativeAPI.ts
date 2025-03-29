@@ -594,10 +594,12 @@ export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscov
 }
 
 // --- Start Positron ---
-type DuplicateEnvResult = {
-    duplicateEnv: PythonEnvInfo | undefined;
-    skipAddEnv: boolean;
-} | undefined;
+type DuplicateEnvResult =
+    | {
+          duplicateEnv: PythonEnvInfo | undefined;
+          skipAddEnv: boolean;
+      }
+    | undefined;
 
 /**
  * Handles duplicate environments in additional environment directories.
@@ -616,7 +618,9 @@ function handleDuplicateEnvInAdditionalDirs(envs: PythonEnvInfo[], info: PythonE
 
     // Look for an existing environment in the same additional environment directory
     const resolvedEnv = resolveSymbolicLinkSync(info.executable.filename);
-    const duplicateEnv = envs.find((item) => arePathsSame(resolvedEnv, resolveSymbolicLinkSync(item.executable.filename)));
+    const duplicateEnv = envs.find((item) =>
+        arePathsSame(resolvedEnv, resolveSymbolicLinkSync(item.executable.filename)),
+    );
     if (!duplicateEnv) {
         return undefined;
     }
@@ -640,9 +644,7 @@ function handleDuplicateEnvInAdditionalDirs(envs: PythonEnvInfo[], info: PythonE
     // If the environment being added is the shortest, replace the duplicate
     // e.g. we are trying to add ~/scratch/3.10.4/bin/python, and we already added ~/scratch/3.10.4/bin/python3.10, so
     // we should replace ~/scratch/3.10.4/bin/python3.10 with ~/scratch/3.10.4/bin/python.
-    traceVerbose(
-        `[addEnv] Replacing ${duplicateEnv.executable.filename} with ${info.executable.filename}`,
-    );
+    traceVerbose(`[addEnv] Replacing ${duplicateEnv.executable.filename} with ${info.executable.filename}`);
     return { duplicateEnv, skipAddEnv: false };
 }
 // --- End Positron ---

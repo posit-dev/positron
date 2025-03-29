@@ -53,7 +53,9 @@ export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
                 traceVerbose(`Found ${pythonBinaries.length} python binaries in posix paths`);
 
                 // --- Start Positron ---
-                traceVerbose(`[PosixKnownPathsLocator] Python binaries found in posix paths: ${pythonBinaries.join(', ')}`);
+                traceVerbose(
+                    `[PosixKnownPathsLocator] Python binaries found in posix paths: ${pythonBinaries.join(', ')}`,
+                );
                 // --- End Positron ---
 
                 // Filter out MacOS system installs of Python 2 if necessary.
