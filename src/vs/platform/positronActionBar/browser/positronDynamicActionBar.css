@@ -3,38 +3,53 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-action-bar {
+.exemplar {
+	top: -10000px;
+	left: -10000px;
+	font-size: 12px;
+	position: absolute;
+}
+
+.positron-dynamic-action-bar {
 	width: 100%;
-	display: flex;
+	display: grid;
 	align-items: center;
 	box-sizing: border-box;
+	grid-template-rows: 1fr;
 	height: var(--positronActionBar-height);
 }
 
-.positron-action-bar:not(.transparent-background) {
+.positron-dynamic-action-bar .action-container {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: red;
+}
+
+.positron-dynamic-action-bar:not(.transparent-background) {
 	background-color: var(--positronActionBar-background);
 }
 
-.positron-action-bar.transparent-background {
+.positron-dynamic-action-bar.transparent-background {
 	background-color: transparent;
 }
 
-.positron-action-bar.small {
+.positron-dynamic-action-bar.small {
 	--positronActionBar-height: 32px;
 	--positronActionBar-iconSize: 28px;
 	--positronActionBar-tooltipTop: 30px;
 }
 
-.positron-action-bar.large {
+.positron-dynamic-action-bar.large {
 	--positronActionBar-height: 34px;
 	--positronActionBar-iconSize: 28px;
 	--positronActionBar-tooltipTop: 32px;
 }
 
-.positron-action-bar.border-top {
+.positron-dynamic-action-bar.border-top {
 	border-top: 0.5px solid var(--positronActionBar-border);
 }
 
-.positron-action-bar.border-bottom {
+.positron-dynamic-action-bar.border-bottom {
 	border-bottom: 0.5px solid var(--positronActionBar-border);
 }
