@@ -290,7 +290,7 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 	// Render.
 	return (
 		<>
-			<div ref={refExemplar} className='exemplar'>test</div>
+			<div ref={refExemplar} className='exemplar' />
 			<div ref={refActionBar} className={classNames} style={style} onKeyDown={keyDownHandler}>
 				{gridElements}
 			</div>
