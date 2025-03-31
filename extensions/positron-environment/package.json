@@ -1,0 +1,52 @@
+{
+  "name": "positron-environment",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.0.1",
+  "publisher": "positron",
+  "engines": {
+    "vscode": "^1.65.0"
+  },
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "configuration": [
+      {
+        "type": "object",
+        "title": "%environment.configuration.title%",
+        "properties": {
+          "positron.environment.enabled": {
+            "scope": "window",
+            "type": "boolean",
+            "default": true,
+            "description": "%environment.configuration.enabled.description%"
+          },
+          "positron.environment.variables": {
+            "scope": "window",
+            "type": "object",
+            "default": {
+              "SF_PARTNER": "posit_positron",
+              "SPARK_CONNECT_USER_AGENT": "posit-positron"
+            },
+            "description": "%environment.configuration.variables.description%"
+          }
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "postinstall": "ts-node scripts/post-install.ts",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/posit-dev/positron"
+  }
+}

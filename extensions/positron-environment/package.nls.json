@@ -1,0 +1,7 @@
+{
+	"displayName": "Environment",
+	"description": "Positron Environment Variables",
+	"environment.configuration.title": "Environment Variables",
+	"environment.configuration.enabled.description": "Enable or disable the Positron environment variable collection.",
+	"environment.configuration.variables.description": "Global environment variables for all Positron consoles and terminals."
+}
