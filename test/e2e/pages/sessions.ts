@@ -129,7 +129,7 @@ export class Sessions {
 				// map session names that were not found to their corresponding runtime keys
 				// and filter out any undefined values to ensure valid runtime keys
 				sessionsToCreate = sessionsNotFound
-					.map(name => availableRuntimeNameToKeyMap.get(name))
+					.map(name => availableRuntimesNameToKeyMap.get(name))
 					.filter((key): key is SessionRuntimes => Boolean(key));
 			}
 		}
@@ -201,8 +201,8 @@ export class Sessions {
 			await this.page.mouse.move(0, 0);
 
 			if (waitForIdle) {
-				await expect(this.page.getByText('Restarting')).not.toBeVisible({ timeout: 90000 });
-				await expect(this.page.locator('.console-instance[style*="z-index: auto"]').getByText('restarted.')).toBeVisible({ timeout: 90000 });
+				await expect(this.page.getByText(/(Restarting)|(preparing for restart)/)).not.toBeVisible({ timeout: 60000 });
+				await expect(this.page.locator('.console-instance[style*="z-index: auto"]').getByText('restarted.')).toBeVisible({ timeout: 30000 });
 				await this.expectStatusToBe(sessionIdOrName, 'idle');
 			}
 		});
@@ -1080,7 +1080,6 @@ export const availableRuntimes: { [key: string]: SessionInfo } = {
 	pythonHidden: { ...pythonSessionHidden },
 };
 
-// map runtime names to their corresponding keys for quick lookup
-const availableRuntimeNameToKeyMap = new Map(
+const availableRuntimesNameToKeyMap = new Map(
 	Object.entries(availableRuntimes).map(([key, runtime]) => [runtime.name, key])
 );
