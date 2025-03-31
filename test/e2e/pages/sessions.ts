@@ -1060,6 +1060,16 @@ const pythonSessionHidden: SessionInfo = {
 	waitForReady: true
 };
 
+// Use this session object to manage reticulate sessions.
+const pythonReticulate: SessionInfo = {
+	name: `Python (reticulate)`,
+	language: 'Python',
+	version: '',
+	triggerMode: 'session-picker',
+	id: '',
+	waitForReady: true
+};
+
 // Use this session object to manage default R env in the test
 const rSession: SessionInfo = {
 	name: `R ${DESIRED_R}`,
@@ -1090,7 +1100,7 @@ const rSessionHidden: SessionInfo = {
 	waitForReady: true
 };
 
-type SessionRuntimes = 'python' | 'pythonAlt' | 'pythonHidden' | 'r' | 'rAlt' | 'rHidden';
+type SessionRuntimes = 'python' | 'pythonAlt' | 'pythonHidden' | 'pythonReticulate' | 'r' | 'rAlt' | 'rHidden';
 
 export const availableRuntimes: { [key: string]: SessionInfo } = {
 	r: { ...rSession },
@@ -1099,4 +1109,5 @@ export const availableRuntimes: { [key: string]: SessionInfo } = {
 	python: { ...pythonSession },
 	pythonAlt: { ...pythonSessionAlt },
 	pythonHidden: { ...pythonSessionHidden },
+	pythonReticulate: { ...pythonReticulate },
 };
