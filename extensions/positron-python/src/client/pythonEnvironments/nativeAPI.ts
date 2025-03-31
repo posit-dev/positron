@@ -294,6 +294,28 @@ function hasChanged(old: PythonEnvInfo, newEnv: PythonEnvInfo): boolean {
     return false;
 }
 
+// --- Start Positron ---
+enum ExistingEnvAction {
+    KeepExistingEnv,
+    AddNewEnv,
+    ReplaceExistingEnv,
+}
+
+type ExistingEnvResult =
+    | {
+        reason: ExistingEnvAction.KeepExistingEnv;
+        existingEnv: PythonEnvInfo;
+    }
+    | {
+        reason: ExistingEnvAction.AddNewEnv;
+        existingEnv: undefined;
+    }
+    | {
+        reason: ExistingEnvAction.ReplaceExistingEnv;
+        existingEnv: PythonEnvInfo;
+    };
+// --- End Positron ---
+
 class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     private _onProgress: EventEmitter<ProgressNotificationEvent>;
 
@@ -469,16 +491,34 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             // --- Start Positron ---
             let old = this._envs.find((item) => item.executable.filename === info.executable.filename);
             if (!old) {
-                // If there isn't an old env based on filename match, there may still be an old env if the env
-                // being added is in one of the additional env directories specified by Positron. This is
-                // because the Native Python Finder may return multiple equivalent python executables when
-                // searching in the additional env directories.
-                const result = handleDuplicateEnvInAdditionalDirs(this._envs, info);
-                if (result) {
-                    if (result.skipAddEnv) {
+                // If the 'info' env is not already in the list, check if it is one of the additional env directories,
+                // and if so, check if we have an equivalent env already and determine if we should add the 'info' env.
+                const { reason, existingEnv } = checkForExistingEnv(this._envs, info);
+                switch (reason) {
+                    case ExistingEnvAction.KeepExistingEnv:
+                        // We found an 'old' equivalent env, but it has a shorter path than the equivalent new 'info' env.
+                        // As such, keep the existing env and skip adding the new 'info' env.
+                        traceVerbose(
+                            `[addEnv] Not adding ${info.executable.filename} because it's equivalent to ${existingEnv.executable.filename}`,
+                        );
                         return undefined;
-                    }
-                    old = result.duplicateEnv;
+                    case ExistingEnvAction.AddNewEnv:
+                        // Proceed to add the 'info' env because we truly do not have an 'old' env.
+                        break;
+                    case ExistingEnvAction.ReplaceExistingEnv:
+                        // 'info' is the shorter path env; set the 'old' env to the equivalent one we found
+                        // so that we can replace it with 'info'.
+                        traceVerbose(
+                            `[addEnv] Replacing ${existingEnv.executable.filename} with ${info.executable.filename}`,
+                        );
+                        old = existingEnv;
+                        break;
+                    default:
+                        // This shouldn't happen
+                        traceError(
+                            `[addEnv] Unknown action for existing env: ${reason} for ${info.executable.filename}`,
+                        );
+                        break;
                 }
             }
             // --- End Positron ---
@@ -594,57 +634,76 @@ export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscov
 }
 
 // --- Start Positron ---
-type DuplicateEnvResult =
-    | {
-          duplicateEnv: PythonEnvInfo | undefined;
-          skipAddEnv: boolean;
-      }
-    | undefined;
-
 /**
- * Handles duplicate environments in additional environment directories.
+ * Checks for an equivalent environment if the new environment to be added is one of
+ * the additional environment directories.
+ *
+ * The Native Python Finder may return multiple equivalent python executables when
+ * searching in the additional env directories. For example, if the user has
+ * `/opt/python/3.10.4/bin/python`, `/opt/python/3.10.4/bin/python3` and
+ * `/opt/python/3.10.4/bin/python3.10` in their additional env directories, the
+ * Native Python Finder will return all of these. However, these executables are
+ * equivalent, and we only want to display one of them in the list of environments.
+ *
+ * In this example, `ls -al /opt/python/3.10.4/bin/python*` will show:
+ * /opt/python/3.10.4/bin/python -> /opt/python/3.10.4/bin/python3
+ * /opt/python/3.10.4/bin/python3 -> python3.10
+ * /opt/python/3.10.4/bin/python3.10
+ *
+ * i.e., both `/opt/python/3.10.4/bin/python` and `/opt/python/3.10.4/bin/python3` are
+ * symlinked to `/opt/python/3.10.4/bin/python3.10`, so they are all equivalent. In this
+ * case, we only want to add one of them to the list of environments -- in particular,
+ * the one with the shortest path: `/opt/python/3.10.4/bin/python`.
+ *
  * @param envs The current list of environments
- * @param info The new environment to be added
- * @returns An object containing the duplicate environment (if any) and whether to skip adding the new environment
+ * @param newEnv The new environment to be added
+ * @return The result of the check -- how to proceed with the new environment and if found,
+ *         the equivalent existing environment.
  */
-function handleDuplicateEnvInAdditionalDirs(envs: PythonEnvInfo[], info: PythonEnvInfo): DuplicateEnvResult {
+function checkForExistingEnv(envs: PythonEnvInfo[], newEnv: PythonEnvInfo): ExistingEnvResult {
     const additionalEnvDirs = getAdditionalEnvDirs();
-    const envDir = additionalEnvDirs.find((dir) => isParentPath(info.executable.filename, dir));
+    const isAdditionalEnv = additionalEnvDirs.find((dir) => isParentPath(newEnv.executable.filename, dir));
 
-    // This only applies to environments in additional environment directories
-    if (!envDir) {
-        return undefined;
+    // If the new env is not in an additional environment directory, then we don't
+    // need to check for existing equivalent envs. Proceed to add the new env.
+    if (!isAdditionalEnv) {
+        return { reason: ExistingEnvAction.AddNewEnv, existingEnv: undefined };
     }
 
     // Look for an existing environment in the same additional environment directory
-    const resolvedEnv = resolveSymbolicLinkSync(info.executable.filename);
-    const duplicateEnv = envs.find((item) =>
+    // as the new env.
+    const resolvedEnv = resolveSymbolicLinkSync(newEnv.executable.filename);
+    const existingEnv = envs.find((item) =>
         arePathsSame(resolvedEnv, resolveSymbolicLinkSync(item.executable.filename)),
     );
-    if (!duplicateEnv) {
-        return undefined;
+    if (!existingEnv) {
+        return { reason: ExistingEnvAction.AddNewEnv, existingEnv: undefined };
     }
 
-    const shortestEnv = getShortestString([info.executable.filename, duplicateEnv.executable.filename]);
+    // We have found an existing environment that is equivalent to the new environment,
+    // so we now compare the two path lengths to see if we should add the new
+    // environment or not.
+    const shortestEnv = getShortestString([newEnv.executable.filename, existingEnv.executable.filename]);
     if (!shortestEnv) {
         // This shouldn't happen
-        return undefined;
+        return { reason: ExistingEnvAction.AddNewEnv, existingEnv: undefined };
     }
 
-    // If the environment being added isn't the shortest, skip it
-    // e.g. we are trying to add ~/scratch/3.10.4/bin/python3, but we already added ~/scratch/3.10.4/bin/python, so
-    // we shouldn't add ~/scratch/3.10.4/bin/python3.
-    if (info.executable.filename !== shortestEnv) {
-        traceVerbose(
-            `[addEnv] Not adding ${info.executable.filename} because it's a duplicate of ${duplicateEnv.executable.filename}`,
-        );
-        return { duplicateEnv, skipAddEnv: true };
+    // If the new env being added doesn't have a shorter path than the existing env,
+    // keep the existing env and don't add the new env.
+    // Example:
+    // - newEnv: `/opt/bin/python/3.10.4/bin/python3`
+    // - existingEnv: `/opt/bin/python/3.10.4/bin/python`
+    // Result: don't add the new env.
+    if (newEnv.executable.filename !== shortestEnv) {
+        return { reason: ExistingEnvAction.KeepExistingEnv, existingEnv };
     }
 
-    // If the environment being added is the shortest, replace the duplicate
-    // e.g. we are trying to add ~/scratch/3.10.4/bin/python, and we already added ~/scratch/3.10.4/bin/python3.10, so
-    // we should replace ~/scratch/3.10.4/bin/python3.10 with ~/scratch/3.10.4/bin/python.
-    traceVerbose(`[addEnv] Replacing ${duplicateEnv.executable.filename} with ${info.executable.filename}`);
-    return { duplicateEnv, skipAddEnv: false };
+    // If the new environment to be added has the shorter path, replace the existing env.
+    // Example:
+    // - newEnv: `/opt/bin/python/3.10.4/bin/python`
+    // - existingEnv: `/opt/bin/python/3.10.4/bin/python3.10`
+    // Result: replace the existing env with the new env.
+    return { reason: ExistingEnvAction.ReplaceExistingEnv, existingEnv };
 }
 // --- End Positron ---
