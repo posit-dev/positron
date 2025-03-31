@@ -154,12 +154,16 @@ test.describe('Reticulate - console interaction', {
 
 		// Executing reticulate::repl_python() should not start a new interpreter
 		// but should move focus to the reticulate interpreter
-		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()');
+		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python(input = "z = 3")');
 		await app.workbench.console.sendEnterKey();
 
 		// Expect that focus changed to the reticulate console
 		await app.workbench.interpreter.verifyInterpreterIsRunning('Python (reticulate)');
 		await app.workbench.console.pasteCodeToConsole('print(r.y)');
+		await app.workbench.console.sendEnterKey();
+		await app.workbench.console.waitForConsoleContents('200');
+
+		await app.workbench.console.pasteCodeToConsole('print(z)');
 		await app.workbench.console.sendEnterKey();
 		await app.workbench.console.waitForConsoleContents('200');
 	});
