@@ -15,9 +15,7 @@ import { IChatRequestData, IPositronAssistantService, IPositronChatContext, IPos
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
 import { Emitter } from '../../../../base/common/event.js';
 
 /**
@@ -42,7 +40,6 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		@ITerminalService private readonly _terminalService: ITerminalService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@ILayoutService private readonly _layoutService: ILayoutService,
-		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
 		super();
@@ -110,11 +107,11 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	}
 
 	getSupportedProviders(): string[] {
-		const providers = ['anthropic', 'google', 'copilot'];
+		const providers = ['anthropic'];
 		const useTestModels = this._configurationService.getValue<boolean>('positron.assistant.testModels');
 
-		if (IsDevelopmentContext.getValue(this._contextKeyService) || useTestModels) {
-			providers.push('bedrock', 'error', 'echo');
+		if (useTestModels) {
+			providers.push('bedrock', 'error', 'echo', 'google', 'copilot');
 		}
 		return providers;
 	}

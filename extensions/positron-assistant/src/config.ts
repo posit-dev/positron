@@ -304,7 +304,8 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 			'positron.assistant.models',
 			existingConfigs
 		);
-		throw new Error(vscode.l10n.t(`Failed to add language model {0}: {1}`, name, error.message));
+		const err = error instanceof Error ? error : new Error(JSON.stringify(error));
+		throw new Error(vscode.l10n.t(`Failed to add language model {0}: {1}`, name, err.message));
 	}
 }
 
