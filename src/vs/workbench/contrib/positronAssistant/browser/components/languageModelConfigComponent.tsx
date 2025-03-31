@@ -9,6 +9,7 @@ import { localize } from '../../../../../nls.js'
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js'
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js'
 import { LanguageModelUIConfiguration } from '../languageModelModalDialog.js'
+import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/embeddedLink/EmbeddedLink.js'
 
 interface LanguageModelConfigComponentProps {
 	provider: LanguageModelUIConfiguration,
@@ -22,23 +23,26 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 		switch (provider) {
 			case 'anthropic':
 				return localize('positron.newConnectionModalDialog.anthropicTos',
-					"By using Anthropic, you agree to abide by their Consumer or Commercial terms of service.");
+					"By using Anthropic, you agree to abide by their [Consumer](https://www.anthropic.com/legal/consumer-terms) or [Commercial](https://www.anthropic.com/legal/commercial-terms) terms of service.");
+			case 'google':
+				return localize('positron.newConnectionModalDialog.googleTos',
+					"By using Gemini, you agree to abide by their [Terms of Service](https://gemini.google/policy-guidelines).");
 			default:
 				return '';
 		}
 	}
 
 	return (<>
-		{props.source.supportedOptions.includes('apiKey') && (
-			<ApiKey apiKey={props.provider.apiKey} signedIn={props.source.signedIn} onChange={(newApiKey) => {
-				props.onChange({ ...props.provider, apiKey: newApiKey });
-			}} onSignIn={props.onSignIn} />
-		)}
-		{(!props.source.supportedOptions.includes('apiKey')) &&
+		<div className='language-model-container input'>
+			{props.source.supportedOptions.includes('apiKey') && !props.source.signedIn && (
+				<ApiKey apiKey={props.provider.apiKey} signedIn={props.source.signedIn} onChange={(newApiKey) => {
+					props.onChange({ ...props.provider, apiKey: newApiKey });
+				}} onSignIn={props.onSignIn} />
+			)}
 			<SignInButton signedIn={props.source.signedIn} onSignIn={props.onSignIn} />
-		}
+		</div>
 		<div className='language-model-dialog-tos' id='model-tos'>
-			{getTos(props.provider.provider)}
+			<EmbeddedLink>{getTos(props.provider.provider)}</EmbeddedLink>
 		</div>
 	</>)
 }
@@ -53,7 +57,6 @@ const ApiKey = (props: { apiKey?: string, signedIn?: boolean, onChange: (newApiK
 				type='password'
 				value={props.apiKey ?? ''}
 				onChange={e => { props.onChange(e.currentTarget.value) }} />
-			<SignInButton signedIn={props.signedIn} onSignIn={props.onSignIn} />
 		</div>
 	</>)
 }

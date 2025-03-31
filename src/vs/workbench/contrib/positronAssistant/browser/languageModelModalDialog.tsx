@@ -181,8 +181,33 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		}))
 
 	const onAccept = () => {
-		props.onClose();
-		props.renderer.dispose();
+		if (useNewConfig) {
+			props.onClose();
+			props.renderer.dispose();
+		} else {
+			setShowProgress(true);
+			setError(undefined);
+			props.onAction({
+				type: type,
+				provider: source.provider.id,
+				model: model,
+				name: name,
+				apiKey: apiKey,
+				baseUrl: baseUrl,
+				resourceName: resourceName,
+				project: project,
+				location: location,
+				toolCalls: toolCalls,
+				numCtx: numCtx,
+			}, 'save')
+				.catch((e) => {
+					setError(e.message);
+				}).finally(() => {
+					setShowProgress(false);
+					props.onClose();
+					props.renderer.dispose();
+				});
+		}
 	}
 
 	const onSignIn = async () => {

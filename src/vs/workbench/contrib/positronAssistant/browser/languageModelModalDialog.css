@@ -59,8 +59,14 @@
 	background: var(--vscode-positronIconButton-background);
 }
 
+.language-model-container {
+	display: flex;
+	height: 3rem;
+}
+
 .language-model-authentication-container {
 	display: flex;
+	width: 100%;
 }
 
 .language-model.button.sign-in {
@@ -89,5 +95,10 @@
 }
 
 #model-tos {
+	margin-top: 1rem;
 	font-size: 0.7rem;
+}
+
+.language-model-modal-dialog .ok-action-bar.top-separator {
+	border-top: none;
 }
