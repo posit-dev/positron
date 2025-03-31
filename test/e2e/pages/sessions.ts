@@ -126,11 +126,6 @@ export class Sessions {
 					}
 				}
 
-				// map runtime names to their corresponding keys for quick lookup
-				const availableRuntimeNameToKeyMap = new Map(
-					Object.entries(availableRuntimes).map(([key, runtime]) => [runtime.name, key])
-				);
-
 				// map session names that were not found to their corresponding runtime keys
 				// and filter out any undefined values to ensure valid runtime keys
 				sessionsToCreate = sessionsNotFound
@@ -1084,3 +1079,8 @@ export const availableRuntimes: { [key: string]: SessionInfo } = {
 	pythonAlt: { ...pythonSessionAlt },
 	pythonHidden: { ...pythonSessionHidden },
 };
+
+// map runtime names to their corresponding keys for quick lookup
+const availableRuntimeNameToKeyMap = new Map(
+	Object.entries(availableRuntimes).map(([key, runtime]) => [runtime.name, key])
+);
