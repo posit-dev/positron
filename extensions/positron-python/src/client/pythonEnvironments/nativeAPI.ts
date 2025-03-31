@@ -303,17 +303,17 @@ enum ExistingEnvAction {
 
 type ExistingEnvResult =
     | {
-        reason: ExistingEnvAction.KeepExistingEnv;
-        existingEnv: PythonEnvInfo;
-    }
+          reason: ExistingEnvAction.KeepExistingEnv;
+          existingEnv: PythonEnvInfo;
+      }
     | {
-        reason: ExistingEnvAction.AddNewEnv;
-        existingEnv: undefined;
-    }
+          reason: ExistingEnvAction.AddNewEnv;
+          existingEnv: undefined;
+      }
     | {
-        reason: ExistingEnvAction.ReplaceExistingEnv;
-        existingEnv: PythonEnvInfo;
-    };
+          reason: ExistingEnvAction.ReplaceExistingEnv;
+          existingEnv: PythonEnvInfo;
+      };
 // --- End Positron ---
 
 class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
