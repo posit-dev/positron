@@ -82,7 +82,7 @@ export interface LanguageModelUIConfiguration extends IPositronLanguageModelConf
 const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModelConfigurationProps>) => {
 	const [type, setType] = React.useState<PositronLanguageModelType>(PositronLanguageModelType.Chat);
 
-	const useNewConfig = props.configurationService.getValue<boolean>('positron.assistant.newModelConfiguration');
+	const useNewConfig = props.configurationService.getValue<boolean>('positron.assistant.newModelConfiguration') ?? true;
 	const enabledProviders = props.sources.map(source => source.provider.id);
 	const hasAnthropic = enabledProviders.includes('anthropic');
 	const hasMistral = enabledProviders.includes('mistral');
