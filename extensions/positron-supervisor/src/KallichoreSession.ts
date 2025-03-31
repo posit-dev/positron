@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession } from './positron-supervisor';
-import { ActiveSession, ConnectionInfo, DefaultApi, HttpError, InterruptMode, NewSession, RestartSession, Status } from './kcclient/api';
+import { ActiveSession, ConnectionInfo, DefaultApi, HttpError, InterruptMode, NewSession, RestartSession, Status, VarAction, VarActionType } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoReply, KernelInfoRequest } from './jupyter/KernelInfoRequest';
@@ -191,10 +191,21 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Save the kernel spec for later use
 		this._kernelSpec = kernelSpec;
 
-		// Forward the environment variables from the kernel spec
-		const env = {};
+		// Forward the environment variables from the kernel spec; each becomes
+		// a "replace" variable action since it overrides the default value if
+		// set.
+		const varActions: Array<VarAction> = [];
 		if (kernelSpec.env) {
-			Object.assign(env, kernelSpec.env);
+			for (const [key, value] of Object.entries(kernelSpec.env)) {
+				if (typeof value === 'string') {
+					const action: VarAction = {
+						action: VarActionType.Replace,
+						name: key,
+						value
+					};
+					varActions.push(action);
+				}
+			}
 		}
 
 		// Prepare the working directory; use the workspace root if available,
@@ -278,7 +289,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			displayName: this.metadata.sessionName,
 			inputPrompt: '',
 			continuationPrompt: '',
-			env,
+			env: varActions,
 			workingDirectory: workingDir,
 			username: os.userInfo().username,
 			interruptMode,
