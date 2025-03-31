@@ -67,9 +67,73 @@ export const getPlotToolAdapter: PositronToolAdapter = {
 	}
 };
 
-export const textEditToolAdapter: PositronToolAdapter = {
+/**
+ * A tool adapter for document edits. This tool is provided when the user uses
+ * inline chat without a selection.
+ */
+export const documentEditToolAdapter: PositronToolAdapter = {
 	toolData: {
-		name: 'textEdit',
+		name: 'documentEdit',
+		description: 'Output an edited version of the document.',
+	},
+
+	provideAiTool(
+		token: unknown,
+		options: {
+			// The URI of the document to edit; we can't pass the whole `document` in
+			// because the tool options are serialized, so only plain JSON is supported.
+			documentUri: string,
+
+			// The active selection, if any
+			selection: vscode.Selection
+		}): ai.Tool {
+		return ai.tool({
+			description: this.toolData.description,
+			parameters: z.object({
+				deltas: z.array(
+					z.object({
+						delete: z.string().optional().describe('Text to delete from the document.'),
+						replace: z.string().optional().describe('Text to replace the deleted text.')
+					})).describe('The array of changes to apply.')
+			}),
+			execute: async (params) => {
+				// Get the text of the document to edit
+				const document =
+					await vscode.workspace.openTextDocument(vscode.Uri.parse(options.documentUri));
+				const documentText = document.getText();
+
+				// Process each change, emitting text edits for each one
+				for (const delta of params.deltas) {
+					if ('delete' in delta && 'replace' in delta) {
+						const deleteText = delta.delete;
+						const startPos = documentText.indexOf(deleteText!);
+						if (startPos === -1) {
+							// If the delete text is not found in the document,
+							// we can't apply this edit; ignore.
+							continue;
+						}
+						const startPosition = document.positionAt(startPos);
+						const endPosition = document.positionAt(startPos + deleteText!.length);
+						const range = new vscode.Range(startPosition, endPosition);
+						const textEdit = vscode.TextEdit.replace(range, delta.replace!);
+						positron.ai.responseProgress(token,
+							new vscode.ChatResponseTextEditPart(
+								document.uri,
+								textEdit
+							));
+					}
+				}
+			}
+		});
+	}
+};
+
+/**
+ * A tool adapter for selection edits.
+ */
+export const selectionEditToolAdapter: PositronToolAdapter = {
+	toolData: {
+		name: 'selectionEdit',
 		description: 'Output an edited version of the code selection.',
 	},
 
@@ -96,7 +160,8 @@ export const textEditToolAdapter: PositronToolAdapter = {
 
 export const positronToolAdapters: Record<string, PositronToolAdapter> = {
 	[getPlotToolAdapter.toolData.name]: getPlotToolAdapter,
-	[textEditToolAdapter.toolData.name]: textEditToolAdapter,
+	[documentEditToolAdapter.toolData.name]: documentEditToolAdapter,
+	[selectionEditToolAdapter.toolData.name]: selectionEditToolAdapter,
 };
 
 /**
@@ -134,7 +199,7 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 						options.input.code + '\n' +
 						'```'),
 				}
-			}
+			};
 			return result;
 		},
 
@@ -148,10 +213,10 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 		 */
 		invoke: async (options, token) => {
 			/** The accumulated output text */
-			let outputText: string = "";
+			let outputText: string = '';
 
 			/** The accumulated error text */
-			let outputError: string = "";
+			let outputError: string = '';
 
 			/** The execution result, as a map of MIME types to values */
 			const result: Record<string, any> = {};
