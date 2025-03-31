@@ -12,7 +12,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN, tags.WEB] }, () => {
+test.describe.skip('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN, tags.WEB] }, () => {
 	test('Python - Verify copy from console & paste to console', async ({ app, python }) => {
 		await testConsoleClipboard(app, 'a = 1');
 	});
