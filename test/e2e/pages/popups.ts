@@ -32,6 +32,17 @@ export class Popups {
 		}
 	}
 
+	async acceptModalDialog() {
+		try {
+			this.code.logger.log('Checking for modal dialog box');
+			// fail fast if the modal is not present
+			await expect(this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX)).toBeVisible();
+			await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_OK).click();
+		} catch {
+			this.code.logger.log('Did not find modal dialog box');
+		}
+	}
+
 	async installIPyKernel() {
 
 		try {
