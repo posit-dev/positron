@@ -841,8 +841,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 	public async shutdown(exitReason: positron.RuntimeExitReason) {
 		await this.pythonSession.shutdown(exitReason);
-		// TODO: Ideally we'd return focus to the parent R session, but currently there's
-		// no API for this.
+		positron.runtime.focusSession(this.rSession.metadata.sessionId);
 		return;
 	}
 
