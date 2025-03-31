@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { InterpreterType } from '../../infra/fixtures/interpreter.js';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({
@@ -105,6 +106,129 @@ test.describe('Reticulate', {
 		await app.workbench.interpreter.restartPrimaryInterpreter(interpreterDesc);
 		await app.workbench.interpreter.verifyInterpreterIsRunning(interpreterDesc);
 	});
+});
+
+test.describe('Reticulate - console interaction', {
+	tag: [tags.RETICULATE, tags.WEB]
+}, () => {
+	test.beforeAll(async function ({ app, userSettings }) {
+		try {
+			await userSettings.set([
+				['positron.reticulate.enabled', 'true']
+			]);
+
+		} catch (e) {
+			await app.code.driver.takeScreenshot('reticulateSetup');
+			throw e;
+		}
+	});
+
+	test('R - Reticulate can be started with reticulate::repl_python()', async function ({ app, interpreter }) {
+		// Start R console
+		await app.workbench.interpreter.selectInterpreter(InterpreterType.R, process.env.POSITRON_R_VER_SEL!);
+
+		// Now execute reticulate::repl_python()
+		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()');
+		await app.workbench.console.sendEnterKey();
+
+		// Wait for the reticulate interpreter to be running
+		// There's a small bug such that the button is green button is updated when
+		// the session starts. So we need to wait until reticulate starts to see the
+		// interpreter running
+		await app.workbench.console.waitForReadyAndStarted('>>>', 30000);
+		await app.workbench.interpreter.verifyInterpreterIsRunning('Python (reticulate)');
+
+		// Create a variable in Python, we'll check we can access it from R.
+		await app.workbench.console.pasteCodeToConsole('x=100');
+		await app.workbench.console.sendEnterKey();
+
+		// Now go back to the R interprerter
+		await app.workbench.interpreter.selectInterpreter(InterpreterType.R, process.env.POSITRON_R_VER_SEL!);
+		await app.workbench.console.pasteCodeToConsole('print(reticulate::py$x)');
+		await app.workbench.console.sendEnterKey();
+		await app.workbench.console.waitForConsoleContents('[1] 100');
+
+		// Create a variable in R and expect to be able to access it from Python
+		await app.workbench.console.pasteCodeToConsole('y <- 200L');
+		await app.workbench.console.sendEnterKey();
+
+		// Executing reticulate::repl_python() should not start a new interpreter
+		// but should move focus to the reticulate interpreter
+		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()');
+		await app.workbench.console.sendEnterKey();
+
+		// Expect that focus changed to the reticulate console
+		await app.workbench.interpreter.verifyInterpreterIsRunning('Python (reticulate)');
+		await app.workbench.console.pasteCodeToConsole('print(r.y)');
+		await app.workbench.console.sendEnterKey();
+		await app.workbench.console.waitForConsoleContents('200');
+	});
+});
+
+test.describe('Reticulate - multi console sessions', {
+	tag: [tags.RETICULATE, tags.WEB, tags.SESSIONS]
+}, () => {
+
+	test.beforeAll(async function ({ userSettings }) {
+		await userSettings.set([
+			['console.multipleConsoleSessions', 'true'],
+			['positron.reticulate.enabled', 'true']
+		], true);
+	});
+
+	test.beforeEach(async function ({ app, sessions }) {
+		await app.workbench.variables.togglePane('hide');
+		await sessions.deleteDisconnectedSessions();
+		await sessions.clearConsoleAllSessions();
+	});
+
+	test('Can initialize multiple reticulate sessions', async function ({ app, sessions }) {
+
+		// This should start both an R session and the reticulate session
+		const reticulateSession = await sessions.start('pythonReticulate', { waitForReady: true });
+		await sessions.expectStatusToBe(reticulateSession.id, 'idle', { timeout: 60000 });
+		await sessions.expectSessionCountToBe(2);
+		await sessions.expectAllSessionsToBeIdle();
+
+
+		// Now launch a new reticulate session. This should start another R session
+		// and another python session.
+		const reticulateSession2 = await sessions.start('pythonReticulate', { waitForReady: true, reuse: false });
+		await sessions.expectStatusToBe(reticulateSession2.id, 'idle', { timeout: 60000 });
+		await sessions.expectSessionCountToBe(4);
+		await sessions.expectAllSessionsToBeIdle();
+
+		const sessionIds = await sessions.getAllSessionIds();
+		for (const id of sessionIds) {
+			await sessions.select(id);
+			let info;
+			try {
+				info = await sessions.getSelectedSessionInfo();
+			} catch (e) {
+				// getSelectSessionInfo works by parsing the name of the session
+				// but reticulate doesn't follow the same convention, we just skip
+				// for reticulate sessions
+			}
+
+			if (info && info.language === 'R') {
+				const val = Math.floor(Math.random() * 100);
+				await app.workbench.console.pasteCodeToConsole(`x <- ${val}L`);
+				await app.workbench.console.sendEnterKey();
+
+				await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()');
+				await app.workbench.console.sendEnterKey();
+
+				await app.workbench.console.waitForReadyAndStarted('>>>', 30000);
+
+				await app.workbench.console.pasteCodeToConsole('print(r.x)');
+				await app.workbench.console.sendEnterKey();
+
+				await app.workbench.console.waitForConsoleContents(`${val}`);
+			}
+		}
+
+	});
+
 });
 
 async function verifyReticulateFunctionality(app, interpreter, sequential) {
