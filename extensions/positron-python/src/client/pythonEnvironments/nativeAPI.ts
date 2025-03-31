@@ -3,6 +3,7 @@
 
 import * as path from 'path';
 import { Disposable, Event, EventEmitter, Uri, WorkspaceFoldersChangeEvent } from 'vscode';
+// eslint-disable-next-line import/no-duplicates
 import { PythonEnvInfo, PythonEnvKind, PythonEnvType, PythonVersion } from './base/info';
 import {
     GetRefreshEnvironmentsOptions,
@@ -14,6 +15,7 @@ import {
 } from './base/locator';
 import { PythonEnvCollectionChangedEvent } from './base/watcher';
 import {
+    getAdditionalEnvDirs,
     isNativeEnvInfo,
     NativeEnvInfo,
     NativeEnvManagerInfo,
@@ -23,7 +25,7 @@ import { createDeferred, Deferred } from '../common/utils/async';
 import { Architecture, getPathEnvVariable, getUserHomeDir } from '../common/utils/platform';
 import { parseVersion } from './base/info/pythonVersion';
 import { cache } from '../common/utils/decorators';
-import { traceError, traceInfo, traceLog, traceWarn } from '../logging';
+import { traceError, traceInfo, traceLog, traceVerbose, traceWarn } from '../logging';
 import { StopWatch } from '../common/utils/stopWatch';
 import { FileChangeType } from '../common/platform/fileSystemWatcher';
 import { categoryToKind, NativePythonEnvironmentKind } from './base/locators/common/nativePythonUtils';
@@ -38,6 +40,12 @@ import { getWorkspaceFolders, onDidChangeWorkspaceFolders } from '../common/vsco
 
 // --- Start Positron ---
 import { isUvEnvironment } from './common/environmentManagers/uv';
+import { isCustomEnvironment } from '../positron/interpreterSettings';
+import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalInstalledEnvs';
+// eslint-disable-next-line import/no-duplicates
+import { PythonEnvSource } from './base/info';
+import { getShortestString } from '../common/stringUtils';
+import { arePathsSame, isParentPath, resolveSymbolicLinkSync } from './common/externalDependencies';
 // --- End Positron ---
 
 function makeExecutablePath(prefix?: string): string {
@@ -248,7 +256,9 @@ function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[]): Pyth
         distro: {
             org: '',
         },
-        source: [],
+        // --- Start Positron ---
+        source: nativeEnv.source ?? [],
+        // --- End Positron ---
         detailedDisplayName: displayName,
         display: displayName,
         type: getEnvType(kind),
@@ -283,6 +293,28 @@ function hasChanged(old: PythonEnvInfo, newEnv: PythonEnvInfo): boolean {
 
     return false;
 }
+
+// --- Start Positron ---
+enum ExistingEnvAction {
+    KeepExistingEnv,
+    AddNewEnv,
+    ReplaceExistingEnv,
+}
+
+type ExistingEnvResult =
+    | {
+          reason: ExistingEnvAction.KeepExistingEnv;
+          existingEnv: PythonEnvInfo;
+      }
+    | {
+          reason: ExistingEnvAction.AddNewEnv;
+          existingEnv: undefined;
+      }
+    | {
+          reason: ExistingEnvAction.ReplaceExistingEnv;
+          existingEnv: PythonEnvInfo;
+      };
+// --- End Positron ---
 
 class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     private _onProgress: EventEmitter<ProgressNotificationEvent>;
@@ -456,7 +488,40 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     private addEnv(native: NativeEnvInfo, searchLocation?: Uri): PythonEnvInfo | undefined {
         const info = toPythonEnvInfo(native, this._condaEnvDirs);
         if (info) {
-            const old = this._envs.find((item) => item.executable.filename === info.executable.filename);
+            // --- Start Positron ---
+            let old = this._envs.find((item) => item.executable.filename === info.executable.filename);
+            if (!old) {
+                // If the 'info' env is not already in the list, check if it is one of the additional env directories,
+                // and if so, check if we have an equivalent env already and determine if we should add the 'info' env.
+                const { reason, existingEnv } = checkForExistingEnv(this._envs, info);
+                switch (reason) {
+                    case ExistingEnvAction.KeepExistingEnv:
+                        // We found an 'old' equivalent env, but it has a shorter path than the equivalent new 'info' env.
+                        // As such, keep the existing env and skip adding the new 'info' env.
+                        traceVerbose(
+                            `[addEnv] Not adding ${info.executable.filename} because it's equivalent to ${existingEnv.executable.filename}`,
+                        );
+                        return undefined;
+                    case ExistingEnvAction.AddNewEnv:
+                        // Proceed to add the 'info' env because we truly do not have an 'old' env.
+                        break;
+                    case ExistingEnvAction.ReplaceExistingEnv:
+                        // 'info' is the shorter path env; set the 'old' env to the equivalent one we found
+                        // so that we can replace it with 'info'.
+                        traceVerbose(
+                            `[addEnv] Replacing ${existingEnv.executable.filename} with ${info.executable.filename}`,
+                        );
+                        old = existingEnv;
+                        break;
+                    default:
+                        // This shouldn't happen
+                        traceError(
+                            `[addEnv] Unknown action for existing env: ${reason} for ${info.executable.filename}`,
+                        );
+                        break;
+                }
+            }
+            // --- End Positron ---
             if (old) {
                 this._envs = this._envs.filter((item) => item.executable.filename !== info.executable.filename);
                 this._envs.push(info);
@@ -494,6 +559,13 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             if (native.executable && (await isUvEnvironment(native.executable))) {
                 traceInfo(`Found uv environment: ${native.executable}`);
                 native.kind = NativePythonEnvironmentKind.Uv;
+            }
+            if (!native.kind && native.executable && (await isCustomEnvironment(native.executable))) {
+                native.kind = NativePythonEnvironmentKind.Custom;
+                native.source = [PythonEnvSource.UserSettings];
+            }
+            if (!native.kind && native.executable && isAdditionalGlobalBinPath(native.executable)) {
+                native.kind = NativePythonEnvironmentKind.GlobalPaths;
             }
             // --- End Positron ---
             if (native.kind === NativePythonEnvironmentKind.Conda && this._condaEnvDirs.length === 0) {
@@ -560,3 +632,78 @@ export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscov
     native.triggerRefresh().ignoreErrors();
     return native;
 }
+
+// --- Start Positron ---
+/**
+ * Checks for an equivalent environment if the new environment to be added is one of
+ * the additional environment directories.
+ *
+ * The Native Python Finder may return multiple equivalent python executables when
+ * searching in the additional env directories. For example, if the user has
+ * `/opt/python/3.10.4/bin/python`, `/opt/python/3.10.4/bin/python3` and
+ * `/opt/python/3.10.4/bin/python3.10` in their additional env directories, the
+ * Native Python Finder will return all of these. However, these executables are
+ * equivalent, and we only want to display one of them in the list of environments.
+ *
+ * In this example, `ls -al /opt/python/3.10.4/bin/python*` will show:
+ * /opt/python/3.10.4/bin/python -> /opt/python/3.10.4/bin/python3
+ * /opt/python/3.10.4/bin/python3 -> python3.10
+ * /opt/python/3.10.4/bin/python3.10
+ *
+ * i.e., both `/opt/python/3.10.4/bin/python` and `/opt/python/3.10.4/bin/python3` are
+ * symlinked to `/opt/python/3.10.4/bin/python3.10`, so they are all equivalent. In this
+ * case, we only want to add one of them to the list of environments -- in particular,
+ * the one with the shortest path: `/opt/python/3.10.4/bin/python`.
+ *
+ * @param envs The current list of environments
+ * @param newEnv The new environment to be added
+ * @return The result of the check -- how to proceed with the new environment and if found,
+ *         the equivalent existing environment.
+ */
+function checkForExistingEnv(envs: PythonEnvInfo[], newEnv: PythonEnvInfo): ExistingEnvResult {
+    const additionalEnvDirs = getAdditionalEnvDirs();
+    const isAdditionalEnv = additionalEnvDirs.find((dir) => isParentPath(newEnv.executable.filename, dir));
+
+    // If the new env is not in an additional environment directory, then we don't
+    // need to check for existing equivalent envs. Proceed to add the new env.
+    if (!isAdditionalEnv) {
+        return { reason: ExistingEnvAction.AddNewEnv, existingEnv: undefined };
+    }
+
+    // Look for an existing environment in the same additional environment directory
+    // as the new env.
+    const resolvedEnv = resolveSymbolicLinkSync(newEnv.executable.filename);
+    const existingEnv = envs.find((item) =>
+        arePathsSame(resolvedEnv, resolveSymbolicLinkSync(item.executable.filename)),
+    );
+    if (!existingEnv) {
+        return { reason: ExistingEnvAction.AddNewEnv, existingEnv: undefined };
+    }
+
+    // We have found an existing environment that is equivalent to the new environment,
+    // so we now compare the two path lengths to see if we should add the new
+    // environment or not.
+    const shortestEnv = getShortestString([newEnv.executable.filename, existingEnv.executable.filename]);
+    if (!shortestEnv) {
+        // This shouldn't happen
+        return { reason: ExistingEnvAction.AddNewEnv, existingEnv: undefined };
+    }
+
+    // If the new env being added doesn't have a shorter path than the existing env,
+    // keep the existing env and don't add the new env.
+    // Example:
+    // - newEnv: `/opt/bin/python/3.10.4/bin/python3`
+    // - existingEnv: `/opt/bin/python/3.10.4/bin/python`
+    // Result: don't add the new env.
+    if (newEnv.executable.filename !== shortestEnv) {
+        return { reason: ExistingEnvAction.KeepExistingEnv, existingEnv };
+    }
+
+    // If the new environment to be added has the shorter path, replace the existing env.
+    // Example:
+    // - newEnv: `/opt/bin/python/3.10.4/bin/python`
+    // - existingEnv: `/opt/bin/python/3.10.4/bin/python3.10`
+    // Result: replace the existing env with the new env.
+    return { reason: ExistingEnvAction.ReplaceExistingEnv, existingEnv };
+}
+// --- End Positron ---
