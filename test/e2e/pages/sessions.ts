@@ -92,24 +92,24 @@ export class Sessions {
 		if (reuse) {
 			// retrieve the list of active sessions from the session quick pick menu
 			// filter the console tabs to include only those sessions that are currently active
-			const quickPickActiveSessionNames = (await this.quickPick.getActiveSessions()).map(session => session.name);
-			const activeSessions = (await this.getAllSessionIdsAndNames()).filter(session => quickPickActiveSessionNames.includes(session.name));
+			const quickPickActiveSessionNames = new Set((await this.quickPick.getActiveSessions()).map(s => s.name));
+			const consoleTabActiveSessions = (await this.getAllSessionIdsAndNames())
+				.filter(session => quickPickActiveSessionNames.has(session.name));
 
-			// extract the expected session names from the provided runtimes
-			// these names will be used to match against active sessions
-			const expectedSessionNames = sessionsToCreate.map(runtime => availableRuntimes[runtime].name);
-			const sessionsNotFound: string[] = []; // List to track sessions that are not found
+			// list to track sessions that are not found
+			const sessionsNotFound: string[] = [];
 
-			for (const session of expectedSessionNames) {
-				const index = activeSessions.findIndex(currentSession => currentSession.name.includes(session));
+			for (const session of sessionsToCreate) {
+				const sessionName = availableRuntimes[session].name;
+				const index = consoleTabActiveSessions.findIndex(currentSession => currentSession.name.includes(sessionName));
 
 				if (index === -1) {
 					// session not found in active sessions
-					sessionsNotFound.push(session);
+					sessionsNotFound.push(sessionName);
 				} else {
 					// session found, retrieve metadata
-					const foundSession = activeSessions[index];
-					activeSessions.splice(index, 1);
+					const foundSession = consoleTabActiveSessions[index];
+					consoleTabActiveSessions.splice(index, 1);
 
 					if (foundSession.id) {
 						const sessionInfo = await this.getMetadata(foundSession.id);
@@ -122,15 +122,20 @@ export class Sessions {
 							version,
 						});
 					} else {
-						throw new Error(`Should not have gotten here. Idle session ${session} not found`);
+						throw new Error(`Should not have gotten here. Idle session not found: ${sessionName}`);
 					}
 				}
 
-				// update sessions to create
-				sessionsToCreate = sessionsNotFound.map(session => {
-					const runtime = Object.keys(availableRuntimes).find(key => availableRuntimes[key].name === session);
-					return runtime as SessionRuntimes;
-				});
+				// map runtime names to their corresponding keys for quick lookup
+				const availableRuntimeNameToKeyMap = new Map(
+					Object.entries(availableRuntimes).map(([key, runtime]) => [runtime.name, key])
+				);
+
+				// map session names that were not found to their corresponding runtime keys
+				// and filter out any undefined values to ensure valid runtime keys
+				sessionsToCreate = sessionsNotFound
+					.map(name => availableRuntimeNameToKeyMap.get(name))
+					.filter((key): key is SessionRuntimes => Boolean(key));
 			}
 		}
 
