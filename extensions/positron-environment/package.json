@@ -25,11 +25,37 @@
           },
           "positron.environment.variables": {
             "scope": "window",
-            "type": "object",
-            "default": {
-              "SF_PARTNER": "posit_positron",
-              "SPARK_CONNECT_USER_AGENT": "posit-positron"
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "type": "string",
+                  "enum": ["replace", "append", "prepend"],
+                  "description": "%environment.configuration.variables.action%"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "%environment.configuration.variables.name%"
+                },
+                "value": {
+                  "type": "string",
+                  "description": "%environment.configuration.variables.value%"
+                }
+              }
             },
+            "default": [
+              {
+                "action": "replace",
+                "name": "SF_PARTNER",
+                "value": "posit_positron"
+              },
+              {
+                "action": "replace",
+                "name": "SPARK_CONNECT_USER_AGENT",
+                "value": "posit-positron"
+              }
+            ],
             "description": "%environment.configuration.variables.description%"
           }
         }
