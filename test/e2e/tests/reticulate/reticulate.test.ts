@@ -192,7 +192,7 @@ test.describe('Reticulate - multi console sessions', {
 		const reticulateSession = await sessions.start('pythonReticulate', { waitForReady: true });
 		await sessions.expectStatusToBe(reticulateSession.id, 'idle', { timeout: 60000 });
 		await sessions.expectSessionCountToBe(2);
-		await sessions.expectAllSessionsToBeIdle();
+		await sessions.expectAllSessionsToBeReady();
 
 
 		// Now launch a new reticulate session. This should start another R session
@@ -200,7 +200,7 @@ test.describe('Reticulate - multi console sessions', {
 		const reticulateSession2 = await sessions.start('pythonReticulate', { waitForReady: true, reuse: false });
 		await sessions.expectStatusToBe(reticulateSession2.id, 'idle', { timeout: 60000 });
 		await sessions.expectSessionCountToBe(4);
-		await sessions.expectAllSessionsToBeIdle();
+		await sessions.expectAllSessionsToBeReady();
 
 		const sessionIds = await sessions.getAllSessionIds();
 		for (const id of sessionIds) {
@@ -232,7 +232,7 @@ test.describe('Reticulate - multi console sessions', {
 		}
 
 		// Now test restarts
-		let restart = sessions.restart(reticulateSession.id, { waitForIdle: false });
+		const restart = sessions.restart(reticulateSession.id, { waitForIdle: false });
 		await app.workbench.popups.acceptModalDialog();
 		await restart;
 		await sessions.expectStatusToBe(reticulateSession.id, 'idle', { timeout: 60000 });
