@@ -78,10 +78,10 @@ export class RSessionManager implements vscode.Disposable {
 		if (state === positron.RuntimeState.Ready) {
 			if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
 				if (this._lastForegroundSessionId === session.metadata.sessionId) {
-					await this.activateConsoleSession(session);
+					await this.activateConsoleSession(session, 'foreground session is ready');
 				}
 			} else if (session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Notebook) {
-				await this.activateSession(session);
+				await this.activateSession(session, 'notebook session is ready');
 			}
 		}
 	}
@@ -101,7 +101,7 @@ export class RSessionManager implements vscode.Disposable {
 
 		// TODO: Switch to `getActiveRSessions()` built on `positron.runtime.getActiveSessions()`
 		// and remove `this._sessions` entirely.
-		const session = this._sessions.get(sessionId)
+		const session = this._sessions.get(sessionId);
 		if (!session) {
 			// The foreground session is for another language.
 			return;
@@ -112,24 +112,24 @@ export class RSessionManager implements vscode.Disposable {
 		}
 
 		this._lastForegroundSessionId = session.metadata.sessionId;
-		await this.activateConsoleSession(session);
+		await this.activateConsoleSession(session, 'foreground session changed');
 	}
 
 	/**
 	 * Activate a console session, while first deactivating all other console sessions
 	 */
-	private async activateConsoleSession(session: RSession): Promise<void> {
+	private async activateConsoleSession(session: RSession, reason: string): Promise<void> {
 		// Deactivate other console session servers first
 		await Promise.all(Array.from(this._sessions.values())
 			.filter(s => {
 				return s.metadata.sessionId !== session.metadata.sessionId &&
-					s.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console
+					s.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console;
 			})
 			.map(s => {
-				return this.deactivateSession(s);
+				return this.deactivateSession(s, reason);
 			})
 		);
-		await this.activateSession(session);
+		await this.activateSession(session, reason);
 	}
 
 	/**
@@ -139,12 +139,12 @@ export class RSessionManager implements vscode.Disposable {
 	 * and background sessions, and indirectly for console sessions through
 	 * the safer `activateConsoleSession()`.
 	 */
-	private async activateSession(session: RSession): Promise<void> {
-		await session.activateLsp();
+	private async activateSession(session: RSession, reason: string): Promise<void> {
+		await session.activateLsp(reason);
 	}
 
-	private async deactivateSession(session: RSession): Promise<void> {
-		await session.deactivateLsp();
+	private async deactivateSession(session: RSession, reason: string): Promise<void> {
+		await session.deactivateLsp(reason);
 	}
 
 	/**
