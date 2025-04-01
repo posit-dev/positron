@@ -22,6 +22,8 @@ import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../b
 import { multipleConsoleSessionsFeatureEnabled } from '../../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
+// Constants.
+const ACTION_BAR_HEIGHT = 32;
 const MINIMUM_CONSOLE_TAB_LIST_WIDTH = 64;
 const MINIMUM_CONSOLE_PANE_WIDTH = 120;
 
@@ -39,7 +41,7 @@ interface ConsoleCoreProps {
  */
 export const ConsoleCore = (props: ConsoleCoreProps) => {
 	// Calculate the adjusted height (the height minus the action bar height).
-	const adjustedHeight = props.height - 32 - 32;
+	const adjustedHeight = props.height - ACTION_BAR_HEIGHT;
 
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
