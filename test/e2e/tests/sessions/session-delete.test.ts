@@ -10,23 +10,30 @@ test.use({
 });
 
 test.describe('Sessions: Delete', {
-	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.TOP_ACTION_BAR, tags.SESSIONS]
+	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.SESSIONS]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
 		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
 	});
 
-	test('Python - delete multiple sessions', async function ({ sessions }) {
-		await sessions.start(['python', 'python', 'pythonAlt', 'pythonAlt']);
-		await sessions.expectSessionCountToBe(4);
+	test('Python - Validate can delete a single session', async function ({ sessions }) {
+		await sessions.start(['python']);
+		await sessions.expectSessionCountToBe(1);
 		await sessions.deleteAll();
 		await sessions.expectSessionCountToBe(0);
 	});
 
-	test('R - delete multiple sessions', async function ({ sessions }) {
-		await sessions.start(['r', 'r', 'rAlt', 'rAlt']);
-		await sessions.expectSessionCountToBe(4);
+	test('R - Validate can delete a single sessions', async function ({ sessions }) {
+		await sessions.start(['r']);
+		await sessions.expectSessionCountToBe(1);
+		await sessions.deleteAll();
+		await sessions.expectSessionCountToBe(0);
+	});
+
+	test('Python & R - Validate can delete multiple sessions', async function ({ sessions }) {
+		await sessions.start(['python', 'r', 'python', 'pythonAlt', 'pythonAlt', 'r', 'rAlt', 'rAlt']);
+		await sessions.expectSessionCountToBe(8);
 		await sessions.deleteAll();
 		await sessions.expectSessionCountToBe(0);
 	});

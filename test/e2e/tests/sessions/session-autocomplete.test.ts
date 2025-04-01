@@ -57,8 +57,6 @@ test.describe('Session: Autocomplete', {
 		// Alt Session 1 - retrigger and verify no editor autocomplete
 		await triggerAutocompleteInEditor({ app, session: pyAltSession, retrigger: true });
 		await editors.expectSuggestionListCount(0);
-
-		await sessions.deleteAll();
 	});
 
 	test('Python - Verify autocomplete suggestions (LSP is alive) after restart', async function ({ app, hotKeys, sessions }) {
@@ -126,8 +124,6 @@ test.describe('Session: Autocomplete', {
 		// Alt Session 1 - retrigger verify no editor autocomplete
 		await triggerAutocompleteInEditor({ app, session: rSessionAlt, retrigger: true });
 		await editors.expectSuggestionListCount(0);
-
-		await sessions.deleteAll();
 	});
 
 	test('R - Verify autocomplete suggestions (LSP is alive) after restart', async function ({ app, sessions }) {
