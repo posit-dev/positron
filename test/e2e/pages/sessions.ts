@@ -850,23 +850,23 @@ export class Sessions {
 	/**
 	 * Verify: the session quick pick contains the expected session data at the specified indices
 	 *
-	 * @param sessionDataArray - An array of objects containing the index and session data to verify
-	 * @param sessionDataArray.index - The index of the session in the quick pick menu
-	 * @param sessionDataArray.session - The session data to verify
+	 * @param sessionList - An array of objects containing the index and session data to verify
+	 * @param sessionList.index - The index of the session in the quick pick menu
+	 * @param sessionList.session - The session data to verify
 	 */
-	async expectSessionQuickPickToContainAtIndices(sessionDataArray: { index: number; session: SessionMetaData }[]) {
+	async expectSessionQuickPickToContainAtIndices(sessionList: { index: number; session: SessionMetaData }[]) {
 		// if new session is not visible, open the session quick pick menu
 		if (!await this.quickPick.allSessionsMenu.isVisible()) {
 			await this.quickPick.openSessionQuickPickMenu(true);
 		}
 
 		// verify the session data at the specified index
-		for (const { index, session: sessionData } of sessionDataArray) {
+		for (const { index, session } of sessionList) {
 			const quickPickEntryRuntime = this.page.locator('.quick-input-list-entry').nth(index).locator('.quick-input-list-row').nth(0);
 			const quickPickEntryPath = this.page.locator('.quick-input-list-entry').nth(index).locator('.quick-input-list-row').nth(1);
 
-			await expect(quickPickEntryRuntime).toContainText(sessionData.name);
-			await expect(quickPickEntryPath).toHaveText(sessionData.path);
+			await expect(quickPickEntryRuntime).toContainText(session.name);
+			await expect(quickPickEntryPath).toHaveText(session.path);
 		}
 
 		await this.quickPick.closeSessionQuickPickMenu();
