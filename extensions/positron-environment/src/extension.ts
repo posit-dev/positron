@@ -30,16 +30,17 @@ function applyConfiguration(context: vscode.ExtensionContext) {
 
 	const vars = vscode.workspace.getConfiguration('positron.environment');
 
+	// Clear the initial collection to remove any old values
+	const collection = context.environmentVariableCollection;
+	collection.clear();
+
 	// Set the vars using the environment variable collection
 	if (!vars.get('enabled')) {
 		return;
 	}
 
-	const collection = context.environmentVariableCollection;
-
-	// Clear the initial collection to remove any old values and set the description
-	collection.clear();
-	collection.description = 'Global Positron environment variables';
+	// Set the collection description
+	collection.description = vscode.l10n.t('Global Positron environment variables');
 
 	// Get the configured environment variables
 	const actions = vars.get<Array<EnvironmentVariableAction>>('variables') ?? [];
