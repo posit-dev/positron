@@ -16,7 +16,8 @@ export class ExtHostEnvironment implements extHostProtocol.ExtHostEnvironmentSha
 		this._proxy = mainContext.getProxy(extHostProtocol.MainPositronContext.MainThreadEnvironment);
 	}
 
-	public getEnvironmentContributions(): Promise<Map<string, EnvironmentVariableAction[]>> {
-		return this._proxy.$getEnvironmentContributions();
+	public async getEnvironmentContributions(): Promise<Record<string, EnvironmentVariableAction[]>> {
+		const contributions = await this._proxy.$getEnvironmentContributions();
+		return contributions;
 	}
 }

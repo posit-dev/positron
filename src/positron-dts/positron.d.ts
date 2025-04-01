@@ -1671,7 +1671,7 @@ declare module 'positron' {
 		 *
 		 * @returns A map of extension IDs to arrays of environment variable actions.
 		 */
-		export function getEnvironmentContributions(): Thenable<Map<string, EnvironmentVariableAction[]>>;
+		export function getEnvironmentContributions(): Thenable<Record<string, EnvironmentVariableAction[]>>;
 	}
 
 	/**

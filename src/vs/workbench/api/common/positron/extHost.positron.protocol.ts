@@ -130,7 +130,7 @@ export interface ExtHostConnectionsShape {
 }
 
 export interface MainThreadEnvironmentShape extends IDisposable {
-	$getEnvironmentContributions(): Promise<Map<string, EnvironmentVariableAction[]>>;
+	$getEnvironmentContributions(): Promise<Record<string, EnvironmentVariableAction[]>>;
 }
 
 export interface ExtHostEnvironmentShape { }

@@ -222,7 +222,12 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		};
 
 		const environment: typeof positron.environment = {
-			getEnvironmentContributions(): Thenable<Map<string, positron.EnvironmentVariableAction[]>> {
+			/**
+			 * Get the environment variable contributions for all extensions.
+			 *
+			 * @returns A map of environment variable actions, keyed by the extension ID.
+			 */
+			getEnvironmentContributions(): Thenable<Record<string, positron.EnvironmentVariableAction[]>> {
 				return extHostEnvironment.getEnvironmentContributions();
 			}
 		};

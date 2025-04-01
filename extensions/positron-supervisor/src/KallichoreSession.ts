@@ -208,6 +208,40 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 		}
 
+		// Get the environment variables from any other extension's contributions.
+		const contributedVars = await positron.environment.getEnvironmentContributions();
+		for (const [extensionId, actions] of Object.entries(contributedVars)) {
+			for (const action of actions) {
+				// Convert VS Code's environment variable action type to our
+				// internal Kallichore API type
+				let actionType: VarActionType;
+				switch (action.action) {
+					case vscode.EnvironmentVariableMutatorType.Replace:
+						actionType = VarActionType.Replace;
+						break;
+					case vscode.EnvironmentVariableMutatorType.Append:
+						actionType = VarActionType.Append;
+						break;
+					case vscode.EnvironmentVariableMutatorType.Prepend:
+						actionType = VarActionType.Prepend;
+						break;
+					default:
+						this.log(`Unknown environment variable action type ${action.action} ` +
+							`for extension ${extensionId}, ${action.name} => ${action.value}; ignoring`,
+							vscode.LogLevel.Error);
+						continue;
+				}
+
+				// Construct the variable action and add it to the list
+				const varAction: VarAction = {
+					action: actionType,
+					name: action.name,
+					value: action.value
+				};
+				varActions.push(varAction);
+			}
+		}
+
 		// Prepare the working directory; use the workspace root if available,
 		// otherwise the home directory
 		let workingDir = vscode.workspace.workspaceFolders?.[0].uri.fsPath || os.homedir();
