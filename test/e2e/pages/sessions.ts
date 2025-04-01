@@ -848,18 +848,28 @@ export class Sessions {
 	}
 
 	/**
-	 * Verify: the session quick pick contains the expected session data at the specified index
-	 * @param index - the index of the session in the quick pick
-	 * @param sessionData - the expected session data
+	 * Verify: the session quick pick contains the expected session data at the specified indices
+	 *
+	 * @param sessionDataArray - An array of objects containing the index and session data to verify
+	 * @param sessionDataArray.index - The index of the session in the quick pick menu
+	 * @param sessionDataArray.session - The session data to verify
 	 */
-	async expectSessionQuickPickToContainAtIndex(index: number, sessionData: SessionMetaData) {
-		await this.expectStartNewSessionMenuToBeVisible();
+	async expectSessionQuickPickToContainAtIndices(sessionDataArray: { index: number; session: SessionMetaData }[]) {
+		// if new session is not visible, open the session quick pick menu
+		if (!await this.quickPick.allSessionsMenu.isVisible()) {
+			await this.quickPick.openSessionQuickPickMenu(true);
+		}
 
-		const quickPickEntryRuntime = this.page.locator('.quick-input-list-entry').nth(index).locator('.quick-input-list-row').nth(0);
-		const quickPickEntryPath = this.page.locator('.quick-input-list-entry').nth(index).locator('.quick-input-list-row').nth(1);
+		// verify the session data at the specified index
+		for (const { index, session: sessionData } of sessionDataArray) {
+			const quickPickEntryRuntime = this.page.locator('.quick-input-list-entry').nth(index).locator('.quick-input-list-row').nth(0);
+			const quickPickEntryPath = this.page.locator('.quick-input-list-entry').nth(index).locator('.quick-input-list-row').nth(1);
 
-		await expect(quickPickEntryRuntime).toContainText(sessionData.name);
-		await expect(quickPickEntryPath).toHaveText(sessionData.path);
+			await expect(quickPickEntryRuntime).toContainText(sessionData.name);
+			await expect(quickPickEntryPath).toHaveText(sessionData.path);
+		}
+
+		await this.quickPick.closeSessionQuickPickMenu();
 	}
 }
 

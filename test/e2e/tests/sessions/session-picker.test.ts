@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Application, SessionMetaData } from '../../infra/index.js';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -53,30 +54,39 @@ test.describe('Sessions: Session Picker', {
 		await sessions.expectSessionPickerToBe(pySession.name);
 	});
 
-	test('Verify Session Quickpick ranks sessions by last used', async function ({ sessions, page }) {
-		// start two R sessions, select both to make sure they are most active
+	test('Verify Session Quickpick ranks sessions by last used', async function ({ app, page }) {
+		const { sessions } = app.workbench;
 		const [rSession, rAltSession] = await sessions.start(['r', 'rAlt']);
-		await sessions.select(rAltSession.id);
-		await sessions.select(rSession.id);
 
-		// open the session picker and verify the order
-		await sessions.newSessionButton.click();
-		await sessions.expectSessionQuickPickToContainAtIndex(0, rSession);
-		await sessions.expectSessionQuickPickToContainAtIndex(1, rAltSession); // This fails here, it's Python from previous test
-		await page.keyboard.press('Escape');
+		// run code in both sessions to mark them as recently used
+		await executeCodeInSession(app, rAltSession);
+		await executeCodeInSession(app, rSession);
+		await sessions.expectSessionQuickPickToContainAtIndices([
+			{ index: 0, session: rSession },
+			{ index: 1, session: rAltSession }
+		]);
 
-		// change the active session to the second session and verify it appears first in the session picker
-		await sessions.select(rAltSession.id);
-		await sessions.newSessionButton.click();
-		await sessions.expectSessionQuickPickToContainAtIndex(0, rAltSession);
-		await sessions.expectSessionQuickPickToContainAtIndex(1, rSession);
-		await page.keyboard.press('Escape');
+		// run code in the second session and verify it appears first in the quick pick
+		await executeCodeInSession(app, rAltSession);
+		await sessions.expectSessionQuickPickToContainAtIndices([
+			{ index: 0, session: rAltSession },
+			{ index: 1, session: rSession }
+		]);
 
-		// Switch back to the first session and verify it appears first in the session picker
-		await sessions.select(rSession.id);
-		await sessions.newSessionButton.click();
-		await sessions.expectSessionQuickPickToContainAtIndex(0, rSession);
-		await sessions.expectSessionQuickPickToContainAtIndex(1, rAltSession);
-		await page.keyboard.press('Escape');
+		// run code in a new python session and verify the updated order
+		const pySession = await sessions.start('python');
+		await executeCodeInSession(app, pySession);
+		await sessions.expectSessionQuickPickToContainAtIndices([
+			{ index: 0, session: pySession },
+			{ index: 1, session: rAltSession },
+			{ index: 2, session: rSession }
+		]);
 	});
 });
+
+async function executeCodeInSession(app: Application, session: SessionMetaData) {
+	const { console, sessions } = app.workbench;
+
+	await sessions.select(session.id);
+	await console.executeCode(session.name.includes('Python') ? 'Python' : 'R', '1+1', { maximizeConsole: false });
+}
