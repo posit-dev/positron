@@ -80,7 +80,7 @@
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	grid-column: title / shortcut;
-	margin: 10px 5px 10px 10;
+	margin: 10px 5px 10px 10px;
 }
 
 .custom-context-menu-item

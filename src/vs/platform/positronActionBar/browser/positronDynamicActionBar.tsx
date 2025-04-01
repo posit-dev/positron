@@ -16,6 +16,7 @@ import { ActionBarSeparator } from './components/actionBarSeparator.js';
 import { usePositronActionBarContext } from './positronActionBarContext.js';
 import { DisposableStore, toDisposable } from '../../../base/common/lifecycle.js';
 import { optionalValue, positronClassNames } from '../../../base/common/positronUtilities.js';
+import { CustomContextMenuSeparator } from '../../../workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../workbench/browser/positronComponents/customContextMenu/customContextMenu.js';
 import { CustomContextMenuItem, CustomContextMenuItemOptions } from '../../../workbench/browser/positronComponents/customContextMenu/customContextMenuItem.js';
 
@@ -360,15 +361,37 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 						iconId='toolbar-more'
 						tooltip={'overflow'}
 						onPressed={async () => {
-							// Build the custom context menu entries for the overflow actions context menu.
+							// The custom context menu entries for the overflow context menu.
 							const customContextMenuEntries: CustomContextMenuEntry[] = [];
-							for (const overflowAction of overflowActions) {
-								if (overflowAction.overflowContextMenuItem) {
-									customContextMenuEntries.push(new CustomContextMenuItem(overflowAction.overflowContextMenuItem));
-								}
-							}
 
-							// Show the overflow actions context menu.
+							// Build the left custom context menu entries for the overflow context menu
+							leftOverflowActions.filter(overflowAction => overflowAction.overflowContextMenuItem).forEach((overflowAction, index, overflowActions) => {
+								// Add the custom context menu entry.
+								customContextMenuEntries.push(new CustomContextMenuItem(overflowAction.overflowContextMenuItem!));
+
+								// Add the custom context menu separator, if needed.
+								if (overflowAction.separator && index < overflowActions.length - 1) {
+									customContextMenuEntries.push(new CustomContextMenuSeparator());
+								}
+							});
+
+							// Build the right custom context menu entries for the overflow context menu
+							rightOverflowActions.filter(overflowAction => overflowAction.overflowContextMenuItem).forEach((overflowAction, index, overflowActions) => {
+								// Add a separator between the left custom context menu entries and the right custom context menu entries.
+								if (!index && customContextMenuEntries.length) {
+									customContextMenuEntries.push(new CustomContextMenuSeparator());
+								}
+
+								// Add the custom context menu entry.
+								customContextMenuEntries.push(new CustomContextMenuItem(overflowAction.overflowContextMenuItem!));
+
+								// Add the custom context menu separator, if needed.
+								if (overflowAction.separator && index < overflowActions.length - 1) {
+									customContextMenuEntries.push(new CustomContextMenuSeparator());
+								}
+							});
+
+							// Show the custom context.
 							await showCustomContextMenu({
 								commandService: context.commandService,
 								keybindingService: context.keybindingService,
