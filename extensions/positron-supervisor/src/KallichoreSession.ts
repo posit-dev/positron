@@ -179,36 +179,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
-	 * Create the session in on the Kallichore server.
+	 * Builds the set of environment variable actions to be applied to the
+	 * kernel when starting or restarting.
 	 *
-	 * @param kernelSpec The Jupyter kernel spec to use for the session
+	 * @returns An array of environment variable actions
 	 */
-	public async create(kernelSpec: JupyterKernelSpec) {
-		if (!this._new) {
-			throw new Error(`Session ${this.metadata.sessionId} already exists`);
-		}
-
-		// Save the kernel spec for later use
-		this._kernelSpec = kernelSpec;
-
-		// Forward the environment variables from the kernel spec; each becomes
-		// a "replace" variable action since it overrides the default value if
-		// set.
+	async buildEnvVarActions(): Promise<VarAction[]> {
 		const varActions: Array<VarAction> = [];
-		if (kernelSpec.env) {
-			for (const [key, value] of Object.entries(kernelSpec.env)) {
-				if (typeof value === 'string') {
-					const action: VarAction = {
-						action: VarActionType.Replace,
-						name: key,
-						value
-					};
-					varActions.push(action);
-				}
-			}
-		}
 
-		// Get the environment variables from any other extension's contributions.
+		// Start with the environment variables from any extension's contributions.
 		const contributedVars = await positron.environment.getEnvironmentContributions();
 		for (const [extensionId, actions] of Object.entries(contributedVars)) {
 			for (const action of actions) {
@@ -241,6 +220,42 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				varActions.push(varAction);
 			}
 		}
+
+		// Amend with any environment variables from the kernel spec; each becomes
+		// a "replace" variable action since it overrides the default value if
+		// set.
+		//
+		// This is done after the contributed variables so that the kernel spec
+		// variables take precedence.
+		if (this._kernelSpec?.env) {
+			for (const [key, value] of Object.entries(this._kernelSpec.env)) {
+				if (typeof value === 'string') {
+					const action: VarAction = {
+						action: VarActionType.Replace,
+						name: key,
+						value
+					};
+					varActions.push(action);
+				}
+			}
+		}
+
+		return varActions;
+	}
+
+	/**
+	 * Create the session in on the Kallichore server.
+	 *
+	 * @param kernelSpec The Jupyter kernel spec to use for the session
+	 */
+	public async create(kernelSpec: JupyterKernelSpec) {
+		if (!this._new) {
+			throw new Error(`Session ${this.metadata.sessionId} already exists`);
+		}
+
+		// Save the kernel spec for later use
+		this._kernelSpec = kernelSpec;
+		const varActions = await this.buildEnvVarActions();
 
 		// Prepare the working directory; use the workspace root if available,
 		// otherwise the home directory
@@ -1181,16 +1196,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Perform the restart
 		this._restarting = true;
 		try {
-			// Perform the restart on the server, supplying the working
-			// directory if known
-			if (workingDirectory) {
-				const restart: RestartSession = {
-					workingDirectory
-				};
-				await this._api.restartSession(this.metadata.sessionId, restart);
-			} else {
-				await this._api.restartSession(this.metadata.sessionId);
-			}
+			// Create the restart request
+			const restart: RestartSession = {
+				// Supply working directory if provided
+				workingDirectory,
+
+				// Build the set of environment variables to pass to the kernel.
+				// This is done on every restart so that changes to extension
+				// environment contributions can be respected.
+				env: await this.buildEnvVarActions(),
+			};
+			await this._api.restartSession(this.metadata.sessionId, restart);
 
 			// Mark ready after a successful restart
 			this.markReady('restart complete');
