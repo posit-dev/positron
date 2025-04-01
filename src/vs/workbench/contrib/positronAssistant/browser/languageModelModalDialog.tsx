@@ -103,7 +103,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	})!;
 
 	const [source, setSource] = React.useState<IPositronLanguageModelSource>(defaultSource);
-	const [providerConfig, setProviderConfig] = React.useState<LanguageModelUIConfiguration>({ ...defaultSource.defaults, provider: defaultSource.provider.id, type: defaultSource.type });
+	const [providerConfig, setProviderConfig] = React.useState<LanguageModelUIConfiguration>({ ...defaultSource.defaults, name: defaultSource.provider.displayName, provider: defaultSource.provider.id, type: defaultSource.type });
 	const [apiKey, setApiKey] = React.useState<string>();
 	const [baseUrl, setBaseUrl] = React.useState<string | undefined>(defaultSource.defaults.baseUrl);
 	const [resourceName, setResourceName] = React.useState<string | undefined>(defaultSource.defaults.resourceName);
