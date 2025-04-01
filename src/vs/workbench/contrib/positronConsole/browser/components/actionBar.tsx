@@ -434,12 +434,6 @@ export const ActionBar = (props: ActionBarProps) => {
 			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
 			separator: true,
 			component: <ConsoleInstanceInfoButton />,
-			overflowContextMenuItem: {
-				commandId: 'positron.Info',
-				icon: 'trash',
-				label: positronDeleteConsole,
-				onSelected: () => console.log('kjsjks')
-			}
 		})
 	}
 
@@ -528,6 +522,9 @@ export const ActionBar = (props: ActionBarProps) => {
 			onSelected: clearConsoleHandler
 		}
 	});
+
+
+	console.log('####### 1001');
 
 	// Render.
 	return (
