@@ -21,14 +21,14 @@ test.describe('Sessions: Session Picker', {
 		const pythonSession = await sessions.start('python', { triggerMode: 'session-picker' });
 
 		await sessions.expectSessionPickerToBe(pythonSession);
-		await sessions.expectAllSessionsToBeIdle();
+		await sessions.expectAllSessionsToBeReady();
 	});
 
 	test('R - Start and verify session via session picker', async function ({ sessions }) {
 		const rSession = await sessions.start('r', { triggerMode: 'session-picker' });
 
 		await sessions.expectSessionPickerToBe(rSession);
-		await sessions.expectAllSessionsToBeIdle();
+		await sessions.expectAllSessionsToBeReady();
 	});
 
 	test('Verify Session Picker updates correctly across multiple active sessions', async function ({ sessions }) {
