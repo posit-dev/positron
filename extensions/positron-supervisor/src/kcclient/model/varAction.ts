@@ -11,34 +11,42 @@
  */
 
 import { RequestFile } from './models';
-import { VarAction } from './varAction';
+import { VarActionType } from './varActionType';
 
-export class RestartSession {
+export class VarAction {
+    'action': VarActionType;
     /**
-    * The desired working directory for the session after restart, if different from the session\'s working directory at startup
+    * The name of the variable to act on
     */
-    'workingDirectory'?: string;
+    'name': string;
     /**
-    * A list of environment variable actions to perform
+    * The value to replace, append, or prepend
     */
-    'env'?: Array<VarAction>;
+    'value': string;
 
     static discriminator: string | undefined = undefined;
 
     static attributeTypeMap: Array<{name: string, baseName: string, type: string}> = [
         {
-            "name": "workingDirectory",
-            "baseName": "working_directory",
+            "name": "action",
+            "baseName": "action",
+            "type": "VarActionType"
+        },
+        {
+            "name": "name",
+            "baseName": "name",
             "type": "string"
         },
         {
-            "name": "env",
-            "baseName": "env",
-            "type": "Array<VarAction>"
+            "name": "value",
+            "baseName": "value",
+            "type": "string"
         }    ];
 
     static getAttributeTypeMap() {
-        return RestartSession.attributeTypeMap;
+        return VarAction.attributeTypeMap;
     }
 }
 
+export namespace VarAction {
+}

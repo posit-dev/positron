@@ -12,6 +12,7 @@
 
 import { RequestFile } from './models';
 import { InterruptMode } from './interruptMode';
+import { VarAction } from './varAction';
 
 export class NewSession {
     /**
@@ -47,9 +48,9 @@ export class NewSession {
     */
     'workingDirectory': string;
     /**
-    * Environment variables to set for the session
+    * A list of environment variable actions to perform
     */
-    'env': { [key: string]: string; };
+    'env': Array<VarAction>;
     /**
     * The number of seconds to wait for a connection to the session\'s ZeroMQ sockets before timing out
     */
@@ -106,7 +107,7 @@ export class NewSession {
         {
             "name": "env",
             "baseName": "env",
-            "type": "{ [key: string]: string; }"
+            "type": "Array<VarAction>"
         },
         {
             "name": "connectionTimeout",
