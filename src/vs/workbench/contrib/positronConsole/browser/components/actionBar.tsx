@@ -523,9 +523,6 @@ export const ActionBar = (props: ActionBarProps) => {
 		}
 	});
 
-
-	console.log('####### 1001');
-
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...positronConsoleContext}>
