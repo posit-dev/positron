@@ -190,6 +190,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Start with the environment variables from any extension's contributions.
 		const contributedVars = await positron.environment.getEnvironmentContributions();
 		for (const [extensionId, actions] of Object.entries(contributedVars)) {
+
+			if (extensionId === 'ms-python.python') {
+				// The variables contributed by the Python extension are
+				// intended for the "current" version of Python, which isn't
+				// necessarily the version we are starting/restarting here.
+				// Ignore these for now, but consider: there should be a scoping
+				// mechanism of some kind that would allow us to work with these
+				// kinds of values.
+				continue;
+			}
+
 			for (const action of actions) {
 				// Convert VS Code's environment variable action type to our
 				// internal Kallichore API type
