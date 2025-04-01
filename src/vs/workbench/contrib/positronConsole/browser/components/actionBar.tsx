@@ -395,7 +395,7 @@ export const ActionBar = (props: ActionBarProps) => {
 				onPressed={restartConsoleHandler}
 			/>
 		),
-		overflowCustomContextMenuOptions: {
+		overflowContextMenuItem: {
 			commandId: 'positron.restartRuntime',
 			icon: 'positron-restart-runtime-thin',
 			label: positronRestartConsole,
@@ -419,7 +419,7 @@ export const ActionBar = (props: ActionBarProps) => {
 					onPressed={deleteSessionHandler}
 				/>
 			),
-			overflowCustomContextMenuOptions: {
+			overflowContextMenuItem: {
 				commandId: 'positron.trashSession',
 				icon: 'trash',
 				label: positronDeleteConsole,
@@ -434,7 +434,7 @@ export const ActionBar = (props: ActionBarProps) => {
 			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
 			separator: true,
 			component: <ConsoleInstanceInfoButton />,
-			overflowCustomContextMenuOptions: {
+			overflowContextMenuItem: {
 				commandId: 'positron.Info',
 				icon: 'trash',
 				label: positronDeleteConsole,
@@ -457,7 +457,7 @@ export const ActionBar = (props: ActionBarProps) => {
 					onPressed={toggleTraceHandler}
 				/>
 			),
-			overflowCustomContextMenuOptions: {
+			overflowContextMenuItem: {
 				commandId: 'positron.toggleTrace',
 				icon: 'wand',
 				label: positronToggleTrace,
@@ -479,7 +479,7 @@ export const ActionBar = (props: ActionBarProps) => {
 				onPressed={toggleWordWrapHandler}
 			/>
 		),
-		overflowCustomContextMenuOptions: {
+		overflowContextMenuItem: {
 			commandId: 'positron.toggleWordWrap',
 			icon: 'word-wrap',
 			label: positronToggleWordWrap,
@@ -500,7 +500,7 @@ export const ActionBar = (props: ActionBarProps) => {
 				onPressed={openInEditorHandler}
 			/>
 		),
-		overflowCustomContextMenuOptions: {
+		overflowContextMenuItem: {
 			commandId: 'positron.openInEditor',
 			icon: 'positron-open-in-editor',
 			label: positronOpenInEditor,
@@ -521,7 +521,7 @@ export const ActionBar = (props: ActionBarProps) => {
 				onPressed={clearConsoleHandler}
 			/>
 		),
-		overflowCustomContextMenuOptions: {
+		overflowContextMenuItem: {
 			commandId: 'positron.clearConsole',
 			icon: 'clear-all',
 			label: positronClearConsole,

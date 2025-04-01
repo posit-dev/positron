@@ -26,6 +26,12 @@ export const DEFAULT_ACTION_BAR_BUTTON_WIDTH = 28;
 export const DEFAULT_ACTION_BAR_SEPARATOR_WIDTH = 7;
 
 /**
+ * OverflowContextMenuItem interface.
+ */
+export interface OverflowContextMenuItem extends CustomContextMenuItemOptions {
+}
+
+/**
  * DynamicActionBarAction interface.
  */
 export interface DynamicActionBarAction {
@@ -49,9 +55,9 @@ export interface DynamicActionBarAction {
 	component: JSX.Element | (() => JSX.Element);
 
 	/**
-	 * The overflow custom context menu item options.
+	 * The overflow custom context menu item.
 	 */
-	overflowCustomContextMenuOptions?: CustomContextMenuItemOptions;
+	overflowContextMenuItem?: OverflowContextMenuItem;
 }
 
 /**
@@ -240,7 +246,7 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 		const layoutActions = (actions: DynamicActionBarAction[], gridEntries: GridEntry[], overflowActions: DynamicActionBarAction[]) => {
 			// Handle overflowing.
 			if (overflowing) {
-				overflowActions.push(...actions.filter(action => action.overflowCustomContextMenuOptions));
+				overflowActions.push(...actions.filter(action => action.overflowContextMenuItem));
 				return;
 			}
 
@@ -265,7 +271,7 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 				// Handle overflowing.
 				if (separatorWidth + width > layoutWidth) {
 					overflowing = true;
-					overflowActions.push(...actions.slice(i).filter(action => action.overflowCustomContextMenuOptions));
+					overflowActions.push(...actions.slice(i).filter(action => action.overflowContextMenuItem));
 					return;
 				}
 
@@ -357,8 +363,8 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 							// Build the custom context menu entries for the overflow actions context menu.
 							const customContextMenuEntries: CustomContextMenuEntry[] = [];
 							for (const overflowAction of overflowActions) {
-								if (overflowAction.overflowCustomContextMenuOptions) {
-									customContextMenuEntries.push(new CustomContextMenuItem(overflowAction.overflowCustomContextMenuOptions));
+								if (overflowAction.overflowContextMenuItem) {
+									customContextMenuEntries.push(new CustomContextMenuItem(overflowAction.overflowContextMenuItem));
 								}
 							}
 
