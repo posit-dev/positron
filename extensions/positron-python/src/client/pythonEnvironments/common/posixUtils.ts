@@ -71,6 +71,14 @@ export async function commonPosixBinPaths(): Promise<string[]> {
     return paths.filter((_, index) => exists[index]);
 }
 
+// --- Start Positron ---
+export const ADDITIONAL_POSIX_BIN_PATHS = [
+    // /opt/python is a recommended Python installation location on Posit Workbench.
+    // see: https://docs.posit.co/ide/server-pro/python/installing_python.html
+    '/opt/python',
+];
+// --- End Positron ---
+
 /**
  * Finds python interpreter binaries or symlinks in a given directory.
  * @param searchDir : Directory to search in
@@ -111,6 +119,10 @@ function pickShortestPath(pythonPaths: string[]) {
  * Finds python binaries in given directories. This function additionally reduces the
  * found binaries to unique set be resolving symlinks, and returns the shortest paths
  * to the said unique binaries.
+ * --- Start Positron ---
+ * Please update the implementation in extensions/positron-python/src/client/pythonEnvironments/base/locators/lowLevel/userSpecifiedEnvLocator.ts
+ * if you change the logic here.
+ * --- End Positron ---
  * @param searchDirs : Directories to search for python binaries
  * @returns : Unique paths to python interpreters found in the search dirs.
  */

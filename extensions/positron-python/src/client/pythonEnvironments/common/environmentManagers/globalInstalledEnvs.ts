@@ -4,8 +4,14 @@
 import { getSearchPathEntries } from '../../../common/utils/exec';
 import { getOSType, OSType } from '../../../common/utils/platform';
 import { isParentPath } from '../externalDependencies';
+// eslint-disable-next-line import/no-duplicates
 import { commonPosixBinPaths } from '../posixUtils';
 import { isPyenvShimDir } from './pyenv';
+
+// --- Start Positron ---
+// eslint-disable-next-line import/no-duplicates
+import { ADDITIONAL_POSIX_BIN_PATHS } from '../posixUtils';
+// --- End Positron ---
 
 /**
  * Checks if the given interpreter belongs to known globally installed types. If an global
@@ -23,7 +29,9 @@ export async function isGloballyInstalledEnv(executablePath: string): Promise<bo
     //         return true;
     //     }
     // }
-    return isFoundInPathEnvVar(executablePath);
+    // --- Start Positron ---
+    return (await isFoundInPathEnvVar(executablePath)) || isAdditionalGlobalBinPath(executablePath);
+    // --- End Positron ---
 }
 
 async function isFoundInPathEnvVar(executablePath: string): Promise<boolean> {
@@ -44,3 +52,23 @@ async function isFoundInPathEnvVar(executablePath: string): Promise<boolean> {
     }
     return false;
 }
+
+// --- Start Positron ---
+/**
+ * Checks if the given executable is in one of the additional paths searched by Positron.
+ * @param executablePath The path to the executable to check
+ * @returns Whether the executable is in one of the additional paths
+ */
+export function isAdditionalGlobalBinPath(executablePath: string): boolean {
+    if (getOSType() === OSType.Windows) {
+        return false;
+    }
+    const searchPathEntries = ADDITIONAL_POSIX_BIN_PATHS;
+    for (const searchPath of searchPathEntries) {
+        if (isParentPath(executablePath, searchPath)) {
+            return true;
+        }
+    }
+    return false;
+}
+// --- End Positron ---

@@ -16,15 +16,16 @@
 import { toLower, uniq, uniqBy } from 'lodash';
 import { chain, iterable } from '../../../../common/utils/async';
 import { getOSType, OSType } from '../../../../common/utils/platform';
-import { PythonEnvKind } from '../../info';
+import { PythonEnvKind, PythonEnvSource } from '../../info';
 import { BasicEnvInfo, IPythonEnvsIterator } from '../../locator';
 import { FSWatchingLocator } from './fsWatchingLocator';
-import { findInterpretersInDir, looksLikeBasicVirtualPython } from '../../../common/commonUtils';
+import { findInterpretersInDir } from '../../../common/commonUtils';
 import '../../../../common/extensions';
 import { traceError, traceInfo, traceVerbose, traceWarn } from '../../../../logging';
 import { StopWatch } from '../../../../common/utils/stopWatch';
 import { getCustomEnvDirs } from '../../../../positron/interpreterSettings';
-import { isParentPath } from '../../../common/externalDependencies';
+import { getShortestString } from '../../../../common/stringUtils';
+import { resolveSymbolicLink } from '../../../common/externalDependencies';
 
 /**
  * Default number of levels of sub-directories to recurse when looking for interpreters.
@@ -78,44 +79,44 @@ export class UserSpecifiedEnvironmentLocator extends FSWatchingLocator {
                         `[UserSpecifiedEnvironmentLocator] Searching for user-specified envs in: ${envRootDir}`,
                     );
 
-                    const foundPythons: string[] = [];
+                    // Find Python executables in the directory.
                     const executables = findInterpretersInDir(envRootDir, searchDepth, undefined, false);
-
+                    const filenames: string[] = [];
                     for await (const entry of executables) {
-                        const { filename } = entry;
-                        // We only care about python.exe (on windows) and python (on linux/mac)
-                        // Other version like python3.exe or python3.8 are often symlinks to
-                        // python.exe or python in the same directory in the case of virtual
-                        // environments.
-                        if (await looksLikeBasicVirtualPython(entry)) {
-                            // We should extract the kind here to avoid doing is*Environment()
-                            // check multiple times. Those checks are file system heavy and
-                            // we can use the kind to determine this anyway.
-                            const kind = await getVirtualEnvKind(filename);
-                            try {
-                                foundPythons.push(filename);
-                                yield { kind, executablePath: filename, searchLocation: undefined };
-                                traceVerbose(
-                                    `[UserSpecifiedEnvironmentLocator] User-specified Environment: [added] ${filename}`,
-                                );
-                            } catch (ex) {
-                                traceError(
-                                    `[UserSpecifiedEnvironmentLocator] Failed to process environment: ${filename}`,
-                                    ex,
-                                );
-                            }
-                        } else {
-                            traceVerbose(
-                                `[UserSpecifiedEnvironmentLocator] User-specified Environment: [skipped] ${filename}`,
-                            );
-                        }
+                        filenames.push(entry.filename);
                     }
+                    traceVerbose(
+                        `[UserSpecifiedEnvironmentLocator] Found ${filenames.length} user-specified envs in: ${envRootDir}`,
+                    );
 
-                    // If no environments are found in the directory, log a warning.
-                    if (!foundPythons.find((entry) => isParentPath(entry, envRootDir))) {
+                    // No environments found in the directory, log a warning.
+                    if (filenames.length === 0) {
                         traceWarn(
                             `[UserSpecifiedEnvironmentLocator] No environments found in: ${envRootDir}. The directory may not contain Python installations or is an invalid path.`,
                         );
+                        return;
+                    }
+
+                    // Reduce the found binaries to unique set by resolving symlinks,
+                    const uniquePythonBins = await getUniquePythonBins(filenames);
+
+                    for (const filename of uniquePythonBins) {
+                        const kind = await getVirtualEnvKind(filename);
+                        yield {
+                            kind,
+                            executablePath: filename,
+                            source: [PythonEnvSource.UserSettings],
+                            searchLocation: undefined,
+                        };
+                        traceVerbose(
+                            `[UserSpecifiedEnvironmentLocator] User-specified Environment: [added] ${filename}`,
+                        );
+                        const skippedEnvs = filenames.filter((f) => f !== filename);
+                        skippedEnvs.forEach((f) => {
+                            traceVerbose(
+                                `[UserSpecifiedEnvironmentLocator] User-specified Environment: [skipped] ${f}`,
+                            );
+                        });
                     }
                 }
                 return generator();
@@ -129,4 +130,34 @@ export class UserSpecifiedEnvironmentLocator extends FSWatchingLocator {
 
         return iterator();
     }
+}
+
+/**
+ * Gets unique Python binaries from a list of file paths.
+ * This function resolves symbolic links to their target binaries and
+ * returns the shortest paths to the unique binaries.
+ * Implementation adapted from getPythonBinFromPosixPaths in extensions/positron-python/src/client/pythonEnvironments/common/posixUtils.ts
+ * @param filenames List of file paths to Python binaries.
+ */
+async function getUniquePythonBins(filenames: string[]): Promise<string[]> {
+    const binToLinkMap = new Map<string, string[]>();
+    for (const filepath of filenames) {
+        // Ensure that we have a collection of unique binaries by
+        // resolving all symlinks to the target binaries.
+        try {
+            traceVerbose(`Attempting to resolve symbolic link: ${filepath}`);
+            const resolvedBin = await resolveSymbolicLink(filepath);
+            if (binToLinkMap.has(resolvedBin)) {
+                binToLinkMap.get(resolvedBin)?.push(filepath);
+            } else {
+                binToLinkMap.set(resolvedBin, [filepath]);
+            }
+            traceInfo(`Found: ${filepath} --> ${resolvedBin}`);
+        } catch (ex) {
+            traceError('Failed to resolve symbolic link: ', ex);
+        }
+    }
+    const keys = Array.from(binToLinkMap.keys());
+    const pythonPaths = keys.map((key) => getShortestString([key, ...(binToLinkMap.get(key) ?? [])]));
+    return uniq(pythonPaths);
 }

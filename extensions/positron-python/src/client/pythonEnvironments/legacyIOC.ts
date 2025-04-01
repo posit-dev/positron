@@ -42,6 +42,7 @@ const convertedKinds = new Map(
         [PythonEnvKind.Pixi]: EnvironmentType.Pixi,
         // --- Start Positron ---
         [PythonEnvKind.Uv]: EnvironmentType.Uv,
+        [PythonEnvKind.Custom]: EnvironmentType.Custom,
         // --- End Positron ---
         [PythonEnvKind.Venv]: EnvironmentType.Venv,
         [PythonEnvKind.VirtualEnvWrapper]: EnvironmentType.VirtualEnvWrapper,

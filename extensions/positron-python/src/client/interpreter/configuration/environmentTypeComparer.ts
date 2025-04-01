@@ -331,6 +331,9 @@ function getPrioritizedEnvironmentType(): EnvironmentType[] {
         EnvironmentType.MicrosoftStore,
         EnvironmentType.Global,
         EnvironmentType.System,
+        // --- Start Positron ---
+        EnvironmentType.Custom,
+        // --- End Positron ---
         EnvironmentType.Unknown,
     ];
 }

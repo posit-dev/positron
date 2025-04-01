@@ -85,16 +85,59 @@ export class Sessions {
 			reuse = true,
 		} = options || {};
 
-		// convert to array for unified processing
-		const sessionKeys = (Array.isArray(sessions) ? sessions : [sessions]) as SessionRuntimes[];
+		// convert input to array for unified processing
+		let sessionsToCreate = (Array.isArray(sessions) ? sessions : [sessions]) as SessionRuntimes[];
 		const results: SessionInfo[] = [];
 
-		// process sessions sequentially
-		for (const key of sessionKeys) {
+		if (reuse) {
+			// retrieve the list of active sessions from the session quick pick menu
+			// filter the console tabs to include only those sessions that are currently active
+			const quickPickActiveSessionNames = new Set((await this.quickPick.getActiveSessions()).map(s => s.name));
+			const consoleTabActiveSessions = (await this.getAllSessionIdsAndNames())
+				.filter(session => quickPickActiveSessionNames.has(session.name));
+
+			// list to track sessions that are not found
+			const sessionsNotFound: string[] = [];
+
+			for (const session of sessionsToCreate) {
+				const sessionName = availableRuntimes[session].name;
+				const index = consoleTabActiveSessions.findIndex(currentSession => currentSession.name.includes(sessionName));
+
+				if (index === -1) {
+					// session not found in active sessions
+					sessionsNotFound.push(sessionName);
+				} else {
+					// session found, retrieve metadata
+					const foundSession = consoleTabActiveSessions[index];
+					consoleTabActiveSessions.splice(index, 1);
+
+					if (foundSession.id) {
+						const sessionInfo = await this.getMetadata(foundSession.id);
+						const language = sessionInfo.name.split(' ')[0] as 'Python' | 'R';
+						const version = sessionInfo.name.split(' ')[1];
+						results.push({
+							id: foundSession.id,
+							name: sessionInfo.name,
+							language,
+							version,
+						});
+					} else {
+						throw new Error(`Should not have gotten here. Idle session not found: ${sessionName}`);
+					}
+				}
+
+				// map session names that were not found to their corresponding runtime keys
+				// and filter out any undefined values to ensure valid runtime keys
+				sessionsToCreate = sessionsNotFound
+					.map(name => availableRuntimesNameToKeyMap.get(name))
+					.filter((key): key is SessionRuntimes => Boolean(key));
+			}
+		}
+
+		// launch missing sessions
+		for (const key of sessionsToCreate) {
 			const session = { ...availableRuntimes[key], waitForReady, triggerMode };
-			session.id = reuse
-				? await this.reuseIdleSessionIfExists(session)
-				: await this.launchNew(session);
+			session.id = await this.launchNew(session);
 			results.push(session);
 		}
 
@@ -158,7 +201,7 @@ export class Sessions {
 			await this.page.mouse.move(0, 0);
 
 			if (waitForIdle) {
-				await expect(this.page.getByText('Restarting')).not.toBeVisible({ timeout: 90000 });
+				await expect(this.page.getByText('restarting.')).not.toBeVisible({ timeout: 90000 });
 				await expect(this.page.locator('.console-instance[style*="z-index: auto"]').getByText('restarted.')).toBeVisible({ timeout: 90000 });
 				await this.expectStatusToBe(sessionIdOrName, 'idle');
 			}
@@ -383,7 +426,7 @@ export class Sessions {
 		await test.step(`Start session via ${triggerMode}: ${language} ${version}`, async () => {
 
 			// Don't try to start a new runtime if one is currently starting up
-			await this.waitForReadyOrNoSessions();
+			await this.expectAllSessionsToBeReady();
 
 			// Start the runtime via the session picker button, quickaccess or console session button
 			if (triggerMode === 'quickaccess') {
@@ -452,75 +495,12 @@ export class Sessions {
 	}
 
 	/**
-	 * Helper: Launch a session if it doesn't exist, otherwise reuse the existing session if the name matches and the state is idle
-	 * @param session - the session to reuse / launch
-	 * @returns id of the session
-	 */
-	private async reuseIdleSessionIfExists(session: SessionInfo): Promise<string> {
-		return await test.step(`Reuse session: ${session.name}`, async () => {
-
-			await this.hotKeys.focusConsole();
-			const metadataButtonIsVisible = await this.metadataButton.isVisible();
-			const sessionTab = this.getSessionTab(session.name);
-			const sessionTabExists = await sessionTab.isVisible();
-
-			if (sessionTabExists) {
-				await sessionTab.click();
-				const status = await this.getIconStatus(session.name);
-
-				if (status === 'idle') {
-					return await this.getCurrentSessionId();
-				}
-			} else if (!sessionTabExists && metadataButtonIsVisible) {
-				const { name, state } = await this.getMetadata();
-				if (name.includes(session.name) && state === 'idle') {
-					return await this.getCurrentSessionId();
-				}
-			}
-
-			// Create a new session if none exists
-			return await this.launchNew(session);
-		});
-	}
-
-	/**
 	 * Helper: Wait for runtimes to finish loading
 	 */
-	async waitForRuntimesToLoad() {
+	async expectNoStartUpMessaging() {
+		await this.hotKeys.focusConsole();
+		await this.code.driver.page.mouse.move(0, 0);
 		await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
-	}
-
-	/**
-	 * Helper: Wait for the console to be ready or no sessions have been started
-	 */
-	async waitForReadyOrNoSessions() {
-		await test.step('Wait for console to be ready or no session', async () => {
-
-			await this.waitForRuntimesToLoad();
-
-			// ensure we are on Console tab
-			await this.hotKeys.focusConsole();
-
-			// Move mouse to prevent tooltip hover
-			await this.code.driver.page.mouse.move(0, 0);
-
-			// wait for the dropdown to contain R, Python, or Start Session.
-			const currentSession = await this.sessionPicker.textContent() || '';
-
-			if (currentSession.includes('Python') || currentSession.includes('R')) {
-				const currentSessionId = await this.getCurrentSessionId();
-				await expect(this.consoleInstance(currentSessionId).locator('.current-line')).toBeVisible({ timeout: 30000 });
-				await expect(this.page.getByText(/starting/)).not.toBeVisible({ timeout: 90000 });
-				return;
-			} else if (currentSession.includes('Start Session')) {
-				await expect(this.page.getByRole('button', { name: 'Start Session', exact: true })).toBeVisible();
-				await expect(this.page.getByText(/starting/)).not.toBeVisible({ timeout: 90000 });
-				return;
-			}
-
-			// If we reach here, the console is not ready.
-			throw new Error('Console is not ready after waiting for session to start');
-		});
 	}
 
 	/**
@@ -542,18 +522,71 @@ export class Sessions {
 	}
 
 	/**
-	 * Helper: Get the session ID for the currently selected session in tab list
+	 * Helper: Get all session IDs and their names for sessions in the console
+	 *
+	 * @returns An array of objects containing session IDs and names
+	 */
+	async getAllSessionIdsAndNames(): Promise<{ id: string; name: string }[]> {
+		const sessionCount = await this.getSessionCount();
+
+		if (sessionCount === 0) {
+			// no sessions available
+			return [];
+		} else if (sessionCount === 1) {
+			// single session, fetch metadata directly
+			const { id, name } = await this.getMetadata();
+			return [{ id, name }];
+		} else {
+			// multiple sessions, iterate through session tabs
+			const allSessions = await this.sessionTabs.all();
+			const allSessionsData: { id: string; name: string }[] = [];
+
+			for (const session of allSessions) {
+				// extract session ID from data-testid attribute
+				const testId = await session.getAttribute('data-testid');
+				const match = testId?.match(/console-tab-((python|r)-[a-zA-Z0-9]+)/);
+				const id = match ? match[1] : null;
+
+				// extract session name from aria-label attribute
+				const ariaLabel = await session.getAttribute('aria-label');
+				const name = ariaLabel ? ariaLabel.trim() : null;
+
+				if (!id || !name) {
+					throw new Error(`Session ID or name not found for session: ${testId}`);
+				}
+				allSessionsData.push({ id, name });
+			}
+
+			return allSessionsData;
+		}
+	}
+
+	/**
+	 * Helper: Get the session ID for the currently selected session
 	 *
 	 * @returns the session ID or undefined if no session is selected
 	 */
 	async getCurrentSessionId(): Promise<string> {
-		const testId = await this.page.getByTestId(/info-(python|r)-[a-z0-9]+/i).getAttribute('data-testid');
+		const sessionCount = await this.getSessionCount();
 
-		if (!testId || !/^info-((python|r)-[a-z0-9]+)$/i.test(testId)) {
-			throw new Error('No active session or unexpected session ID format');
+		if (sessionCount === 0) {
+			throw new Error('No active session');
+		} else if (sessionCount === 1) {
+			const { id } = await this.getMetadata();
+			return id;
+		} else {
+			const locator = this.page.getByTestId(/info-(python|r)-[a-z0-9]+/i);
+			if (!(await locator.isVisible())) {
+				throw new Error('Locator for session ID not found');
+			}
+			const testId = await locator.getAttribute('data-testid');
+
+			if (!testId || !/^info-((python|r)-[a-z0-9]+)$/i.test(testId)) {
+				throw new Error('No active session or unexpected session ID format');
+			}
+
+			return testId.replace(/^info-/, '');
 		}
-
-		return testId.replace(/^info-/, '');
 	}
 
 	/**
@@ -703,19 +736,22 @@ export class Sessions {
 			await this.page.keyboard.press('Escape');
 
 			// Verify Language Console
-			const escapedSessionName = new RegExp(session.name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+			const baseSessionName = session.name.split('-')[0].trim();
+			const escapedFullSessionName = new RegExp(session.name.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+			const escapedBaseSessionName = new RegExp(baseSessionName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+
 			await this.selectMetadataOption('Show Console Output Channel');
-			await expect(this.outputChannel).toHaveValue(escapedSessionName);
+			await expect(this.outputChannel).toHaveValue(escapedBaseSessionName);
 			await expect(this.outputChannel).toHaveValue(/Console$/);
 
 			// Verify Output Channel
 			await this.selectMetadataOption('Show Kernel Output Channel');
-			await expect(this.outputChannel).toHaveValue(escapedSessionName);
+			await expect(this.outputChannel).toHaveValue(escapedBaseSessionName);
 			await expect(this.outputChannel).toHaveValue(/Kernel$/);
 
 			// Verify LSP Output Channel
 			await this.selectMetadataOption('Show LSP Output Channel');
-			await expect(this.outputChannel).toHaveValue(escapedSessionName);
+			await expect(this.outputChannel).toHaveValue(escapedFullSessionName);
 			await expect(this.outputChannel).toHaveValue(/Language Server \(Console\)$/);
 
 			// Go back to console when done
@@ -816,16 +852,18 @@ export class Sessions {
 	}
 
 	/**
-	 * Verify: all sessions are idle (not active)
+	 * Verify: all sessions are "ready" (idle or disconnected)
 	 */
-	async expectAllSessionsToBeIdle() {
-		if (await this.getSessionCount() > 1) {
-			await expect(this.activeStatusIcon).toHaveCount(0);
-		} else {
-			await expect(this.page.getByText(/starting/)).not.toBeVisible();
+	async expectAllSessionsToBeReady() {
+		await this.expectNoStartUpMessaging();
+		const sessionCount = await this.getSessionCount();
+
+		if (sessionCount === 1) {
 			await this.metadataButton.click();
-			await expect(this.page.getByText('State: idle')).toBeVisible({ timeout: 60000 });
+			await expect(this.page.getByText(/State: (exited|idle)/)).toBeVisible({ timeout: 60000 });
 			await this.page.keyboard.press('Escape');
+		} else if (await this.getSessionCount() > 1) {
+			await expect(this.activeStatusIcon).toHaveCount(0);
 		}
 	}
 
@@ -1041,3 +1079,7 @@ export const availableRuntimes: { [key: string]: SessionInfo } = {
 	pythonAlt: { ...pythonSessionAlt },
 	pythonHidden: { ...pythonSessionHidden },
 };
+
+const availableRuntimesNameToKeyMap = new Map(
+	Object.entries(availableRuntimes).map(([key, runtime]) => [runtime.name, key])
+);

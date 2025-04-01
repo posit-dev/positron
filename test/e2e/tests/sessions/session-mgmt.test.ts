@@ -146,7 +146,7 @@ test.describe('Sessions: Management', {
 			const [pySession, rSession] = await sessions.start(['python', 'r']);
 
 			await sessions.expectSessionCountToBe(2);
-			await sessions.expectAllSessionsToBeIdle();
+			await sessions.expectAllSessionsToBeReady();
 
 			// Select R session and run script to generate plot and variable
 			await runCodeInSession(app, rSession, 1,);
@@ -173,7 +173,7 @@ test.describe('Sessions: Management', {
 
 			// Verify all sessions reload and are idle
 			await sessions.expectSessionCountToBe(2);
-			await sessions.expectAllSessionsToBeIdle();
+			await sessions.expectAllSessionsToBeReady();
 
 			// Verify sessions, plot, console history, and variables persist for R session
 			await sessions.select(rSession.id);

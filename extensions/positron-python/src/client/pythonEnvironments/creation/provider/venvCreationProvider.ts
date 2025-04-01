@@ -230,6 +230,9 @@ export class VenvCreationProvider implements CreateEnvironmentProvider {
                                         EnvironmentType.MicrosoftStore,
                                         EnvironmentType.Global,
                                         EnvironmentType.Pyenv,
+                                        // --- Start Positron ---
+                                        EnvironmentType.Custom,
+                                        // --- End Positron ---
                                     ].includes(i.envType) && i.type === undefined, // only global intepreters
                                 {
                                     skipRecommended: true,
