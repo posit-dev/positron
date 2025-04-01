@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
-import { Application, SessionInfo } from '../../infra';
+import { Application, SessionMetaData } from '../../infra';
 
 test.use({
 	suiteId: __filename
@@ -197,30 +197,33 @@ test.describe('Sessions: Management', {
 });
 
 
-async function runCodeInSession(app: Application, session: SessionInfo, index: number) {
+async function runCodeInSession(app: Application, session: SessionMetaData, index: number) {
 	await test.step(`${session.name}: run code to generate plot and variable`, async () => {
 		const { sessions, console, variables } = app.workbench;
+		const isPython = session.name.includes('Python');
 		await sessions.select(session.id);
 
 		// Generate an image plot
-		const imagePlotScript = session.language === 'R'
-			? `library(ggplot2)
-library(grid)
-img <- matrix(runif(100), nrow=10)
-grid.raster(img)`
-			: `import matplotlib.pyplot as plt
+		const imagePlotScript = isPython
+			? `import matplotlib.pyplot as plt
 import numpy as np
 img = np.random.rand(10, 10)
 plt.imshow(img, cmap='gray')
 plt.axis('off')
-plt.show()`;
-		await console.executeCode(session.language, imagePlotScript);
+plt.show()`
+			: `library(ggplot2)
+library(grid)
+img <- matrix(runif(100), nrow=10)
+grid.raster(img)`;
+		await console.executeCode(isPython ? 'Python' : 'R', imagePlotScript);
 
 		// Print index to console
 		await console.typeToConsole(`print("this is console ${index}")`, true);
 
 		// Assign a variable based on session language
-		const assignment = session.language === 'R' ? `test <- ${index}` : `test = ${index}`;
+		const assignment = isPython
+			? `test = ${index}`
+			: `test <- ${index}`;
 		await console.typeToConsole(assignment, true);
 
 		await variables.focusVariablesView();

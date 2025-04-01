@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Application, SessionInfo } from '../../infra/index.js';
+import { Application, SessionMetaData } from '../../infra/index.js';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -163,10 +163,10 @@ test.describe('Session: Autocomplete', {
 
 // Helper functions
 
-async function triggerAutocompleteInConsole(app: Application, session: SessionInfo) {
+async function triggerAutocompleteInConsole(app: Application, session: SessionMetaData) {
 	const { console } = app.workbench;
 
-	if (session.language === 'Python') {
+	if (session.name.includes('Python')) {
 		await console.typeToConsole('import pandas as pd', true, 0);
 		await console.typeToConsole('pd.Dat', false, 250);
 	} else {
@@ -177,7 +177,7 @@ async function triggerAutocompleteInConsole(app: Application, session: SessionIn
 
 async function triggerAutocompleteInEditor({ app, session, retrigger = false }: {
 	app: Application;
-	session: SessionInfo;
+	session: SessionMetaData;
 	retrigger?: boolean;
 }) {
 	const { sessions, hotKeys } = app.workbench;
@@ -191,10 +191,10 @@ async function triggerAutocompleteInEditor({ app, session, retrigger = false }: 
 		await keyboard.press('Backspace', { delay: 250 });
 		await keyboard.press('Backspace', { delay: 250 });
 		await keyboard.press('Backspace', { delay: 250 });
-		await keyboard.type(session.language === 'Python' ? '.Dat' : 'ad_p', { delay: 1000 });
+		await keyboard.type(session.name.includes('Python') ? '.Dat' : 'ad_p', { delay: 1000 });
 	} else {
 		await keyboard.type(
-			session.language === 'Python' ? 'pd.Dat' : 'read_p',
+			session.name.includes('Python') ? 'pd.Dat' : 'read_p',
 			{ delay: 250 }
 		);
 	}

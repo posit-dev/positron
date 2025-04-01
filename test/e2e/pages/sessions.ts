@@ -39,7 +39,7 @@ export class Sessions {
 	restartButton = this.page.getByLabel('Restart console', { exact: true });
 	private shutDownButton = this.page.getByLabel('Shutdown console', { exact: true });
 	private trashButton = (sessionId: string) => this.getSessionTab(sessionId).getByTestId('trash-session');
-	private newSessionButton = this.page.getByRole('toolbar', { name: 'Console actions' }).getByRole('button', { name: 'Start a New Session' });
+	newSessionButton = this.page.getByRole('toolbar', { name: 'Console actions' }).getByRole('button', { name: 'Start a New Session' });
 
 	// Session Metadata
 	private metadataButton = this.page.getByRole('button', { name: 'Console information' });
@@ -78,7 +78,7 @@ export class Sessions {
 			triggerMode?: SessionTrigger;
 			reuse?: boolean;
 		}
-	): Promise<T extends SessionRuntimes ? SessionInfo : { [K in keyof T]: SessionInfo }> {
+	): Promise<T extends SessionRuntimes ? SessionMetaData : { [K in keyof T]: SessionMetaData }> {
 		const {
 			waitForReady = true,
 			triggerMode = 'hotkey',
@@ -87,7 +87,7 @@ export class Sessions {
 
 		// convert input to array for unified processing
 		let sessionsToCreate = (Array.isArray(sessions) ? sessions : [sessions]) as SessionRuntimes[];
-		const results: SessionInfo[] = [];
+		const results: SessionMetaData[] = [];
 
 		if (reuse) {
 			// retrieve the list of active sessions from the session quick pick menu
@@ -112,15 +112,8 @@ export class Sessions {
 					consoleTabActiveSessions.splice(index, 1);
 
 					if (foundSession.id) {
-						const sessionInfo = await this.getMetadata(foundSession.id);
-						const language = sessionInfo.name.split(' ')[0] as 'Python' | 'R';
-						const version = sessionInfo.name.split(' ')[1];
-						results.push({
-							id: foundSession.id,
-							name: sessionInfo.name,
-							language,
-							version,
-						});
+						const sessionMetaData = await this.getMetadata(foundSession.id);
+						results.push(sessionMetaData);
 					} else {
 						throw new Error(`Should not have gotten here. Idle session not found: ${sessionName}`);
 					}
@@ -138,7 +131,7 @@ export class Sessions {
 		for (const key of sessionsToCreate) {
 			const session = { ...availableRuntimes[key], waitForReady, triggerMode };
 			session.id = await this.launchNew(session);
-			results.push(session);
+			results.push(await this.getMetadata(session.id));
 		}
 
 		// return single result or array based on input type
@@ -607,7 +600,7 @@ export class Sessions {
 			// get metadata
 			const name = (await this.metadataDialog.getByTestId('session-name').textContent() || '').trim();
 			const id = (await this.metadataDialog.getByTestId('session-id').textContent() || '').replace('Session ID: ', '');
-			const state = (await this.metadataDialog.getByTestId('session-state').textContent() || '').replace('State: ', '');
+			const state = (await this.metadataDialog.getByTestId('session-state').textContent() || '').replace('State: ', '') as SessionState;
 			const path = (await this.metadataDialog.getByTestId('session-path').textContent() || '').replace('Path: ', '');
 			const source = (await this.metadataDialog.getByTestId('session-source').textContent() || '').replace('Source: ', '');
 
@@ -720,16 +713,16 @@ export class Sessions {
 	 * Verify: Check the metadata of the session dialog
 	 * @param session - the expected session info to verify
 	 */
-	async expectMetaDataToBe(session: SessionInfo & { state: 'active' | 'idle' | 'disconnected' | 'exited' }) {
-		await test.step(`Verify ${session.language} ${session.version} metadata`, async () => {
+	async expectMetaDataToBe(session: SessionMetaData) {
+		await test.step(`Verify ${session.name} metadata`, async () => {
 
 			// Click metadata button for desired session
 			await this.getSessionTab(session.id).click();
 			await this.metadataButton.click();
 
 			// Verify metadata
-			await expect(this.metadataDialog.getByText(`${session.language} ${session.version}`)).toBeVisible();
-			await expect(this.metadataDialog.getByText(new RegExp(`Session ID: ${session.language.toLowerCase()}-[a-zA-Z0-9]+`))).toBeVisible();
+			await expect(this.metadataDialog.getByText(`${session.name}`)).toBeVisible();
+			await expect(this.metadataDialog.getByText(new RegExp(`Session ID: ${session.name.includes('Python') ? 'python' : 'r'}-[a-zA-Z0-9]+`))).toBeVisible();
 			await expect(this.metadataDialog.getByText(`State: ${session.state}`)).toBeVisible();
 			await expect(this.metadataDialog.getByText(/^Path: [\/~a-zA-Z0-9.]+/)).toBeVisible();
 			await expect(this.metadataDialog.getByText(/^Source: (Pyenv|System|Global|VirtualEnv|Conda: base)$/)).toBeVisible();
@@ -764,30 +757,10 @@ export class Sessions {
 	 *
 	 * @param version - The descriptive string of the runtime to verify.
 	 */
-	async expectSessionPickerToBe(
-		options: { language?: 'Python' | 'R'; version?: string } | 'Start Session' = {}
-	) {
-		if (!DESIRED_PYTHON || !DESIRED_R) {
-			throw new Error('Please set env vars: POSITRON_PY_VER_SEL, POSITRON_R_VER_SEL');
+	async expectSessionPickerToBe(runtimeName: string) {
+		await test.step(`Verify runtime is selected: ${runtimeName}`, async () => {
+			await expect(this.sessionPicker).toHaveText(runtimeName);
 		}
-
-		const isStartSession = options === 'Start Session';
-
-		const language = !isStartSession && typeof options === 'object'
-			? options.language ?? 'Python'
-			: undefined;
-
-		const version = !isStartSession && typeof options === 'object'
-			? options.version ?? (language === 'Python' ? DESIRED_PYTHON : DESIRED_R)
-			: '';
-
-		await test.step(
-			`Verify runtime is selected: ${isStartSession ? 'Start Session' : `${language} ${version}`}`,
-			async () => {
-				isStartSession
-					? await expect(this.sessionPicker).toHaveText('Start Session')
-					: await expect(this.sessionPicker).toContainText(`${language} ${version}`);
-			}
 		);
 	}
 
@@ -874,8 +847,19 @@ export class Sessions {
 		await expect(this.quickPick.allSessionsMenu).toBeVisible();
 	}
 
-	async expectStatusBarToContain(runtimePath: string): Promise<void> {
-		await expect(this.code.driver.page.locator('footer').getByText(runtimePath)).toBeVisible({ timeout: 30000 });
+	/**
+	 * Verify: the session quick pick contains the expected session data at the specified index
+	 * @param index - the index of the session in the quick pick
+	 * @param sessionData - the expected session data
+	 */
+	async expectSessionQuickPickToContainAtIndex(index: number, sessionData: SessionMetaData) {
+		await this.expectStartNewSessionMenuToBeVisible();
+
+		const quickPickEntryRuntime = this.page.locator('.quick-input-list-entry').nth(index).locator('.quick-input-list-row').nth(0);
+		const quickPickEntryPath = this.page.locator('.quick-input-list-entry').nth(index).locator('.quick-input-list-row').nth(1);
+
+		await expect(quickPickEntryRuntime).toContainText(sessionData.name);
+		await expect(quickPickEntryPath).toHaveText(sessionData.path);
 	}
 }
 
@@ -1003,11 +987,12 @@ export interface ExtendedSessionInfo extends SessionInfo {
 export type SessionMetaData = {
 	name: string;
 	id: string;
-	state: string;
+	state: SessionState;
 	source: string;
 	path: string;
 };
 
+type SessionState = 'active' | 'idle' | 'disconnected' | 'exited';
 
 // Use this session object to manage default python env in the test
 const pythonSession: SessionInfo = {
