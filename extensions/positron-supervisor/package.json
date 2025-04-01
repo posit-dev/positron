@@ -139,6 +139,9 @@
       "kallichore": "0.1.35"
     }
   },
+  "extensionDependencies": [
+    "positron.positron-environment"
+  ],
   "dependencies": {
     "request": "^2.88.2",
     "tail": "^2.2.6",
