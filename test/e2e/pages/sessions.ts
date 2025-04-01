@@ -855,10 +855,7 @@ export class Sessions {
 	 * @param sessionList.session - The session data to verify
 	 */
 	async expectSessionQuickPickToContainAtIndices(sessionList: { index: number; session: SessionMetaData }[]) {
-		// if new session is not visible, open the session quick pick menu
-		if (!await this.quickPick.allSessionsMenu.isVisible()) {
-			await this.quickPick.openSessionQuickPickMenu(true);
-		}
+		await this.quickPick.openSessionQuickPickMenu(true);
 
 		// verify the session data at the specified index
 		for (const { index, session } of sessionList) {
