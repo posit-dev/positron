@@ -511,8 +511,8 @@ suite('positron API - executeCode', () => {
 	});
 
 	test('observer completes even if interrupt does not', async () => {
-		// Tracks whether the finished event was called
-		let finishedCalled = false;
+		// Tracks whether the failed event was called
+		let failedCalled = false;
 
 		// Tracks the value returned from the computation
 		let result = {};
@@ -533,8 +533,8 @@ suite('positron API - executeCode', () => {
 				}, 50);
 			},
 
-			onFinished: () => {
-				finishedCalled = true;
+			onFailed: (_err) => {
+				failedCalled = true;
 			},
 
 			onCompleted: (data) => {
@@ -544,28 +544,33 @@ suite('positron API - executeCode', () => {
 
 		// Run the "uninterruptible" command which can't be interrupted but
 		// returns a value after 500ms
-		await Promise.race([
-			positron.runtime.executeCode(
-				'test',             // languageId
-				'uninterruptible',  // code
-				false,              // focus
-				false,              // allowIncomplete
-				positron.RuntimeCodeExecutionMode.Interactive,
-				positron.RuntimeErrorBehavior.Stop,
-				observer
-			),
-			new Promise<any>((_resolve, reject) => {
-				// timeout after 1 second -- we should never hit this since the
-				// computation should finish in 500ms, but do it anyway to
-				// guarantee the tests don't hang
-				setTimeout(() => {
-					reject(new Error('Execution timed out after 1 second'));
-				}, 1000);
-			})
-		]);
+		try {
+			await Promise.race([
+				positron.runtime.executeCode(
+					'test',             // languageId
+					'uninterruptible',  // code
+					false,              // focus
+					false,              // allowIncomplete
+					positron.RuntimeCodeExecutionMode.Interactive,
+					positron.RuntimeErrorBehavior.Stop,
+					observer
+				),
+				new Promise<any>((_resolve, reject) => {
+					// timeout after 1 second -- we should never hit this since the
+					// computation should finish in 500ms, but do it anyway to
+					// guarantee the tests don't hang
+					setTimeout(() => {
+						reject(new Error('Execution timed out after 1 second'));
+					}, 1000);
+				})
+			]);
+		} catch (e) {
+			// Expected; interrupting during code execution can throw if the
+			// code is uninterruptible
+		}
 
-		// Verify that the execution was "finished"
-		assert.ok(finishedCalled, 'onFinished should be called');
+		// Verify that the execution errored due to being interrupted
+		assert.ok(failedCalled, 'onFailed should be called');
 
 		// Verify that we didn't get the result -- if we did, it means we waited
 		// for the computation to finish instead of bailing when requested

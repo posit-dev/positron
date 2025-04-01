@@ -569,7 +569,31 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot interrupt runtime: session handle '${handle}' not found or no longer valid.`);
 		}
-		return this._runtimeSessions[handle].interrupt();
+		const session = this._runtimeSessions[handle];
+		try {
+			session.interrupt();
+		} finally {
+			// Whether or not the interrupt was successful, ensure that
+			// execution observers associated with this session are settled, so
+			// that interrupting the session is always successful from the
+			// perspective of the observer even if the underlying session fails
+			// to interrupt.
+			this._executionObservers.forEach((observer, id) => {
+				if (observer.sessionId === session.metadata.sessionId) {
+					// The observer is associated with this session, so we
+					// need to clean it up. Reject its promise if it hasn't
+					// already been settled.
+					if (!observer.promise.isSettled) {
+						observer.onFailed({
+							message: 'The user interrupted the code execution.',
+							name: 'Interrupted',
+						});
+					}
+					observer.dispose();
+					this._executionObservers.delete(id);
+				}
+			});
+		}
 	}
 
 	async $shutdownLanguageRuntime(handle: number, exitReason: positron.RuntimeExitReason): Promise<void> {
@@ -1157,7 +1181,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
-	 * Restarts an active session.
+	 * Interrupts an active session.
 	 *
 	 * @param sessionId The session ID to restart.
 	 */
@@ -1172,6 +1196,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			new Error(`Session with ID '${sessionId}' must be started before ` +
 				`it can be interrupted.`));
 	}
+
 	/**
 	 * Handles a comm open message from the language runtime by either creating
 	 * a client instance for it or passing it to a registered client handler.
