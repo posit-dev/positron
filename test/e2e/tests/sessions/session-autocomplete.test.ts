@@ -25,7 +25,7 @@ test.describe('Session: Autocomplete', {
 	test('Python - Verify autocomplete suggestions in Console and Editor', async function ({ app, runCommand, sessions }) {
 		const { variables, editors, console } = app.workbench;
 
-		const [pySession1, pySession2, pyAltSession] = await sessions.start(['python', 'python', 'pythonAlt'], { reuse: false });
+		const [pySession1, pySession2, pyAltSession] = await sessions.start(['python', 'python', 'pythonAlt']);
 		await variables.togglePane('hide');
 
 		// Session 1 - trigger and verify console autocomplete
@@ -94,7 +94,7 @@ test.describe('Session: Autocomplete', {
 	test('R - Verify autocomplete suggestions in Console and Editor', async function ({ app, runCommand, sessions }) {
 		const { variables, editors, console } = app.workbench;
 
-		const [rSession1, rSession2, rSessionAlt] = await sessions.start(['r', 'r', 'rAlt'], { reuse: false });
+		const [rSession1, rSession2, rSessionAlt] = await sessions.start(['r', 'r', 'rAlt']);
 		await variables.togglePane('hide');
 
 		// Session 1 - verify console autocomplete
@@ -130,10 +130,10 @@ test.describe('Session: Autocomplete', {
 		await sessions.deleteAll();
 	});
 
-	test('R - Verify autocomplete suggestions (LSP is alive) after restart', async function ({ app, runCommand, sessions }) {
+	test('R - Verify autocomplete suggestions (LSP is alive) after restart', async function ({ app, sessions }) {
 		const { variables, console } = app.workbench;
 
-		const [rSession, rSessionAlt] = await sessions.start(['r', 'rAlt'], { reuse: false });
+		const [rSession, rSessionAlt] = await sessions.start(['r', 'rAlt']);
 		await variables.togglePane('hide');
 
 		// Session 1 - verify console autocomplete

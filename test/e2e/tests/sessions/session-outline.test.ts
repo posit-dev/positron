@@ -79,7 +79,9 @@ test.describe('Session: Outline', {
 		await verifyPythonOutline(outline);
 	});
 
-	test('Verify outline after reload with R in foreground and Python in background', async function ({ app, runCommand, sessions }) {
+	test('Verify outline after reload with R in foreground and Python in background', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7052' }],
+	}, async function ({ app, runCommand, sessions }) {
 		const { outline, editor } = app.workbench;
 
 		// Start sessions
@@ -100,7 +102,7 @@ test.describe('Session: Outline', {
 		await verifyPythonOutline(outline);
 
 		await editor.selectTab(R_FILE);
-		await sessions.select(rSession.id); // Even though the session displays as green ("idle"), I have to click on it in order to get outline to come back. Is this expected?
+		await sessions.select(rSession.id); // Issue 7052 - we shouldn't have to click the tab
 		await verifyROutline(outline);
 	});
 });
