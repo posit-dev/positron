@@ -228,6 +228,7 @@ test.describe('Reticulate - multi console sessions', {
 				await app.workbench.console.sendEnterKey();
 
 				await app.workbench.console.waitForConsoleContents(`${val}`);
+				await sessions.expectAllSessionsToBeReady();
 			}
 		}
 
@@ -235,6 +236,7 @@ test.describe('Reticulate - multi console sessions', {
 		const restart = sessions.restart(reticulateSession.id, { waitForIdle: false });
 		await app.workbench.popups.acceptModalDialog();
 		await restart;
+		await sessions.expectAllSessionsToBeReady();
 		await sessions.expectStatusToBe(reticulateSession.id, 'idle', { timeout: 60000 });
 
 		// The other reticulate session should still print something from `x`
