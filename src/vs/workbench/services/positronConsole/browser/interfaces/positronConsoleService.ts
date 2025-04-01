@@ -3,15 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { RuntimeItem } from '../classes/runtimeItem.js';
 import { Event } from '../../../../../base/common/event.js';
+import { IDisposable } from '../../../../../base/common/lifecycle.js';
+import { ActivityItemPrompt } from '../classes/activityItemPrompt.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
-import { RuntimeItem } from '../classes/runtimeItem.js';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
-import { ActivityItemPrompt } from '../classes/activityItemPrompt.js';
-import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
-import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IExecutionHistoryEntry } from '../../../positronHistory/common/executionHistoryService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
 
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
@@ -31,7 +31,8 @@ export const enum PositronConsoleState {
 	Ready = 'Ready',
 	Offline = 'Offline',
 	Exiting = 'Exiting',
-	Exited = 'Exited'
+	Exited = 'Exited',
+	Disconnected = 'Disconnected'
 }
 
 /**
@@ -121,9 +122,16 @@ export interface IPositronConsoleService {
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
 	 * @param mode Possible code execution modes for a language runtime
 	 * @param errorBehavior Possible error behavior for a language runtime
-	 * @returns A value which indicates whether the code could be executed.
+	 * @param executionId An optional ID to track this execution for observation
+	 * @returns The session ID that was assigned to execute the code.
 	 */
-	executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior): Promise<boolean>;
+	executeCode(languageId: string,
+		code: string,
+		focus: boolean,
+		allowIncomplete?: boolean,
+		mode?: RuntimeCodeExecutionMode,
+		errorBehavior?: RuntimeErrorBehavior,
+		executionId?: string): Promise<string>;
 }
 
 /**
@@ -358,6 +366,13 @@ export interface IPositronConsoleInstance {
 	interrupt(code: string): void;
 
 	/**
+	 * Gets the clipboard representation of the console instance.
+	 * @param commentPrefix The comment prefix to use.
+	 * @returns The clipboard representation of the console instance.
+	 */
+	getClipboardRepresentation(commentPrefix: string): string[];
+
+	/**
 	 * Replays execution history entries, adding their input and output to the
 	 * console and preparing the console to reconnect to the runtime.
 	 *
@@ -379,16 +394,18 @@ export interface IPositronConsoleInstance {
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
 	 * @param mode Possible code execution modes for a language runtime.
 	 * @param errorBehavior Possible error behavior for a language runtime
+	 * @param executionId An optional ID to track this execution for observation
 	 */
-	enqueueCode(code: string, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode): Promise<void>;
+	enqueueCode(code: string, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): Promise<void>;
 
 	/**
 	 * Executes code.
 	 * @param code The code to execute.
 	 * @param mode Possible code execution modes for a language runtime.
 	 * @param errorBehavior Possible error behavior for a language runtime
+	 * @param executionId An optional ID to track this execution for observation
 	 */
-	executeCode(code: string, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior): void;
+	executeCode(code: string, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): void;
 
 	/**
 	 * Replies to a prompt.

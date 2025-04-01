@@ -5,11 +5,12 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { EncryptedSecretStorage, getEnabledProviders, getModelConfiguration, getModelConfigurations, GlobalSecretStorage, ModelConfig, SecretStorage, showConfigurationDialog, showModelList, StoredModelConfig } from './config';
+import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, ModelConfig, SecretStorage, showConfigurationDialog, showModelList, StoredModelConfig } from './config';
 import { newLanguageModel } from './models';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { editsProvider } from './edits';
 import { createParticipants } from './participants';
+import { registerAssistantTools } from './tools.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -27,7 +28,7 @@ function disposeParticipants() {
 	participantDisposables = [];
 }
 
-export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage): Promise<boolean> {
+export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage) {
 	try {
 		const modelConfig = await getModelConfiguration(config.id, context, storage);
 
@@ -35,16 +36,16 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			vscode.window.showErrorMessage(
 				vscode.l10n.t('Positron Assistant: Failed to register model configuration. The model configuration could not be found.')
 			);
-			return false;
+			throw new Error(vscode.l10n.t('Failed to register model configuration. The model configuration could not be found.'));
 		}
 
-		const enabledProviders = getEnabledProviders();
+		const enabledProviders = await getEnabledProviders();
 		const enabled = enabledProviders.length === 0 || enabledProviders.includes(modelConfig.provider);
 		if (!enabled) {
 			vscode.window.showErrorMessage(
 				vscode.l10n.t('Positron Assistant: Failed to register model configuration. The provider is disabled.')
 			);
-			return false;
+			throw new Error(vscode.l10n.t('Failed to register model configuration. The provider is disabled.'));
 		}
 
 		const languageModel = newLanguageModel(modelConfig);
@@ -54,17 +55,15 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			vscode.window.showErrorMessage(
 				vscode.l10n.t(`Positron Assistant: Failed to register model configuration. ${error.message}`)
 			);
-			return false;
+			throw new Error(vscode.l10n.t('Failed to register model configuration. {0}', [error.message]));
 		}
 
 		registerModelWithAPI(languageModel, modelConfig, context);
-
-		return true;
 	} catch (e) {
 		vscode.window.showErrorMessage(
 			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', [e])
 		);
-		return false;
+		throw new Error(vscode.l10n.t('Failed to register model configuration. {0}', [e]));
 	}
 }
 
@@ -75,7 +74,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 	let modelConfigs: ModelConfig[] = [];
 	try {
 		// Refresh the set of enabled providers
-		const enabledProviders = getEnabledProviders();
+		const enabledProviders = await getEnabledProviders();
 		modelConfigs = await getModelConfigurations(context, storage);
 		modelConfigs = modelConfigs.filter(config => {
 			const enabled = enabledProviders.length === 0 ||
@@ -181,7 +180,7 @@ function registerConfigureModelsCommand(context: vscode.ExtensionContext, storag
 
 function registerMappedEditsProvider(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
-		vscode.chat.registerMappedEditsProvider({ pattern: '**/*' }, editsProvider)
+		vscode.chat.registerMappedEditsProvider2(editsProvider)
 	);
 }
 
@@ -226,6 +225,13 @@ export function activate(context: vscode.ExtensionContext) {
 	const enabled = vscode.workspace.getConfiguration('positron.assistant').get('enable');
 	if (enabled) {
 		registerAssistant(context);
+		registerAssistantTools(context);
+		const storedModels = getStoredModels(context);
+		if (storedModels.length) {
+			storedModels.forEach(stored => {
+				positron.ai.addLanguageModelConfig(expandConfigToSource(stored));
+			});
+		}
 	} else {
 		// If the assistant is not enabled, listen for configuration changes so that we can
 		// enable it immediately if the user enables it in the settings.

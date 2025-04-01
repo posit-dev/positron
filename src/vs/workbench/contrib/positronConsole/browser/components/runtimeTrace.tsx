@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,7 +10,7 @@ import './runtimeTrace.css';
 import React from 'react';
 
 // Other dependencies.
-import { OutputLines } from './outputLines.js';
+import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { RuntimeItemTrace } from '../../../../services/positronConsole/browser/classes/runtimeItemTrace.js';
 
 // RuntimeTraceProps interface.
@@ -41,7 +41,7 @@ export const RuntimeTrace = (props: RuntimeTraceProps) => {
 			<div>
 				{formatTimestamp(props.runtimeItemTrace.timestamp)}
 			</div>
-			<OutputLines outputLines={props.runtimeItemTrace.outputLines} />
+			<ConsoleOutputLines outputLines={props.runtimeItemTrace.outputLines} />
 		</div>
 	);
 };

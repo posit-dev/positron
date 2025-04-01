@@ -92,8 +92,23 @@ export async function isGlobalPython(interpreterPath: string): Promise<boolean |
     }
     const extensionApi: PythonExtension = extension.exports as PythonExtension;
     const interpreterDetails = await extensionApi.environments.resolveEnvironment(interpreterPath);
-    const isGlobal = interpreterDetails?.environment === undefined;
-    return isGlobal;
+
+    // If we can't resolve the interpreter details, we can't determine if it's a global python installation
+    if (!interpreterDetails) {
+        return undefined;
+    }
+
+    // If the interpreter is not in a virtual environment, it is a global python installation
+    if (interpreterDetails.environment === undefined) {
+        return true;
+    }
+
+    // If the interpreter is in a virtual environment, but was installed via Pyenv, it is a global python installation
+    if (interpreterDetails.tools.includes('Pyenv')) {
+        return true;
+    }
+
+    return false;
 }
 
 /**

@@ -77,7 +77,7 @@ export default defineConfig<ExtendedTestOptions>({
 				web: false,
 				artifactDir: 'e2e-electron'
 			},
-
+			grepInvert: /@:web-only/
 		},
 		{
 			name: 'e2e-browser',
@@ -94,7 +94,8 @@ export default defineConfig<ExtendedTestOptions>({
 				web: false,
 				artifactDir: 'e2e-windows',
 			},
-			grep: /@:win/
+			grep: /@:win/,
+			grepInvert: /@:web-only/
 		},
 	],
 });

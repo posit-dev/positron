@@ -769,7 +769,7 @@ export interface ColumnFrequencyTable {
 	/**
 	 * The formatted top values
 	 */
-	values: Array<string>;
+	values: Array<ColumnValue>;
 
 	/**
 	 * Counts of top values
@@ -1084,6 +1084,7 @@ export enum ColumnDisplayType {
 	Date = 'date',
 	Datetime = 'datetime',
 	Time = 'time',
+	Interval = 'interval',
 	Object = 'object',
 	Array = 'array',
 	Struct = 'struct',

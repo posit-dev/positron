@@ -95,6 +95,9 @@ export const OPTIONS: OptionDescriptions<Required<NativeParsedArgs>> = {
 	'extensions-dir': { type: 'string', deprecates: ['extensionHomePath'], cat: 'e', args: 'dir', description: localize('extensionHomePath', "Set the root path for extensions.") },
 	'extensions-download-dir': { type: 'string' },
 	'builtin-extensions-dir': { type: 'string' },
+	// --- Start Positron ---
+	'bootstrap-extensions-dir': { type: 'string' },
+	// --- End Positron ---
 	'list-extensions': { type: 'boolean', cat: 'e', description: localize('listExtensions', "List the installed extensions.") },
 	'show-versions': { type: 'boolean', cat: 'e', description: localize('showVersions', "Show versions of installed extensions, when using --list-extensions.") },
 	'category': { type: 'string', allowEmptyValue: true, cat: 'e', description: localize('category', "Filters installed extensions by provided category, when using --list-extensions."), args: 'category' },
@@ -167,6 +170,7 @@ export const OPTIONS: OptionDescriptions<Required<NativeParsedArgs>> = {
 	'do-not-sync': { type: 'boolean' },
 	'do-not-include-pack-dependencies': { type: 'boolean' },
 	'trace': { type: 'boolean' },
+	'trace-memory-infra': { type: 'boolean' },
 	'trace-category-filter': { type: 'string' },
 	'trace-options': { type: 'string' },
 	'preserve-env': { type: 'boolean' },
@@ -211,6 +215,7 @@ export const OPTIONS: OptionDescriptions<Required<NativeParsedArgs>> = {
 	'trace-startup-format': { type: 'string' },
 	'trace-startup-file': { type: 'string' },
 	'trace-startup-duration': { type: 'string' },
+	'xdg-portal-required-version': { type: 'string' },
 
 	_: { type: 'string[]' } // main arguments
 };

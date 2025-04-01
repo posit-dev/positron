@@ -26,6 +26,7 @@ import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 
 /**
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron
@@ -35,6 +36,7 @@ export interface PositronConsoleServices extends PositronActionBarServices {
 	readonly clipboardService: IClipboardService;
 	readonly commandService: ICommandService;
 	readonly contextKeyService: IContextKeyService;
+	readonly editorService: IEditorService;
 	readonly executionHistoryService: IExecutionHistoryService;
 	readonly instantiationService: IInstantiationService;
 	readonly languageRuntimeService: ILanguageRuntimeService;

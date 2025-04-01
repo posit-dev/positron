@@ -17,6 +17,7 @@ import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 import { getInterpreterOverridePaths, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { isDirectory, isFile } from './path-utils.js';
+import { discoverCondaBinaries } from './provider-conda.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -44,6 +45,7 @@ export enum RRuntimeSource {
 	system = 'System',
 	user = 'User',
 	homebrew = 'Homebrew',
+	conda = 'Conda',
 }
 
 /**
@@ -55,19 +57,10 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	// Discover R binaries on the system
 	const { binaries, currentBinary } = await getBinaries();
 
-	// If no R binaries are found, notify the user and end discovery.
+	// If no R binaries are found, log to output and end discovery.
 	if (binaries.length === 0) {
-		LOGGER.warn('Positron could not find any R installations. Please review any custom settings.');
+		LOGGER.warn('Positron could not find any R installations. Please verify that you have R installed and review any custom settings.');
 		printInterpreterSettingsInfo();
-		const showLog = await positron.window.showSimpleModalDialogPrompt(
-			vscode.l10n.t('No R installations discovered'),
-			vscode.l10n.t('Positron could not find any R installations. Learn more about R discovery at <br><a href="https://positron.posit.co/r-installations">https://positron.posit.co/r-installations</a>'),
-			vscode.l10n.t('View logs'),
-			vscode.l10n.t('Dismiss')
-		);
-		if (showLog) {
-			LOGGER.show();
-		}
 		return;
 	}
 
@@ -165,6 +158,7 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 	// Consult various sources of R binaries
 	const currentBinaries = await currentRBinaryCandidates();
 	const systemBinaries = discoverSystemBinaries();
+	const condaBinaries = await discoverCondaBinaries();
 	const registryBinaries = await discoverRegistryBinaries();
 	const moreBinaries = discoverAdHocBinaries([
 		'/usr/bin/R',
@@ -179,6 +173,7 @@ async function getBinaries(): Promise<DiscoveredBinaries> {
 	const rBinaries: RBinary[] = [
 		...currentBinaries,
 		...systemBinaries,
+		...condaBinaries,
 		...registryBinaries,
 		...moreBinaries,
 		...userBinaries,
@@ -239,9 +234,13 @@ export async function makeMetadata(
 	// it's a Homebrew installation if it does)
 	const isHomebrewInstallation = rInst.binpath.includes('/homebrew/');
 
-	const runtimeSource = isHomebrewInstallation ? RRuntimeSource.homebrew :
-		isUserInstallation ?
-			RRuntimeSource.user : RRuntimeSource.system;
+	const isCondaInstallation = rInst.reasonDiscovered && rInst.reasonDiscovered.includes(ReasonDiscovered.CONDA);
+
+	// Be sure to check for conda installations first, as conda can be installed via Homebrew
+	const runtimeSource =
+		isCondaInstallation ? RRuntimeSource.conda :
+			isHomebrewInstallation ? RRuntimeSource.homebrew :
+				isUserInstallation ? RRuntimeSource.user : RRuntimeSource.system;
 
 	// Short name shown to users (when disambiguating within a language)
 	const runtimeShortName = includeArch ? `${rInst.version} (${rInst.arch})` : rInst.version;

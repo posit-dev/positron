@@ -186,10 +186,12 @@ async function confirmModelDeletion(context: vscode.ExtensionContext, storage: S
 	}
 }
 
-export function getEnabledProviders(): string[] {
+export async function getEnabledProviders(): Promise<string[]> {
 	// Get the configuration option listing enabled providers
 	let enabledProviders: string[] =
 		vscode.workspace.getConfiguration('positron.assistant').get('enabledProviders') || [];
+	const supportedProviders = await positron.ai.getSupportedProviders();
+	enabledProviders.push(...supportedProviders);
 
 	// Ensure an array was specified; coerce other values
 	if (!Array.isArray(enabledProviders)) {
@@ -213,76 +215,134 @@ export function getEnabledProviders(): string[] {
 export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {
 
 	// Gather model sources; ignore disabled providers
-	const enabledProviders = getEnabledProviders();
+	const enabledProviders = await getEnabledProviders();
+	const registeredModels = context.globalState.get<Array<StoredModelConfig>>('positron.assistant.models');
 	const sources = [...languageModels, ...completionModels]
-		.map((provider) => provider.source)
+		.map((provider) => {
+			const isRegistered = registeredModels?.find((modelConfig) => modelConfig.provider === provider.source.provider.id);
+			provider.source.signedIn = !!isRegistered;
+			return provider.source;
+		})
 		.filter((source) => {
 			// If no specific set of providers was specified, include all
 			return enabledProviders.length === 0 || enabledProviders.includes(source.provider.id);
 		});
 
 	// Show a modal asking user for configuration details
-	return positron.ai.showLanguageModelConfig(sources, async (userConfig) => {
-		let { name, model, baseUrl, apiKey, ...otherConfig } = userConfig;
-		name = name.trim();
-		model = model.trim();
-		baseUrl = baseUrl?.trim();
-		apiKey = apiKey?.trim();
-
-		// Create unique ID for the configuration
-		const id = randomUUID();
-
-		// Check for required fields
-		sources
-			.filter((source) => source.type === userConfig.type)
-			.find((source) => source.provider.id === userConfig.provider)?.supportedOptions
-			.forEach((option) => {
-				if (!(option in userConfig)) {
-					throw new Error(vscode.l10n.t(
-						`Can't save configuration with missing required option: ${option}`
-					));
-				}
-			});
-
-		// Store API key in secret storage
-		if (apiKey) {
-			await storage.store(`apiKey-${id}`, apiKey);
-		}
-
-		// Get existing configurations
-		const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
-
-		// Add new configuration
-		const newConfig: StoredModelConfig = {
-			id,
-			name,
-			model,
-			baseUrl,
-			...otherConfig,
-		};
-
-		// Update global state
-		await context.globalState.update(
-			'positron.assistant.models',
-			[...existingConfigs, newConfig]
-		);
-
-		// Register the new model
-		const registered = await registerModel(newConfig, context, storage);
-
-		if (!registered) {
-			await storage.delete(`apiKey-${id}`);
-			await context.globalState.update(
-				'positron.assistant.models',
-				existingConfigs
-			);
-		} else {
-			vscode.window.showInformationMessage(
-				vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
-			);
+	return positron.ai.showLanguageModelConfig(sources, async (userConfig, action) => {
+		switch (action) {
+			case 'save':
+				await saveModel(userConfig, sources, storage, context);
+				break;
+			case 'delete':
+				await deleteConfigurationByProvider(context, storage, userConfig.provider);
+				break;
+			default:
+				throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));
 		}
 	});
 
+}
+
+async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], storage: SecretStorage, context: vscode.ExtensionContext) {
+	const { name: nameRaw, model: modelRaw, baseUrl: baseUrlRaw, apiKey: apiKeyRaw, ...otherConfig } = userConfig;
+	const name = nameRaw.trim();
+	const model = modelRaw.trim();
+	const baseUrl = baseUrlRaw?.trim();
+	const apiKey = apiKeyRaw?.trim();
+
+	// Create unique ID for the configuration
+	const id = randomUUID();
+
+	// Check for required fields
+	sources
+		.filter((source) => source.type === userConfig.type)
+		.find((source) => source.provider.id === userConfig.provider)?.supportedOptions
+		.forEach((option) => {
+			if (!(option in userConfig)) {
+				throw new Error(vscode.l10n.t(
+					`Can't save configuration with missing required option: ${option}`
+				));
+			}
+		});
+
+	// Store API key in secret storage
+	if (apiKey) {
+		await storage.store(`apiKey-${id}`, apiKey);
+	}
+
+	// Get existing configurations
+	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
+
+	// Add new configuration
+	const newConfig: StoredModelConfig = {
+		id,
+		name,
+		model,
+		baseUrl,
+		...otherConfig,
+	};
+
+	// Update global state
+	await context.globalState.update(
+		'positron.assistant.models',
+		[...existingConfigs, newConfig]
+	);
+
+	// Register the new model
+	try {
+		await registerModel(newConfig, context, storage);
+
+		positron.ai.addLanguageModelConfig(expandConfigToSource(newConfig));
+
+		vscode.window.showInformationMessage(
+			vscode.l10n.t(`Language Model {0} has been added successfully.`, name)
+		);
+	} catch (error) {
+		await storage.delete(`apiKey-${id}`);
+		await context.globalState.update(
+			'positron.assistant.models',
+			existingConfigs
+		);
+		throw new Error(vscode.l10n.t(`Failed to add language model {0}: {1}`, name, JSON.stringify(error)));
+	}
+}
+
+async function deleteConfigurationByProvider(context: vscode.ExtensionContext, storage: SecretStorage, providerId: string) {
+	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
+	const updatedConfigs = existingConfigs.filter(config => config.provider !== providerId);
+
+	const targetConfig = existingConfigs.find(config => config.provider === providerId);
+	if (targetConfig === undefined) {
+		throw new Error(vscode.l10n.t('No configuration found for provider {0}', providerId));
+	}
+
+	await context.globalState.update(
+		'positron.assistant.models',
+		updatedConfigs
+	);
+
+	await storage.delete(`apiKey-${providerId}`);
+
+	await registerModels(context, storage);
+
+	positron.ai.removeLanguageModelConfig(expandConfigToSource(targetConfig));
+}
+
+export function expandConfigToSource(config: StoredModelConfig): positron.ai.LanguageModelSource {
+	return {
+		...config,
+		provider: {
+			id: config.provider,
+			displayName: config.name
+		},
+		supportedOptions: [],
+		defaults: {
+			name: config.name,
+			model: config.model
+		},
+		type: config.type
+	};
 }
 
 export async function deleteConfiguration(context: vscode.ExtensionContext, storage: SecretStorage, id: string) {

@@ -14,8 +14,8 @@ import { IPythonExecutionFactory } from '../common/process/types';
 import { traceWarn } from '../logging';
 import { EXTENSION_ROOT_DIR } from '../constants';
 
-/** IPyKernel bundle information. */
-export interface IPykernelBundle {
+/** Ipykernel bundle information. */
+export interface IpykernelBundle {
     /** If bundling is disabled, the reason for it. */
     disabledReason?: string;
 
@@ -24,7 +24,7 @@ export interface IPykernelBundle {
 }
 
 /**
- * Get the IPyKernel bundle for a given interpreter.
+ * Get the Ipykernel bundle for a given interpreter.
  *
  * @param interpreter The interpreter to check.
  * @param serviceContainer The service container to use for dependency injection.
@@ -34,7 +34,7 @@ export async function getIpykernelBundle(
     interpreter: PythonEnvironment,
     serviceContainer: IServiceContainer,
     resource?: vscode.Uri,
-): Promise<IPykernelBundle> {
+): Promise<IpykernelBundle> {
     // Get the required services.
     const workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
     const pythonExecutionFactory = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
@@ -49,7 +49,7 @@ export async function getIpykernelBundle(
 
     // Check if ipykernel is bundled for the interpreter version.
     // (defined in scripts/pip-compile-ipykernel.py).
-    if (interpreter.version?.major !== 3 || ![8, 9, 10, 11, 12, 13].includes(interpreter.version?.minor)) {
+    if (interpreter.version?.major !== 3 || ![9, 10, 11, 12, 13].includes(interpreter.version?.minor)) {
         return { disabledReason: `unsupported interpreter version: ${interpreter.version?.raw}` };
     }
 

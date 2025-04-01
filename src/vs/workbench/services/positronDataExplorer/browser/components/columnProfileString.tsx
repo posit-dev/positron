@@ -41,7 +41,10 @@ export const ColumnProfileString = (props: ColumnProfileStringProps) => {
 	return (
 		<div className='column-profile-info'>
 			{columnFrequencyTable &&
-				<ColumnProfileSparklineFrequencyTable columnFrequencyTable={columnFrequencyTable} />
+				<ColumnProfileSparklineFrequencyTable
+					columnFrequencyTable={columnFrequencyTable}
+					hoverManager={props.instance.hoverManager}
+				/>
 			}
 			<div className='tabular-info'>
 				<div className='labels'>

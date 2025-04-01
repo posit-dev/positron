@@ -153,6 +153,27 @@
 			"result": {}
 		},
 		{
+			"name": "ask_for_password",
+			"summary": "Ask the user for a password",
+			"description": "Use this for an input box where the user can input a password",
+			"params": [
+				{
+					"name": "prompt",
+					"description": "The prompt, such as 'Please enter your password'",
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {
+				"required": false,
+				"schema": {
+					"type": "string",
+					"description": "The input from the user"
+				}
+			}
+		},
+		{
 			"name": "prompt_state",
 			"summary": "New state of the primary and secondary prompts",
 			"description": "Languages like R allow users to change the way their prompts look. This event signals a change in the prompt configuration.",

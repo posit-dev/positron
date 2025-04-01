@@ -19,6 +19,7 @@
 export enum TestTags {
 	// feature tags
 	APPS = '@:apps',
+	ASSISTANT = '@:assistant',
 	CONNECTIONS = '@:connections',
 	CONSOLE = '@:console',
 	CRITICAL = '@:critical',
@@ -46,6 +47,7 @@ export enum TestTags {
 	R_PKG_DEVELOPMENT = '@:r-pkg-development',
 	RETICULATE = '@:reticulate',
 	SCM = '@:scm',
+	SEARCH = '@:search',
 	SESSIONS = '@:sessions',
 	TASKS = '@:tasks',
 	TEST_EXPLORER = '@:test-explorer',
@@ -56,7 +58,10 @@ export enum TestTags {
 	// platform  tags
 	WEB = '@:web',
 	WEB_ONLY = '@:web-only',
-	WIN = '@:win'
+	WIN = '@:win',
+
+	// exclude tags
+	NIGHTLY_ONLY = '@:nightly-only'
 }
 
 

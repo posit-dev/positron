@@ -53,6 +53,8 @@ import { IWorkbenchIssueService } from '../../issue/common/issue.js';
 import { IUserDataProfileService } from '../../../services/userDataProfile/common/userDataProfile.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { isWeb } from '../../../../base/common/platform.js';
+import { PromptsConfig } from '../../../../platform/prompts/common/config.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
 type ConfigureSyncQuickPickItem = { id: SyncResource; label: string; description?: string };
 
@@ -114,7 +116,8 @@ export class UserDataSyncWorkbenchContribution extends Disposable implements IWo
 		@IUserDataSyncStoreManagementService private readonly userDataSyncStoreManagementService: IUserDataSyncStoreManagementService,
 		@IHostService private readonly hostService: IHostService,
 		@ICommandService private readonly commandService: ICommandService,
-		@IWorkbenchIssueService private readonly workbenchIssueService: IWorkbenchIssueService
+		@IWorkbenchIssueService private readonly workbenchIssueService: IWorkbenchIssueService,
+		@IConfigurationService private readonly configService: IConfigurationService,
 	) {
 		super();
 
@@ -526,7 +529,7 @@ export class UserDataSyncWorkbenchContribution extends Disposable implements IWo
 
 			const items = this.getConfigureSyncQuickPickItems();
 			quickPick.items = items;
-			quickPick.selectedItems = items.filter(item => this.userDataSyncEnablementService.isResourceEnabled(item.id));
+			quickPick.selectedItems = items.filter(item => this.userDataSyncEnablementService.isResourceEnabled(item.id, true));
 			let accepted: boolean = false;
 			disposables.add(Event.any(quickPick.onDidAccept, quickPick.onDidCustom)(() => {
 				accepted = true;
@@ -549,7 +552,7 @@ export class UserDataSyncWorkbenchContribution extends Disposable implements IWo
 	}
 
 	private getConfigureSyncQuickPickItems(): ConfigureSyncQuickPickItem[] {
-		return [{
+		const result = [{
 			id: SyncResource.Settings,
 			label: getSyncAreaLabel(SyncResource.Settings)
 		}, {
@@ -571,6 +574,18 @@ export class UserDataSyncWorkbenchContribution extends Disposable implements IWo
 			id: SyncResource.Profiles,
 			label: getSyncAreaLabel(SyncResource.Profiles),
 		}];
+
+		// if the `reusable prompt` feature is enabled and in vscode
+		// insiders, add the `Prompts` resource item to the list
+		const isInsiders = (this.productService.quality !== 'stable');
+		if (PromptsConfig.enabled(this.configService) && isInsiders) {
+			result.push({
+				id: SyncResource.Prompts,
+				label: getSyncAreaLabel(SyncResource.Prompts)
+			});
+		}
+
+		return result;
 	}
 
 	private updateConfiguration(items: ConfigureSyncQuickPickItem[], selectedItems: ReadonlyArray<ConfigureSyncQuickPickItem>): void {

@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Interfaces copied from main UI data explorer codebase. Do not manually edit.
-
 /**
  * Descriptor for backend method invocation in via extension command.
  */
@@ -55,8 +53,8 @@ export interface DataExplorerResponse {
 	error_message?: string;
 }
 
-// AUTO-GENERATED from data_explorer.json; do not edit.
-//
+// AUTO-GENERATED from data_explorer.json; do not edit. Copy from
+// positronDataExplorerComm.ts instead.
 
 
 /**
@@ -607,6 +605,11 @@ export interface ColumnSummaryStats {
 	 */
 	datetime_stats?: SummaryStatsDatetime;
 
+	/**
+	 * Summary statistics for any other data types
+	 */
+	other_stats?: SummaryStatsOther;
+
 }
 
 /**
@@ -653,6 +656,17 @@ export interface SummaryStatsBoolean {
 	 * The number of non-null false values
 	 */
 	false_count: number;
+
+}
+
+/**
+ * SummaryStatsOther in Schemas
+ */
+export interface SummaryStatsOther {
+	/**
+	 * The number of unique values
+	 */
+	num_unique?: number;
 
 }
 
@@ -1116,6 +1130,7 @@ export enum ColumnDisplayType {
 	Date = 'date',
 	Datetime = 'datetime',
 	Time = 'time',
+	Interval = 'interval',
 	Object = 'object',
 	Array = 'array',
 	Struct = 'struct',
@@ -1385,7 +1400,6 @@ export interface ReturnColumnProfilesParams {
 	 * Optional error message if something failed to compute
 	 */
 	error_message?: string;
-
 }
 
 /**

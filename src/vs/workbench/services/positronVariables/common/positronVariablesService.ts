@@ -117,6 +117,18 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			this._setActivePositronVariablesBySession(session?.sessionId);
 		}));
 
+		// Listen for notebook URI updates from session remapping
+		// When a notebook changes URI (during save), the variables view needs to update its UI.
+		// This maintains a consistent user experience by showing the correct file path in the variables view
+		// The event-based approach allows loose coupling between the session service and variables service
+		// which if we directly called the variables session method it would cause a circular dependency.
+		this._register(this._runtimeSessionService.onDidUpdateNotebookSessionUri(e => {
+			// Respond to URI changes by setting the appropriate session as active in the variables view
+			// This ensures that the variables view context stays consistent with the file system
+			this._logService.debug(`Setting active variables session for notebook URI update: ${e.sessionId}`);
+			this.setActivePositronVariablesSession(e.sessionId);
+		}));
+
 		// Set up listeners for any existing console instances
 		this._positronConsoleService.positronConsoleInstances.forEach(instance => {
 			instance.addDisposables(instance.onDidExecuteCode(() => this._watchForConsoleCodeExecution(instance)));

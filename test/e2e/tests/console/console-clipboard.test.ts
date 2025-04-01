@@ -6,32 +6,74 @@
 import * as os from 'os';
 import { test, tags } from '../_test.setup';
 import { Application, Console } from '../../infra';
+import { expect } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
 });
 
-// web disabled because of security dialog playwright cannot interact with
-test.describe('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN] }, () => {
+test.describe.skip('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN, tags.WEB] }, () => {
 	test('Python - Verify copy from console & paste to console', async ({ app, python }) => {
-		await testConsoleClipboard(app);
+		await testConsoleClipboard(app, 'a = 1');
 	});
+
+	test('Python - Verify copy from console & paste to console with context menu',
+		{ tag: [tags.WEB_ONLY] },
+		async ({ app, python }) => {
+			await testConsoleClipboardWithContextMenu(app, '>>>', /Python .+ restarted\./);
+		});
 
 	test('R - Verify copy from console & paste to console ', async ({ app, r }) => {
-		await testConsoleClipboard(app);
+		await testConsoleClipboard(app, 'a <- 1');
 	});
+
+	test('R - Verify copy from console & paste to console with context menu',
+		{ tag: [tags.WEB_ONLY] },
+		async ({ app, r }) => {
+			await testConsoleClipboardWithContextMenu(app, '>', /R .+ restarted\./);
+		});
 });
 
-async function testConsoleClipboard(app: Application) {
+async function testConsoleClipboard(app: Application, testLine: string) {
+
+	if (app.web) {
+		await app.code.driver.context.grantPermissions(['clipboard-read'], { origin: 'http://localhost:9000' });
+	}
+
 	const console = app.workbench.console;
 	const page = console.activeConsole.page();
-	const testLine = 'a = 1';
 
 	await toggleAuxiliaryBar(app);
 	await initializeConsole(console);
 	await executeCopyAndPaste(console, page, testLine);
 	await verifyClipboardPaste(console, testLine);
 	await toggleAuxiliaryBar(app);
+}
+
+async function testConsoleClipboardWithContextMenu(app: Application, prompt: string, regex: RegExp) {
+
+	await app.workbench.console.barClearButton.click();
+	await app.workbench.console.barRestartButton.click();
+
+	await app.workbench.console.waitForReady(prompt);
+
+	if (app.web) {
+		await app.code.driver.context.grantPermissions(['clipboard-read'], { origin: 'http://localhost:9000' });
+	}
+
+	await expect(async () => {
+		await app.workbench.popups.handleContextMenu(app.workbench.console.activeConsole, 'Select All');
+
+		// wait a little between selection and copy
+		await app.code.wait(1000);
+
+		await app.workbench.popups.handleContextMenu(app.workbench.console.activeConsole, 'Copy');
+
+		const clipboardText = await app.workbench.clipboard.getClipboardText();
+
+		expect(clipboardText).toMatch(regex);
+	}).toPass({ timeout: 30000 });
+
 }
 
 async function toggleAuxiliaryBar(app: Application) {
@@ -48,6 +90,7 @@ async function initializeConsole(console: any) {
 }
 
 async function executeCopyAndPaste(console: Console, page: any, testLine: string) {
+
 	const isMac = os.platform() === 'darwin';
 	const modifier = isMac ? 'Meta' : 'Control';
 

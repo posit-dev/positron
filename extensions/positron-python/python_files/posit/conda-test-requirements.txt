@@ -20,3 +20,4 @@ ruff
 sqlalchemy
 # see https://github.com/posit-dev/positron/issues/6604
 ipython<=8.31.0
+haystack-ai

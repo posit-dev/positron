@@ -443,6 +443,7 @@ export class WebClientServer {
 			workspaceUri: resolveWorkspaceURI(this._environmentService.args['default-workspace']),
 			// --- Start Positron ---
 			disableExtension: this._environmentService.args['disable-extension'],
+			bootstrapExtensionsDir: this._environmentService.args['bootstrap-extensions-dir'],
 			// --- End Positron ---
 			productConfiguration,
 			callbackRoute: callbackRoute

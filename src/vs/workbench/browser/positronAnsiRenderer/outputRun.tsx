@@ -28,9 +28,9 @@ const fileURLWithLineAndColumn = /^(file:\/\/\/.+):(\d+):(\d+)$/;
 
 // OutputRunProps interface.
 export interface OutputRunProps {
-	readonly outputRun: ANSIOutputRun;
 	readonly openerService: IOpenerService;
 	readonly notificationService: INotificationService;
+	readonly outputRun: ANSIOutputRun;
 }
 
 /**

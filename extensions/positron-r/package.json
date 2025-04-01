@@ -196,45 +196,64 @@
         "title": "%r.configuration.title-dev%",
         "properties": {
           "positron.r.customRootFolders": {
-            "scope": "window",
+            "scope": "resource",
             "type": "array",
             "items": {
               "type": "string"
             },
             "default": [],
+            "tags": [
+              "interpreterSettings"
+            ],
+            "uniqueItems": true,
             "markdownDescription": "%r.configuration.customRootFolders.markdownDescription%"
           },
           "positron.r.customBinaries": {
-            "scope": "window",
+            "scope": "resource",
             "type": "array",
             "items": {
               "type": "string"
             },
             "default": [],
+            "tags": [
+              "interpreterSettings"
+            ],
+            "uniqueItems": true,
             "markdownDescription": "%r.configuration.customBinaries.markdownDescription%"
           },
           "positron.r.interpreters.exclude": {
-            "scope": "window",
+            "scope": "resource",
             "type": "array",
             "items": {
               "type": "string"
             },
             "default": [],
+            "tags": [
+              "interpreterSettings"
+            ],
+            "uniqueItems": true,
             "markdownDescription": "%r.configuration.interpreters.exclude.markdownDescription%"
           },
           "positron.r.interpreters.override": {
-            "scope": "window",
+            "scope": "resource",
             "type": "array",
             "items": {
               "type": "string"
             },
             "default": [],
+            "tags": [
+              "interpreterSettings"
+            ],
+            "uniqueItems": true,
             "markdownDescription": "%r.configuration.interpreters.override.markdownDescription%"
           },
           "positron.r.interpreters.default": {
-            "scope": "window",
+            "scope": "resource",
             "type": "string",
             "default": null,
+            "tags": [
+              "interpreterSettings"
+            ],
             "markdownDescription": "%r.configuration.interpreters.default.markdownDescription%"
           },
           "positron.r.kernel.path": {
@@ -669,6 +688,31 @@
       {
         "languageId": "r"
       }
+    ],
+    "languageModelTools": [
+      {
+        "name": "getAttachedPackages",
+        "displayName": "Get attached R Packages",
+        "modelDescription": "Gets a list of the R packages that are loaded and attached in the current R session.",
+        "canBeReferencedInPrompt": false,
+        "tags": ["positron-assistant"]
+      },
+      {
+        "name": "getInstalledPackageVersion",
+        "displayName": "Get Installed R Package Version",
+        "modelDescription": "Given the name of an R package, returns the version of the package that's installed in the current R session, or NULL if the package is not installed.",
+        "canBeReferencedInPrompt": false,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "packageName": {
+              "type": "string",
+              "description": "The name of the R package to get the version of."
+            }
+          }
+        },
+        "tags": ["positron-assistant"]
+      }
     ]
   },
   "scripts": {
@@ -722,7 +766,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.172"
+      "ark": "0.1.176"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

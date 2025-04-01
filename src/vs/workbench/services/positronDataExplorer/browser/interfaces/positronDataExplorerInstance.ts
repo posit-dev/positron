@@ -35,9 +35,9 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	isSummaryCollapsed: boolean;
 
 	/**
-	 * Gets or sets the columns width percent.
+	 * Gets or sets the summary width in pixels.
 	 */
-	columnsWidthPercent: number;
+	summaryWidth: number;
 
 	/**
 	 * Gets the TableSchemaDataGridInstance.
@@ -65,9 +65,9 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	readonly onDidChangeLayout: Event<PositronDataExplorerLayout>;
 
 	/**
-	 * The onDidChangeColumnsWidthPercent event.
+	 * The onDidChangeSummaryWidth event.
 	 */
-	readonly onDidChangeColumnsWidthPercent: Event<number>;
+	readonly onDidChangeSummaryWidth: Event<number>;
 
 	/**
 	 * The onDidRequestFocus event.

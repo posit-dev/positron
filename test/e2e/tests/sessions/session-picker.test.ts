@@ -1,20 +1,13 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
-import { pythonSession, pythonSessionAlt, rSession, rSessionAlt, SessionInfo } from '../../infra';
 import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
-
-const pythonSession1: SessionInfo = { ...pythonSession, triggerMode: 'session-picker' };
-const pythonSession2: SessionInfo = { ...pythonSessionAlt, triggerMode: 'session-picker' };
-const rSession1: SessionInfo = { ...rSession, triggerMode: 'session-picker' };
-const rSession2: SessionInfo = { ...rSessionAlt, triggerMode: 'session-picker' };
 
 test.describe('Sessions: Session Picker', {
 	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.TOP_ACTION_BAR, tags.SESSIONS]
@@ -24,43 +17,39 @@ test.describe('Sessions: Session Picker', {
 		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
 	});
 
-	test('Python - Start and verify session via session picker', async function ({ app }) {
-		const sessions = app.workbench.sessions;
+	test('Python - Start and verify session via session picker', async function ({ sessions }) {
+		const pythonSession = await sessions.start('python', { triggerMode: 'session-picker' });
 
-		pythonSession.id = await sessions.launch(pythonSession);
 		await sessions.expectSessionPickerToBe(pythonSession);
-		const { state } = await sessions.getMetadata();
-		expect(state).toBe('idle');
+		await sessions.expectAllSessionsToBeReady();
 	});
 
-	test('R - Start and verify session via session picker', async function ({ app }) {
-		const sessions = app.workbench.sessions;
-		rSession1.id = await sessions.launch(rSession);
+	test('R - Start and verify session via session picker', async function ({ sessions }) {
+		const rSession = await sessions.start('r', { triggerMode: 'session-picker' });
+
 		await sessions.expectSessionPickerToBe(rSession);
-		const { state } = await sessions.getMetadata();
-		expect(state).toBe('idle');
+		await sessions.expectAllSessionsToBeReady();
 	});
 
-	test('Verify Session Picker updates correctly across multiple active sessions', async function ({ app }) {
-		const sessions = app.workbench.sessions;
-
-		pythonSession1.id = await sessions.reuseIdleSessionIfExists(pythonSession1);
-		rSession1.id = await sessions.reuseIdleSessionIfExists(rSession1);
+	test('Verify Session Picker updates correctly across multiple active sessions', async function ({ sessions }) {
+		// Start Python and R sessions
+		const [pySession, rSession] = await sessions.start(['python', 'r']);
 
 		// Widen session tab list to view full runtime names
 		await sessions.resizeSessionList({ x: -100 });
 
-		// Verify Active Session Picker is accurate when selecting different sessions
-		pythonSession2.id = await sessions.launch(pythonSession2);
-		await expect(sessions.activeSessionPicker).toContainText(pythonSession2.name);
+		// Start another Python session and verify Active Session Picker updates
+		const pySessionAlt = await sessions.start('pythonAlt', { triggerMode: 'session-picker' });
+		await sessions.expectSessionPickerToBe(pySessionAlt);
 
-		rSession2.id = await sessions.launch(rSession2);
-		await expect(sessions.activeSessionPicker).toContainText(rSession2.name);
+		// Start another R session and verify Active Session Picker updates
+		const rSessionAlt = await sessions.start('rAlt', { triggerMode: 'session-picker' });
+		await sessions.expectSessionPickerToBe(rSessionAlt);
 
-		await sessions.select(rSession1.id);
-		await expect(sessions.activeSessionPicker).toContainText(rSession1.name);
+		await sessions.select(rSession.id);
+		await sessions.expectSessionPickerToBe(rSession);
 
-		await sessions.select(pythonSession1.id);
-		await expect(sessions.activeSessionPicker).toContainText(pythonSession1.name);
+		await sessions.select(pySession.id);
+		await sessions.expectSessionPickerToBe(pySession);
 	});
 });

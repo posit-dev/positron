@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
+import test, { expect } from '@playwright/test';
 import { Code } from '../infra/code';
 
 
@@ -12,6 +12,7 @@ export class Editors {
 	activeEditor = this.code.driver.page.locator('div.tab.tab-actions-right.active.selected');
 	editorIcon = this.code.driver.page.locator('.monaco-icon-label.file-icon');
 	editorPart = this.code.driver.page.locator('.split-view-view .part.editor');
+	suggestionList = this.code.driver.page.locator('.suggest-widget .monaco-list-row');
 
 	constructor(private code: Code) { }
 
@@ -75,5 +76,11 @@ export class Editors {
 		} else {
 			await this.code.driver.page.keyboard.press('Control+S');
 		}
+	}
+
+	async expectSuggestionListCount(count: number): Promise<void> {
+		await test.step(`Expect editor suggestion list to have ${count} items`, async () => {
+			await expect(this.suggestionList).toHaveCount(count);
+		});
 	}
 }

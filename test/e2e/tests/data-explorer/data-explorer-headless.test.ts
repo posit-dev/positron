@@ -16,20 +16,28 @@ const testCases = [
 	{ name: 'csv', file: 'data-files/flights/flights.csv', copyValue: '0' },
 	{ name: 'gzipped csv', file: 'data-files/flights/flights.csv.gz', copyValue: '0' },
 	{ name: 'tsv', file: 'data-files/flights/flights.tsv', copyValue: '0' },
-	{ name: 'gzipped tsv', file: 'data-files/flights/flights.tsv.gz', copyValue: '0' }
+	{ name: 'gzipped tsv', file: 'data-files/flights/flights.tsv.gz', copyValue: '0' },
+	{ name: 'pipe csv', file: 'data-files/flights/flights_piped.csv', copyValue: '0' }
 ];
 
 const plainTextTestCases = [
 	{ name: 'csv', file: 'flights.csv', searchString: ',year,month,day,dep_time,sched_dep_time,dep_delay,arr_time,sched_arr_time,arr_delay,carrier,flight,tailnum,origin,dest,air_time,distance,hour,minute,time_hour' },
-	{ name: 'tsv', file: 'flights.tsv', searchString: /\s+year\s+month\s+day\s+dep_time\s+sched_dep_time\s+dep_delay\s+arr_time\s+sched_arr_time\s+arr_delay\s+carrier\s+flight\s+tailnum\s+origin\s+dest\s+air_time\s+distance\s+hour\s+minute\s+time_hour/ }
+	{ name: 'tsv', file: 'flights.tsv', searchString: /\s+year\s+month\s+day\s+dep_time\s+sched_dep_time\s+dep_delay\s+arr_time\s+sched_arr_time\s+arr_delay\s+carrier\s+flight\s+tailnum\s+origin\s+dest\s+air_time\s+distance\s+hour\s+minute\s+time_hour/ },
+	{ name: 'pipe csv', file: 'flights_piped.csv', searchString: '|year|month|day|dep_time|sched_dep_time|dep_delay|arr_time|sched_arr_time|arr_delay|carrier|flight|tailnum|origin|dest|air_time|distance|hour|minute|time_hour' }
+
 ];
 
 test.describe('Headless Data Explorer', {
 	tag: [tags.WEB, tags.DATA_EXPLORER, tags.DUCK_DB, tags.WIN]
 }, () => {
 
+	test.beforeEach(async function ({ app }) {
+		await app.workbench.layouts.enterLayout('notebook'); // Make data explorer larger
+	});
+
 	test.afterEach(async function ({ app }) {
 		await app.workbench.dataExplorer.closeDataExplorer();
+		await app.workbench.layouts.enterLayout('stacked'); //return to default layout
 	});
 
 	testCases.forEach(({ name, file, copyValue }) => {

@@ -140,6 +140,9 @@ export interface INativeEnvironmentService extends IEnvironmentService {
 	extensionsPath: string;
 	extensionsDownloadLocation: URI;
 	builtinExtensionsPath: string;
+	// --- Start Positron ---
+	bootstrapExtensionsPath?: string;
+	// --- End Positron ---
 
 	// --- use in-memory Secret Storage
 	useInMemorySecretStorage?: boolean;

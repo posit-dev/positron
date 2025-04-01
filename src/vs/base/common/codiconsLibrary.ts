@@ -586,6 +586,11 @@ export const codiconsLibrary = {
 	copilotLarge: register('copilot-large', 0xec3a),
 	copilotWarningLarge: register('copilot-warning-large', 0xec3b),
 	keyboardTab: register('keyboard-tab', 0xec3c),
+	copilotBlocked: register('copilot-blocked', 0xec3d),
+	copilotNotConnected: register('copilot-not-connected', 0xec3e),
+	flag: register('flag', 0xec3f),
+	lightbulbEmpty: register('lightbulb-empty', 0xec40),
+	symbolMethodArrow: register('symbol-method-arrow', 0xec41),
 	positronNew: register('positron-new', 0xf230),
 	positronOpen: register('positron-open', 0xf231),
 	positronSave: register('positron-save', 0xf232),
@@ -682,4 +687,5 @@ export const codiconsLibrary = {
 	positronStatusDisconnected: register('positron-status-disconnected', 0xf28d),
 	positronStatusIdle: register('positron-status-idle', 0xf28e),
 	positronAssistant: register('positron-assistant', 0xf28f),
+	positronOpenInEditor: register('positron-open-in-editor', 0xf290),
 } as const;

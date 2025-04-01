@@ -10,7 +10,7 @@ import { SemVer } from 'semver';
 import { IInstaller, InstallerResponse } from '../../client/common/types';
 import { IInterpreterService } from '../../client/interpreter/contracts';
 import { IServiceContainer } from '../../client/ioc/types';
-import { checkAndInstallPython } from '../../client/positron/extension';
+import { checkAndInstallPython } from '../../client/positron/manager';
 import { Architecture } from '../../client/common/utils/platform';
 import { EnvironmentType } from '../../client/pythonEnvironments/info';
 

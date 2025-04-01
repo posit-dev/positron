@@ -284,8 +284,8 @@ async function vendorPythonKernelRequirements() {
 }
 
 async function bundleIPykernel() {
-    const pythonVersions = ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13'];
-    const minimumPythonVersion = '3.8';
+    const pythonVersions = ['3.9', '3.10', '3.11', '3.12', '3.13'];
+    const minimumPythonVersion = '3.9';
 
     // Pure Python 3 requirements.
     await pipInstall([
@@ -308,7 +308,7 @@ async function bundleIPykernel() {
         '--implementation',
         'cp',
         '--python-version',
-        '3.8',
+        minimumPythonVersion,
         '--abi',
         'abi3',
         '-r',
@@ -381,8 +381,15 @@ function spawnAsync(command, args, env, rejectOnStdErr = false) {
         });
 
         proc.on('close', () => {
-            if ((stdErr && rejectOnStdErr) || proc.exitCode !== 0) {
-                reject(stdErr);
+            if (proc.exitCode !== 0) {
+                reject(
+                    new Error(
+                        `Process exited with non-zero exit code: ${proc.exitCode}.\n\nStdout:\n\n${stdOut}\n\nStderr:\n\n${stdErr}`,
+                    ),
+                );
+            }
+            if (stdErr && rejectOnStdErr) {
+                reject(new Error(`Rejecting on stderr.\n\nStdout:\n\n${stdOut}\n\nStderr:\n${stdErr}`));
             }
             resolve(stdOut);
         });

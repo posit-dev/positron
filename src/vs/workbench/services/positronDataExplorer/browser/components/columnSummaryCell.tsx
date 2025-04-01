@@ -7,11 +7,10 @@
 import './columnSummaryCell.css';
 
 // React.
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 
 // Other dependencies.
-import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
-import { HoverPosition } from '../../../../../base/browser/ui/hover/hoverWidget.js';
+import * as nls from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { usePositronDataGridContext } from '../../../../browser/positronDataGrid/positronDataGridContext.js';
 import { VectorHistogram } from './vectorHistogram.js';
@@ -38,7 +37,6 @@ const SPARKLINE_X_AXIS_HEIGHT = 0.5;
  * ColumnSummaryCellProps interface.
  */
 interface ColumnSummaryCellProps {
-	hoverService: IHoverService;
 	instance: TableSummaryDataGridInstance;
 	columnSchema: ColumnSchema;
 	columnIndex: number;
@@ -85,6 +83,56 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	 * @returns The rendered component.
 	 */
 	const ColumnSparkline = () => {
+		// Determines whether a sparkline is expected for this column type
+		const shouldShowSparkline = () => {
+			switch (props.columnSchema.type_display) {
+				case ColumnDisplayType.Number:
+				case ColumnDisplayType.Boolean:
+				case ColumnDisplayType.String:
+					return true;
+				default:
+					return false;
+			}
+		};
+
+		/**
+		 * SparklineLoadingIndicator component.
+		 * Displays a subtle loading animation while data is being computed.
+		 */
+		const SparklineLoadingIndicator = () => {
+			return (
+				<div
+					className='column-sparkline'
+					style={{
+						width: SPARKLINE_WIDTH,
+						height: SPARKLINE_HEIGHT + SPARKLINE_X_AXIS_HEIGHT
+					}}
+				>
+					<svg
+						className='vector-histogram loading-sparkline'
+						shapeRendering='crispEdges'
+						viewBox={`0 0 ${SPARKLINE_WIDTH} ${SPARKLINE_HEIGHT + SPARKLINE_X_AXIS_HEIGHT}`}
+					>
+						<g>
+							<rect className='x-axis'
+								height={SPARKLINE_X_AXIS_HEIGHT}
+								width={SPARKLINE_WIDTH}
+								x={0}
+								y={SPARKLINE_HEIGHT - SPARKLINE_X_AXIS_HEIGHT}
+							/>
+							<rect className='loading-indicator'
+								height={SPARKLINE_HEIGHT * 0.3}
+								rx={2}
+								width={SPARKLINE_WIDTH * 0.8}
+								x={SPARKLINE_WIDTH * 0.1}
+								y={SPARKLINE_HEIGHT * 0.5}
+							/>
+						</g>
+					</svg>
+				</div>
+			);
+		};
+
 		// Render.
 		switch (props.columnSchema.type_display) {
 			// Column display types that render a histogram sparkline.
@@ -92,7 +140,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				// Get the column histogram.
 				const columnHistogram = props.instance.getColumnProfileSmallHistogram(props.columnIndex);
 				if (!columnHistogram) {
-					return null;
+					return shouldShowSparkline() ? <SparklineLoadingIndicator /> : null;
 				}
 
 				// Render the column sparkline.
@@ -108,6 +156,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 							columnHistogram={columnHistogram}
 							graphHeight={SPARKLINE_HEIGHT}
 							graphWidth={SPARKLINE_WIDTH}
+							hoverManager={props.instance.hoverManager}
 							xAxisHeight={SPARKLINE_X_AXIS_HEIGHT}
 						/>
 					</div >
@@ -120,7 +169,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				// Get the column frequency table.
 				const columnFrequencyTable = props.instance.getColumnProfileSmallFrequencyTable(props.columnIndex);
 				if (!columnFrequencyTable) {
-					return null;
+					return shouldShowSparkline() ? <SparklineLoadingIndicator /> : null;
 				}
 
 				// Render the column sparkline.
@@ -136,6 +185,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 							columnFrequencyTable={columnFrequencyTable}
 							graphHeight={SPARKLINE_HEIGHT}
 							graphWidth={SPARKLINE_WIDTH}
+							hoverManager={props.instance.hoverManager}
 							xAxisHeight={SPARKLINE_X_AXIS_HEIGHT}
 						/>
 					</div >
@@ -146,6 +196,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			case ColumnDisplayType.Date:
 			case ColumnDisplayType.Datetime:
 			case ColumnDisplayType.Time:
+			case ColumnDisplayType.Interval:
 			case ColumnDisplayType.Object:
 			case ColumnDisplayType.Array:
 			case ColumnDisplayType.Struct:
@@ -162,7 +213,6 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 
 	/**
 	 * ColumnNullPercent component.
-	 * @param props A ColumnNullPercentProps that contains the component properties.
 	 * @returns The rendered component.
 	 */
 	const ColumnNullPercent = () => {
@@ -181,9 +231,69 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			}
 		}
 
+		// Create a reference to the container div
+		const containerRef = useRef<HTMLDivElement>(null);
+
+		// Create tooltip text based on nullPercent
+		const getTooltipText = () => {
+			// Get the null count for this column
+			const nullCount = props.instance.getColumnProfileNullCount(props.columnIndex);
+
+			if (nullPercent === undefined || nullCount === undefined) {
+				return nls.localize(
+					'positron.missingValues.calculating',
+					'Missing Values\nCalculating...'
+				);
+			} else if (nullPercent === 0) {
+				return nls.localize(
+					'positron.missingValues.none',
+					'Missing Values\nNo missing values'
+				);
+			} else if (nullPercent === 100) {
+				return nls.localize(
+					'positron.missingValues.all',
+					'Missing Values\nAll values are missing ({0} values)', nullCount.toLocaleString()
+				);
+			} else {
+				return nls.localize(
+					'positron.missingValues.some',
+					'Missing Values\n{0}% of values are missing ({1} values)',
+					nullPercent,
+					nullCount.toLocaleString()
+				);
+			}
+		};
+
+		// Show tooltip when mouse enters
+		const showTooltip = () => {
+			if (containerRef.current) {
+				props.instance.hoverManager.showHover(
+					containerRef.current,
+					getTooltipText()
+				);
+			}
+		};
+
+		// Hide tooltip when mouse leaves
+		const hideTooltip = () => {
+			props.instance.hoverManager.hideHover();
+		};
+
+		// Cleanup when component unmounts
+		useEffect(() => {
+			return () => {
+				props.instance.hoverManager.hideHover();
+			};
+		}, []);
+
 		// Render.
 		return (
-			<div className='column-null-percent'>
+			<div
+				ref={containerRef}
+				className='column-null-percent'
+				onMouseEnter={showTooltip}
+				onMouseLeave={hideTooltip}
+			>
 				{nullPercent !== undefined &&
 					<div className={positronClassNames('text-percent', { 'zero': nullPercent === 0 })}>
 						{nullPercent}%
@@ -268,6 +378,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 
 			// Column display types that do not render a profile.
 			case ColumnDisplayType.Time:
+			case ColumnDisplayType.Interval:
 			case ColumnDisplayType.Array:
 			case ColumnDisplayType.Struct:
 			case ColumnDisplayType.Unknown:
@@ -309,6 +420,10 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			case ColumnDisplayType.Time:
 				return 'codicon-positron-data-type-time';
 
+			// Time.
+			case ColumnDisplayType.Interval:
+				return 'codicon-positron-data-type-date-time';
+
 			// Object.
 			case ColumnDisplayType.Object:
 				return 'codicon-positron-data-type-object';
@@ -346,6 +461,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			summaryStatsSupported = isSummaryStatsSupported();
 			break;
 		case ColumnDisplayType.Time:
+		case ColumnDisplayType.Interval:
 		case ColumnDisplayType.Array:
 		case ColumnDisplayType.Struct:
 		case ColumnDisplayType.Unknown:
@@ -400,22 +516,12 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				<div
 					ref={dataTypeRef}
 					className={`data-type-icon codicon ${dataTypeIcon}`}
-					onMouseLeave={() => props.hoverService.hideHover()}
+					onMouseLeave={() => props.instance.hoverManager.hideHover()}
 					onMouseOver={() =>
-						props.hoverService.showHover({
-							content: `${props.columnSchema.type_name}`,
-							target: dataTypeRef.current,
-							position: {
-								hoverPosition: HoverPosition.ABOVE,
-							},
-							persistence: {
-								hideOnHover: false
-							},
-							appearance: {
-								showHoverHint: true,
-								showPointer: true
-							}
-						}, false)
+						props.instance.hoverManager.showHover(
+							dataTypeRef.current,
+							`${props.columnSchema.type_name}`
+						)
 					}
 				/>
 				<div className='column-name'>

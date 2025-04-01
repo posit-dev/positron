@@ -10,16 +10,16 @@ import './outputLines.css';
 import React from 'react';
 
 // Other dependencies.
-import { ANSIOutputLine } from '../../../base/common/ansiOutput.js';
 import { OutputLine } from './outputLine.js';
+import { ANSIOutputLine } from '../../../base/common/ansiOutput.js';
 import { IOpenerService } from '../../../platform/opener/common/opener.js';
 import { INotificationService } from '../../../platform/notification/common/notification.js';
 
 // OutputLinesProps interface.
 export interface OutputLinesProps {
-	readonly outputLines: readonly ANSIOutputLine[];
 	readonly openerService: IOpenerService;
 	readonly notificationService: INotificationService;
+	readonly outputLines: readonly ANSIOutputLine[];
 }
 
 /**

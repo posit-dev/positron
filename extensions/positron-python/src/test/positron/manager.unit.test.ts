@@ -15,7 +15,6 @@ import { WorkspaceConfiguration } from 'vscode';
 import * as path from 'path';
 import * as fs from '../../client/common/platform/fs-paths';
 import * as runtime from '../../client/positron/runtime';
-import * as session from '../../client/positron/session';
 import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 import * as interpreterSettings from '../../client/positron/interpreterSettings';
 import * as util from '../../client/positron/util';
@@ -119,21 +118,6 @@ suite('Python runtime manager', () => {
     // TODO: Test createSession
     // test('createSession', async () => {
     // });
-
-    test('restoreSession: creates and returns a Python runtime session', async () => {
-        const sessionMetadata = createTypeMoq<positron.RuntimeSessionMetadata>();
-        const pythonRuntimeSession = sinon.stub(session, 'PythonRuntimeSession');
-
-        const result = await pythonRuntimeManager.restoreSession(runtimeMetadata.object, sessionMetadata.object);
-
-        assert.strictEqual(result, pythonRuntimeSession.returnValues[0]);
-        sinon.assert.calledOnceWithExactly(
-            pythonRuntimeSession,
-            runtimeMetadata.object,
-            sessionMetadata.object,
-            serviceContainer.object,
-        );
-    });
 
     // TODO: Test discoverRuntimes
     // test('discoverRuntimes', async () => {

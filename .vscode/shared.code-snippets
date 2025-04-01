@@ -6,7 +6,7 @@
 	// Placeholders with the same ids are connected.
 	// Example:
 	"Posit Copyright Header": {
-		"scope": "javascript,typescript,css,rust,html",
+		"scope": "javascript,typescript,css,rust,html,typescriptreact",
 		"prefix": ["copyright","header","posit"],
 		"body": [
 			"$BLOCK_COMMENT_START---------------------------------------------------------------------------------------------",
@@ -56,7 +56,7 @@
 		"description": "Add Positron overlay markers",
 		"body": [
 			"// --- Start Positron ---",
-			"$0",
+			"$TM_SELECTED_TEXT$0",
 			"// --- End Positron ---"
 		]
 	}

@@ -13,6 +13,7 @@ import { setContexts } from './contexts';
 import { setupTestExplorer, refreshTestExplorer } from './testing/testing';
 import { RRuntimeManager } from './runtime-manager';
 import { registerUriHandler } from './uri-handler';
+import { registerRLanguageModelTools } from './llm-tools.js';
 
 export const LOGGER = vscode.window.createOutputChannel('R Language Pack', { log: true });
 
@@ -23,7 +24,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(LOGGER.onDidChangeLogLevel(onDidChangeLogLevel));
 	onDidChangeLogLevel(LOGGER.logLevel);
 
-	const rRuntimeManager = new RRuntimeManager(context);
+	const rRuntimeManager = new RRuntimeManager();
 	positron.runtime.registerLanguageRuntimeManager('r', rRuntimeManager);
 
 	// Set contexts.
@@ -34,6 +35,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register formatter.
 	registerFormatter(context);
+
+	// Register LLM tools.
+	registerRLanguageModelTools(context);
 
 	// Provide tasks.
 	providePackageTasks(context);

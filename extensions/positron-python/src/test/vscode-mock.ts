@@ -81,8 +81,6 @@ export function initialize() {
     generatePositronMock('methods');
     generatePositronMock('runtime');
     generatePositronMock('window');
-
-    generatePositronMock('RuntimeState');
     // --- End Positron ---
 
     // When upgrading to npm 9-10, this might have to change, as we could have explicit imports (named imports).
@@ -175,4 +173,5 @@ mockedPositron.RuntimeErrorBehavior = positronMocks.RuntimeErrorBehavior;
 mockedPositron.LanguageRuntimeMessageType = positronMocks.LanguageRuntimeMessageType;
 mockedPositron.LanguageRuntimeStreamName = positronMocks.LanguageRuntimeStreamName;
 mockedPositron.RuntimeOnlineState = positronMocks.RuntimeOnlineState;
+mockedPositron.RuntimeState = positronMocks.RuntimeState;
 // --- End Positron ---

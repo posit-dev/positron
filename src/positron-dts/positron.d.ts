@@ -1049,7 +1049,7 @@ declare module 'positron' {
 	 * `WebviewPanel` interface, but omits elements that don't apply to
 	 * preview panels, such as `viewColumn`.
 	 */
-	interface PreviewPanel {
+	export interface PreviewPanel {
 		/**
 		 * Identifies the type of the preview panel, such as `'markdown.preview'`.
 		 */
@@ -1387,6 +1387,91 @@ declare module 'positron' {
 	}
 
 	namespace runtime {
+		/**
+		 * An object that observes an ongoing code execution invoked from the
+		 * `executeCode` API.
+		 */
+		export interface ExecutionObserver {
+			/**
+			 * An optional cancellation token that can be used to cancel the
+			 * execution.
+			 */
+			token?: vscode.CancellationToken;
+
+			/**
+			 * An optional callback to invoke when execution has started. This
+			 * may be different than the time `executeCode` was called, since
+			 * there may have been preceding statements in the queue, or we may
+			 * need to wait for the runtime to start or become ready.
+			 */
+			onStarted?: () => void;
+
+			/**
+			 * An optional callback to invoke when the execution emits text
+			 * output. This can be called zero or more times during execution of
+			 * the code.
+			 *
+			 * @param message The message emitted.
+			 */
+			onOutput?: (message: string) => void;
+
+			/**
+			 * An optional callback to invoke when the execution emits error
+			 * output. This just means "output sent to standard error", and does
+			 * not mean that the execution failed. This can be called zero or more
+			 * times during execution of the code.
+			 *
+			 * @param message The message emitted.
+			 */
+			onError?: (message: string) => void;
+
+			/**
+			 * An optional callback to invoke when the execution emits a plot.
+			 *
+			 * NOTE: Currently only fired for static plots, not dynamic plots.
+			 *
+			 * @param plotData The plot data emitted, as a string.
+			 */
+			onPlot?: (plotData: string) => void;
+
+			/**
+			 * An optional callback to invoke when the execution emits a data
+			 * frame or other rectangular data object.
+			 *
+			 * NOTE: Not currently fired.
+			 *
+			 * @param data The data returned.
+			 */
+			onData?: (data: any) => void;
+
+			/**
+			 * An optional callback to invoke when the execution has completed
+			 * sucessfully.
+			 *
+			 * One of `onCompleted` or `onFailed` will be called, but not both.
+			 *
+			 * @param result The result of the successful execution, as a map of MIME types to values.
+			 */
+			onCompleted?: (result: Record<string, any>) => void;
+
+			/**
+			 * An optional callback to invoke when the execution has failed.
+			 *
+			 * One of `onCompleted` or `onFailed` will be called, but not both.
+			 *
+			 * @param error The error that caused the execution to fail.
+			 */
+			onFailed?: (error: Error) => void;
+
+			/**
+			 * An optional callback to invoke when the execution has finished,
+			 * regardless of success or failure.
+			 *
+			 * It is invoked when the runtime returns to an idle state after
+			 * fully completing the execution.
+			 */
+			onFinished?: () => void;
+		}
 
 		/**
 		 * Executes code in a language runtime's console, as though it were typed
@@ -1399,15 +1484,18 @@ declare module 'positron' {
 		 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
 		 * @param mode Possible code execution mode for a language runtime
 		 * @param errorBehavior Possible error behavior for a language runtime, currently ignored by kernels
-		 * @returns A Thenable that resolves with true if the code was sent to a
-		 *   runtime successfully, false otherwise.
+		 * @param observer An optional observer for the execution. This object will be notified of
+		 *  execution events, such as output, error, and completion.
+		 * @returns A Thenable that resolves with the result of the code execution,
+		 *  as a map of MIME types to values.
 		 */
 		export function executeCode(languageId: string,
 			code: string,
 			focus: boolean,
 			allowIncomplete?: boolean,
 			mode?: RuntimeCodeExecutionMode,
-			errorBehavior?: RuntimeErrorBehavior): Thenable<boolean>;
+			errorBehavior?: RuntimeErrorBehavior,
+			observer?: ExecutionObserver): Thenable<Record<string, any>>;
 
 		/**
 		 * Register a language runtime manager with Positron.
@@ -1429,6 +1517,11 @@ declare module 'positron' {
 		 * @param languageId The language ID of the preferred runtime
 		 */
 		export function getPreferredRuntime(languageId: string): Thenable<LanguageRuntimeMetadata>;
+
+		/**
+		 * List all active sessions.
+		 */
+		export function getActiveSessions(): Thenable<LanguageRuntimeSession[]>;
 
 		/**
 		 * Get the active foreground session, if any.
@@ -1492,6 +1585,11 @@ declare module 'positron' {
 		 * An event that fires when a new runtime is registered.
 		 */
 		export const onDidRegisterRuntime: vscode.Event<LanguageRuntimeMetadata>;
+
+		/**
+		 * An event that fires when the foreground session changes
+		 */
+		export const onDidChangeForegroundSession: vscode.Event<string | undefined>;
 	}
 
 	// FIXME: The current (and clearly not final) state of an experiment to bring in interface(s)
@@ -1648,6 +1746,7 @@ declare module 'positron' {
 				[K in keyof LanguageModelConfig]: undefined extends LanguageModelConfig[K] ? K : never
 			}[keyof LanguageModelConfig], undefined>[];
 			defaults: LanguageModelConfigOptions;
+			signedIn?: boolean;
 		}
 
 		/**
@@ -1698,13 +1797,32 @@ declare module 'positron' {
 			edits: vscode.TextEdit[];
 		}): void;
 
+		export function getSupportedProviders(): Thenable<string[]>;
+
 		/**
 		 * Show a modal dialog for language model configuration.
 		 */
 		export function showLanguageModelConfig(
 			sources: LanguageModelSource[],
-			onSave: (config: LanguageModelConfig) => Thenable<void>
+			onAction: (config: LanguageModelConfig, action: string) => Thenable<void>,
 		): Thenable<void>;
+
+		/**
+		 * Adds the model to the service's known configurations and notifies its listeners.
+		 * @param id the model id
+		 * @param config the model config
+		 */
+		export function addLanguageModelConfig(
+			source: LanguageModelSource,
+		): void;
+
+		/**
+		 * Removes the model from the service's known configurations and notifies its listeners.
+		 * @param id the model id
+		 */
+		export function removeLanguageModelConfig(
+			source: LanguageModelSource,
+		): void;
 
 		/**
 		 * The context in which a chat request is made.

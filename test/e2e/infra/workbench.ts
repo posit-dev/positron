@@ -37,6 +37,9 @@ import { Problems } from '../pages/problems';
 import { References } from '../pages/references';
 import { SCM } from '../pages/scm';
 import { Sessions } from '../pages/sessions';
+import { Search } from '../pages/search.js';
+import { HotKeys } from '../pages/hotKeys.js';
+import { Assistant } from '../pages/positronAssistant.js';
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -77,9 +80,12 @@ export class Workbench {
 	readonly references: References;
 	readonly scm: SCM;
 	readonly sessions: Sessions;
+	readonly search: Search;
+	readonly assistant: Assistant;
+	readonly hotKeys: HotKeys;
 
 	constructor(code: Code) {
-
+		this.hotKeys = new HotKeys(code);
 		this.popups = new Popups(code);
 		this.variables = new Variables(code);
 		this.dataExplorer = new DataExplorer(code, this);
@@ -92,15 +98,16 @@ export class Workbench {
 		this.quickInput = new QuickInput(code);
 		this.editors = new Editors(code);
 		this.quickaccess = new QuickAccess(code, this.editors, this.quickInput);
+		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.hotKeys);
 		this.connections = new Connections(code, this.quickaccess);
 		this.newProjectWizard = new NewProjectWizard(code, this.quickaccess);
 		this.output = new Output(code, this.quickaccess, this.quickInput);
-		this.console = new Console(code, this.quickaccess, this.quickInput);
+		this.console = new Console(code, this.quickaccess, this.quickInput, this.hotKeys);
 		this.interpreter = new Interpreter(code, this.console);
 		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess);
 		this.welcome = new Welcome(code);
 		this.clipboard = new Clipboard(code);
-		this.terminal = new Terminal(code, this.quickaccess, this.clipboard);
+		this.terminal = new Terminal(code, this.quickaccess, this.clipboard, this.popups);
 		this.viewer = new Viewer(code);
 		this.editor = new Editor(code);
 		this.testExplorer = new TestExplorer(code);
@@ -112,6 +119,7 @@ export class Workbench {
 		this.problems = new Problems(code, this.quickaccess);
 		this.references = new References(code);
 		this.scm = new SCM(code, this.layouts);
-		this.sessions = new Sessions(code, this.console, this.quickaccess, this.quickInput);
+		this.search = new Search(code);
+		this.assistant = new Assistant(code);
 	}
 }

@@ -12,7 +12,7 @@ import * as typeConvert from '../extHostTypeConverters.js';
 import { ExtHostCommands } from '../extHostCommands.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { isToolInvocationContext, IToolInvocationContext } from '../../../contrib/chat/common/languageModelToolsService.js';
-import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { ChatAgentLocation } from '../../../contrib/chat/common/chatAgents.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
@@ -21,7 +21,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 	private readonly _proxy: extHostProtocol.MainThreadAiFeaturesShape;
 	private readonly _disposables: DisposableStore = new DisposableStore();
-	private readonly _languageModelRequestRegistry = new Map<string, (config: IPositronLanguageModelConfig) => Thenable<void>>();
+	private readonly _languageModelRequestRegistry = new Map<string, (config: IPositronLanguageModelConfig, action: string) => Thenable<void>>();
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
@@ -45,14 +45,14 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		});
 	}
 
-	async showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onSave: (config: positron.ai.LanguageModelConfig) => Thenable<void>): Promise<void> {
+	async showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>): Promise<void> {
 		const id = generateUuid();
-		this._languageModelRequestRegistry.set(id, onSave);
+		this._languageModelRequestRegistry.set(id, onAction);
 
 		try {
 			await this._proxy.$languageModelConfig(id, sources);
-		} finally {
-			this._languageModelRequestRegistry.delete(id);
+		} catch (err) {
+			throw err;
 		}
 	}
 
@@ -76,11 +76,27 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		this._proxy.$responseProgress(context.sessionId, dto);
 	}
 
-	async $responseLanguageModelConfig(id: string, config: IPositronLanguageModelConfig): Promise<void> {
-		const onSave = this._languageModelRequestRegistry.get(id);
-		if (!onSave) {
+	async $responseLanguageModelConfig(id: string, config: IPositronLanguageModelConfig, action: string): Promise<void> {
+		const onAction = this._languageModelRequestRegistry.get(id);
+		if (!onAction) {
 			throw new Error('No matching language model configuration request found');
 		}
-		return onSave(config);
+		return onAction(config, action);
+	}
+
+	$onCompleteLanguageModelConfig(id: string): void {
+		this._languageModelRequestRegistry.delete(id);
+	}
+
+	async getSupportedProviders(): Promise<string[]> {
+		return this._proxy.$getSupportedProviders();
+	}
+
+	addLanguageModelConfig(source: IPositronLanguageModelSource): void {
+		this._proxy.$addLanguageModelConfig(source);
+	}
+
+	removeLanguageModelConfig(source: IPositronLanguageModelSource): void {
+		this._proxy.$removeLanguageModelConfig(source);
 	}
 }

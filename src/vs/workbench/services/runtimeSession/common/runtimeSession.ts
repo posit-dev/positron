@@ -12,7 +12,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from '../../../../platform/opener/common/opener.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode } from './runtimeSessionService.js';
+import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode } from './runtimeSessionService.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from '../../positronModalDialogs/common/positronModalDialogs.js';
@@ -22,7 +22,6 @@ import { IExtensionService } from '../../extensions/common/extensions.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
-import { basename } from '../../../../base/common/resources.js';
 import { IUpdateService } from '../../../../platform/update/common/update.js';
 import { multipleConsoleSessionsFeatureEnabled } from './positronMultipleConsoleSessionsFeatureFlag.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
@@ -272,6 +271,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// An event that fires when a runtime is deleted.
 	readonly onDidDeleteRuntimeSession = this._onDidDeleteRuntimeSessionEmitter.event;
 
+	// The event emitter for the onDidUpdateNotebookSessionUri event.
+	private readonly _onDidUpdateNotebookSessionUriEmitter =
+		this._register(new Emitter<INotebookSessionUriChangedEvent>());
+
+	// An event that fires when a notebook session's URI is updated.
+	readonly onDidUpdateNotebookSessionUri = this._onDidUpdateNotebookSessionUriEmitter.event;
+
 	/**
 	 * Registers a session manager with the service.
 	 *
@@ -293,10 +299,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * Used to associated a session with a runtime.
 	 *
 	 * @param runtimeId The runtime identifier of the session to retrieve.
+	 * @param includeExited Whether to include exited sessions in the search. (default false, optional)
 	 * @returns The console session with the given runtime identifier, or undefined if
 	 *  no console session with the given runtime identifier exists.
 	 */
-	getConsoleSessionForRuntime(runtimeId: string): ILanguageRuntimeSession | undefined {
+	getConsoleSessionForRuntime(runtimeId: string, includeExited: boolean = false): ILanguageRuntimeSession | undefined {
 		// It's possible that there are multiple consoles for the same runtime.
 		// In that case, we return the most recently created.
 		return Array.from(this._activeSessionsBySessionId.values())
@@ -308,7 +315,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			.find(({ info }) =>
 				info.session.runtimeMetadata.runtimeId === runtimeId &&
 				info.session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
-				info.state !== RuntimeState.Exited)
+				(includeExited || info.state !== RuntimeState.Exited)
+			)
 			?.info.session;
 	}
 
@@ -348,6 +356,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
+	 * List all active runtime sessions.
+	 *
+	 * @returns The active sessions.
+	 */
+	getActiveSessions(): ActiveRuntimeSession[] {
+		return Array.from(this._activeSessionsBySessionId.values());
+	}
+
+	/**
 	 * Selects and starts a new runtime session, after shutting down any currently active
 	 * sessions for the console or notebook.
 	 *
@@ -382,7 +399,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const sessionMode = notebookUri
 			? LanguageRuntimeSessionMode.Notebook
 			: LanguageRuntimeSessionMode.Console;
-		const sessionName = notebookUri ? basename(notebookUri) : runtime.runtimeName;
+
+
 		const startMode = notebookUri
 			? RuntimeStartMode.Switching
 			: multiSessionsEnabled ? RuntimeStartMode.Starting : RuntimeStartMode.Switching;
@@ -410,6 +428,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			const activeSession =
 				this.getNotebookSessionForNotebookUri(notebookUri);
 			if (activeSession) {
+				// If the active session is for the same runtime, we don't need to do anything.
 				if (activeSession.runtimeMetadata.runtimeId === runtime.runtimeId) {
 					return;
 				}
@@ -419,10 +438,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		} else {
 			if (multiSessionsEnabled) {
 				// Check if there is a console session for this runtime already
-				const activeSession = this.getConsoleSessionForRuntime(runtimeId);
-				if (activeSession) {
+				const existingSession = this.getConsoleSessionForRuntime(runtimeId, true);
+				if (existingSession) {
 					// Set it as the foreground session and return.
-					this.foregroundSession = activeSession;
+					if (existingSession.runtimeMetadata.runtimeId !== this.foregroundSession?.runtimeMetadata.runtimeId) {
+						this.foregroundSession = existingSession;
+					}
 					return;
 				}
 			} else {
@@ -445,7 +466,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Wait for the selected runtime to start.
 		await this.startNewRuntimeSession(
 			runtime.runtimeId,
-			sessionName,
+			runtime.runtimeName,
 			sessionMode,
 			notebookUri,
 			source,
@@ -610,6 +631,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata,
 		activate: boolean): Promise<void> {
+		const multisessionEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
 
 		// See if we are already starting the requested session. If we
 		// are, return the promise that resolves when the session is ready to
@@ -617,9 +639,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// session to be coalesced.
 		const sessionMapKey = getSessionMapKey(
 			sessionMetadata.sessionMode, runtimeMetadata.runtimeId, sessionMetadata.notebookUri);
-		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
-		if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
-			return startingRuntimePromise.p.then(() => { });
+		if (!multisessionEnabled || sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
+			if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
+				return startingRuntimePromise.p.then(() => { });
+			}
 		}
 
 		// Ensure that the runtime is registered.
@@ -637,17 +661,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return;
 		}
 
-		// Create a promise that resolves when the runtime is ready to use.
 		const startPromise = new DeferredPromise<string>();
-		this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
+		if (!multisessionEnabled || sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			// Create a promise that resolves when the runtime is ready to use.
+			this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
 
-		// It's possible that startPromise is never awaited, so we log any errors here
-		// at the debug level since we still expect the error to be handled/logged elsewhere.
-		startPromise.p.catch((err) => this._logService.debug(`Error starting session: ${err}`));
+			// It's possible that startPromise is never awaited, so we log any errors here
+			// at the debug level since we still expect the error to be handled/logged elsewhere.
+			startPromise.p.catch((err) => this._logService.debug(`Error starting session: ${err}`));
 
-		this.setStartingSessionMaps(
-			sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
-
+			this.setStartingSessionMaps(
+				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+		}
 		// We should already have a session manager registered, since we can't
 		// get here until the extension host has been activated.
 		if (this._sessionManagers.length === 0) {
@@ -660,8 +685,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			sessionManager = await this.getManagerForRuntime(runtimeMetadata);
 		} catch (err) {
 			startPromise.error(err);
-			this.clearStartingSessionMaps(
-				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+			if (!multisessionEnabled || sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+				this.clearStartingSessionMaps(
+					sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+			}
 			throw err;
 		}
 
@@ -676,8 +703,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`Reconnecting to session '${sessionMetadata.sessionId}' for language runtime ` +
 				`${formatLanguageRuntimeMetadata(runtimeMetadata)} failed. Reason: ${err}`);
 			startPromise.error(err);
-			this.clearStartingSessionMaps(
-				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+			if (!multisessionEnabled || sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+				this.clearStartingSessionMaps(
+					sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+			}
 			throw err;
 		}
 
@@ -794,6 +823,21 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`and cannot be restarted.`);
 		}
 	}
+	/**
+	 * Interrupt a runtime session.
+	 *
+	 * @param sessionId The session ID of the runtime to interrupt.
+	 */
+	async interruptSession(sessionId: string): Promise<void> {
+		const session = this.getSession(sessionId);
+		if (!session) {
+			throw new Error(`No session with ID '${sessionId}' was found.`);
+		}
+		this._logService.info(
+			`Interrupting session ${formatLanguageRuntimeSession(session)}'`);
+
+		return session.interrupt();
+	}
 
 	/**
 	 * Internal method to restart a runtime session.
@@ -830,7 +874,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
 				startPromise.complete(session.sessionId);
 			})
-			.catch((err) => startPromise.error(err));
+			.catch((err) => {
+				startPromise.error(err);
+				this.clearStartingSessionMaps(
+					session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
+			});
 
 		// Ask the runtime to restart.
 		try {
@@ -1354,7 +1402,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		}
 
-		const sessionId = this.generateNewSessionId(runtimeMetadata);
+		const sessionId = this.generateNewSessionId(runtimeMetadata, sessionMode === LanguageRuntimeSessionMode.Notebook);
 		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId,
 			sessionName: updatedSessionName,
@@ -1980,13 +2028,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		});
 	}
 
-	private generateNewSessionId(metadata: ILanguageRuntimeMetadata): string {
+	private generateNewSessionId(metadata: ILanguageRuntimeMetadata, isNotebook: boolean | undefined): string {
 		// Generate a random session ID. We use fairly short IDs to make them more readable.
-		const id = `${metadata.languageId}-${Math.random().toString(16).slice(2, 10)}`;
+		const id = `${metadata.languageId}-${isNotebook ? 'notebook-' : ''}${Math.random().toString(16).slice(2, 10)}`;
 
 		// Since the IDs are short, there's a chance of collision. If we have a collision, try again.
 		if (this._activeSessionsBySessionId.has(id)) {
-			return this.generateNewSessionId(metadata);
+			return this.generateNewSessionId(metadata, isNotebook);
 		}
 
 		return id;
@@ -2019,7 +2067,116 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._updateService.updateActiveLanguages([...languages]);
 	}
 
+	/**
+	 * Updates the URI of a notebook session to maintain session continuity when
+	 * a notebook is saved under a new URI.
+	 *
+	 * This is a crucial operation during the Untitled → Saved file transition, as it:
+	 * 1. Preserves all runtime state (variables, execution context, kernel connections)
+	 * 2. Updates internal mappings to reflect the new URI
+	 * 3. Notifies dependent components about the change (via the onDidUpdateNotebookSessionUri event)
+	 *
+	 * The implementation carefully orders operations to maintain state consistency even if
+	 * an error occurs during the update process.
+	 *
+	 * @param oldUri The original URI of the notebook (typically an untitled:// URI)
+	 * @param newUri The new URI of the notebook (typically a file:// URI after saving)
+	 * @returns The session ID of the updated session, or undefined if no update occurred
+	 */
+	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined {
+
+		// Find the session associated with the old URI
+		const session = this._notebookSessionsByNotebookUri.get(oldUri);
+
+		if (!session) {
+			// No matching session found for the provided oldUri
+			// Why logging as debug: This is an expected case when notebooks don't have sessions yet
+			this._logService.debug(`No notebook session found for URI: ${oldUri.toString()}`);
+			return undefined;
+		}
+
+		// Check if session is in a valid state for URI reassignment
+		// Why: We can't reassign a terminated session as it's no longer active and would cause
+		// users to think they have a working session when they don't
+		if (session.getRuntimeState() === RuntimeState.Exited) {
+			this._logService.warn('Cannot update URI for terminated session', {
+				sessionId: session.sessionId,
+				oldUri: oldUri.toString()
+			});
+			return undefined;
+		}
+
+		// Remember the session ID for return value
+		const sessionId = session.sessionId;
+
+		try {
+			// Operations are performed in a specific order to maintain atomic-like behavior
+			// The ordering ensures that even if interrupted between steps, the system won't lose
+			// track of the session completely.
+
+			// 1. First add the new mapping to ensure we don't lose the session
+			// Why: This makes the session accessible via the new URI immediately,
+			// so even if the next steps fail, the session is still accessible via some URI
+			this._notebookSessionsByNotebookUri.set(newUri, session);
+
+			// 2. Then update the session's notebook URI in its dynamic state
+			// Why: This ensures the session's internal references are consistent
+			// with our mapping, which helps debugging and ensures session properties
+			// reflect current reality
+			session.dynState.currentNotebookUri = newUri;
+
+			// 3. Finally remove the old mapping - we do this last because it's
+			// the most likely to fail if ResourceMap has internal inconsistency
+			// Why last: If we deleted first and then failed to add the new mapping,
+			// we'd lose the session entirely
+			this._notebookSessionsByNotebookUri.delete(oldUri);
+
+			// Log success for debugging
+			this._logService.debug(`Successfully updated notebook session URI: ${oldUri.toString()} → ${newUri.toString()}`);
+
+			// Notify listeners that the URI has been updated
+			// Why: Components like the variables view need to update their UI
+			// to show the new filename instead of "Untitled-1", and any code that tracks
+			// notebook URIs needs to update its references
+			this._onDidUpdateNotebookSessionUriEmitter.fire({
+				sessionId,
+				oldUri,
+				newUri
+			});
+
+			return sessionId;
+		} catch (error) {
+			// If anything went wrong, attempt to restore the old state manually
+			this._logService.error('Failed to update notebook session URI', error);
+
+			// Manual restoration in reverse order to maintain consistency
+
+			// 1. Try to restore old mapping if it was deleted
+			// Why: If we got as far as deleting the old mapping, we need to restore it
+			// so the session can still be found via the original URI
+			if (!this._notebookSessionsByNotebookUri.has(oldUri)) {
+				this._notebookSessionsByNotebookUri.set(oldUri, session);
+			}
+
+			// 2. Clean up possibly invalid new mapping
+			// Why: We only delete the new mapping if it points to our session
+			// This avoids accidentally deleting a valid mapping that might have been
+			// created by another operation
+			if (this._notebookSessionsByNotebookUri.get(newUri) === session) {
+				this._notebookSessionsByNotebookUri.delete(newUri);
+			}
+
+			// 3. Restore original URI in session state if needed
+			// Why: Keep the session's internal state consistent with our mappings
+			if (session.dynState.currentNotebookUri === newUri) {
+				session.dynState.currentNotebookUri = oldUri;
+			}
+
+			return undefined;
+		}
+	}
 }
+
 registerSingleton(IRuntimeSessionService, RuntimeSessionService, InstantiationType.Eager);
 
 /**

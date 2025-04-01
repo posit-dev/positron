@@ -27,6 +27,7 @@ const statusIconClassNameToColor = {
 
 const consoleStateToStatusIcon = {
 	[PositronConsoleState.Uninitialized]: StatusIconClassName.DISCONNECTED,
+	[PositronConsoleState.Disconnected]: StatusIconClassName.DISCONNECTED,
 	[PositronConsoleState.Starting]: StatusIconClassName.ACTIVE,
 	[PositronConsoleState.Busy]: StatusIconClassName.ACTIVE,
 	[PositronConsoleState.Ready]: StatusIconClassName.IDLE,

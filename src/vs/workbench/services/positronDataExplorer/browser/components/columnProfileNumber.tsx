@@ -41,7 +41,10 @@ export const ColumnProfileNumber = (props: ColumnProfileNumberProps) => {
 	return (
 		<div className='column-profile-info'>
 			{columnHistogram &&
-				<ColumnProfileSparklineHistogram columnHistogram={columnHistogram} />
+				<ColumnProfileSparklineHistogram
+					columnHistogram={columnHistogram}
+					hoverManager={props.instance.hoverManager}
+				/>
 			}
 			<div className='tabular-info'>
 				<div className='labels'>

@@ -541,7 +541,7 @@
                         }
                     ],
                     "markdownDescription": "%python.environmentProviders.enable.markdownDescription%",
-                    "scope": "machine",
+                    "scope": "resource",
                     "type": "object",
                     "properties": {
                         "Venv": {
@@ -556,38 +556,50 @@
                 "python.defaultInterpreterPath": {
                     "default": "python",
                     "markdownDescription": "%python.defaultInterpreterPath.description%",
-                    "scope": "machine-overridable",
-                    "type": "string"
+                    "scope": "resource",
+                    "type": "string",
+                    "tags": [
+                        "interpreterSettings"
+                    ]
                 },
                 "python.interpreters.include": {
                     "default": [],
                     "markdownDescription": "%python.interpreters.include.markdownDescription%",
-                    "scope": "window",
+                    "scope": "resource",
                     "type": "array",
                     "items": {
                         "type": "string"
                     },
-                    "uniqueItems": true
+                    "uniqueItems": true,
+                    "tags": [
+                        "interpreterSettings"
+                    ]
                 },
                 "python.interpreters.exclude": {
                     "default": [],
                     "markdownDescription": "%python.interpreters.exclude.markdownDescription%",
-                    "scope": "window",
+                    "scope": "resource",
                     "type": "array",
                     "items": {
                         "type": "string"
                     },
-                    "uniqueItems": true
+                    "uniqueItems": true,
+                    "tags": [
+                        "interpreterSettings"
+                    ]
                 },
                 "python.interpreters.override": {
                     "default": [],
                     "markdownDescription": "%python.interpreters.override.markdownDescription%",
-                    "scope": "window",
+                    "scope": "resource",
                     "type": "array",
                     "items": {
                         "type": "string"
                     },
-                    "uniqueItems": true
+                    "uniqueItems": true,
+                    "tags": [
+                        "interpreterSettings"
+                    ]
                 },
                 "python.envFile": {
                     "default": "${workspaceFolder}/.env",
@@ -906,6 +918,7 @@
         "configurationDefaults": {
             "pyright.disableLanguageServices": true,
             "pyright.disableOrganizeImports": true,
+            "pyright.disablePullDiagnostics": true,
             "python.analysis.autoImportCompletions": false,
             "python.analysis.typeCheckingMode": "off"
         },

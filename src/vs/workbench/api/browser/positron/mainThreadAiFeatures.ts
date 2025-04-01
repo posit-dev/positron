@@ -53,11 +53,12 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		return new Promise((resolve, reject) => {
 			this._positronAssistantService.showLanguageModelModalDialog(
 				sources,
-				async (config) => {
-					await this._proxy.$responseLanguageModelConfig(id, config);
+				async (config, action) => {
+					await this._proxy.$responseLanguageModelConfig(id, config, action);
 					resolve();
 				},
 				() => reject('User cancelled language model configuration.'),
+				() => this._proxy.$onCompleteLanguageModelConfig(id),
 			);
 		});
 	}
@@ -88,5 +89,22 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 */
 	async $getPositronChatContext(request: IChatRequestData): Promise<IPositronChatContext> {
 		return this._positronAssistantService.getPositronChatContext(request);
+	}
+
+	/**
+	 * Get Positron's supported providers.
+	 */
+	async $getSupportedProviders(): Promise<string[]> {
+		return this._positronAssistantService.getSupportedProviders();
+	}
+
+	$addLanguageModelConfig(source: IPositronLanguageModelSource): void {
+		source.signedIn = true;
+		this._positronAssistantService.addLanguageModelConfig(source);
+	}
+
+	$removeLanguageModelConfig(source: IPositronLanguageModelSource): void {
+		source.signedIn = false;
+		this._positronAssistantService.removeLanguageModelConfig(source);
 	}
 }

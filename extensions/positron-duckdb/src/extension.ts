@@ -185,6 +185,7 @@ const SCHEMA_TYPE_MAPPING = new Map<string, ColumnDisplayType>([
 	['TIMESTAMP WITH TIME ZONE', ColumnDisplayType.Datetime],
 	['TIMESTAMP_NS WITH TIME ZONE', ColumnDisplayType.Datetime],
 	['TIME', ColumnDisplayType.Time],
+	['INTERVAL', ColumnDisplayType.Interval],
 	['DECIMAL', ColumnDisplayType.Number]
 ]);
 
@@ -310,6 +311,7 @@ class ColumnProfileEvaluator {
 					break;
 				case ColumnProfileType.LargeHistogram:
 				case ColumnProfileType.SmallHistogram:
+					this.addNullCount(fieldName);
 					this.addHistogramStats(fieldName, spec.params as ColumnHistogramParams);
 					break;
 				case ColumnProfileType.LargeFrequencyTable:
@@ -540,7 +542,7 @@ class ColumnProfileEvaluator {
 			result.toArray().map(entry => [entry.bin_id, entry.bin_count])
 		);
 		for (let i = 0; i < numBins; ++i) {
-			output.bin_edges.push((binWidth * i).toString());
+			output.bin_edges.push((minValue + binWidth * i).toString());
 			output.bin_counts.push(Number(histEntries.get(i) ?? 0));
 		}
 
@@ -548,7 +550,7 @@ class ColumnProfileEvaluator {
 		output.bin_counts[numBins - 1] += Number(histEntries.get(numBins) ?? 0);
 
 		// Compute the push the last bin
-		output.bin_edges.push((binWidth * numBins).toString());
+		output.bin_edges.push((minValue + binWidth * numBins).toString());
 		return output;
 	}
 
@@ -1531,11 +1533,9 @@ export class DataExplorerRpcHandler {
 			// TODO: Will need to be able to pass CSV / TSV options from the
 			// UI at some point.
 			const options: Array<string> = [];
-			if (fileExt === '.csv') {
-				options.push('delim=\',\'');
-			} else if (fileExt === '.tsv') {
+			if (fileExt === '.tsv') {
 				options.push('delim=\'\t\'');
-			} else {
+			} else if (fileExt !== '.csv' && fileExt !== '.tsv') {
 				throw new Error(`Unsupported file extension: ${fileExt}`);
 			}
 

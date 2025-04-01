@@ -16,6 +16,9 @@ import { IPositronConsoleService } from '../../../services/positronConsole/brows
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ChatAgentLocation } from '../../chat/common/chatAgents.js';
 import { ChatContextKeys } from '../../chat/common/chatContextKeys.js';
+import { RuntimeCodeExecutionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 
 class PositronAssistantContribution extends Disposable implements IWorkbenchContribution {
 	constructor(
@@ -43,8 +46,20 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 				});
 			}
 
-			run(_: ServicesAccessor, context: ICodeBlockActionContext): void | Promise<void> {
-				consoleService.activePositronConsoleInstance?.executeCode(context.code);
+			run(accessor: ServicesAccessor, context: ICodeBlockActionContext): void | Promise<void> {
+				consoleService.executeCode(
+					context.languageId || '',
+					context.code,
+					true, // focus
+					true, // allow incomplete
+					RuntimeCodeExecutionMode.Interactive).then(
+						() => {
+							accessor.get(ILogService).debug(
+								`Positron Assistant: ${context.languageId} code executed in console`);
+						},
+					).catch((err) => {
+						accessor.get(INotificationService).error(err);
+					});
 			}
 		});
 	}

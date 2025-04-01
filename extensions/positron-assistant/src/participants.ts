@@ -37,6 +37,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 			positron.PositronChatAgentLocation.Terminal,
 			positron.PositronChatAgentLocation.Editor,
 			positron.PositronChatAgentLocation.Notebook,
+			positron.PositronChatAgentLocation.EditingSession,
 		],
 		disambiguation: []
 	};
@@ -81,17 +82,22 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 
 	readonly welcomeMessageProvider = {
 		provideWelcomeMessage: async (token: vscode.CancellationToken) => {
-			let welcomeText = await fs.promises.readFile(`${mdDir}/welcome.md`, 'utf8');
-
+			let welcomeText;
 			const addLanguageModelMessage = vscode.l10n.t('Add a Language Model.');
 
 			// Show an extra configuration link if there are no configured models yet
 			if (getStoredModels(this._context).length === 0) {
+				welcomeText = await fs.promises.readFile(`${mdDir}/welcome.md`, 'utf8');
 				const commandUri = vscode.Uri.parse('command:positron-assistant.addModelConfiguration');
 				welcomeText += `\n\n[${addLanguageModelMessage}](${commandUri})`;
+			} else {
+				welcomeText = await fs.promises.readFile(`${mdDir}/welcomeready.md`, 'utf8');
+				// TODO: Replace with guide link once it has been created
+				const guideLink = vscode.Uri.parse('https://positron.posit.co');
+				welcomeText = welcomeText.replace('{guide-link}', `[${vscode.l10n.t('Positron Assistant User Guide')}](${guideLink})`);
 			}
 
-			const message = new vscode.MarkdownString(welcomeText);
+			const message = new vscode.MarkdownString(welcomeText, true);
 			message.isTrusted = true;
 
 			return {

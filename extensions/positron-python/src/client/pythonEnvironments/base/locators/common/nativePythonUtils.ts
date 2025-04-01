@@ -16,6 +16,7 @@ export enum NativePythonEnvironmentKind {
     Poetry = 'Poetry',
     // --- Start Positron ---
     Uv = 'Uv',
+    Custom = 'Custom',
     // --- End Positron ---
     MacPythonOrg = 'MacPythonOrg',
     MacCommandLineTools = 'MacCommandLineTools',
@@ -47,6 +48,9 @@ const mapping = new Map<NativePythonEnvironmentKind, PythonEnvKind>([
     [NativePythonEnvironmentKind.MacCommandLineTools, PythonEnvKind.System],
     [NativePythonEnvironmentKind.MacPythonOrg, PythonEnvKind.System],
     [NativePythonEnvironmentKind.MacXCode, PythonEnvKind.System],
+    // --- Start Positron ---
+    [NativePythonEnvironmentKind.Custom, PythonEnvKind.Custom],
+    // --- End Positron ---
 ]);
 
 export function categoryToKind(category?: NativePythonEnvironmentKind, logger?: LogOutputChannel): PythonEnvKind {
