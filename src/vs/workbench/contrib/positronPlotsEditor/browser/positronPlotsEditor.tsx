@@ -32,6 +32,7 @@ import { IEditorGroup } from '../../../services/editor/common/editorGroupsServic
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronPlotClient, IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 
 export interface IPositronPlotsEditorOptions extends IEditorOptions {
 }
@@ -111,6 +112,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 		@IStorageService storageService: IStorageService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
+		@ILayoutService private readonly _layoutService: ILayoutService,
 	) {
 		super(
 			PositronPlotsEditorInput.EditorID,
@@ -139,6 +141,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 				hoverService={this._hoverService}
 				keybindingService={this._keybindingService}
 				languageRuntimeService={this._languageRuntimeService}
+				layoutService={this._layoutService}
 				notificationService={this._notificationService}
 				positronPlotsService={this._positronPlotsService}
 				preferencesService={this._preferencesService}

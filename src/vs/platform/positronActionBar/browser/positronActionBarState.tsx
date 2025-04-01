@@ -12,6 +12,7 @@ import { unmnemonicLabel } from '../../../base/common/labels.js';
 import { DisposableStore } from '../../../base/common/lifecycle.js';
 import { ICommandService } from '../../commands/common/commands.js';
 import { IHoverManager } from '../../hover/browser/hoverManager.js';
+import { ILayoutService } from '../../layout/browser/layoutService.js';
 import { IKeybindingService } from '../../keybinding/common/keybinding.js';
 import { CommandCenter } from '../../commandCenter/common/commandCenter.js';
 import { Action, IAction, Separator } from '../../../base/common/actions.js';
@@ -33,6 +34,7 @@ export interface PositronActionBarServices {
 	readonly contextMenuService: IContextMenuService;
 	readonly hoverService: IHoverService;
 	readonly keybindingService: IKeybindingService;
+	readonly layoutService: ILayoutService;
 }
 
 /**

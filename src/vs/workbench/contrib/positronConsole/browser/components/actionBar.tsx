@@ -28,7 +28,7 @@ import { PositronConsoleState } from '../../../../services/positronConsole/brows
 import { ILanguageRuntimeSession, RuntimeStartMode } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { multipleConsoleSessionsFeatureEnabled } from '../../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
-import { PositronDynamicActionBar, DynamicActionBarAction } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
+import { PositronDynamicActionBar, DynamicActionBarAction, DEFAULT_ACTION_BAR_BUTTON_WIDTH } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 
 /**
  * Constants.
@@ -368,33 +368,14 @@ export const ActionBar = (props: ActionBarProps) => {
 		});
 	};
 
+	// Left actions.
 	const leftActions: DynamicActionBarAction[] = [];
 
-	// if (!multiSessionsEnabled) {
-	// 	leftActions.push({
-	// 		id: '1',
-	// 		width: 'auto',
-	// 		component: (
-	// 			<>
-	// 				<ConsoleInstanceMenuButton {...props} />
-	// 				<ActionBarSeparator />
-	// 			</>
-	// 		)
-	// 	});
-	// }
-
-	// leftActions.push({
-	// 	width: 7,
-	// 	component: <ActionBarSeparator />
-	// });
-
 	leftActions.push({
-		width: 28,
+		fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
 		text: directoryLabel,
 		separator: false,
-		component: (
-			<CurrentWorkingDirectory directoryLabel={directoryLabel} />
-		)
+		component: <CurrentWorkingDirectory directoryLabel={directoryLabel} />
 	});
 
 	// Right actions.
@@ -402,7 +383,7 @@ export const ActionBar = (props: ActionBarProps) => {
 
 	// Restart runtime action.
 	rightActions.push({
-		width: 28,
+		fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
 		separator: false,
 		component: (
 			<ActionBarButton
@@ -413,13 +394,19 @@ export const ActionBar = (props: ActionBarProps) => {
 				tooltip={positronRestartConsole}
 				onPressed={restartConsoleHandler}
 			/>
-		)
+		),
+		overflowCustomContextMenuOptions: {
+			commandId: 'positron.restartRuntime',
+			icon: 'positron-restart-runtime-thin',
+			label: positronRestartConsole,
+			onSelected: restartConsoleHandler
+		}
 	});
 
 	// Delete session action.
 	if (props.showDeleteButton) {
 		rightActions.push({
-			width: 28,
+			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
 			separator: false,
 			component: (
 				<ActionBarButton
@@ -431,23 +418,35 @@ export const ActionBar = (props: ActionBarProps) => {
 					tooltip={positronDeleteConsole}
 					onPressed={deleteSessionHandler}
 				/>
-			)
+			),
+			overflowCustomContextMenuOptions: {
+				commandId: 'positron.trashSession',
+				icon: 'trash',
+				label: positronDeleteConsole,
+				onSelected: deleteSessionHandler
+			}
 		});
 	}
 
 	// Console info action.
 	if (multiSessionsEnabled) {
 		rightActions.push({
-			width: 28,
+			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
 			separator: true,
-			component: <ConsoleInstanceInfoButton />
+			component: <ConsoleInstanceInfoButton />,
+			overflowCustomContextMenuOptions: {
+				commandId: 'positron.Info',
+				icon: 'trash',
+				label: positronDeleteConsole,
+				onSelected: () => console.log('kjsjks')
+			}
 		})
 	}
 
 	// Toggle trace action.
 	if (showDeveloperUI) {
 		rightActions.push({
-			width: 28,
+			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
 			separator: false,
 			component: (
 				<ActionBarButton
@@ -457,13 +456,19 @@ export const ActionBar = (props: ActionBarProps) => {
 					tooltip={positronToggleTrace}
 					onPressed={toggleTraceHandler}
 				/>
-			)
+			),
+			overflowCustomContextMenuOptions: {
+				commandId: 'positron.toggleTrace',
+				icon: 'wand',
+				label: positronToggleTrace,
+				onSelected: toggleTraceHandler
+			}
 		})
 	}
 
 	// Toggle word wrap action.
 	rightActions.push({
-		width: 28,
+		fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
 		separator: true,
 		component: (
 			<ActionBarButton
@@ -473,12 +478,18 @@ export const ActionBar = (props: ActionBarProps) => {
 				tooltip={positronToggleWordWrap}
 				onPressed={toggleWordWrapHandler}
 			/>
-		)
+		),
+		overflowCustomContextMenuOptions: {
+			commandId: 'positron.toggleWordWrap',
+			icon: 'word-wrap',
+			label: positronToggleWordWrap,
+			onSelected: toggleWordWrapHandler
+		}
 	})
 
 	// Open in editor action.
 	rightActions.push({
-		width: 28,
+		fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
 		separator: true,
 		component: (
 			<ActionBarButton
@@ -488,14 +499,20 @@ export const ActionBar = (props: ActionBarProps) => {
 				tooltip={positronOpenInEditor}
 				onPressed={openInEditorHandler}
 			/>
-		)
+		),
+		overflowCustomContextMenuOptions: {
+			commandId: 'positron.openInEditor',
+			icon: 'positron-open-in-editor',
+			label: positronOpenInEditor,
+			onSelected: openInEditorHandler
+		}
 	});
 
 	// Clear console action.
 	rightActions.push({
-		width: 28,
+		fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
 		separator: false,
-		component:
+		component: (
 			<ActionBarButton
 				align='right'
 				ariaLabel={positronClearConsole}
@@ -503,6 +520,13 @@ export const ActionBar = (props: ActionBarProps) => {
 				tooltip={positronClearConsole}
 				onPressed={clearConsoleHandler}
 			/>
+		),
+		overflowCustomContextMenuOptions: {
+			commandId: 'positron.clearConsole',
+			icon: 'clear-all',
+			label: positronClearConsole,
+			onSelected: clearConsoleHandler
+		}
 	});
 
 	// Render.
@@ -512,7 +536,6 @@ export const ActionBar = (props: ActionBarProps) => {
 				<PositronDynamicActionBar
 					borderBottom={false}
 					borderTop={true}
-					gap={1}
 					leftActions={leftActions}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}

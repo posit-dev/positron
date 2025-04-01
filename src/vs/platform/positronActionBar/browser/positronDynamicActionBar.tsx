@@ -11,24 +11,47 @@ import React, { CSSProperties, KeyboardEvent, useEffect, useLayoutEffect, useRef
 
 // Other dependencies.
 import * as DOM from '../../../base/browser/dom.js';
+import { ActionBarButton } from './components/actionBarButton.js';
 import { ActionBarSeparator } from './components/actionBarSeparator.js';
 import { usePositronActionBarContext } from './positronActionBarContext.js';
 import { DisposableStore, toDisposable } from '../../../base/common/lifecycle.js';
 import { optionalValue, positronClassNames } from '../../../base/common/positronUtilities.js';
+import { CustomContextMenuEntry, showCustomContextMenu } from '../../../workbench/browser/positronComponents/customContextMenu/customContextMenu.js';
+import { CustomContextMenuItem, CustomContextMenuItemOptions } from '../../../workbench/browser/positronComponents/customContextMenu/customContextMenuItem.js';
 
 /**
  * Constants.
  */
-const SEPARATOR_WIDTH = 7;
+export const DEFAULT_ACTION_BAR_BUTTON_WIDTH = 28;
+export const DEFAULT_ACTION_BAR_SEPARATOR_WIDTH = 7;
 
 /**
  * DynamicActionBarAction interface.
  */
 export interface DynamicActionBarAction {
-	width: number;
+	/**
+	 * The fixed width of the action.
+	 */
+	fixedWidth: number;
+
+	// The text of the action. This width of this text will be measured and
+	// added to the fixed width to calculate the width of the action.
 	text?: string;
+
+	/**
+	 * A value indicating whether the action should be followed by a separator.
+	 */
 	separator: boolean;
+
+	/**
+	 * The component to be rendered for the action bar.
+	 */
 	component: JSX.Element | (() => JSX.Element);
+
+	/**
+	 * The overflow custom context menu item options.
+	 */
+	overflowCustomContextMenuOptions?: CustomContextMenuItemOptions;
 }
 
 /**
@@ -36,7 +59,6 @@ export interface DynamicActionBarAction {
  */
 interface CommonPositronDynamicActionBarProps {
 	size: 'small' | 'large';
-	gap?: number;
 	paddingLeft?: number;
 	paddingRight?: number;
 	leftActions: DynamicActionBarAction[];
@@ -75,6 +97,7 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 	// Reference hooks.
 	const refActionBar = useRef<HTMLDivElement>(undefined!);
 	const refExemplar = useRef<HTMLDivElement>(undefined!);
+	const refOverflowButton = useRef<HTMLButtonElement>(undefined!);
 
 	// State hooks.
 	const [width, setWidth] = useState(0);
@@ -178,86 +201,183 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 
 	// If the exemplar is available, we can calculate widths and construct the grid.
 	const gridColumns: string[] = [];
-	const gridElements: JSX.Element[] = [];
+	const gridComponents: JSX.Element[] = [];
 	if (refExemplar.current) {
 		// Get the exemplar window and style.
 		const exemplarWindow = DOM.getWindow(refExemplar.current);
 		const style = DOM.getComputedStyle(refExemplar.current);
 
-		// Create a canvas in the exemplar window, get it's 2D context, and set its font.
+		// Create a canvas in the exemplar window.
 		const canvas = exemplarWindow.document.createElement('canvas');
+
+		// Get the canvas rendering 2D context and set its font.
 		const canvasRenderingContext2D = canvas.getContext('2d');
-		if (canvasRenderingContext2D) {
-			canvasRenderingContext2D.font = style.font;
+		if (!canvasRenderingContext2D) {
+			return null;
 		}
+		canvasRenderingContext2D.font = style.font;
 
 		/**
 		 * Measures the width of text in the canvas.
 		 * @param text The text.
 		 * @returns The text width.
 		 */
-		const measureTextWidth = (text: string) =>
-			canvasRenderingContext2D ? Math.ceil(canvasRenderingContext2D.measureText(text).width) : 0;
+		const measureTextWidth = (text: string) => Math.ceil(canvasRenderingContext2D.measureText(text).width);
 
-		// Set the layout width.
-		let layoutWidth = width - (props.paddingLeft ?? 0) - (props.paddingRight ?? 0);
+		// Setup layout conditions.
+		let layoutWidth = Math.max(width - (props.paddingLeft ?? 0) - (props.paddingRight ?? 0), 0) - DEFAULT_ACTION_BAR_BUTTON_WIDTH;
+		let overflowing = layoutWidth === 0;
+
+		// Grid entry interface.
+		interface GridEntry { width: number; action: DynamicActionBarAction; }
 
 		/**
-		 * Processes actions into grid columns and grid elements.
-		 * @param actions
-		 * @returns
+		 * Lays out the specified actions.
+		 * @param actions The actions to layout.
+		 * @param gridEntries The grid entries.
+		 * @param overflowActions The overflow actions.
 		 */
-		const processActions = (actions: DynamicActionBarAction[]): [gridColumns: string[], gridElements: JSX.Element[]] => {
-			// Process the actions into grid columns and grid elements.
-			const gridColumns: string[] = [];
-			const gridElements: JSX.Element[] = [];
+		const layoutActions = (actions: DynamicActionBarAction[], gridEntries: GridEntry[], overflowActions: DynamicActionBarAction[]) => {
+			// Handle overflowing.
+			if (overflowing) {
+				overflowActions.push(...actions.filter(action => action.overflowCustomContextMenuOptions));
+				return;
+			}
+
+			// Layout the actions.
 			let appendSeparator = false;
-			actions.forEach((action, index) => {
-				// Measure the width of the text.
-				const width = action.width + (!action.text ? 0 : measureTextWidth(action.text));
+			for (let i = 0; i < actions.length; i++) {
+				// Set the separator width.
+				const separatorWidth = appendSeparator ? DEFAULT_ACTION_BAR_SEPARATOR_WIDTH : 0;
 
-				// Get the component.
-				const component = action.component instanceof Function ?
-					action.component() :
-					action.component;
+				// Get the action.
+				const action = actions[i];
 
-				if (width + (appendSeparator ? SEPARATOR_WIDTH : 0) > layoutWidth) {
-					// Append to the menu...
+				// Calculate the width of the action.
+				let width = 0;
+				if (action.fixedWidth) {
+					width += action.fixedWidth;
+				}
+				if (action.text) {
+					width += measureTextWidth(action.text);
+				}
+
+				// Handle overflowing.
+				if (separatorWidth + width > layoutWidth) {
+					overflowing = true;
+					overflowActions.push(...actions.slice(i).filter(action => action.overflowCustomContextMenuOptions));
 					return;
 				}
 
-				// Append the separator.
-				if (appendSeparator && index <= actions.length - 1) {
-					gridColumns.push(`${SEPARATOR_WIDTH}px`);
-					gridElements.push(<ActionBarSeparator />);
-					layoutWidth -= SEPARATOR_WIDTH;
-					appendSeparator = false;
-				}
+				// Push the grid entry for the action.
+				gridEntries.push({ width, action });
 
-				// Append the action.
-				gridColumns.push(`${width}px`);
-				gridElements.push(component);
-				layoutWidth -= width;
-
-				// Account for the gap.
-				if (props.gap && props.gap <= layoutWidth && index <= actions.length - 1) {
-					layoutWidth -= props.gap;
-				}
+				// Adjust the layout width for the next iteration.
+				layoutWidth -= separatorWidth + width;
 
 				// Set the append separator flag for the next iteration.
 				appendSeparator = action.separator;
-			});
-
-			// Return the layout width.
-			return [gridColumns, gridElements];
+			}
 		}
 
-		// Process the left and right actions into grid columns and grid elements.
-		const [rightGridColumns, rightGridElements] = processActions(props.rightActions);
-		const [leftGridColumns, leftGridElements] = processActions(props.leftActions);
+		// Layout the right actions.
+		const rightGridEntries: GridEntry[] = [];
+		const rightOverflowActions: DynamicActionBarAction[] = [];
+		layoutActions(props.rightActions, rightGridEntries, rightOverflowActions);
 
-		// Remove the canvas.
+		// Layout the left actions.
+		const leftGridEntries: GridEntry[] = [];
+		const leftOverflowActions: DynamicActionBarAction[] = [];
+		layoutActions(props.leftActions, leftGridEntries, leftOverflowActions);
+
+		// Text measurement is complete. Remove the canvas.
 		canvas.remove();
+
+		/**
+		 * Lays out the grid entries.
+		 * @param gridEntries The grid entries.
+		 * @returns
+		 */
+		const layoutGridEntries = (gridEntries: GridEntry[]): [gridColumns: string[], gridElements: JSX.Element[]] => {
+			// Create the grid columns and grid elements.
+			const gridColumns: string[] = [];
+			const gridElements: JSX.Element[] = [];
+
+			// Layout the grid entries.
+			let appendSeparator = false;
+			gridEntries.forEach((gridEntry, index) => {
+				// Append the separator.
+				if (appendSeparator) {
+					gridColumns.push(`${DEFAULT_ACTION_BAR_SEPARATOR_WIDTH}px`);
+					gridElements.push(
+						<div className='container'>
+							<ActionBarSeparator />
+						</div>
+					);
+				}
+
+				// Layout the grid entry.
+				gridColumns.push(`${gridEntry.width}px`);
+				gridElements.push(
+					<div className='container'>
+						{gridEntry.action.component instanceof Function ?
+							gridEntry.action.component() :
+							gridEntry.action.component
+						}
+					</div>
+				);
+
+				// Set the append separator flag for the next iteration.
+				appendSeparator = gridEntry.action.separator;
+			});
+
+			// Return the grid columns and grid elements tuple.
+			return [gridColumns, gridElements];
+		};
+
+		// Layout the left and right grid entries.
+		const [leftGridColumns, leftGridElements] = layoutGridEntries(leftGridEntries);
+		const [rightGridColumns, rightGridElements] = layoutGridEntries(rightGridEntries);
+
+		// Create the overflow actions.
+		const overflowActions = [...rightOverflowActions, ...leftOverflowActions];
+
+		// If there are overflow actions, add the overflow button.
+		if (overflowActions.length) {
+			rightGridColumns.push(`${DEFAULT_ACTION_BAR_BUTTON_WIDTH}px`);
+			rightGridElements.push(
+				<div style={{ display: 'flex', width: `${DEFAULT_ACTION_BAR_BUTTON_WIDTH}px` }}>
+					<ActionBarButton
+						ref={refOverflowButton}
+						align='right'
+						ariaLabel={'overflow'}
+						iconId='toolbar-more'
+						tooltip={'overflow'}
+						onPressed={async () => {
+							// Build the custom context menu entries for the overflow actions context menu.
+							const customContextMenuEntries: CustomContextMenuEntry[] = [];
+							for (const overflowAction of overflowActions) {
+								if (overflowAction.overflowCustomContextMenuOptions) {
+									customContextMenuEntries.push(new CustomContextMenuItem(overflowAction.overflowCustomContextMenuOptions));
+								}
+							}
+
+							// Show the overflow actions context menu.
+							await showCustomContextMenu({
+								commandService: context.commandService,
+								keybindingService: context.keybindingService,
+								layoutService: context.layoutService,
+								anchorElement: refOverflowButton.current,
+								popupPosition: 'auto',
+								popupAlignment: 'auto',
+								width: 'auto',
+								entries: customContextMenuEntries
+							});
+						}}
+					/>
+				</div>
+			);
+		}
 
 		// Construct the grid columns.
 		gridColumns.push(...leftGridColumns);
@@ -265,9 +385,9 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 		gridColumns.push(...rightGridColumns);
 
 		// Construct the grid elements.
-		gridElements.push(...leftGridElements);
-		gridElements.push(<div />);
-		gridElements.push(...rightGridElements);
+		gridComponents.push(...leftGridElements);
+		gridComponents.push(<div />);
+		gridComponents.push(...rightGridElements);
 	}
 
 	// Create the class names.
@@ -281,7 +401,6 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 
 	// Create the dynamic style.
 	const style: CSSProperties = {
-		gap: optionalValue(props.gap, 0),
 		paddingLeft: optionalValue(props.paddingLeft, 0),
 		paddingRight: optionalValue(props.paddingRight, 0),
 		gridTemplateColumns: gridColumns.join(' ')
@@ -292,7 +411,7 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 		<>
 			<div ref={refExemplar} className='exemplar' />
 			<div ref={refActionBar} className={classNames} style={style} onKeyDown={keyDownHandler}>
-				{gridElements}
+				{gridComponents}
 			</div>
 		</>
 	);

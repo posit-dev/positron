@@ -19,11 +19,12 @@
 	height: var(--positronActionBar-height);
 }
 
-.positron-dynamic-action-bar .action-container {
+.positron-dynamic-action-bar .container {
+	width: 100%;
 	display: flex;
+	overflow: hidden;
 	align-items: center;
 	justify-content: center;
-	background-color: red;
 }
 
 .positron-dynamic-action-bar:not(.transparent-background) {
