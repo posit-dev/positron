@@ -443,6 +443,7 @@ export class Sessions {
 			await this.code.driver.page.mouse.move(0, 0);
 
 			if (waitForReady) {
+				await expect(this.page.getByText(/starting/)).toBeVisible();
 				await expect(this.page.getByText(/starting/)).not.toBeVisible({ timeout: 90000 });
 				const sessionId = await this.getCurrentSessionId();
 				await this.expectStatusToBe(sessionId, 'idle');

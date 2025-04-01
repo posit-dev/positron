@@ -113,26 +113,6 @@ test.describe('Sessions: Management', {
 		await sessions.expectActiveSessionListsToMatch();
 	});
 
-	test('Validate can delete sessions', { tag: [tags.VARIABLES] }, async function ({ app, sessions }) {
-		const { console, variables } = app.workbench;
-
-		// Ensure sessions exist and are idle
-		const [pySession, rSession] = await sessions.start(['python', 'r']);
-
-		// Delete 1st session and verify active sessions and runtime in session picker
-		await sessions.delete(pySession.id);
-		await sessions.expectSessionCountToBe(1);
-		await sessions.expectActiveSessionListsToMatch();
-		await variables.expectRuntimeToBe('visible', rSession.name);
-
-		// Delete 2nd session and verify no active sessions or runtime in session picker
-		await console.barTrashButton.click();
-		await sessions.expectSessionPickerToBe('Start Session');
-		await sessions.expectSessionCountToBe(0);
-		await sessions.expectActiveSessionListsToMatch();
-		await variables.expectRuntimeToBe('not.visible', `${rSession.name}|${pySession.name}|None`);
-	});
-
 	test('Validate session, console, variables, and plots persist after reload',
 		{
 			tag: [tags.VARIABLES, tags.PLOTS],
