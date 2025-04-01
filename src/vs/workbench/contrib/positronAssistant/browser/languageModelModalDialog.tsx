@@ -166,12 +166,6 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const providers = props.sources
 		.filter(source => source.type === 'chat')
 		.sort((a, b) => {
-			// sort test models to the end
-			// if (a.isTest && !b.isTest) {
-			// 	return 1;
-			// } else if (!a.isTest && b.isTest) {
-			// 	return -1;
-			// }
 			return a.provider.displayName.localeCompare(b.provider.displayName);
 		})
 		.map(source => new DropDownListBoxItem({
@@ -396,7 +390,6 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 						name='authMethod'
 						onSelectionChanged={(authMethod) => {
 							// setAuthMethod(authMethod);
-							console.log(authMethod);
 						}}
 					/>
 				</div>
