@@ -362,9 +362,6 @@ export class Sessions {
 				await expect(this.idleStatus(sessionTab)).toBeVisible();
 			}
 
-			// workaround for issue: https://github.com/posit-dev/positron/issues/6997
-			await sessionTab.click();
-			await this.page.waitForTimeout(1000);
 			await sessionTab.click();
 		});
 	}
