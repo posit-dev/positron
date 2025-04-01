@@ -41,8 +41,10 @@ export interface DynamicActionBarAction {
 	 */
 	fixedWidth: number;
 
-	// The text of the action. This width of this text will be measured and
-	// added to the fixed width to calculate the width of the action.
+	/**
+	 * The text of the action. This width of this text will be measured and
+	 * added to the fixed width to calculate the width of the action.
+	 */
 	text?: string;
 
 	/**
