@@ -42,7 +42,7 @@ test.describe('Sessions: Delete', {
 
 		// Delete 1st session and verify active sessions and runtime in session picker
 		await sessions.delete(pySession.id);
-		await sessions.expectSessionPickerToBe(rSession);
+		await sessions.expectSessionPickerToBe(rSession.name);
 		await sessions.expectSessionCountToBe(1);
 		await sessions.expectActiveSessionListsToMatch();
 		await variables.expectRuntimeToBe('visible', rSession.name);
