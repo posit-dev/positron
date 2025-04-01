@@ -76,6 +76,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	restartApp: [async ({ app }, use) => {
 		await app.restart();
+		await app.workbench.sessions.expectAllSessionsToBeReady();
+
 		await use(app);
 	}, { scope: 'test', timeout: 60000 }],
 
@@ -84,6 +86,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 		try {
 			await app.start();
+			await app.workbench.sessions.expectAllSessionsToBeReady();
 
 			await use(app);
 		} catch (error) {
