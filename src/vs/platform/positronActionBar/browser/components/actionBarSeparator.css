@@ -30,7 +30,6 @@
 	justify-content: center;
 	display: flex !important;
 	height: var(--positronActionBar-iconSize);
-	/* width: calc(var(--positronActionBar-iconSize) / 4); */
 }
 
 .action-bar-separator-icon::before {
