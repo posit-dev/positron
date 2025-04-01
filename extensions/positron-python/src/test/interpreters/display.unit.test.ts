@@ -154,7 +154,7 @@ suite('Interpreters Display', () => {
                     languageStatusItem.verify(
                         (s) =>
                             (s.command = TypeMoq.It.isValue({
-                                title: InterpreterQuickPickList.browsePath.openButtonLabel,
+                                title: 'Active Interpreter',
                                 command: Commands.Set_Interpreter,
                             })),
                         // --- Start Positron ---
@@ -211,8 +211,11 @@ suite('Interpreters Display', () => {
                         TypeMoq.Times.once(),
                     );
                     statusBar.verify(
-                        (s) => (s.tooltip = TypeMoq.It.isValue(InterpreterQuickPickList.browsePath.openButtonLabel)!),
+                        // --- Start Positron ---
+                        // Tooltip should be "Active Interpreter"
+                        (s) => (s.tooltip = TypeMoq.It.isValue('Active Interpreter')!),
                         TypeMoq.Times.atLeastOnce(),
+                        // --- End Positron ---
                     );
                     // --- End Positron ---
                 }
@@ -245,7 +248,7 @@ suite('Interpreters Display', () => {
             });
             // --- Start Positron ---
             // rename test to reflect reality
-            test('Tooltip should be "Select Interpreter"', async () => {
+            test('Tooltip should be "Active Interpreter"', async () => {
                 // --- End Positron ---
                 const resource = Uri.file('x');
                 const pythonPath = path.join('user', 'development', 'env', 'bin', 'python');
@@ -277,9 +280,9 @@ suite('Interpreters Display', () => {
                     );
                 } else {
                     // --- Start Positron ---
-                    // Tooltip should be "Select Interpreter"
+                    // Tooltip should be "Active Interpreter"
                     statusBar.verify(
-                        (s) => (s.tooltip = TypeMoq.It.isValue(InterpreterQuickPickList.browsePath.openButtonLabel)),
+                        (s) => (s.tooltip = TypeMoq.It.isValue('Active Interpreter')),
                         TypeMoq.Times.atLeastOnce(),
                     );
                     // --- End Positron ---
@@ -369,13 +372,13 @@ suite('Interpreters Display', () => {
                     );
                 } else {
                     // --- Start Positron ---
-                    // Status bar should display path, tooltip should say Select Interpreter
+                    // Status bar should display path, tooltip should say Active Interpreter
                     statusBar.verify(
                         (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.path)!),
                         TypeMoq.Times.once(),
                     );
                     statusBar.verify(
-                        (s) => (s.tooltip = TypeMoq.It.isValue(InterpreterQuickPickList.browsePath.openButtonLabel)!),
+                        (s) => (s.tooltip = TypeMoq.It.isValue('Active Interpreter')!),
                         TypeMoq.Times.atLeastOnce(),
                     );
                     // --- End Positron ---
