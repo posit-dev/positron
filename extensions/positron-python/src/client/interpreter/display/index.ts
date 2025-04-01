@@ -83,9 +83,12 @@ export class InterpreterDisplay implements IInterpreterDisplay, IExtensionSingle
             };
             this.disposableRegistry.push(this.languageStatus);
         } else {
-            const [alignment, priority] = [StatusBarAlignment.Right, STATUS_BAR_ITEM_PRIORITY];
+            // --- Start Positron ---
+            // remove command to open interpreter dropdown and move to left hand side
+            const [alignment, priority] = [StatusBarAlignment.Left, STATUS_BAR_ITEM_PRIORITY];
             this.statusBar = application.createStatusBarItem(alignment, priority, 'python.selectedInterpreterDisplay');
-            this.statusBar.command = Commands.Set_Interpreter;
+            // this.statusBar.command = Commands.Set_Interpreter;
+            // --- End Positron ---
             this.disposableRegistry.push(this.statusBar);
             this.statusBar.name = Interpreters.selectedPythonInterpreter;
         }
