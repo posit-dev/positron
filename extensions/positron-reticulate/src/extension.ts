@@ -115,78 +115,71 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 			try {
 				session = await this.createSession_(runtimeMetadata, sessionMetadata, progress);
 				sessionPromise.resolve(session);
-			} catch (err) {
+			} catch (err: any) {
 				sessionPromise.reject(err);
+				// When an error happens trying to create a session, we'll create a notification
+				// to show the error to the user.
+				// Initialization only requires a message.
+				let error = err;
+				if (!(err instanceof InitializationError)) {
+					error = new InitializationError(err.message);
+				}
+				error.showAsNotification();
+				throw err;
 			}
+
 			// Wait for the session to start (or fail to start) before
 			// returning from this callback, so that the progress bar stays up
 			// while we wait.
-			if (session) {
-				// Wait for the session to start (or fail to start) before
-				// returning from this callback, so that the progress bar stays up
-				// while we wait.
-				progress.report({ increment: 10, message: vscode.l10n.t('Waiting to connect') });
-				await session.started.wait();
-			}
+			progress.report({ increment: 10, message: vscode.l10n.t('Waiting to connect') });
+			await session.started.wait();
 		});
 		return sessionPromise.promise;
 	}
 
 	async createSession_(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata, progress: vscode.Progress<{ message?: string; increment: number }>): Promise<ReticulateRuntimeSession> {
-		try {
-			progress.report({ increment: 10, message: vscode.l10n.t('Finding the host the R session') });
-			const sessions = await positron.runtime.getActiveSessions();
-			const usedRSessions = this.getSessions().map((pair) => pair.hostRSessionId);
+		progress.report({ increment: 10, message: vscode.l10n.t('Finding the host the R session') });
+		const sessions = await positron.runtime.getActiveSessions();
+		const usedRSessions = this.getSessions().map((pair) => pair.hostRSessionId);
 
-			const freeRSessions = sessions.filter(sess => {
-				return sess.runtimeMetadata.languageId === 'r' &&
-					!usedRSessions.find((x) => x === sess.metadata.sessionId);
-			});
+		const freeRSessions = sessions.filter(sess => {
+			return sess.runtimeMetadata.languageId === 'r' &&
+				!usedRSessions.find((x) => x === sess.metadata.sessionId);
+		});
 
-			const rSession = await (async () => {
-				if (freeRSessions.length > 0) {
-					// We have a free R session, we can attach to it. First we need to figure out if there's
-					// a prefered one.
-					// TODO: maybe show a quick menu so the user can select the session they want to attach to?
-					return freeRSessions[0];
-				} else {
-					progress.report({ increment: 2, message: vscode.l10n.t('Starting a new R session') });
-					// We need to create a new R session.
-					const rRuntime = await positron.runtime.getPreferredRuntime('r');
-					return await positron.runtime.startLanguageRuntime(rRuntime.runtimeId, rRuntime.runtimeName);
-				}
-			})();
-
-			progress.report({ increment: 5, message: vscode.l10n.t('Waiting for the R session to be ready') });
-			const reticulateId = await (async () => {
-				// We need to wait for the R session to be fully started.
-				// We might need to make some attemps.
-				for (let attempt = 1; attempt <= 20; attempt++) {
-					try {
-						return await rSession.callMethod?.('reticulate_id') as string;
-					} catch (err) {
-						// Wait a bit before trying again.
-						await new Promise(resolve => setTimeout(resolve, 100));
-					}
-				}
-				throw new InitializationError(vscode.l10n.t('Failed to get the reticulate ID'));
-			})();
-			const session = await ReticulateRuntimeSession.create(runtimeMetadata, sessionMetadata, rSession, progress);
-			// Attach the reticulate session to the R session if the reticulate session was successfully created.
-			this.setSessions(rSession.metadata.sessionId, reticulateId, session);
-
-			return session;
-		} catch (err: any) {
-			// When an error happens trying to create a session, we'll create a notification
-			// to show the error to the user.
-			// Initialization only requires a message.
-			let error = err;
-			if (!(err instanceof InitializationError)) {
-				error = new InitializationError(err.message);
+		const rSession = await (async () => {
+			if (freeRSessions.length > 0) {
+				// We have a free R session, we can attach to it. First we need to figure out if there's
+				// a prefered one.
+				// TODO: maybe show a quick menu so the user can select the session they want to attach to?
+				return freeRSessions[0];
+			} else {
+				progress.report({ increment: 2, message: vscode.l10n.t('Starting a new R session') });
+				// We need to create a new R session.
+				const rRuntime = await positron.runtime.getPreferredRuntime('r');
+				return await positron.runtime.startLanguageRuntime(rRuntime.runtimeId, rRuntime.runtimeName);
 			}
-			error.showAsNotification();
-			throw err;
-		}
+		})();
+
+		progress.report({ increment: 5, message: vscode.l10n.t('Waiting for the R session to be ready') });
+		const reticulateId = await (async () => {
+			// We need to wait for the R session to be fully started.
+			// We might need to make some attemps.
+			for (let attempt = 1; attempt <= 20; attempt++) {
+				try {
+					return await rSession.callMethod?.('reticulate_id') as string;
+				} catch (err) {
+					// Wait a bit before trying again.
+					await new Promise(resolve => setTimeout(resolve, 100));
+				}
+			}
+			throw new InitializationError(vscode.l10n.t('Failed to get the reticulate ID'));
+		})();
+		const session = await ReticulateRuntimeSession.create(runtimeMetadata, sessionMetadata, rSession, progress);
+		// Attach the reticulate session to the R session if the reticulate session was successfully created.
+		this.setSessions(rSession.metadata.sessionId, reticulateId, session);
+
+		return session;
 	}
 
 	setSessions(hostRSessionId: string, reticulateId: string, session: positron.LanguageRuntimeSession) {
@@ -231,8 +224,15 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 			try {
 				session = await this.restoreSession_(runtimeMetadata, sessionMetadata, progress);
 				sessionPromise.resolve(session as positron.LanguageRuntimeSession);
-			} catch (err) {
+			} catch (err: any) {
 				sessionPromise.reject(err);
+
+				let error = err;
+				if (!(err instanceof InitializationError)) {
+					error = new InitializationError(err.message);
+				}
+				error.showAsNotification();
+				throw err;
 			}
 			if (session) {
 				// Wait for the session to start (or fail to start) before
@@ -250,60 +250,52 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 		sessionMetadata: positron.RuntimeSessionMetadata,
 		progress: vscode.Progress<{ message?: string; increment?: number }>
 	): Promise<ReticulateRuntimeSession> {
-		try {
-			const sessionsMap = this.getSessions();
+		const sessionsMap = this.getSessions();
 
-			// Before restoring we need to find the host R session that this reticulate Python
-			// session is attached to. We then need to wait for this R session to be restored
-			// before moving on.
-			const hostRSessionId = sessionsMap.find((pair) => pair.reticulateSessionId === sessionMetadata.sessionId)?.hostRSessionId;
-			if (!hostRSessionId) {
-				throw new InitializationError(vscode.l10n.t('Failed to find the host R session for this reticulate session'));
-			}
-
-			// Now wait for the host R session to be active.
-			// We might need to make some attemps.
-			progress.report({ increment: 10, message: vscode.l10n.t('Finding the host R session') });
-			const rSession = await (async () => {
-				for (let attempt = 1; attempt <= 5; attempt++) {
-					const sessions = await positron.runtime.getActiveSessions();
-					const hostRSession = sessions.find((sess) => sess.metadata.sessionId === hostRSessionId);
-					if (hostRSession) {
-						return hostRSession;
-					}
-					// Wait a bit before trying again.
-					await new Promise(resolve => setTimeout(resolve, 500));
-				}
-				throw new InitializationError(vscode.l10n.t('Failed to find the host R session for this reticulate session'));
-			})();
-
-			// Wait and get the reticulateId.
-			progress.report({ increment: 10, message: vscode.l10n.t('Waiting for the R session to be ready') });
-			const reticulateId = await (async () => {
-				// We need to wait for the R session to be fully started.
-				// We might need to make some attemps.
-				for (let attempt = 1; attempt <= 20; attempt++) {
-					try {
-						return await rSession.callMethod?.('reticulate_id') as string;
-					} catch (err) {
-						// Wait a bit before trying again.
-						await new Promise(resolve => setTimeout(resolve, 100));
-					}
-				}
-				throw new InitializationError(vscode.l10n.t('Failed to get the reticulate ID'));
-			})();
-
-			const session = await ReticulateRuntimeSession.restore(runtimeMetadata, sessionMetadata, rSession, progress);
-			this.setSessions(rSession.metadata.sessionId, reticulateId, session);
-
-			return session;
-		} catch (err: any) {
-			const error = err as InitializationError;
-			if (err.showAsNotification) {
-				error.showAsNotification();
-			}
-			throw err;
+		// Before restoring we need to find the host R session that this reticulate Python
+		// session is attached to. We then need to wait for this R session to be restored
+		// before moving on.
+		const hostRSessionId = sessionsMap.find((pair) => pair.reticulateSessionId === sessionMetadata.sessionId)?.hostRSessionId;
+		if (!hostRSessionId) {
+			throw new InitializationError(vscode.l10n.t('Failed to find the host R session for this reticulate session'));
 		}
+
+		// Now wait for the host R session to be active.
+		// We might need to make some attemps.
+		progress.report({ increment: 10, message: vscode.l10n.t('Finding the host R session') });
+		const rSession = await (async () => {
+			for (let attempt = 1; attempt <= 5; attempt++) {
+				const sessions = await positron.runtime.getActiveSessions();
+				const hostRSession = sessions.find((sess) => sess.metadata.sessionId === hostRSessionId);
+				if (hostRSession) {
+					return hostRSession;
+				}
+				// Wait a bit before trying again.
+				await new Promise(resolve => setTimeout(resolve, 500));
+			}
+			throw new InitializationError(vscode.l10n.t('Failed to find the host R session for this reticulate session'));
+		})();
+
+		// Wait and get the reticulateId.
+		progress.report({ increment: 10, message: vscode.l10n.t('Waiting for the R session to be ready') });
+		const reticulateId = await (async () => {
+			// We need to wait for the R session to be fully started.
+			// We might need to make some attemps.
+			for (let attempt = 1; attempt <= 20; attempt++) {
+				try {
+					return await rSession.callMethod?.('reticulate_id') as string;
+				} catch (err) {
+					// Wait a bit before trying again.
+					await new Promise(resolve => setTimeout(resolve, 100));
+				}
+			}
+			throw new InitializationError(vscode.l10n.t('Failed to get the reticulate ID'));
+		})();
+
+		const session = await ReticulateRuntimeSession.restore(runtimeMetadata, sessionMetadata, rSession, progress);
+		this.setSessions(rSession.metadata.sessionId, reticulateId, session);
+
+		return session;
 	}
 }
 
