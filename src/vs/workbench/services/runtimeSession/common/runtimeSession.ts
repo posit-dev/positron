@@ -481,15 +481,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	focusSession(sessionId: string): void {
 		const session = this.getSession(sessionId);
 		if (!session) {
-			this._logService.error(`Could not find session with id {sessionId}.`);
-			return;
+			throw new Error(`Could not find session with id {sessionId}.`);
 		}
 
 		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 			this.foregroundSession = session;
 		} else {
 			// TODO: we could potentially focus the notebook editor in this case.
-			this._logService.error(`Cannot focus a notebook session.`);
+			throw new Error(`Cannot focus a notebook session.`);
 		}
 	}
 
