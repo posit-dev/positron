@@ -35,7 +35,7 @@ import { RuntimeItemStartupFailure } from './classes/runtimeItemStartupFailure.j
 import { ActivityItem, RuntimeItemActivity } from './classes/runtimeItemActivity.js';
 import { ActivityItemInput, ActivityItemInputState } from './classes/activityItemInput.js';
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
-import { ILanguageRuntimeCodeExecutedEvent, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
+import { IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
@@ -534,6 +534,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * Executes code in a PositronConsoleInstance.
 	 * @param languageId The language ID.
 	 * @param code The code.
+	 * @param attribution Attribution naming the origin of the code.
 	 * @param focus A value which indicates whether to focus the Positron console instance.
 	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
@@ -545,6 +546,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 */
 	async executeCode(languageId: string,
 		code: string,
+		attribution: IConsoleCodeAttribution,
 		focus: boolean,
 		allowIncomplete?: boolean,
 		mode?: RuntimeCodeExecutionMode,

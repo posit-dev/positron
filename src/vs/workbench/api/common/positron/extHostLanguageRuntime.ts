@@ -1071,6 +1071,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public executeCode(
 		languageId: string,
 		code: string,
+		extensionId: string,
 		focus: boolean,
 		allowIncomplete?: boolean,
 		mode?: RuntimeCodeExecutionMode,
@@ -1085,7 +1086,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// Begin the code execution. This returns a promise that resolves to the
 		// session ID of the session assigned (or created) to run the code.
 		this._proxy.$executeCode(
-			languageId, code, focus, allowIncomplete, mode, errorBehavior, executionId).then(
+			languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, executionId).then(
 				(sessionId) => {
 					// Bind the session ID to the observer so we can use it later
 					executionObserver.sessionId = sessionId;

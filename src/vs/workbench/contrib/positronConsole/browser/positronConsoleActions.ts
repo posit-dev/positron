@@ -28,7 +28,7 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { NOTEBOOK_EDITOR_FOCUSED } from '../../notebook/common/notebookContextKeys.js';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
-import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { CodeAttributionSource, IConsoleCodeAttribution, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 
 /**
@@ -432,9 +432,22 @@ export function registerPositronConsoleActions() {
 			const allowIncomplete = opts.allowIncomplete;
 
 
+			// Create the attribution object. This is used to track the source of the code execution.
+			const attribution: IConsoleCodeAttribution = {
+				source: CodeAttributionSource.Script,
+				metadata: {
+					file: model.uri.path,
+					position: {
+						line: position.lineNumber,
+						column: position.column
+					},
+				}
+			};
+
 			// Ask the Positron console service to execute the code. Do not focus the console as
 			// this will rip focus away from the editor.
-			if (!await positronConsoleService.executeCode(languageId, code, false, allowIncomplete, opts.mode, opts.errorBehavior)) {
+			if (!await positronConsoleService.executeCode(
+				languageId, code, attribution, false, allowIncomplete, opts.mode, opts.errorBehavior)) {
 				const languageName = languageService.getLanguageName(languageId);
 				notificationService.notify({
 					severity: Severity.Info,

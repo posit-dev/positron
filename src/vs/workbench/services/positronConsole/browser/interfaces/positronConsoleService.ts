@@ -36,6 +36,29 @@ export const enum PositronConsoleState {
 }
 
 /**
+ * Code attribution sources for code executed in the Console.
+ */
+export const enum CodeAttributionSource {
+	Assistant = 'assistant',
+	Extension = 'extension',
+	Interactive = 'interactive',
+	Notebook = 'notebook',
+	Paste = 'paste',
+	Script = 'script',
+}
+
+/**
+ * A record containing metadata about the code attribution.
+ */
+export interface IConsoleCodeAttribution {
+	/** The source of the code to be executed */
+	source: CodeAttributionSource;
+
+	/** An optional dictionary of addition source-specific metadata*/
+	metadata?: Record<string, any>;
+}
+
+/**
  * IPositronConsoleService interface.
  */
 export interface IPositronConsoleService {
@@ -117,6 +140,7 @@ export interface IPositronConsoleService {
 	 * Executes code in a PositronConsoleInstance.
 	 * @param languageId The language ID.
 	 * @param code The code.
+	 * @param attribution An optional attribution object that describes the source of the code.
 	 * @param focus A value which indicates whether to focus Positron console instance.
 	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
@@ -127,6 +151,7 @@ export interface IPositronConsoleService {
 	 */
 	executeCode(languageId: string,
 		code: string,
+		attribution: IConsoleCodeAttribution,
 		focus: boolean,
 		allowIncomplete?: boolean,
 		mode?: RuntimeCodeExecutionMode,
