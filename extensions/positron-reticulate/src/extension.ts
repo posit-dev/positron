@@ -125,7 +125,7 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 				// Wait for the session to start (or fail to start) before
 				// returning from this callback, so that the progress bar stays up
 				// while we wait.
-				progress.report({ increment: 10, message: 'Waiting to connect' });
+				progress.report({ increment: 10, message: vscode.l10n.t('Waiting to connect') });
 				await session.started.wait();
 			}
 		});
@@ -134,7 +134,7 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 
 	async createSession_(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata, progress: vscode.Progress<{ message?: string; increment: number }>): Promise<ReticulateRuntimeSession> {
 		try {
-			progress.report({ increment: 10, message: 'Finding the host the R session' });
+			progress.report({ increment: 10, message: vscode.l10n.t('Finding the host the R session') });
 			const sessions = await positron.runtime.getActiveSessions();
 			const usedRSessions = this.getSessions().map((pair) => pair.hostRSessionId);
 
@@ -150,14 +150,14 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 					// TODO: maybe show a quick menu so the user can select the session they want to attach to?
 					return freeRSessions[0];
 				} else {
-					progress.report({ increment: 2, message: 'Starting a new R session' });
+					progress.report({ increment: 2, message: vscode.l10n.t('Starting a new R session') });
 					// We need to create a new R session.
 					const rRuntime = await positron.runtime.getPreferredRuntime('r');
 					return await positron.runtime.startLanguageRuntime(rRuntime.runtimeId, rRuntime.runtimeName);
 				}
 			})();
 
-			progress.report({ increment: 5, message: 'Waiting for the R session to be ready' });
+			progress.report({ increment: 5, message: vscode.l10n.t('Waiting for the R session to be ready') });
 			const reticulateId = await (async () => {
 				// We need to wait for the R session to be fully started.
 				// We might need to make some attemps.
@@ -169,7 +169,7 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 						await new Promise(resolve => setTimeout(resolve, 100));
 					}
 				}
-				throw new InitializationError('Failed to get the reticulate ID');
+				throw new InitializationError(vscode.l10n.t('Failed to get the reticulate ID'));
 			})();
 			const session = await ReticulateRuntimeSession.create(runtimeMetadata, sessionMetadata, rSession, progress);
 			// Attach the reticulate session to the R session if the reticulate session was successfully created.
@@ -224,7 +224,7 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 		const sessionPromise = new PromiseHandles<positron.LanguageRuntimeSession>();
 		vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
-			title: 'Restoring the Reticulate Python session',
+			title: vscode.l10n.t('Restoring the Reticulate Python session'),
 			cancellable: false
 		}, async (progress, _token) => {
 			let session: ReticulateRuntimeSession | undefined;
@@ -238,7 +238,7 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 				// Wait for the session to start (or fail to start) before
 				// returning from this callback, so that the progress bar stays up
 				// while we wait.
-				progress.report({ increment: 10, message: 'Waiting to connect' });
+				progress.report({ increment: 10, message: vscode.l10n.t('Waiting to connect') });
 				await session.started.wait();
 			}
 		});
@@ -258,12 +258,12 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 			// before moving on.
 			const hostRSessionId = sessionsMap.find((pair) => pair.reticulateSessionId === sessionMetadata.sessionId)?.hostRSessionId;
 			if (!hostRSessionId) {
-				throw new InitializationError('Failed to find the host R session for this reticulate session');
+				throw new InitializationError(vscode.l10n.t('Failed to find the host R session for this reticulate session'));
 			}
 
 			// Now wait for the host R session to be active.
 			// We might need to make some attemps.
-			progress.report({ increment: 10, message: 'Finding the host R session' });
+			progress.report({ increment: 10, message: vscode.l10n.t('Finding the host R session') });
 			const rSession = await (async () => {
 				for (let attempt = 1; attempt <= 5; attempt++) {
 					const sessions = await positron.runtime.getActiveSessions();
@@ -274,11 +274,11 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 					// Wait a bit before trying again.
 					await new Promise(resolve => setTimeout(resolve, 500));
 				}
-				throw new InitializationError('Failed to find the host R session for this reticulate session');
+				throw new InitializationError(vscode.l10n.t('Failed to find the host R session for this reticulate session'));
 			})();
 
 			// Wait and get the reticulateId.
-			progress.report({ increment: 10, message: 'Waiting for the R session to be ready' });
+			progress.report({ increment: 10, message: vscode.l10n.t('Waiting for the R session to be ready') });
 			const reticulateId = await (async () => {
 				// We need to wait for the R session to be fully started.
 				// We might need to make some attemps.
@@ -290,7 +290,7 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 						await new Promise(resolve => setTimeout(resolve, 100));
 					}
 				}
-				throw new InitializationError('Failed to get the reticulate ID');
+				throw new InitializationError(vscode.l10n.t('Failed to get the reticulate ID'));
 			})();
 
 			const session = await ReticulateRuntimeSession.restore(runtimeMetadata, sessionMetadata, rSession, progress);
@@ -370,7 +370,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		rSession: positron.LanguageRuntimeSession,
 		progress: vscode.Progress<{ message?: string; increment?: number }>,
 	): Promise<ReticulateRuntimeSession> {
-		progress.report({ increment: 10, message: 'Checking prerequisites' });
+		progress.report({ increment: 10, message: vscode.l10n.t('Checking prerequisites') });
 		const has_uv_support = await rSession.callMethod?.('is_installed', 'reticulate', '1.40.0.9000');
 		const config = ReticulateRuntimeSession.checkRSession(rSession);
 
@@ -380,7 +380,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		if (has_uv_support) {
 			const timeout = setTimeout(
 				() => {
-					progress.report({ increment: 2, message: 'Installing dependencies. This may take a while.' });
+					progress.report({ increment: 2, message: vscode.l10n.t('Installing dependencies. This may take a while.') });
 				},
 				5000
 			);
@@ -408,7 +408,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		progress: vscode.Progress<{ message?: string; increment?: number }>,
 	): Promise<ReticulateRuntimeSession> {
 		// Make sure the R session has the necessary packages installed.
-		progress.report({ increment: 10, message: 'Checking prerequisites' });
+		progress.report({ increment: 10, message: vscode.l10n.t('Checking prerequisites') });
 		const config = await ReticulateRuntimeSession.checkRSession(rSession);
 		const metadata = await ReticulateRuntimeSession.fixInterpreterPath(runtimeMetadata, config.python);
 
@@ -429,8 +429,8 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		if (!await rSession.callMethod?.('is_installed', 'reticulate', '1.39')) {
 			// Offer to install reticulate
 			const install_reticulate = await positron.window.showSimpleModalDialogPrompt(
-				'Missing reticulate',
-				'Reticulate >= 1.39 is required. Do you want to install reticulate?',
+				vscode.l10n.t('Missing reticulate'),
+				vscode.l10n.t('Reticulate >= 1.39 is required. Do you want to install reticulate?'),
 				'Yes',
 				'No'
 			);
@@ -439,13 +439,13 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 				try {
 					await rSession.callMethod?.('install_packages', 'reticulate');
 				} catch (err: any) {
-					throw new InitializationError(`Failed to install/update the reticulate package: ${err}`);
+					throw new InitializationError(vscode.l10n.t('Failed to install/update the reticulate package: {0}', err));
 				}
 			}
 
 			// Make a new check for reticulate
 			if (!await rSession.callMethod?.('is_installed', 'reticulate', '1.39')) {
-				throw new InitializationError('Reticulate >= 1.39 is required');
+				throw new InitializationError(vscode.l10n.t('Reticulate >= 1.39 is required'));
 			}
 		}
 
@@ -482,7 +482,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 		// An error happened, raise it
 		if (config.error) {
-			throw new InitializationError(`Failed checking for a suitable Python: ${config.error}`);
+			throw new InitializationError(vscode.l10n.t('Failed checking for a suitable Python: {0}', config.error));
 		}
 
 		// No error, but also no Python:
@@ -609,7 +609,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
 		this.onDidEndSession = this._exitEmitter.event;
 
-		this.progress.report({ increment: 10, message: 'Creating the Python session' });
+		this.progress.report({ increment: 10, message: vscode.l10n.t('Creating the Python session') });
 
 		this.pythonSession = this.createPythonRuntimeSession(
 			runtimeMetadata,
@@ -621,7 +621,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 	createPythonRuntimeSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata, kernelSpec?: JupyterKernelSpec): positron.LanguageRuntimeSession {
 		const api = vscode.extensions.getExtension('ms-python.python');
 		if (!api) {
-			throw new Error('Failed to find the Positron Python extension API.');
+			throw new Error(vscode.l10n.t('Failed to find the Positron Python extension API.'));
 		}
 
 		const pythonSession: positron.LanguageRuntimeSession = api.exports.positron.createPythonRuntimeSession(
@@ -654,7 +654,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 	// A function that starts a kernel and then connects to it.
 	async startKernel(session: JupyterSession, kernel: JupyterKernel) {
 		kernel.log('Starting the Reticulate session!');
-		this.progress.report({ increment: 10, message: 'Starting the Reticulate session in R' });
+		this.progress.report({ increment: 10, message: vscode.l10n.t('Starting the Reticulate session in R') });
 
 		// Store a reference to the kernel, so the session can log, reconnect, etc.
 		this.kernel = kernel;
@@ -668,11 +668,11 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 		if (!this.rSession) {
 			kernel.log('No R session :(');
-			throw new Error('No R session to attach the Reticulate Python kernel');
+			throw new Error(vscode.l10n.t('No R session to attach the Reticulate Python kernel'));
 		}
 
 		if (!this.rSession.callMethod) {
-			throw new Error('No `callMethod` method in the RSession. This is not expected.');
+			throw new Error(vscode.l10n.t('No `callMethod` method in the RSession. This is not expected.'));
 		}
 
 		const init_err = await this.rSession.callMethod(
@@ -685,10 +685,10 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 		// An empty result means that the initialization went fine.
 		if (init_err !== '') {
-			throw new Error(`Reticulate initialization failed: ${init_err}`);
+			throw new Error(vscode.l10n.t(`Reticulate initialization failed: ${init_err}`));
 		}
 
-		this.progress.report({ increment: 10, message: 'Connecting to the Reticulate session' });
+		this.progress.report({ increment: 10, message: vscode.l10n.t('Connecting to the Reticulate session') });
 
 		try {
 			await kernel.connectToSession(session);
@@ -812,7 +812,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 					title: 'Creating the Reticulate Python session',
 					cancellable: false
 				}, async (progress, _token) => {
-					this.progress.report({ increment: 10, message: 'Creating the Python session' });
+					this.progress.report({ increment: 10, message: vscode.l10n.t('Creating the Python session') });
 					const metadata: positron.RuntimeSessionMetadata = { ...this.sessionMetadata, sessionId: `reticulate-python-${uuid.v4()}` };
 
 					// When the R session is ready, we can start a new Reticulate session.
@@ -822,7 +822,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 						kernelSpec
 					);
 
-					this.progress.report({ increment: 50, message: 'Initializing the Python session' });
+					this.progress.report({ increment: 50, message: vscode.l10n.t('Initializing the Python session') });
 
 					try {
 						await this.pythonSession.start();
