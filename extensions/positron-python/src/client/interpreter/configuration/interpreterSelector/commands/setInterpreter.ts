@@ -59,8 +59,8 @@ import { CreateEnv } from '../../../../common/utils/localize';
 import { IPythonRuntimeManager } from '../../../../positron/manager';
 import { showErrorMessage } from '../../../../common/vscodeApis/windowApis';
 import { traceError } from '../../../../logging';
-import { isVersionSupported, shouldIncludeInterpreter } from '../../../../positron/interpreterSettings';
-import { MINIMUM_PYTHON_VERSION } from '../../../../common/constants';
+import { shouldIncludeInterpreter } from '../../../../positron/interpreterSettings';
+import { isVersionSupported } from '../../environmentTypeComparer';
 // --- End Positron ---
 import { untildify } from '../../../../common/helpers';
 import { useEnvExtension } from '../../../../envExt/api.internal';
@@ -95,6 +95,7 @@ export namespace EnvGroups {
     export const Pixi = 'Pixi';
     // --- Start Positron ---
     export const Uv = 'Uv';
+    export const Unsupported = 'Unsupported';
     // --- End Positron ---
     export const VirtualEnvWrapper = 'VirtualEnvWrapper';
     export const ActiveState = 'ActiveState';
@@ -340,7 +341,13 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
         if (activeInterpreterItem) {
             return activeInterpreterItem;
         }
-        const firstInterpreterSuggestion = suggestions.find((s) => isInterpreterQuickPickItem(s));
+        // --- Start Positron ---
+        // Don't suggest unsupported interpreters
+        // const firstInterpreterSuggestion = suggestions.find((s) => isInterpreterQuickPickItem(s));
+        const firstInterpreterSuggestion = suggestions.find(
+            (s) => isInterpreterQuickPickItem(s) && isVersionSupported(s.interpreter.version),
+        );
+        // --- End Positron ---
         if (firstInterpreterSuggestion) {
             return firstInterpreterSuggestion;
         }
@@ -479,6 +486,14 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
                             items[i].tooltip = InterpreterQuickPickList.condaEnvWithoutPythonTooltip;
                         }
                     }
+                    // --- Start Positron ---
+                    if (isInterpreterQuickPickItem(item) && !isVersionSupported(item.interpreter.version)) {
+                        if (!items[i].label.includes(Octicons.Warning)) {
+                            items[i].label = `${Octicons.Warning} ${items[i].label}`;
+                            items[i].tooltip = InterpreterQuickPickList.unsupportedVersionTooltip;
+                        }
+                    }
+                    // --- End Positron ---
                 });
             } else {
                 if (!items.some((i) => isSpecialQuickPickItem(i) && i.label === this.noPythonInstalled.label)) {
@@ -723,6 +738,11 @@ function addSeparatorIfApplicable(
 }
 
 function getGroup(item: IInterpreterQuickPickItem, workspacePath?: string) {
+    // --- Start Positron ---
+    if (!isVersionSupported(item.interpreter.version)) {
+        return EnvGroups.Unsupported;
+    }
+    // --- End Positron ---
     if (workspacePath && isParentPath(item.path, workspacePath)) {
         return EnvGroups.Workspace;
     }
@@ -749,9 +769,6 @@ function getGroup(item: IInterpreterQuickPickItem, workspacePath?: string) {
  * @returns A new filter function that includes the original filter function and the additional filtering logic
  */
 function filterWrapper(filter: ((i: PythonEnvironment) => boolean) | undefined) {
-    return (i: PythonEnvironment) =>
-        (filter ? filter(i) : true) &&
-        shouldIncludeInterpreter(i.path) &&
-        isVersionSupported(i.version, MINIMUM_PYTHON_VERSION);
+    return (i: PythonEnvironment) => (filter ? filter(i) : true) && shouldIncludeInterpreter(i.path);
 }
 // --- End Positron ---
