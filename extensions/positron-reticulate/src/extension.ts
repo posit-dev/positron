@@ -91,6 +91,7 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 	}
 
 	registerReticulateRuntime() {
+		LOGGER.info('Registering the reticulate runtime');
 		this._metadata = new ReticulateRuntimeMetadata();
 		this.onDidDiscoverRuntimeEmmiter?.fire(this._metadata);
 
@@ -111,6 +112,7 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 	}
 
 	async createSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata): Promise<positron.LanguageRuntimeSession> {
+		LOGGER.info(`Creating Reticulate session. sessionId: ${sessionMetadata.sessionId}`);
 		const sessionPromise = new PromiseHandles<positron.LanguageRuntimeSession>();
 		vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
@@ -220,6 +222,7 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 	}
 
 	async restoreSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata): Promise<positron.LanguageRuntimeSession> {
+		LOGGER.info(`Restoring Reticulate session. sessionId: ${sessionMetadata.sessionId}`);
 		const sessionPromise = new PromiseHandles<positron.LanguageRuntimeSession>();
 		vscode.window.withProgress({
 			location: vscode.ProgressLocation.Notification,
@@ -915,6 +918,7 @@ export class ReticulateProvider {
 
 	async registerClient(client: positron.RuntimeClientInstance, params: { input?: string; reticulate_id: string }) {
 		// We get to this codepath when a user calls `reticulate::repl_python()` from the R session.
+		LOGGER.info(`Registering reticulate client. reticulateId: ${params.reticulate_id}`,);
 
 		// We'll force the registration when the user calls `reticulate::repl_python()`
 		// even if the flag is not enabled.
@@ -963,7 +967,7 @@ export class ReticulateProvider {
 		client.onDidChangeClientState(
 			(state: positron.RuntimeClientState) => {
 				if (state === positron.RuntimeClientState.Closed) {
-					console.warn('Reticulate client closed by the back-end.');
+					LOGGER.error('Reticulate client closed by the back-end.');
 				}
 			}
 		);
@@ -989,6 +993,7 @@ export class ReticulateProvider {
 
 
 let CONTEXT: vscode.ExtensionContext;
+const LOGGER = vscode.window.createOutputChannel('Reticulate Extension', { log: true });
 
 /**
  * Activates the extension.
