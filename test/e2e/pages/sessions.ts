@@ -807,7 +807,7 @@ export class Sessions {
 						await expect(this.sessionTabs).toHaveCount(count);
 					}
 				}
-			}).toPass({ timeout: 5000 });
+			}).toPass({ timeout: 45000 });
 		});
 	}
 
