@@ -112,7 +112,7 @@ export async function createPythonRuntimeMetadata(
 
     let supportedFlag = '';
     if (!isVersionSupported(interpreter.version)) {
-        supportedFlag = `UNSUPPORTED: `;
+        supportedFlag = `Unsupported: `;
     }
 
     const runtimeName = `${supportedFlag}Python ${runtimeShortName}`;
