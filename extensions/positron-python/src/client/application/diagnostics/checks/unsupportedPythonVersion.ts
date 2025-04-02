@@ -9,13 +9,8 @@
 import { inject, injectable } from 'inversify';
 import { DiagnosticSeverity, l10n } from 'vscode';
 import '../../../common/extensions';
-import {
-    IDisposableRegistry,
-    IInterpreterPathService,
-    InterpreterConfigurationScope,
-    Resource,
-} from '../../../common/types';
-import { IInterpreterService } from '../../../interpreter/contracts';
+import { IDisposableRegistry, Resource } from '../../../common/types';
+import { IInterpreterService, PythonEnvironmentsChangedEvent } from '../../../interpreter/contracts';
 import { isVersionSupported } from '../../../interpreter/configuration/environmentTypeComparer';
 import { IServiceContainer } from '../../../ioc/types';
 import { BaseDiagnostic, BaseDiagnosticsService } from '../base';
@@ -50,7 +45,7 @@ export class UnsupportedPythonVersionService extends BaseDiagnosticsService {
         @inject(IDisposableRegistry) disposableRegistry: IDisposableRegistry,
     ) {
         super([DiagnosticCodes.UnsupportedPythonVersion], serviceContainer, disposableRegistry, true);
-        this.addPythonPathChangedHandler();
+        this.addPythonEnvChangedHandler();
     }
 
     public dispose(): void {
@@ -90,23 +85,24 @@ export class UnsupportedPythonVersionService extends BaseDiagnosticsService {
         );
     }
 
-    protected addPythonPathChangedHandler(): void {
+    protected addPythonEnvChangedHandler(): void {
         const disposables = this.serviceContainer.get<IDisposableRegistry>(IDisposableRegistry);
-        const interpreterPathService = this.serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
-        disposables.push(interpreterPathService.onDidChange((i) => this.onDidChangeConfiguration(i)));
+        const interpreterService = this.serviceContainer.get<IInterpreterService>(IInterpreterService);
+        disposables.push(interpreterService.onDidChangeInterpreters((e) => this.onDidChangeEnvironment(e)));
     }
 
-    protected async onDidChangeConfiguration(
-        interpreterConfigurationScope: InterpreterConfigurationScope,
-    ): Promise<void> {
-        const workspaceUri = interpreterConfigurationScope.uri;
+    protected async onDidChangeEnvironment(event: PythonEnvironmentsChangedEvent): Promise<void> {
+        // We only care about environment changes where a new interpreter becomes active
+        if (!event.new) {
+            return;
+        }
         if (this.timeOut && typeof this.timeOut !== 'number') {
             clearTimeout(this.timeOut);
             this.timeOut = undefined;
         }
         this.timeOut = setTimeout(() => {
             this.timeOut = undefined;
-            this.diagnose(workspaceUri)
+            this.diagnose(event.resource)
                 .then((diagnostics) => this.handle(diagnostics))
                 .ignoreErrors();
         }, this.changeThrottleTimeout);

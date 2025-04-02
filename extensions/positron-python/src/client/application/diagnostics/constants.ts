@@ -8,7 +8,10 @@ export enum DiagnosticCodes {
     InvalidDebuggerTypeDiagnostic = 'InvalidDebuggerTypeDiagnostic',
     NoPythonInterpretersDiagnostic = 'NoPythonInterpretersDiagnostic',
     MacInterpreterSelected = 'MacInterpreterSelected',
+    // --- Start Positron ---
+    // Add a new diagnostic code for unsupported Python versions
     UnsupportedPythonVersion = 'UnsupportedPythonVersion',
+    // --- End Positron ---
     InvalidPythonPathInDebuggerSettingsDiagnostic = 'InvalidPythonPathInDebuggerSettingsDiagnostic',
     InvalidPythonPathInDebuggerLaunchDiagnostic = 'InvalidPythonPathInDebuggerLaunchDiagnostic',
     EnvironmentActivationInPowerShellWithBatchFilesNotSupportedDiagnostic = 'EnvironmentActivationInPowerShellWithBatchFilesNotSupportedDiagnostic',

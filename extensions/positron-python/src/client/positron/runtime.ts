@@ -16,7 +16,7 @@ import { PythonEnvironment } from '../pythonEnvironments/info';
 import { traceInfo } from '../logging';
 import { IInstaller, Product, ProductInstallStatus } from '../common/types';
 import { IApplicationEnvironment, IWorkspaceService } from '../common/application/types';
-import { EXTENSION_ROOT_DIR, IPYKERNEL_VERSION, PYTHON_LANGUAGE, Octicons } from '../common/constants';
+import { EXTENSION_ROOT_DIR, IPYKERNEL_VERSION, PYTHON_LANGUAGE } from '../common/constants';
 import {
     EnvLocationHeuristic,
     getEnvLocationHeuristic,
@@ -112,7 +112,7 @@ export async function createPythonRuntimeMetadata(
 
     let supportedFlag = '';
     if (!isVersionSupported(interpreter.version)) {
-        supportedFlag = `${Octicons.Warning} (Unsupported) `;
+        supportedFlag = `(Unsupported) `;
     }
 
     const runtimeName = `${supportedFlag}Python ${runtimeShortName}`;

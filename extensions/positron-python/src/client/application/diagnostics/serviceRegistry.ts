@@ -83,6 +83,7 @@ export function registerTypes(serviceManager: IServiceManager): void {
         InvalidMacPythonInterpreterServiceId,
     );
     // --- Start Positron ---
+    // Add a new diagnostic service for unsupported Python versions
     serviceManager.addSingleton<IDiagnosticsService>(
         IDiagnosticsService,
         UnsupportedPythonVersionService,

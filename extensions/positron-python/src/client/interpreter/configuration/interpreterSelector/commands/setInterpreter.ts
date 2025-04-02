@@ -487,6 +487,7 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
                         }
                     }
                     // --- Start Positron ---
+                    // Add warning label to unsupported interpreters
                     if (isInterpreterQuickPickItem(item) && !isVersionSupported(item.interpreter.version)) {
                         if (!items[i].label.includes(Octicons.Warning)) {
                             items[i].label = `${Octicons.Warning} ${items[i].label}`;
@@ -739,6 +740,7 @@ function addSeparatorIfApplicable(
 
 function getGroup(item: IInterpreterQuickPickItem, workspacePath?: string) {
     // --- Start Positron ---
+    // If the interpreter is not supported, group it in the "Unsupported" category
     if (!isVersionSupported(item.interpreter.version)) {
         return EnvGroups.Unsupported;
     }
