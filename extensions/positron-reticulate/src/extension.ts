@@ -951,7 +951,6 @@ export class ReticulateProvider {
 			if (event.method === 'focus') {
 				if (event.params && event.params.input) {
 					session.execute(
-						// If no input is provided, we execute dummy code to bring focus to the console
 						event.params.input,
 						'reticulate-input',
 						positron.RuntimeCodeExecutionMode.Interactive,
@@ -974,7 +973,6 @@ export class ReticulateProvider {
 
 		if (params.input) {
 			session.execute(
-				// If no input is provided, we execute dummy code to bring focus to the console
 				params.input,
 				'reticulate-input',
 				positron.RuntimeCodeExecutionMode.Interactive,
