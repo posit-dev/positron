@@ -1,4 +1,3 @@
-/* eslint-disable header/header */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
@@ -37,7 +36,6 @@ export class BrowserEncryptionService implements IEncryptionService {
 	}
 
 	private async initializeEncryptionKey(): Promise<CryptoKey> {
-		// TO DO: Swap some info logging for trace logging
 		this.logService.trace('[BrowserEncryptionService] Initializing encryption key');
 		if (!this._keyInitPromise) {
 			this._keyInitPromise = new DeferredPromise<CryptoKey>();
@@ -151,7 +149,7 @@ export class BrowserEncryptionService implements IEncryptionService {
 
 	private async getSaltFromFileSystem(): Promise<Uint8Array> {
 		try {
-			const saltFileName = '.positron.salt';
+			const saltFileName = '.product.salt';
 			let salt: Uint8Array;
 
 			try {
@@ -179,7 +177,9 @@ export class BrowserEncryptionService implements IEncryptionService {
 	}
 
 	private getSaltFilePath(saltFileName: string): URI {
+		// --- Start Positron ---
 		return joinPath(this.environmentService.userRoamingDataHome, 'positron', saltFileName);
+		// --- End Positron ---
 	}
 
 	private async deriveKeyWrappingKey(salt: Uint8Array): Promise<CryptoKey> {
@@ -187,7 +187,7 @@ export class BrowserEncryptionService implements IEncryptionService {
 			const encoder = new TextEncoder();
 			const keyMaterial = await mainWindow.crypto.subtle.importKey(
 				'raw',
-				encoder.encode('positron-key-derivation'),
+				encoder.encode('product-key-derivation'),
 				{ name: 'PBKDF2' },
 				false,
 				['deriveBits', 'deriveKey']
