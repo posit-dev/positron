@@ -7,10 +7,9 @@
 
 // eslint-disable-next-line max-classes-per-file
 import { inject, injectable } from 'inversify';
-import { DiagnosticSeverity, l10n } from 'vscode';
-import '../../../common/extensions';
+import { DiagnosticSeverity, l10n, Uri } from 'vscode';
 import { IDisposableRegistry, Resource } from '../../../common/types';
-import { IInterpreterService, PythonEnvironmentsChangedEvent } from '../../../interpreter/contracts';
+import { IInterpreterService } from '../../../interpreter/contracts';
 import { isVersionSupported } from '../../../interpreter/configuration/environmentTypeComparer';
 import { IServiceContainer } from '../../../ioc/types';
 import { BaseDiagnostic, BaseDiagnosticsService } from '../base';
@@ -22,13 +21,21 @@ import { Common } from '../../../common/utils/localize';
 
 const messages = {
     [DiagnosticCodes.UnsupportedPythonVersion]: l10n.t(
-        'The selected Python interpreter version is not supported. Some functionality in the extension will be limited. [Install another version of Python](https://www.python.org/downloads) or select a different interpreter for the best experience.',
+        'The selected Python version {0} is not supported. Some features may not work as expected. Select a different session for the best experience.',
     ),
 };
 
 export class UnsupportedPythonVersionDiagnostic extends BaseDiagnostic {
-    constructor(code: DiagnosticCodes.UnsupportedPythonVersion, resource: Resource) {
-        super(code, messages[code], DiagnosticSeverity.Error, DiagnosticScope.WorkspaceFolder, resource);
+    constructor(code: DiagnosticCodes.UnsupportedPythonVersion, resource: Resource, version: string) {
+        super(
+            code,
+            messages[code].format(version),
+            DiagnosticSeverity.Error,
+            DiagnosticScope.WorkspaceFolder,
+            resource,
+            true,
+            'always',
+        );
     }
 }
 
@@ -58,10 +65,16 @@ export class UnsupportedPythonVersionService extends BaseDiagnosticsService {
     public async diagnose(resource: Resource): Promise<IDiagnostic[]> {
         const interpreterService = this.serviceContainer.get<IInterpreterService>(IInterpreterService);
         const interpreter = await interpreterService.getActiveInterpreter(resource);
-        if (isVersionSupported(interpreter?.version)) {
+        if (!interpreter?.version?.raw || isVersionSupported(interpreter.version)) {
             return [];
         }
-        return [new UnsupportedPythonVersionDiagnostic(DiagnosticCodes.UnsupportedPythonVersion, resource)];
+        return [
+            new UnsupportedPythonVersionDiagnostic(
+                DiagnosticCodes.UnsupportedPythonVersion,
+                resource,
+                interpreter.version.raw,
+            ),
+        ];
     }
 
     protected async onHandle(diagnostics: IDiagnostic[]): Promise<void> {
@@ -88,21 +101,17 @@ export class UnsupportedPythonVersionService extends BaseDiagnosticsService {
     protected addPythonEnvChangedHandler(): void {
         const disposables = this.serviceContainer.get<IDisposableRegistry>(IDisposableRegistry);
         const interpreterService = this.serviceContainer.get<IInterpreterService>(IInterpreterService);
-        disposables.push(interpreterService.onDidChangeInterpreters((e) => this.onDidChangeEnvironment(e)));
+        disposables.push(interpreterService.onDidChangeInterpreter((e) => this.onDidChangeEnvironment(e)));
     }
 
-    protected async onDidChangeEnvironment(event: PythonEnvironmentsChangedEvent): Promise<void> {
-        // We only care about environment changes where a new interpreter becomes active
-        if (!event.new) {
-            return;
-        }
+    protected async onDidChangeEnvironment(resource?: Uri): Promise<void> {
         if (this.timeOut && typeof this.timeOut !== 'number') {
             clearTimeout(this.timeOut);
             this.timeOut = undefined;
         }
         this.timeOut = setTimeout(() => {
             this.timeOut = undefined;
-            this.diagnose(event.resource)
+            this.diagnose(resource)
                 .then((diagnostics) => this.handle(diagnostics))
                 .ignoreErrors();
         }, this.changeThrottleTimeout);
@@ -114,17 +123,17 @@ export class UnsupportedPythonVersionService extends BaseDiagnosticsService {
             case DiagnosticCodes.UnsupportedPythonVersion: {
                 return [
                     {
-                        prompt: Common.selectPythonInterpreter,
+                        prompt: Common.selectNewSession,
                         command: commandFactory.createCommand(diagnostic, {
                             type: 'executeVSCCommand',
-                            options: 'python.setInterpreter',
+                            options: 'workbench.action.language.runtime.openActivePicker',
                         }),
                     },
                     {
                         prompt: Common.doNotShowAgain,
                         command: commandFactory.createCommand(diagnostic, {
                             type: 'ignore',
-                            options: DiagnosticScope.Global,
+                            options: DiagnosticScope.WorkspaceFolder,
                         }),
                     },
                 ];
