@@ -96,7 +96,9 @@ test.describe('Session: Outline', {
 		await verifyROutline(outline);
 
 		// Reload window
+		await sessions.expectSessionCountToBe(2);
 		await runCommand('workbench.action.reloadWindow');
+		await sessions.expectSessionCountToBe(2);
 
 		// Verify outlines for both file types
 		await editor.selectTab(PY_FILE);

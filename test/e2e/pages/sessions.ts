@@ -569,26 +569,22 @@ export class Sessions {
 	 */
 	async getCurrentSessionId(): Promise<string> {
 		return await test.step('Get current session ID', async () => {
-			const sessionCount = await this.getSessionCount();
+			const infoButton = this.page.getByTestId(/info-(python|r)-[a-z0-9]+/i);
+			const infoButtonCount = await infoButton.count();
 
-			if (sessionCount === 0) {
+			if (infoButtonCount === 0) {
 				throw new Error('No active session');
-			} else if (sessionCount === 1) {
-				const { id } = await this.getMetadata();
-				return id;
-			} else {
-				const locator = this.page.getByTestId(/info-(python|r)-[a-z0-9]+/i);
-				if (!(await locator.isVisible())) {
-					throw new Error('Locator for session ID not found');
-				}
-				const testId = await locator.getAttribute('data-testid');
-
-				if (!testId || !/^info-((python|r)-[a-z0-9]+)$/i.test(testId)) {
-					throw new Error('No active session or unexpected session ID format');
-				}
-
-				return testId.replace(/^info-/, '');
+			} else if (infoButtonCount > 1) {
+				throw new Error('Multiple info buttons found');
 			}
+
+			const testId = await infoButton.getAttribute('data-testid');
+
+			if (!testId || !/^info-((python|r)-[a-z0-9]+)$/i.test(testId)) {
+				throw new Error('No active session or unexpected session ID format');
+			}
+
+			return testId.replace(/^info-/, '');
 		});
 	}
 
@@ -857,16 +853,10 @@ export class Sessions {
 	 * Verify: all sessions are "ready" (idle or disconnected)
 	 */
 	async expectAllSessionsToBeReady() {
-		await this.expectNoStartUpMessaging();
-		const sessionCount = await this.getSessionCount();
-
-		if (sessionCount === 1) {
-			await this.metadataButton.click();
-			await expect(this.page.getByText(/State: (exited|idle)/)).toBeVisible({ timeout: 60000 });
-			await this.page.keyboard.press('Escape');
-		} else if (await this.getSessionCount() > 1) {
+		await test.step('Expect all sessions to be ready', async () => {
+			await this.expectNoStartUpMessaging();
 			await expect(this.activeStatusIcon).toHaveCount(0);
-		}
+		});
 	}
 
 	/**
