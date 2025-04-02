@@ -189,32 +189,24 @@ test.describe('Reticulate - multi console sessions', {
 	test('Can initialize multiple reticulate sessions', async function ({ app, sessions }) {
 
 		// This should start both an R session and the reticulate session
-		const reticulateSession = await sessions.start('pythonReticulate', { waitForReady: true });
-		await sessions.expectStatusToBe(reticulateSession.id, 'idle', { timeout: 60000 });
-		await sessions.expectSessionCountToBe(2);
+		await sessions.start('pythonReticulate', { waitForReady: true });
+		await sessions.expectSessionCountToBe(2); // because it also starts an R session
 		await sessions.expectAllSessionsToBeReady();
 
 
 		// Now launch a new reticulate session. This should start another R session
 		// and another python session.
-		const reticulateSession2 = await sessions.start('pythonReticulate', { waitForReady: true, reuse: false });
-		await sessions.expectStatusToBe(reticulateSession2.id, 'idle', { timeout: 60000 });
+		await sessions.start('pythonReticulate', { waitForReady: true, reuse: false });
 		await sessions.expectSessionCountToBe(4);
 		await sessions.expectAllSessionsToBeReady();
 
-		const sessionIds = await sessions.getAllSessionIds();
-		for (const id of sessionIds) {
-			await sessions.select(id);
-			let info;
-			try {
-				info = await sessions.getSelectedSessionInfo();
-			} catch (e) {
-				// getSelectSessionInfo works by parsing the name of the session
-				// but reticulate doesn't follow the same convention, we just skip
-				// for reticulate sessions
-			}
+		const sessionInfo = await sessions.getAllSessionIdsAndNames();
+		for (const { id, name } of sessionInfo) {
+			console.log(id, name);
+			if (name.startsWith('R ')) {
 
-			if (info && info.language === 'R') {
+				await sessions.select(id);
+
 				const val = Math.floor(Math.random() * 100);
 				await app.workbench.console.pasteCodeToConsole(`x <- ${val}L`);
 				await app.workbench.console.sendEnterKey();
@@ -232,19 +224,19 @@ test.describe('Reticulate - multi console sessions', {
 			}
 		}
 
+		const reticulateIds = sessionInfo.filter(({ name }) => name.startsWith('Python (reticulate)')).map(({ id }) => id);
+
 		// Now test restarts
-		const restart = sessions.restart(reticulateSession.id, { waitForIdle: false });
+		const restart = sessions.restart(reticulateIds[0], { waitForIdle: true });
 		await app.workbench.popups.acceptModalDialog();
 		await restart;
-		await sessions.expectAllSessionsToBeReady();
-		await sessions.expectStatusToBe(reticulateSession.id, 'idle', { timeout: 60000 });
 
 		// The other reticulate session should still print something from `x`
-		await sessions.select(reticulateSession2.id);
+		// Actually, the id is wrong because the R session starts later after the reticulate session.
+		await sessions.select(reticulateIds[1], true);
 		await app.workbench.console.pasteCodeToConsole('print(type(r.x))');
 		await app.workbench.console.sendEnterKey();
 		await app.workbench.console.waitForConsoleContents('int');
-
 	});
 
 });
