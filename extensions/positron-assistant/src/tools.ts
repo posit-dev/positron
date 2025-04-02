@@ -9,63 +9,12 @@ import * as ai from 'ai';
 
 import { z } from 'zod';
 import { padBase64String } from './utils';
+import { LanguageModelImage } from './languageModelParts.js';
 
 export interface PositronToolAdapter {
 	toolData: vscode.LanguageModelChatTool;
 	provideAiTool(token: unknown, toolOptions: unknown): ai.Tool<any, string>;
 }
-
-export const getPlotToolAdapter: PositronToolAdapter = {
-	toolData: {
-		name: 'getPlot',
-		description: 'Get the current visible plot.',
-	},
-
-	provideAiTool(token: unknown, options: { model: ai.LanguageModelV1; signal: AbortSignal }): ai.Tool {
-		const push = (part: vscode.ChatResponsePart) => positron.ai.responseProgress(token, part);
-
-		return ai.tool({
-			description: this.toolData.description,
-			parameters: z.object({}),
-			execute: async () => {
-				push(new vscode.ChatResponseProgressPart('Getting the current plot...'));
-
-				// Get the current plot image data
-				const uri = await positron.ai.getCurrentPlotUri();
-				const matches = uri?.match(/^data:([^;]+);base64,(.+)$/);
-				if (!matches || !uri) {
-					return 'No plot visible';
-				}
-
-				push(new vscode.ChatResponseProgressPart('Analysing the plot image data...'));
-
-				// Ask the model to describe the image in a new sub-conversation behind the scenes
-				const result = await ai.generateText({
-					model: options.model,
-					system: 'Describe the image provided by the user.',
-					messages: [
-						{
-							role: 'user',
-							content: [
-								{
-									type: 'text' as const,
-									text: 'The image is attached.'
-								}, {
-									type: 'image' as const,
-									mimeType: matches[1],
-									image: padBase64String(matches[2]),
-								}
-							],
-						}
-					],
-					abortSignal: options.signal,
-				});
-
-				return result.text;
-			},
-		});
-	}
-};
 
 /**
  * A tool adapter for document edits. This tool is provided when the user uses
@@ -82,10 +31,10 @@ export const documentEditToolAdapter: PositronToolAdapter = {
 		options: {
 			// The URI of the document to edit; we can't pass the whole `document` in
 			// because the tool options are serialized, so only plain JSON is supported.
-			documentUri: string,
+			documentUri: string;
 
 			// The active selection, if any
-			selection: vscode.Selection
+			selection: vscode.Selection;
 		}): ai.Tool {
 		return ai.tool({
 			description: this.toolData.description,
@@ -159,7 +108,6 @@ export const selectionEditToolAdapter: PositronToolAdapter = {
 };
 
 export const positronToolAdapters: Record<string, PositronToolAdapter> = {
-	[getPlotToolAdapter.toolData.name]: getPlotToolAdapter,
 	[documentEditToolAdapter.toolData.name]: documentEditToolAdapter,
 	[selectionEditToolAdapter.toolData.name]: selectionEditToolAdapter,
 };
@@ -170,7 +118,7 @@ export const positronToolAdapters: Record<string, PositronToolAdapter> = {
  * @param context The extension context for registering disposables
  */
 export function registerAssistantTools(context: vscode.ExtensionContext): void {
-	const executeCodeTool = vscode.lm.registerTool<{ code: string, language: string }>('executeCode', {
+	const executeCodeTool = vscode.lm.registerTool<{ code: string; language: string }>('executeCode', {
 		/**
 		 * Called by Positron to prepare for tool invocation. We use this hook
 		 * to show the user the code that we are about to run, and ask for
@@ -270,4 +218,26 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 	});
 
 	context.subscriptions.push(executeCodeTool);
+
+	const getPlotTool = vscode.lm.registerTool<{}>('getPlot', {
+		async invoke(options, token) {
+			// Get the current plot image data
+			const uri = await positron.ai.getCurrentPlotUri();
+			if (!uri) {
+				return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart('No plot visible')]);
+			}
+
+			// Extract the MIME type and base64 data from the URI.
+			const matches = uri?.match(/^data:([^;]+);base64,(.+)$/);
+			if (!matches) {
+				return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart('Internal Error: Positron returned an unexpected plot URI format')]);
+			}
+
+			const image = new LanguageModelImage(matches[1], padBase64String(matches[2]));
+			const imageJson = image.toJSON();
+			return new vscode.LanguageModelToolResult([new vscode.LanguageModelPromptTsxPart(imageJson)]);
+		},
+	});
+
+	context.subscriptions.push(getPlotTool);
 }
