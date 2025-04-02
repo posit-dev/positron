@@ -55,41 +55,35 @@
 	background: var(--vscode-positronContextMenu-hoverBackground);
 }
 
-.custom-context-menu-item
-.check {
+.custom-context-menu-item .check {
 	text-align: left;
 	grid-column: check / icon;
 }
 
-.custom-context-menu-item
-.icon {
+.custom-context-menu-item .icon {
 	text-align: left;
 	grid-column: icon / title;
 }
 
-.custom-context-menu-item
-.icon.disabled {
+.custom-context-menu-item .icon.disabled {
 	opacity: 50%;
 }
 
-.custom-context-menu-item
-.title {
+.custom-context-menu-item .title {
 	display: block;
 	max-width: 100%;
 	overflow: hidden;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 	grid-column: title / shortcut;
-	margin: 10px 5px 10px 10;
+	margin: 2px 0 2px 0;
 }
 
-.custom-context-menu-item
-.title.disabled {
+.custom-context-menu-item .title.disabled {
 	opacity: 50%;
 }
 
-.custom-context-menu-item
-.shortcut {
+.custom-context-menu-item .shortcut {
 	padding: 10px;
 	white-space: nowrap;
 	grid-column: shortcut / end;

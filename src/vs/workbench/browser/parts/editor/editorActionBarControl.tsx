@@ -26,6 +26,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { EditorActionBarFactory } from './editorActionBarFactory.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 
 /**
  * Constants.
@@ -64,6 +65,7 @@ export class EditorActionBarControl extends Disposable {
 	 * @param _contextMenuService The context menu service.
 	 * @param _hoverService The hover service.
 	 * @param _keybindingService The keybinding service.
+	 * @param _layoutService The layout service.
 	 * @param _menuService The menu service.
 	 * @param _telemetryService The telemetry service.
 	 */
@@ -77,6 +79,7 @@ export class EditorActionBarControl extends Disposable {
 		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
 		@IHoverService private readonly _hoverService: IHoverService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
+		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IMenuService private readonly _menuService: IMenuService,
 		@ITelemetryService _telemetryService: ITelemetryService,
 	) {
@@ -108,6 +111,7 @@ export class EditorActionBarControl extends Disposable {
 				editorActionBarFactory={editorActionBarFactory}
 				hoverService={this._hoverService}
 				keybindingService={this._keybindingService}
+				layoutService={this._layoutService}
 			/>
 		);
 	}

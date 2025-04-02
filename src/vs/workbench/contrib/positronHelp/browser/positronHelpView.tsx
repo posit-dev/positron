@@ -29,6 +29,7 @@ import { ActionBars } from './components/actionBars.js';
 import { IPositronHelpService } from './positronHelpService.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 
 /**
  * PositronHelpView class.
@@ -158,6 +159,7 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 	 * @param hoverService The hover service.
 	 * @param instantiationService The instantiation service.
 	 * @param keybindingService The keybinding service.
+	 * @param layoutService The layout service.
 	 * @param openerService The opener service.
 	 * @param positronHelpService The positron help service.
 	 * @param telemetryService The telemetry service.
@@ -175,6 +177,7 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
+		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IOpenerService openerService: IOpenerService,
 		@IPositronHelpService private readonly positronHelpService: IPositronHelpService,
 		@IThemeService themeService: IThemeService,
@@ -271,6 +274,7 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 				contextMenuService={this.contextMenuService}
 				hoverService={this.hoverService}
 				keybindingService={this.keybindingService}
+				layoutService={this._layoutService}
 				positronHelpService={this.positronHelpService}
 				reactComponentContainer={this}
 				onHome={homeHandler}
