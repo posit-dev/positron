@@ -286,7 +286,7 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 		progress.report({ increment: 10, message: vscode.l10n.t('Waiting for the R session to be ready') });
 		const reticulateId = await (async () => {
 			// We need to wait for the R session to be fully started.
-			// We might need to make some attemps.
+			// We might need to make some attempts.
 			for (let attempt = 1; attempt <= 20; attempt++) {
 				try {
 					return await rSession.callMethod?.('reticulate_id') as string;
