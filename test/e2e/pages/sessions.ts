@@ -319,31 +319,33 @@ export class Sessions {
 	 * @param options - An object with `x` (horizontal offset) and/or `y` (vertical offset).
 	 */
 	async resizeSessionList(options: { x?: number; y?: number }) {
-		const { x, y } = options;
+		await test.step(`Resize session list: ${options}`, async () => {
+			const { x, y } = options;
 
-		// Adjust width if x is provided
-		if (x !== undefined) {
-			const horizontalSash = this.page.locator('.sash');
-			const box = await horizontalSash.boundingBox();
-			if (box) {
-				await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-				await this.page.mouse.down();
-				await this.page.mouse.move(box.x + box.width / 2 + x, box.y + box.height / 2);
-				await this.page.mouse.up();
+			// Adjust width if x is provided
+			if (x !== undefined) {
+				const horizontalSash = this.page.locator('.sash');
+				const box = await horizontalSash.boundingBox();
+				if (box) {
+					await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+					await this.page.mouse.down();
+					await this.page.mouse.move(box.x + box.width / 2 + x, box.y + box.height / 2);
+					await this.page.mouse.up();
+				}
 			}
-		}
 
-		// Adjust height if y is provided
-		if (y !== undefined) {
-			const verticalSash = this.page.locator('.split-view-container > div:nth-child(3) > div > div > div > .monaco-sash');
-			const box = await verticalSash.boundingBox();
-			if (box) {
-				await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-				await this.page.mouse.down();
-				await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + y);
-				await this.page.mouse.up();
+			// Adjust height if y is provided
+			if (y !== undefined) {
+				const verticalSash = this.page.locator('.split-view-container > div:nth-child(3) > div > div > div > .monaco-sash');
+				const box = await verticalSash.boundingBox();
+				if (box) {
+					await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+					await this.page.mouse.down();
+					await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + y);
+					await this.page.mouse.up();
+				}
 			}
-		}
+		});
 	}
 
 	/**
@@ -566,26 +568,28 @@ export class Sessions {
 	 * @returns the session ID or undefined if no session is selected
 	 */
 	async getCurrentSessionId(): Promise<string> {
-		const sessionCount = await this.getSessionCount();
+		return await test.step('Get current session ID', async () => {
+			const sessionCount = await this.getSessionCount();
 
-		if (sessionCount === 0) {
-			throw new Error('No active session');
-		} else if (sessionCount === 1) {
-			const { id } = await this.getMetadata();
-			return id;
-		} else {
-			const locator = this.page.getByTestId(/info-(python|r)-[a-z0-9]+/i);
-			if (!(await locator.isVisible())) {
-				throw new Error('Locator for session ID not found');
+			if (sessionCount === 0) {
+				throw new Error('No active session');
+			} else if (sessionCount === 1) {
+				const { id } = await this.getMetadata();
+				return id;
+			} else {
+				const locator = this.page.getByTestId(/info-(python|r)-[a-z0-9]+/i);
+				if (!(await locator.isVisible())) {
+					throw new Error('Locator for session ID not found');
+				}
+				const testId = await locator.getAttribute('data-testid');
+
+				if (!testId || !/^info-((python|r)-[a-z0-9]+)$/i.test(testId)) {
+					throw new Error('No active session or unexpected session ID format');
+				}
+
+				return testId.replace(/^info-/, '');
 			}
-			const testId = await locator.getAttribute('data-testid');
-
-			if (!testId || !/^info-((python|r)-[a-z0-9]+)$/i.test(testId)) {
-				throw new Error('No active session or unexpected session ID format');
-			}
-
-			return testId.replace(/^info-/, '');
-		}
+		});
 	}
 
 	/**
@@ -618,12 +622,8 @@ export class Sessions {
 	 * Helper: Extract metadata from the metadata dialog
 	 */
 	private async extractMetadataFromDialog(): Promise<SessionMetaData> {
-		// when not waiting for session to be ready, sometimes the console
-		// steals focus and closes the dialog before we can extract data
-		await expect(async () => {
-			await this.metadataButton.click();
-			await expect(this.metadataDialog).toBeVisible();
-		}).toPass({ timeout: 3000 });
+		await this.metadataButton.click();
+		await expect(this.metadataDialog).toBeVisible();
 
 		const [name, id, state, path, source] = await Promise.all([
 			this.metadataDialog.getByTestId('session-name').textContent(),
