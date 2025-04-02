@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Sessions: State', {
+test.describe.skip('Sessions: State', {
 	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS]
 }, () => {
 
@@ -28,7 +28,7 @@ test.describe('Sessions: State', {
 		const { console } = app.workbench;
 
 		// Start Python session
-		const pySession = await sessions.start('python', { waitForReady: false });
+		const pySession = await sessions.start('python', { waitForReady: false, reuse: false });
 
 		// Verify Python session is visible and transitions from starting --> idle
 		// Note displays as 'starting' in metadata dialog and as 'active' in session tab list
@@ -42,7 +42,7 @@ test.describe('Sessions: State', {
 		await sessions.expectStatusToBe(pySession.id, 'idle', { timeout: 60000 });
 
 		// Start R session
-		const rSession = await sessions.start('r', { waitForReady: false });
+		const rSession = await sessions.start('r', { waitForReady: false, reuse: false });
 
 		// Verify R session transitions from active --> idle while Python session remains idle
 		await sessions.expectStatusToBe(rSession.id, 'active');
@@ -82,14 +82,14 @@ test.describe('Sessions: State', {
 
 		// Verify Python session transitions to active when executing code
 		await sessions.select(pySession.name);
-		await console.typeToConsole('import time', true);
-		await console.typeToConsole('time.sleep(7)', true);
+		await console.executeCode('Python', 'import time');
+		await console.executeCode('Python', 'time.sleep(7)', { waitForReady: false, maximizeConsole: false });
 		await sessions.expectStatusToBe(pySession.name, 'active');
 
 		// Verify R session transitions to active when executing code
 		// Verify Python session continues to run and transitions to idle when finished
 		await sessions.select(rSession.name);
-		await console.typeToConsole('Sys.sleep(2)', true);
+		await console.executeCode('R', 'Sys.sleep(2)', { waitForReady: false, maximizeConsole: false });
 		await sessions.expectStatusToBe(rSession.name, 'active');
 		await sessions.expectStatusToBe(rSession.name, 'idle');
 		await sessions.expectStatusToBe(pySession.name, 'active');

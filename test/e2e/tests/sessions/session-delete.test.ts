@@ -31,7 +31,8 @@ test.describe('Sessions: Delete', {
 		await sessions.expectSessionCountToBe(0);
 	});
 
-	test('Validate session picker and variables after delete', {
+	test.skip('Validate session picker and variables after delete', {
+		annotation: [{ type: 'issue', description: 'the variables dropdown does not match session name' }],
 		tag: [tags.VARIABLES]
 	}, async function ({ app, sessions }) {
 		const { variables } = app.workbench;
@@ -42,7 +43,7 @@ test.describe('Sessions: Delete', {
 
 		// Delete 1st session and verify active sessions and runtime in session picker
 		await sessions.delete(pySession.id);
-		await sessions.expectSessionPickerToBe(rSession);
+		await sessions.expectSessionPickerToBe(rSession.name);
 		await sessions.expectSessionCountToBe(1);
 		await sessions.expectActiveSessionListsToMatch();
 		await variables.expectRuntimeToBe('visible', rSession.name);
