@@ -590,26 +590,43 @@ export class Sessions {
 		return await test.step(`Get metadata for: ${sessionId ?? 'current session'}`, async () => {
 			await this.hotKeys.focusConsole();
 
-			if (sessionId && await this.getSessionCount() > 1) {
+			const isSingleSession = (await this.getSessionCount()) === 1;
+
+			if (!isSingleSession && sessionId) {
 				await this.page.getByTestId(`console-tab-${sessionId}`).click();
 			}
+
 			await this.metadataButton.click();
 
-			// get metadata
-			const name = (await this.metadataDialog.getByTestId('session-name').textContent() || '').trim();
-			const id = (await this.metadataDialog.getByTestId('session-id').textContent() || '').replace('Session ID: ', '');
-			const state = (await this.metadataDialog.getByTestId('session-state').textContent() || '').replace('State: ', '') as SessionState;
-			const path = (await this.metadataDialog.getByTestId('session-path').textContent() || '').replace('Path: ', '');
-			const source = (await this.metadataDialog.getByTestId('session-source').textContent() || '').replace('Source: ', '');
+			const metadata = await this.extractMetadataFromDialog();
 
-			// temporary: close metadata dialog
-			await this.metadataButton.click({ force: true });
+			// Close the metadata dialog and prevent hover tooltips
+			await this.page.keyboard.press('Escape');
+			await this.page.mouse.move(0, 0);
 
-			// Move mouse to prevent tooltip hover
-			await this.code.driver.page.mouse.move(0, 0);
-
-			return { name, id, state, path, source };
+			return metadata;
 		});
+	}
+
+	/**
+	 * Helper: Extract metadata from the metadata dialog
+	 */
+	private async extractMetadataFromDialog(): Promise<SessionMetaData> {
+		const [name, id, state, path, source] = await Promise.all([
+			this.metadataDialog.getByTestId('session-name').textContent(),
+			this.metadataDialog.getByTestId('session-id').textContent(),
+			this.metadataDialog.getByTestId('session-state').textContent(),
+			this.metadataDialog.getByTestId('session-path').textContent(),
+			this.metadataDialog.getByTestId('session-source').textContent(),
+		]);
+
+		return {
+			name: (name ?? '').trim(),
+			id: (id ?? '').replace('Session ID: ', ''),
+			state: (state ?? '').replace('State: ', '') as SessionState,
+			path: (path ?? '').replace('Path: ', ''),
+			source: (source ?? '').replace('Source: ', ''),
+		};
 	}
 
 	/**
