@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe.skip('Sessions: State', {
+test.describe('Sessions: State', {
 	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS]
 }, () => {
 
@@ -28,50 +28,52 @@ test.describe.skip('Sessions: State', {
 		const { console } = app.workbench;
 
 		// Start Python session
-		const pySession = await sessions.start('python', { waitForReady: false, reuse: false });
+		// Launching directly to avoid missing state transitions caused by metadata dialog interaction
+		const pySessionId = await sessions.launchNew({ language: 'Python', waitForReady: false });
 
 		// Verify Python session is visible and transitions from starting --> idle
 		// Note displays as 'starting' in metadata dialog and as 'active' in session tab list
-		await sessions.expectStatusToBe(pySession.id, 'starting');
-		await sessions.expectStatusToBe(pySession.id, 'idle');
+		await sessions.expectStatusToBe(pySessionId, 'starting');
+		await sessions.expectStatusToBe(pySessionId, 'idle');
 
 		// Restart Python session and confirm state returns to starting --> idle
 		// Note displays as 'starting' in metadata dialog and as 'active' in session tab list
 		await sessions.restartButton.click();
-		await sessions.expectStatusToBe(pySession.id, 'starting');
-		await sessions.expectStatusToBe(pySession.id, 'idle', { timeout: 60000 });
+		await sessions.expectStatusToBe(pySessionId, 'starting');
+		await sessions.expectStatusToBe(pySessionId, 'idle', { timeout: 60000 });
 
 		// Start R session
-		const rSession = await sessions.start('r', { waitForReady: false, reuse: false });
+		// Launching directly to avoid missing state transitions caused by metadata dialog interaction
+		const rSessionId = await sessions.launchNew({ language: 'R', waitForReady: false });
 
 		// Verify R session transitions from active --> idle while Python session remains idle
-		await sessions.expectStatusToBe(rSession.id, 'active');
-		await sessions.expectStatusToBe(rSession.id, 'idle');
-		await sessions.expectStatusToBe(pySession.id, 'idle');
+		await sessions.expectStatusToBe(rSessionId, 'active');
+		await sessions.expectStatusToBe(rSessionId, 'idle');
+		await sessions.expectStatusToBe(pySessionId, 'idle');
 
 		// Restart Python session, verify Python transitions to active --> idle and R remains idle
-		await sessions.restart(pySession.id, { waitForIdle: false });
-		await sessions.expectStatusToBe(pySession.id, 'active');
-		await sessions.expectStatusToBe(pySession.id, 'idle', { timeout: 60000 });
-		await sessions.expectStatusToBe(rSession.id, 'idle');
+		await sessions.restart(pySessionId, { waitForIdle: false });
+		await sessions.expectStatusToBe(pySessionId, 'active');
+		await sessions.expectStatusToBe(pySessionId, 'idle', { timeout: 60000 });
+		await sessions.expectStatusToBe(rSessionId, 'idle');
 
 		// Shutdown Python session, verify Python transitions to disconnected while R remains idle
-		await sessions.select(pySession.id);
+		await sessions.select(pySessionId);
 		await console.typeToConsole('exit()', true);
-		await sessions.expectStatusToBe(pySession.id, 'disconnected');
-		await sessions.expectStatusToBe(rSession.id, 'idle');
+		await sessions.expectStatusToBe(pySessionId, 'disconnected');
+		await sessions.expectStatusToBe(rSessionId, 'idle');
 
 		// Restart R session, verify R to returns to active --> idle and Python remains disconnected
-		await sessions.restart(rSession.id, { waitForIdle: false });
-		await sessions.expectStatusToBe(rSession.id, 'active');
-		await sessions.expectStatusToBe(rSession.id, 'idle', { timeout: 60000 });
-		await sessions.expectStatusToBe(pySession.id, 'disconnected');
+		await sessions.restart(rSessionId, { waitForIdle: false });
+		await sessions.expectStatusToBe(rSessionId, 'active');
+		await sessions.expectStatusToBe(rSessionId, 'idle', { timeout: 60000 });
+		await sessions.expectStatusToBe(pySessionId, 'disconnected');
 
 		// Shutdown R, verify both Python and R in disconnected state
-		await sessions.select(rSession.id);
+		await sessions.select(rSessionId);
 		await console.typeToConsole('q()', true);
-		await sessions.expectStatusToBe(rSession.id, 'disconnected');
-		await sessions.expectStatusToBe(pySession.id, 'disconnected');
+		await sessions.expectStatusToBe(rSessionId, 'disconnected');
+		await sessions.expectStatusToBe(pySessionId, 'disconnected');
 	});
 
 	test('Validate state displays as active when executing code', async function ({ app, sessions }) {

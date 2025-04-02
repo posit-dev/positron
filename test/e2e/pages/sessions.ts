@@ -27,7 +27,7 @@ export class Sessions {
 	sessionTabs = this.page.getByTestId(/console-tab/);
 	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
-	getSessionCount = async () => (await this.sessions.all()).length;
+
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
@@ -109,14 +109,11 @@ export class Sessions {
 				} else {
 					// session found, retrieve metadata
 					const foundSession = consoleTabActiveSessions[index];
-					consoleTabActiveSessions.splice(index, 1);
+					const sessionMetaData = await this.getMetadata(foundSession.id);
+					results.push(sessionMetaData);
 
-					if (foundSession.id) {
-						const sessionMetaData = await this.getMetadata(foundSession.id);
-						results.push(sessionMetaData);
-					} else {
-						throw new Error(`Should not have gotten here. Idle session not found: ${sessionName}`);
-					}
+					// remove the found session from the list to avoid duplicates
+					consoleTabActiveSessions.splice(index, 1);
 				}
 
 				// map session names that were not found to their corresponding runtime keys
@@ -369,6 +366,17 @@ export class Sessions {
 	// -- Helpers --
 
 	/**
+	 * Helper: Get the number of sessions in the console
+	 */
+	async getSessionCount(): Promise<number> {
+		return await test.step('Get console session count', async () => {
+			await this.hotKeys.focusConsole();
+			const count = (await this.sessions.all()).length;
+			return count;
+		});
+	}
+
+	/**
 	 * Helper: Get the locator for the session tab based on the session ID or name
 	 *
 	 * @param sessionIdOrName - id or name of the session
@@ -391,7 +399,7 @@ export class Sessions {
 	 * @param options.triggerMode - the method used to trigger the selection: session-picker, quickaccess, hotkey, or console.
 	 * @param options.waitForReady - whether to wait for the console to be ready after selecting the runtime.
 	 */
-	private async launchNew(options: {
+	async launchNew(options: {
 		language: 'Python' | 'R';
 		version?: string;
 		triggerMode?: 'session-picker' | 'quickaccess' | 'console' | 'hotkey';
@@ -906,29 +914,33 @@ export class SessionQuickPick {
 	 * Action: Open the session quickpick menu via the "Start Session" button in top action bar.
 	 */
 	async openSessionQuickPickMenu(viewAllRuntimes = true) {
-		// something about the 1.97.0 upstream merge impacted the session picker
-		// unfortunately we need to retry the session picker until it works
-		await expect(async () => {
-			if (!await this.sessionQuickMenu.isVisible()) {
-				await this.sessions.sessionPicker.click();
-			}
+		await test.step('Open session quickpick menu', async () => {
+			// something about the 1.97.0 upstream merge impacted the session picker
+			// unfortunately we need to retry the session picker until it works
+			await expect(async () => {
+				if (!await this.sessionQuickMenu.isVisible()) {
+					await this.sessions.sessionPicker.click();
+				}
 
-			if (viewAllRuntimes) {
-				await this.code.driver.page.getByRole('textbox', { name: 'input' }).fill('New Session');
-				await this.code.driver.page.keyboard.press('Enter');
-				await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible({ timeout: 1000 });
-			}
-		}).toPass({ intervals: [500], timeout: 10000 });
+				if (viewAllRuntimes) {
+					await this.code.driver.page.getByRole('textbox', { name: 'input' }).fill('New Session');
+					await this.code.driver.page.keyboard.press('Enter');
+					await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible({ timeout: 1000 });
+				}
+			}).toPass({ intervals: [500], timeout: 10000 });
+		});
 	}
 
 	/**
 	 * Action: Close the session quickpick menu if it is open.
 	 */
 	async closeSessionQuickPickMenu() {
-		if (await this.sessionQuickMenu.isVisible()) {
-			await this.code.driver.page.keyboard.press('Escape');
-			await expect(this.sessionQuickMenu).not.toBeVisible();
-		}
+		await test.step('Close session quickpick menu', async () => {
+			if (await this.sessionQuickMenu.isVisible()) {
+				await this.code.driver.page.keyboard.press('Escape');
+				await expect(this.sessionQuickMenu).not.toBeVisible();
+			}
+		});
 	}
 
 	// --- Helpers ---
@@ -938,30 +950,32 @@ export class SessionQuickPick {
 	 * @returns The list of active sessions.
 	 */
 	async getActiveSessions(): Promise<QuickPickSessionInfo[]> {
-		await this.openSessionQuickPickMenu(false);
+		return await test.step('Get active sessions from session picker', async () => {
+			await this.openSessionQuickPickMenu(false);
 
-		// Check if the "All Sessions" menu is visible: ths indicates that
-		// there are no active sessions and we were taken to the "All Sessions" menu
-		const isAllSessionsMenuVisible = await this.allSessionsMenu.isVisible();
-		const allSessions = isAllSessionsMenuVisible
-			? []
-			: await this.code.driver.page.locator('.quick-input-list-rows').all();
+			// Check if the "All Sessions" menu is visible: ths indicates that
+			// there are no active sessions and we were taken to the "All Sessions" menu
+			const isAllSessionsMenuVisible = await this.allSessionsMenu.isVisible();
+			const allSessions = isAllSessionsMenuVisible
+				? []
+				: await this.code.driver.page.locator('.quick-input-list-rows').all();
 
-		// Get the text of all sessions
-		const activeSessions = await Promise.all(
-			allSessions.map(async element => {
-				const runtime = (await element.locator('.quick-input-list-row').nth(0).textContent())?.replace('Currently Selected', '');
-				const path = await element.locator('.quick-input-list-row').nth(1).textContent();
-				return { name: runtime?.trim() || '', path: path?.trim() || '' };
-			})
-		);
+			// Get the text of all sessions
+			const activeSessions = await Promise.all(
+				allSessions.map(async element => {
+					const runtime = (await element.locator('.quick-input-list-row').nth(0).textContent())?.replace('Currently Selected', '');
+					const path = await element.locator('.quick-input-list-row').nth(1).textContent();
+					return { name: runtime?.trim() || '', path: path?.trim() || '' };
+				})
+			);
 
-		// Filter out the one with "New Session..."
-		const filteredSessions = activeSessions
-			.filter(session => !session.name.includes('New Session...'));
+			// Filter out the one with "New Session..."
+			const filteredSessions = activeSessions
+				.filter(session => !session.name.includes('New Session...'));
 
-		await this.closeSessionQuickPickMenu();
-		return filteredSessions;
+			await this.closeSessionQuickPickMenu();
+			return filteredSessions;
+		});
 	}
 
 	// -- Utils --
