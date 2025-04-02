@@ -202,7 +202,6 @@ test.describe('Reticulate - multi console sessions', {
 
 		const sessionInfo = await sessions.getAllSessionIdsAndNames();
 		for (const { id, name } of sessionInfo) {
-			console.log(id, name);
 			if (name.startsWith('R ')) {
 
 				await sessions.select(id);
@@ -236,7 +235,7 @@ test.describe('Reticulate - multi console sessions', {
 		await sessions.select(reticulateIds[1], true);
 		await app.workbench.console.pasteCodeToConsole('print(type(r.x))');
 		await app.workbench.console.sendEnterKey();
-		await app.workbench.console.waitForConsoleContents('int');
+		await app.workbench.console.waitForConsoleContents(`<class 'int'>`, { exact: true });
 	});
 
 });
