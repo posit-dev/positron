@@ -70,6 +70,10 @@ export namespace Common {
     export const alwaysIgnore = l10n.t('Always Ignore');
     export const ignore = l10n.t('Ignore');
     export const selectPythonInterpreter = l10n.t('Select Python Interpreter');
+    // --- Start Positron ---
+    // Add a new button text
+    export const selectNewSession = l10n.t('Select a new session');
+    // --- End Positron ---
     export const openLaunch = l10n.t('Open launch.json');
     export const useCommandPrompt = l10n.t('Use Command Prompt');
     export const download = l10n.t('Download');
@@ -252,6 +256,10 @@ export namespace InterpreterQuickPickList {
     export const create = {
         label: l10n.t('Create Virtual Environment...'),
     };
+    // --- Start Positron ---
+    // Add a new tooltip text
+    export const unsupportedVersionTooltip = l10n.t('This version of Python is not supported');
+    // --- End Positron ---
 }
 
 export namespace OutputChannelNames {

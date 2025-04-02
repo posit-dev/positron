@@ -26,6 +26,7 @@ import { arePathsSame } from '../../common/platform/fs-paths';
 // --- Start Positron ---
 import { getPyenvDir } from '../../pythonEnvironments/common/environmentManagers/pyenv';
 import { readFileSync, pathExistsSync, checkParentDirs } from '../../pythonEnvironments/common/externalDependencies';
+import { MAXIMUM_PYTHON_VERSION_EXCLUSIVE, MINIMUM_PYTHON_VERSION } from '../../common/constants';
 // --- End Positron ---
 
 export enum EnvLocationHeuristic {
@@ -67,6 +68,15 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
         if (isProblematicCondaEnvironment(b)) {
             return -1;
         }
+        // --- Start Positron ---
+        // Unsupported versions are always less useful
+        if (!isVersionSupported(a.version)) {
+            return 1;
+        }
+        if (!isVersionSupported(b.version)) {
+            return -1;
+        }
+        // --- End Positron ---
         // Check environment location.
         const envLocationComparison = compareEnvironmentLocation(a, b, this.workspaceFolderPath);
         if (envLocationComparison !== 0) {
@@ -141,6 +151,12 @@ export class EnvironmentTypeComparer implements IInterpreterComparer {
             if (isProblematicCondaEnvironment(i)) {
                 return false;
             }
+            // --- Start Positron ---
+            // Never recommend interpreters with unsupported versions.
+            if (!isVersionSupported(i.version)) {
+                return false;
+            }
+            // --- End Positron ---
             if (
                 i.envType === EnvironmentType.ActiveState &&
                 (!i.path ||
@@ -371,5 +387,17 @@ export function getPyenvVersion(workspacePath: string | undefined): string | und
         return readFileSync(globalPyenvVersion).trim();
     }
     return undefined;
+}
+
+/**
+ * Check if a version is supported (i.e. >= the minimum supported version and < the maximum).
+ * Also returns true if the version could not be determined.
+ */
+export function isVersionSupported(version: PythonVersion | undefined): boolean {
+    return (
+        !version ||
+        (comparePythonVersionDescending(MINIMUM_PYTHON_VERSION, version) >= 0 &&
+            comparePythonVersionDescending(MAXIMUM_PYTHON_VERSION_EXCLUSIVE, version) < 0)
+    );
 }
 // --- End Positron ---
