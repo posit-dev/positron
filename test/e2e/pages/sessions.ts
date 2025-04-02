@@ -596,8 +596,6 @@ export class Sessions {
 				await this.page.getByTestId(`console-tab-${sessionId}`).click();
 			}
 
-			await this.metadataButton.click();
-
 			const metadata = await this.extractMetadataFromDialog();
 
 			// Close the metadata dialog and prevent hover tooltips
@@ -612,6 +610,13 @@ export class Sessions {
 	 * Helper: Extract metadata from the metadata dialog
 	 */
 	private async extractMetadataFromDialog(): Promise<SessionMetaData> {
+		// when not waiting for session to be ready, sometimes the console
+		// steals focus and closes the dialog before we can extract data
+		await expect(async () => {
+			await this.metadataButton.click();
+			await expect(this.metadataDialog).toBeVisible();
+		}).toPass({ timeout: 3000 });
+
 		const [name, id, state, path, source] = await Promise.all([
 			this.metadataDialog.getByTestId('session-name').textContent(),
 			this.metadataDialog.getByTestId('session-id').textContent(),
@@ -802,7 +807,7 @@ export class Sessions {
 						await expect(this.sessionTabs).toHaveCount(count);
 					}
 				}
-			}).toPass({ timeout: 45000 });
+			}).toPass({ timeout: 5000 });
 		});
 	}
 
@@ -913,7 +918,7 @@ export class SessionQuickPick {
 				await this.code.driver.page.keyboard.press('Enter');
 				await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible({ timeout: 1000 });
 			}
-		}).toPass();
+		}).toPass({ intervals: [500], timeout: 10000 });
 	}
 
 	/**
