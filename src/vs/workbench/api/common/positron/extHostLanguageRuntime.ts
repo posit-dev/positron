@@ -571,7 +571,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 		const session = this._runtimeSessions[handle];
 		try {
-			session.interrupt();
+			return session.interrupt();
 		} finally {
 			// Whether or not the interrupt was successful, ensure that
 			// execution observers associated with this session are settled, so
