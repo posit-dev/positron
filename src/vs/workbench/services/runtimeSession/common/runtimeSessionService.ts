@@ -465,7 +465,7 @@ export interface IRuntimeSessionService {
 
 	/**
 	 * Focus the runtime session by making it the foreground session if it's
-	 * console session.
+	 * a console session.
 	 *
 	 * @param sessionId The identifier of the session to focus.
 	 */
