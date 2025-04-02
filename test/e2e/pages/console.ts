@@ -84,9 +84,10 @@ export class Console {
 		return;
 	}
 
-	async executeCode(languageName: 'Python' | 'R', code: string, options?: { timeout?: number; maximizeConsole?: boolean }): Promise<void> {
+	async executeCode(languageName: 'Python' | 'R', code: string, options?: { timeout?: number; waitForReady?: boolean; maximizeConsole?: boolean }): Promise<void> {
 		return test.step(`Execute ${languageName} code in console: ${code}`, async () => {
 			const timeout = options?.timeout ?? 30000;
+			const waitForReady = options?.waitForReady ?? true;
 			const maximizeConsole = options?.maximizeConsole ?? true;
 
 			await expect(async () => {
@@ -109,8 +110,9 @@ export class Console {
 			await this.code.driver.page.keyboard.press('Enter');
 			await this.quickinput.waitForQuickInputClosed();
 
-			// The console will show the prompt after the code is done executing.
-			await this.waitForReady(languageName === 'Python' ? '>>>' : '>', timeout);
+			if (waitForReady) {
+				await this.waitForReady(languageName === 'Python' ? '>>>' : '>', timeout);
+			}
 			if (maximizeConsole) {
 				await this.maximizeConsole();
 			}
@@ -133,7 +135,8 @@ export class Console {
 			await this.code.driver.page.keyboard.type(text, { delay });
 
 			if (pressEnter) {
-				await this.code.driver.page.keyboard.press('Enter', { delay: 1000 });
+				await this.code.driver.page.waitForTimeout(1000);
+				await this.code.driver.page.keyboard.press('Enter');
 			}
 		});
 	}
