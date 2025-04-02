@@ -28,7 +28,7 @@ export const VariablesInstanceMenuButton = () => {
 	// Helper method to calculate the label for a runtime.
 	const labelForRuntime = (session?: ILanguageRuntimeSession): string => {
 		if (session) {
-			return session.getLabel();
+			return session.metadata.sessionName;
 		}
 		return 'None';
 	};
