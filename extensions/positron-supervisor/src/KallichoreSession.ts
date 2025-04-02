@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession } from './positron-supervisor';
-import { ActiveSession, ConnectionInfo, DefaultApi, HttpError, InterruptMode, NewSession, RestartSession, Status } from './kcclient/api';
+import { ActiveSession, ConnectionInfo, DefaultApi, HttpError, InterruptMode, NewSession, RestartSession, Status, VarAction, VarActionType } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoReply, KernelInfoRequest } from './jupyter/KernelInfoRequest';
@@ -179,6 +179,82 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
+	 * Builds the set of environment variable actions to be applied to the
+	 * kernel when starting or restarting.
+	 *
+	 * @returns An array of environment variable actions
+	 */
+	async buildEnvVarActions(): Promise<VarAction[]> {
+		const varActions: Array<VarAction> = [];
+
+		// Start with the environment variables from any extension's contributions.
+		const contributedVars = await positron.environment.getEnvironmentContributions();
+		for (const [extensionId, actions] of Object.entries(contributedVars)) {
+
+			if (extensionId === 'ms-python.python') {
+				// The variables contributed by the Python extension are
+				// intended for the "current" version of Python, which isn't
+				// necessarily the version we are starting/restarting here.
+				// Ignore these for now, but consider: there should be a scoping
+				// mechanism of some kind that would allow us to work with these
+				// kinds of values.
+				continue;
+			}
+
+			for (const action of actions) {
+				// Convert VS Code's environment variable action type to our
+				// internal Kallichore API type
+				let actionType: VarActionType;
+				switch (action.action) {
+					case vscode.EnvironmentVariableMutatorType.Replace:
+						actionType = VarActionType.Replace;
+						break;
+					case vscode.EnvironmentVariableMutatorType.Append:
+						actionType = VarActionType.Append;
+						break;
+					case vscode.EnvironmentVariableMutatorType.Prepend:
+						actionType = VarActionType.Prepend;
+						break;
+					default:
+						this.log(`Unknown environment variable action type ${action.action} ` +
+							`for extension ${extensionId}, ${action.name} => ${action.value}; ignoring`,
+							vscode.LogLevel.Error);
+						continue;
+				}
+
+				// Construct the variable action and add it to the list
+				const varAction: VarAction = {
+					action: actionType,
+					name: action.name,
+					value: action.value
+				};
+				varActions.push(varAction);
+			}
+		}
+
+		// Amend with any environment variables from the kernel spec; each becomes
+		// a "replace" variable action since it overrides the default value if
+		// set.
+		//
+		// This is done after the contributed variables so that the kernel spec
+		// variables take precedence.
+		if (this._kernelSpec?.env) {
+			for (const [key, value] of Object.entries(this._kernelSpec.env)) {
+				if (typeof value === 'string') {
+					const action: VarAction = {
+						action: VarActionType.Replace,
+						name: key,
+						value
+					};
+					varActions.push(action);
+				}
+			}
+		}
+
+		return varActions;
+	}
+
+	/**
 	 * Create the session in on the Kallichore server.
 	 *
 	 * @param kernelSpec The Jupyter kernel spec to use for the session
@@ -190,12 +266,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Save the kernel spec for later use
 		this._kernelSpec = kernelSpec;
-
-		// Forward the environment variables from the kernel spec
-		const env = {};
-		if (kernelSpec.env) {
-			Object.assign(env, kernelSpec.env);
-		}
+		const varActions = await this.buildEnvVarActions();
 
 		// Prepare the working directory; use the workspace root if available,
 		// otherwise the home directory
@@ -278,7 +349,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			displayName: this.metadata.sessionName,
 			inputPrompt: '',
 			continuationPrompt: '',
-			env,
+			env: varActions,
 			workingDirectory: workingDir,
 			username: os.userInfo().username,
 			interruptMode,
@@ -1136,16 +1207,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Perform the restart
 		this._restarting = true;
 		try {
-			// Perform the restart on the server, supplying the working
-			// directory if known
-			if (workingDirectory) {
-				const restart: RestartSession = {
-					workingDirectory
-				};
-				await this._api.restartSession(this.metadata.sessionId, restart);
-			} else {
-				await this._api.restartSession(this.metadata.sessionId);
-			}
+			// Create the restart request
+			const restart: RestartSession = {
+				// Supply working directory if provided
+				workingDirectory,
+
+				// Build the set of environment variables to pass to the kernel.
+				// This is done on every restart so that changes to extension
+				// environment contributions can be respected.
+				env: await this.buildEnvVarActions(),
+			};
+			await this._api.restartSession(this.metadata.sessionId, restart);
 
 			// Mark ready after a successful restart
 			this.markReady('restart complete');
