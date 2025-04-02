@@ -114,7 +114,7 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 			let session: ReticulateRuntimeSession | undefined;
 			try {
 				session = await this.createSession_(runtimeMetadata, sessionMetadata, progress);
-				sessionPromise.resolve(session as positron.LanguageRuntimeSession);
+				sessionPromise.resolve(session);
 			} catch (err) {
 				sessionPromise.reject(err);
 			}
@@ -171,7 +171,6 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 				}
 				throw new InitializationError('Failed to get the reticulate ID');
 			})();
-
 			const session = await ReticulateRuntimeSession.create(runtimeMetadata, sessionMetadata, rSession, progress);
 			// Attach the reticulate session to the R session if the reticulate session was successfully created.
 			this.setSessions(rSession.metadata.sessionId, reticulateId, session);
