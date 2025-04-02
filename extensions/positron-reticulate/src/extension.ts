@@ -11,6 +11,12 @@ import { JupyterKernelSpec, JupyterSession, JupyterKernel } from './positron-sup
 import { Barrier, PromiseHandles, withTimeout } from './async';
 import uuid = require('uuid');
 
+interface ReticulateSessionInfo {
+	reticulateSessionId: string;
+	hostRSessionId: string;
+	reticulateId: string;
+}
+
 export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager {
 
 	_sessions: Map<string, positron.LanguageRuntimeSession> = new Map();
@@ -183,7 +189,7 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 	}
 
 	setSessions(hostRSessionId: string, reticulateId: string, session: positron.LanguageRuntimeSession) {
-		let sessionsMap: { reticulateSessionId: string; hostRSessionId: string; reticulateId: string }[] =
+		let sessionsMap: ReticulateSessionInfo[] =
 			CONTEXT.workspaceState.get('reticulate-sessions-map', []);
 
 		session.onDidEndSession(() => {
@@ -208,9 +214,9 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 		CONTEXT.workspaceState.update('reticulate-sessions-map', sessionsMap);
 	}
 
-	getSessions(): Array<{ reticulateSessionId: string; hostRSessionId: string; reticulateId: string }> {
+	getSessions(): Array<ReticulateSessionInfo> {
 		const sessionsMap = CONTEXT.workspaceState.get('reticulate-sessions-map', []);
-		return sessionsMap as Array<{ reticulateSessionId: string; hostRSessionId: string; reticulateId: string }>;
+		return sessionsMap as Array<ReticulateSessionInfo>;
 	}
 
 	async restoreSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata): Promise<positron.LanguageRuntimeSession> {
