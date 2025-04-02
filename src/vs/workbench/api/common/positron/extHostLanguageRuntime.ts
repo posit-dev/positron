@@ -226,6 +226,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	// The event that fires when the foreground session changes.
 	public onDidChangeForegroundSession = this._onDidChangeForegroundSessionEmitter.event;
 
+	// The event emitter for the onDidExecuteCode event.
+	private readonly _onDidExecuteCodeEmitter = new Emitter<positron.CodeExecutionEvent>();
+
+	// The event that fires when code is executed.
+	public onDidExecuteCode = this._onDidExecuteCodeEmitter.event;
+
 	// Map to track execution observers by execution ID
 	private _executionObservers = new Map<string, ExecutionObserver>();
 

@@ -1354,13 +1354,23 @@ export class MainThreadLanguageRuntime
 		}
 	}
 
-	$executeCode(languageId: string, code: string, extensionId: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): Promise<string> {
+	$executeCode(languageId: string,
+		code: string,
+		extensionId: string,
+		focus: boolean,
+		allowIncomplete?: boolean,
+		mode?: RuntimeCodeExecutionMode,
+		errorBehavior?: RuntimeErrorBehavior,
+		executionId?: string): Promise<string> {
+
+		// Attribute this code to the extension that requested it.
 		const attribution: IConsoleCodeAttribution = {
 			source: CodeAttributionSource.Extension,
 			metadata: {
 				extensionId: extensionId,
 			}
 		}
+
 		return this._positronConsoleService.executeCode(languageId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId);
 	}
 

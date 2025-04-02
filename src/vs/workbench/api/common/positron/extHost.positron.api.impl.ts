@@ -148,6 +148,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			get onDidChangeForegroundSession() {
 				return extHostLanguageRuntime.onDidChangeForegroundSession;
+			},
+			get onDidExecuteCode() {
+				return extHostLanguageRuntime.onDidExecuteCode;
 			}
 		};
 
@@ -273,6 +276,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			environment,
 			connections,
 			ai,
+			CodeAttributionSource: extHostTypes.CodeAttributionSource,
 			PositronLanguageModelType: extHostTypes.PositronLanguageModelType,
 			PositronChatAgentLocation: extHostTypes.PositronChatAgentLocation,
 			PositronOutputLocation: extHostTypes.PositronOutputLocation,

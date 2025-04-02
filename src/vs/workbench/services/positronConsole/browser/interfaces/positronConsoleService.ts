@@ -37,6 +37,9 @@ export const enum PositronConsoleState {
 
 /**
  * Code attribution sources for code executed in the Console.
+ *
+ * These are duplicated in the Positron API (`positron.d.ts`) and should be kept
+ * in sync.
  */
 export const enum CodeAttributionSource {
 	Assistant = 'assistant',

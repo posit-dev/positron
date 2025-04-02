@@ -665,6 +665,46 @@ declare module 'positron' {
 		size: number;
 	}
 
+	/**
+	 * Code attribution sources for code executed by Positron.
+	 */
+	export enum CodeAttributionSource {
+		/** The code was executed by an AI assistant. */
+		Assistant = 'assistant',
+
+		/** The code was executed by a Positron extension. */
+		Extension = 'extension',
+
+		/** The code was executed interactively (the user typed it in). */
+		Interactive = 'interactive',
+
+		/** The code was executed from a notebook cell. */
+		Notebook = 'notebook',
+
+		/** The code was pasted into the Console. */
+		Paste = 'paste',
+
+		/** The code was run as a fragment or whole of a script. */
+		Script = 'script',
+	}
+
+	/**
+	 * An event that is emitted when code is executed in Positron.
+	 */
+	export interface CodeExecutionEvent {
+		/** The ID of the language in which the code was executed (e.g. 'python') */
+		languageId: string;
+
+		/** The name of the runtime that executed the code (e.g. 'Python 3.12') */
+		runtimeName: string;
+
+		/** The actual code that was executed. */
+		code: string;
+
+		/** An object describing the origin of the code. */
+		attribution: CodeAttributionSource;
+	}
+
 	export interface LanguageRuntimeManager {
 		/**
 		 * Returns a generator that yields metadata about all the language
@@ -1590,6 +1630,11 @@ declare module 'positron' {
 		 * An event that fires when the foreground session changes
 		 */
 		export const onDidChangeForegroundSession: vscode.Event<string | undefined>;
+
+		/**
+		 * An event that fires when code is executed.
+		 */
+		export const onDidExecuteCode: vscode.Event<CodeExecutionEvent>;
 	}
 
 	// FIXME: The current (and clearly not final) state of an experiment to bring in interface(s)
