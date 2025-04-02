@@ -7,11 +7,14 @@
 	width: 100%;
 }
 
+.positron-console .console-core .console-instances-container {
+	position: relative;
+}
+
+.positron-console .console-core .vertical-splitter {
+	background-color: var(--vscode-terminal-border);
+}
 .positron-console .console-tab-list {
 	display: flex;
 	flex-direction: row;
-}
-
-.positron-console .console-core .console-instances-container {
-	position: relative;
 }

@@ -10,10 +10,10 @@ import './consoleTabList.css';
 import React, { useState } from 'react';
 
 // Other dependencies.
-import { usePositronConsoleContext } from '../positronConsoleContext.js';
-import { ConsoleInstanceState } from './consoleInstanceState.js';
-import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { localize } from '../../../../../nls.js';
+import { ConsoleInstanceState } from './consoleInstanceState.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
+import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 
 interface ConsoleTabProps {
