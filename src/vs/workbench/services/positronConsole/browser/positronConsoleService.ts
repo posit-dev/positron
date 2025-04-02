@@ -35,7 +35,7 @@ import { RuntimeItemStartupFailure } from './classes/runtimeItemStartupFailure.j
 import { ActivityItem, RuntimeItemActivity } from './classes/runtimeItemActivity.js';
 import { ActivityItemInput, ActivityItemInputState } from './classes/activityItemInput.js';
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
-import { IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
+import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
@@ -929,6 +929,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	));
 
 	/**
+	 * The last text that was pasted into the console.
+	 */
+	private _lastPastedText: string = '';
+
+	/**
 	 * The onDidPasteText event emitter.
 	 */
 	private readonly _onDidPasteTextEmitter = this._register(new Emitter<string>);
@@ -1281,6 +1286,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	pasteText(text: string) {
 		this.focusInput();
+		this._lastPastedText = text;
 		this._onDidPasteTextEmitter.fire(text);
 	}
 
@@ -2576,7 +2582,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}
 
 		// Create the ID for the code fragment that will be executed.
-		let id = this._runtimeItemPendingInput.executionId || this.generateExecutionId(code);
+		const id = this._runtimeItemPendingInput.executionId || this.generateExecutionId(code);
 
 		// Add the provisional ActivityItemInput for the code fragment.
 		const runtimeItemActivity = new RuntimeItemActivity(
@@ -2669,7 +2675,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		executionId?: string
 	) {
 		// Use the supplied execution ID if known; otherwise, generate one
-		let id = executionId || this.generateExecutionId(code);
+		const id = executionId || this.generateExecutionId(code);
 
 		if (!this._session) {
 			return;
@@ -2695,6 +2701,19 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			// replaced with the real ActivityItemInput when the runtime sends it (which can take a
 			// moment or two to happen).
 			this.addOrUpdateUpdateRuntimeItemActivity(id, activityItemInput);
+		}
+
+		// If this is an interactive submission, check to see the text we just executed is
+		// the text that was last pasted, so we can attribute it to the clipboard if
+		// appropriate.
+		if (attribution.source === CodeAttributionSource.Interactive) {
+			const lastPastedText = this._lastPastedText.trim();
+			if (lastPastedText && code.trim() === lastPastedText) {
+				attribution.source = CodeAttributionSource.Paste;
+			}
+
+			// In any case, clear the last pasted text when executing code interactively.
+			this._lastPastedText = '';
 		}
 
 		/**
