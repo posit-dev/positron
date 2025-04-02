@@ -9,7 +9,7 @@ import * as fs from 'fs';
 
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { arrayBufferToBase64, BinaryMessageReferences, toLanguageModelChatMessage } from '../utils';
-import { documentEditToolAdapter, getPlotToolAdapter, selectionEditToolAdapter } from '../tools';
+import { documentEditToolAdapter, selectionEditToolAdapter } from '../tools';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
@@ -46,7 +46,6 @@ export async function defaultHandler(
 			}
 			return true;
 		}),
-		getPlotToolAdapter.toolData,
 	];
 
 	// Binary references for use by the Language Model
@@ -230,7 +229,7 @@ export async function defaultHandler(
 
 			const newHistory = [
 				...messages,
-				vscode.LanguageModelChatMessage.User(textResponses),
+				vscode.LanguageModelChatMessage.Assistant(textResponses),
 				vscode.LanguageModelChatMessage.Assistant(toolRequests),
 				vscode.LanguageModelChatMessage.User(
 					Object.entries(toolResponses).map(([id, resp]) => {

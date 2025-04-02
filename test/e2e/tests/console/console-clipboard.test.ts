@@ -12,32 +12,32 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe.skip('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN, tags.WEB] }, () => {
-	test('Python - Verify copy from console & paste to console', async ({ app, python }) => {
-		await testConsoleClipboard(app, 'a = 1');
+test.describe('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN, tags.WEB] }, () => {
+	test('Python - Verify copy from console & paste to console', async ({ app, python, page }) => {
+		await testConsoleClipboard(app, 'a = 1', (new URL(page.url())).port);
 	});
 
 	test('Python - Verify copy from console & paste to console with context menu',
 		{ tag: [tags.WEB_ONLY] },
-		async ({ app, python }) => {
-			await testConsoleClipboardWithContextMenu(app, '>>>', /Python .+ restarted\./);
+		async ({ app, python, page }) => {
+			await testConsoleClipboardWithContextMenu(app, '>>>', /Python .+ restarted\./, (new URL(page.url())).port);
 		});
 
-	test('R - Verify copy from console & paste to console ', async ({ app, r }) => {
-		await testConsoleClipboard(app, 'a <- 1');
+	test('R - Verify copy from console & paste to console ', async ({ app, r, page }) => {
+		await testConsoleClipboard(app, 'a <- 1', (new URL(page.url())).port);
 	});
 
 	test('R - Verify copy from console & paste to console with context menu',
 		{ tag: [tags.WEB_ONLY] },
-		async ({ app, r }) => {
-			await testConsoleClipboardWithContextMenu(app, '>', /R .+ restarted\./);
+		async ({ app, r, page }) => {
+			await testConsoleClipboardWithContextMenu(app, '>', /R .+ restarted\./, (new URL(page.url())).port);
 		});
 });
 
-async function testConsoleClipboard(app: Application, testLine: string) {
+async function testConsoleClipboard(app: Application, testLine: string, port: string) {
 
 	if (app.web) {
-		await app.code.driver.context.grantPermissions(['clipboard-read'], { origin: 'http://localhost:9000' });
+		await app.code.driver.context.grantPermissions(['clipboard-read'], { origin: `http://localhost:${port}` });
 	}
 
 	const console = app.workbench.console;
@@ -50,7 +50,7 @@ async function testConsoleClipboard(app: Application, testLine: string) {
 	await toggleAuxiliaryBar(app);
 }
 
-async function testConsoleClipboardWithContextMenu(app: Application, prompt: string, regex: RegExp) {
+async function testConsoleClipboardWithContextMenu(app: Application, prompt: string, regex: RegExp, port: string) {
 
 	await app.workbench.console.barClearButton.click();
 	await app.workbench.console.barRestartButton.click();
@@ -58,7 +58,8 @@ async function testConsoleClipboardWithContextMenu(app: Application, prompt: str
 	await app.workbench.console.waitForReady(prompt);
 
 	if (app.web) {
-		await app.code.driver.context.grantPermissions(['clipboard-read'], { origin: 'http://localhost:9000' });
+
+		await app.code.driver.context.grantPermissions(['clipboard-read'], { origin: `http://localhost:${port}` });
 	}
 
 	await expect(async () => {
