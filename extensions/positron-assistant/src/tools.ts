@@ -191,7 +191,7 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 						languageId,
 						options.input.code,
 						true,  // focus console
-						false, // do not allow incomplete input
+						true,  // allow incomplete input, so that incomplete statements error right away
 						positron.RuntimeCodeExecutionMode.Interactive,
 						positron.RuntimeErrorBehavior.Stop,
 						observer);
