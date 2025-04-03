@@ -338,8 +338,9 @@ class ChatAgentSettingContribution implements IWorkbenchContribution {
 			properties: {
 				'chat.agent.enabled': {
 					type: 'boolean',
-					description: nls.localize('chat.agent.enabled.description', "Enable agent mode for {0}. When this is enabled, a dropdown appears in the {0} view to toggle agent mode.", 'Copilot Edits'),
-					default: this.productService.quality !== 'stable',
+					// --- Start Positron ---
+					description: nls.localize('chat.agent.enabled.description', "Enable agent mode for {0}. When this is enabled, a dropdown appears in the {0} view to toggle agent mode.", 'Assistant Edits'),
+					// --- End Positron ---					default: this.productService.quality !== 'stable',
 					tags: ['experimental', 'onExp'],
 				},
 			}

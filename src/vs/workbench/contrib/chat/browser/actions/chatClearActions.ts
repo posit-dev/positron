@@ -340,8 +340,9 @@ export function registerNewChatActions() {
 		constructor() {
 			super({
 				id: 'workbench.action.chat.openEditSession',
-				title: localize2('chat.openEdits.label', "Open {0}", 'Copilot Edits'),
-				category: CHAT_CATEGORY,
+				// --- Start Positron ---
+				title: localize2('chat.openEdits.label', "Open {0}", 'Assistant Edits'),
+				// --- End Positron ---				category: CHAT_CATEGORY,
 				icon: Codicon.goToEditingSession,
 				f1: true,
 				menu: [{

@@ -380,8 +380,9 @@ class AttachFileToEditingSessionAction extends AttachFileAction {
 	constructor() {
 		super({
 			id: AttachFileToEditingSessionAction.ID,
-			title: localize2('workbench.action.edits.attachFile.label', "Add File to {0}", 'Copilot Edits'),
-			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			title: localize2('workbench.action.edits.attachFile.label', "Add File to {0}", 'Assistant Edits'),
+			// --- End Positron ---category: CHAT_CATEGORY,
 			f1: false,
 			precondition: ContextKeyExpr.and(ChatContextKeys.enabled, ContextKeyExpr.or(ActiveEditorContext.isEqualTo(TEXT_FILE_EDITOR_ID), TextCompareEditorActiveContext)),
 			menu: [{
@@ -412,8 +413,9 @@ class AttachSelectionToEditingSessionAction extends Action2 {
 	constructor() {
 		super({
 			id: AttachSelectionToEditingSessionAction.ID,
-			title: localize2('workbench.action.edits.attachSelection.label', "Add Selection to {0}", 'Copilot Edits'),
-			category: CHAT_CATEGORY,
+			// --- Start Positron ---
+			title: localize2('workbench.action.edits.attachSelection.label', "Add Selection to {0}", 'Assistant Edits'),
+			// --- End Positron ---			category: CHAT_CATEGORY,
 			f1: false,
 			precondition: ContextKeyExpr.and(ChatContextKeys.enabled, ContextKeyExpr.or(ActiveEditorContext.isEqualTo(TEXT_FILE_EDITOR_ID), TextCompareEditorActiveContext))
 		});
@@ -969,8 +971,9 @@ registerAction2(class AttachFilesAction extends AttachContextAction {
 	constructor() {
 		super({
 			id: 'workbench.action.chat.editing.attachFiles',
-			title: localize2('workbench.action.chat.editing.attachFiles.label', "Add Files to Copilot Edits"),
-			shortTitle: localize2('workbench.action.chat.editing.attachFiles.shortLabel', "Add Files..."),
+			// --- Start Positron ---
+			title: localize2('workbench.action.chat.editing.attachFiles.label', "Add Files to Assistant Edits"),
+			// --- End Positron ---			shortTitle: localize2('workbench.action.chat.editing.attachFiles.shortLabel', "Add Files..."),
 			f1: false,
 			category: CHAT_CATEGORY,
 			menu: { id: MenuId.ChatInputAttachmentToolbar, group: 'navigation' },

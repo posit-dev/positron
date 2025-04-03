@@ -353,7 +353,9 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 					properties: {
 						'chat.agent.maxRequests': {
 							type: 'number',
-							markdownDescription: localize('chat.agent.maxRequests', "The maximum number of requests to allow Copilot Edits to use per-turn in agent mode. When the limit is reached, Copilot will ask the user to confirm that it should keep working. \n\n> **Note**: For users on the Copilot Free plan, note that each agent mode request currently uses one chat request."),
+							// --- Start Positron ---
+							markdownDescription: localize('chat.agent.maxRequests', "The maximum number of requests to allow Assistant Edits to use per-turn in agent mode. When the limit is reached, Copilot will ask the user to confirm that it should keep working. \n\n> **Note**: For users on the Copilot Free plan, note that each agent mode request currently uses one chat request."),
+							// --- End Positron ---
 							default: defaultValue,
 							tags: ['experimental']
 						},
@@ -1072,7 +1074,9 @@ class ChatSetupWelcomeContent extends Disposable {
 			featureEditsContainer.appendChild(renderIcon(Codicon.editSession));
 
 			const featureEditsLabel = featureEditsContainer.appendChild($('span'));
-			featureEditsLabel.textContent = localize('featureEdits', "Build features with Copilot Edits");
+			// --- Start Positron ---
+			featureEditsLabel.textContent = localize('featureEdits', "Build features with Assistant Edits");
+			// --- End Positron ---
 
 			const featureExploreContainer = featuresContainer.appendChild($('div.chat-feature-container'));
 			featureExploreContainer.appendChild(renderIcon(Codicon.commentDiscussion));

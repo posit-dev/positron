@@ -326,9 +326,10 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 	private createShortcuts(container: HTMLElement, disposables: DisposableStore): HTMLElement {
 		const shortcuts = container.appendChild($('div.shortcuts'));
 
+		// --- Start Positron ---
 		const entries = coalesce([
 			{ text: localize('shortcuts.chat', "Chat"), id: CHAT_OPEN_ACTION_ID },
-			{ text: localize('shortcuts.copilotEdits', "Copilot Edits"), id: 'workbench.action.chat.openEditSession' },
+			{ text: localize('shortcuts.assistantEdits', "Assistant Edits"), id: 'workbench.action.chat.openEditSession' },
 			this.contextKeyService.contextMatchesRules(ContextKeyExpr.and(
 				CTX_INLINE_CHAT_POSSIBLE,
 				EditorContextKeys.writable,
@@ -336,6 +337,7 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 			)) ? { text: localize('shortcuts.inlineChat', "Inline Chat"), id: 'inlineChat.start' } : undefined,
 			{ text: localize('shortcuts.quickChat', "Quick Chat"), id: 'workbench.action.quickchat.toggle' },
 		]);
+		// --- End Positron ---
 
 		const onTrigger = (commandId: string, e: EventLike) => {
 			EventHelper.stop(e, true);

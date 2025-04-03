@@ -388,7 +388,9 @@ class SendToChatEditingAction extends EditingSessionAction {
 
 		super({
 			id: 'workbench.action.chat.sendToChatEditing',
-			title: localize2('chat.sendToChatEditing.label', "Send to Copilot Edits"),
+			// --- Start Positron ---
+			title: localize2('chat.sendToChatEditing.label', "Send to Assistant Edits"),
+			// --- End Positron ---
 			precondition,
 			category: CHAT_CATEGORY,
 			f1: false,

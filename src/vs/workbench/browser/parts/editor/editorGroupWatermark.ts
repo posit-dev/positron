@@ -41,8 +41,9 @@ const openSettings: WatermarkEntry = { text: localize('watermark.openSettings', 
 
 const showCopilot = ContextKeyExpr.or(ContextKeyExpr.equals('chatSetupHidden', false), ContextKeyExpr.equals('chatSetupInstalled', true));
 const openChat: WatermarkEntry = { text: localize('watermark.openChat', "Open Chat"), id: 'workbench.action.chat.open', when: { native: showCopilot, web: showCopilot } };
-const openCopilotEdits: WatermarkEntry = { text: localize('watermark.openCopilotEdits', "Open Copilot Edits"), id: 'workbench.action.chat.openEditSession', when: { native: showCopilot, web: showCopilot } };
-
+// --- Start Positron ---
+const openCopilotEdits: WatermarkEntry = { text: localize('watermark.openAssistantEdits', "Open Assistant Edits"), id: 'workbench.action.chat.openEditSession', when: { native: showCopilot, web: showCopilot } };
+// --- End Positron ---
 const emptyWindowEntries: WatermarkEntry[] = coalesce([
 	showCommands,
 	...(isMacintosh && !isWeb ? [openFileOrFolder] : [openFile, openFolder]),

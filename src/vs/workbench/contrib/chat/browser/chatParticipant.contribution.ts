@@ -37,7 +37,9 @@ import { CHAT_EDITING_SIDEBAR_PANEL_ID, CHAT_SIDEBAR_PANEL_ID, ChatViewPane } fr
 const chatViewContainer: ViewContainer = Registry.as<IViewContainersRegistry>(ViewExtensions.ViewContainersRegistry).registerViewContainer({
 	id: CHAT_SIDEBAR_PANEL_ID,
 	title: localize2('chat.viewContainer.label', "Chat"),
-	icon: Codicon.commentDiscussion,
+	// --- Start Positron ---
+	icon: Codicon.positronAssistant,
+	// --- End Positron ---
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [CHAT_SIDEBAR_PANEL_ID, { mergeViewWithContainerWhenSingleView: true }]),
 	storageId: CHAT_SIDEBAR_PANEL_ID,
 	hideIfEmpty: true,
@@ -82,15 +84,17 @@ Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews(chatView
 
 // --- Edits Container &  View Registration
 
+// --- Start Positron ---
 const editsViewContainer: ViewContainer = Registry.as<IViewContainersRegistry>(ViewExtensions.ViewContainersRegistry).registerViewContainer({
 	id: CHAT_EDITING_SIDEBAR_PANEL_ID,
-	title: localize2('chatEditing.viewContainer.label', "Copilot Edits"),
+	title: localize2('chatEditing.viewContainer.label', "Assistant Edits"),
 	icon: Codicon.editSession,
 	ctorDescriptor: new SyncDescriptor(ViewPaneContainer, [CHAT_EDITING_SIDEBAR_PANEL_ID, { mergeViewWithContainerWhenSingleView: true }]),
 	storageId: CHAT_EDITING_SIDEBAR_PANEL_ID,
 	hideIfEmpty: true,
 	order: 101,
-}, ViewContainerLocation.AuxiliaryBar, { doNotRegisterOpenCommand: true });
+}, ViewContainerLocation.Sidebar, { doNotRegisterOpenCommand: true });
+// --- End Positron ---
 
 const editsViewDescriptor: IViewDescriptor[] = [{
 	id: 'workbench.panel.chat.view.edits',
@@ -112,7 +116,9 @@ const editsViewDescriptor: IViewDescriptor[] = [{
 		},
 		order: 2
 	},
-	ctorDescriptor: new SyncDescriptor(ChatViewPane, [{ location: ChatAgentLocation.EditingSession }]),
+	// --- Start Positron ---
+	ctorDescriptor: new SyncDescriptor(ChatViewPane, [{ location: ChatAgentLocation.Panel }]),
+	// --- End Positron ---
 	when: ContextKeyExpr.or(
 		ChatContextKeys.Setup.hidden.negate(),
 		ChatContextKeys.Setup.installed,
