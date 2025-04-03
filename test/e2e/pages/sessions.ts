@@ -442,8 +442,6 @@ export class Sessions {
 			if (waitForReady) {
 				await expect(this.page.getByText(/starting/)).toBeVisible();
 				await expect(this.page.getByText(/starting/)).not.toBeVisible({ timeout: 90000 });
-				// const sessionId = await this.getCurrentSessionId();
-				// await this.expectStatusToBe(sessionId, 'idle');
 			}
 			return this.getCurrentSessionId();
 		});
