@@ -52,10 +52,11 @@ export class Sessions {
 
 	/**
 	 * Action: Starts one or more sessions
+	 * Note: If you are seeking to start a session and NOT wait for ready, use `startAndSkipMetadata()`
 	 *
 	 * @param sessions - The session runtime(s) to start: 'python', 'pythonAlt', 'pythonHidden', 'r', 'rAlt'
 	 * @param options - Configuration options for session startup
-j	 * @param options.triggerMode - How the session should be triggered: session-picker, quickaccess, hotkey, or console (default: hotkey)
+	 * @param options.triggerMode - How the session should be triggered: session-picker, quickaccess, hotkey, or console (default: hotkey)
 	 * @param options.reuse - Whether to reuse existing idle sessions if available (default: true)
 	 *
 	 * @example - start a single session
