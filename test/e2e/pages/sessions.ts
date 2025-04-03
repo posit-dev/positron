@@ -96,6 +96,7 @@ export class Sessions {
 		if (reuse) {
 			// retrieve the list of active sessions from the session quick pick menu
 			// filter the console tabs to include only those sessions that are currently active
+			this.hotKeys.focusConsole();
 			const quickPickActiveSessionNames = new Set((await this.quickPick.getActiveSessions()).map(s => s.name));
 			const consoleTabActiveSessions = (await this.getAllSessionIdsAndNames())
 				.filter(session => quickPickActiveSessionNames.has(session.name));
