@@ -16,3 +16,5 @@ model/serverStatus.ts
 model/sessionList.ts
 model/startupError.ts
 model/status.ts
+model/varAction.ts
+model/varActionType.ts

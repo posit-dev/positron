@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,19 +7,20 @@
 import { useEffect, useState } from 'react';
 
 // Other dependencies.
+import { IHoverService } from '../../hover/browser/hover.js';
 import { unmnemonicLabel } from '../../../base/common/labels.js';
 import { DisposableStore } from '../../../base/common/lifecycle.js';
-import { IHoverService } from '../../hover/browser/hover.js';
-import { Action, IAction, Separator } from '../../../base/common/actions.js';
 import { ICommandService } from '../../commands/common/commands.js';
 import { IHoverManager } from '../../hover/browser/hoverManager.js';
+import { ILayoutService } from '../../layout/browser/layoutService.js';
 import { IKeybindingService } from '../../keybinding/common/keybinding.js';
 import { CommandCenter } from '../../commandCenter/common/commandCenter.js';
+import { Action, IAction, Separator } from '../../../base/common/actions.js';
 import { IContextMenuService } from '../../contextview/browser/contextView.js';
+import { PositronActionBarHoverManager } from './positronActionBarHoverManager.js';
 import { IConfigurationService } from '../../configuration/common/configuration.js';
 import { IAccessibilityService } from '../../accessibility/common/accessibility.js';
 import { ContextKeyExpression, IContextKeyService } from '../../contextkey/common/contextkey.js';
-import { PositronActionBarHoverManager } from './positronActionBarHoverManager.js';
 
 /**
  * PositronActionBarServices interface. Defines the set of services that are required by a Positron
@@ -33,6 +34,7 @@ export interface PositronActionBarServices {
 	readonly contextMenuService: IContextMenuService;
 	readonly hoverService: IHoverService;
 	readonly keybindingService: IKeybindingService;
+	readonly layoutService: ILayoutService;
 }
 
 /**
@@ -55,8 +57,6 @@ export interface PositronActionBarState extends PositronActionBarServices {
 	menuShowing: boolean;
 	setMenuShowing(menuShowing: boolean): void;
 	focusableComponents: Set<HTMLElement>;
-	conserveSpace: boolean;
-	setConserveSpace(conserveSpace: boolean): void;
 }
 
 /**
@@ -68,7 +68,6 @@ export const usePositronActionBarState = (
 	services: PositronActionBarServices
 ): PositronActionBarState => {
 	const [menuShowing, setMenuShowing] = useState(false);
-	const [conserveSpace, setConserveSpace] = useState(false);
 	const [focusableComponents] = useState(new Set<HTMLElement>());
 	const [hoverManager, setHoverManager] = useState<IHoverManager>(undefined!);
 
@@ -155,8 +154,6 @@ export const usePositronActionBarState = (
 		hoverManager,
 		menuShowing,
 		setMenuShowing,
-		focusableComponents,
-		conserveSpace,
-		setConserveSpace
+		focusableComponents
 	};
 };

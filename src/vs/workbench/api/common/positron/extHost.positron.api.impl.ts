@@ -34,6 +34,7 @@ import { ExtHostConnections } from './extHostConnections.js';
 import { ExtHostAiFeatures } from './extHostAiFeatures.js';
 import { IToolInvocationContext } from '../../../contrib/chat/common/languageModelToolsService.js';
 import { IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
+import { ExtHostEnvironment } from './extHostEnvironment.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -79,13 +80,14 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		new ExtHostMethods(rpcProtocol, extHostEditors, extHostDocuments, extHostModalDialogs,
 			extHostLanguageRuntime, extHostWorkspace, extHostQuickOpen, extHostCommands, extHostContextKeyService));
 	const extHostConnections = rpcProtocol.set(ExtHostPositronContext.ExtHostConnections, new ExtHostConnections(rpcProtocol));
+	const extHostEnvironment = rpcProtocol.set(ExtHostPositronContext.ExtHostEnvironment, new ExtHostEnvironment(rpcProtocol));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 
 		// --- Start Positron ---
 		const runtime: typeof positron.runtime = {
-			executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior): Thenable<boolean> {
-				return extHostLanguageRuntime.executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior);
+			executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, observer): Thenable<Record<string, any>> {
+				return extHostLanguageRuntime.executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, observer);
 			},
 			registerLanguageRuntimeManager(
 				languageId: string,
@@ -219,6 +221,17 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			}
 		};
 
+		const environment: typeof positron.environment = {
+			/**
+			 * Get the environment variable contributions for all extensions.
+			 *
+			 * @returns A map of environment variable actions, keyed by the extension ID.
+			 */
+			getEnvironmentContributions(): Thenable<Record<string, positron.EnvironmentVariableAction[]>> {
+				return extHostEnvironment.getEnvironmentContributions();
+			}
+		};
+
 		const ai: typeof positron.ai = {
 			getCurrentPlotUri(): Thenable<string | undefined> {
 				return extHostAiFeatures.getCurrentPlotUri();
@@ -256,6 +269,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			window,
 			languages,
 			methods,
+			environment,
 			connections,
 			ai,
 			PositronLanguageModelType: extHostTypes.PositronLanguageModelType,

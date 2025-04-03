@@ -17,12 +17,16 @@ import { traceInfo } from '../logging';
 import { IInstaller, Product, ProductInstallStatus } from '../common/types';
 import { IApplicationEnvironment, IWorkspaceService } from '../common/application/types';
 import { EXTENSION_ROOT_DIR, IPYKERNEL_VERSION, PYTHON_LANGUAGE } from '../common/constants';
-import { EnvLocationHeuristic, getEnvLocationHeuristic } from '../interpreter/configuration/environmentTypeComparer';
-import { getIpykernelBundle, IPykernelBundle } from './ipykernel';
+import {
+    EnvLocationHeuristic,
+    getEnvLocationHeuristic,
+    isVersionSupported,
+} from '../interpreter/configuration/environmentTypeComparer';
+import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
 
 export interface PythonRuntimeExtraData {
     pythonPath: string;
-    ipykernelBundle?: IPykernelBundle;
+    ipykernelBundle?: IpykernelBundle;
 }
 
 export async function createPythonRuntimeMetadata(
@@ -49,8 +53,8 @@ export async function createPythonRuntimeMetadata(
     let hasCompatibleKernel: boolean;
     if (ipykernelBundle.disabledReason) {
         traceInfo(
-            `createPythonRuntime: ipykernel bundling is disabled, ` +
-                `reason: ${ipykernelBundle.disabledReason}. ` +
+            `createPythonRuntime: ipykernel bundling is disabled ` +
+                `(reason: ${ipykernelBundle.disabledReason}). ` +
                 `Checking if ipykernel is installed`,
         );
         const productInstallStatus = await installer.isProductVersionCompatible(
@@ -59,6 +63,11 @@ export async function createPythonRuntimeMetadata(
             interpreter,
         );
         hasCompatibleKernel = productInstallStatus === ProductInstallStatus.Installed;
+        if (hasCompatibleKernel) {
+            traceInfo(`createPythonRuntime: ipykernel installed`);
+        } else {
+            traceInfo('createPythonRuntime: ipykernel not installed');
+        }
     } else {
         hasCompatibleKernel = true;
     }
@@ -100,7 +109,13 @@ export async function createPythonRuntimeMetadata(
         runtimeShortName += `: ${envName}`;
     }
     runtimeShortName += ')';
-    const runtimeName = `Python ${runtimeShortName}`;
+
+    let supportedFlag = '';
+    if (!isVersionSupported(interpreter.version)) {
+        supportedFlag = `Unsupported: `;
+    }
+
+    const runtimeName = `${supportedFlag}Python ${runtimeShortName}`;
 
     // Create a stable ID for the runtime based on the interpreter path and version.
     const digest = crypto.createHash('sha256');

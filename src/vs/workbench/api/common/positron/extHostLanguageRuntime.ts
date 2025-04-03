@@ -5,7 +5,7 @@
 
 import type * as positron from 'positron';
 import { debounce } from '../../../../base/common/decorators.js';
-import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageState, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageError, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
@@ -19,6 +19,154 @@ import { IRuntimeSessionMetadata } from '../../../services/runtimeSession/common
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
+
+/**
+ * Interface for code execution observers
+ */
+interface IExecutionObserver {
+	/** A cancellation token for interrupting execution */
+	token?: CancellationToken;
+
+	/** Called when execution starts */
+	onStarted?: () => void;
+
+	/** Called when text output is produced */
+	onOutput?: (message: string) => void;
+
+	/** Called when error output is produced */
+	onError?: (message: string) => void;
+
+	/** Called when a plot is generated */
+	onPlot?: (plotData: string) => void;
+
+	/** Called when data (like a dataframe) is produced */
+	onData?: (data: any) => void;
+
+	/** Called on successful completion with a result */
+	onCompleted?: (result: any) => void;
+
+	/** Called when execution fails with an error */
+	onFailed?: (error: Error) => void;
+
+	/** Called when execution finishes (after success or failure) */
+	onFinished?: () => void;
+}
+
+/**
+ * Wraps an IExecutionObserver and provides a promise that resolves when the
+ * execution is completed. This allows us to track the state of the
+ * execution and notify when it is completed.
+ */
+class ExecutionObserver implements IDisposable {
+
+	/** The promise that resolves when the computation completes */
+	public readonly promise: DeferredPromise<Record<string, any>>;
+
+	/** Store of disposables to be cleaned up */
+	public readonly store: DisposableStore = new DisposableStore();
+
+	/** The current state of the computation */
+	public state: 'pending' | 'running' | 'completed';
+
+	/**
+	 * The session ID in which the computation is running. This is not always
+	 * known when creating the observer since the it is possible we need to
+	 * create a new session to fulfill the request.
+	 */
+	public sessionId: string | undefined;
+
+	constructor(public readonly observer: IExecutionObserver | undefined) {
+		this.state = 'pending';
+		this.promise = new DeferredPromise<Record<string, any>>();
+	}
+
+	onOutputMessage(message: ILanguageRuntimeMessageOutput) {
+		if (this.observer && message.data) {
+			const imageMimeTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
+			for (const mimeType of imageMimeTypes) {
+				if (message.data[mimeType] && this.observer.onPlot) {
+					this.observer.onPlot(message.data[mimeType]);
+				}
+			}
+			if (message.data['text/plain'] && this.observer.onOutput) {
+				this.observer.onOutput(message.data['text/plain']);
+			}
+		}
+	}
+
+	onStateMessage(message: ILanguageRuntimeMessageState) {
+		// When entering the busy state, consider code execution to have
+		// started
+		if (message.state === RuntimeOnlineState.Busy) {
+			this.onStarted();
+		}
+
+		// When entering the idle state, consider code execution to have
+		// finished
+		if (message.state === RuntimeOnlineState.Idle) {
+			this.onFinished();
+		}
+	}
+
+	onStreamMessage(message: ILanguageRuntimeMessageStream) {
+		if (this.observer) {
+			if (message.name === 'stdout' && this.observer.onOutput) {
+				this.observer.onOutput(message.text);
+			} else if (message.name === 'stderr' && this.observer.onError) {
+				this.observer.onError(message.text);
+			}
+		}
+	}
+
+	onStarted() {
+		this.state = 'running';
+		if (this.observer?.onStarted) {
+			this.observer.onStarted();
+		}
+	}
+
+	onFinished() {
+		this.state = 'completed';
+		if (this.observer?.onFinished) {
+			this.observer.onFinished();
+		}
+		// Ensure we're settled if we aren't yet
+		if (!this.promise.isSettled) {
+			this.promise.complete({});
+		}
+	}
+
+	onErrorMessage(message: ILanguageRuntimeMessageError) {
+		const err: Error = {
+			message: message.message,
+			name: message.name,
+			stack: message.traceback?.join('\n'),
+		};
+		this.onFailed(err);
+	}
+
+	onFailed(error: Error) {
+		this.state = 'completed';
+		if (this.observer?.onFailed) {
+			this.observer.onFailed(error);
+		}
+		this.promise.error(error);
+	}
+
+	onCompleted(result: Record<string, any>) {
+		this.state = 'completed';
+		if (this.observer?.onCompleted) {
+			this.observer.onCompleted(result);
+		}
+		this.promise.complete(result);
+	}
+
+	dispose(): void {
+		this.store.dispose();
+	}
+}
 
 /**
  * A language runtime manager and metadata about the extension that registered it.
@@ -77,6 +225,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	// The event that fires when the foreground session changes.
 	public onDidChangeForegroundSession = this._onDidChangeForegroundSessionEmitter.event;
+
+	// Map to track execution observers by execution ID
+	private _executionObservers = new Map<string, ExecutionObserver>();
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
@@ -322,6 +473,27 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		session.onDidChangeRuntimeState(state => {
 			const tick = this._eventClocks[handle] = this._eventClocks[handle] + 1;
 			this._proxy.$emitLanguageRuntimeState(handle, tick, state);
+
+			// When the session exits, make sure to shut down any of its
+			// remaining execution observers cleanly so they aren't left
+			// hanging.
+			if (state === RuntimeState.Exited) {
+				this._executionObservers.forEach((observer, id) => {
+					if (observer.sessionId === session.metadata.sessionId) {
+						// The observer is associated with this session, so we
+						// need to clean it up. Reject its promise if it hasn't
+						// already been settled.
+						if (!observer.promise.isSettled) {
+							observer.onFailed({
+								message: 'The session exited unexpectedly.',
+								name: 'Interrupted',
+							});
+						}
+						observer.dispose();
+						this._executionObservers.delete(id);
+					}
+				});
+			}
 		});
 
 		session.onDidReceiveRuntimeMessage(message => {
@@ -333,6 +505,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				// Wrap buffers in VSBuffer so that they can be sent to the main thread
 				buffers: message.buffers?.map(buffer => VSBuffer.wrap(buffer)),
 			};
+
+			// First check if this message relates to an execution with an observer
+			if (message.parent_id && this._executionObservers.has(message.parent_id)) {
+				// Get the observer for this execution
+				const observer = this._executionObservers.get(message.parent_id);
+
+				// Handle the message based on its type
+				if (observer) {
+					this.handleObserverMessage(runtimeMessage, observer);
+				}
+			}
 
 			// Dispatch the message to the appropriate handler
 			switch (message.type) {
@@ -386,7 +569,31 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot interrupt runtime: session handle '${handle}' not found or no longer valid.`);
 		}
-		return this._runtimeSessions[handle].interrupt();
+		const session = this._runtimeSessions[handle];
+		try {
+			return session.interrupt();
+		} finally {
+			// Whether or not the interrupt was successful, ensure that
+			// execution observers associated with this session are settled, so
+			// that interrupting the session is always successful from the
+			// perspective of the observer even if the underlying session fails
+			// to interrupt.
+			this._executionObservers.forEach((observer, id) => {
+				if (observer.sessionId === session.metadata.sessionId) {
+					// The observer is associated with this session, so we
+					// need to clean it up. Reject its promise if it hasn't
+					// already been settled.
+					if (!observer.promise.isSettled) {
+						observer.onFailed({
+							message: 'The user interrupted the code execution.',
+							name: 'Interrupted',
+						});
+					}
+					observer.dispose();
+					this._executionObservers.delete(id);
+				}
+			});
+		}
 	}
 
 	async $shutdownLanguageRuntime(handle: number, exitReason: positron.RuntimeExitReason): Promise<void> {
@@ -861,8 +1068,59 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
-	public executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior): Promise<boolean> {
-		return this._proxy.$executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior);
+	public executeCode(
+		languageId: string,
+		code: string,
+		focus: boolean,
+		allowIncomplete?: boolean,
+		mode?: RuntimeCodeExecutionMode,
+		errorBehavior?: RuntimeErrorBehavior,
+		observer?: IExecutionObserver): Promise<Record<string, any>> {
+
+		// Create a UUID and an observer for this execution request
+		const executionId = generateUuid();
+		const executionObserver = new ExecutionObserver(observer);
+		this._executionObservers.set(executionId, executionObserver);
+
+		// Begin the code execution. This returns a promise that resolves to the
+		// session ID of the session assigned (or created) to run the code.
+		this._proxy.$executeCode(
+			languageId, code, focus, allowIncomplete, mode, errorBehavior, executionId).then(
+				(sessionId) => {
+					// Bind the session ID to the observer so we can use it later
+					executionObserver.sessionId = sessionId;
+
+					// If a cancellation token was provided, then add a cancellation
+					// request handler so we can interrupt the session if requested
+					if (!observer?.token) {
+						return;
+					}
+					const token = observer.token;
+					executionObserver.store.add(
+						token.onCancellationRequested(async () => {
+							// We can't interrupt the code if it hasn't started yet.
+							//
+							// CONSIDER: We could handle this by reaching
+							// back into the main thread and asking it to
+							// cancel the execution request that has not yet
+							// been dispatched
+							if (executionObserver.state === 'pending') {
+								this._logService.warn(
+									`Cannot interrupt execution of ${code}: ` +
+									`it has not yet started.`);
+							}
+
+							// If the code is running, interrupt the session
+							if (executionObserver.state === 'running') {
+								await this.interruptSession(sessionId);
+							}
+						}));
+				}).catch((err) => {
+					// Propagate the error to the observer
+					executionObserver.promise.error(err);
+				});
+
+		return executionObserver.promise.p;
 	}
 
 	/**
@@ -920,6 +1178,23 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return Promise.reject(
 			new Error(`Session with ID '${sessionId}' must be started before ` +
 				`it can be restarted.`));
+	}
+
+	/**
+	 * Interrupts an active session.
+	 *
+	 * @param sessionId The session ID to restart.
+	 */
+	interruptSession(sessionId: string): Promise<void> {
+		// Look for the runtime with the given ID
+		for (let i = 0; i < this._runtimeSessions.length; i++) {
+			if (this._runtimeSessions[i].metadata.sessionId === sessionId) {
+				return this._proxy.$interruptSession(i);
+			}
+		}
+		return Promise.reject(
+			new Error(`Session with ID '${sessionId}' must be started before ` +
+				`it can be interrupted.`));
 	}
 
 	/**
@@ -1016,5 +1291,46 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 
 		this._proxy.$emitLanguageRuntimeMessage(handle, handled, new SerializableObjectWithBuffers(message));
+	}
+
+	/**
+	 * Handles a message for an execution with an observer
+	 * @param message The message to handle
+	 * @param observer The observer for the execution
+	 */
+	private handleObserverMessage(message: ILanguageRuntimeMessage, o: ExecutionObserver): void {
+		switch (message.type) {
+			case LanguageRuntimeMessageType.Stream:
+				o.onStreamMessage(message as ILanguageRuntimeMessageStream);
+				break;
+
+			case LanguageRuntimeMessageType.Output:
+				o.onOutputMessage(message as ILanguageRuntimeMessageOutput);
+				break;
+
+			case LanguageRuntimeMessageType.State:
+				o.onStateMessage(message as ILanguageRuntimeMessageState);
+				break;
+
+			case LanguageRuntimeMessageType.Result:
+				o.onCompleted((message as ILanguageRuntimeMessageResult).data);
+				break;
+
+			case LanguageRuntimeMessageType.Error:
+				o.onErrorMessage(message as ILanguageRuntimeMessageError);
+				break;
+		}
+
+		if (message.type === LanguageRuntimeMessageType.State) {
+			const stateMessage = message as ILanguageRuntimeMessageState;
+			if (stateMessage.state === RuntimeOnlineState.Idle) {
+				// Clean up the observer
+				const executionId = message.parent_id;
+				if (executionId) {
+					o.dispose();
+					this._executionObservers.delete(executionId);
+				}
+			}
+		}
 	}
 }

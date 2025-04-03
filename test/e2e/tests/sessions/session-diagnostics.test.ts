@@ -9,9 +9,8 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe.skip('Sessions: Diagnostics', {
+test.describe('Sessions: Diagnostics', {
 	tag: [tags.SESSIONS, tags.PROBLEMS, tags.WEB, tags.WIN],
-	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6970' }]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
@@ -25,66 +24,60 @@ test.describe.skip('Sessions: Diagnostics', {
 	test('Python - Verify diagnostics isolation between sessions in the editor and problems view', async function ({ app, runCommand, sessions }) {
 		const { problems, editor, console } = app.workbench;
 
-		// @ts-ignore - need pySession2 once the bug is fixed
-		const [pySession, pySession2, pyAltSession] = await sessions.start(['python', 'python', 'pythonAlt']);
-
-		// Open new Python file
-		await runCommand('Python: New File');
-		await editor.type('import termcolor\ntermcolor.COLORS.copy()\nprint(x)\n');
-
-		// Python Session 1 - install & import 'termcolor', assign variable x, and verify no problems
-		await sessions.select(pySession.id);
-		await console.executeCode('Python', 'x=123', { maximizeConsole: false });
+		// Start Python Session and install 'termcolor'
+		const pySession = await sessions.start('python');
 		await console.executeCode('Python', 'pip install termcolor', { maximizeConsole: false });
-		await console.executeCode('Python', 'import termcolor', { maximizeConsole: false });
 
-		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 1, errorCount: 0 }); // bug: this should be 0
-		await problems.expectSquigglyCountToBe('warning', 1); // bug this should be 0
+		// Open new Python file and use 'termcolor'
+		await runCommand('Python: New File');
+		await editor.type('import termcolor\n\ntermcolor.COLORS.copy()\n');
 
-		// // Python Session 2 - verify only syntax error for variable x
-		// await sessions.select(pySession2.id);
-		// await problems.expectDiagnosticsToBe({ problemCount: 0, warningCount: 1, errorCount: 1 });
-		// await problems.expectWarningText('"x" is not defined');
-		// await problems.expectSquigglyCountToBe('warning', 1);
+		// Python Session 1 - verify no problems
+		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
+		await problems.expectSquigglyCountToBe('warning', 0);
 
-		// Python Alt Session - verify warning since pkg was not installed in that runtime
-		await sessions.select(pyAltSession.id);
-		await problems.expectDiagnosticsToBe({ badgeCount: 2, warningCount: 2, errorCount: 0 });
-		await problems.expectWarningText('"x" is not defined');
+		// Python Session 1 - restart session and verify no problems
+		await sessions.restart(pySession.id);
+		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
+		await problems.expectSquigglyCountToBe('warning', 0);
+
+		// Start Python Session 2 (same runtime) - verify no problems
+		const pySession2 = await sessions.start('python', { reuse: false });
+		await sessions.select(pySession2.id);
+		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
+		await problems.expectSquigglyCountToBe('warning', 0);
+
+		// Python Alt Session - verify warning since pkg not installed
+		await sessions.start('pythonAlt');
+		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 1, errorCount: 0 });
 		await problems.expectWarningText('Import "termcolor" could not be resolved');
-		await problems.expectSquigglyCountToBe('warning', 2);
+		await problems.expectSquigglyCountToBe('warning', 1);
 
-		// Start R Session - Verify python diagnostics are still running even if foreground session is R
-		await sessions.select(pySession.id); // select the session with no errors, so this should be the one that is running
-		const rSession = await sessions.start('r');
-		await sessions.select(rSession.id);
-		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 1, errorCount: 0 }); // same bug: this should be 0
-		await problems.expectSquigglyCountToBe('warning', 1);	// same bug: this should be 0
+		// Python Session 1 - restart session and verify no problems
+		await sessions.select(pySession.id);
+		await sessions.restart(pySession.id);
+		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
+		await problems.expectSquigglyCountToBe('warning', 0);
 	});
 
 	test('R - Verify diagnostics isolation between sessions in the editor and problems view', async function ({ app, runCommand, sessions }) {
 		const { problems, editor, console } = app.workbench;
 
-		const [rSession, rSessionAlt] = await sessions.start(['r', 'rAlt']);
-
-		// Open new R file
-		await runCommand('R: New File');
-		await editor.type('circos.points()\n');
-
-		// Session 1 - before installing/importing pkg the circos warning should be present
-		await sessions.select(rSession.id);
-		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 1, errorCount: 0 });
-		await problems.expectWarningText('No symbol named \'circos.');
-		await problems.expectSquigglyCountToBe('warning', 1);
-
-		// Session 1 - install & import circlize and verify no problems
+		// Start R Session and install 'circlize'
+		const rSession = await sessions.start('r');
 		await console.executeCode('R', "install.packages('circlize')", { maximizeConsole: false });
 		await console.executeCode('R', 'library(circlize)', { maximizeConsole: false });
+
+		// Open new R file and use 'circlize'
+		await runCommand('R: New File');
+		await editor.type('library(circlize)\ncircos.points()\n');
+
+		// Session 1 - verify no problems
 		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
 		await problems.expectSquigglyCountToBe('warning', 0);
 
-		// Session 2 - verify warning since circlize is not installed
-		await sessions.select(rSessionAlt.id);
+		// Start R Session 2 - verify warning since circlize is not installed
+		const rSessionAlt = await sessions.start('rAlt');
 		await problems.expectSquigglyCountToBe('warning', 1);
 		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 1, errorCount: 0 });
 		await problems.expectWarningText('No symbol named \'circos.');
@@ -100,6 +93,12 @@ test.describe.skip('Sessions: Diagnostics', {
 		// Session 1 - verify only syntax error is present
 		await sessions.select(rSession.id);
 		await problems.expectDiagnosticsToBe({ badgeCount: 2, warningCount: 1, errorCount: 1 });
+		await problems.expectSquigglyCountToBe('error', 1);
+
+		// Session 1 - restart session and verify both problems (circos and syntax) are present
+		// Diagnostics engine is not aware of the circlize package, this is expected
+		await sessions.restart(rSession.id);
+		await problems.expectDiagnosticsToBe({ badgeCount: 3, warningCount: 2, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 	});
 });

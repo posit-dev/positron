@@ -15,11 +15,13 @@ export class RuntimeItemPendingInput extends RuntimeItemStandard {
 	 * Constructor.
 	 * @param id The identifier.
 	 * @param inputPrompt The input prompt.
+	 * @param executionId The execution identifier for the code.
 	 * @param code The code.
 	 */
 	constructor(
 		id: string,
 		readonly inputPrompt: string,
+		readonly executionId: string | undefined,
 		readonly code: string
 	) {
 		// Call the base class's constructor.

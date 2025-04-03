@@ -10,6 +10,7 @@ import { newLanguageModel } from './models';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { editsProvider } from './edits';
 import { createParticipants } from './participants';
+import { registerAssistantTools } from './tools.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -51,10 +52,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 		const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
 
 		if (error) {
-			vscode.window.showErrorMessage(
-				vscode.l10n.t(`Positron Assistant: Failed to register model configuration. ${error.message}`)
-			);
-			throw new Error(vscode.l10n.t('Failed to register model configuration. {0}', [error.message]));
+			throw new Error(error.message);
 		}
 
 		registerModelWithAPI(languageModel, modelConfig, context);
@@ -62,7 +60,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 		vscode.window.showErrorMessage(
 			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', [e])
 		);
-		throw new Error(vscode.l10n.t('Failed to register model configuration. {0}', [e]));
+		throw e;
 	}
 }
 
@@ -179,7 +177,7 @@ function registerConfigureModelsCommand(context: vscode.ExtensionContext, storag
 
 function registerMappedEditsProvider(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
-		vscode.chat.registerMappedEditsProvider({ pattern: '**/*' }, editsProvider)
+		vscode.chat.registerMappedEditsProvider2(editsProvider)
 	);
 }
 
@@ -224,6 +222,7 @@ export function activate(context: vscode.ExtensionContext) {
 	const enabled = vscode.workspace.getConfiguration('positron.assistant').get('enable');
 	if (enabled) {
 		registerAssistant(context);
+		registerAssistantTools(context);
 		const storedModels = getStoredModels(context);
 		if (storedModels.length) {
 			storedModels.forEach(stored => {

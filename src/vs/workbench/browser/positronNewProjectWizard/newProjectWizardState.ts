@@ -685,10 +685,7 @@ export class NewProjectWizardStateManager
 			return false;
 		}
 
-		if (this._pythonEnvSetupType === EnvironmentSetupType.NewEnvironment) {
-			// ipykernel will always be installed for new environments.
-			return true;
-		} else if (this._selectedRuntime) {
+		if (this._selectedRuntime) {
 			// When using an aliased runtimePath (starts with `~`) such as ~/myEnv/python instead of
 			// a non-aliased path like /home/sharon/myEnv/python or /usr/bin/python, the ipykernel
 			// version check errors, although the non-aliased pythonPath works fine.
@@ -700,7 +697,7 @@ export class NewProjectWizardStateManager
 				this._selectedRuntime.extraRuntimeData?.pythonPath ??
 				this._selectedRuntime.runtimePath;
 			return !(await this.services.commandService.executeCommand(
-				'python.isIpykernelInstalled',
+				'python.isIpykernelBundled',
 				interpreterPath
 			));
 		}

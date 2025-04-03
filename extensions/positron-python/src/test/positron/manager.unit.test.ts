@@ -17,6 +17,7 @@ import * as fs from '../../client/common/platform/fs-paths';
 import * as runtime from '../../client/positron/runtime';
 import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 import * as interpreterSettings from '../../client/positron/interpreterSettings';
+import * as environmentTypeComparer from '../../client/interpreter/configuration/environmentTypeComparer';
 import * as util from '../../client/positron/util';
 import { IEnvironmentVariablesProvider } from '../../client/common/variables/types';
 import { IConfigurationService, IDisposable, InspectInterpreterSettingType } from '../../client/common/types';
@@ -72,7 +73,7 @@ suite('Python runtime manager', () => {
             return undefined;
         });
 
-        isVersionSupportedStub = sinon.stub(interpreterSettings, 'isVersionSupported');
+        isVersionSupportedStub = sinon.stub(environmentTypeComparer, 'isVersionSupported');
         isVersionSupportedStub.returns(true);
 
         pythonRuntimeManager = new PythonRuntimeManager(serviceContainer.object, interpreterService.object);

@@ -459,7 +459,15 @@ class PositronJediLanguageServer(JediLanguageServer):
         # Start Jedi LSP as an asyncio TCP server in a separate thread.
         logger.info("Starting LSP server thread")
         self._server_thread = threading.Thread(
-            target=self.start_tcp, args=(lsp_host,), name="LSPServerThread"
+            target=self.start_tcp,
+            args=(lsp_host,),
+            name="LSPServerThread",
+            # Allow the kernel process to exit while this thread is still running.
+            # We already try to exit the language server cleanly in both the kernel
+            # and the client. If that fails unexpectedly, we don't want the process
+            # to hang.
+            # See: https://github.com/posit-dev/positron/issues/7083.
+            daemon=True,
         )
         self._server_thread.start()
 
@@ -631,7 +639,7 @@ def positron_completion(
 
                 # If Jedi knows how to complete the expression, use its suggestion.
                 new_text = completion.complete
-                if new_text is not None:
+                if completion.type == "path" and new_text is not None:
                     # Using the text_edit attribute (instead of insert_text used in
                     # lsp_completion_item) notifies the client to use the text as is,
                     # which is required to complete paths across `-` symbols,
@@ -815,7 +823,6 @@ def positron_highlight(
     return highlight(server, params)
 
 
-@POSITRON.thread()
 @POSITRON.feature(TEXT_DOCUMENT_HOVER)
 def positron_hover(
     server: PositronJediLanguageServer, params: TextDocumentPositionParams

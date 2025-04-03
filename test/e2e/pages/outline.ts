@@ -7,7 +7,7 @@
 import { fail } from 'assert';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
-import { expect } from '@playwright/test';
+import test, { expect } from '@playwright/test';
 
 const HORIZONTAL_SASH = '.explorer-viewlet .monaco-sash.horizontal';
 const FOCUS_OUTLINE_COMMAND = 'outline.focus';
@@ -65,13 +65,26 @@ export class Outline {
 	}
 
 	async expectOutlineElementToBeVisible(text: string, visible = true): Promise<void> {
-		visible
-			? await expect(this.outlineElement.filter({ hasText: text })).toBeVisible()
-			: await expect(this.outlineElement.filter({ hasText: text })).not.toBeVisible();
+		await test.step(`Expect outline element to be ${visible ? 'visible' : 'not visible'}: ${text}`, async () => {
+			visible
+				? await expect(this.outlineElement.filter({ hasText: text })).toBeVisible()
+				: await expect(this.outlineElement.filter({ hasText: text })).not.toBeVisible();
+		});
+	}
+
+	async expectOutlineToBeEmpty(): Promise<void> {
+		await test.step('Expect outline to be empty', async () => {
+			await expect(this.code.driver.page.getByText(/^No symbols found in document/)).toBeVisible();
+		});
 	}
 
 	async expectOutlineElementCountToBe(count: number): Promise<void> {
-		await expect(this.outlineElement).toHaveCount(count);
+		await test.step(`Expect outline element count to be ${count}`, async () => {
+			if (count === 0) {
+				await expect(this.outlineElement).not.toBeVisible();
+			}
+			await expect(this.outlineElement).toHaveCount(count);
+		});
 	}
 
 	async expectOutlineToContain(expected: string[]): Promise<void> {

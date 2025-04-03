@@ -400,6 +400,17 @@ export class KCApi implements PositronSupervisorApi {
 			try {
 				const status = await this._api.serverStatus();
 				this._log.appendLine(`Kallichore ${status.body.version} server online with ${status.body.sessions} sessions`);
+
+				// Make sure the version is the one expected in package.json.
+				const version = this._context.extension.packageJSON.positron.binaryDependencies.kallichore;
+				if (status.body.version !== version) {
+					vscode.window.showWarningMessage(vscode.l10n.t(
+						'Positron Supervisor version {0} is unsupported (expected {1}). ' +
+						'This may result in unexpected behavior or errors.',
+						status.body.version,
+						version)
+					);
+				}
 				break;
 			} catch (err) {
 				const elapsed = Date.now() - startTime;

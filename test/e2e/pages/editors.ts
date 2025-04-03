@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
+import test, { expect } from '@playwright/test';
 import { Code } from '../infra/code';
 
 
@@ -79,6 +79,8 @@ export class Editors {
 	}
 
 	async expectSuggestionListCount(count: number): Promise<void> {
-		await expect(this.suggestionList).toHaveCount(count);
+		await test.step(`Expect editor suggestion list to have ${count} items`, async () => {
+			await expect(this.suggestionList).toHaveCount(count);
+		});
 	}
 }

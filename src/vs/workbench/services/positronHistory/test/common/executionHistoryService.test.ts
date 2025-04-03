@@ -188,6 +188,10 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
+	interruptSession(_sessionId: string): Promise<void> {
+		throw new Error('Method not implemented.');
+	}
+
 	shutdownNotebookSession(_notebookUri: any, _exitReason: RuntimeExitReason, _source: string): Promise<void> {
 		throw new Error('Method not implemented.');
 	}

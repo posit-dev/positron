@@ -47,6 +47,9 @@ test.describe('Notebooks', {
 		});
 
 		test('Python - Save untitled notebook and preserve session', async function ({ app }) {
+
+			test.slow();
+
 			// Ensure auxiliary sidebar is open to see variables pane
 			await app.workbench.layouts.enterLayout('notebook');
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
@@ -85,11 +88,36 @@ test.describe('Notebooks', {
 			// Add code to the new cell (using typeInEditor since addCodeToLastCell isn't available)
 			await app.workbench.notebooks.addCodeToCellAtIndex('baz = "baz"', 1);
 
-			// Execute the cell
-			await app.workbench.notebooks.executeActiveCell();
+			await expect(async () => {
+				// Execute the cell
+				await app.workbench.notebooks.executeActiveCell();
 
-			// Verify the variable is in the variables pane
-			await app.workbench.variables.expectVariableToBe('baz', "'baz'");
+				// Verify the variable is in the variables pane
+				await app.workbench.variables.expectVariableToBe('baz', "'baz'");
+			}).toPass({ timeout: 60000 });
+		});
+
+		test('Python - Ensure LSP works across cells', async function ({ app }) {
+
+			await app.workbench.notebooks.insertNotebookCell('code');
+
+			await app.workbench.notebooks.addCodeToCellAtIndex('import torch');
+
+			await app.workbench.notebooks.insertNotebookCell('code');
+
+			await app.workbench.notebooks.addCodeToCellAtIndex('torch.rand(10)', 1);
+
+			// toPass block seems to be needed on Ubuntu
+			await expect(async () => {
+				await app.workbench.notebooks.hoverCellText(1, 'torch');
+
+				const hoverTooltip = app.code.driver.page.getByRole('tooltip', {
+					name: /module torch/,
+				});
+
+				await expect(hoverTooltip).toBeVisible();
+				await expect(hoverTooltip).toContainText('The torch package contains');
+			}).toPass({ timeout: 60000 });
 		});
 	});
 

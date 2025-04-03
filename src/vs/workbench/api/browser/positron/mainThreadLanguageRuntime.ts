@@ -949,7 +949,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		if (this.dynState.currentNotebookUri) {
 			return basename(this.dynState.currentNotebookUri);
 		}
-		return this.runtimeMetadata.runtimeName;
+		return this.metadata.sessionName;
 	}
 	static clientCounter = 0;
 
@@ -1335,6 +1335,12 @@ export class MainThreadLanguageRuntime
 			'Extension-requested runtime restart via Positron API');
 	}
 
+	// Called by the extension host to interrupt a running session
+	$interruptSession(handle: number): Promise<void> {
+		return this._runtimeSessionService.interruptSession(
+			this.findSession(handle).sessionId);
+	}
+
 	// Signals that language runtime discovery is complete.
 	$completeLanguageRuntimeDiscovery(): void {
 		this._runtimeStartupService.completeDiscovery(this._id);
@@ -1348,8 +1354,8 @@ export class MainThreadLanguageRuntime
 		}
 	}
 
-	$executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior): Promise<boolean> {
-		return this._positronConsoleService.executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior);
+	$executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): Promise<string> {
+		return this._positronConsoleService.executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, executionId);
 	}
 
 	public dispose(): void {

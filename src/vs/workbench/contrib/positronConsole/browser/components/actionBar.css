@@ -7,6 +7,10 @@
 	height: 32px;
 }
 
+.state-label {
+	white-space: nowrap;
+}
+
 .action-bar-button-icon.interrupt::before {
 	color: var(--vscode-errorForeground);
 }

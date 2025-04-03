@@ -48,7 +48,7 @@ test.describe('New UV Environment', {
 
 		await app.workbench.console.waitForReady('>>>', 30000);
 
-		await app.workbench.sessions.expectAllSessionsToBeIdle();
+		await app.workbench.sessions.expectAllSessionsToBeReady();
 
 		const metadata = await app.workbench.sessions.getMetadata();
 

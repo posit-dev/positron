@@ -480,12 +480,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 					this._notificationService.warn(message);
 				}
 
-				// Install ipykernel in the new environment
-				await this._commandService.executeCommand(
-					'python.installIpykernel',
-					result.path
-				);
-
 				this._removePendingInitTask(NewProjectTask.PythonEnvironment);
 
 				return;

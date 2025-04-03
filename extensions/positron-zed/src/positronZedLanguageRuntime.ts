@@ -1640,9 +1640,18 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		const focus = mode !== positron.RuntimeCodeExecutionMode.Silent;
 
 		// Perform the execution
-		const success = await positron.runtime.executeCode(languageId, codeToExecute, focus, true, mode, errorBehavior);
-		if (!success) {
-			this.simulateOutputMessage(parentId, `Failed; is there an active console for ${languageId}?`);
+		try {
+			const result = await positron.runtime.executeCode(languageId, codeToExecute, focus, true, mode, errorBehavior);
+			if (result) {
+				this.simulateOutputMessage(parentId, JSON.stringify(result, undefined, 2));
+			} else {
+				this.simulateOutputMessage(parentId, `Failed; is there an active console for ${languageId}?`);
+			}
+		} catch (error) {
+			this.simulateErrorMessage(parentId,
+				'Execution failed',
+				`Execution error: ${JSON.stringify(error)}`,
+				[]);
 		}
 
 		// Return to idle state.
