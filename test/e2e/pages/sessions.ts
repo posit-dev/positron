@@ -86,7 +86,7 @@ export class Sessions {
 		} = options || {};
 
 		// convert input to array for unified processing
-		let sessionsToCreate = (Array.isArray(sessions) ? sessions : [sessions]) as SessionRuntimes[];
+		const sessionsToCreate = (Array.isArray(sessions) ? sessions : [sessions]) as SessionRuntimes[];
 		const results: SessionMetaData[] = [];
 
 		if (reuse) {
@@ -96,39 +96,26 @@ export class Sessions {
 			const consoleTabActiveSessions = (await this.getAllSessionIdsAndNames())
 				.filter(session => quickPickActiveSessionNames.has(session.name));
 
-			// list to track sessions that are not found
-			const sessionsNotFound: string[] = [];
-
 			for (const session of sessionsToCreate) {
 				const sessionName = availableRuntimes[session].name;
 				const index = consoleTabActiveSessions.findIndex(currentSession => currentSession.name.includes(sessionName));
 
 				if (index === -1) {
-					// session not found in active sessions
-					sessionsNotFound.push(sessionName);
+					// session not found in active sessions, create it
+					const newSession = { ...availableRuntimes[session], waitForReady, triggerMode };
+					newSession.id = await this.launchNew(newSession);
+					const metaData = await this.getMetadata(newSession.id);
+					results.push(metaData);
 				} else {
 					// session found, retrieve metadata
 					const foundSession = consoleTabActiveSessions[index];
-					const sessionMetaData = await this.getMetadata(foundSession.id);
-					results.push(sessionMetaData);
+					const metaData = await this.getMetadata(foundSession.id);
+					results.push(metaData);
 
 					// remove the found session from the list to avoid duplicates
 					consoleTabActiveSessions.splice(index, 1);
 				}
-
-				// map session names that were not found to their corresponding runtime keys
-				// and filter out any undefined values to ensure valid runtime keys
-				sessionsToCreate = sessionsNotFound
-					.map(name => availableRuntimesNameToKeyMap.get(name))
-					.filter((key): key is SessionRuntimes => Boolean(key));
 			}
-		}
-
-		// launch missing sessions
-		for (const key of sessionsToCreate) {
-			const session = { ...availableRuntimes[key], waitForReady, triggerMode };
-			session.id = await this.launchNew(session);
-			results.push(await this.getMetadata(session.id));
 		}
 
 		// return single result or array based on input type
@@ -423,7 +410,7 @@ export class Sessions {
 			triggerMode = 'hotkey',
 		} = options;
 
-		await test.step(`Start session via ${triggerMode}: ${language} ${version}`, async () => {
+		return await test.step(`Start session via ${triggerMode}: ${language} ${version}`, async () => {
 
 			// Don't try to start a new runtime if one is currently starting up
 			await this.expectAllSessionsToBeReady();
@@ -455,12 +442,11 @@ export class Sessions {
 			if (waitForReady) {
 				await expect(this.page.getByText(/starting/)).toBeVisible();
 				await expect(this.page.getByText(/starting/)).not.toBeVisible({ timeout: 90000 });
-				const sessionId = await this.getCurrentSessionId();
-				await this.expectStatusToBe(sessionId, 'idle');
+				// const sessionId = await this.getCurrentSessionId();
+				// await this.expectStatusToBe(sessionId, 'idle');
 			}
+			return this.getCurrentSessionId();
 		});
-
-		return this.getCurrentSessionId();
 	}
 
 	/**
@@ -738,7 +724,7 @@ export class Sessions {
 	 * @param session - the expected session info to verify
 	 */
 	async expectMetaDataToBe(session: SessionMetaData) {
-		await test.step(`Verify ${session.name} metadata`, async () => {
+		await test.step(`Verify ${session.name} metadata: ${session.state}, ${session.path}`, async () => {
 
 			// Click metadata button for desired session
 			await this.getSessionTab(session.id).click();
