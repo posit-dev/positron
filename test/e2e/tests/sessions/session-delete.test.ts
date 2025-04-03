@@ -31,8 +31,7 @@ test.describe('Sessions: Delete', {
 		await sessions.expectSessionCountToBe(0);
 	});
 
-	test.skip('Validate session picker and variables after delete', {
-		annotation: [{ type: 'issue', description: 'the variables dropdown does not match session name' }],
+	test('Validate session picker and variables after delete', {
 		tag: [tags.VARIABLES]
 	}, async function ({ app, sessions }) {
 		const { variables } = app.workbench;

@@ -100,4 +100,15 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 			fail('Secondary Python version not set');
 		}
 	});
+
+	test('Python - queue user input while interpreter is starting', async function ({ app }) {
+
+		await app.workbench.console.selectInterpreter(InterpreterType.Python, process.env.POSITRON_PY_VER_SEL!, false);
+
+		await app.workbench.console.typeToConsole('import time; time.sleep(5); print("done");', true);
+
+		await app.workbench.console.waitForConsoleContents('done', { expectedCount: 2 });
+
+	});
+
 });
