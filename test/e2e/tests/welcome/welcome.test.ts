@@ -81,11 +81,11 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await sessions.expectStartNewSessionMenuToBeVisible();
 
 			await quickInput.type(pythonRuntime.name);
-			await quickInput.selectQuickInputElementContaining(pythonRuntime.name);
+			const fullRuntimeName = await quickInput.selectQuickInputElementContaining(pythonRuntime.name);
 			await console.waitForInterpretersToFinishLoading();
 
 			await sessions.expectSessionCountToBe(1);
-			await sessions.expectSessionPickerToBe(pythonRuntime.name);
+			await sessions.expectSessionPickerToBe(fullRuntimeName);
 		});
 
 		test('Python - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, python }) {
@@ -113,11 +113,11 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await sessions.expectStartNewSessionMenuToBeVisible();
 
 			await quickInput.type(rRuntime.name);
-			await quickInput.selectQuickInputElementContaining(rRuntime.name);
+			const fullRuntimeName = await quickInput.selectQuickInputElementContaining(rRuntime.name);
 			await console.waitForInterpretersToFinishLoading();
 
 			await sessions.expectSessionCountToBe(1);
-			await sessions.expectSessionPickerToBe(rRuntime.name);
+			await sessions.expectSessionPickerToBe(fullRuntimeName);
 		});
 
 		test('R - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, r }) {
