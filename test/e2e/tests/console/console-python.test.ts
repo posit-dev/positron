@@ -46,12 +46,10 @@ test.describe('Console Pane: Alternate Python', () => {
 		await app.workbench.console.waitForConsoleContents('site-packages');
 	});
 
-	test('Python - queue user input while interpreter is starting', async function ({ app }) {
+	test('Python - queue user input while interpreter is starting', async function ({ app, sessions }) {
 
-		await app.workbench.console.selectInterpreter(InterpreterType.Python, process.env.POSITRON_PY_VER_SEL!, false);
-
+		await sessions.start('python');
 		await app.workbench.console.typeToConsole('import time; time.sleep(5); print("done");', true);
-
 		await app.workbench.console.waitForConsoleContents('done', { expectedCount: 2 });
 
 	});
