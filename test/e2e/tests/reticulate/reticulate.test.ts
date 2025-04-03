@@ -60,7 +60,7 @@ test.describe.fixme('Reticulate', {
 		tag: [tags.WEB_ONLY]
 	}, async function ({ app, sessions }) {
 
-		await sessions.start('python', { waitForReady: false });
+		await sessions.startAndSkipMetadata({ language: 'Python', waitForReady: false });
 		await sessions.expectSessionPickerToBe('Python (reticulate)');
 
 		await app.workbench.popups.installIPyKernel();
@@ -116,7 +116,7 @@ async function verifyReticulateFunctionality(app: Application, sequential) {
 
 	await app.workbench.console.barClearButton.click();
 
-	await app.workbench.sessions.start('r', { waitForReady: !sequential });
+	await app.workbench.sessions.startAndSkipMetadata({ language: 'R', waitForReady: !sequential });
 
 	await app.workbench.console.pasteCodeToConsole('y<-reticulate::py$x');
 	await app.workbench.console.sendEnterKey();

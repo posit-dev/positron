@@ -120,7 +120,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	r: [
 		async ({ sessions }, use) => {
-			await sessions.start('r', { waitForReady: true, reuse: true });
+			await sessions.start('r', { reuse: true });
 			await use();
 		},
 		{ scope: 'test' }
@@ -128,7 +128,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	python: [
 		async ({ sessions }, use) => {
-			await sessions.start('python', { waitForReady: true, reuse: true });
+			await sessions.start('python', { reuse: true });
 			await use();
 		},
 		{ scope: 'test' }],
