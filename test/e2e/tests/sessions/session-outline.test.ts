@@ -31,7 +31,7 @@ test.describe('Session: Outline', {
 		await outline.focus();
 	});
 
-	test('Verify outline is based on editor and per session', async function ({ app, openFile, sessions }) {
+	test('Verify outline is based on editor and per session', async function ({ app, sessions }) {
 		const { outline, console, editor } = app.workbench;
 
 		// No active session - verify no outlines
@@ -79,10 +79,13 @@ test.describe('Session: Outline', {
 		await verifyPythonOutline(outline);
 	});
 
-	test('Verify outline after reload with R in foreground and Python in background', async function ({ app, runCommand, sessions }) {
+	test('Verify outline after reload with Python in foreground and R in background', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7052' }],
+	}, async function ({ app, runCommand, sessions }) {
 		const { outline, editor } = app.workbench;
 
 		// Start sessions
+		await sessions.deleteAll();
 		const [, rSession] = await sessions.start(['python', 'r']);
 
 		// Verify outlines for both file types
@@ -93,16 +96,44 @@ test.describe('Session: Outline', {
 		await verifyROutline(outline);
 
 		// Reload window
+		await sessions.expectSessionCountToBe(2);
 		await runCommand('workbench.action.reloadWindow');
+		await sessions.expectSessionCountToBe(2);
 
 		// Verify outlines for both file types
 		await editor.selectTab(PY_FILE);
 		await verifyPythonOutline(outline);
 
 		await editor.selectTab(R_FILE);
-		await sessions.select(rSession.id); // Even though the session displays as green ("idle"), I have to click on it in order to get outline to come back. Is this expected?
+		await sessions.select(rSession.id); // Issue 7052 - we shouldn't have to click the tab
 		await verifyROutline(outline);
 	});
+
+	test('Verify outline after reload with R in foreground and Python in background',
+		async function ({ app, runCommand, sessions }) {
+			const { outline, editor } = app.workbench;
+
+			// Start sessions
+			await sessions.deleteAll();
+			await sessions.start(['r', 'python']);
+
+			// Verify outlines for both file types
+			await editor.selectTab(R_FILE);
+			await verifyROutline(outline);
+
+			await editor.selectTab(PY_FILE);
+			await verifyPythonOutline(outline);
+
+			// Reload window
+			await runCommand('workbench.action.reloadWindow');
+
+			// Verify outlines for both file types
+			await editor.selectTab(R_FILE);
+			await verifyROutline(outline);
+
+			await editor.selectTab(PY_FILE);
+			await verifyPythonOutline(outline);
+		});
 });
 
 async function verifyPythonOutline(outline: Outline) {

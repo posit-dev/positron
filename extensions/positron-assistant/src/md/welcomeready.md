@@ -4,7 +4,7 @@ Click on or type $(mention) to work with Chat Participants in Positron Assistant
 
 Click on $(attach) or type `#` to add context, such as files to your Positron Assistant chat.
 
-Type / to use predefined quick commands such as `/help` or `/quatro`.
+Type `/` to use predefined quick commands such as `/help` or `/quarto`.
 
 The {guide-link} explains the possibilities and capabilities of Positron Assistant.
 

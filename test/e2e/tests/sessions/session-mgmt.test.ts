@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags } from '../_test.setup';
-import { Application, SessionInfo } from '../../infra';
+import { Application, SessionMetaData } from '../../infra';
 
 test.use({
 	suiteId: __filename
@@ -109,26 +109,6 @@ test.describe('Sessions: Management', {
 		await sessions.expectActiveSessionListsToMatch();
 	});
 
-	test('Validate can delete sessions', { tag: [tags.VARIABLES] }, async function ({ app, sessions }) {
-		const { console, variables } = app.workbench;
-
-		// Ensure sessions exist and are idle
-		const [pySession, rSession] = await sessions.start(['python', 'r']);
-
-		// Delete 1st session and verify active sessions and runtime in session picker
-		await sessions.delete(pySession.id);
-		await sessions.expectSessionCountToBe(1);
-		await sessions.expectActiveSessionListsToMatch();
-		await variables.expectRuntimeToBe('visible', rSession.name);
-
-		// Delete 2nd session and verify no active sessions or runtime in session picker
-		await console.barTrashButton.click();
-		await sessions.expectSessionPickerToBe('Start Session');
-		await sessions.expectSessionCountToBe(0);
-		await sessions.expectActiveSessionListsToMatch();
-		await variables.expectRuntimeToBe('not.visible', `${rSession.name}|${pySession.name}|None`);
-	});
-
 	test('Validate session, console, variables, and plots persist after reload',
 		{
 			tag: [tags.VARIABLES, tags.PLOTS],
@@ -142,7 +122,7 @@ test.describe('Sessions: Management', {
 			const [pySession, rSession] = await sessions.start(['python', 'r']);
 
 			await sessions.expectSessionCountToBe(2);
-			await sessions.expectAllSessionsToBeIdle();
+			await sessions.expectAllSessionsToBeReady();
 
 			// Select R session and run script to generate plot and variable
 			await runCodeInSession(app, rSession, 1,);
@@ -169,7 +149,7 @@ test.describe('Sessions: Management', {
 
 			// Verify all sessions reload and are idle
 			await sessions.expectSessionCountToBe(2);
-			await sessions.expectAllSessionsToBeIdle();
+			await sessions.expectAllSessionsToBeReady();
 
 			// Verify sessions, plot, console history, and variables persist for R session
 			await sessions.select(rSession.id);
@@ -193,30 +173,33 @@ test.describe('Sessions: Management', {
 });
 
 
-async function runCodeInSession(app: Application, session: SessionInfo, index: number) {
+async function runCodeInSession(app: Application, session: SessionMetaData, index: number) {
 	await test.step(`${session.name}: run code to generate plot and variable`, async () => {
 		const { sessions, console, variables } = app.workbench;
+		const isPython = session.name.includes('Python');
 		await sessions.select(session.id);
 
 		// Generate an image plot
-		const imagePlotScript = session.language === 'R'
-			? `library(ggplot2)
-library(grid)
-img <- matrix(runif(100), nrow=10)
-grid.raster(img)`
-			: `import matplotlib.pyplot as plt
+		const imagePlotScript = isPython
+			? `import matplotlib.pyplot as plt
 import numpy as np
 img = np.random.rand(10, 10)
 plt.imshow(img, cmap='gray')
 plt.axis('off')
-plt.show()`;
-		await console.executeCode(session.language, imagePlotScript);
+plt.show()`
+			: `library(ggplot2)
+library(grid)
+img <- matrix(runif(100), nrow=10)
+grid.raster(img)`;
+		await console.executeCode(isPython ? 'Python' : 'R', imagePlotScript);
 
 		// Print index to console
 		await console.typeToConsole(`print("this is console ${index}")`, true);
 
 		// Assign a variable based on session language
-		const assignment = session.language === 'R' ? `test <- ${index}` : `test = ${index}`;
+		const assignment = isPython
+			? `test = ${index}`
+			: `test <- ${index}`;
 		await console.typeToConsole(assignment, true);
 
 		await variables.focusVariablesView();

@@ -712,25 +712,6 @@
           }
         },
         "tags": ["positron-assistant"]
-      },
-      {
-        "name": "installRPackage",
-        "displayName": "Install R package",
-        "modelDescription": "Given the names of one or more R packages, installs the packages in the current R environment.",
-        "canBeReferencedInPrompt": false,
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "packageNames": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              },
-              "description": "The list of R packages to install."
-            }
-          }
-        },
-        "tags": ["positron-assistant"]
       }
     ]
   },
@@ -785,7 +766,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.175"
+      "ark": "0.1.177"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

@@ -23,6 +23,9 @@ import {
     InvalidMacPythonInterpreterService,
     InvalidMacPythonInterpreterServiceId,
 } from './checks/macPythonInterpreter';
+// --- Start Positron ---
+import { UnsupportedPythonVersionService, UnsupportedPythonVersionServiceId } from './checks/unsupportedPythonVersion';
+// --- End Positron ---
 import {
     PowerShellActivationHackDiagnosticsService,
     PowerShellActivationHackDiagnosticsServiceId,
@@ -79,6 +82,14 @@ export function registerTypes(serviceManager: IServiceManager): void {
         InvalidMacPythonInterpreterService,
         InvalidMacPythonInterpreterServiceId,
     );
+    // --- Start Positron ---
+    // Add a new diagnostic service for unsupported Python versions
+    serviceManager.addSingleton<IDiagnosticsService>(
+        IDiagnosticsService,
+        UnsupportedPythonVersionService,
+        UnsupportedPythonVersionServiceId,
+    );
+    // --- End Positron ---
 
     serviceManager.addSingleton<IDiagnosticsService>(
         IDiagnosticsService,

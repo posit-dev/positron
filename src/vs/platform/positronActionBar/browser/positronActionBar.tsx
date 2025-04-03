@@ -16,11 +16,6 @@ import { DisposableStore, toDisposable } from '../../../base/common/lifecycle.js
 import { optionalValue, positronClassNames } from '../../../base/common/positronUtilities.js';
 
 /**
- * Constants.
- */
-const CONSERVE_SPACE_THRESHOLD = 500;
-
-/**
  * CommonPositronActionBarProps interface.
  */
 interface CommonPositronActionBarProps {
@@ -124,8 +119,6 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 
 		// Allocate and initialize the resize observer.
 		const resizeObserver = new ResizeObserver(entries => {
-			// Set the conserve space flag based on the width of the action bar.
-			context.setConserveSpace(entries[0].contentRect.width < CONSERVE_SPACE_THRESHOLD);
 		});
 
 		// Start observing the size of the action bar.

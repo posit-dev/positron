@@ -41,7 +41,9 @@ export class Editor {
 	 * @param filename the name of the tab to select
 	 */
 	async selectTab(filename: string): Promise<void> {
-		await this.code.driver.page.getByRole('tab', { name: filename }).click();
+		await test.step(`Select tab ${filename}`, async () => {
+			await this.code.driver.page.getByRole('tab', { name: filename }).click();
+		});
 	}
 
 	/**

@@ -1051,6 +1051,9 @@ export default tseslint.config(
 				{
 					'target': 'src/vs/workbench/api/~',
 					'restrictions': [
+						// --- Start Positron ---
+						'positron',
+						// --- End Positron ---
 						'vscode',
 						'vs/base/~',
 						'vs/base/parts/*/~',
@@ -1291,6 +1294,12 @@ export default tseslint.config(
 					'target': 'src/vscode-dts/**',
 					'restrictions': []
 				},
+				// --- Start Positron ---
+				{
+					'target': 'src/positron-dts/**',
+					'restrictions': ['vscode']
+				},
+				// --- End Positron ---
 				{
 					'target': 'src/bootstrap-window.ts',
 					'restrictions': []

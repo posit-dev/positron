@@ -9,67 +9,80 @@ import * as ai from 'ai';
 
 import { z } from 'zod';
 import { padBase64String } from './utils';
+import { LanguageModelImage } from './languageModelParts.js';
 
 export interface PositronToolAdapter {
 	toolData: vscode.LanguageModelChatTool;
 	provideAiTool(token: unknown, toolOptions: unknown): ai.Tool<any, string>;
 }
 
-export const getPlotToolAdapter: PositronToolAdapter = {
+/**
+ * A tool adapter for document edits. This tool is provided when the user uses
+ * inline chat without a selection.
+ */
+export const documentEditToolAdapter: PositronToolAdapter = {
 	toolData: {
-		name: 'getPlot',
-		description: 'Get the current visible plot.',
+		name: 'documentEdit',
+		description: 'Output an edited version of the document.',
 	},
 
-	provideAiTool(token: unknown, options: { model: ai.LanguageModelV1; signal: AbortSignal }): ai.Tool {
-		const push = (part: vscode.ChatResponsePart) => positron.ai.responseProgress(token, part);
+	provideAiTool(
+		token: unknown,
+		options: {
+			// The URI of the document to edit; we can't pass the whole `document` in
+			// because the tool options are serialized, so only plain JSON is supported.
+			documentUri: string;
 
+			// The active selection, if any
+			selection: vscode.Selection;
+		}): ai.Tool {
 		return ai.tool({
 			description: this.toolData.description,
-			parameters: z.object({}),
-			execute: async () => {
-				push(new vscode.ChatResponseProgressPart('Getting the current plot...'));
+			parameters: z.object({
+				deltas: z.array(
+					z.object({
+						delete: z.string().optional().describe('Text to delete from the document.'),
+						replace: z.string().optional().describe('Text to replace the deleted text.')
+					})).describe('The array of changes to apply.')
+			}),
+			execute: async (params) => {
+				// Get the text of the document to edit
+				const document =
+					await vscode.workspace.openTextDocument(vscode.Uri.parse(options.documentUri));
+				const documentText = document.getText();
 
-				// Get the current plot image data
-				const uri = await positron.ai.getCurrentPlotUri();
-				const matches = uri?.match(/^data:([^;]+);base64,(.+)$/);
-				if (!matches || !uri) {
-					return 'No plot visible';
-				}
-
-				push(new vscode.ChatResponseProgressPart('Analysing the plot image data...'));
-
-				// Ask the model to describe the image in a new sub-conversation behind the scenes
-				const result = await ai.generateText({
-					model: options.model,
-					system: 'Describe the image provided by the user.',
-					messages: [
-						{
-							role: 'user',
-							content: [
-								{
-									type: 'text' as const,
-									text: 'The image is attached.'
-								}, {
-									type: 'image' as const,
-									mimeType: matches[1],
-									image: padBase64String(matches[2]),
-								}
-							],
+				// Process each change, emitting text edits for each one
+				for (const delta of params.deltas) {
+					if ('delete' in delta && 'replace' in delta) {
+						const deleteText = delta.delete;
+						const startPos = documentText.indexOf(deleteText!);
+						if (startPos === -1) {
+							// If the delete text is not found in the document,
+							// we can't apply this edit; ignore.
+							continue;
 						}
-					],
-					abortSignal: options.signal,
-				});
-
-				return result.text;
-			},
+						const startPosition = document.positionAt(startPos);
+						const endPosition = document.positionAt(startPos + deleteText!.length);
+						const range = new vscode.Range(startPosition, endPosition);
+						const textEdit = vscode.TextEdit.replace(range, delta.replace!);
+						positron.ai.responseProgress(token,
+							new vscode.ChatResponseTextEditPart(
+								document.uri,
+								textEdit
+							));
+					}
+				}
+			}
 		});
 	}
 };
 
-export const textEditToolAdapter: PositronToolAdapter = {
+/**
+ * A tool adapter for selection edits.
+ */
+export const selectionEditToolAdapter: PositronToolAdapter = {
 	toolData: {
-		name: 'textEdit',
+		name: 'selectionEdit',
 		description: 'Output an edited version of the code selection.',
 	},
 
@@ -95,8 +108,8 @@ export const textEditToolAdapter: PositronToolAdapter = {
 };
 
 export const positronToolAdapters: Record<string, PositronToolAdapter> = {
-	[getPlotToolAdapter.toolData.name]: getPlotToolAdapter,
-	[textEditToolAdapter.toolData.name]: textEditToolAdapter,
+	[documentEditToolAdapter.toolData.name]: documentEditToolAdapter,
+	[selectionEditToolAdapter.toolData.name]: selectionEditToolAdapter,
 };
 
 /**
@@ -105,7 +118,7 @@ export const positronToolAdapters: Record<string, PositronToolAdapter> = {
  * @param context The extension context for registering disposables
  */
 export function registerAssistantTools(context: vscode.ExtensionContext): void {
-	const executeCodeTool = vscode.lm.registerTool<{ code: string, language: string }>('executeCode', {
+	const executeCodeTool = vscode.lm.registerTool<{ code: string; language: string }>('executeCode', {
 		/**
 		 * Called by Positron to prepare for tool invocation. We use this hook
 		 * to show the user the code that we are about to run, and ask for
@@ -134,7 +147,7 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 						options.input.code + '\n' +
 						'```'),
 				}
-			}
+			};
 			return result;
 		},
 
@@ -148,10 +161,10 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 		 */
 		invoke: async (options, token) => {
 			/** The accumulated output text */
-			let outputText: string = "";
+			let outputText: string = '';
 
 			/** The accumulated error text */
-			let outputError: string = "";
+			let outputError: string = '';
 
 			/** The execution result, as a map of MIME types to values */
 			const result: Record<string, any> = {};
@@ -178,7 +191,7 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 						languageId,
 						options.input.code,
 						true,  // focus console
-						false, // do not allow incomplete input
+						true,  // allow incomplete input, so that incomplete statements error right away
 						positron.RuntimeCodeExecutionMode.Interactive,
 						positron.RuntimeErrorBehavior.Stop,
 						observer);
@@ -205,4 +218,26 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 	});
 
 	context.subscriptions.push(executeCodeTool);
+
+	const getPlotTool = vscode.lm.registerTool<{}>('getPlot', {
+		async invoke(options, token) {
+			// Get the current plot image data
+			const uri = await positron.ai.getCurrentPlotUri();
+			if (!uri) {
+				return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart('No plot visible')]);
+			}
+
+			// Extract the MIME type and base64 data from the URI.
+			const matches = uri?.match(/^data:([^;]+);base64,(.+)$/);
+			if (!matches) {
+				return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart('Internal Error: Positron returned an unexpected plot URI format')]);
+			}
+
+			const image = new LanguageModelImage(matches[1], padBase64String(matches[2]));
+			const imageJson = image.toJSON();
+			return new vscode.LanguageModelToolResult([new vscode.LanguageModelPromptTsxPart(imageJson)]);
+		},
+	});
+
+	context.subscriptions.push(getPlotTool);
 }

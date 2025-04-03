@@ -10,7 +10,7 @@ import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatPro
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
 import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
-import { LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
+import { EnvironmentVariableAction, LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
@@ -129,6 +129,12 @@ export interface ExtHostConnectionsShape {
 	$driverInstallDependencies(driverId: string): Promise<boolean>;
 }
 
+export interface MainThreadEnvironmentShape extends IDisposable {
+	$getEnvironmentContributions(): Promise<Record<string, EnvironmentVariableAction[]>>;
+}
+
+export interface ExtHostEnvironmentShape { }
+
 export interface MainThreadAiFeaturesShape {
 	$registerChatAgent(agentData: IChatAgentData): Thenable<void>;
 	$unregisterChatAgent(id: string): void;
@@ -218,6 +224,7 @@ export const ExtHostPositronContext = {
 	ExtHostConsoleService: createProxyIdentifier<ExtHostConsoleServiceShape>('ExtHostConsoleService'),
 	ExtHostContextKeyService: createProxyIdentifier<ExtHostContextKeyServiceShape>('ExtHostContextKeyService'),
 	ExtHostMethods: createProxyIdentifier<ExtHostMethodsShape>('ExtHostMethods'),
+	ExtHostEnvironment: createProxyIdentifier<ExtHostEnvironmentShape>('ExtHostEnvironment'),
 	ExtHostConnections: createProxyIdentifier<ExtHostConnectionsShape>('ExtHostConnections'),
 	ExtHostAiFeatures: createProxyIdentifier<ExtHostAiFeaturesShape>('ExtHostAiFeatures'),
 	ExtHostQuickOpen: createProxyIdentifier<ExtHostQuickOpenShape>('ExtHostQuickOpen'),
@@ -228,6 +235,7 @@ export const MainPositronContext = {
 	MainThreadPreviewPanel: createProxyIdentifier<MainThreadPreviewPanelShape>('MainThreadPreviewPanel'),
 	MainThreadModalDialogs: createProxyIdentifier<MainThreadModalDialogsShape>('MainThreadModalDialogs'),
 	MainThreadConsoleService: createProxyIdentifier<MainThreadConsoleServiceShape>('MainThreadConsoleService'),
+	MainThreadEnvironment: createProxyIdentifier<MainThreadEnvironmentShape>('MainThreadEnvironment'),
 	MainThreadContextKeyService: createProxyIdentifier<MainThreadContextKeyServiceShape>('MainThreadContextKeyService'),
 	MainThreadMethods: createProxyIdentifier<MainThreadMethodsShape>('MainThreadMethods'),
 	MainThreadConnections: createProxyIdentifier<MainThreadConnectionsShape>('MainThreadConnections'),

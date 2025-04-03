@@ -22,6 +22,7 @@ test.describe('Console Pane: R', {
 	}, async function ({ sessions }) {
 		const rSession = await sessions.start('r');
 		await sessions.restart(rSession.id);
+		// await app.workbench.console.waitForConsoleContents('cat from .Rprofile'); // add back when Davis gives the go ahead
 	});
 
 	test('R - Verify cancel button on console bar', {

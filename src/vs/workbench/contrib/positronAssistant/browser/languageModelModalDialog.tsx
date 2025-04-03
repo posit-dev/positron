@@ -22,9 +22,11 @@ import { localize } from '../../../../nls.js';
 import { ProgressBar } from '../../../../base/browser/ui/positronComponents/progressBar.js';
 import { LanguageModelButton } from './components/languageModelButton.js';
 import { DropDownListBox } from '../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
-import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { OKModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronOKModalDialog.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { LanguageModelConfigComponent } from './components/languageModelConfigComponent.js';
+import { RadioButtonItem } from '../../../browser/positronComponents/positronModalDialog/components/radioButton.js';
+import { RadioGroup } from '../../../browser/positronComponents/positronModalDialog/components/radioGroup.js';
 
 export const showLanguageModelModalDialog = (
 	keybindingService: IKeybindingService,
@@ -71,21 +73,27 @@ interface LanguageModelConfigurationProps {
 	onClose: () => void;
 }
 
+export interface LanguageModelUIConfiguration extends IPositronLanguageModelConfig {
+	signedIn?: boolean;
+	isTest?: boolean;
+	apiKey?: string;
+}
+
 const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModelConfigurationProps>) => {
 	const [type, setType] = React.useState<PositronLanguageModelType>(PositronLanguageModelType.Chat);
 
-	const useNewConfig = props.configurationService.getValue<boolean>('positron.assistant.newModelConfiguration');
+	const useNewConfig = props.configurationService.getValue<boolean>('positron.assistant.newModelConfiguration') ?? true;
 	const enabledProviders = props.sources.map(source => source.provider.id);
 	const hasAnthropic = enabledProviders.includes('anthropic');
 	const hasMistral = enabledProviders.includes('mistral');
 	const defaultSource = props.sources.find(source => {
 		// If Anthropic is available, prefer it for chat models
-		if (source.type === type) {
-			if (type === 'chat' && hasAnthropic) {
+		if (type === 'chat') {
+			if (hasAnthropic) {
 				return source.provider.id === 'anthropic';
 			}
 			// If Mistral is available, prefer it for completion models
-			if (type === 'completion' && hasMistral) {
+			if (hasMistral) {
 				return source.provider.id === 'mistral';
 			}
 			// In all other cases, prefer the first available provider
@@ -95,6 +103,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	})!;
 
 	const [source, setSource] = React.useState<IPositronLanguageModelSource>(defaultSource);
+	const [providerConfig, setProviderConfig] = React.useState<LanguageModelUIConfiguration>({ ...defaultSource.defaults, name: defaultSource.provider.displayName, provider: defaultSource.provider.id, type: defaultSource.type });
 	const [apiKey, setApiKey] = React.useState<string>();
 	const [baseUrl, setBaseUrl] = React.useState<string | undefined>(defaultSource.defaults.baseUrl);
 	const [resourceName, setResourceName] = React.useState<string | undefined>(defaultSource.defaults.resourceName);
@@ -115,17 +124,18 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		props.positronAssistantService.onChangeLanguageModelConfig((newSource) => {
 			// find newSource in props.sources and update it
 			const index = props.sources.findIndex(source => source.provider.id === newSource.provider.id);
+			const mergedSource = { ...source, ...newSource, supportedOptions: source.supportedOptions };
 			if (index >= 0) {
-				props.sources[index] = newSource;
+				props.sources[index] = mergedSource;
 			}
 
 			// if newSource matches source, update source
 			if (source.provider.id === newSource.provider.id) {
-				setSource(newSource);
+				setSource(mergedSource);
 			}
 
 		});
-	}, [props.positronAssistantService, props.sources, source.provider.id]);
+	}, [props.positronAssistantService, props.sources, source]);
 
 	useEffect(() => {
 		setModel(source.defaults.model);
@@ -137,11 +147,27 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		setLocation(source.defaults.location);
 		setToolCalls(source.defaults.toolCalls);
 		setNumCtx(source.defaults.numCtx);
+
 	}, [source]);
 
+	const authMethodRadioButtons: RadioButtonItem[] = [
+		new RadioButtonItem({
+			identifier: 'oauth',
+			title: localize('positron.newConnectionModalDialog.oauth', "OAuth"),
+			disabled: true,
+		}),
+		new RadioButtonItem({
+			identifier: 'apiKey',
+			title: localize('positron.newConnectionModalDialog.apiKey', "API Key"),
+			disabled: false,
+		}),
+	];
+
 	const providers = props.sources
-		.filter(source => source.type === type)
-		.sort((a, b) => a.provider.displayName.localeCompare(b.provider.displayName))
+		.filter(source => source.type === 'chat')
+		.sort((a, b) => {
+			return a.provider.displayName.localeCompare(b.provider.displayName);
+		})
 		.map(source => new DropDownListBoxItem({
 			identifier: source.provider.id,
 			title: source.provider.displayName,
@@ -149,8 +175,33 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		}))
 
 	const onAccept = () => {
-		props.onClose();
-		props.renderer.dispose();
+		if (useNewConfig) {
+			props.onClose();
+			props.renderer.dispose();
+		} else {
+			setShowProgress(true);
+			setError(undefined);
+			props.onAction({
+				type: type,
+				provider: source.provider.id,
+				model: model,
+				name: name,
+				apiKey: apiKey,
+				baseUrl: baseUrl,
+				resourceName: resourceName,
+				project: project,
+				location: location,
+				toolCalls: toolCalls,
+				numCtx: numCtx,
+			}, 'save')
+				.catch((e) => {
+					setError(e.message);
+				}).finally(() => {
+					setShowProgress(false);
+					props.onClose();
+					props.renderer.dispose();
+				});
+		}
 	}
 
 	const onSignIn = async () => {
@@ -159,41 +210,23 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		}
 		setShowProgress(true);
 		setError(undefined);
-		props.onAction({
-			type: type,
-			provider: source.provider.id,
-			model: model,
-			name: name,
-			apiKey: apiKey,
-			baseUrl: baseUrl,
-			resourceName: resourceName,
-			project: project,
-			location: location,
-			toolCalls: toolCalls,
-			numCtx: numCtx,
-		}, source.signedIn ? 'delete' : 'save').then(() => {
-			source.signedIn = !source.signedIn;
-		}).catch((e) => {
-			setError(e.message);
-		}).finally(() => {
+		if (providerConfig) {
+			props.onAction(
+				providerConfig,
+				source.signedIn ? 'delete' : 'save')
+				.catch((e) => {
+					setError(e.message);
+				}).finally(() => {
+					setShowProgress(false);
+				});
+		} else {
 			setShowProgress(false);
-		});
+			setError(localize('positron.newConnectionModalDialog.incompleteConfig', 'The configuration is incomplete.'));
+		}
 	}
 	const onCancel = async () => {
 		props.onCancel();
 		props.renderer.dispose();
-	}
-
-	function signInButton() {
-		return <Button className='language-model button sign-in' onPressed={onSignIn}>
-			{(() => {
-				if (source.signedIn) {
-					return localize('positron.newConnectionModalDialog.signOut', "Sign out");
-				} else {
-					return localize('positron.newConnectionModalDialog.signIn', "Sign in");
-				}
-			})()}
-		</Button>
 	}
 
 	function oldDialog() {
@@ -338,7 +371,11 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 								displayName={provider.options.title ?? provider.options.identifier}
 								identifier={provider.options.identifier}
 								selected={provider.options.identifier === source.provider.id}
-								onClick={() => setSource(provider.options.value)}
+								onClick={() => {
+									setSource(provider.options.value);
+									setProviderConfig({ ...provider.options.value, ...provider.options.value.defaults, provider: provider.options.identifier });
+									setError(undefined);
+								}}
 							/>
 						})
 					}
@@ -346,30 +383,29 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				<label className='language-model-section'>
 					{(() => localize('positron.newConnectionModalDialog.authentication', "Authentication"))()}
 				</label>
-				{source?.supportedOptions.includes('apiKey') &&
-					(
-						<div className='language-model-authentication-container' id='api-key-input'>
-							<LabeledTextInput
-								label={(() => localize('positron.newConnectionModalDialog.apiKey', "API Key"))()}
-								type='password'
-								validator={(value) => {
-									if (errorMessage) {
-										return errorMessage;
-									}
-									return value ? undefined : localize('positron.newConnectionModalDialog.missingApiKey', 'An API key is required')
-								}}
-								value={apiKey ?? ''}
-								onChange={e => { setApiKey(e.currentTarget.value) }}
-							/>
-							{signInButton()}
-						</div>
-					)
-				}
-				{!source?.supportedOptions.includes('apiKey') &&
-					signInButton()
-				}
+				<div className='language-model-authentication-method-container'>
+					<RadioGroup
+						entries={authMethodRadioButtons}
+						initialSelectionId='apiKey'
+						name='authMethod'
+						onSelectionChanged={(authMethod) => {
+							// setAuthMethod(authMethod);
+						}}
+					/>
+				</div>
+				<LanguageModelConfigComponent
+					provider={providerConfig}
+					source={source}
+					onChange={(config) => {
+						setProviderConfig(config);
+					}}
+					onSignIn={onSignIn}
+				/>
 				{showProgress &&
 					<ProgressBar />
+				}
+				{errorMessage &&
+					<div className='language-model-error error error-msg'>{errorMessage}</div>
 				}
 			</VerticalStack>
 		</OKModalDialog>;

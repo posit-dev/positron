@@ -459,7 +459,15 @@ class PositronJediLanguageServer(JediLanguageServer):
         # Start Jedi LSP as an asyncio TCP server in a separate thread.
         logger.info("Starting LSP server thread")
         self._server_thread = threading.Thread(
-            target=self.start_tcp, args=(lsp_host,), name="LSPServerThread"
+            target=self.start_tcp,
+            args=(lsp_host,),
+            name="LSPServerThread",
+            # Allow the kernel process to exit while this thread is still running.
+            # We already try to exit the language server cleanly in both the kernel
+            # and the client. If that fails unexpectedly, we don't want the process
+            # to hang.
+            # See: https://github.com/posit-dev/positron/issues/7083.
+            daemon=True,
         )
         self._server_thread.start()
 

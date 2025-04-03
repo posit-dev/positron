@@ -52,6 +52,7 @@ export const RadioGroup = (props: PropsWithChildren<RadioGroupProps>) => {
 				return (
 					<RadioButton
 						key={index}
+						disabled={entry.options.disabled}
 						groupName={props.name}
 						identifier={entry.options.identifier}
 						selected={entry.options.identifier === currentSelection}

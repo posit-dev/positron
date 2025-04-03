@@ -76,6 +76,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	restartApp: [async ({ app }, use) => {
 		await app.restart();
+		await app.workbench.sessions.expectNoStartUpMessaging();
+
 		await use(app);
 	}, { scope: 'test', timeout: 60000 }],
 
@@ -84,7 +86,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 		try {
 			await app.start();
-			await app.workbench.console.waitForInterpretersToFinishLoading();
+			await app.workbench.sessions.expectNoStartUpMessaging();
 
 			await use(app);
 		} catch (error) {
@@ -211,6 +213,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			restartApp = false
 		) => {
 			await userSettings.setUserSettings(settings, restartApp);
+			await app.workbench.sessions.expectNoStartUpMessaging();
 		};
 
 		await use({

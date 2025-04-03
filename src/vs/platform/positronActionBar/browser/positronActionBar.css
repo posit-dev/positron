@@ -12,11 +12,11 @@
 }
 
 .positron-action-bar:not(.transparent-background) {
-	background: var(--positronActionBar-background);
+	background-color: var(--positronActionBar-background);
 }
 
 .positron-action-bar.transparent-background {
-	background: transparent;
+	background-color: transparent;
 }
 
 .positron-action-bar.small {
