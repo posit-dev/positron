@@ -149,7 +149,7 @@ export class BrowserEncryptionService implements IEncryptionService {
 
 	private async getSaltFromFileSystem(): Promise<Uint8Array> {
 		try {
-			const saltFileName = '.product.salt';
+			const saltFileName = '.storage';
 			let salt: Uint8Array;
 
 			try {
