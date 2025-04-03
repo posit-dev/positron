@@ -949,7 +949,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		if (this.dynState.currentNotebookUri) {
 			return basename(this.dynState.currentNotebookUri);
 		}
-		return this.runtimeMetadata.runtimeName;
+		return this.metadata.sessionName;
 	}
 	static clientCounter = 0;
 
