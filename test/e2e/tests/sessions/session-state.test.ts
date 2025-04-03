@@ -30,7 +30,7 @@ test.describe('Sessions: State', {
 
 		// Start Python session
 		// Launching directly to avoid missing state transitions caused by metadata dialog interaction
-		const pySessionId = await sessions.launchNew({ language: 'Python', waitForReady: false });
+		const pySessionId = await sessions.startAndSkipMetadata({ language: 'Python', waitForReady: false });
 
 		// Verify Python session is visible and transitions from starting --> idle
 		// Note displays as 'starting' in metadata dialog and as 'active' in session tab list
@@ -45,7 +45,7 @@ test.describe('Sessions: State', {
 
 		// Start R session
 		// Launching directly to avoid missing state transitions caused by metadata dialog interaction
-		const rSessionId = await sessions.launchNew({ language: 'R', waitForReady: false });
+		const rSessionId = await sessions.startAndSkipMetadata({ language: 'R', waitForReady: false });
 
 		// Verify R session transitions from active --> idle while Python session remains idle
 		await sessions.expectStatusToBe(rSessionId, 'active');

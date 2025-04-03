@@ -28,7 +28,6 @@ export class Sessions {
 	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
 
-
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
 	private idleStatus = (session: Locator) => session.locator('.codicon-positron-status-idle');
@@ -53,10 +52,10 @@ export class Sessions {
 
 	/**
 	 * Action: Starts one or more sessions
+	 * Note: If you are seeking to start a session and NOT wait for ready, use `startAndSkipMetadata()`
 	 *
 	 * @param sessions - The session runtime(s) to start: 'python', 'pythonAlt', 'pythonHidden', 'r', 'rAlt'
 	 * @param options - Configuration options for session startup
-	 * @param options.waitForReady - Whether to wait for sessions to be fully ready before returning (default: true)
 	 * @param options.triggerMode - How the session should be triggered: session-picker, quickaccess, hotkey, or console (default: hotkey)
 	 * @param options.reuse - Whether to reuse existing idle sessions if available (default: true)
 	 *
@@ -74,13 +73,11 @@ export class Sessions {
 	async start<T extends SessionRuntimes | SessionRuntimes[]>(
 		sessions: T,
 		options?: {
-			waitForReady?: boolean;
 			triggerMode?: SessionTrigger;
 			reuse?: boolean;
 		}
 	): Promise<T extends SessionRuntimes ? SessionMetaData : { [K in keyof T]: SessionMetaData }> {
 		const {
-			waitForReady = true,
 			triggerMode = 'hotkey',
 			reuse = true,
 		} = options || {};
@@ -91,8 +88,8 @@ export class Sessions {
 
 		// Helper to create a new session and fetch metadata
 		const createSession = async (session: SessionRuntimes): Promise<SessionMetaData> => {
-			const newSession = { ...availableRuntimes[session], waitForReady, triggerMode };
-			newSession.id = await this.launchNew(newSession);
+			const newSession = { ...availableRuntimes[session], waitForReady: true, triggerMode };
+			newSession.id = await this.startAndSkipMetadata(newSession);
 			return await this.getMetadata(newSession.id);
 		};
 
@@ -396,7 +393,7 @@ export class Sessions {
 	 * @param options.triggerMode - the method used to trigger the selection: session-picker, quickaccess, hotkey, or console.
 	 * @param options.waitForReady - whether to wait for the console to be ready after selecting the runtime.
 	 */
-	async launchNew(options: {
+	async startAndSkipMetadata(options: {
 		language: 'Python' | 'R';
 		version?: string;
 		triggerMode?: 'session-picker' | 'quickaccess' | 'console' | 'hotkey';
