@@ -85,7 +85,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await console.waitForInterpretersToFinishLoading();
 
 			await sessions.expectSessionCountToBe(1);
-			await sessions.expectSessionPickerToBe(pythonRuntime);
+			await sessions.expectSessionPickerToBe(pythonRuntime.name);
 		});
 
 		test('Python - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, python }) {
@@ -117,7 +117,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await console.waitForInterpretersToFinishLoading();
 
 			await sessions.expectSessionCountToBe(1);
-			await sessions.expectSessionPickerToBe(rRuntime);
+			await sessions.expectSessionPickerToBe(rRuntime.name);
 		});
 
 		test('R - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, r }) {

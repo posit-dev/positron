@@ -61,7 +61,7 @@ test.describe.fixme('Reticulate', {
 	}, async function ({ app, sessions }) {
 
 		await sessions.start('python', { waitForReady: false });
-		await sessions.expectSessionPickerToBe({ language: 'Python', version: '(reticulate)' });
+		await sessions.expectSessionPickerToBe('Python (reticulate)');
 
 		await app.workbench.popups.installIPyKernel();
 

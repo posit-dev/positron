@@ -23,7 +23,7 @@ test.describe('Top Action Bar - Interpreter Dropdown', {
 
 	test('Python - Verify interpreter starts and displays as running', async function ({ app, sessions }) {
 		const pythonSession = await sessions.start('python');
-		await sessions.expectSessionPickerToBe(pythonSession);
-		await sessions.expectAllSessionsToBeIdle();
+		await sessions.expectSessionPickerToBe(pythonSession.name);
+		await sessions.expectAllSessionsToBeReady();
 	});
 });
