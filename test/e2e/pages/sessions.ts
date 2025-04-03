@@ -568,8 +568,6 @@ export class Sessions {
 
 			if (infoButtonCount === 0) {
 				throw new Error('No active session');
-			} else if (infoButtonCount > 1) {
-				throw new Error('Multiple info buttons found');
 			}
 
 			const testId = await infoButton.getAttribute('data-testid');

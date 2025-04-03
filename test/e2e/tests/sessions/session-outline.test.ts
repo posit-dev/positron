@@ -31,7 +31,7 @@ test.describe('Session: Outline', {
 		await outline.focus();
 	});
 
-	test('Verify outline is based on editor and per session', async function ({ app, openFile, sessions }) {
+	test('Verify outline is based on editor and per session', async function ({ app, sessions }) {
 		const { outline, console, editor } = app.workbench;
 
 		// No active session - verify no outlines
@@ -79,14 +79,14 @@ test.describe('Session: Outline', {
 		await verifyPythonOutline(outline);
 	});
 
-	test.skip('Verify outline after reload with Python in foreground and R in background', {
+	test('Verify outline after reload with Python in foreground and R in background', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7052' }],
 	}, async function ({ app, runCommand, sessions }) {
 		const { outline, editor } = app.workbench;
 
 		// Start sessions
 		await sessions.deleteAll();
-		await sessions.start(['python', 'r']);
+		const [, rSession] = await sessions.start(['python', 'r']);
 
 		// Verify outlines for both file types
 		await editor.selectTab(PY_FILE);
@@ -105,6 +105,7 @@ test.describe('Session: Outline', {
 		await verifyPythonOutline(outline);
 
 		await editor.selectTab(R_FILE);
+		await sessions.select(rSession.id); // Issue 7052 - we shouldn't have to click the tab
 		await verifyROutline(outline);
 	});
 
