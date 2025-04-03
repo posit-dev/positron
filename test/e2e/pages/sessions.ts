@@ -89,6 +89,13 @@ export class Sessions {
 		const sessionsToCreate = (Array.isArray(sessions) ? sessions : [sessions]) as SessionRuntimes[];
 		const results: SessionMetaData[] = [];
 
+		// Helper to create a new session and fetch metadata
+		const createSession = async (session: SessionRuntimes): Promise<SessionMetaData> => {
+			const newSession = { ...availableRuntimes[session], waitForReady, triggerMode };
+			newSession.id = await this.launchNew(newSession);
+			return await this.getMetadata(newSession.id);
+		};
+
 		if (reuse) {
 			// retrieve the list of active sessions from the session quick pick menu
 			// filter the console tabs to include only those sessions that are currently active
@@ -98,23 +105,24 @@ export class Sessions {
 
 			for (const session of sessionsToCreate) {
 				const sessionName = availableRuntimes[session].name;
-				const index = consoleTabActiveSessions.findIndex(currentSession => currentSession.name.includes(sessionName));
+				const existingSessionIndex = consoleTabActiveSessions.findIndex(currentSession => currentSession.name.includes(sessionName));
 
-				if (index === -1) {
+				if (existingSessionIndex === -1) {
 					// session not found in active sessions, create it
-					const newSession = { ...availableRuntimes[session], waitForReady, triggerMode };
-					newSession.id = await this.launchNew(newSession);
-					const metaData = await this.getMetadata(newSession.id);
-					results.push(metaData);
+					results.push(await createSession(session));
 				} else {
 					// session found, retrieve metadata
-					const foundSession = consoleTabActiveSessions[index];
-					const metaData = await this.getMetadata(foundSession.id);
-					results.push(metaData);
+					const foundSession = consoleTabActiveSessions[existingSessionIndex];
+					results.push(await this.getMetadata(foundSession.id));
 
 					// remove the found session from the list to avoid duplicates
-					consoleTabActiveSessions.splice(index, 1);
+					consoleTabActiveSessions.splice(existingSessionIndex, 1);
 				}
+			}
+		} else {
+			// no reuse, create all sessions
+			for (const session of sessionsToCreate) {
+				results.push(await createSession(session));
 			}
 		}
 
