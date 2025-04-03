@@ -137,17 +137,10 @@ export async function defaultHandler(
 
 	// When invoked from the editor, add selection context and editor tool
 	if (request.location2 instanceof vscode.ChatRequestEditorData) {
+		system += await fs.promises.readFile(`${mdDir}/prompts/chat/editor.md`, 'utf8');
 		const document = request.location2.document;
 		const selection = request.location2.selection;
 		const selectedText = document.getText(selection);
-		const hasSelection = selection && !selection.isEmpty;
-		if (hasSelection) {
-			// If the user has selected text, generate a new version of the selection.
-			system += await fs.promises.readFile(`${mdDir}/prompts/chat/selection.md`, 'utf8');
-		} else {
-			// If the user has not selected text, use the prompt for the whole document.
-			system += await fs.promises.readFile(`${mdDir}/prompts/chat/editor.md`, 'utf8');
-		}
 		const documentText = document.getText();
 		const ref = {
 			id: document.uri.toString(),
