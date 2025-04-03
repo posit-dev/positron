@@ -31,7 +31,7 @@ test.describe('Session: Outline', {
 		await outline.focus();
 	});
 
-	test('Verify outline is based on editor and per session', async function ({ app, openFile, sessions }) {
+	test('Verify outline is based on editor and per session', async function ({ app, sessions }) {
 		const { outline, console, editor } = app.workbench;
 
 		// No active session - verify no outlines
@@ -96,7 +96,9 @@ test.describe('Session: Outline', {
 		await verifyROutline(outline);
 
 		// Reload window
+		await sessions.expectSessionCountToBe(2);
 		await runCommand('workbench.action.reloadWindow');
+		await sessions.expectSessionCountToBe(2);
 
 		// Verify outlines for both file types
 		await editor.selectTab(PY_FILE);
