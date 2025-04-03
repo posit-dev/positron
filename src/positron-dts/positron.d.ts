@@ -689,6 +689,22 @@ declare module 'positron' {
 	}
 
 	/**
+	 * Code attribution metadata for code executed by Positron.
+	 */
+	export interface CodeAttribution {
+		/** The code's origin */
+		source: CodeAttributionSource;
+
+		/**
+		 * Additional metadata specific to the attribution source, if any. For
+		 * example, when code is executed from an extension, it names the
+		 * extension, and when code is executed from a script, it names the
+		 * script.
+		 */
+		metadata?: Record<string, any>;
+	}
+
+	/**
 	 * An event that is emitted when code is executed in Positron.
 	 */
 	export interface CodeExecutionEvent {
@@ -702,7 +718,7 @@ declare module 'positron' {
 		code: string;
 
 		/** An object describing the origin of the code. */
-		attribution: CodeAttributionSource;
+		attribution: CodeAttribution;
 	}
 
 	export interface LanguageRuntimeManager {

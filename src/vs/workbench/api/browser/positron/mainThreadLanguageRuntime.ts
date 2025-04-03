@@ -1221,6 +1221,14 @@ export class MainThreadLanguageRuntime
 			this._runtimeStartupService.registerRuntimeManager(this)
 		);
 
+		// Track code execution events and forward them to the event host
+		this._disposables.add(
+			this._positronConsoleService.onDidExecuteCode(
+				(event) => {
+					this._proxy.$notifyCodeExecuted(event)
+				}
+			));
+
 		this._disposables.add(this._runtimeSessionService.registerSessionManager(this));
 	}
 
@@ -1371,7 +1379,8 @@ export class MainThreadLanguageRuntime
 			}
 		}
 
-		return this._positronConsoleService.executeCode(languageId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId);
+		return this._positronConsoleService.executeCode(
+			languageId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId);
 	}
 
 	public dispose(): void {

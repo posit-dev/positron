@@ -141,6 +141,7 @@ export interface IPositronConsoleService {
 
 	/**
 	 * Executes code in a PositronConsoleInstance.
+	 *
 	 * @param languageId The language ID.
 	 * @param code The code.
 	 * @param attribution An optional attribution object that describes the source of the code.
@@ -160,6 +161,11 @@ export interface IPositronConsoleService {
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string): Promise<string>;
+
+	/**
+	 * Fires when code is executed in any Positron console instance.
+	 */
+	onDidExecuteCode: Event<ILanguageRuntimeCodeExecutedEvent>;
 }
 
 /**
@@ -186,16 +192,22 @@ export enum SessionAttachMode {
  * Represents a code fragment and its execution options sent to a language runtime.
  */
 export interface ILanguageRuntimeCodeExecutedEvent {
-	/* The code that was executed in the language runtime session */
+	/** The language ID of the code fragment */
+	languageId: string;
+
+	/** The code that was executed in the language runtime session */
 	code: string;
 
-	/* The attribution object that describes the source of the code */
+	/** The attribution object that describes the source of the code */
 	attribution: IConsoleCodeAttribution;
 
-	/* The mode used to execute the code in the language runtime session */
+	/** The runtime that executed the code. */
+	runtimeName: string;
+
+	/** The mode used to execute the code in the language runtime session */
 	mode: RuntimeCodeExecutionMode;
 
-	/* The error disposition used to execute the code in the language runtime session */
+	/** The error disposition used to execute the code in the language runtime session */
 	errorBehavior: RuntimeErrorBehavior;
 }
 

@@ -226,6 +226,11 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	private readonly _onDidChangeConsoleWidthEmitter = this._register(new Emitter<number>());
 
 	/**
+	 * The onDidExecuteCode event emitter.
+	 */
+	private readonly _onDidExecuteCodeEmitter = this._register(new Emitter<ILanguageRuntimeCodeExecutedEvent>);
+
+	/**
 	 * The debounce timer for the onDidChangeConsoleWidth event.
 	 */
 	private _consoleWidthDebounceTimer: NodeJS.Timeout | undefined;
@@ -487,6 +492,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	// An event that is fired when the width of the console changes.
 	readonly onDidChangeConsoleWidth = this._onDidChangeConsoleWidthEmitter.event;
 
+	// An event that is fired when code is executed in a REPL instance.
+	readonly onDidExecuteCode = this._onDidExecuteCodeEmitter.event;
+
 	// Gets the repl instances.
 	get positronConsoleInstances(): IPositronConsoleInstance[] {
 		return Array.from(this._positronConsoleInstancesBySessionId.values());
@@ -706,6 +714,11 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Listen for console width changes.
 		this._register(positronConsoleInstance.onDidChangeWidthInChars(width => {
 			this.onConsoleWidthChange(width);
+		}));
+
+		// Listen for code executions and forward them.
+		this._register(positronConsoleInstance.onDidExecuteCode(codeExecution => {
+			this._onDidExecuteCodeEmitter.fire(codeExecution);
 		}));
 
 		// When the console is cleared, clear the execution history for the console.
@@ -2639,8 +2652,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			errorBehavior,
 		);
 
-		// Fire the onDidExecuteCode event.
-		this._onDidExecuteCodeEmitter.fire({ code, mode, attribution, errorBehavior });
+		// Create and fire the onDidExecuteCode event.
+		const event: ILanguageRuntimeCodeExecutedEvent = {
+			code,
+			mode,
+			attribution,
+			errorBehavior,
+			languageId: this._session.runtimeMetadata.languageId,
+			runtimeName: this._session.runtimeMetadata.runtimeName
+		};
+		this._onDidExecuteCodeEmitter.fire(event);
 	}
 
 	/**
@@ -2731,8 +2752,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			errorBehavior);
 
 
-		// Fire the onDidExecuteCode event.
-		this._onDidExecuteCodeEmitter.fire({ code, mode, attribution, errorBehavior });
+		// Create and fire the onDidExecuteCode event.
+		const event: ILanguageRuntimeCodeExecutedEvent = {
+			code,
+			mode,
+			attribution,
+			errorBehavior,
+			languageId: this._session.runtimeMetadata.languageId,
+			runtimeName: this._session.runtimeMetadata.runtimeName
+		};
+		this._onDidExecuteCodeEmitter.fire(event);
 	}
 
 	/**

@@ -21,6 +21,7 @@ import { SerializableObjectWithBuffers } from '../../../services/extensions/comm
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 /**
  * Interface for code execution observers
@@ -809,6 +810,29 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			throw new Error(`Session ID '${sessionId}' was marked as the foreground session, but is not known to the extension host.`);
 		}
 		this._onDidChangeForegroundSessionEmitter.fire(sessionId);
+	}
+
+	/**
+	 * Notification from the main thread that code has been executed.
+	 *
+	 * @param event The event containing the code execution details
+	 */
+	public async $notifyCodeExecuted(event: ILanguageRuntimeCodeExecutedEvent): Promise<void> {
+		// Derive the code attribution object
+		const attribution: positron.CodeAttribution = {
+			metadata: event.attribution.metadata,
+			source: event.attribution.source as unknown as positron.CodeAttributionSource,
+		};
+
+		// Create the event object
+		const evt: positron.CodeExecutionEvent = {
+			languageId: event.languageId,
+			code: event.code,
+			attribution,
+			runtimeName: event.runtimeName,
+		};
+
+		this._onDidExecuteCodeEmitter.fire(evt);
 	}
 
 	/**
