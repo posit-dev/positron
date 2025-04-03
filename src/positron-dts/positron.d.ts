@@ -1652,6 +1652,29 @@ declare module 'positron' {
 	}
 
 	/**
+	 * An object that describes an environment variable action.
+	 */
+	export interface EnvironmentVariableAction {
+		/** The action to take - replace, append, or prepend */
+		action: vscode.EnvironmentVariableMutatorType;
+
+		/** The name of the variable on which to take the action */
+		name: string;
+
+		/** The value to replace, append, or prepend */
+		value: string;
+	}
+
+	namespace environment {
+		/**
+		 * Get the environment variable contributions for the current session.
+		 *
+		 * @returns A map of extension IDs to arrays of environment variable actions.
+		 */
+		export function getEnvironmentContributions(): Thenable<Record<string, EnvironmentVariableAction[]>>;
+	}
+
+	/**
 	 * Refers to methods related to the connections pane
 	 */
 	namespace connections {

@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as ai from 'ai';
+import { isLanguageModelImagePart } from './languageModelParts.js';
 
 /**
  * Convert messages from VSCode Language Model format to Vercel AI format.
@@ -24,12 +25,17 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): ai.Cor
 	const aiMessages: ai.CoreMessage[] = [];
 	for (const message of messages) {
 		if (message.role === vscode.LanguageModelChatMessageRole.User) {
+			// VSCode expects tool results to be user messages but
+			// Vercel AI expects them to have a special 'tool' role.
+			// Split this message into separate 'user' and 'tool'
+			// messages.
 			const textParts = message.content.filter((part) => part instanceof vscode.LanguageModelTextPart);
 			const toolParts = message.content.filter((part) => part instanceof vscode.LanguageModelToolResultPart);
 			if (textParts.length > 0) {
 				aiMessages.push({
 					role: 'user',
 					content: textParts.map((part) => {
+						// TODO: Handle binary references.
 						const binaryMatch = /<<referenceBinary:(\w+)>>/;
 						if (part.value.match(binaryMatch)) {
 							return { type: 'text', text: part.value };
@@ -39,14 +45,23 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): ai.Cor
 				});
 			}
 			if (toolParts.length > 0) {
-				aiMessages.push({
-					role: 'tool',
-					content: toolParts.map((part) => ({
-						type: 'tool-result',
-						toolCallId: part.callId,
-						toolName: toolCalls[part.callId].name,
-						result: part.content,
-					})),
+				toolParts.forEach((part) => {
+					const toolCall = toolCalls[part.callId];
+					if (toolCall.name === 'getPlot') {
+						aiMessages.push(getPlotToolResultToAiMessage(part));
+					} else {
+						aiMessages.push({
+							role: 'tool',
+							content: [
+								{
+									type: 'tool-result',
+									toolCallId: part.callId,
+									toolName: toolCall.name,
+									result: part.content,
+								},
+							],
+						});
+					}
 				});
 			}
 		} else if (message.role === vscode.LanguageModelChatMessageRole.Assistant) {
@@ -56,6 +71,16 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): ai.Cor
 					if (part instanceof vscode.LanguageModelTextPart) {
 						return { type: 'text', text: part.value };
 					} else if (part instanceof vscode.LanguageModelToolCallPart) {
+						if (part.name === 'getPlot') {
+							// Vercel AI does not yet support image tool results,
+							// so replace getPlot tool calls with text asking for the plot.
+							// The corresponding tool result will be replaced with a user
+							// message containing the plot image.
+							return {
+								type: 'text',
+								text: 'Please provide the current active plot.'
+							};
+						}
 						return {
 							type: 'tool-call',
 							toolCallId: part.callId,
@@ -72,6 +97,40 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): ai.Cor
 
 	// Remove empty messages to keep certain LLM providers happy
 	return aiMessages.filter((message) => message.content.length > 0);
+}
+
+/**
+ * Convert a getPlot tool result into a Vercel AI message.
+ */
+function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart): ai.CoreMessage {
+	// Vercel AI doesn't support image tool results. Convert
+	// an image result into a user message containing the image.
+	const imageParts = part.content.filter((content) => isLanguageModelImagePart(content));
+	if (imageParts.length > 0) {
+		return {
+			role: 'user',
+			content: imageParts.flatMap((content) => ([
+				{
+					type: 'text',
+					text: 'Here is the current active plot:',
+				},
+				{
+					type: 'image',
+					image: content.value.base64,
+					mimeType: content.value.mimeType,
+				}])),
+		};
+	}
+	// If there was no image, forward the response as text.
+	return {
+		role: 'user',
+		content: [
+			{
+				type: 'text',
+				text: `Could not get the current active plot. Reason: ${JSON.stringify(part.content)}`,
+			},
+		],
+	};
 }
 
 export type BinaryMessageReferences = Record<string, { mimeType: string; data: string }>;

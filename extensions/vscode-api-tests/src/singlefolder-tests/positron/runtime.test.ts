@@ -14,6 +14,7 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	private readonly _onDidChangeRuntimeState = new vscode.EventEmitter<positron.RuntimeState>();
 	private readonly _onDidEndSession = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
 	static messageId = 0;
+	private _executingCode: string | undefined;
 	private _executionCount = 0;
 	private _currentExecutionId = '';
 
@@ -37,6 +38,7 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 
 	execute(code: string, id: string, _mode: positron.RuntimeCodeExecutionMode): void {
 		this._currentExecutionId = id;
+		this._executingCode = code;
 
 		// Emit the busy message
 		this._onDidReceiveRuntimeMessage.fire({
@@ -95,11 +97,25 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 				type: positron.LanguageRuntimeMessageType.Result,
 				data: { 'text/plain': 'Test result' }
 			} as positron.LanguageRuntimeResult);
-
 			this.returnToIdle(id);
 		},
-			// The "slow" code simulates a long-running operation
-			code === 'slow' ? 10000 : 10);
+			this.getSimulationMs(code));
+	}
+
+	/**
+	 * Given a code string, return the simulated execution time in milliseconds.
+	 *
+	 * @param code The code to execute.
+	 */
+	getSimulationMs(code: string): number {
+		switch (code) {
+			case 'slow':
+				return 10000;
+			case 'uninterruptible':
+				return 500;
+			default:
+				return 10;
+		}
 	}
 
 	executeError(id: string) {
@@ -185,8 +201,10 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	}
 
 	async interrupt(): Promise<void> {
-		console.log(`Interrupting '${this._currentExecutionId}'`);
-		this.returnToIdle(this._currentExecutionId);
+		// Interrupt the code ... if it's not uninterruptible.
+		if (this._executingCode !== 'uninterruptible') {
+			this.returnToIdle(this._currentExecutionId);
+		}
 	}
 
 	async restart(): Promise<void> {
@@ -490,5 +508,72 @@ suite('positron API - executeCode', () => {
 
 		// Verify that the execution was "finished"
 		assert.ok(finishedCalled, 'onFinished should be called');
+	});
+
+	test('observer completes even if interrupt does not', async () => {
+		// Tracks whether the failed event was called
+		let failedCalled = false;
+
+		// Tracks the value returned from the computation
+		let result = {};
+
+		// Create a cancellation token source
+		const tokenSource = new vscode.CancellationTokenSource();
+		const token = tokenSource.token;
+
+		// Create the observer that simulates cancellation
+		const observer: positron.runtime.ExecutionObserver = {
+			token,
+
+			onStarted: () => {
+				// Once the request has started, let it run for 10ms and then
+				// cancel it
+				setTimeout(() => {
+					tokenSource.cancel();
+				}, 50);
+			},
+
+			onFailed: (_err) => {
+				failedCalled = true;
+			},
+
+			onCompleted: (data) => {
+				result = data;
+			}
+		};
+
+		// Run the "uninterruptible" command which can't be interrupted but
+		// returns a value after 500ms
+		try {
+			await Promise.race([
+				positron.runtime.executeCode(
+					'test',             // languageId
+					'uninterruptible',  // code
+					false,              // focus
+					false,              // allowIncomplete
+					positron.RuntimeCodeExecutionMode.Interactive,
+					positron.RuntimeErrorBehavior.Stop,
+					observer
+				),
+				new Promise<any>((_resolve, reject) => {
+					// timeout after 1 second -- we should never hit this since the
+					// computation should finish in 500ms, but do it anyway to
+					// guarantee the tests don't hang
+					setTimeout(() => {
+						reject(new Error('Execution timed out after 1 second'));
+					}, 1000);
+				})
+			]);
+		} catch (e) {
+			// Expected; interrupting during code execution can throw if the
+			// code is uninterruptible
+		}
+
+		// Verify that the execution errored due to being interrupted
+		assert.ok(failedCalled, 'onFailed should be called');
+
+		// Verify that we didn't get the result -- if we did, it means we waited
+		// for the computation to finish instead of bailing when requested
+		assert.deepStrictEqual(result, {}, 'No result should be returned');
 	});
 });

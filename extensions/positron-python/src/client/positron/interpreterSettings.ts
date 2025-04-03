@@ -11,13 +11,14 @@ import {
     INTERPRETERS_EXCLUDE_SETTING_KEY,
     INTERPRETERS_INCLUDE_SETTING_KEY,
     INTERPRETERS_OVERRIDE_SETTING_KEY,
-    MINIMUM_PYTHON_VERSION,
 } from '../common/constants';
 import { untildify } from '../common/helpers';
 import { PythonEnvironment } from '../pythonEnvironments/info';
-import { PythonVersion } from '../pythonEnvironments/info/pythonVersion';
 import { Resource, InspectInterpreterSettingType } from '../common/types';
-import { comparePythonVersionDescending } from '../interpreter/configuration/environmentTypeComparer';
+import {
+    comparePythonVersionDescending,
+    isVersionSupported,
+} from '../interpreter/configuration/environmentTypeComparer';
 
 /**
  * Gets the list of interpreters included in the settings.
@@ -212,17 +213,6 @@ function isOverrideInterpreter(interpreterPath: string): boolean | undefined {
 }
 
 /**
- * Check if a version is supported (i.e. >= the minimum supported version).
- * Also returns true if the version could not be determined.
- */
-export function isVersionSupported(
-    version: PythonVersion | undefined,
-    minimumSupportedVersion: PythonVersion,
-): boolean {
-    return !version || comparePythonVersionDescending(minimumSupportedVersion, version) >= 0;
-}
-
-/**
  * Interface for debug information about a Python interpreter.
  */
 interface InterpreterDebugInfo {
@@ -272,7 +262,7 @@ export function printInterpreterDebugInfo(interpreters: PythonEnvironment[]): vo
                 path: interpreter.path,
                 versionInfo: {
                     version: interpreter.version?.raw ?? 'Unknown',
-                    supportedVersion: isVersionSupported(interpreter.version, MINIMUM_PYTHON_VERSION),
+                    supportedVersion: isVersionSupported(interpreter.version),
                 },
                 envInfo: {
                     envType: interpreter.envType,

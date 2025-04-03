@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Application, SessionInfo } from '../../infra/index.js';
+import { Application, SessionMetaData } from '../../infra/index.js';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -31,16 +31,16 @@ test.describe('Session: Autocomplete', {
 		// Session 1 - trigger and verify console autocomplete
 		await sessions.select(pySession1.id);
 		await triggerAutocompleteInConsole(app, pySession1);
-		await console.expectSuggestionListCount(8);
+		await console.expectSuggestionListCount(1);
 
 		// Session 2 - trigger and verify console autocomplete
 		await sessions.select(pySession2.id);
 		await triggerAutocompleteInConsole(app, pySession2);
-		await console.expectSuggestionListCount(8);
+		await console.expectSuggestionListCount(1);
 
 		// Alt Session 1 - trigger and verify no console autocomplete
 		await sessions.select(pyAltSession.id);
-		await console.typeToConsole('pd.Dat', false, 250);
+		await console.typeToConsole('pd.DataF', false, 250);
 		await console.expectSuggestionListCount(0);
 
 		// Open a new Python file
@@ -48,17 +48,15 @@ test.describe('Session: Autocomplete', {
 
 		// Session 1 - trigger and verify editor autocomplete
 		await triggerAutocompleteInEditor({ app, session: pySession1, retrigger: false });
-		await editors.expectSuggestionListCount(8);
+		await editors.expectSuggestionListCount(1);
 
 		// Session 2 - retrigger and verify editor autocomplete
 		await triggerAutocompleteInEditor({ app, session: pySession2, retrigger: true });
-		await editors.expectSuggestionListCount(8);
+		await editors.expectSuggestionListCount(1);
 
 		// Alt Session 1 - retrigger and verify no editor autocomplete
 		await triggerAutocompleteInEditor({ app, session: pyAltSession, retrigger: true });
 		await editors.expectSuggestionListCount(0);
-
-		await sessions.deleteAll();
 	});
 
 	test('Python - Verify autocomplete suggestions (LSP is alive) after restart', async function ({ app, hotKeys, sessions }) {
@@ -69,13 +67,14 @@ test.describe('Session: Autocomplete', {
 
 		// Session 1 - verify console autocomplete
 		await sessions.select(pySession.id);
+		await console.clearInput();
 		await console.typeToConsole('import os', true, 0);
 		await console.typeToConsole('os.path.', false, 250);
 		await console.expectSuggestionListToContain('abspath, def abspath(path)');
-		await console.clearInput();
 
 		// Session 2 - verify console autocomplete
 		await sessions.select(pyAltSession.id);
+		await console.clearInput();
 		await console.typeToConsole('import os', true, 0);
 		await console.typeToConsole('os.path.', false, 250);
 		await console.expectSuggestionListToContain('abspath, def abspath(path)');
@@ -83,11 +82,13 @@ test.describe('Session: Autocomplete', {
 
 		// Session 1 - restart and verify console autocomplete
 		await sessions.restart(pySession.id);
+		await console.clearInput();
 		await console.typeToConsole('import os', true, 0);
 		await console.expectSuggestionListToContain('abspath, def abspath(path)');
 
 		// Session 2 - verify console autocomplete
 		await sessions.select(pyAltSession.id);
+		await console.clearInput();
 		await console.expectSuggestionListToContain('abspath, def abspath(path)');
 	});
 
@@ -126,8 +127,6 @@ test.describe('Session: Autocomplete', {
 		// Alt Session 1 - retrigger verify no editor autocomplete
 		await triggerAutocompleteInEditor({ app, session: rSessionAlt, retrigger: true });
 		await editors.expectSuggestionListCount(0);
-
-		await sessions.deleteAll();
 	});
 
 	test('R - Verify autocomplete suggestions (LSP is alive) after restart', async function ({ app, sessions }) {
@@ -163,12 +162,12 @@ test.describe('Session: Autocomplete', {
 
 // Helper functions
 
-async function triggerAutocompleteInConsole(app: Application, session: SessionInfo) {
+async function triggerAutocompleteInConsole(app: Application, session: SessionMetaData) {
 	const { console } = app.workbench;
 
-	if (session.language === 'Python') {
+	if (session.name.includes('Python')) {
 		await console.typeToConsole('import pandas as pd', true, 0);
-		await console.typeToConsole('pd.Dat', false, 250);
+		await console.typeToConsole('pd.DataF', false, 250);
 	} else {
 		await console.typeToConsole('library(arrow)', true, 0);
 		await console.typeToConsole('read_p', false, 250);
@@ -177,7 +176,7 @@ async function triggerAutocompleteInConsole(app: Application, session: SessionIn
 
 async function triggerAutocompleteInEditor({ app, session, retrigger = false }: {
 	app: Application;
-	session: SessionInfo;
+	session: SessionMetaData;
 	retrigger?: boolean;
 }) {
 	const { sessions, hotKeys } = app.workbench;
@@ -187,14 +186,14 @@ async function triggerAutocompleteInEditor({ app, session, retrigger = false }: 
 	await hotKeys.firstTab();
 
 	if (retrigger) {
-		await keyboard.press('Backspace', { delay: 250 });
-		await keyboard.press('Backspace', { delay: 250 });
-		await keyboard.press('Backspace', { delay: 250 });
-		await keyboard.press('Backspace', { delay: 250 });
-		await keyboard.type(session.language === 'Python' ? '.Dat' : 'ad_p', { delay: 1000 });
+		const triggerText = session.name.includes('Python') ? 'pd.DataF' : 'read_p';
+		for (let i = 0; i < triggerText.length; i++) {
+			await keyboard.press('Backspace', { delay: 250 });
+		}
+		await keyboard.type(triggerText);
 	} else {
 		await keyboard.type(
-			session.language === 'Python' ? 'pd.Dat' : 'read_p',
+			session.name.includes('Python') ? 'pd.DataF' : 'read_p',
 			{ delay: 250 }
 		);
 	}
