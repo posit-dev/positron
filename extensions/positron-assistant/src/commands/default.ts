@@ -9,9 +9,10 @@ import * as fs from 'fs';
 
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { arrayBufferToBase64, BinaryMessageReferences, toLanguageModelChatMessage } from '../utils';
-import { documentEditToolAdapter, selectionEditToolAdapter } from '../tools';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
+
+const editFileToolName = 'vscode_editFile_internal';
 
 /**
  * Handler for the default chat participant when no command has been issued. This handler is the
@@ -31,7 +32,10 @@ export async function defaultHandler(
 	const tools: vscode.LanguageModelChatTool[] = [
 		...vscode.lm.tools.filter(tool => {
 			// Ignore tools that are not applicable for the Positron Assistant
-			if (!tool.tags.includes('positron-assistant')) {
+			if (!tool.tags.includes('positron-assistant') &&
+				// Special case: Allow the internal edit file tool in editing
+				// contexts i.e. everywhere except the chat pane.
+				((tool.name === editFileToolName && !request.location2))) {
 				return false;
 			}
 			// Do not offer to execute code when the request isn't coming from
@@ -42,6 +46,11 @@ export async function defaultHandler(
 			// to see if it requires confirmation, but that information isn't
 			// currently exposed in `vscode.LanguageModelChatTool`.
 			if (tool.name === 'executeCode' && request.location2) {
+				return false;
+			}
+			// Only include the documentEdit tool in the chat pane.
+			// The editFileTool will be used in editing contexts.
+			if (tool.name === 'documentEdit' && request.location2) {
 				return false;
 			}
 			return true;
@@ -97,7 +106,7 @@ export async function defaultHandler(
 				const selectionText = document.getText(location.range);
 				const ref = {
 					id: reference.id,
-					name: reference.name,
+					uri: location.uri.toString(),
 					description,
 					documentText,
 					selectionText,
@@ -107,7 +116,7 @@ export async function defaultHandler(
 				const uri = (reference.value as vscode.Uri);
 				const document = await vscode.workspace.openTextDocument(uri);
 				const documentText = document.getText();
-				const ref = { id: reference.id, name: reference.name, documentText };
+				const ref = { id: reference.id, uri: uri.toString(), documentText };
 				textParts.push(new vscode.LanguageModelTextPart(`\n\n${JSON.stringify(ref)}`));
 			} else if ('mimeType' in value) {
 				const binaryValue = value as vscode.ChatReferenceBinaryData;
@@ -155,19 +164,6 @@ export async function defaultHandler(
 		messages.push(
 			vscode.LanguageModelChatMessage.Assistant('Acknowledged.')
 		);
-
-		if (hasSelection) {
-			// If we have a selection, use the selection editor tool.
-			tools.push(selectionEditToolAdapter.toolData);
-			toolOptions[selectionEditToolAdapter.toolData.name] = { document, selection };
-		} else {
-			// If we don't have a selection, use the document editor tool.
-			tools.push(documentEditToolAdapter.toolData);
-			toolOptions[documentEditToolAdapter.toolData.name] = {
-				documentUri: document.uri.toString(),
-				selection
-			};
-		}
 	}
 
 	// When invoked from the terminal, add additional instructions.

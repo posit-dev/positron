@@ -5,112 +5,8 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import * as ai from 'ai';
-
-import { z } from 'zod';
 import { padBase64String } from './utils';
 import { LanguageModelImage } from './languageModelParts.js';
-
-export interface PositronToolAdapter {
-	toolData: vscode.LanguageModelChatTool;
-	provideAiTool(token: unknown, toolOptions: unknown): ai.Tool<any, string>;
-}
-
-/**
- * A tool adapter for document edits. This tool is provided when the user uses
- * inline chat without a selection.
- */
-export const documentEditToolAdapter: PositronToolAdapter = {
-	toolData: {
-		name: 'documentEdit',
-		description: 'Output an edited version of the document.',
-	},
-
-	provideAiTool(
-		token: unknown,
-		options: {
-			// The URI of the document to edit; we can't pass the whole `document` in
-			// because the tool options are serialized, so only plain JSON is supported.
-			documentUri: string;
-
-			// The active selection, if any
-			selection: vscode.Selection;
-		}): ai.Tool {
-		return ai.tool({
-			description: this.toolData.description,
-			parameters: z.object({
-				deltas: z.array(
-					z.object({
-						delete: z.string().optional().describe('Text to delete from the document.'),
-						replace: z.string().optional().describe('Text to replace the deleted text.')
-					})).describe('The array of changes to apply.')
-			}),
-			execute: async (params) => {
-				// Get the text of the document to edit
-				const document =
-					await vscode.workspace.openTextDocument(vscode.Uri.parse(options.documentUri));
-				const documentText = document.getText();
-
-				// Process each change, emitting text edits for each one
-				for (const delta of params.deltas) {
-					if ('delete' in delta && 'replace' in delta) {
-						const deleteText = delta.delete;
-						const startPos = documentText.indexOf(deleteText!);
-						if (startPos === -1) {
-							// If the delete text is not found in the document,
-							// we can't apply this edit; ignore.
-							continue;
-						}
-						const startPosition = document.positionAt(startPos);
-						const endPosition = document.positionAt(startPos + deleteText!.length);
-						const range = new vscode.Range(startPosition, endPosition);
-						const textEdit = vscode.TextEdit.replace(range, delta.replace!);
-						positron.ai.responseProgress(token,
-							new vscode.ChatResponseTextEditPart(
-								document.uri,
-								textEdit
-							));
-					}
-				}
-			}
-		});
-	}
-};
-
-/**
- * A tool adapter for selection edits.
- */
-export const selectionEditToolAdapter: PositronToolAdapter = {
-	toolData: {
-		name: 'selectionEdit',
-		description: 'Output an edited version of the code selection.',
-	},
-
-	provideAiTool(token: unknown, options: { document: vscode.TextDocument; selection: vscode.Selection }): ai.Tool {
-		return ai.tool({
-			description: this.toolData.description,
-			parameters: z.object({
-				code: z.string().describe('The entire edited code selection.'),
-			}),
-			execute: async ({ code }) => {
-				positron.ai.responseProgress(
-					token,
-					new vscode.ChatResponseTextEditPart(
-						options.document.uri,
-						vscode.TextEdit.replace(options.selection, code)
-					)
-				);
-
-				return '';
-			},
-		});
-	}
-};
-
-export const positronToolAdapters: Record<string, PositronToolAdapter> = {
-	[documentEditToolAdapter.toolData.name]: documentEditToolAdapter,
-	[selectionEditToolAdapter.toolData.name]: selectionEditToolAdapter,
-};
 
 /**
  * Registers tools for the Positron Assistant.
@@ -118,6 +14,54 @@ export const positronToolAdapters: Record<string, PositronToolAdapter> = {
  * @param context The extension context for registering disposables
  */
 export function registerAssistantTools(context: vscode.ExtensionContext): void {
+	const documentEditTool = vscode.lm.registerTool<{
+		documentUri: string;
+		deltas: { delete: string; replace: string }[];
+	}>('documentEdit', {
+		invoke: async (options, token) => {
+			if (!options.input.deltas) {
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart('No edits to apply.')
+				]);
+			}
+
+			// Get the text of the document to edit
+			const document =
+				await vscode.workspace.openTextDocument(vscode.Uri.parse(options.input.documentUri));
+			const documentText = document.getText();
+
+			// Process each change, emitting text edits for each one
+			let numTextEdits = 0;
+			for (const delta of options.input.deltas) {
+				const deleteText = delta.delete;
+				const startPos = documentText.indexOf(deleteText!);
+				if (startPos === -1) {
+					// If the delete text is not found in the document,
+					// we can't apply this edit; ignore.
+					continue;
+				}
+				const startPosition = document.positionAt(startPos);
+				const endPosition = document.positionAt(startPos + deleteText!.length);
+				const range = new vscode.Range(startPosition, endPosition);
+				const textEdit = vscode.TextEdit.replace(range, delta.replace!);
+				positron.ai.responseProgress(options.toolInvocationToken,
+					new vscode.ChatResponseTextEditPart(
+						document.uri,
+						textEdit
+					));
+				numTextEdits++;
+			}
+
+			return new vscode.LanguageModelToolResult([
+				new vscode.LanguageModelTextPart(
+					`Applied ${numTextEdits} edits.`
+				)
+			]);
+		}
+	});
+
+	context.subscriptions.push(documentEditTool);
+
 	const executeCodeTool = vscode.lm.registerTool<{ code: string; language: string }>('executeCode', {
 		/**
 		 * Called by Positron to prepare for tool invocation. We use this hook
@@ -233,6 +177,8 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 				return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart('Internal Error: Positron returned an unexpected plot URI format')]);
 			}
 
+			// HACK: Return the image data as a prompt tsx part.
+			// See languageModelParts.ts for an explanation.
 			const image = new LanguageModelImage(matches[1], padBase64String(matches[2]));
 			const imageJson = image.toJSON();
 			return new vscode.LanguageModelToolResult([new vscode.LanguageModelPromptTsxPart(imageJson)]);

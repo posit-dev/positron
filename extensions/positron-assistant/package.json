@@ -54,6 +54,41 @@
     ],
     "languageModelTools": [
       {
+        "name": "documentEdit",
+        "displayName": "Edit Document",
+        "modelDescription": "Output an edited version of the document.",
+        "canBeReferencedInPrompt": false,
+        "tags": [
+          "positron-assistant"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "documentUri": {
+              "type": "string",
+              "description": "The URI of the document to edit."
+            },
+            "deltas": {
+              "type": "array",
+              "description": "The array of changes to apply.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "delete": {
+                    "type": "string",
+                    "description": "Text to delete from the document."
+                  },
+                  "replace": {
+                    "type": "string",
+                    "description": "Text to replace the deleted text with."
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
         "name": "executeCode",
         "displayName": "Execute Code",
         "modelDescription": "Execute a piece of code in the specified programming language.",

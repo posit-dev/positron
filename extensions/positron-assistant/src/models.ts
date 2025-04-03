@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
 import { ModelConfig } from './config';
-import { anthropic, createAnthropic } from '@ai-sdk/anthropic';
+import { createAnthropic } from '@ai-sdk/anthropic';
 import { createAzure } from '@ai-sdk/azure';
 import { createVertex } from '@ai-sdk/google-vertex';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
@@ -16,7 +16,6 @@ import { createMistral } from '@ai-sdk/mistral';
 import { createOllama } from 'ollama-ai-provider';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { replaceBinaryMessageParts, toAIMessage } from './utils';
-import { positronToolAdapters } from './tools';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 
@@ -180,26 +179,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		if (options.tools && options.tools.length > 0) {
 			tools = options.tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
-				/* For the tools in this extension, create an ai.Tool object using the given
-				 * invocation token. This enables our tools to stream back to the chat response
-				 * model directly.
-				 */
-				if (modelOptions.toolInvocationToken && tool.name in positronToolAdapters) {
-					acc[tool.name] = positronToolAdapters[tool.name].provideAiTool(
-						modelOptions.toolInvocationToken,
-						{
-							model: this.model,
-							signal: signal,
-							...modelOptions.toolOptions[tool.name],
-						}
-					);
-				} else {
-					// For any other Language Model tool, create an ai.Tool object from scratch.
-					acc[tool.name] = ai.tool({
-						description: tool.description,
-						parameters: ai.jsonSchema(tool.inputSchema ?? { type: 'object', properties: {} }),
-					});
-				}
+				acc[tool.name] = ai.tool({
+					description: tool.description,
+					parameters: ai.jsonSchema(tool.inputSchema ?? { type: 'object', properties: {} }),
+				});
 				return acc;
 			}, {});
 		}
@@ -233,13 +216,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 
 			if (part.type === 'tool-call') {
-				// Only report back tool call requests that are not automatically invoked by vercel
-				if (!(part.toolName in positronToolAdapters)) {
-					progress.report({
-						index: 0,
-						part: new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args)
-					});
-				}
+				progress.report({
+					index: 0,
+					part: new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args)
+				});
 			}
 
 			if (part.type === 'error') {
