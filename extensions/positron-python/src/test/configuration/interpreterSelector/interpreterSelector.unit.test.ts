@@ -25,7 +25,11 @@ const info: PythonEnvironment = {
     envName: '',
     path: '',
     envType: EnvironmentType.Unknown,
-    version: new SemVer('1.0.0-alpha'),
+    // --- Start Positron ---
+    // Positron sorts unsupported versions differently, so we want these to be supported versions.
+    // version: new SemVer('1.0.0-alpha'),
+    version: new SemVer('3.13.0'),
+    // --- End Positron ---
     sysPrefix: '',
     sysVersion: '',
 };
