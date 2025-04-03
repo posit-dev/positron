@@ -520,38 +520,40 @@ export class Sessions {
 	 * @returns An array of objects containing session IDs and names
 	 */
 	async getAllSessionIdsAndNames(): Promise<{ id: string; name: string }[]> {
-		const sessionCount = await this.getSessionCount();
+		return await test.step('Get all session IDs and names', async () => {
+			const sessionCount = await this.getSessionCount();
 
-		if (sessionCount === 0) {
-			// no sessions available
-			return [];
-		} else if (sessionCount === 1) {
-			// single session, fetch metadata directly
-			const { id, name } = await this.getMetadata();
-			return [{ id, name }];
-		} else {
-			// multiple sessions, iterate through session tabs
-			const allSessions = await this.sessionTabs.all();
-			const allSessionsData: { id: string; name: string }[] = [];
+			if (sessionCount === 0) {
+				// no sessions available
+				return [];
+			} else if (sessionCount === 1) {
+				// single session, fetch metadata directly
+				const { id, name } = await this.getMetadata();
+				return [{ id, name }];
+			} else {
+				// multiple sessions, iterate through session tabs
+				const allSessions = await this.sessionTabs.all();
+				const allSessionsData: { id: string; name: string }[] = [];
 
-			for (const session of allSessions) {
-				// extract session ID from data-testid attribute
-				const testId = await session.getAttribute('data-testid');
-				const match = testId?.match(/console-tab-((python|r)-[a-zA-Z0-9]+)/);
-				const id = match ? match[1] : null;
+				for (const session of allSessions) {
+					// extract session ID from data-testid attribute
+					const testId = await session.getAttribute('data-testid');
+					const match = testId?.match(/console-tab-((python|r)-[a-zA-Z0-9]+)/);
+					const id = match ? match[1] : null;
 
-				// extract session name from aria-label attribute
-				const ariaLabel = await session.getAttribute('aria-label');
-				const name = ariaLabel ? ariaLabel.trim() : null;
+					// extract session name from aria-label attribute
+					const ariaLabel = await session.getAttribute('aria-label');
+					const name = ariaLabel ? ariaLabel.trim() : null;
 
-				if (!id || !name) {
-					throw new Error(`Session ID or name not found for session: ${testId}`);
+					if (!id || !name) {
+						throw new Error(`Session ID or name not found for session: ${testId}`);
+					}
+					allSessionsData.push({ id, name });
 				}
-				allSessionsData.push({ id, name });
-			}
 
-			return allSessionsData;
-		}
+				return allSessionsData;
+			}
+		});
 	}
 
 	/**
@@ -598,9 +600,8 @@ export class Sessions {
 
 			const metadata = await this.extractMetadataFromDialog();
 
-			// Close the metadata dialog and prevent hover tooltips
+			// Close the metadata dialog
 			await this.page.keyboard.press('Escape');
-			await this.page.mouse.move(0, 0);
 
 			return metadata;
 		});
@@ -610,24 +611,28 @@ export class Sessions {
 	 * Helper: Extract metadata from the metadata dialog
 	 */
 	private async extractMetadataFromDialog(): Promise<SessionMetaData> {
-		await this.metadataButton.click();
-		await expect(this.metadataDialog).toBeVisible();
+		let metadata: SessionMetaData | undefined;
 
-		const [name, id, state, path, source] = await Promise.all([
-			this.metadataDialog.getByTestId('session-name').textContent(),
-			this.metadataDialog.getByTestId('session-id').textContent(),
-			this.metadataDialog.getByTestId('session-state').textContent(),
-			this.metadataDialog.getByTestId('session-path').textContent(),
-			this.metadataDialog.getByTestId('session-source').textContent(),
-		]);
-
-		return {
-			name: (name ?? '').trim(),
-			id: (id ?? '').replace('Session ID: ', ''),
-			state: (state ?? '').replace('State: ', '') as SessionState,
-			path: (path ?? '').replace('Path: ', ''),
-			source: (source ?? '').replace('Source: ', ''),
-		};
+		await test.step('Extract metadata from dialog', async () => {
+			await expect(async () => {
+				await this.openMetadataDialog();
+				const [name, id, state, path, source] = await Promise.all([
+					this.metadataDialog.getByTestId('session-name').textContent(),
+					this.metadataDialog.getByTestId('session-id').textContent(),
+					this.metadataDialog.getByTestId('session-state').textContent(),
+					this.metadataDialog.getByTestId('session-path').textContent(),
+					this.metadataDialog.getByTestId('session-source').textContent(),
+				]);
+				metadata = {
+					name: (name ?? '').trim(),
+					id: (id ?? '').replace('Session ID: ', ''),
+					state: (state ?? '').replace('State: ', '') as SessionState,
+					path: (path ?? '').replace('Path: ', ''),
+					source: (source ?? '').replace('Source: ', ''),
+				};
+			}, 'Extract session metadata').toPass({ intervals: [500], timeout: 10000 });
+		});
+		return metadata!;
 	}
 
 	/**
@@ -693,6 +698,15 @@ export class Sessions {
 		return 'unknown';
 	}
 
+	/**
+	* Action: Open the metadata dialog for the current session
+	*/
+	async openMetadataDialog() {
+		await this.metadataButton.click();
+		await this.page.mouse.move(0, 0);
+		await expect(this.metadataDialog).toBeVisible();
+	}
+
 	// -- Verifications --
 
 	/**
@@ -737,11 +751,12 @@ export class Sessions {
 			await this.metadataButton.click();
 
 			// Verify metadata
-			await expect(this.metadataDialog.getByText(`${session.name}`)).toBeVisible();
-			await expect(this.metadataDialog.getByText(new RegExp(`Session ID: ${session.name.includes('Python') ? 'python' : 'r'}-[a-zA-Z0-9]+`))).toBeVisible();
-			await expect(this.metadataDialog.getByText(`State: ${session.state}`)).toBeVisible();
-			await expect(this.metadataDialog.getByText(/^Path: [\/~a-zA-Z0-9.]+/)).toBeVisible();
-			await expect(this.metadataDialog.getByText(/^Source: (Pyenv|System|Global|VirtualEnv|Conda: base)$/)).toBeVisible();
+			await expect(this.metadataDialog.getByTestId('session-name')).toContainText(session.name);
+			await expect(this.metadataDialog.getByTestId('session-id')).toContainText(session.id);
+			await expect(this.metadataDialog.getByTestId('session-state')).toContainText(session.state);
+			await expect(this.metadataDialog.getByTestId('session-path')).toContainText(session.path);
+			await expect(this.metadataDialog.getByTestId('session-source')).toContainText(session.source);
+
 			await this.page.keyboard.press('Escape');
 
 			// Verify Language Console
@@ -909,7 +924,7 @@ export class SessionQuickPick {
 					await this.code.driver.page.keyboard.press('Enter');
 					await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible({ timeout: 1000 });
 				}
-			}).toPass({ intervals: [500], timeout: 10000 });
+			}, 'Open Session QuickPick Menu').toPass({ intervals: [500], timeout: 10000 });
 		});
 	}
 
