@@ -1080,7 +1080,3 @@ export const availableRuntimes: { [key: string]: SessionInfo } = {
 	pythonAlt: { ...pythonSessionAlt },
 	pythonHidden: { ...pythonSessionHidden },
 };
-
-const availableRuntimesNameToKeyMap = new Map(
-	Object.entries(availableRuntimes).map(([key, runtime]) => [runtime.name, key])
-);
