@@ -836,8 +836,8 @@ def positron_hover(
     return None
 
 
-@notebook_utils.supports_notebooks
 @POSITRON.feature(TEXT_DOCUMENT_REFERENCES)
+@notebook_utils.supports_notebooks
 def positron_references(
     server: PositronJediLanguageServer, params: TextDocumentPositionParams
 ) -> Optional[List[Location]]:
