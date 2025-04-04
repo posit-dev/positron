@@ -61,6 +61,10 @@ import './media/chatAgentHover.css';
 import './media/chatViewWelcome.css';
 import { ChatViewWelcomePart } from './viewsWelcome/chatViewWelcomeController.js';
 
+// --- Start Positron ---
+import { ChatActionBarControl } from './positron/chatActionBarControl.js';
+// --- End Positron ---
+
 const $ = dom.$;
 
 export interface IChatViewState {
@@ -151,6 +155,10 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private container!: HTMLElement;
 	private welcomeMessageContainer!: HTMLElement;
 	private persistedWelcomeMessage: IChatWelcomeMessageContent | undefined;
+
+	// --- Start Positron ---
+	private actionBarContainer!: ChatActionBarControl;
+	// --- End Positron ---
 
 	private bodyDimension: dom.Dimension | undefined;
 	private visibleChangeCount = 0;
@@ -498,6 +506,11 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 		this._register(this.editorOptions.onDidChange(() => this.onDidStyleChange()));
 		this.onDidStyleChange();
+
+		// --- Start Positron ---
+		this.actionBarContainer = this._register(this.instantiationService.createInstance(ChatActionBarControl));
+		this.actionBarContainer.render(this.container);
+		// --- End Positron ---
 
 		// Do initial render
 		if (this.viewModel) {
@@ -1250,7 +1263,10 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		} else if (this.viewOptions.enableWorkingSet) {
 			extraOffset = Math.max(100 - this.inputPart.editSessionWidgetHeight, 0);
 		}
-		this.welcomeMessageContainer.style.height = `${listHeight - extraOffset}px`;
+		// --- Start Positron ---
+		const actionBarHeight = this.actionBarContainer.height;
+		// --- End Positron ---
+		this.welcomeMessageContainer.style.height = `${listHeight - extraOffset - actionBarHeight}px`;
 		this.welcomeMessageContainer.style.paddingBottom = `${extraOffset}px`;
 		this.renderer.layout(width);
 
