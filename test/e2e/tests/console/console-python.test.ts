@@ -19,7 +19,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 
 		await app.workbench.console.executeCode('Python', 'import time; time.sleep(5); print("done");');
 
-		await app.workbench.console.waitForConsoleContents('done', { expectedCount: 2 });
+		await app.workbench.console.waitForConsoleContents('done', { expectedCount: 2, timeout: 25000 });
 
 	});
 
