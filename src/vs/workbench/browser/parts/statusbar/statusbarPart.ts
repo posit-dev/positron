@@ -9,14 +9,14 @@ import { Disposable, DisposableStore, disposeIfDisposable, IDisposable, MutableD
 import { MultiWindowParts, Part } from '../../part.js';
 import { EventType as TouchEventType, Gesture, GestureEvent } from '../../../../base/browser/touch.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { StatusbarAlignment, IStatusbarService, IStatusbarEntry, IStatusbarEntryAccessor, IStatusbarStyleOverride, isStatusbarEntryLocation, IStatusbarEntryLocation, isStatusbarEntryPriority, IStatusbarEntryPriority, IStatusbarEntryOverride } from '../../../services/statusbar/browser/statusbar.js';
+import { StatusbarAlignment, IStatusbarService, IStatusbarEntry, IStatusbarEntryAccessor, IStatusbarStyleOverride, isStatusbarEntryLocation, IStatusbarEntryLocation, isStatusbarEntryPriority, IStatusbarEntryPriority } from '../../../services/statusbar/browser/statusbar.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { IAction, Separator, toAction } from '../../../../base/common/actions.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { STATUS_BAR_BACKGROUND, STATUS_BAR_FOREGROUND, STATUS_BAR_NO_FOLDER_BACKGROUND, STATUS_BAR_ITEM_HOVER_BACKGROUND, STATUS_BAR_BORDER, STATUS_BAR_NO_FOLDER_FOREGROUND, STATUS_BAR_NO_FOLDER_BORDER, STATUS_BAR_ITEM_COMPACT_HOVER_BACKGROUND, STATUS_BAR_ITEM_FOCUS_BORDER, STATUS_BAR_FOCUS_BORDER } from '../../../common/theme.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { contrastBorder, activeContrastBorder } from '../../../../platform/theme/common/colorRegistry.js';
-import { EventHelper, addDisposableListener, EventType, clearNode, getWindow } from '../../../../base/browser/dom.js';
+import { EventHelper, addDisposableListener, EventType, clearNode, getWindow, isHTMLElement } from '../../../../base/browser/dom.js';
 import { createStyleSheet } from '../../../../base/browser/domStylesheets.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { Parts, IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
@@ -29,12 +29,13 @@ import { IContextKeyService } from '../../../../platform/contextkey/common/conte
 import { isHighContrast } from '../../../../platform/theme/common/theme.js';
 import { hash } from '../../../../base/common/hash.js';
 import { WorkbenchHoverDelegate } from '../../../../platform/hover/browser/hover.js';
-import { HideStatusbarEntryAction, ToggleStatusbarEntryVisibilityAction } from './statusbarActions.js';
+import { HideStatusbarEntryAction, ManageExtensionAction, ToggleStatusbarEntryVisibilityAction } from './statusbarActions.js';
 import { IStatusbarViewModelEntry, StatusbarViewModel } from './statusbarModel.js';
 import { StatusbarEntryItem } from './statusbarItem.js';
 import { StatusBarFocused } from '../../../common/contextkeys.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { IView } from '../../../../base/browser/ui/grid/grid.js';
+import { isManagedHoverTooltipMarkdownString } from '../../../../base/browser/ui/hover/hover.js';
 
 export interface IStatusbarEntryContainer extends IDisposable {
 
@@ -76,10 +77,9 @@ export interface IStatusbarEntryContainer extends IDisposable {
 	updateEntryVisibility(id: string, visible: boolean): void;
 
 	/**
-	 * Allows to override the appearance of an entry with the provided ID. Only a subset
-	 * of properties is allowed to be overridden.
+	 * Allows to override the appearance of an entry with the provided ID.
 	 */
-	overrideEntry(id: string, override: IStatusbarEntryOverride): IDisposable;
+	overrideEntry(id: string, override: Partial<IStatusbarEntry>): IDisposable;
 
 	/**
 	 * Focused the status bar. If one of the status bar entries was focused, focuses it directly.
@@ -141,12 +141,28 @@ class StatusbarPart extends Part implements IStatusbarEntryContainer {
 	readonly onWillDispose = this._onWillDispose.event;
 
 	private readonly onDidOverrideEntry = this._register(new Emitter<string>());
-	private readonly entryOverrides = new Map<string, IStatusbarEntryOverride>();
+	private readonly entryOverrides = new Map<string, Partial<IStatusbarEntry>>();
 
 	private leftItemsContainer: HTMLElement | undefined;
 	private rightItemsContainer: HTMLElement | undefined;
 
-	private readonly hoverDelegate = this._register(this.instantiationService.createInstance(WorkbenchHoverDelegate, 'element', true, (_, focus?: boolean) => (
+	private readonly hoverDelegate = this._register(this.instantiationService.createInstance(WorkbenchHoverDelegate, 'element', {
+		instantHover: true,
+		dynamicDelay(content) {
+			if (
+				typeof content === 'function' ||
+				isHTMLElement(content) ||
+				(isManagedHoverTooltipMarkdownString(content) && typeof content.markdown === 'function')
+			) {
+				// override the delay for content that is rich (e.g. html or long running)
+				// so that it appears more instantly. these hovers carry more important
+				// information and should not be delayed by preference.
+				return 500;
+			}
+
+			return undefined;
+		}
+	}, (_, focus?: boolean) => (
 		{
 			persistence: {
 				hideOnKeyDown: true,
@@ -182,7 +198,7 @@ class StatusbarPart extends Part implements IStatusbarEntryContainer {
 		this._register(this.contextService.onDidChangeWorkbenchState(() => this.updateStyles()));
 	}
 
-	overrideEntry(id: string, override: IStatusbarEntryOverride): IDisposable {
+	overrideEntry(id: string, override: Partial<IStatusbarEntry>): IDisposable {
 		this.entryOverrides.set(id, override);
 		this.onDidOverrideEntry.fire(id);
 
@@ -260,6 +276,7 @@ class StatusbarPart extends Part implements IStatusbarEntryContainer {
 		// View model entry
 		const viewModelEntry: IStatusbarViewModelEntry = new class implements IStatusbarViewModelEntry {
 			readonly id = id;
+			readonly extensionId = entry.extensionId;
 			readonly alignment = alignment;
 			readonly priority = priority;
 			readonly container = itemContainer;
@@ -484,7 +501,7 @@ class StatusbarPart extends Part implements IStatusbarEntryContainer {
 				isStatusbarEntryLocation(entry.priority.primary) && // entry references another entry as location
 				entry.priority.primary.compact						// entry wants to be compact
 			) {
-				const locationId = entry.priority.primary.id;
+				const locationId = entry.priority.primary.location.id;
 				const location = mapIdToVisibleEntry.get(locationId);
 				if (!location) {
 					continue; // skip if location does not exist
@@ -601,6 +618,9 @@ class StatusbarPart extends Part implements IStatusbarEntryContainer {
 
 		if (statusEntryUnderMouse) {
 			actions.push(new Separator());
+			if (statusEntryUnderMouse.extensionId) {
+				actions.push(this.instantiationService.createInstance(ManageExtensionAction, statusEntryUnderMouse.extensionId));
+			}
 			actions.push(new HideStatusbarEntryAction(statusEntryUnderMouse.id, statusEntryUnderMouse.name, this.viewModel));
 		}
 
@@ -791,11 +811,12 @@ export class StatusbarService extends MultiWindowParts<StatusbarPart> implements
 		return this.mainPart.addEntry(entry, id, alignment, priorityOrLocation);
 	}
 
-	private doAddEntryToAllWindows(entry: IStatusbarEntry, id: string, alignment: StatusbarAlignment, priorityOrLocation: number | IStatusbarEntryLocation | IStatusbarEntryPriority = 0): IStatusbarEntryAccessor {
+	private doAddEntryToAllWindows(originalEntry: IStatusbarEntry, id: string, alignment: StatusbarAlignment, priorityOrLocation: number | IStatusbarEntryLocation | IStatusbarEntryPriority = 0): IStatusbarEntryAccessor {
 		const entryDisposables = new DisposableStore();
 
 		const accessors = new Set<IStatusbarEntryAccessor>();
 
+		let entry = originalEntry;
 		function addEntry(part: StatusbarPart | AuxiliaryStatusbarPart): void {
 			const partDisposables = new DisposableStore();
 			partDisposables.add(part.onWillDispose(() => partDisposables.dispose()));
@@ -815,9 +836,11 @@ export class StatusbarService extends MultiWindowParts<StatusbarPart> implements
 		entryDisposables.add(this.onDidCreateAuxiliaryStatusbarPart(part => addEntry(part)));
 
 		return {
-			update: (entry: IStatusbarEntry) => {
+			update: (updatedEntry: IStatusbarEntry) => {
+				entry = updatedEntry;
+
 				for (const update of accessors) {
-					update.update(entry);
+					update.update(updatedEntry);
 				}
 			},
 			dispose: () => entryDisposables.dispose()
@@ -834,7 +857,7 @@ export class StatusbarService extends MultiWindowParts<StatusbarPart> implements
 		}
 	}
 
-	overrideEntry(id: string, override: IStatusbarEntryOverride): IDisposable {
+	overrideEntry(id: string, override: Partial<IStatusbarEntry>): IDisposable {
 		const disposables = new DisposableStore();
 
 		for (const part of this.parts) {
@@ -910,7 +933,7 @@ export class ScopedStatusbarService extends Disposable implements IStatusbarServ
 		this.statusbarEntryContainer.updateEntryVisibility(id, visible);
 	}
 
-	overrideEntry(id: string, override: IStatusbarEntryOverride): IDisposable {
+	overrideEntry(id: string, override: Partial<IStatusbarEntry>): IDisposable {
 		return this.statusbarEntryContainer.overrideEntry(id, override);
 	}
 

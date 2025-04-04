@@ -3,14 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as v8 from 'node:v8';
-import * as fs from 'fs';
-import * as path from 'path';
+import v8 from 'node:v8';
+import fs from 'fs';
+import path from 'path';
 import { argv } from 'process';
 import { Mapping, SourceMapGenerator } from 'source-map';
-import * as ts from 'typescript';
+import ts from 'typescript';
 import { pathToFileURL } from 'url';
-import * as workerpool from 'workerpool';
+import workerpool from 'workerpool';
 import { StaticLanguageServiceHost } from './staticLanguageServiceHost';
 const buildfile = require('../../buildfile');
 
@@ -406,8 +406,21 @@ export class Mangler {
 		private readonly config: { readonly manglePrivateFields: boolean; readonly mangleExports: boolean },
 	) {
 
+		// --- Start Positron ---
+		// Make the worker pool size configurable via env var. We default to 4,
+		// which is the upstream VS Code value, but uses a lot of memory
+		// (empirically even 12GB of RAM isn't enough to support 4 threads).
+		const workerPoolSize =
+			process.env.MANGLER_WORKER_POOL_SIZE ?
+				parseInt(process.env.MANGLER_WORKER_POOL_SIZE) :
+				4;
+		// --- End Positron ---
+
 		this.renameWorkerPool = workerpool.pool(path.join(__dirname, 'renameWorker.js'), {
-			maxWorkers: 1,
+			// --- Start Positron ---
+			// maxWorkers: 4,
+			maxWorkers: workerPoolSize,
+			// --- End Positron ---
 			minWorkers: 'max'
 		});
 	}

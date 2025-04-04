@@ -5,6 +5,7 @@
 
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ChatAgentLocation } from '../../../chat/common/chatAgents.js';
+import { Event } from '../../../../../base/common/event.js';
 
 // Create the decorator for the Positron assistant service (used in dependency injection).
 export const IPositronAssistantService = createDecorator<IPositronAssistantService>('positronAssistantService');
@@ -45,6 +46,7 @@ export interface IPositronLanguageModelSource {
 	provider: { id: string; displayName: string };
 	supportedOptions: PositronLanguageModelOptions[];
 	defaults: Omit<IPositronLanguageModelConfig, 'provider' | 'type'>;
+	signedIn?: boolean;
 }
 
 export interface IPositronLanguageModelConfig {
@@ -74,6 +76,11 @@ export interface IPositronAssistantService {
 	readonly _serviceBrand: undefined;
 
 	/**
+	 * Event that fires when a language model configuration is added or deleted.
+	 */
+	readonly onChangeLanguageModelConfig: Event<IPositronLanguageModelSource>;
+
+	/**
 	 * Build positron specific context object to be attached to chat requests.
 	 */
 	getPositronChatContext(request: IChatRequestData): IPositronChatContext;
@@ -88,9 +95,26 @@ export interface IPositronAssistantService {
 	 */
 	showLanguageModelModalDialog(
 		sources: IPositronLanguageModelSource[],
-		onSave: (config: IPositronLanguageModelConfig) => Promise<void>,
+		onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 		onCancel: () => void,
+		onClose: () => void,
 	): void;
+
+	/**
+	 * Get the supported providers for Positron Assistant.
+	 */
+	getSupportedProviders(): string[];
+
+	/**
+	 * Add a language model configuration.
+	 */
+	addLanguageModelConfig(source: IPositronLanguageModelSource): void;
+
+	/**
+	 * Remove a language model configuration.
+	 */
+	removeLanguageModelConfig(source: IPositronLanguageModelSource): void;
+
 	/**
 	 * Placeholder that gets called to "initialize" the PositronAssistantService.
 	 */

@@ -55,7 +55,9 @@ jobs:
       display_name: "electron (ubuntu)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/ubuntu' || 'electron/ubuntu' }}
       report_testrail: false
+      report_currents: false
       install_undetectable_interpreters: true
+      install_license: false
 
   e2e-windows:
     name: e2e
@@ -67,6 +69,7 @@ jobs:
       display_name: "electron (win)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/win' || 'electron/win' }}
       report_testrail: false
+      report_currents: false
 
   e2e-browser:
     name: e2e
@@ -79,7 +82,9 @@ jobs:
       display_name: "browser (ubuntu)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,browser/ubuntu' || 'browser/ubuntu' }}
       report_testrail: false
+      report_currents: false
       install_undetectable_interpreters: true
+      install_license: true
 
   unit-tests:
     name: test
@@ -103,7 +108,7 @@ jobs:
       - run: |
           echo "Will notify on: ${{ env.notify_on }}"
       - name: Notify Slack
-        uses: midleman/slack-workflow-status@v2.2.1
+        uses: midleman/slack-workflow-status@v2.3.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}

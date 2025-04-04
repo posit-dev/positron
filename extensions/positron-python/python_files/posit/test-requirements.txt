@@ -1,4 +1,3 @@
-bokeh
 fastcore
 geopandas
 holoviews
@@ -11,7 +10,7 @@ numpy
 pandas
 plotly
 polars; python_version >= '3.9'
-polars[timezone]; python_version < '3.9' or sys_platform == 'win32'
+polars[timezone]; sys_platform == 'win32'
 pyarrow; python_version < '3.13'
 pyarrow>=19.0.0; python_version >= '3.13'
 pytest<8.1.1
@@ -19,3 +18,9 @@ pytest-asyncio
 pytest-mock
 torch
 sqlalchemy
+# see https://github.com/posit-dev/positron/issues/6604
+ipython<=8.31.0
+# putting this last because holoviews is picky about dependency versions (including bokeh),
+# so uv's resolver needs to tackle holoviews first
+bokeh
+haystack-ai

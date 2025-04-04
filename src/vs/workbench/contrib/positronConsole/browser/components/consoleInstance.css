@@ -59,7 +59,7 @@
 	outline: none !important;
 }
 
-.console-core .console-instance .console-instance-container .console-item-reconnecting {
+.console-core .console-instance .console-instance-container .console-item-starting {
 	display: flex;
 	flex-direction: row;
 	justify-items: center;

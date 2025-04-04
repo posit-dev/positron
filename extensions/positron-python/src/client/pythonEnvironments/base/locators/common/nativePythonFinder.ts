@@ -28,8 +28,10 @@ import { untildify } from '../../../../common/helpers';
 import { traceError } from '../../../../logging';
 
 // --- Start Positron ---
-import { getIncludedInterpreters } from '../../../../positron/interpreterSettings';
+import { getCustomEnvDirs } from '../../../../positron/interpreterSettings';
 import { traceVerbose } from '../../../../logging';
+import { ADDITIONAL_POSIX_BIN_PATHS } from '../../../common/posixUtils';
+import { PythonEnvSource } from '../../info/index';
 // --- End Positron ---
 
 const PYTHON_ENV_TOOLS_PATH = isWindows()
@@ -53,6 +55,9 @@ export interface NativeEnvInfo {
     project?: string;
     arch?: 'x64' | 'x86';
     symlinks?: string[];
+    // --- Start Positron ---
+    source?: PythonEnvSource[];
+    // --- End Positron ---
 }
 
 export interface NativeEnvManagerInfo {
@@ -463,19 +468,19 @@ function getEnvironmentDirs(): string[] {
  * Gets the list of additional directories to add to environment directories.
  * @returns List of directories to add to environment directories.
  */
-function getAdditionalEnvDirs(): string[] {
+export function getAdditionalEnvDirs(): string[] {
     const additionalDirs: string[] = [];
 
     // Add additional dirs to search for Python environments on non-Windows platforms.
+    // See JS locator equivalent `getAdditionalPosixBinaries` in extensions/positron-python/src/client/pythonEnvironments/base/locators/lowLevel/posixKnownPathsLocator.ts
     if (!isWindows()) {
-        // /opt/python is a recommended Python installation location on Posit Workbench.
-        // see: https://docs.posit.co/ide/server-pro/python/installing_python.html
-        additionalDirs.push('/opt/python');
+        additionalDirs.push(...ADDITIONAL_POSIX_BIN_PATHS);
     }
 
     // Add user-specified Python search directories.
-    const userIncludedDirs = getIncludedInterpreters();
-    additionalDirs.push(...userIncludedDirs);
+    // See JS locator equivalent in extensions/positron-python/src/client/pythonEnvironments/base/locators/lowLevel/userSpecifiedEnvLocator.ts
+    const customEnvDirs = getCustomEnvDirs();
+    additionalDirs.push(...customEnvDirs);
 
     // Return the list of additional directories.
     const uniqueDirs = Array.from(new Set(additionalDirs));

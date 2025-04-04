@@ -41,7 +41,7 @@ export class Interpreter {
 	 */
 	startInterpreterViaQuickAccess = async (interpreterType: 'Python' | 'R', waitForReady = true) => {
 		if (!DESIRED_PYTHON || !DESIRED_R) {
-			throw new Error('Please set env vars: POSITRON_PYTHON_VER_SEL, POSITRON_R_VER_SEL');
+			throw new Error('Please set env vars: POSITRON_PY_VER_SEL, POSITRON_R_VER_SEL');
 		}
 
 		await test.step(`Select interpreter via Quick Access: ${interpreterType}`, async () => {
@@ -63,7 +63,7 @@ export class Interpreter {
 		waitForReady = true
 	) {
 		if (!DESIRED_PYTHON || !DESIRED_R) {
-			throw new Error('Please set env vars: POSITRON_PYTHON_VER_SEL, POSITRON_R_VER_SEL');
+			throw new Error('Please set env vars: POSITRON_PY_VER_SEL, POSITRON_R_VER_SEL');
 		}
 
 		await test.step(`Select interpreter via UI: ${interpreterDescription}`, async () => {
@@ -81,7 +81,7 @@ export class Interpreter {
 			if (await selectedPrimaryInterpreter.count() === 1) {
 				await selectedPrimaryInterpreter.click();
 			} else {
-				primaryInterpreterByType.getByRole('button', { name: '' }).click();
+				await primaryInterpreterByType.getByRole('button', { name: '' }).click();
 				// first() here is a workaround because we are detecting the same interpreter twice
 				await secondaryInterpreterOption.first().click();
 			}
@@ -110,6 +110,13 @@ export class Interpreter {
 				.locator(INTERPRETER_ACTIONS_SELECTOR)
 				.getByTitle('Restart the interpreter')
 				.click();
+
+			// Some interpreters (in special the Reticulate interpreter) will use a modal
+			// dialog before restarting.
+			const hasModal = await this.code.driver.page.locator('.positron-modal-dialog-box').isVisible({ timeout: 5000 });
+			if (hasModal) {
+				await this.code.driver.page.keyboard.press('Enter');
+			}
 
 			await this.closeInterpreterDropdown();
 		});

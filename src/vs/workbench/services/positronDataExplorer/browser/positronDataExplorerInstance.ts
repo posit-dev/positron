@@ -23,6 +23,7 @@ import { TableSummaryDataGridInstance } from './tableSummaryDataGridInstance.js'
 import { PositronDataExplorerLayout } from './interfaces/positronDataExplorerService.js';
 import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
 import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
+import { DataExplorerSummaryCollapseEnabled, DefaultDataExplorerSummaryLayout } from './positronDataExplorerSummary.js';
 
 /**
  * Constants.
@@ -48,17 +49,17 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	/**
 	 * Gets or sets the layout.
 	 */
-	private _layout = PositronDataExplorerLayout.SummaryOnLeft;
+	private _layout = DefaultDataExplorerSummaryLayout(this._configurationService);
 
 	/**
 	 * Gets or sets a value which indicates whether the summary is collapsed.
 	 */
-	private _isSummaryCollapsed = false;
+	private _isSummaryCollapsed = DataExplorerSummaryCollapseEnabled(this._configurationService);
 
 	/**
-	 * Gets or sets the columns width percent.
+	 * Gets or sets the summary width in pixels.
 	 */
-	private _columnsWidthPercent = 0.25;
+	private _summaryWidth = 0;
 
 	/**
 	 * Gets the TableSchemaDataGridInstance.
@@ -83,9 +84,9 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	);
 
 	/**
-	 * The onDidChangeColumnsWidthPercent event emitter.
+	 * The onDidChangeSummaryWidth event emitter.
 	 */
-	private readonly _onDidChangeColumnsWidthPercentEmitter = this._register(new Emitter<number>);
+	private readonly _onDidChangeSummaryWidthEmitter = this._register(new Emitter<number>);
 
 	/**
 	 * The onDidChangeColumnsScrollOffset event emitter.
@@ -170,10 +171,10 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 			this._configurationService,
 			this._keybindingService,
 			this._layoutService,
+			this._hoverService,
 			this._dataExplorerClientInstance,
 			this._tableDataCache
 		));
-
 		// Add the onDidClose event handler.
 		this._register(this._dataExplorerClientInstance.onDidClose(() => {
 			this._onDidCloseEmitter.fire();
@@ -251,18 +252,18 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
-	 * Gets the columns width percent.
+	 * Gets the summary width in pixels.
 	 */
-	get columnsWidthPercent() {
-		return this._columnsWidthPercent;
+	get summaryWidth() {
+		return this._summaryWidth;
 	}
 
 	/**
-	 * Sets the columns width percent.
+	 * Sets the summary width in pixels.
 	 */
-	set columnsWidthPercent(columnsWidthPercent: number) {
-		this._columnsWidthPercent = columnsWidthPercent;
-		this._onDidChangeColumnsWidthPercentEmitter.fire(this._columnsWidthPercent);
+	set summaryWidth(summaryWidth: number) {
+		this._summaryWidth = summaryWidth;
+		this._onDidChangeSummaryWidthEmitter.fire(this._summaryWidth);
 	}
 
 	/**
@@ -440,9 +441,9 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	readonly onDidChangeLayout = this._onDidChangeLayoutEmitter.event;
 
 	/**
-	 * onDidChangeColumnsWidthPercent event.
+	 * onDidChangeSummaryWidth event.
 	 */
-	readonly onDidChangeColumnsWidthPercent = this._onDidChangeColumnsWidthPercentEmitter.event;
+	readonly onDidChangeSummaryWidth = this._onDidChangeSummaryWidthEmitter.event;
 
 	/**
 	 * onDidChangeColumnsScrollOffset event.

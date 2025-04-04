@@ -81,6 +81,7 @@ export const OPTIONS: OptionDescriptions<Required<NativeParsedArgs>> = {
 	'diff': { type: 'boolean', cat: 'o', alias: 'd', args: ['file', 'file'], description: localize('diff', "Compare two files with each other.") },
 	'merge': { type: 'boolean', cat: 'o', alias: 'm', args: ['path1', 'path2', 'base', 'result'], description: localize('merge', "Perform a three-way merge by providing paths for two modified versions of a file, the common origin of both modified versions and the output file to save merge results.") },
 	'add': { type: 'boolean', cat: 'o', alias: 'a', args: 'folder', description: localize('add', "Add folder(s) to the last active window.") },
+	'remove': { type: 'boolean', cat: 'o', args: 'folder', description: localize('remove', "Remove folder(s) from the last active window.") },
 	'goto': { type: 'boolean', cat: 'o', alias: 'g', args: 'file:line[:character]', description: localize('goto', "Open a file at the path on the specified line and character position.") },
 	'new-window': { type: 'boolean', cat: 'o', alias: 'n', description: localize('newWindow', "Force to open a new window.") },
 	'reuse-window': { type: 'boolean', cat: 'o', alias: 'r', description: localize('reuseWindow', "Force to open a file or folder in an already opened window.") },
@@ -94,6 +95,9 @@ export const OPTIONS: OptionDescriptions<Required<NativeParsedArgs>> = {
 	'extensions-dir': { type: 'string', deprecates: ['extensionHomePath'], cat: 'e', args: 'dir', description: localize('extensionHomePath', "Set the root path for extensions.") },
 	'extensions-download-dir': { type: 'string' },
 	'builtin-extensions-dir': { type: 'string' },
+	// --- Start Positron ---
+	'bootstrap-extensions-dir': { type: 'string' },
+	// --- End Positron ---
 	'list-extensions': { type: 'boolean', cat: 'e', description: localize('listExtensions', "List the installed extensions.") },
 	'show-versions': { type: 'boolean', cat: 'e', description: localize('showVersions', "Show versions of installed extensions, when using --list-extensions.") },
 	'category': { type: 'string', allowEmptyValue: true, cat: 'e', description: localize('category', "Filters installed extensions by provided category, when using --list-extensions."), args: 'category' },
@@ -164,7 +168,9 @@ export const OPTIONS: OptionDescriptions<Required<NativeParsedArgs>> = {
 	'install-builtin-extension': { type: 'string[]' },
 	'force': { type: 'boolean' },
 	'do-not-sync': { type: 'boolean' },
+	'do-not-include-pack-dependencies': { type: 'boolean' },
 	'trace': { type: 'boolean' },
+	'trace-memory-infra': { type: 'boolean' },
 	'trace-category-filter': { type: 'string' },
 	'trace-options': { type: 'string' },
 	'preserve-env': { type: 'boolean' },
@@ -209,6 +215,7 @@ export const OPTIONS: OptionDescriptions<Required<NativeParsedArgs>> = {
 	'trace-startup-format': { type: 'string' },
 	'trace-startup-file': { type: 'string' },
 	'trace-startup-duration': { type: 'string' },
+	'xdg-portal-required-version': { type: 'string' },
 
 	_: { type: 'string[]' } // main arguments
 };

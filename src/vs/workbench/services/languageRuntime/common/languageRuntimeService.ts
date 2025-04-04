@@ -736,6 +736,12 @@ export interface ILanguageRuntimeSessionState extends ILangaugeRuntimeDynState {
 
 	/** Whether the interpreter is currently busy. */
 	busy: boolean;
+
+	/** Current notebook URI if the session is a notebook session
+	 * Used to link sessions to a notebook and to display the notebook filename
+	 * in the PositronVariablesView.
+	 */
+	currentNotebookUri?: URI;
 }
 
 /**

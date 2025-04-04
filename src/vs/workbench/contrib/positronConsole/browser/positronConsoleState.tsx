@@ -16,16 +16,17 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { PositronActionBarServices } from '../../../../platform/positronActionBar/browser/positronActionBarState.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IExecutionHistoryService } from '../../executionHistory/common/executionHistoryService.js';
+import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { IPositronConsoleInstance, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 
 /**
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron
@@ -33,9 +34,13 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
  */
 export interface PositronConsoleServices extends PositronActionBarServices {
 	readonly clipboardService: IClipboardService;
+	readonly commandService: ICommandService;
+	readonly contextKeyService: IContextKeyService;
+	readonly editorService: IEditorService;
 	readonly executionHistoryService: IExecutionHistoryService;
 	readonly instantiationService: IInstantiationService;
 	readonly languageRuntimeService: ILanguageRuntimeService;
+	readonly layoutService: ILayoutService;
 	readonly runtimeSessionService: IRuntimeSessionService;
 	readonly runtimeStartupService: IRuntimeStartupService;
 	readonly languageService: ILanguageService;
@@ -46,9 +51,6 @@ export interface PositronConsoleServices extends PositronActionBarServices {
 	readonly positronConsoleService: IPositronConsoleService;
 	readonly positronPlotsService: IPositronPlotsService;
 	readonly viewsService: IViewsService;
-	readonly workbenchLayoutService: IWorkbenchLayoutService;
-	readonly contextKeyService: IContextKeyService;
-	readonly commandService: ICommandService;
 }
 
 /**
@@ -57,6 +59,8 @@ export interface PositronConsoleServices extends PositronActionBarServices {
 export interface PositronConsoleState extends PositronConsoleServices {
 	readonly positronConsoleInstances: IPositronConsoleInstance[];
 	readonly activePositronConsoleInstance?: IPositronConsoleInstance;
+
+	readonly consoleSessionListCollapsed: boolean;
 }
 
 /**
@@ -71,6 +75,7 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 	const [activePositronConsoleInstance, setActivePositronConsoleInstance] = useState<IPositronConsoleInstance | undefined>(
 		services.positronConsoleService.activePositronConsoleInstance
 	);
+	const [consoleSessionListCollapsed, setConsoleSessionListCollapsed] = useState<boolean>(positronConsoleInstances.length <= 1);
 
 	// Add event handlers.
 	useEffect(() => {
@@ -104,10 +109,16 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 		return () => disposableStore.dispose();
 	}, [services.positronConsoleService, services.runtimeSessionService, setActivePositronConsoleInstance]);
 
+	useEffect(() => {
+		setConsoleSessionListCollapsed(positronConsoleInstances.length <= 1);
+	}, [positronConsoleInstances]);
+
+
 	// Return the Positron console state.
 	return {
 		...services,
+		consoleSessionListCollapsed,
 		positronConsoleInstances,
-		activePositronConsoleInstance: activePositronConsoleInstance
+		activePositronConsoleInstance: activePositronConsoleInstance,
 	};
 };

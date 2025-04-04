@@ -36,6 +36,7 @@ export interface NativeParsedArgs {
 	diff?: boolean;
 	merge?: boolean;
 	add?: boolean;
+	remove?: boolean;
 	goto?: boolean;
 	'new-window'?: boolean;
 	'reuse-window'?: boolean;
@@ -50,6 +51,7 @@ export interface NativeParsedArgs {
 	'no-cached-data'?: boolean;
 	verbose?: boolean;
 	trace?: boolean;
+	'trace-memory-infra'?: boolean;
 	'trace-category-filter'?: string;
 	'trace-options'?: string;
 	'open-devtools'?: boolean;
@@ -58,6 +60,9 @@ export interface NativeParsedArgs {
 	'extensions-dir'?: string;
 	'extensions-download-dir'?: string;
 	'builtin-extensions-dir'?: string;
+	// --- Start Positron ---
+	'bootstrap-extensions-dir'?: string;
+	// --- End Positron ---
 	extensionDevelopmentPath?: string[]; // undefined or array of 1 or more local paths or URIs
 	extensionTestsPath?: string; // either a local path or a URI
 	extensionDevelopmentKind?: string[];
@@ -82,6 +87,7 @@ export interface NativeParsedArgs {
 	'install-builtin-extension'?: string[]; // undefined or array of 1 or more
 	'uninstall-extension'?: string[]; // undefined or array of 1 or more
 	'update-extensions'?: boolean;
+	'do-not-include-pack-dependencies'?: boolean;
 	'locate-extension'?: string[]; // undefined or array of 1 or more
 	'enable-proposed-api'?: string[]; // undefined or array of 1 or more
 	'open-url'?: boolean;
@@ -145,4 +151,5 @@ export interface NativeParsedArgs {
 	'trace-startup-format'?: string;
 	'trace-startup-file'?: string;
 	'trace-startup-duration'?: string;
+	'xdg-portal-required-version'?: string;
 }

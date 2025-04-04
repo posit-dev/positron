@@ -266,6 +266,16 @@ export interface ShowDialogParams {
 }
 
 /**
+ * Parameters for the AskForPassword method.
+ */
+export interface AskForPasswordParams {
+	/**
+	 * The prompt, such as 'Please enter your password'
+	 */
+	prompt: string;
+}
+
+/**
  * Parameters for the PromptState method.
  */
 export interface PromptStateParams {
@@ -638,6 +648,19 @@ export interface ShowDialogRequest {
 }
 
 /**
+ * Request: Ask the user for a password
+ *
+ * Use this for an input box where the user can input a password
+ */
+export interface AskForPasswordRequest {
+	/**
+	 * The prompt, such as 'Please enter your password'
+	 */
+	prompt: string;
+
+}
+
+/**
  * Request: Sleep for n seconds
  *
  * Useful for testing in the backend a long running frontend method
@@ -759,6 +782,7 @@ export enum UiFrontendRequest {
 	NewDocument = 'new_document',
 	ShowQuestion = 'show_question',
 	ShowDialog = 'show_dialog',
+	AskForPassword = 'ask_for_password',
 	DebugSleep = 'debug_sleep',
 	ExecuteCommand = 'execute_command',
 	EvaluateWhenClause = 'evaluate_when_clause',

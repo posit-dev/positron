@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession } from './positron-supervisor';
-import { ActiveSession, ConnectionInfo, DefaultApi, HttpError, InterruptMode, NewSession, RestartSession, Status } from './kcclient/api';
+import { ActiveSession, ConnectionInfo, DefaultApi, HttpError, InterruptMode, NewSession, RestartSession, Status, VarAction, VarActionType } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoReply, KernelInfoRequest } from './jupyter/KernelInfoRequest';
@@ -93,7 +93,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private _dapClient: DapClient | undefined;
 
 	/** A map of pending comm startups */
-	private _startingComms: Map<string, PromiseHandles<void>> = new Map();
+	private _startingComms: Map<string, PromiseHandles<number>> = new Map();
 
 	/** The original kernelspec */
 	private _kernelSpec: JupyterKernelSpec | undefined;
@@ -179,6 +179,82 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
+	 * Builds the set of environment variable actions to be applied to the
+	 * kernel when starting or restarting.
+	 *
+	 * @returns An array of environment variable actions
+	 */
+	async buildEnvVarActions(): Promise<VarAction[]> {
+		const varActions: Array<VarAction> = [];
+
+		// Start with the environment variables from any extension's contributions.
+		const contributedVars = await positron.environment.getEnvironmentContributions();
+		for (const [extensionId, actions] of Object.entries(contributedVars)) {
+
+			if (extensionId === 'ms-python.python') {
+				// The variables contributed by the Python extension are
+				// intended for the "current" version of Python, which isn't
+				// necessarily the version we are starting/restarting here.
+				// Ignore these for now, but consider: there should be a scoping
+				// mechanism of some kind that would allow us to work with these
+				// kinds of values.
+				continue;
+			}
+
+			for (const action of actions) {
+				// Convert VS Code's environment variable action type to our
+				// internal Kallichore API type
+				let actionType: VarActionType;
+				switch (action.action) {
+					case vscode.EnvironmentVariableMutatorType.Replace:
+						actionType = VarActionType.Replace;
+						break;
+					case vscode.EnvironmentVariableMutatorType.Append:
+						actionType = VarActionType.Append;
+						break;
+					case vscode.EnvironmentVariableMutatorType.Prepend:
+						actionType = VarActionType.Prepend;
+						break;
+					default:
+						this.log(`Unknown environment variable action type ${action.action} ` +
+							`for extension ${extensionId}, ${action.name} => ${action.value}; ignoring`,
+							vscode.LogLevel.Error);
+						continue;
+				}
+
+				// Construct the variable action and add it to the list
+				const varAction: VarAction = {
+					action: actionType,
+					name: action.name,
+					value: action.value
+				};
+				varActions.push(varAction);
+			}
+		}
+
+		// Amend with any environment variables from the kernel spec; each becomes
+		// a "replace" variable action since it overrides the default value if
+		// set.
+		//
+		// This is done after the contributed variables so that the kernel spec
+		// variables take precedence.
+		if (this._kernelSpec?.env) {
+			for (const [key, value] of Object.entries(this._kernelSpec.env)) {
+				if (typeof value === 'string') {
+					const action: VarAction = {
+						action: VarActionType.Replace,
+						name: key,
+						value
+					};
+					varActions.push(action);
+				}
+			}
+		}
+
+		return varActions;
+	}
+
+	/**
 	 * Create the session in on the Kallichore server.
 	 *
 	 * @param kernelSpec The Jupyter kernel spec to use for the session
@@ -190,12 +266,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Save the kernel spec for later use
 		this._kernelSpec = kernelSpec;
-
-		// Forward the environment variables from the kernel spec
-		const env = {};
-		if (kernelSpec.env) {
-			Object.assign(env, kernelSpec.env);
-		}
+		const varActions = await this.buildEnvVarActions();
 
 		// Prepare the working directory; use the workspace root if available,
 		// otherwise the home directory
@@ -278,11 +349,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			displayName: this.metadata.sessionName,
 			inputPrompt: '',
 			continuationPrompt: '',
-			env,
+			env: varActions,
 			workingDirectory: workingDir,
 			username: os.userInfo().username,
 			interruptMode,
 			connectionTimeout,
+			protocolVersion: kernelSpec.kernel_protocol_version
 		};
 		await this._api.newSession(session);
 		this.log(`${kernelSpec.display_name} session '${this.metadata.sessionId}' created in ${workingDir} with command:`, vscode.LogLevel.Info);
@@ -297,12 +369,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * Note: This is only useful if the kernel hasn't already started an LSP
 	 * server.
 	 *
-	 * @param clientAddress The client's TCP address, e.g. '127.0.0.1:1234'
+	 * @param ipAddress The address of the client that will connect to the
+	 *  language server.
 	 */
-	async startPositronLsp(clientAddress: string) {
+	async startPositronLsp(ipAddress: string): Promise<number> {
 		// Create a unique client ID for this instance
 		const clientId = `positron-lsp-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
-		this.log(`Starting LSP server ${clientId} for ${clientAddress}`, vscode.LogLevel.Info);
+		this.log(`Starting LSP server ${clientId} for ${ipAddress}`, vscode.LogLevel.Info);
 
 		// Notify Positron that we're handling messages from this client
 		this._disposables.push(positron.runtime.registerClientInstance(clientId));
@@ -311,33 +384,28 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		await this.createClient(
 			clientId,
 			positron.RuntimeClientType.Lsp,
-			{ client_address: clientAddress }
+			{ ip_address: ipAddress }
 		);
 
 		// Create a promise that will resolve when the LSP starts on the server
 		// side.
-		const startPromise = new PromiseHandles<void>();
+		const startPromise = new PromiseHandles<number>();
 		this._startingComms.set(clientId, startPromise);
 		return startPromise.promise;
 	}
 
 	/**
 	 * Requests that the kernel start a Debug Adapter Protocol server, and
-	 * connect it to the client locally on the given TCP port.
+	 * connect it to the client locally on the given TCP address.
 	 *
-	 * @param serverPort The port on which to bind locally.
 	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
 	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
 	 */
-	async startPositronDap(
-		serverPort: number,
-		debugType: string,
-		debugName: string,
-	) {
+	async startPositronDap(debugType: string, debugName: string) {
 		// NOTE: Ideally we'd connect to any address but the
 		// `debugServer` property passed in the configuration below
-		// needs to be a port for localhost.
-		const serverAddress = `127.0.0.1:${serverPort}`;
+		// needs to be localhost.
+		const ipAddress = '127.0.0.1';
 
 		// TODO: Should we query the kernel to see if it can create a DAP
 		// (QueryInterface style) instead of just demanding it?
@@ -347,7 +415,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Create a unique client ID for this instance
 		const clientId = `positron-dap-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
-		this.log(`Starting DAP server ${clientId} for ${serverAddress}`, vscode.LogLevel.Debug);
+		this.log(`Starting DAP server ${clientId} for ${ipAddress}`, vscode.LogLevel.Debug);
 
 		// Notify Positron that we're handling messages from this client
 		this._disposables.push(positron.runtime.registerClientInstance(clientId));
@@ -355,11 +423,21 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		await this.createClient(
 			clientId,
 			positron.RuntimeClientType.Dap,
-			{ client_address: serverAddress }
+			{ ip_address: ipAddress }
 		);
 
+		// Create a promise that will resolve when the DAP starts on the server
+		// side. When the promise resolves we obtain the port the client should
+		// connect on.
+		const startPromise = new PromiseHandles<number>();
+		this._startingComms.set(clientId, startPromise);
+
+		// Immediately await that promise because `startPositronDap()` handles the full
+		// DAP setup, unlike the LSP where the extension finishes the setup.
+		const port = await startPromise.promise;
+
 		// Create the DAP client message handler
-		this._dapClient = new DapClient(clientId, serverPort, debugType, debugName, this);
+		this._dapClient = new DapClient(clientId, port, debugType, debugName, this);
 	}
 
 	/**
@@ -1129,16 +1207,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Perform the restart
 		this._restarting = true;
 		try {
-			// Perform the restart on the server, supplying the working
-			// directory if known
-			if (workingDirectory) {
-				const restart: RestartSession = {
-					workingDirectory
-				};
-				await this._api.restartSession(this.metadata.sessionId, restart);
-			} else {
-				await this._api.restartSession(this.metadata.sessionId);
-			}
+			// Create the restart request
+			const restart: RestartSession = {
+				// Supply working directory if provided
+				workingDirectory,
+
+				// Build the set of environment variables to pass to the kernel.
+				// This is done on every restart so that changes to extension
+				// environment contributions can be respected.
+				env: await this.buildEnvVarActions(),
+			};
+			await this._api.restartSession(this.metadata.sessionId, restart);
 
 			// Mark ready after a successful restart
 			this.markReady('restart complete');
@@ -1354,6 +1433,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// All comms are now closed
 		this._comms.clear();
 
+		// Clear any starting comms
+		this._startingComms.forEach((promise) => {
+			promise.reject(new Error('Kernel exited'));
+		});
+		this._startingComms.clear();
+
 		// Clear any pending requests
 		this._pendingRequests.clear();
 		this._pendingUiCommRequests.forEach((req) => {
@@ -1499,7 +1584,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			if (commMsg.data.msg_type === 'server_started') {
 				const startingPromise = this._startingComms.get(commMsg.comm_id);
 				if (startingPromise) {
-					startingPromise.resolve();
+					startingPromise.resolve(commMsg.data.content.port);
 					this._startingComms.delete(commMsg.comm_id);
 				}
 			}

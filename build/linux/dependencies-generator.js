@@ -3,10 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 'use strict';
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getDependencies = getDependencies;
 const child_process_1 = require("child_process");
-const path = require("path");
+const path_1 = __importDefault(require("path"));
 const install_sysroot_1 = require("./debian/install-sysroot");
 const calculate_deps_1 = require("./debian/calculate-deps");
 const calculate_deps_2 = require("./rpm/calculate-deps");
@@ -31,7 +34,7 @@ const types_2 = require("./rpm/types");
 // different from the machine used to build VSCode.
 const FAIL_BUILD_FOR_NEW_DEPENDENCIES = false;
 // --- End Positron --
-// Based on https://source.chromium.org/chromium/chromium/src/+/refs/tags/128.0.6613.186:chrome/installer/linux/BUILD.gn;l=64-80
+// Based on https://source.chromium.org/chromium/chromium/src/+/refs/tags/132.0.6834.196:chrome/installer/linux/BUILD.gn;l=64-80
 // and the Linux Archive build
 // Shared library dependencies that we already bundle.
 const bundledDeps = [
@@ -52,14 +55,14 @@ async function getDependencies(packageType, buildDir, applicationName, arch) {
     }
     // Get the files for which we want to find dependencies.
     const canAsar = false; // TODO@esm ASAR disabled in ESM
-    const nativeModulesPath = path.join(buildDir, 'resources', 'app', canAsar ? 'node_modules.asar.unpacked' : 'node_modules');
+    const nativeModulesPath = path_1.default.join(buildDir, 'resources', 'app', canAsar ? 'node_modules.asar.unpacked' : 'node_modules');
     const findResult = (0, child_process_1.spawnSync)('find', [nativeModulesPath, '-name', '*.node']);
     if (findResult.status) {
         console.error('Error finding files:');
         console.error(findResult.stderr.toString());
         return [];
     }
-    const appPath = path.join(buildDir, applicationName);
+    const appPath = path_1.default.join(buildDir, applicationName);
     // Add the native modules
     const files = findResult.stdout.toString().trimEnd().split('\n');
     // Add the tunnel binary.
@@ -70,8 +73,8 @@ async function getDependencies(packageType, buildDir, applicationName, arch) {
     // Add the main executable.
     files.push(appPath);
     // Add chrome sandbox and crashpad handler.
-    files.push(path.join(buildDir, 'chrome-sandbox'));
-    files.push(path.join(buildDir, 'chrome_crashpad_handler'));
+    files.push(path_1.default.join(buildDir, 'chrome-sandbox'));
+    files.push(path_1.default.join(buildDir, 'chrome_crashpad_handler'));
     // Generate the dependencies.
     let dependencies;
     if (packageType === 'deb') {

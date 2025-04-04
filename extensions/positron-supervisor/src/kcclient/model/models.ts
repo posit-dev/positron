@@ -12,6 +12,8 @@ export * from './serverStatus';
 export * from './sessionList';
 export * from './startupError';
 export * from './status';
+export * from './varAction';
+export * from './varActionType';
 
 import * as fs from 'fs';
 
@@ -38,6 +40,8 @@ import { ServerStatus } from './serverStatus';
 import { SessionList } from './sessionList';
 import { StartupError } from './startupError';
 import { Status } from './status';
+import { VarAction } from './varAction';
+import { VarActionType } from './varActionType';
 
 /* tslint:disable:no-unused-variable */
 let primitives = [
@@ -54,6 +58,7 @@ let primitives = [
 let enumsMap: {[index: string]: any} = {
         "InterruptMode": InterruptMode,
         "Status": Status,
+        "VarActionType": VarActionType,
 }
 
 let typeMap: {[index: string]: any} = {
@@ -67,6 +72,7 @@ let typeMap: {[index: string]: any} = {
     "ServerStatus": ServerStatus,
     "SessionList": SessionList,
     "StartupError": StartupError,
+    "VarAction": VarAction,
 }
 
 export class ObjectSerializer {

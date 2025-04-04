@@ -21,7 +21,6 @@ import { IThemeService } from '../../../../platform/theme/common/themeService.js
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { PositronConsoleFocused } from '../../../common/contextkeys.js';
-import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
@@ -32,16 +31,17 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { PositronConsole } from './positronConsole.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
-import { IExecutionHistoryService } from '../../executionHistory/common/executionHistoryService.js';
+import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 
 /**
  * PositronConsoleViewPane class.
@@ -179,12 +179,14 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 	 * @param configurationService The configuration service.
 	 * @param contextKeyService The context key service.
 	 * @param contextMenuService The context menu service.
+	 * @param editorService The editor service.
 	 * @param executionHistoryService The execution history service.
 	 * @param hoverService The hover service.
 	 * @param instantiationService The instantiation service.
 	 * @param keybindingService The keybinding service.
 	 * @param languageRuntimeService The language runtime service.
 	 * @param languageService The language service.
+	 * @param layoutService The layout service.
 	 * @param logService The log service.
 	 * @param modelService The model service.
 	 * @param notificationService The notification service.
@@ -197,7 +199,6 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 	 * @param themeService The theme service.
 	 * @param viewDescriptorService The view descriptor service.
 	 * @param viewsService The views service.
-	 * @param workbenchLayoutService The workbench layout service.
 	 */
 	constructor(
 		options: IViewPaneOptions,
@@ -207,12 +208,14 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
+		@IEditorService private readonly editorService: IEditorService,
 		@IExecutionHistoryService private readonly executionHistoryService: IExecutionHistoryService,
 		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
 		@ILanguageService private readonly languageService: ILanguageService,
+		@ILayoutService private readonly layoutService: ILayoutService,
 		@ILogService private readonly logService: ILogService,
 		@IModelService private readonly modelService: IModelService,
 		@INotificationService private readonly notificationService: INotificationService,
@@ -221,11 +224,9 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		@IPositronPlotsService private readonly positronPlotsService: IPositronPlotsService,
 		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly runtimeStartupService: IRuntimeStartupService,
-		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@IViewsService private readonly viewsService: IViewsService,
-		@IWorkbenchLayoutService private readonly workbenchLayoutService: IWorkbenchLayoutService
 	) {
 		super(
 			options,
@@ -237,7 +238,6 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 			instantiationService,
 			openerService,
 			themeService,
-			telemetryService,
 			hoverService);
 
 		// Bind the PositronConsoleFocused context key.
@@ -285,12 +285,14 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
+				editorService={this.editorService}
 				executionHistoryService={this.executionHistoryService}
 				hoverService={this.hoverService}
 				instantiationService={this.instantiationService}
 				keybindingService={this.keybindingService}
 				languageRuntimeService={this.languageRuntimeService}
 				languageService={this.languageService}
+				layoutService={this.layoutService}
 				logService={this.logService}
 				modelService={this.modelService}
 				notificationService={this.notificationService}
@@ -301,7 +303,6 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 				runtimeSessionService={this.runtimeSessionService}
 				runtimeStartupService={this.runtimeStartupService}
 				viewsService={this.viewsService}
-				workbenchLayoutService={this.workbenchLayoutService}
 			/>
 		);
 

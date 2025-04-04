@@ -23,7 +23,7 @@ from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
 from IPython.core import magic_arguments, oinspect, page
 from IPython.core.error import UsageError
-from IPython.core.interactiveshell import ExecutionInfo, InteractiveShell
+from IPython.core.interactiveshell import ExecutionInfo, ExecutionResult, InteractiveShell
 from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class
 from IPython.utils import PyColorize
 
@@ -33,6 +33,7 @@ from .data_explorer import DataExplorerService
 from .help import HelpService, help  # noqa: A004
 from .lsp import LSPService
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
+from .patch.haystack import patch_haystack_is_in_jupyter
 from .patch.holoviews import set_holoviews_extension
 from .plots import PlotsService
 from .session_mode import SessionMode
@@ -115,23 +116,27 @@ class PositronMagics(Magics):
     @magic_arguments.magic_arguments()
     @magic_arguments.argument(
         "object",
-        help="The object to view.",
+        help="The object or expression to view.",
     )
     @magic_arguments.argument(
         "title",
         nargs="?",
-        help="The title of the Data Explorer tab. Defaults to the object's name.",
+        help="The title of the Data Explorer tab. Defaults to the object's name or expression.",
     )
     @line_magic
     def view(self, line: str) -> None:
         """
-        View an object in the Positron Data Explorer.
+        View an object or expression result in the Positron Data Explorer.
 
         Examples
         --------
         View an object:
 
         >>> %view df
+
+        View an expression result:
+
+        >>> %view df.groupby('column').sum()
 
         View an object with a custom title (quotes are required if the title contains spaces):
 
@@ -148,10 +153,24 @@ class PositronMagics(Magics):
                 raise UsageError(f"{e.args[0]}. Did you quote the title?") from e
             raise
 
-        # Find the object.
+        # First try to find the object directly by name
         info = self.shell._ofind(args.object)  # noqa: SLF001
-        if not info.found:
-            raise UsageError(f"name '{args.object}' is not defined")
+
+        if info.found:
+            obj = info.obj
+        else:
+            # Check if the object name is a quoted string and remove quotes if necessary
+            obj_name = args.object
+            if (obj_name.startswith('"') and obj_name.endswith('"')) or (
+                obj_name.startswith("'") and obj_name.endswith("'")
+            ):
+                obj_name = obj_name[1:-1]  # Remove the quotes
+
+            # If not found as a variable, try to evaluate it as an expression
+            try:
+                obj = self.shell.ev(obj_name)
+            except Exception as e:
+                raise UsageError(f"Failed to evaluate expression '{obj_name}': %s" % e) from e
 
         title = args.title
         if title is None:
@@ -164,7 +183,6 @@ class PositronMagics(Magics):
                 title = title[1:-1]
 
         # Register a dataset with the data explorer service.
-        obj = info.obj
         try:
             self.shell.kernel.data_explorer_service.register_table(
                 obj, title, variable_path=[encode_access_key(args.object)]
@@ -219,7 +237,7 @@ class PositronShell(ZMQInteractiveShell):
         # Set custom attributes from the parent object.
         # It would be better to pass these as explicit arguments, but there's no easy way
         # to override the parent to do that.
-        parent = cast(PositronIPyKernel, kwargs["parent"])
+        parent = cast("PositronIPyKernel", kwargs["parent"])
         self.session_mode = parent.session_mode
 
         super().__init__(*args, **kwargs)
@@ -277,20 +295,31 @@ class PositronShell(ZMQInteractiveShell):
             }
         )
 
-    def _handle_pre_run_cell(self, _info: ExecutionInfo) -> None:
+    def _handle_pre_run_cell(self, info: ExecutionInfo) -> None:
         """Prior to execution, reset the user environment watch state."""
+        # If an empty cell is being executed, do nothing.
+        raw_cell = cast("str", info.raw_cell)
+        if not raw_cell or raw_cell.isspace():
+            return
+
         try:
             self.kernel.variables_service.snapshot_user_ns()
         except Exception:
             logger.warning("Failed to snapshot user namespace", exc_info=True)
 
-    def _handle_post_run_cell(self, _info: ExecutionInfo) -> None:
+    def _handle_post_run_cell(self, result: ExecutionResult) -> None:
         """
         Send a msg.
 
         After execution, sends an update message to the client to summarize
         the changes observed to variables in the user's environment.
         """
+        # If an empty cell was executed, do nothing.
+        info = cast("ExecutionInfo", result.info)
+        raw_cell = cast("str", info.raw_cell)
+        if not raw_cell or raw_cell.isspace():
+            return
+
         # TODO: Split these to separate callbacks?
         # Check for changes to the working directory
         try:
@@ -400,7 +429,7 @@ class PositronIPyKernel(IPythonKernel):
         # Set custom attributes from the parent object.
         # It would be better to pass these as explicit arguments, but there's no easy way
         # to override the parent to do that.
-        parent = cast(PositronIPKernelApp, kwargs["parent"])
+        parent = cast("PositronIPKernelApp", kwargs["parent"])
         self.session_mode = parent.session_mode
 
         super().__init__(**kwargs)
@@ -447,6 +476,9 @@ class PositronIPyKernel(IPythonKernel):
 
         # Patch bokeh to generate html in tempfile
         patch_bokeh_no_access()
+
+        # Patch haystack-ai to ensure is_in_jupyter() returns True in Positron
+        patch_haystack_is_in_jupyter()
 
     def publish_execute_input(
         self,

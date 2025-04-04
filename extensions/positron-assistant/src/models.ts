@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as ai from 'ai';
 import { ModelConfig } from './config';
-import { createAnthropic } from '@ai-sdk/anthropic';
+import { anthropic, createAnthropic } from '@ai-sdk/anthropic';
 import { createAzure } from '@ai-sdk/azure';
 import { createVertex } from '@ai-sdk/google-vertex';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
@@ -31,11 +31,29 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly identifier = 'error-language-model';
 	private readonly _message = 'This language model always throws an error message.';
 
+	static source = {
+		type: positron.PositronLanguageModelType.Chat,
+		signedIn: false,
+		provider: {
+			id: 'error',
+			displayName: 'Error Language Model',
+		},
+		supportedOptions: [],
+		defaults: {
+			name: 'Error Language Model',
+			model: 'error',
+		},
+	};
+
 	provideLanguageModelResponse(): Promise<any> {
 		throw new Error(this._message);
 	}
 
 	provideTokenCount(): Promise<number> {
+		throw new Error(this._message);
+	}
+
+	resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined> {
 		throw new Error(this._message);
 	}
 }
@@ -44,6 +62,20 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly name = 'Echo Language Model';
 	readonly provider = 'echo';
 	readonly identifier = 'echo-language-model';
+
+	static source = {
+		type: positron.PositronLanguageModelType.Chat,
+		signedIn: false,
+		provider: {
+			id: 'echo',
+			displayName: 'Echo Language Model',
+		},
+		supportedOptions: [],
+		defaults: {
+			name: 'Echo Language Model',
+			model: 'echo',
+		},
+	};
 
 	async provideLanguageModelResponse(
 		messages: vscode.LanguageModelChatMessage[],
@@ -80,6 +112,10 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			return _text.length > 0 ? _text[0].content.length : 0;
 		}
 	}
+
+	resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined> {
+		return Promise.resolve(undefined);
+	}
 }
 
 //#endregion
@@ -95,6 +131,30 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		this.identifier = _config.id;
 		this.name = _config.name;
 		this.provider = _config.provider;
+	}
+
+	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
+		token.onCancellationRequested(() => {
+			return false;
+		});
+
+		try {
+			// send a test message to the model
+			const result = await ai.generateText({
+				model: this.model,
+				prompt: 'I\'m checking to see if you\'re there. Response only with the word "hello".',
+			});
+
+			// if the model responds, the config works
+			return undefined;
+		} catch (error) {
+			if (ai.AISDKError.isInstance(error)) {
+				return new Error(error.message);
+			}
+			else {
+				return new Error(JSON.stringify(error));
+			}
+		}
 	}
 
 	async provideLanguageModelResponse(
@@ -209,7 +269,7 @@ class AnthropicLanguageModel extends AILanguageModel implements positron.ai.Lang
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'anthropic',
-			displayName: 'Anthropic'
+			displayName: 'Anthropic Claude'
 		},
 		supportedOptions: ['apiKey'],
 		defaults: {
@@ -448,7 +508,7 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'google',
-			displayName: 'Google Generative AI'
+			displayName: 'Gemini Code Assist'
 		},
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {
@@ -468,9 +528,14 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 	}
 }
 
+export const testLanguageModels = [
+	AWSLanguageModel,
+	EchoLanguageModel,
+	ErrorLanguageModel,
+];
 
 export const languageModels = [
-	AWSLanguageModel,
+	...testLanguageModels,
 	AnthropicLanguageModel,
 	AzureLanguageModel,
 	GoogleLanguageModel,

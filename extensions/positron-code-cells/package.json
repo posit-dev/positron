@@ -183,6 +183,26 @@
           "when": "positron.supportsCodeCells"
         }
       ]
+    },
+    "configuration": {
+      "title": "%positron.codeCells.configuration.title%",
+      "properties": {
+        "codeCells.cellStyle": {
+          "type": "string",
+          "default": "background",
+          "enum": [
+            "border",
+            "background",
+            "both"
+          ],
+          "enumDescriptions": [
+            "%positron.codeCells.configuration.cellStyle.border%",
+            "%positron.codeCells.configuration.cellStyle.background%",
+            "%positron.codeCells.configuration.cellStyle.both%"
+          ],
+          "markdownDescription": "%positron.codeCells.configuration.cellStyle%"
+        }
+      }
     }
   },
   "main": "./out/extension.js",

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,27 +7,10 @@
 	height: 32px;
 }
 
+.state-label {
+	white-space: nowrap;
+}
+
 .action-bar-button-icon.interrupt::before {
 	color: var(--vscode-errorForeground);
-}
-
-.positron-console .directory-label {
-	color: var(--positronActionBar-foreground);
-	font-size: 12px;
-	overflow: hidden;
-	display: flex;
-	max-width: 200px;
-	align-items: center;
-}
-
-.positron-console .directory-label .codicon {
-	color: var(--positronActionBar-foreground);
-	padding-top: 1px;
-}
-
-.positron-console .directory-label .label {
-	padding-left: 5px;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
 }

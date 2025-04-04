@@ -12,30 +12,38 @@ test.use({
 });
 
 const testCases = [
-	{ name: 'parquet', file: 'flights.parquet', copyValue: '2013' },
-	{ name: 'csv', file: 'flights.csv', copyValue: '0' },
-	{ name: 'gzipped csv', file: 'flights.csv.gz', copyValue: '0' },
-	{ name: 'tsv', file: 'flights.tsv', copyValue: '0' },
-	{ name: 'gzipped tsv', file: 'flights.tsv.gz', copyValue: '0' }
+	{ name: 'parquet', file: 'data-files/flights/flights.parquet', copyValue: '2013' },
+	{ name: 'csv', file: 'data-files/flights/flights.csv', copyValue: '0' },
+	{ name: 'gzipped csv', file: 'data-files/flights/flights.csv.gz', copyValue: '0' },
+	{ name: 'tsv', file: 'data-files/flights/flights.tsv', copyValue: '0' },
+	{ name: 'gzipped tsv', file: 'data-files/flights/flights.tsv.gz', copyValue: '0' },
+	{ name: 'pipe csv', file: 'data-files/flights/flights_piped.csv', copyValue: '0' }
 ];
 
 const plainTextTestCases = [
 	{ name: 'csv', file: 'flights.csv', searchString: ',year,month,day,dep_time,sched_dep_time,dep_delay,arr_time,sched_arr_time,arr_delay,carrier,flight,tailnum,origin,dest,air_time,distance,hour,minute,time_hour' },
-	{ name: 'tsv', file: 'flights.tsv', searchString: /\s+year\s+month\s+day\s+dep_time\s+sched_dep_time\s+dep_delay\s+arr_time\s+sched_arr_time\s+arr_delay\s+carrier\s+flight\s+tailnum\s+origin\s+dest\s+air_time\s+distance\s+hour\s+minute\s+time_hour/ }
+	{ name: 'tsv', file: 'flights.tsv', searchString: /\s+year\s+month\s+day\s+dep_time\s+sched_dep_time\s+dep_delay\s+arr_time\s+sched_arr_time\s+arr_delay\s+carrier\s+flight\s+tailnum\s+origin\s+dest\s+air_time\s+distance\s+hour\s+minute\s+time_hour/ },
+	{ name: 'pipe csv', file: 'flights_piped.csv', searchString: '|year|month|day|dep_time|sched_dep_time|dep_delay|arr_time|sched_arr_time|arr_delay|carrier|flight|tailnum|origin|dest|air_time|distance|hour|minute|time_hour' }
+
 ];
 
 test.describe('Headless Data Explorer', {
 	tag: [tags.WEB, tags.DATA_EXPLORER, tags.DUCK_DB, tags.WIN]
 }, () => {
 
+	test.beforeEach(async function ({ app }) {
+		await app.workbench.layouts.enterLayout('notebook'); // Make data explorer larger
+	});
+
 	test.afterEach(async function ({ app }) {
 		await app.workbench.dataExplorer.closeDataExplorer();
+		await app.workbench.layouts.enterLayout('stacked'); //return to default layout
 	});
 
 	testCases.forEach(({ name, file, copyValue }) => {
 		test(`Verify can open and view data with large ${name} file`, async function ({ app, openDataFile }) {
-			await openDataFile(join(`data-files/flights/${file}`));
-			await app.workbench.dataExplorer.verifyTab(file, { isVisible: true, isSelected: true });
+			await openDataFile(`${file}`);
+			await app.workbench.dataExplorer.verifyTab(file.split('/').pop()!, { isVisible: true, isSelected: true });
 			await verifyCopyFromCell(app, copyValue);
 			await verifyDataIsPresent(app);
 			await verifyPlainTextButtonInActionBar(app, file.endsWith('.csv') || file.endsWith('.tsv'));
@@ -50,6 +58,21 @@ test.describe('Headless Data Explorer', {
 				await verifyCanOpenAsPlaintext(app, searchString);
 			});
 	});
+
+	test(`Verify can open parquet decimal data`, async function ({ app, openDataFile }) {
+		await openDataFile(`data-files/misc-parquet/decimal_types.parquet`);
+		await app.workbench.dataExplorer.verifyTab('decimal_types.parquet', { isVisible: true, isSelected: true });
+		await verifyCopyFromCell(app, '123456789012345.678');
+		await expect(async () => {
+			// Validate full grid by checking bottom right corner data
+			await app.workbench.dataExplorer.clickLowerRightCorner();
+			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
+			const lastRow = tableData.at(-2);
+			const lastHour = lastRow!['decimal_no_scale'];
+			expect(lastHour).toBe(`5555555555`);
+		}).toPass();
+	}
+	);
 });
 
 

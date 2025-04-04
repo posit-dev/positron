@@ -25,6 +25,20 @@ export class Clipboard {
 		return clipboardText;
 	}
 
+	async setClipboardText(text: string): Promise<void> {
+		// Grant permissions to write to clipboard
+		await this.code.driver.context.grantPermissions(['clipboard-write']);
+
+		// Use page context to set clipboard text
+		await this.code.driver.page.evaluate(async (textToCopy) => {
+			try {
+				await navigator.clipboard.writeText(textToCopy);
+			} catch (error) {
+				console.error('Failed to write text to clipboard:', error);
+			}
+		}, text);
+	}
+
 	async getClipboardImage(): Promise<Buffer | null> {
 		// Grant permissions to read from clipboard
 		await this.code.driver.context.grantPermissions(['clipboard-read']);

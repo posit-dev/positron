@@ -359,7 +359,7 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 		const root = path.resolve(path.join(__dirname, '..'));
 		const productionDependencies = getProductionDependencies(root);
-		const dependenciesSrc = productionDependencies.map(d => path.relative(root, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`, `!**/*.mk`]).flat();
+		const dependenciesSrc = productionDependencies.map(d => path.relative(root, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`]).flat().concat('!**/*.mk');
 
 		const deps = gulp.src(dependenciesSrc, { base: '.', dot: true })
 			.pipe(filter(['**', `!**/${config.version}/**`, '!**/bin/darwin-arm64-87/**', '!**/package-lock.json', '!**/yarn.lock', '!**/*.js.map']))
@@ -476,10 +476,10 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 				.pipe(replace('@@NAME@@', product.nameShort))
 				.pipe(replace('@@PRODNAME@@', product.nameLong))
 				// --- Start Positron ---
-				// These are commented out since they're not currently used in 'resources/win32/bin/code.sh'
+				// This is commented out since it's not currently used in 'resources/win32/bin/code.sh'
 				// .pipe(replace('@@VERSION@@', version))
-				// .pipe(replace('@@POSITRONVERSION@@', positronVersion))
-				// .pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
+				.pipe(replace('@@POSITRONVERSION@@', positronVersion))
+				.pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
 				// --- End Positron ---
 				.pipe(replace('@@COMMIT@@', commit))
 				.pipe(replace('@@APPNAME@@', product.applicationName))

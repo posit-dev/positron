@@ -529,31 +529,77 @@
                     "scope": "machine",
                     "type": "string"
                 },
+                "python.environmentProviders.enable": {
+                    "default": {
+                        "Venv": true,
+                        "Conda": true
+                    },
+                    "examples": [
+                        {
+                            "Venv": true,
+                            "Conda": true
+                        }
+                    ],
+                    "markdownDescription": "%python.environmentProviders.enable.markdownDescription%",
+                    "scope": "resource",
+                    "type": "object",
+                    "properties": {
+                        "Venv": {
+                            "type": "boolean"
+                        },
+                        "Conda": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "python.defaultInterpreterPath": {
                     "default": "python",
                     "markdownDescription": "%python.defaultInterpreterPath.description%",
-                    "scope": "machine-overridable",
-                    "type": "string"
+                    "scope": "resource",
+                    "type": "string",
+                    "tags": [
+                        "interpreterSettings"
+                    ]
                 },
                 "python.interpreters.include": {
                     "default": [],
                     "markdownDescription": "%python.interpreters.include.markdownDescription%",
-                    "scope": "window",
+                    "scope": "resource",
                     "type": "array",
                     "items": {
                         "type": "string"
                     },
-                    "uniqueItems": true
+                    "uniqueItems": true,
+                    "tags": [
+                        "interpreterSettings"
+                    ]
                 },
                 "python.interpreters.exclude": {
                     "default": [],
                     "markdownDescription": "%python.interpreters.exclude.markdownDescription%",
-                    "scope": "window",
+                    "scope": "resource",
                     "type": "array",
                     "items": {
                         "type": "string"
                     },
-                    "uniqueItems": true
+                    "uniqueItems": true,
+                    "tags": [
+                        "interpreterSettings"
+                    ]
+                },
+                "python.interpreters.override": {
+                    "default": [],
+                    "markdownDescription": "%python.interpreters.override.markdownDescription%",
+                    "scope": "resource",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": true,
+                    "tags": [
+                        "interpreterSettings"
+                    ]
                 },
                 "python.envFile": {
                     "default": "${workspaceFolder}/.env",
@@ -647,7 +693,7 @@
                     "type": "string"
                 },
                 "python.interpreter.infoVisibility": {
-                    "default": "never",
+                    "default": "onPythonRelated",
                     "description": "%python.interpreter.infoVisibility.description%",
                     "enum": [
                         "never",
@@ -771,6 +817,12 @@
                     "scope": "resource",
                     "type": "boolean"
                 },
+                "python.testing.autoTestDiscoverOnSavePattern": {
+                    "default": "**/*.py",
+                    "description": "%python.testing.autoTestDiscoverOnSavePattern.description%",
+                    "scope": "resource",
+                    "type": "string"
+                },
                 "python.testing.cwd": {
                     "default": null,
                     "description": "%python.testing.cwd.description%",
@@ -866,6 +918,7 @@
         "configurationDefaults": {
             "pyright.disableLanguageServices": true,
             "pyright.disableOrganizeImports": true,
+            "pyright.disablePullDiagnostics": true,
             "python.analysis.autoImportCompletions": false,
             "python.analysis.typeCheckingMode": "off"
         },
@@ -1892,7 +1945,7 @@
         "get-port": "^5.1.1",
         "gulp": "^5.0.0",
         "gulp-typescript": "^5.0.0",
-        "mocha": "^9.2.2",
+        "mocha": "^11.1.0",
         "mocha-junit-reporter": "^2.0.2",
         "mocha-multi-reporters": "^1.1.7",
         "node-has-native-dependencies": "^1.0.2",

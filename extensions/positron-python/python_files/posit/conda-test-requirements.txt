@@ -1,0 +1,23 @@
+bokeh
+fastcore
+geopandas
+holoviews
+ibis-duckdb
+ipykernel
+ipywidgets
+lightning
+matplotlib
+numpy
+pandas
+plotly
+polars
+pyarrow
+pytest<8.1.1
+pytest-asyncio
+pytest-mock
+pytorch
+ruff
+sqlalchemy
+# see https://github.com/posit-dev/positron/issues/6604
+ipython<=8.31.0
+haystack-ai

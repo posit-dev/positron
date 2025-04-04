@@ -1,42 +1,31 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
-import { RuntimeItem } from './runtimeItem.js';
+import { RuntimeItemStandard } from './runtimeItem.js';
 
 /**
  * RuntimeItemPendingInput class.
  */
-export class RuntimeItemPendingInput extends RuntimeItem {
-	//#region Public Properties
-
-	/**
-	 * Gets the output lines.
-	 */
-	readonly outputLines: readonly ANSIOutputLine[];
-
-	//#endregion Public Properties
-
+export class RuntimeItemPendingInput extends RuntimeItemStandard {
 	//#region Constructor
 
 	/**
 	 * Constructor.
 	 * @param id The identifier.
 	 * @param inputPrompt The input prompt.
-	 * @param code The banner.
+	 * @param executionId The execution identifier for the code.
+	 * @param code The code.
 	 */
 	constructor(
 		id: string,
 		readonly inputPrompt: string,
+		readonly executionId: string | undefined,
 		readonly code: string
 	) {
 		// Call the base class's constructor.
-		super(id);
-
-		// Process the message directly into ANSI output lines suitable for rendering.
-		this.outputLines = ANSIOutput.processOutput(code);
+		super(id, code);
 	}
 
 	//#endregion Constructor

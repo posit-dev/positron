@@ -77,7 +77,7 @@ def get_qualname(value: Any) -> str:
         qualname = getattr(type(value), "__name__", "object")
 
     # Tell the type checker that it's a string
-    qualname = cast(str, qualname)
+    qualname = cast("str", qualname)
 
     # If the value is not itself a module, prepend its module name if it exists
     if not inspect.ismodule(value):
@@ -440,6 +440,10 @@ def is_local_html_file(url: str) -> bool:
         return False
 
 
+# Limits the number of concurrent calls allowed by the debounce decorator.
+_debounce_semaphore = threading.Semaphore(10)
+
+
 def debounce(interval_s: int, keyed_by: Optional[str] = None):
     """
     Debounce calls to a function until `interval_s` seconds have passed.
@@ -456,22 +460,28 @@ def debounce(interval_s: int, keyed_by: Optional[str] = None):
 
         @functools.wraps(func)
         def debounced(*args, **kwargs) -> None:
+            _debounce_semaphore.acquire()
+
             # Get the value of the keyed_by argument, if any.
             sig = inspect.signature(func)
             call_args = sig.bind(*args, **kwargs)
             key = call_args.arguments[keyed_by] if keyed_by else None
 
             def run() -> None:
-                # Remove the timer and call the function.
-                with lock:
-                    del timers[key]
-                return func(*args, **kwargs)
+                try:
+                    # Remove the timer and call the function.
+                    with lock:
+                        del timers[key]
+                    func(*args, **kwargs)
+                finally:
+                    _debounce_semaphore.release()
 
             with lock:
                 # Cancel any existing timer for the same key.
                 old_timer = timers.get(key)
                 if old_timer:
                     old_timer.cancel()
+                    _debounce_semaphore.release()
 
                 # Create a new timer and start it.
                 timer = threading.Timer(debounced.interval_s, run)  # type: ignore

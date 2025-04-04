@@ -29,11 +29,11 @@ const VARIABLES_GROUP_SELECTOR = '.positron-variables-container .action-bar-butt
 export class Variables {
 	interpreterLocator = this.code.driver.page.locator(VARIABLES_INTERPRETER);
 	variablesPane: Locator;
-	variablesRuntime: (name: string) => Locator;
+	variablesRuntime: (name: string | RegExp) => Locator;
 
 	constructor(private code: Code) {
 		this.variablesPane = this.code.driver.page.locator('[id="workbench.panel.positronSession"]');
-		this.variablesRuntime = (name: string) => this.variablesPane.getByRole('button', { name });
+		this.variablesRuntime = (name: string | RegExp) => this.variablesPane.getByRole('button', { name });
 	}
 
 	async getFlatVariables(): Promise<Map<string, FlatVariables>> {
@@ -63,7 +63,8 @@ export class Variables {
 	}
 
 	async focusVariablesView() {
-		await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+K+V' : 'Control+K+V');
+		await this.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K');
+		await this.code.driver.page.keyboard.press('V');
 	}
 
 	async waitForVariableRow(variableName: string): Promise<Locator> {
@@ -191,25 +192,32 @@ export class Variables {
 	 * @param language the language of the runtime: Python or R
 	 * @param version the version of the runtime: e.g. 3.10.15
 	 */
-	async expectRuntimeToBe(sessionName: string) {
-		await test.step(`Verify runtime: ${sessionName}`, async () => {
+	async expectRuntimeToBe(expectation: 'visible' | 'not.visible', sessionName: string | RegExp) {
+		await test.step(`Verify runtime is ${expectation}: ${sessionName}`, async () => {
 			await this.togglePane('show');
-			await expect(this.variablesRuntime(sessionName)).toBeVisible();
+			expectation === 'visible'
+				? await expect(this.variablesRuntime(sessionName)).toBeVisible()
+				: await expect(this.variablesRuntime(sessionName)).not.toBeVisible();
 		});
 	}
+
 
 	/**
 	 * Verify: Confirm the variable is visible and has the expected value.
 	 * @param variableName the name of the variable to check
 	 * @param value the expected value of the variable
+	 * @param timeout (optional) timeout in milliseconds for visibility (default 15000)
 	 */
-	async expectVariableToBe(variableName: string, value: string) {
+	async expectVariableToBe(variableName: string, value: string, timeout: number = 15000) {
 		await test.step(`Verify variable: ${variableName} with value: ${value}`, async () => {
-			await this.togglePane('show');
-			const row = this.code.driver.page.locator('.variables-instance[style*="z-index: 1"] .variable-item').filter({ hasText: variableName });
+			await this.focusVariablesView();
+			const row = this.code.driver.page
+				.locator('.variables-instance[style*="z-index: 1"] .variable-item')
+				.filter({ hasText: variableName });
 
-			await expect(row).toBeVisible();
+			await expect(row).toBeVisible({ timeout });
 			await expect(row.locator('.details-column .value')).toHaveText(value);
 		});
 	}
+
 }

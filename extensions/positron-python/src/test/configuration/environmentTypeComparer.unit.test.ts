@@ -197,7 +197,12 @@ suite('Environment sorting', () => {
             } as PythonEnvironment,
             envB: {
                 envType: EnvironmentType.Pyenv,
-                version: { major: 3, minor: 7, patch: 2 },
+                // --- Start Positron ---
+                // Positron puts unsupported Python versions at the end, so we need the Pyenv test
+                // version to be supported.
+                // version: { major: 3, minor: 7, patch: 2 },
+                version: { major: 3, minor: 9, patch: 2 },
+                // --- End Positron ---
                 path: path.join('path', 'to', 'normal', 'pyenv'),
             } as PythonEnvironment,
             expected: 1,

@@ -21,6 +21,10 @@ export enum EnvironmentType {
     Poetry = 'Poetry',
     Hatch = 'Hatch',
     Pixi = 'Pixi',
+    // --- Start Positron ---
+    Uv = 'Uv',
+    Custom = 'Custom',
+    // --- End Positron ---
     VirtualEnvWrapper = 'VirtualEnvWrapper',
     ActiveState = 'ActiveState',
     Global = 'Global',
@@ -29,7 +33,15 @@ export enum EnvironmentType {
 /**
  * These envs are only created for a specific workspace, which we're able to detect.
  */
-export const workspaceVirtualEnvTypes = [EnvironmentType.Poetry, EnvironmentType.Pipenv, EnvironmentType.Pixi];
+// --- Start Positron ---
+// Added uv
+export const workspaceVirtualEnvTypes = [
+    EnvironmentType.Poetry,
+    EnvironmentType.Pipenv,
+    EnvironmentType.Pixi,
+    EnvironmentType.Uv,
+];
+// --- End Positron ---
 
 export const virtualEnvTypes = [
     ...workspaceVirtualEnvTypes,
@@ -131,6 +143,11 @@ export function getEnvironmentTypeName(environmentType: EnvironmentType): string
         case EnvironmentType.Pixi: {
             return 'pixi';
         }
+        // --- Start Positron ---
+        case EnvironmentType.Uv: {
+            return 'uv';
+        }
+        // --- End Positron ---
         case EnvironmentType.VirtualEnvWrapper: {
             return 'virtualenvwrapper';
         }

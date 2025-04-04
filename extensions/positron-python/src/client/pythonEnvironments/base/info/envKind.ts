@@ -13,6 +13,9 @@ export function getKindDisplayName(kind: PythonEnvKind): string {
         // Note that Unknown is excluded here.
         [PythonEnvKind.System, 'system'],
         [PythonEnvKind.MicrosoftStore, 'Microsoft Store'],
+        // --- Start Positron ---
+        [PythonEnvKind.Uv, 'uv'],
+        // --- End Positron ---
         [PythonEnvKind.Pyenv, 'pyenv'],
         [PythonEnvKind.Poetry, 'Poetry'],
         [PythonEnvKind.Hatch, 'Hatch'],
@@ -64,6 +67,9 @@ export function getPrioritizedEnvKinds(): PythonEnvKind[] {
         PythonEnvKind.Pixi, // Placed here since Pixi environments are essentially Conda envs
         PythonEnvKind.Conda,
         PythonEnvKind.MicrosoftStore,
+        // --- Start Positron ---
+        PythonEnvKind.Uv, // Placed here since uv environments are essentially venvs
+        // --- End Positron ---
         PythonEnvKind.Pipenv,
         PythonEnvKind.Poetry,
         PythonEnvKind.Hatch,

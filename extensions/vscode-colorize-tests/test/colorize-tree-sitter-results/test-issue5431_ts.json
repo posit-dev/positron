@@ -11,7 +11,7 @@
 	},
 	{
 		"c": "foo",
-		"t": "variable entity.name.function",
+		"t": "entity.name.function",
 		"r": {
 			"hc_black": "entity.name.function: #DCDCAA",
 			"positron_dark": "entity.name.function: #DCDCAA",
@@ -21,7 +21,7 @@
 	},
 	{
 		"c": "(",
-		"t": "",
+		"t": "punctuation",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -31,7 +31,7 @@
 	},
 	{
 		"c": "isAll",
-		"t": "variable",
+		"t": "variable.parameter",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -51,7 +51,7 @@
 	},
 	{
 		"c": "startTime",
-		"t": "variable",
+		"t": "variable.parameter",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -71,7 +71,7 @@
 	},
 	{
 		"c": "endTime",
-		"t": "variable",
+		"t": "variable.parameter",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -81,7 +81,7 @@
 	},
 	{
 		"c": ")",
-		"t": "",
+		"t": "punctuation",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -91,7 +91,7 @@
 	},
 	{
 		"c": "{",
-		"t": "",
+		"t": "punctuation",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -141,7 +141,7 @@
 	},
 	{
 		"c": "?",
-		"t": "punctuation.delimiter keyword.operator.optional keyword.operator.ternary",
+		"t": "keyword.operator.ternary",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -181,7 +181,7 @@
 	},
 	{
 		"c": ":",
-		"t": "punctuation.delimiter keyword.operator.optional keyword.operator.ternary",
+		"t": "keyword.operator.ternary",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -201,7 +201,7 @@
 	},
 	{
 		"c": "${",
-		"t": "string punctuation.definition.template-expression.begin",
+		"t": "punctuation.definition.template-expression.begin",
 		"r": {
 			"hc_black": "punctuation.definition.template-expression.begin: #569CD6",
 			"positron_dark": "punctuation.definition.template-expression.begin: #569CD6",
@@ -211,8 +211,12 @@
 	},
 	{
 		"c": "startTime",
-		"t": "string variable",
+		"t": "variable",
 		"r": {
+			"dark_plus": "variable: #9CDCFE",
+			"light_plus": "variable: #001080",
+			"dark_vs": "default: #D4D4D4",
+			"light_vs": "default: #000000",
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
 			"positron_light": "variable: #001080",
@@ -221,7 +225,7 @@
 	},
 	{
 		"c": "}",
-		"t": "string punctuation.definition.template-expression.end",
+		"t": "punctuation.definition.template-expression.end",
 		"r": {
 			"hc_black": "punctuation.definition.template-expression.end: #569CD6",
 			"positron_dark": "punctuation.definition.template-expression.end: #569CD6",
@@ -241,7 +245,7 @@
 	},
 	{
 		"c": "${",
-		"t": "string punctuation.definition.template-expression.begin",
+		"t": "punctuation.definition.template-expression.begin",
 		"r": {
 			"hc_black": "punctuation.definition.template-expression.begin: #569CD6",
 			"positron_dark": "punctuation.definition.template-expression.begin: #569CD6",
@@ -251,8 +255,12 @@
 	},
 	{
 		"c": "endTime",
-		"t": "string variable",
+		"t": "variable",
 		"r": {
+			"dark_plus": "variable: #9CDCFE",
+			"light_plus": "variable: #001080",
+			"dark_vs": "default: #D4D4D4",
+			"light_vs": "default: #000000",
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
 			"positron_light": "variable: #001080",
@@ -261,7 +269,7 @@
 	},
 	{
 		"c": "}",
-		"t": "string punctuation.definition.template-expression.end",
+		"t": "punctuation.definition.template-expression.end",
 		"r": {
 			"hc_black": "punctuation.definition.template-expression.end: #569CD6",
 			"positron_dark": "punctuation.definition.template-expression.end: #569CD6",
@@ -301,7 +309,7 @@
 	},
 	{
 		"c": "true",
-		"t": "constant.language",
+		"t": "constant.language.boolean.true",
 		"r": {
 			"hc_black": "constant.language: #569CD6",
 			"positron_dark": "constant.language: #569CD6",
@@ -321,7 +329,7 @@
 	},
 	{
 		"c": "}",
-		"t": "",
+		"t": "punctuation",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",

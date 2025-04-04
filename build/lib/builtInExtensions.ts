@@ -3,16 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
-import * as rimraf from 'rimraf';
-import * as es from 'event-stream';
-import * as rename from 'gulp-rename';
-import * as vfs from 'vinyl-fs';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import rimraf from 'rimraf';
+import es from 'event-stream';
+import rename from 'gulp-rename';
+import vfs from 'vinyl-fs';
 import * as ext from './extensions';
-import * as fancyLog from 'fancy-log';
-import * as ansiColors from 'ansi-colors';
+import fancyLog from 'fancy-log';
+import ansiColors from 'ansi-colors';
 import { Stream } from 'stream';
 
 export interface IExtensionDefinition {
@@ -24,6 +24,7 @@ export interface IExtensionDefinition {
 	// --- Start PWB: Bundle PWB extension ---
 	positUrl?: string;
 	// --- End PWB: Bundle PWB extension ---
+	vsix?: string;
 	metadata: {
 		id: string;
 		publisherId: {
@@ -81,11 +82,22 @@ function getExtensionDownloadStream(extension: IExtensionDefinition) {
 			.pipe(rename(p => p.dirname = `${extension.name}/${p.dirname}`));
 	}
 	// --- End PWB: Bundle PWB extension ---
-	// --- Start Positron ---
-	const url = extension.metadata.multiPlatformServiceUrl || productjson.extensionsGallery?.serviceUrl;
-	return (url ? ext.fromMarketplace(url, extension) : ext.fromGithub(extension))
+	let input: Stream;
+
+	if (extension.vsix) {
+		input = ext.fromVsix(path.join(root, extension.vsix), extension);
+	} else if (productjson.extensionsGallery?.serviceUrl) {
+		input = ext.fromMarketplace(productjson.extensionsGallery.serviceUrl, extension);
+		// --- Start Positron ---
+		if (extension.metadata.multiPlatformServiceUrl) {
+			input = ext.fromMarketplace(productjson.extensionsGallery.serviceUrl, extension);
+		}
 		// --- End Positron ---
-		.pipe(rename(p => p.dirname = `${extension.name}/${p.dirname}`));
+	} else {
+		input = ext.fromGithub(extension);
+	}
+
+	return input.pipe(rename(p => p.dirname = `${extension.name}/${p.dirname}`));
 }
 
 export function getExtensionStream(extension: IExtensionDefinition) {

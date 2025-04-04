@@ -14,6 +14,10 @@ export enum NativePythonEnvironmentKind {
     PyenvVirtualEnv = 'PyenvVirtualEnv',
     Pipenv = 'Pipenv',
     Poetry = 'Poetry',
+    // --- Start Positron ---
+    Uv = 'Uv',
+    Custom = 'Custom',
+    // --- End Positron ---
     MacPythonOrg = 'MacPythonOrg',
     MacCommandLineTools = 'MacCommandLineTools',
     LinuxGlobal = 'LinuxGlobal',
@@ -33,6 +37,7 @@ const mapping = new Map<NativePythonEnvironmentKind, PythonEnvKind>([
     [NativePythonEnvironmentKind.PyenvVirtualEnv, PythonEnvKind.Pyenv],
     [NativePythonEnvironmentKind.Pipenv, PythonEnvKind.Pipenv],
     [NativePythonEnvironmentKind.Poetry, PythonEnvKind.Poetry],
+    [NativePythonEnvironmentKind.Uv, PythonEnvKind.Uv],
     [NativePythonEnvironmentKind.VirtualEnv, PythonEnvKind.VirtualEnv],
     [NativePythonEnvironmentKind.VirtualEnvWrapper, PythonEnvKind.VirtualEnvWrapper],
     [NativePythonEnvironmentKind.Venv, PythonEnvKind.Venv],
@@ -43,6 +48,9 @@ const mapping = new Map<NativePythonEnvironmentKind, PythonEnvKind>([
     [NativePythonEnvironmentKind.MacCommandLineTools, PythonEnvKind.System],
     [NativePythonEnvironmentKind.MacPythonOrg, PythonEnvKind.System],
     [NativePythonEnvironmentKind.MacXCode, PythonEnvKind.System],
+    // --- Start Positron ---
+    [NativePythonEnvironmentKind.Custom, PythonEnvKind.Custom],
+    // --- End Positron ---
 ]);
 
 export function categoryToKind(category?: NativePythonEnvironmentKind, logger?: LogOutputChannel): PythonEnvKind {

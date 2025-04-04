@@ -105,9 +105,12 @@ suite('Interpreters Display', () => {
             applicationShell
                 .setup((a) =>
                     a.createStatusBarItem(
-                        TypeMoq.It.isValue(StatusBarAlignment.Right),
+                        // --- Start Positron ---
+                        // we moved status bar to the left
+                        TypeMoq.It.isValue(StatusBarAlignment.Left),
                         TypeMoq.It.isAny(),
-                        TypeMoq.It.isAny(),
+                        TypeMoq.It.isValue('python.selectedInterpreterDisplay'),
+                        // --- End Positron ---
                     ),
                 )
                 .returns(() => statusBar.object);
@@ -151,14 +154,20 @@ suite('Interpreters Display', () => {
                     languageStatusItem.verify(
                         (s) =>
                             (s.command = TypeMoq.It.isValue({
-                                title: InterpreterQuickPickList.browsePath.openButtonLabel,
+                                title: 'Active Interpreter',
                                 command: Commands.Set_Interpreter,
                             })),
-                        TypeMoq.Times.once(),
+                        // --- Start Positron ---
+                        // should not have any command set
+                        TypeMoq.Times.never(),
+                        // --- End Positron ---
                     );
                     expect(disposableRegistry).contain(languageStatusItem.object);
                 } else {
-                    statusBar.verify((s) => (s.command = TypeMoq.It.isAny()), TypeMoq.Times.once());
+                    // --- Start Positron ---
+                    // No command should be set for status bar
+                    statusBar.verify((s) => (s.command = TypeMoq.It.isAny()), TypeMoq.Times.never());
+                    // --- End Positron ---
                     expect(disposableRegistry).contain(statusBar.object);
                 }
                 expect(disposableRegistry).to.be.lengthOf.above(0);
@@ -183,23 +192,32 @@ suite('Interpreters Display', () => {
                 await interpreterDisplay.refresh(resource);
 
                 if (useLanguageStatus) {
+                    // --- Start Positron ---
+                    // Status bar value should be the path, not the display name
                     languageStatusItem.verify(
-                        (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.detailedDisplayName)!),
+                        (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.path)!),
                         TypeMoq.Times.once(),
                     );
+                    // --- End Positron ---
                     languageStatusItem.verify(
                         (s) => (s.detail = TypeMoq.It.isValue(activeInterpreter.path)!),
                         TypeMoq.Times.atLeastOnce(),
                     );
                 } else {
+                    // --- Start Positron ---
+                    // Status bar value should be the path, not the display name
                     statusBar.verify(
-                        (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.detailedDisplayName)!),
+                        (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.path)!),
                         TypeMoq.Times.once(),
                     );
                     statusBar.verify(
-                        (s) => (s.tooltip = TypeMoq.It.isValue(activeInterpreter.path)!),
+                        // --- Start Positron ---
+                        // Tooltip should be "Active Interpreter"
+                        (s) => (s.tooltip = TypeMoq.It.isValue('Active Interpreter')!),
                         TypeMoq.Times.atLeastOnce(),
+                        // --- End Positron ---
                     );
+                    // --- End Positron ---
                 }
             });
             test('Log the output channel if displayed needs to be updated with a new interpreter', async () => {
@@ -228,12 +246,18 @@ suite('Interpreters Display', () => {
                     activeInterpreter.path,
                 );
             });
-            test('If interpreter is not identified then tooltip should point to python Path', async () => {
+            // --- Start Positron ---
+            // rename test to reflect reality
+            test('Tooltip should be "Active Interpreter"', async () => {
+                // --- End Positron ---
                 const resource = Uri.file('x');
                 const pythonPath = path.join('user', 'development', 'env', 'bin', 'python');
                 const workspaceFolder = Uri.file('workspace');
                 const displayName = 'Python 3.10.1';
-                const expectedDisplayName = '3.10.1';
+                // --- Start Positron ---
+                // Status bar value should be the path, not the display name
+                const expectedDisplayName = path.join('user', 'development', 'env', 'bin', 'python');
+                // --- End Positron ---
 
                 setupWorkspaceFolder(resource, workspaceFolder);
                 const pythonInterpreter: PythonEnvironment = ({
@@ -255,7 +279,13 @@ suite('Interpreters Display', () => {
                         TypeMoq.Times.once(),
                     );
                 } else {
-                    statusBar.verify((s) => (s.tooltip = TypeMoq.It.isValue(pythonPath)), TypeMoq.Times.atLeastOnce());
+                    // --- Start Positron ---
+                    // Tooltip should be "Active Interpreter"
+                    statusBar.verify(
+                        (s) => (s.tooltip = TypeMoq.It.isValue('Active Interpreter')),
+                        TypeMoq.Times.atLeastOnce(),
+                    );
+                    // --- End Positron ---
                     statusBar.verify((s) => (s.text = TypeMoq.It.isValue(expectedDisplayName)), TypeMoq.Times.once());
                 }
             });
@@ -329,20 +359,29 @@ suite('Interpreters Display', () => {
                 interpreterHelper.verifyAll();
                 interpreterService.verifyAll();
                 if (useLanguageStatus) {
-                    languageStatusItem.verify(
-                        (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.detailedDisplayName)!),
-                        TypeMoq.Times.once(),
-                    );
+                    // --- Start Positron ---
+                    // Status bar should display path, not interpreter name
+                    // languageStatusItem.verify(
+                    //     (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.detailedDisplayName)!),
+                    //     TypeMoq.Times.once(),
+                    // );
+                    // --- End Positron ---
                     languageStatusItem.verify(
                         (s) => (s.detail = TypeMoq.It.isValue(pythonPath)!),
                         TypeMoq.Times.atLeastOnce(),
                     );
                 } else {
+                    // --- Start Positron ---
+                    // Status bar should display path, tooltip should say Active Interpreter
                     statusBar.verify(
-                        (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.detailedDisplayName)!),
+                        (s) => (s.text = TypeMoq.It.isValue(activeInterpreter.path)!),
                         TypeMoq.Times.once(),
                     );
-                    statusBar.verify((s) => (s.tooltip = TypeMoq.It.isValue(pythonPath)!), TypeMoq.Times.atLeastOnce());
+                    statusBar.verify(
+                        (s) => (s.tooltip = TypeMoq.It.isValue('Active Interpreter')!),
+                        TypeMoq.Times.atLeastOnce(),
+                    );
+                    // --- End Positron ---
                 }
             });
             suite('Visibility', () => {

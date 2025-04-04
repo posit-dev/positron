@@ -3,24 +3,25 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as es from 'event-stream';
-import * as fs from 'fs';
-import * as cp from 'child_process';
-import * as glob from 'glob';
-import * as gulp from 'gulp';
-import * as path from 'path';
+import es from 'event-stream';
+import fs from 'fs';
+import cp from 'child_process';
+import glob from 'glob';
+import gulp from 'gulp';
+import path from 'path';
+import crypto from 'crypto';
 import { Stream } from 'stream';
-import * as File from 'vinyl';
+import File from 'vinyl';
 import { createStatsStream } from './stats';
 import * as util2 from './util';
 const vzip = require('gulp-vinyl-zip');
-import filter = require('gulp-filter');
-import rename = require('gulp-rename');
-import * as fancyLog from 'fancy-log';
-import * as ansiColors from 'ansi-colors';
-const buffer = require('gulp-buffer');
+import filter from 'gulp-filter';
+import rename from 'gulp-rename';
+import fancyLog from 'fancy-log';
+import ansiColors from 'ansi-colors';
+import buffer from 'gulp-buffer';
 import * as jsoncParser from 'jsonc-parser';
-import webpack = require('webpack');
+import webpack from 'webpack';
 import { getProductionDependencies } from './dependencies';
 import { IExtensionDefinition, getExtensionStream } from './builtInExtensions';
 import { getBootstrapExtensionStream } from './bootstrapExtensions';
@@ -350,6 +351,33 @@ export function fromPositUrl({ name: extensionName, version, sha256, positUrl, m
 }
 // --- End PWB: Bundle PWB extension ---
 
+export function fromVsix(vsixPath: string, { name: extensionName, version, sha256, metadata }: IExtensionDefinition): Stream {
+	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
+
+	fancyLog('Using local VSIX for extension:', ansiColors.yellow(`${extensionName}@${version}`), '...');
+
+	const packageJsonFilter = filter('package.json', { restore: true });
+
+	return gulp.src(vsixPath)
+		.pipe(buffer())
+		.pipe(es.mapSync((f: File) => {
+			const hash = crypto.createHash('sha256');
+			hash.update(f.contents as Buffer);
+			const checksum = hash.digest('hex');
+			if (checksum !== sha256) {
+				throw new Error(`Checksum mismatch for ${vsixPath} (expected ${sha256}, actual ${checksum}))`);
+			}
+			return f;
+		}))
+		.pipe(vzip.src())
+		.pipe(filter('extension/**'))
+		.pipe(rename(p => p.dirname = p.dirname!.replace(/^extension\/?/, '')))
+		.pipe(packageJsonFilter)
+		.pipe(buffer())
+		.pipe(json({ __metadata: metadata }))
+		.pipe(packageJsonFilter.restore);
+}
+
 export function fromGithub({ name, version, repo, sha256, metadata }: IExtensionDefinition): Stream {
 	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
 
@@ -390,7 +418,6 @@ const excludedExtensions = [
 	// --- Start Positron ---
 	'positron-zed',
 	'positron-javascript',
-	'positron-assistant',
 	// --- End Positron ---
 ];
 

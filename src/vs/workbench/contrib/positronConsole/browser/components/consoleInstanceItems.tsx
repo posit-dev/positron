@@ -46,10 +46,22 @@ interface ConsoleInstanceItemsProps {
 	readonly trace: boolean;
 	readonly runtimeAttached: boolean;
 	readonly consoleInputWidth: number;
+	readonly disconnected: boolean;
 	readonly onSelectAll: () => void;
 }
 /**
  * ConsoleInstanceItems component.
+ *
+ * PLEASE READ:
+ * This component is a class component ON PURPOSE!
+ * This needs to be a class component to fix https://github.com/posit-dev/positron/issues/705.
+ * Without `forceUpdate()`, there will be a regression for issue #705.
+ *
+ * This is the only class component in Positron Core for this reason.
+ * Other workarounds do not work, including the offical suggestion in the React FAQ:
+ * https://legacy.reactjs.org/docs/hooks-faq.html#is-there-something-like-forceupdate
+ *
+ * See commit: https://github.com/posit-dev/positron/commit/1e125e96bdc128a5c2dc2a9df7cdb52ba9ea5aaf
  */
 export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 	/**
@@ -65,22 +77,17 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 	 * @returns The rendered component.
 	 */
 	override render() {
-
-		let extensionHostDisconnected = false;
-
 		return (
 			<>
 				<div className='top-spacer' />
-				{this.props.positronConsoleInstance.runtimeItems.map(runtimeItem => {
+				{this.props.positronConsoleInstance.runtimeItems.filter(runtimeItem => !runtimeItem.isHidden).map(runtimeItem => {
 					if (runtimeItem instanceof RuntimeItemActivity) {
 						return <RuntimeActivity key={runtimeItem.id} fontInfo={this.props.editorFontInfo} positronConsoleInstance={this.props.positronConsoleInstance} runtimeItemActivity={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemPendingInput) {
 						return <RuntimePendingInput key={runtimeItem.id} fontInfo={this.props.editorFontInfo} runtimeItemPendingInput={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemStartup) {
-						extensionHostDisconnected = false;
 						return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemReconnected) {
-						extensionHostDisconnected = false;
 						return null;
 					} else if (runtimeItem instanceof RuntimeItemStarting) {
 						return <RuntimeStarting key={runtimeItem.id} runtimeItemStarting={runtimeItem} />;
@@ -89,10 +96,6 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 					} else if (runtimeItem instanceof RuntimeItemOffline) {
 						return <RuntimeOffline key={runtimeItem.id} runtimeItemOffline={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemExited) {
-						if (runtimeItem.reason === 'extensionHost') {
-							extensionHostDisconnected = true;
-							return null;
-						}
 						return <RuntimeExited key={runtimeItem.id} runtimeItemExited={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemRestartButton) {
 						return <RuntimeRestartButton key={runtimeItem.id} positronConsoleInstance={this.props.positronConsoleInstance} runtimeItemRestartButton={runtimeItem} />;
@@ -101,21 +104,19 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 					} else if (runtimeItem instanceof RuntimeItemTrace) {
 						return this.props.trace && <RuntimeTrace key={runtimeItem.id} runtimeItemTrace={runtimeItem} />;
 					} else {
-						// This indicates a bug.
+						// This indicates a bug. A new runtime item was added but not handled here.
 						return null;
 					}
 				})}
-				{extensionHostDisconnected ?
-					(<div className='console-item-reconnecting'>
+				{this.props.disconnected &&
+					<div className='console-item-starting'>
 						<span className='codicon codicon-loading codicon-modifier-spin'></span>
 						<span>{localize(
 							"positron.console.extensionsRestarting",
 							"Extensions restarting..."
 						)}</span>
-					</div>) :
-					null
+					</div>
 				}
-
 				<ConsoleInput
 					hidden={this.props.positronConsoleInstance.promptActive || !this.props.runtimeAttached}
 					positronConsoleInstance={this.props.positronConsoleInstance}

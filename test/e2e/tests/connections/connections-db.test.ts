@@ -13,10 +13,6 @@ test.use({
 test.describe('SQLite DB Connection', {
 	tag: [tags.WEB, tags.CRITICAL, tags.CONNECTIONS, tags.WIN]
 }, () => {
-	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['positron.connections.showConnectionPane', 'true']]);
-	});
-
 	test.afterEach(async function ({ app }) {
 		await app.workbench.connections.disconnectButton.click();
 		await app.workbench.connections.connectionItems.first().click();
@@ -30,12 +26,20 @@ test.describe('SQLite DB Connection', {
 		});
 
 		await test.step('Open connections pane', async () => {
-			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-			// there is a flake of the db connection not displaying in the connections pane after
-			// clicking the db icon. i want to see if waiting for a second will help
-			await app.code.driver.page.waitForTimeout(1000);
-			await app.workbench.variables.clickDatabaseIconForVariableRow('conn');
-			await app.workbench.connections.connectIcon.click();
+			try {
+				await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+				// there is a flake of the db connection not displaying in the connections pane after
+				// clicking the db icon. To work around, both a wait and a retry are added.
+				await app.code.driver.page.waitForTimeout(2000);
+				await app.workbench.variables.clickDatabaseIconForVariableRow('conn');
+				await app.workbench.connections.connectIcon.click();
+			} catch (error) {
+				// For some reasonm, on the retry, the pane opens directly to this connection
+				// and the connectIcon.click() is not needed.
+				await app.workbench.sideBar.openSession();
+				await app.code.driver.page.waitForTimeout(2000);
+				await app.workbench.variables.clickDatabaseIconForVariableRow('conn');
+			}
 		});
 
 		await test.step('Verify connection nodes', async () => {

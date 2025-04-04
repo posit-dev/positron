@@ -9,7 +9,7 @@ import * as fs from 'fs';
 
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { arrayBufferToBase64, BinaryMessageReferences, toLanguageModelChatMessage } from '../utils';
-import { getPlotToolAdapter, textEditToolAdapter } from '../tools';
+import { documentEditToolAdapter, selectionEditToolAdapter } from '../tools';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
@@ -29,8 +29,23 @@ export async function defaultHandler(
 	// List of tools for use by the Language Model
 	const toolOptions: Record<string, any> = {};
 	const tools: vscode.LanguageModelChatTool[] = [
-		...vscode.lm.tools.filter(tool => tool.tags.includes('positron-assistant')),
-		getPlotToolAdapter.toolData,
+		...vscode.lm.tools.filter(tool => {
+			// Ignore tools that are not applicable for the Positron Assistant
+			if (!tool.tags.includes('positron-assistant')) {
+				return false;
+			}
+			// Do not offer to execute code when the request isn't coming from
+			// the Chat pane; the other panes do not have an affordance for
+			// confirming executions.
+			//
+			// CONSIDER: It would be better for us to introspect the tool itself
+			// to see if it requires confirmation, but that information isn't
+			// currently exposed in `vscode.LanguageModelChatTool`.
+			if (tool.name === 'executeCode' && request.location2) {
+				return false;
+			}
+			return true;
+		}),
 	];
 
 	// Binary references for use by the Language Model
@@ -113,18 +128,46 @@ export async function defaultHandler(
 
 	// When invoked from the editor, add selection context and editor tool
 	if (request.location2 instanceof vscode.ChatRequestEditorData) {
-		system += await fs.promises.readFile(`${mdDir}/prompts/chat/editor.md`, 'utf8');
 		const document = request.location2.document;
 		const selection = request.location2.selection;
 		const selectedText = document.getText(selection);
-		messages.push(...[
-			vscode.LanguageModelChatMessage.User(`The user has selected the following text: ${selectedText}`),
-			vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
-		]);
+		const hasSelection = selection && !selection.isEmpty;
+		if (hasSelection) {
+			// If the user has selected text, generate a new version of the selection.
+			system += await fs.promises.readFile(`${mdDir}/prompts/chat/selection.md`, 'utf8');
+		} else {
+			// If the user has not selected text, use the prompt for the whole document.
+			system += await fs.promises.readFile(`${mdDir}/prompts/chat/editor.md`, 'utf8');
+		}
+		const documentText = document.getText();
+		const ref = {
+			id: document.uri.toString(),
+			documentText,
+			selectedText,
+			line: selection.active.line + 1, // 1-based line numbering for the model
+			column: selection.active.character,
+			documentOffset: document.offsetAt(selection.active)
+		};
+		const textParts: vscode.LanguageModelTextPart[] = [
+			new vscode.LanguageModelTextPart(`\n\n${JSON.stringify(ref)}`)
+		];
+		messages.push(vscode.LanguageModelChatMessage.User(textParts));
+		messages.push(
+			vscode.LanguageModelChatMessage.Assistant('Acknowledged.')
+		);
 
-		// Add tool to output text edits
-		tools.push(textEditToolAdapter.toolData);
-		toolOptions[textEditToolAdapter.toolData.name] = { document, selection };
+		if (hasSelection) {
+			// If we have a selection, use the selection editor tool.
+			tools.push(selectionEditToolAdapter.toolData);
+			toolOptions[selectionEditToolAdapter.toolData.name] = { document, selection };
+		} else {
+			// If we don't have a selection, use the document editor tool.
+			tools.push(documentEditToolAdapter.toolData);
+			toolOptions[documentEditToolAdapter.toolData.name] = {
+				documentUri: document.uri.toString(),
+				selection
+			};
+		}
 	}
 
 	// When invoked from the terminal, add additional instructions.
@@ -186,7 +229,7 @@ export async function defaultHandler(
 
 			const newHistory = [
 				...messages,
-				vscode.LanguageModelChatMessage.User(textResponses),
+				vscode.LanguageModelChatMessage.Assistant(textResponses),
 				vscode.LanguageModelChatMessage.Assistant(toolRequests),
 				vscode.LanguageModelChatMessage.User(
 					Object.entries(toolResponses).map(([id, resp]) => {

@@ -7,6 +7,8 @@ export * from './application';
 export * from './code';
 export * from './logger';
 export * from './workbench';
+export * from './keyboard';
+export * from './test-runner';
 
 // pages
 export * from '../pages/console';
@@ -40,11 +42,9 @@ export * from '../pages/problems';
 export * from '../pages/references';
 export * from '../pages/scm';
 export * from '../pages/sessions';
+export * from '../pages/hotKeys';
 
 // fixtures
 export * from './fixtures/userSettings';
-
-// test-runner
-export * from './test-runner';
 
 export { getDevElectronPath, getBuildElectronPath, getBuildVersion } from './electron';

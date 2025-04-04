@@ -1,18 +1,20 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 .positron-console .console-core {
-	cursor: text;
 	width: 100%;
-}
-
-.positron-console .console-tab-list {
-	display: flex;
-	flex-direction: row;
 }
 
 .positron-console .console-core .console-instances-container {
 	position: relative;
+}
+
+.positron-console .console-core .vertical-splitter {
+	background-color: var(--vscode-terminal-border);
+}
+.positron-console .console-tab-list {
+	display: flex;
+	flex-direction: row;
 }

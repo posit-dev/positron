@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags } from '../infra';
+import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags, Sessions, HotKeys } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -31,8 +31,18 @@ const LOGS_ROOT_PATH = join(ROOT_PATH, 'test-logs');
 let SPEC_NAME = '';
 let fixtureScreenshot: Buffer;
 
+// Currents fixtures
+import {
+	CurrentsFixtures,
+	CurrentsWorkerFixtures,
+	fixtures as currentsFixtures
+	// eslint-disable-next-line local/code-import-patterns
+} from '@currents/playwright';
+
 // Test fixtures
-export const test = base.extend<TestFixtures, WorkerFixtures>({
+export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures & CurrentsWorkerFixtures>({
+	...currentsFixtures.baseFixtures,
+	...currentsFixtures.actionFixtures,
 	suiteId: ['', { scope: 'worker', option: true }],
 
 	snapshots: [true, { scope: 'worker', auto: true }],
@@ -76,6 +86,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	restartApp: [async ({ app }, use) => {
 		await app.restart();
+		await app.workbench.sessions.expectNoStartUpMessaging();
+
 		await use(app);
 	}, { scope: 'test', timeout: 60000 }],
 
@@ -84,6 +96,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 		try {
 			await app.start();
+			await app.workbench.sessions.expectNoStartUpMessaging();
 
 			await use(app);
 		} catch (error) {
@@ -122,6 +135,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use({ set: setInterpreter });
 	}, { scope: 'test', timeout: 30000 }],
 
+	sessions: [
+		async ({ app }, use) => {
+			await use(app.workbench.sessions);
+		},
+		{ scope: 'test' }
+	],
+
 	r: [
 		async ({ interpreter }, use) => {
 			await interpreter.set('R');
@@ -151,9 +171,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	// ex: await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
 	openFile: async ({ app }, use) => {
-		await use(async (filePath: string) => {
+		await use(async (filePath: string, waitForFocus = true) => {
 			await test.step(`Open file: ${path.basename(filePath)}`, async () => {
-				await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath));
+				await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, filePath), waitForFocus);
 			});
 		});
 	},
@@ -189,8 +209,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	// ex: await runCommand('workbench.action.files.save');
 	runCommand: async ({ app }, use) => {
-		await use(async (command: string) => {
-			await app.workbench.quickaccess.runCommand(command);
+		await use(async (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => {
+			await app.workbench.quickaccess.runCommand(command, options);
 		});
 	},
 
@@ -199,6 +219,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(async (language: 'Python' | 'R', code: string) => {
 			await app.workbench.console.executeCode(language, code);
 		});
+	},
+
+
+	// ex: await hotKeys.copy();
+	hotKeys: async ({ app }, use) => {
+		const hotKeys = app.workbench.hotKeys;
+		await use(hotKeys);
 	},
 
 	// ex: await userSettings.set([['editor.actionBar.enabled', 'true']], false);
@@ -210,6 +237,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			restartApp = false
 		) => {
 			await userSettings.setUserSettings(settings, restartApp);
+			await app.workbench.sessions.expectNoStartUpMessaging();
 		};
 
 		await use({
@@ -399,16 +427,18 @@ interface TestFixtures {
 	attachScreenshotsToReport: any;
 	attachLogsToReport: any;
 	interpreter: { set: (interpreterName: 'Python' | 'R', waitFoReady?: boolean) => Promise<void> };
+	sessions: Sessions;
 	r: void;
 	python: void;
 	packages: PackageManager;
 	autoTestFixture: any;
 	devTools: void;
-	openFile: (filePath: string) => Promise<void>;
+	openFile: (filePath: string, waitForFocus?: boolean) => Promise<void>;
 	openDataFile: (filePath: string) => Promise<void>;
 	openFolder: (folderPath: string) => Promise<void>;
-	runCommand: (command: string) => Promise<void>;
+	runCommand: (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => Promise<void>;
 	executeCode: (language: 'Python' | 'R', code: string) => Promise<void>;
+	hotKeys: HotKeys;
 }
 
 interface WorkerFixtures {

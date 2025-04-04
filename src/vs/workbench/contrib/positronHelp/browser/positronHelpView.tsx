@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -17,7 +17,6 @@ import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IViewDescriptorService } from '../../../common/views.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
@@ -30,6 +29,7 @@ import { ActionBars } from './components/actionBars.js';
 import { IPositronHelpService } from './positronHelpService.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 
 /**
  * PositronHelpView class.
@@ -159,6 +159,7 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 	 * @param hoverService The hover service.
 	 * @param instantiationService The instantiation service.
 	 * @param keybindingService The keybinding service.
+	 * @param layoutService The layout service.
 	 * @param openerService The opener service.
 	 * @param positronHelpService The positron help service.
 	 * @param telemetryService The telemetry service.
@@ -176,9 +177,9 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
+		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IOpenerService openerService: IOpenerService,
 		@IPositronHelpService private readonly positronHelpService: IPositronHelpService,
-		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService
 	) {
@@ -194,7 +195,6 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 			instantiationService,
 			openerService,
 			themeService,
-			telemetryService,
 			hoverService
 		);
 
@@ -274,6 +274,7 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 				contextMenuService={this.contextMenuService}
 				hoverService={this.hoverService}
 				keybindingService={this.keybindingService}
+				layoutService={this._layoutService}
 				positronHelpService={this.positronHelpService}
 				reactComponentContainer={this}
 				onHome={homeHandler}

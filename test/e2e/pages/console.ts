@@ -7,7 +7,8 @@ import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
-import { InterpreterType } from '../infra/fixtures/interpreter';
+import { InterpreterType } from '../infra/fixtures/interpreter.js';
+import { HotKeys } from './hotKeys.js';
 
 const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
@@ -27,6 +28,7 @@ export class Console {
 	barPowerButton: Locator;
 	barRestartButton: Locator;
 	barClearButton: Locator;
+	barTrashButton: Locator;
 	consoleRestartButton: Locator;
 	activeConsole: Locator;
 	suggestionList: Locator;
@@ -36,10 +38,11 @@ export class Console {
 		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
 	}
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) {
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private hotKeys: HotKeys) {
 		this.barPowerButton = this.code.driver.page.getByLabel('Shutdown console');
 		this.barRestartButton = this.code.driver.page.getByLabel('Restart console');
 		this.barClearButton = this.code.driver.page.getByLabel('Clear console');
+		this.barTrashButton = this.code.driver.page.getByTestId('trash-session');
 		this.consoleRestartButton = this.code.driver.page.locator(CONSOLE_RESTART_BUTTON);
 		this.activeConsole = this.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE);
 		this.suggestionList = this.code.driver.page.locator(SUGGESTION_LIST);
@@ -81,12 +84,15 @@ export class Console {
 		return;
 	}
 
-	async executeCode(languageName: 'Python' | 'R', code: string): Promise<void> {
-		await test.step(`Execute ${languageName} code in console: ${code}`, async () => {
+	async executeCode(languageName: 'Python' | 'R', code: string, options?: { timeout?: number; waitForReady?: boolean; maximizeConsole?: boolean }): Promise<void> {
+		return test.step(`Execute ${languageName} code in console: ${code}`, async () => {
+			const timeout = options?.timeout ?? 30000;
+			const waitForReady = options?.waitForReady ?? true;
+			const maximizeConsole = options?.maximizeConsole ?? true;
 
 			await expect(async () => {
 				// Kind of hacky, but activate console in case focus was previously lost
-				await this.activeConsole.click();
+				await this.focus();
 				await this.quickaccess.runCommand('workbench.action.executeCode.console', { keepOpen: true });
 
 			}).toPass();
@@ -104,9 +110,12 @@ export class Console {
 			await this.code.driver.page.keyboard.press('Enter');
 			await this.quickinput.waitForQuickInputClosed();
 
-			// The console will show the prompt after the code is done executing.
-			await this.waitForReady(languageName === 'Python' ? '>>>' : '>');
-			await this.maximizeConsole();
+			if (waitForReady) {
+				await this.waitForReady(languageName === 'Python' ? '>>>' : '>', timeout);
+			}
+			if (maximizeConsole) {
+				await this.maximizeConsole();
+			}
 		});
 	}
 
@@ -126,13 +135,23 @@ export class Console {
 			await this.code.driver.page.keyboard.type(text, { delay });
 
 			if (pressEnter) {
+				await this.code.driver.page.waitForTimeout(1000);
 				await this.code.driver.page.keyboard.press('Enter');
 			}
 		});
 	}
 
+	async clearInput() {
+		await test.step('Clear console input', async () => {
+			await this.focus();
+			await this.hotKeys.selectAll();
+			await this.code.driver.page.keyboard.press('Backspace');
+		});
+	}
+
 	async sendEnterKey() {
-		await this.activeConsole.click();
+		await this.focus();
+		await this.code.driver.page.waitForTimeout(500);
 		await this.code.driver.page.keyboard.press('Enter');
 	}
 
@@ -207,15 +226,43 @@ export class Console {
 		options: {
 			timeout?: number;
 			expectedCount?: number;
+			exact?: boolean;
 		} = {}
 	): Promise<string[]> {
-		const { timeout = 15000, expectedCount = 1 } = options;
+		return await test.step(`Verify console contains: ${consoleText}`, async () => {
+			const { timeout = 15000, expectedCount = 1, exact = false } = options;
 
-		const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText);
+			if (expectedCount === 0) {
+				const startTime = Date.now();
+				while (Date.now() - startTime < timeout) {
+					const errorMessage = `Expected text "${consoleText}" to not appear, but it did.`;
 
-		await expect(matchingLines).toHaveCount(expectedCount, { timeout });
-		return expectedCount ? matchingLines.allTextContents() : [];
+					try {
+						const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText);
+						const count = await matchingLines.count();
+
+						if (count > 0) {
+							throw new Error(errorMessage); // Fail the test immediately
+						}
+					} catch (error) {
+						if (error instanceof Error && error.message.includes(errorMessage)) {
+							throw error;
+						}
+					}
+
+					await new Promise(resolve => setTimeout(resolve, 1000));
+				}
+				return [];
+			}
+
+			// Normal case: waiting for `expectedCount` occurrences
+			const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText, { exact });
+
+			await expect(matchingLines).toHaveCount(expectedCount, { timeout });
+			return expectedCount ? matchingLines.allTextContents() : [];
+		});
 	}
+
 
 	async waitForCurrentConsoleLineContents(expectedText: string, timeout = 30000): Promise<string> {
 		const locator = this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} .view-line`);
@@ -274,6 +321,10 @@ export class Console {
 		await expect(this.code.driver.page.locator(INTERRUPT_RUNTIME)).toBeHidden({ timeout });
 	}
 
+	async focus() {
+		await this.hotKeys.focusConsole();
+	}
+
 	async clickConsoleTab() {
 		// sometimes the click doesn't work (or happens too fast), so adding a retry
 		await expect(async () => {
@@ -290,5 +341,16 @@ export class Console {
 	async interruptExecution() {
 		await this.code.driver.page.getByLabel('Interrupt execution').click();
 	}
-}
 
+	async expectSuggestionListCount(count: number): Promise<void> {
+		await test.step(`Expect console suggestion list count to be ${count}`, async () => {
+			await expect(this.suggestionList).toHaveCount(count);
+		});
+	}
+
+	async expectSuggestionListToContain(label: string): Promise<void> {
+		await test.step(`Expect console suggestion list to contain: ${label}`, async () => {
+			await this.code.driver.page.locator('.suggest-widget').getByLabel(label).isVisible();
+		});
+	}
+}

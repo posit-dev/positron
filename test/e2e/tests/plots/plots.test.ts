@@ -10,6 +10,7 @@ import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
 import { fail } from 'assert';
 import { Application } from '../../infra';
+import { Locator } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
@@ -19,11 +20,6 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 	test.describe('Python Plots', () => {
 
 		test.beforeEach(async function ({ app, interpreter }) {
-			// Set the viewport to a size that ensures all the plots view actions are visible
-			if (process.platform === 'linux') {
-				await app.code.driver.page.setViewportSize({ width: 1280, height: 800 });
-			}
-
 			await interpreter.set('Python');
 			await app.workbench.layouts.enterLayout('stacked');
 		});
@@ -226,21 +222,25 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		});
 
-		test.skip('Python - Verify bokeh Python widget', {
-			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6045' }],
+		test('Python - Verify bokeh Python widget', {
 			tag: [tags.WEB, tags.WIN]
 		}, async function ({ app }) {
-			await app.workbench.console.pasteCodeToConsole(bokeh);
-			await app.workbench.console.sendEnterKey();
+			await app.workbench.console.executeCode('Python', bokeh);
 
 			// selector not factored out as it is unique to bokeh
 			const bokehCanvas = '.bk-Canvas';
-			await app.workbench.plots.waitForWebviewPlot(bokehCanvas);
+			await app.workbench.plots.waitForWebviewPlot(bokehCanvas, 'visible', app.web);
 			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 
 			// selector not factored out as it is unique to bokeh
-			await app.workbench.plots.getWebviewPlotLocator('.bk-tool-icon-box-zoom').click();
-			const canvasLocator = app.workbench.plots.getWebviewPlotLocator(bokehCanvas);
+			let canvasLocator: Locator;
+			if (!app.web) {
+				await app.workbench.plots.getWebviewPlotLocator('.bk-tool-icon-box-zoom').click();
+				canvasLocator = app.workbench.plots.getWebviewPlotLocator(bokehCanvas);
+			} else {
+				await app.workbench.plots.getDeepWebWebviewPlotLocator('.bk-tool-icon-box-zoom').click();
+				canvasLocator = app.workbench.plots.getDeepWebWebviewPlotLocator(bokehCanvas);
+			}
 			const boundingBox = await canvasLocator.boundingBox();
 
 			// plot capture before zoom
@@ -271,10 +271,6 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 	});
 
 	test.describe('R Plots', () => {
-
-		test.beforeAll(async function ({ userSettings }) {
-			await userSettings.set([['application.experimental.positronPlotsInEditorTab', 'true']]);
-		});
 
 		test.beforeEach(async function ({ app, interpreter }) {
 			await app.workbench.layouts.enterLayout('stacked');
@@ -379,6 +375,75 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		test('R - Verify plotly plot', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, rPlotly, '.plot-container', app.web);
 		});
+
+		test('R - Two simultaneous plots', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+			await app.workbench.console.typeToConsole(rTwoPlots, true, 100);
+			await app.workbench.plots.waitForCurrentPlot();
+			await app.workbench.plots.expectPlotThumbnailsCountToBe(2);
+		});
+
+		test('R - Plot building', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+
+			await app.workbench.plots.enlargePlotArea();
+
+			await app.workbench.console.typeToConsole('par(mfrow = c(2, 2))', true, 100);
+			await app.workbench.console.typeToConsole('plot(1:5)', true, 100);
+			await app.workbench.plots.waitForCurrentPlot();
+
+			await app.workbench.console.typeToConsole('plot(2:6)', true, 100);
+			await app.workbench.plots.waitForCurrentPlot();
+
+			await app.workbench.console.typeToConsole('plot(3:7)', true, 100);
+			await app.workbench.plots.waitForCurrentPlot();
+
+			await app.workbench.console.typeToConsole('plot(4:8)', true, 100);
+			await app.workbench.plots.waitForCurrentPlot();
+
+			await app.workbench.console.typeToConsole('plot(5:9)', true, 100);
+			await app.workbench.plots.waitForCurrentPlot();
+			await app.workbench.plots.expectPlotThumbnailsCountToBe(2);
+
+			await app.workbench.console.typeToConsole('par(mfrow = c(1, 1))', true, 100);
+			await app.workbench.console.typeToConsole('plot(1:10)', true, 100);
+			await app.workbench.plots.waitForCurrentPlot();
+			await app.workbench.plots.expectPlotThumbnailsCountToBe(3);
+
+			await app.workbench.plots.restorePlotArea();
+		});
+
+		test('R - Figure margins', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
+
+			await app.workbench.plots.enlargePlotArea();
+
+			await app.workbench.console.typeToConsole('par(mfrow = c(2, 1))', true, 100);
+			await app.workbench.console.typeToConsole('plot(1:10)', true, 100);
+			await app.workbench.console.typeToConsole('plot(2:20)', true, 100);
+			await app.workbench.console.typeToConsole('par(mfrow = c(1, 1))', true, 100);
+			await app.workbench.plots.waitForCurrentPlot();
+
+			await app.workbench.plots.restorePlotArea();
+		});
+
+		test('R - plot and save in one block', { tag: [tags.WEB, tags.WIN] }, async function ({ app, runCommand }) {
+
+			await app.workbench.console.barClearButton.click();
+			await app.workbench.console.barRestartButton.click();
+
+			await app.workbench.console.waitForConsoleContents('restarted', { expectedCount: 1 });
+
+			await app.workbench.console.typeToConsole(rPlotAndSave, true, 100);
+			await app.workbench.plots.waitForCurrentPlot();
+
+			await runCommand('workbench.action.fullSizedAuxiliaryBar');
+
+			const vars = await app.workbench.variables.getFlatVariables();
+			const filePath = vars.get('tempfile')?.value;
+
+			expect(fs.existsSync(filePath?.replaceAll('"', '')!)).toBe(true);
+
+			await app.workbench.layouts.enterLayout('stacked');
+		});
+
 	});
 });
 
@@ -401,8 +466,10 @@ const options: ComparisonOptions = {
 async function runScriptAndValidatePlot(app: Application, script: string, locator: string, RWeb = false) {
 	await app.workbench.console.pasteCodeToConsole(script);
 	await app.workbench.console.sendEnterKey();
+	await app.code.wait(3000); // give plot time to render before interacting with quick input
 	await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 	await app.workbench.plots.waitForWebviewPlot(locator, 'visible', RWeb);
+	await app.workbench.layouts.enterLayout('stacked');
 }
 
 async function compareImages({
@@ -571,7 +638,9 @@ const ipywidgetOutput = `import ipywidgets
 output = ipywidgets.Output()
 output`;
 
-const bokeh = `from bokeh.plotting import figure, output_file, show
+const bokeh = `from bokeh.plotting import figure, output_file, show, reset_output
+# Proactively reset output in case hvplot has changed anything
+reset_output()
 
 # instantiating the figure object
 graph = figure(title = "Bokeh Line Graph")
@@ -620,3 +689,12 @@ m %>% addPopups(-93.65, 42.0285, 'Here is the <b>Department of Statistics</b>, I
 const rPlotly = `library(plotly)
 fig <- plot_ly(midwest, x = ~percollege, color = ~state, type = "box")
 fig`;
+
+const rTwoPlots = `plot(1:10)
+plot(1:100)`;
+
+const rPlotAndSave = `plot(1:10)
+tempfile <- tempfile()
+grDevices::png(filename = tempfile)
+plot(1:20)
+dev.off()`;

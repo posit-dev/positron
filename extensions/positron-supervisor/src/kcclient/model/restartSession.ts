@@ -11,12 +11,17 @@
  */
 
 import { RequestFile } from './models';
+import { VarAction } from './varAction';
 
 export class RestartSession {
     /**
     * The desired working directory for the session after restart, if different from the session\'s working directory at startup
     */
     'workingDirectory'?: string;
+    /**
+    * A list of environment variable actions to perform
+    */
+    'env'?: Array<VarAction>;
 
     static discriminator: string | undefined = undefined;
 
@@ -25,6 +30,11 @@ export class RestartSession {
             "name": "workingDirectory",
             "baseName": "working_directory",
             "type": "string"
+        },
+        {
+            "name": "env",
+            "baseName": "env",
+            "type": "Array<VarAction>"
         }    ];
 
     static getAttributeTypeMap() {

@@ -12,6 +12,7 @@
 
 import { RequestFile } from './models';
 import { InterruptMode } from './interruptMode';
+import { VarAction } from './varAction';
 
 export class NewSession {
     /**
@@ -47,14 +48,18 @@ export class NewSession {
     */
     'workingDirectory': string;
     /**
-    * Environment variables to set for the session
+    * A list of environment variable actions to perform
     */
-    'env': { [key: string]: string; };
+    'env': Array<VarAction>;
     /**
     * The number of seconds to wait for a connection to the session\'s ZeroMQ sockets before timing out
     */
     'connectionTimeout'?: number = 30;
     'interruptMode': InterruptMode;
+    /**
+    * The Jupyter protocol version supported by the underlying kernel
+    */
+    'protocolVersion'?: string = '5.3';
 
     static discriminator: string | undefined = undefined;
 
@@ -102,7 +107,7 @@ export class NewSession {
         {
             "name": "env",
             "baseName": "env",
-            "type": "{ [key: string]: string; }"
+            "type": "Array<VarAction>"
         },
         {
             "name": "connectionTimeout",
@@ -113,6 +118,11 @@ export class NewSession {
             "name": "interruptMode",
             "baseName": "interrupt_mode",
             "type": "InterruptMode"
+        },
+        {
+            "name": "protocolVersion",
+            "baseName": "protocol_version",
+            "type": "string"
         }    ];
 
     static getAttributeTypeMap() {

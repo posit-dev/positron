@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,7 +10,7 @@ import './runtimeExited.css';
 import React from 'react';
 
 // Other dependencies.
-import { OutputLines } from './outputLines.js';
+import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { RuntimeItemExited } from '../../../../services/positronConsole/browser/classes/runtimeItemExited.js';
 
 // RuntimeExitedProps interface.
@@ -24,11 +24,10 @@ export interface RuntimeExitedProps {
  * @returns The rendered component.
  */
 export const RuntimeExited = (props: RuntimeExitedProps) => {
-
 	// Render.
 	return (
 		<div className='runtime-exited'>
-			<OutputLines outputLines={props.runtimeItemExited.outputLines} />
+			<ConsoleOutputLines outputLines={props.runtimeItemExited.outputLines} />
 		</div>
 	);
 };

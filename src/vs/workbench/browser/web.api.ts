@@ -250,6 +250,13 @@ export interface IWorkbenchConstructionOptions {
 	 */
 	readonly enabledExtensions?: readonly ExtensionId[];
 
+	// --- Start Positron ---
+	/**
+	 * List of extensions to be disabled, or a boolean to disable all extensions.
+	 */
+	readonly disableExtension?: boolean | string[];
+	// --- End Positron ---
+
 	/**
 	 * Additional domains allowed to open from the workbench without the
 	 * link protection popup.
@@ -350,11 +357,6 @@ export interface IWorkbenchConstructionOptions {
 
 
 	//#region Branding
-
-	/**
-	 * Optional home indicator to appear above the hamburger menu in the activity bar.
-	 */
-	readonly homeIndicator?: IHomeIndicator;
 
 	/**
 	 * Optional welcome banner to appear above the workbench. Can be dismissed by the
@@ -593,25 +595,6 @@ export interface ICommand {
 	 * be exchanged across processes boundaries.
 	 */
 	handler: (...args: any[]) => unknown;
-}
-
-export interface IHomeIndicator {
-
-	/**
-	 * The link to open when clicking the home indicator.
-	 */
-	href: string;
-
-	/**
-	 * The icon name for the home indicator. This needs to be one of the existing
-	 * icons from our Codicon icon set. For example `code`.
-	 */
-	icon: string;
-
-	/**
-	 * A tooltip that will appear while hovering over the home indicator.
-	 */
-	title: string;
 }
 
 export interface IWelcomeBanner {

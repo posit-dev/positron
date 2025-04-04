@@ -21,6 +21,7 @@ import { COLUMN_PROFILE_OBJECT_LINE_COUNT } from './components/columnProfileObje
 import { COLUMN_PROFILE_STRING_LINE_COUNT } from './components/columnProfileString.js';
 import { COLUMN_PROFILE_BOOLEAN_LINE_COUNT } from './components/columnProfileBoolean.js';
 import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from './components/columnProfileDatetime.js';
+import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 
 /**
  * Constants.
@@ -38,6 +39,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * The onDidSelectColumn event emitter.
 	 */
 	private readonly _onDidSelectColumnEmitter = this._register(new Emitter<number>);
+
+	public readonly _hoverManager: PositronActionBarHoverManager;
 
 	//#endregion Private Properties
 
@@ -74,6 +77,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			internalCursor: false,
 			selection: false
 		});
+
+
 
 		// Set the column layout entries. There is always one column.
 		this._columnLayoutManager.setLayoutEntries(1);
@@ -137,6 +142,15 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			// Fire the onDidUpdate event.
 			this._onDidUpdateEmitter.fire()
 		));
+
+		// Create the hover manager.
+		this._hoverManager = this._register(new PositronActionBarHoverManager(
+			true,
+			this._configurationService,
+			this._hoverService
+		));
+		// Show tooltip hovers right away
+		this._hoverManager.setCustomHoverDelay(0);
 	}
 
 	//#endregion Constructor
@@ -225,7 +239,6 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			<ColumnSummaryCell
 				columnIndex={rowIndex}
 				columnSchema={columnSchema}
-				hoverService={this._hoverService}
 				instance={this}
 				onDoubleClick={() => this._onDidSelectColumnEmitter.fire(rowIndex)}
 			/>
@@ -250,6 +263,13 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	get configurationService() {
 		return this._configurationService;
+	}
+
+	/**
+	 * Gets the hover manager.
+	 */
+	get hoverManager() {
+		return this._hoverManager;
 	}
 
 	//#endregion Public Properties
@@ -435,6 +455,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 			// Column display types that do not render a profile.
 			case ColumnDisplayType.Time:
+			case ColumnDisplayType.Interval:
 			case ColumnDisplayType.Array:
 			case ColumnDisplayType.Struct:
 			case ColumnDisplayType.Unknown: {

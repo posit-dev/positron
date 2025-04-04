@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as glob from '../../../../base/common/glob.js';
-import { GroupIdentifier, ISaveOptions, IMoveResult, IRevertOptions, EditorInputCapabilities, Verbosity, IUntypedEditorInput, IFileLimitedEditorInputOptions } from '../../../common/editor.js';
+import { GroupIdentifier, ISaveOptions, IMoveResult, IRevertOptions, EditorInputCapabilities, Verbosity, IUntypedEditorInput, IFileLimitedEditorInputOptions, isResourceEditorInput } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { INotebookService, SimpleNotebookProviderInfo } from './notebookService.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -13,7 +13,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { INotebookEditorModelResolverService } from './notebookEditorModelResolverService.js';
 import { IDisposable, IReference } from '../../../../base/common/lifecycle.js';
-import { CellEditType, IResolvedNotebookEditorModel } from './notebookCommon.js';
+import { CellEditType, CellUri, IResolvedNotebookEditorModel } from './notebookCommon.js';
 import { ILabelService } from '../../../../platform/label/common/label.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
@@ -31,6 +31,10 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { IMarkdownString } from '../../../../base/common/htmlContent.js';
 import { ITextResourceConfigurationService } from '../../../../editor/common/services/textResourceConfiguration.js';
 import { ICustomEditorLabelService } from '../../../services/editor/common/customEditorLabelService.js';
+// --- Start Positron ---
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+// --- End Positron ---
 
 export interface NotebookEditorInputOptions {
 	startDirty?: boolean;
@@ -71,7 +75,11 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 		@IExtensionService extensionService: IExtensionService,
 		@IEditorService editorService: IEditorService,
 		@ITextResourceConfigurationService textResourceConfigurationService: ITextResourceConfigurationService,
-		@ICustomEditorLabelService customEditorLabelService: ICustomEditorLabelService
+		@ICustomEditorLabelService customEditorLabelService: ICustomEditorLabelService,
+		// --- Start Positron ---
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@ILogService private readonly _logService: ILogService,
+		// --- End Positron ---
 	) {
 		super(resource, preferredResource, labelService, fileService, filesConfigurationService, textResourceConfigurationService, customEditorLabelService);
 		this._defaultDirtyState = !!options.startDirty;
@@ -91,8 +99,8 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 			}
 
 			const reason = e.auto
-				? localize('vetoAutoExtHostRestart', "One of the opened editors is a notebook editor.")
-				: localize('vetoExtHostRestart', "Notebook '{0}' could not be saved.", this.resource.path);
+				? localize('vetoAutoExtHostRestart', "An extension provided notebook for '{0}' is still open that would close otherwise.", this.getName())
+				: localize('vetoExtHostRestart', "An extension provided notebook for '{0}' could not be saved.", this.getName());
 
 			e.veto((async () => {
 				const editors = editorService.findEditors(this);
@@ -237,6 +245,38 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 			}).join(', ');
 			throw new Error(`File name ${target} is not supported by ${provider.providerDisplayName}.\n\nPlease make sure the file name matches following patterns:\n${patterns}`);
 		}
+		// --- Start Positron ---
+		// When an untitled notebook is saved, we need to preserve the active runtime session
+		// By updating the session's URI reference, we maintain:
+		//  1. All defined variables and in-memory state
+		//  2. The active kernel connection
+		//  3. Execution history and context
+		// When saving an untitled notebook to disk, we must update the runtime session mappings
+		// to ensure the session (variables, execution history) remains connected to the new file
+		if (this.hasCapability(EditorInputCapabilities.Untitled) && target) {
+			try {
+				this._logService.debug(`Reassigning notebook session URI: ${this.resource.toString()} → ${target.toString()}`);
+
+				// Call updateNotebookSessionUri on the runtime service
+				// This updates internal mappings and emits events that other components listen for
+				const sessionId = this._runtimeSessionService.updateNotebookSessionUri(this.resource, target);
+
+				if (sessionId) {
+					// Log success to aid debugging session transfer issues
+					this._logService.debug(`Successfully reassigned session ${sessionId} to URI: ${target.toString()}`);
+				} else {
+					// This is an expected case for notebooks without executed cells (no session yet)
+					this._logService.debug(`No session found to reassign for URI: ${this.resource.toString()}`);
+				}
+			} catch (error) {
+				// Why we catch but continue:
+				// 1. Session transfer is important but secondary to saving the file content
+				// 2. Failed session transfer shouldn't prevent the user from saving their work
+				// 3. In the worst case, the notebook will save but users may need to re-run cells
+				this._logService.error('Failed to reassign notebook session URI', error);
+			}
+		}
+		// --- End Positron ---
 
 		return await this.editorModelReference.object.saveAs(target);
 	}
@@ -357,6 +397,9 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 		}
 		if (otherInput instanceof NotebookEditorInput) {
 			return this.viewType === otherInput.viewType && isEqual(this.resource, otherInput.resource);
+		}
+		if (isResourceEditorInput(otherInput) && otherInput.resource.scheme === CellUri.scheme) {
+			return isEqual(this.resource, CellUri.parse(otherInput.resource)?.notebook);
 		}
 		return false;
 	}

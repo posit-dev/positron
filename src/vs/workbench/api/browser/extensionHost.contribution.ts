@@ -19,7 +19,6 @@ import './mainThreadLocalization.js';
 import './mainThreadBulkEdits.js';
 import './mainThreadLanguageModels.js';
 import './mainThreadChatAgents2.js';
-import './mainThreadChatVariables.js';
 import './mainThreadChatCodeMapper.js';
 import './mainThreadLanguageModelTools.js';
 import './mainThreadEmbeddings.js';
@@ -97,6 +96,7 @@ import './positron/mainThreadModalDialogs.js';
 import './positron/mainThreadConsoleService.js';
 import './positron/mainThreadContextKeyService.js';
 import './positron/mainThreadConnections.js';
+import './positron/mainThreadEnvironment.js';
 import './positron/mainThreadAiFeatures.js';
 // --- End Positron ---
 

@@ -10,6 +10,7 @@ import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, ILanguageRuntimeS
 import { RuntimeClientType, IRuntimeClientInstance } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { IRuntimeClientEvent } from '../../languageRuntime/common/languageRuntimeUiClient.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
+import { ActiveRuntimeSession } from './activeRuntimeSession.js';
 
 export const IRuntimeSessionService =
 	createDecorator<IRuntimeSessionService>('runtimeSessionService');
@@ -225,6 +226,9 @@ export interface ILanguageRuntimeSession extends IDisposable {
 
 	/** Show profiler log of the runtime, if supported */
 	showProfile(): Thenable<void>;
+
+	/** Get the label associated with the session. This is a more human-readable name for the session. */
+	getLabel(): string;
 }
 
 /**
@@ -288,6 +292,22 @@ export interface ILanguageRuntimeSessionManager {
  * runtime sessions; it manages the set of active sessions and provides
  * facilities for starting, stopping, and interacting with them.
  */
+/**
+ * Event that fires when a notebook session's URI has been updated.
+ *
+ * This event is for components that track notebook URIs (like the variables view)
+ * to update their references when a notebook is saved with a new URI. Without this event,
+ * UI components would continue to display the old URI even after saving.
+ */
+export interface INotebookSessionUriChangedEvent {
+	/** The session ID that was updated */
+	readonly sessionId: string;
+	/** The previous URI associated with the session (typically an untitled URI) */
+	readonly oldUri: URI;
+	/** The new URI associated with the session (typically a file URI after saving) */
+	readonly newUri: URI;
+}
+
 export interface IRuntimeSessionService {
 	// Needed for service branding in dependency injector.
 	readonly _serviceBrand: undefined;
@@ -312,6 +332,9 @@ export interface IRuntimeSessionService {
 
 	readonly onDidDeleteRuntimeSession: Event<string>;
 
+	// An event that fires when a notebook session's URI is updated.
+	readonly onDidUpdateNotebookSessionUri: Event<INotebookSessionUriChangedEvent>;
+
 	/**
 	 * Gets the active runtime sessions
 	 */
@@ -326,6 +349,11 @@ export interface IRuntimeSessionService {
 	 * Gets a specific runtime session by session identifier.
 	 */
 	getSession(sessionId: string): ILanguageRuntimeSession | undefined;
+
+	/**
+	 * Gets a currently active session for a runtime.
+	 */
+	getActiveSession(sessionId: string): ActiveRuntimeSession | undefined;
 
 	/**
 	 * Gets a specific runtime console by runtime identifier. Currently, only
@@ -344,6 +372,11 @@ export interface IRuntimeSessionService {
 	 * notebook session can exist per notebook URI.
 	 */
 	getNotebookSessionForNotebookUri(notebookUri: URI): ILanguageRuntimeSession | undefined;
+
+	/**
+	 * List all active runtime sessions.
+	 */
+	getActiveSessions(): ActiveRuntimeSession[];
 
 	/**
 	 * Checks for a starting or running console for the given language ID.
@@ -439,6 +472,13 @@ export interface IRuntimeSessionService {
 	restartSession(sessionId: string, source: string): Promise<void>;
 
 	/**
+	 * Interrupt a runtime session.
+	 *
+	 * @param sessionId The identifier of the session to interrupt.
+	 */
+	interruptSession(sessionId: string): Promise<void>;
+
+	/**
 	 * Shutdown a runtime session for a notebook.
 	 *
 	 * @param notebookUri The notebook's URI.
@@ -447,6 +487,36 @@ export interface IRuntimeSessionService {
 	 * @returns A promise that resolves when the session has exited.
 	 */
 	shutdownNotebookSession(notebookUri: URI, exitReason: RuntimeExitReason, source: string): Promise<void>;
+
+	/**
+	 * Updates the URI of a notebook session to maintain session continuity when
+	 * a notebook is saved under a new URI.
+	 *
+	 * This is a crucial operation during the Untitled → Saved file transition, as it:
+	 * 1. Preserves all runtime state (variables, execution context, kernel connections)
+	 * 2. Updates internal mappings to reflect the new URI
+	 * 3. Notifies dependent components about the change (via the onDidUpdateNotebookSessionUri event)
+	 *
+	 * The implementation carefully orders operations to maintain state consistency even if
+	 * an error occurs during the update process.
+	 *
+	 * Implementation notes:
+	 * - Concurrency: Operations are ordered specifically to handle concurrent access safely.
+	 *   We first add the new mapping before removing the old one, ensuring the session is
+	 *   always accessible even if interrupted mid-operation.
+	 *
+	 * - URI Validation: Both URIs need to be valid, and oldUri must map to an active session.
+	 *   We check that the session isn't terminated before attempting the transfer.
+	 *
+	 * - Error Handling: If something goes wrong after adding the new mapping but before
+	 *   removing the old one, the session will be accessible via both URIs - not ideal
+	 *   but better than losing access completely.
+	 *
+	 * @param oldUri The original URI of the notebook (typically an untitled:// URI)
+	 * @param newUri The new URI of the notebook (typically a file:// URI after saving)
+	 * @returns The session ID of the updated session, or undefined if no update occurred
+	 */
+	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined;
 
 	/**
 	 * Updates the active languages with the update service. This has to be pushed to the update

@@ -33,7 +33,7 @@ on:
         description: "Whether or not to report results to TestRail."
         default: false
         type: boolean
-      enable_currents_reporter:
+      report_currents:
         required: false
         description: "Whether or not to report results to Currents."
         type: boolean
@@ -43,6 +43,16 @@ on:
         description: "Whether or not to install undetectable interpreters."
         type: boolean
         default: false
+      install_license:
+        required: false
+        description: "Whether or not to install positron-license"
+        type: boolean
+        default: false
+      skip_tags:
+        required: false
+        description: "Comma-separated list of tags to skip."
+        type: string
+        default: ""
 
   workflow_dispatch:
     inputs:
@@ -72,7 +82,7 @@ permissions:
 jobs:
   e2e-linux:
     name: ${{ inputs.display_name || 'e2e-linux' }}
-    timeout-minutes: 60
+    timeout-minutes: 90
     runs-on: ubuntu-latest-8x
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -117,6 +127,7 @@ jobs:
 
       - name: Install Positron License
         uses: ./.github/actions/install-license
+        if: ${{ inputs.install_license }}
         with:
           github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
@@ -137,7 +148,6 @@ jobs:
 
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
-        if: ${{ !cancelled() }}
 
       - name: Alter AppArmor Restrictions for Playwright (Electron)
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
@@ -148,18 +158,57 @@ jobs:
           POSITRON_R_VER_SEL: 4.4.0
           POSITRON_PY_ALT_VER_SEL: "3.13.0 (Pyenv)"
           POSITRON_R_ALT_VER_SEL: 4.4.2
+          POSITRON_HIDDEN_PY: "3.12.9 (Conda)"
+          POSITRON_HIDDEN_R: 4.4.1
           CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/ubuntu' }}
-          ENABLE_CURRENTS_REPORTER: ${{ inputs.enable_currents_reporter }}
+          ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
+          CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
         run: |
+          echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
+
+          # Convert comma-separated skip_tags input into a pipe-separated string
+          SKIP_TAGS_PATTERN=$(echo "${{ inputs.skip_tags }}" | sed 's/,/|/g')
+
+          # Build a single lookahead regex pattern
           if [ "${{ inputs.project }}" == "e2e-electron" ]; then
-            DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 --grep "${{ env.PW_TAGS }}" --grep-invert @:web-only --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+            if [ -n "$SKIP_TAGS_PATTERN" ]; then
+              SKIP_TAGS_REGEX="(?=.*($SKIP_TAGS_PATTERN|@:web-only))"
+            else
+              SKIP_TAGS_REGEX="(?=.*(@:web-only))"
+            fi
           else
-            DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 --grep "${{ env.PW_TAGS }}" --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+            if [ -n "$SKIP_TAGS_PATTERN" ]; then
+              SKIP_TAGS_REGEX="(?=.*($SKIP_TAGS_PATTERN))"
+            else
+              SKIP_TAGS_REGEX=""
+            fi
           fi
+
+          # Build the --grep-invert argument if needed
+          GREP_INVERT_ARG=""
+          if [ -n "$SKIP_TAGS_REGEX" ]; then
+            GREP_INVERT_ARG="--grep-invert \"$SKIP_TAGS_REGEX\""
+          fi
+
+          # Build the --grep argument only if PW_TAGS is non-empty
+          if [ -z "${{ env.PW_TAGS }}" ]; then
+            GREP_ARG=""
+          else
+            GREP_ARG="--grep \"${{ env.PW_TAGS }}\""
+          fi
+
+          # Log the arguments
+          echo "Final --grep argument: $GREP_ARG"
+          echo "Final --grep-invert argument: $GREP_INVERT_ARG"
+
+          # Run the Playwright test command directly using eval
+          echo "Running: DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          eval DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}

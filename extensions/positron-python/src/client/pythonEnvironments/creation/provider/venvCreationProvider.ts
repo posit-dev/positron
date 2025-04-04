@@ -32,6 +32,10 @@ import {
     CreateEnvironmentResult,
 } from '../proposed.createEnvApis';
 
+// --- Start Positron ---
+export const VENV_PROVIDER_ID = `${PVSC_EXTENSION_ID}:venv`;
+// --- End Positron ---
+
 interface IVenvCommandArgs {
     argv: string[];
     stdin: string | undefined;
@@ -226,6 +230,9 @@ export class VenvCreationProvider implements CreateEnvironmentProvider {
                                         EnvironmentType.MicrosoftStore,
                                         EnvironmentType.Global,
                                         EnvironmentType.Pyenv,
+                                        // --- Start Positron ---
+                                        EnvironmentType.Custom,
+                                        // --- End Positron ---
                                     ].includes(i.envType) && i.type === undefined, // only global intepreters
                                 {
                                     skipRecommended: true,
@@ -366,7 +373,9 @@ export class VenvCreationProvider implements CreateEnvironmentProvider {
 
     description: string = CreateEnv.Venv.providerDescription;
 
-    id = `${PVSC_EXTENSION_ID}:venv`;
+    // --- Start Positron ---
+    id = VENV_PROVIDER_ID;
+    // --- End Positron ---
 
     tools = ['Venv'];
 }

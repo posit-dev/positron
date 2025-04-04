@@ -17,12 +17,13 @@ import { PositronActionBarContextProvider } from '../../../../../platform/positr
 
 import { localize } from '../../../../../nls.js';
 import { IAccessibilityService } from '../../../../../platform/accessibility/common/accessibility.js';
-import { ICommandService } from '../../../../../platform/commands/common/commands';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration';
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey';
-import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView';
-import { IHoverService } from '../../../../../platform/hover/browser/hover';
-import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
+import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
+import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
+import { ILayoutService } from '../../../../../platform/layout/browser/layoutService.js';
 
 const ACTION_BAR_PADDING_LEFT = 8;
 const ACTION_BAR_PADDING_RIGHT = 8;
@@ -36,6 +37,7 @@ interface ActionBarProps {
 	readonly contextMenuService: IContextMenuService;
 	readonly hoverService: IHoverService;
 	readonly keybindingService: IKeybindingService;
+	readonly layoutService: ILayoutService;
 }
 
 interface ConnectionActionBarProps extends ActionBarProps {

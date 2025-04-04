@@ -1027,4 +1027,46 @@ suite('Positron - RuntimeSessionService', () => {
 
 		assert.strictEqual(session.getWorkingDirectory(), dir);
 	});
+
+	test('updateNotebookSessionUri updates URI mapping correctly', async () => {
+		// Create an untitled notebook URI (simulating new untitled notebook)
+		const untitledUri = URI.parse('untitled:notebook.ipynb');
+
+		// Create a new URI (simulating saving the notebook to a file)
+		const savedUri = URI.file('/path/to/saved/notebook.ipynb');
+
+		// Start a notebook session with the untitled URI
+		const session = await startSession(runtime, LanguageRuntimeSessionMode.Notebook, untitledUri);
+
+		// Ensure the session is retrievable with the untitled URI
+		const sessionBeforeUpdate = runtimeSessionService.getNotebookSessionForNotebookUri(untitledUri);
+		assert.strictEqual(sessionBeforeUpdate, session, 'Session should be accessible via untitled URI before update');
+
+		// Update the session's URI
+		const returnedSessionId = runtimeSessionService.updateNotebookSessionUri(untitledUri, savedUri);
+
+		// Verify returned sessionId matches the session's ID
+		assert.strictEqual(returnedSessionId, session.sessionId, 'Function should return the correct session ID');
+
+		// Verify the session is no longer accessible via the old URI
+		const oldUriSession = runtimeSessionService.getNotebookSessionForNotebookUri(untitledUri);
+		assert.strictEqual(oldUriSession, undefined, 'Session should no longer be accessible via old URI');
+
+		// Verify the session is accessible via the new URI
+		const newUriSession = runtimeSessionService.getNotebookSessionForNotebookUri(savedUri);
+		assert.strictEqual(newUriSession, session, 'Session should be accessible via new URI');
+	});
+
+	test('updateNotebookSessionUri returns undefined when session not found', async () => {
+		// Create URIs that don't have associated sessions
+		const nonExistentUri = URI.file('/path/to/nonexistent/notebook.ipynb');
+		const newUri = URI.file('/path/to/new/notebook.ipynb');
+
+		// Attempt to update a non-existent session
+		const returnedSessionId = runtimeSessionService.updateNotebookSessionUri(nonExistentUri, newUri);
+
+		// Verify no session ID is returned
+		assert.strictEqual(returnedSessionId, undefined,
+			'Function should return undefined when no session exists for the old URI');
+	});
 });

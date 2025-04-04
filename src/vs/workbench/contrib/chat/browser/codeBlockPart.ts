@@ -8,7 +8,7 @@ import './codeBlockPart.css';
 import * as dom from '../../../../base/browser/dom.js';
 import { renderFormattedText } from '../../../../base/browser/formattedTextRenderer.js';
 import { Button } from '../../../../base/browser/ui/button/button.js';
-import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { combinedDisposable, Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
@@ -69,13 +69,12 @@ import { ChatTreeItem } from './chat.js';
 import { IChatRendererDelegate } from './chatListRenderer.js';
 import { ChatEditorOptions } from './chatOptions.js';
 import { emptyProgressRunner, IEditorProgressService } from '../../../../platform/progress/common/progress.js';
-import { AsyncIterableObject } from '../../../../base/common/async.js';
-import { InlineChatController } from '../../inlineChat/browser/inlineChatController.js';
 
 const $ = dom.$;
 
 export interface ICodeBlockData {
 	readonly codeBlockIndex: number;
+	readonly codeBlockPartIndex: number;
 	readonly element: unknown;
 
 	readonly textModel: Promise<ITextModel>;
@@ -87,7 +86,7 @@ export interface ICodeBlockData {
 	readonly range?: Range;
 
 	readonly parentContextKeyService?: IContextKeyService;
-	readonly hideToolbar?: boolean;
+	readonly renderOptions?: ICodeBlockRenderOptions;
 }
 
 /**
@@ -136,6 +135,13 @@ export interface ICodeBlockActionContext {
 	element: unknown;
 }
 
+export interface ICodeBlockRenderOptions {
+	hideToolbar?: boolean;
+	verticalPadding?: number;
+	reserveWidth?: number;
+	editorOptions?: IEditorOptions;
+}
+
 const defaultCodeblockPadding = 10;
 export class CodeBlockPart extends Disposable {
 	protected readonly _onDidChangeContentHeight = this._register(new Emitter<void>());
@@ -157,8 +163,12 @@ export class CodeBlockPart extends Disposable {
 
 	private resourceContextKey: ResourceContextKey;
 
+	private get verticalPadding(): number {
+		return this.currentCodeBlockData?.renderOptions?.verticalPadding ?? defaultCodeblockPadding;
+	}
+
 	constructor(
-		private readonly options: ChatEditorOptions,
+		private readonly editorOptions: ChatEditorOptions,
 		readonly menuId: MenuId,
 		delegate: IChatRendererDelegate,
 		overflowWidgetsDomNode: HTMLElement | undefined,
@@ -183,7 +193,7 @@ export class CodeBlockPart extends Disposable {
 			scrollBeyondLastLine: false,
 			lineDecorationsWidth: 8,
 			dragAndDrop: false,
-			padding: { top: defaultCodeblockPadding, bottom: defaultCodeblockPadding },
+			padding: { top: this.verticalPadding, bottom: this.verticalPadding },
 			mouseWheelZoom: false,
 			scrollbar: {
 				vertical: 'hidden',
@@ -247,7 +257,7 @@ export class CodeBlockPart extends Disposable {
 			}
 		}));
 
-		this._register(this.options.onDidChange(() => {
+		this._register(this.editorOptions.onDidChange(() => {
 			this.editor.updateOptions(this.getEditorOptionsFromConfig());
 		}));
 
@@ -320,9 +330,9 @@ export class CodeBlockPart extends Disposable {
 		const horizontalScrollbarVisible = this.currentScrollWidth > this.editor.getLayoutInfo().contentWidth;
 		const scrollbarHeight = this.editor.getLayoutInfo().horizontalScrollbarHeight;
 		const bottomPadding = horizontalScrollbarVisible ?
-			Math.max(defaultCodeblockPadding - scrollbarHeight, 2) :
-			defaultCodeblockPadding;
-		this.editor.updateOptions({ padding: { top: defaultCodeblockPadding, bottom: bottomPadding } });
+			Math.max(this.verticalPadding - scrollbarHeight, 2) :
+			this.verticalPadding;
+		this.editor.updateOptions({ padding: { top: this.verticalPadding, bottom: bottomPadding } });
 	}
 
 	private _configureForScreenReader(): void {
@@ -337,22 +347,24 @@ export class CodeBlockPart extends Disposable {
 
 	private getEditorOptionsFromConfig(): IEditorOptions {
 		return {
-			wordWrap: this.options.configuration.resultEditor.wordWrap,
-			fontLigatures: this.options.configuration.resultEditor.fontLigatures,
-			bracketPairColorization: this.options.configuration.resultEditor.bracketPairColorization,
-			fontFamily: this.options.configuration.resultEditor.fontFamily === 'default' ?
+			wordWrap: this.editorOptions.configuration.resultEditor.wordWrap,
+			fontLigatures: this.editorOptions.configuration.resultEditor.fontLigatures,
+			bracketPairColorization: this.editorOptions.configuration.resultEditor.bracketPairColorization,
+			fontFamily: this.editorOptions.configuration.resultEditor.fontFamily === 'default' ?
 				EDITOR_FONT_DEFAULTS.fontFamily :
-				this.options.configuration.resultEditor.fontFamily,
-			fontSize: this.options.configuration.resultEditor.fontSize,
-			fontWeight: this.options.configuration.resultEditor.fontWeight,
-			lineHeight: this.options.configuration.resultEditor.lineHeight,
+				this.editorOptions.configuration.resultEditor.fontFamily,
+			fontSize: this.editorOptions.configuration.resultEditor.fontSize,
+			fontWeight: this.editorOptions.configuration.resultEditor.fontWeight,
+			lineHeight: this.editorOptions.configuration.resultEditor.lineHeight,
+			...this.currentCodeBlockData?.renderOptions?.editorOptions,
 		};
 	}
 
 	layout(width: number): void {
 		const contentHeight = this.getContentHeight();
 		const editorBorder = 2;
-		this.editor.layout({ width: width - editorBorder, height: contentHeight });
+		width = width - editorBorder - (this.currentCodeBlockData?.renderOptions?.reserveWidth ?? 0);
+		this.editor.layout({ width, height: contentHeight });
 		this.updatePaddingForLayout();
 	}
 
@@ -371,7 +383,7 @@ export class CodeBlockPart extends Disposable {
 			this.contextKeyService.updateParent(data.parentContextKeyService);
 		}
 
-		if (this.options.configuration.resultEditor.wordWrap === 'on') {
+		if (this.getEditorOptionsFromConfig().wordWrap === 'on') {
 			// Initialize the editor with the new proper width so that getContentHeight
 			// will be computed correctly in the next call to layout()
 			this.layout(width);
@@ -383,9 +395,12 @@ export class CodeBlockPart extends Disposable {
 		}
 
 		this.layout(width);
-		this.editor.updateOptions({ ariaLabel: localize('chat.codeBlockLabel', "Code block {0}", data.codeBlockIndex + 1) });
-
-		if (data.hideToolbar) {
+		this.editor.updateOptions({
+			...this.getEditorOptionsFromConfig(),
+			ariaLabel: localize('chat.codeBlockLabel', "Code block {0}", data.codeBlockIndex + 1),
+		});
+		this.toolbar.setAriaLabel(localize('chat.codeBlockToolbarLabel', "Toolbar for code block {0}", data.codeBlockIndex + 1));
+		if (data.renderOptions?.hideToolbar) {
 			dom.hide(this.toolbar.getElement());
 		} else {
 			dom.show(this.toolbar.getElement());
@@ -408,7 +423,7 @@ export class CodeBlockPart extends Disposable {
 
 	private clearWidgets() {
 		ContentHoverController.get(this.editor)?.hideContentHover();
-		GlyphHoverController.get(this.editor)?.hideContentHover();
+		GlyphHoverController.get(this.editor)?.hideGlyphHover();
 	}
 
 	private async updateEditor(data: ICodeBlockData): Promise<void> {
@@ -743,8 +758,8 @@ export class CodeCompareBlockPart extends Disposable {
 	private clearWidgets() {
 		ContentHoverController.get(this.diffEditor.getOriginalEditor())?.hideContentHover();
 		ContentHoverController.get(this.diffEditor.getModifiedEditor())?.hideContentHover();
-		GlyphHoverController.get(this.diffEditor.getOriginalEditor())?.hideContentHover();
-		GlyphHoverController.get(this.diffEditor.getModifiedEditor())?.hideContentHover();
+		GlyphHoverController.get(this.diffEditor.getOriginalEditor())?.hideGlyphHover();
+		GlyphHoverController.get(this.diffEditor.getModifiedEditor())?.hideGlyphHover();
 	}
 
 	private async updateEditor(data: ICodeCompareBlockData, token: CancellationToken): Promise<void> {
@@ -941,37 +956,5 @@ export class DefaultChatTextEditor {
 		response.setEditApplied(item, -1);
 	}
 
-	async preview(response: IChatResponseModel | IChatResponseViewModel, item: IChatTextEditGroup) {
-		if (item.state?.applied) {
-			// already applied
-			return false;
-		}
 
-		if (!response.response.value.includes(item)) {
-			// bogous item
-			return false;
-		}
-
-		const firstEdit = item.edits[0]?.[0];
-		if (!firstEdit) {
-			return false;
-		}
-		const textEdits = AsyncIterableObject.fromArray(item.edits);
-
-		const editorToApply = await this.editorService.openCodeEditor({ resource: item.uri }, null);
-		if (editorToApply) {
-			const inlineChatController = InlineChatController.get(editorToApply);
-			if (inlineChatController) {
-				const tokenSource = new CancellationTokenSource();
-				editorToApply.revealLineInCenterIfOutsideViewport(firstEdit.range.startLineNumber);
-				const promise = inlineChatController.reviewEdits(firstEdit.range, textEdits, tokenSource.token);
-				response.setEditApplied(item, 1);
-				promise.finally(() => {
-					tokenSource.dispose();
-				});
-				return true;
-			}
-		}
-		return false;
-	}
 }

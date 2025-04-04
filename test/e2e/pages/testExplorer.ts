@@ -6,8 +6,8 @@
 import { expect } from '@playwright/test';
 import { Explorer } from './explorer';
 
-const TEST_RESULT_ITEM = '.monaco-list-row[aria-level="2"] .test-peek-item';
-const NAME = '.name';
+const TEST_RESULT_ITEM = '.monaco-list-row[aria-level="2"] .testing-stdtree-container';
+const NAME = '.label';
 const COMPUTED_STATE = '.computed-state';
 const TEST_EXPLORER_ICON = '.composite-bar .codicon-test-view-icon';
 
@@ -50,16 +50,19 @@ export class TestExplorer extends Explorer {
 	 * Clicks the test explorer icon
 	 * @returns Promise<void>
 	 */
-	async clickTestExplorerIcon(): Promise<void> {
-		await this.code.driver.page.locator(TEST_EXPLORER_ICON).click();
+	async openTestExplorer(): Promise<void> {
+
+		const locator = this.code.driver.page.locator(TEST_EXPLORER_ICON);
+		await locator.waitFor({ state: 'attached' });
+		await locator.waitFor({ state: 'visible' });
+		await locator.click();
 	}
 
 	async verifyTestFilesExist(files: string[]) {
 		const projectFiles = this.code.driver.page.locator('.test-explorer');
 
 		for (let i = 0; i < files.length; i++) {
-			const timeout = i === 0 ? 50000 : undefined;  // 50s for the first check, default for the rest as sometimes waiting for project to load
-			await expect(projectFiles.getByLabel(files[i])).toBeVisible({ timeout });
+			await expect(projectFiles.getByLabel(files[i])).toBeVisible({ timeout: 3000 });
 		}
 	}
 

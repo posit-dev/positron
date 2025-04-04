@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -61,6 +61,14 @@ export interface JupyterKernelSpec {
 	/** Environment variables to set when starting the kernel */
 	env?: NodeJS.ProcessEnv;
 
+	/**
+	 * The Jupyter protocol version to use when connecting to the kernel.
+	 *
+	 * When protocol >= 5.5 is used, the supervisor will use a handshake
+	 * to negotiate ports instead of picking them ahead of time (JEP 66)
+	 */
+	kernel_protocol_version: string; // eslint-disable-line
+
 	/** Function that starts the kernel given a JupyterSession object.
 	 *  This is used to start the kernel if it's provided. In this case `argv`
 	 *  is ignored.
@@ -76,24 +84,19 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	 * Convenience method for starting the Positron LSP server, if the
 	 * language runtime supports it.
 	 *
-	 * @param clientAddress The address of the client that will connect to the
+	 * @param ipAddress The address of the client that will connect to the
 	 *  language server.
 	 */
-	startPositronLsp(clientAddress: string): Thenable<void>;
+	startPositronLsp(ipAddress: string): Promise<number>;
 
 	/**
 	 * Convenience method for starting the Positron DAP server, if the
 	 * language runtime supports it.
 	 *
-	 * @param serverPort The port on which to bind locally.
 	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
 	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
 	 */
-	startPositronDap(
-		serverPort: number,
-		debugType: string,
-		debugName: string,
-	): Thenable<void>;
+	startPositronDap(debugType: string, debugName: string): Promise<void>;
 
 	/**
 	 * Method for emitting a message to the language server's Jupyter output
@@ -162,15 +165,6 @@ export interface PositronSupervisorApi extends vscode.Disposable {
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
 		sessionMetadata: positron.RuntimeSessionMetadata
 	): Promise<JupyterLanguageRuntimeSession>;
-
-	/**
-	 * Finds an available TCP port for a server
-	 *
-	 * @param excluding A list of ports to exclude from the search
-	 * @param maxTries The maximum number of attempts
-	 * @returns An available TCP port
-	 */
-	findAvailablePort(excluding: Array<number>, maxTries: number): Promise<number>;
 }
 
 /** Specific functionality implemented by runtimes */

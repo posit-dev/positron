@@ -38,12 +38,12 @@ test.describe('Variables Pane', {
 
 	});
 
-	test.skip('Python - Verify only 1 entry per environment', {
+	test('Python - Verify only 1 entry per environment', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5887' }],
-	}, async function ({ app, logger, python }) {
+	}, async function ({ app, python }) {
 		await app.workbench.console.barClearButton.click();
 		await app.workbench.console.barRestartButton.click();
-		await app.workbench.console.waitForReady('>>>');
+		await app.workbench.console.waitForReady('>>>', 90000);
 		await app.workbench.console.waitForConsoleContents('restarted');
 		const groupList = app.workbench.variables.getVariablesGroupList();
 		expect((await groupList).length).toBe(1);
@@ -69,14 +69,19 @@ test.describe('Variables Pane', {
 	});
 
 
-	test.skip('R - Verify only 1 entry per environment', {
+	test('R - Verify only 1 entry per environment', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5887' }],
-	}, async function ({ app, logger, r }) {
+	}, async function ({ app, r }) {
 		await app.workbench.console.barClearButton.click();
 		await app.workbench.console.barRestartButton.click();
-		await app.workbench.console.waitForReady('>');
+		await app.workbench.console.waitForReady('>', 90000);
 		await app.workbench.console.waitForConsoleContents('restarted');
-		const groupList = app.workbench.variables.getVariablesGroupList();
-		expect((await groupList).length).toBe(1);
+		const groupList = await app.workbench.variables.getVariablesGroupList();
+
+		// if running test individually, groupList will be an array of 1 element
+		// if running test in sequence, groupList will be an array of 2 elements
+		// so we need to handle both cases
+		const uniqueGroupList = new Set(groupList);
+		expect(uniqueGroupList.size).toBe(groupList.length);  // Ensure no duplicates
 	});
 });

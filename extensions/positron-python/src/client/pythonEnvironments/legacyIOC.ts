@@ -40,6 +40,10 @@ const convertedKinds = new Map(
         [PythonEnvKind.Poetry]: EnvironmentType.Poetry,
         [PythonEnvKind.Hatch]: EnvironmentType.Hatch,
         [PythonEnvKind.Pixi]: EnvironmentType.Pixi,
+        // --- Start Positron ---
+        [PythonEnvKind.Uv]: EnvironmentType.Uv,
+        [PythonEnvKind.Custom]: EnvironmentType.Custom,
+        // --- End Positron ---
         [PythonEnvKind.Venv]: EnvironmentType.Venv,
         [PythonEnvKind.VirtualEnvWrapper]: EnvironmentType.VirtualEnvWrapper,
         [PythonEnvKind.ActiveState]: EnvironmentType.ActiveState,

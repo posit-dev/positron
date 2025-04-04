@@ -40,6 +40,8 @@ export class PythonLsp implements vscode.Disposable {
     /** Promise that resolves after initialization is complete */
     private _initializing?: Promise<void>;
 
+    private _outputChannel: vscode.OutputChannel;
+
     /** Disposable for per-activation items */
     private activationDisposables: vscode.Disposable[] = [];
 
@@ -48,7 +50,13 @@ export class PythonLsp implements vscode.Disposable {
         private readonly _version: string,
         private readonly _clientOptions: LanguageClientOptions,
         private readonly _metadata: positron.RuntimeSessionMetadata,
-    ) {}
+    ) {
+        // Persistant output channel, used across multiple sessions of the same name + mode combination
+        this._outputChannel = PythonLspOutputChannelManager.instance.getOutputChannel(
+            this._metadata.sessionName,
+            this._metadata.sessionMode,
+        );
+    }
 
     /**
      * Activate the language server; returns a promise that resolves when the LSP is
@@ -83,12 +91,6 @@ export class PythonLsp implements vscode.Disposable {
 
         const { notebookUri } = this._metadata;
 
-        // Persistant output channel, used across multiple sessions of the same name + mode combination
-        const outputChannel = PythonLspOutputChannelManager.instance.getOutputChannel(
-            this._metadata.sessionName,
-            this._metadata.sessionMode,
-        );
-
         // If this client belongs to a notebook, set the document selector to only include that notebook.
         // Otherwise, this is the main client for this language, so set the document selector to include
         // untitled Python files, in-memory Python files (e.g. the console), and Python files on disk.
@@ -100,12 +102,23 @@ export class PythonLsp implements vscode.Disposable {
                   { language: 'python', pattern: '**/*.py' },
               ];
 
+        // This is needed in addition to the document selector, otherwise every client seems to
+        // produce diagnostics for each notebook.
+        this._clientOptions.notebookDocumentOptions = notebookUri
+            ? // If this client belongs to a notebook, only include cells belonging to the notebook.
+              {
+                  filterCells: (notebookDocument, cells) =>
+                      notebookUri.toString() === notebookDocument.uri.toString() ? cells : [],
+              }
+            : // For console clients, exclude all notebook cells.
+              { filterCells: () => [] };
+
         // Override default error handler with one that doesn't automatically restart the client,
         // and that logs to the appropriate place.
         this._clientOptions.errorHandler = new PythonErrorHandler(this._version, port);
 
         // Override default output channel with our persistant one that is reused across sessions.
-        this._clientOptions.outputChannel = outputChannel;
+        this._clientOptions.outputChannel = this._outputChannel;
 
         // Set Positron-specific server initialization options.
         // If this server is for a notebook, set the notebook path option.
@@ -117,7 +130,7 @@ export class PythonLsp implements vscode.Disposable {
 
         const message = `Creating Positron Python ${this._version} language client (port ${port})`;
         traceInfo(message);
-        outputChannel.appendLine(message);
+        this._outputChannel.appendLine(message);
 
         this._client = new LanguageClient(
             PYTHON_LANGUAGE,
@@ -173,53 +186,54 @@ export class PythonLsp implements vscode.Disposable {
     /**
      * Stops the client instance.
      *
-     * @param awaitStop If true, waits for the client to stop before returning.
-     *   This should be set to `true` if the server process is still running, and
-     *   `false` if the server process has already exited.
      * @returns A promise that resolves when the client has been stopped.
      */
-    public async deactivate(awaitStop: boolean): Promise<void> {
+    public async deactivate(): Promise<void> {
         if (!this._client) {
             // No client to stop, so just resolve
+            this._outputChannel.appendLine('No client to stop');
             return;
         }
 
         // If we don't need to stop the client, just resolve
         if (!this._client.needsStop()) {
+            this._outputChannel.appendLine('Client does not need to stop');
             return;
         }
 
         // First wait for initialization to complete.
         // `stop()` should not be called on a
         // partially initialized client.
+        this._outputChannel.appendLine('Waiting for client to initialize before stopping');
         await this._initializing;
 
-        const promise = awaitStop
-            ? // If the kernel hasn't exited, we can just await the promise directly
-              this._client!.stop()
-            : // The promise returned by `stop()` never resolves if the server
-              // side is disconnected, so rather than awaiting it when the runtime
-              // has exited, we wait for the client to change state to `stopped`,
-              // which does happen reliably.
-              new Promise<void>((resolve) => {
-                  const disposable = this._client!.onDidChangeState((event) => {
-                      if (event.newState === State.Stopped) {
-                          resolve();
-                          disposable.dispose();
-                      }
-                  });
-                  this._client!.stop();
-              });
+        // Ideally we'd just wait for `this._client!.stop()`. In practice, the
+        // promise returned by `stop()` never resolves if the server side is
+        // disconnected, so rather than awaiting it when the runtime has exited,
+        // we wait for the client to change state to `stopped`, which does
+        // happen reliably.
+        this._outputChannel.appendLine('Client initialized, stopping');
+        const stopped = new Promise<void>((resolve) => {
+            const disposable = this._client!.onDidChangeState((event) => {
+                this._outputChannel.appendLine(`Client stopped state change: ${event.newState}`);
+                if (event.newState === State.Stopped) {
+                    this._outputChannel.appendLine('Client stopped');
+                    resolve();
+                    disposable.dispose();
+                }
+            });
+            this._client!.stop();
+        });
 
-        // Don't wait more than a couple of seconds for the client to stop.
         const timeout = new Promise<void>((_, reject) => {
             setTimeout(() => {
+                this._outputChannel.appendLine(`Timed out after 2 seconds waiting for client to stop.`);
                 reject(Error(`Timed out after 2 seconds waiting for client to stop.`));
             }, 2000);
         });
 
-        // Wait for the client to enter the stopped state, or for the timeout
-        await Promise.race([promise, timeout]);
+        // Don't wait more than a couple of seconds for the client to stop
+        await Promise.race([stopped, timeout]);
     }
 
     /**
@@ -258,7 +272,7 @@ export class PythonLsp implements vscode.Disposable {
      */
     async dispose(): Promise<void> {
         this.activationDisposables.forEach((d) => d.dispose());
-        await this.deactivate(false);
+        await this.deactivate();
     }
 
     /**
@@ -268,10 +282,6 @@ export class PythonLsp implements vscode.Disposable {
      * from the metadata, and then shows the output channel to the user.
      */
     public showOutput(): void {
-        const outputChannel = PythonLspOutputChannelManager.instance.getOutputChannel(
-            this._metadata.sessionName,
-            this._metadata.sessionMode,
-        );
-        outputChannel.show();
+        this._outputChannel.show();
     }
 }

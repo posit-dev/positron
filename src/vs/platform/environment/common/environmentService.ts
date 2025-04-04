@@ -184,6 +184,11 @@ export abstract class AbstractNativeEnvironmentService implements INativeEnviron
 		return undefined;
 	}
 
+	// --- Start Positron ---
+	get bootstrapExtensionsPath(): string | undefined {
+		return this.args['bootstrap-extensions-dir'];
+	}
+	// --- End Positron ---
 	get disableExtensions(): boolean | string[] {
 		if (this.args['disable-extensions']) {
 			return true;
@@ -252,7 +257,7 @@ export abstract class AbstractNativeEnvironmentService implements INativeEnviron
 		return undefined;
 	}
 
-	editSessionId: string | undefined = this.args['editSessionId'];
+	get editSessionId(): string | undefined { return this.args['editSessionId']; }
 
 	get continueOn(): string | undefined {
 		return this.args['continueOn'];

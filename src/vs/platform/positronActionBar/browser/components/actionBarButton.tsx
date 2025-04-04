@@ -15,30 +15,33 @@ import { Button, MouseTrigger } from '../../../../base/browser/ui/positronCompon
 import { optionalBoolean, optionalValue, positronClassNames } from '../../../../base/common/positronUtilities.js';
 
 /**
- * ActionBarButtonProps interface.
+ * ActionBarButtonIconProps type
  */
-
 type ActionBarButtonIconProps = {
 	readonly iconId?: string;
 	readonly iconFontSize?: number;
-
 	readonly iconImageSrc?: never;
 	readonly iconHeight?: never;
 	readonly iconWidth?: never;
 } | {
+	readonly iconId?: never;
+	readonly iconFontSize?: never;
 	readonly iconImageSrc?: string;
 	readonly iconHeight?: number;
 	readonly iconWidth?: number;
 
-	readonly iconId?: never;
-	readonly iconFontSize?: never;
 };
-export type ActionBarButtonProps = {
+
+/**
+ * ActionBarButtonCommonProps type
+ */
+type ActionBarButtonCommonProps = {
 	readonly fadeIn?: boolean;
 	readonly text?: string;
 	readonly maxTextWidth?: number;
 	readonly align?: 'left' | 'right';
 	readonly tooltip?: string | (() => string | undefined);
+	readonly dataTestId?: string;
 	readonly dropdownTooltip?: string | (() => string | undefined);
 	readonly checked?: boolean;
 	readonly disabled?: boolean;
@@ -51,7 +54,14 @@ export type ActionBarButtonProps = {
 	readonly onMouseLeave?: () => void;
 	readonly onPressed?: () => void;
 	readonly onDropdownPressed?: () => void;
-} & ActionBarButtonIconProps
+}
+
+/**
+ * ActionBarButtonProps type.
+ */
+export type ActionBarButtonProps =
+	ActionBarButtonCommonProps &
+	ActionBarButtonIconProps
 
 /**
  * ActionBarButton component.
@@ -92,8 +102,8 @@ export const ActionBarButton = forwardRef<
 	 */
 	const ActionBarButtonFace = () => {
 		return (
-			<div aria-hidden='true' className='action-bar-button-face'>
-				{props.iconId && (
+			<div aria-hidden='true' className='action-bar-button-face' data-testid={props.dataTestId}>
+				{props.iconId &&
 					<div
 						className={positronClassNames(
 							'action-bar-button-icon',
@@ -103,8 +113,8 @@ export const ActionBarButton = forwardRef<
 						)}
 						style={iconStyle}
 					/>
-				)}
-				{props.iconImageSrc && (
+				}
+				{props.iconImageSrc &&
 					<div
 						className={positronClassNames(
 							'action-bar-button-icon',
@@ -118,27 +128,22 @@ export const ActionBarButton = forwardRef<
 							}}
 						/>
 					</div>
-				)
 				}
-				{
-					props.text && (
-						<div
-							className='action-bar-button-text'
-							style={{
-								marginLeft: (props.iconId || props.iconImageSrc) ? 0 : 4,
-								maxWidth: optionalValue(props.maxTextWidth, 'none')
-							}}
-						>
-							{props.text}
-						</div>
-					)
+				{props.text &&
+					<div
+						className='action-bar-button-text'
+						style={{
+							marginLeft: (props.iconId || props.iconImageSrc) ? 0 : 4,
+							maxWidth: optionalValue(props.maxTextWidth, 'none')
+						}}
+					>
+						{props.text}
+					</div>
 				}
-				{
-					props.dropdownIndicator === 'enabled' && (
-						<div className='action-bar-button-drop-down-container'>
-							<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
-						</div>
-					)
+				{props.dropdownIndicator === 'enabled' &&
+					<div className='action-bar-button-drop-down-container'>
+						<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
+					</div>
 				}
 			</div >
 		);

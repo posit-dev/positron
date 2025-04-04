@@ -6,11 +6,11 @@
 import * as semver from 'semver';
 import * as path from 'path';
 import * as fs from 'fs';
-import * as vscode from 'vscode';
 import { extractValue, readLines, removeSurroundingQuotes } from './util';
 import { LOGGER } from './extension';
 import { MINIMUM_R_VERSION } from './constants';
-import { arePathsSame, isParentPath, untildify } from './path-utils';
+import { arePathsSame } from './path-utils';
+import { getDefaultInterpreterPath, isExcludedInstallation } from './interpreter-settings.js';
 
 /**
  * Extra metadata included in the LanguageRuntimeMetadata for R installations.
@@ -32,6 +32,11 @@ export interface RMetadataExtra {
 	readonly current: boolean;
 
 	/**
+	 * Is this specified as the default R interpreter in user settings?
+	 */
+	readonly default: boolean;
+
+	/**
 	 * How did we discover this R binary?
 	 */
 	readonly reasonDiscovered: ReasonDiscovered[] | null;
@@ -46,9 +51,10 @@ export enum ReasonDiscovered {
 	/* eslint-disable @typescript-eslint/naming-convention */
 	PATH = "PATH",
 	HQ = "HQ",
+	CONDA = "CONDA",
 	/* eslint-enable @typescript-eslint/naming-convention */
 	adHoc = "adHoc",
-	user = "user",
+	userSetting = "userSetting",
 	server = "server"
 }
 
@@ -73,10 +79,12 @@ export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null)
 				return 'Found in PATH, via the `which` command';
 			case ReasonDiscovered.HQ:
 				return 'Found in the primary location for R versions on this operating system';
+			case ReasonDiscovered.CONDA:
+				return 'Found in a Conda environment';
 			case ReasonDiscovered.adHoc:
 				return 'Found in a conventional location for symlinked R binaries';
-			case ReasonDiscovered.user:
-				return 'User-specified location';
+			case ReasonDiscovered.userSetting:
+				return 'Found in a location specified via user settings';
 			case ReasonDiscovered.server:
 				return 'Found in a conventional location for R binaries installed on a server';
 		}
@@ -89,7 +97,7 @@ export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null)
 			case ReasonRejected.nonOrthogonal:
 				return 'Non-orthogonal installation that is also not the current version';
 			case ReasonRejected.excluded:
-				return 'Installation path was excluded via settings';
+				return 'Installation path was excluded via user settings';
 		}
 	}
 
@@ -123,6 +131,7 @@ export class RInstallation {
 	public readonly arch: string = '';
 	public readonly current: boolean = false;
 	public readonly orthogonal: boolean = false;
+	public readonly default: boolean = false;
 
 	/**
 	 * Represents an installation of R on the user's system.
@@ -142,6 +151,12 @@ export class RInstallation {
 		this.binpath = pth;
 		this.current = current;
 		this.reasonDiscovered = reasonDiscovered;
+
+		// Check if the installation is the default R interpreter for Positron
+		const defaultInterpreterPath = getDefaultInterpreterPath();
+		this.default = defaultInterpreterPath
+			? arePathsSame(pth, defaultInterpreterPath)
+			: false;
 
 		const rHomePath = getRHomePath(pth);
 		if (!rHomePath) {
@@ -295,46 +310,4 @@ function getRHomePathWindows(binpath: string): string | undefined {
 		return pathUpToBin;
 	}
 
-}
-
-/**
- * Gets the list of R installations excluded via settings.
- * Converts aliased paths to absolute paths. Relative paths are ignored.
- * @returns List of installation paths to exclude.
- */
-function getExcludedInstallations(): string[] {
-	const config = vscode.workspace.getConfiguration('positron.r');
-	const interpretersExclude = config.get<string[]>('interpreters.exclude') ?? [];
-	if (interpretersExclude.length > 0) {
-		const excludedPaths = interpretersExclude
-			.map((item) => untildify(item))
-			.filter((item) => {
-				if (path.isAbsolute(item)) {
-					return true;
-				}
-				LOGGER.info(`R installation path to exclude ${item} is not absolute...ignoring`);
-				return false;
-			});
-		const formattedPaths = JSON.stringify(excludedPaths, null, 2);
-		LOGGER.info(` R installation paths to exclude:\n${formattedPaths}`);
-		return excludedPaths;
-	}
-	LOGGER.debug('No installation paths specified to exclude via settings');
-	return [];
-}
-
-/**
- * Checks if the given binary path is excluded via settings.
- * @param binpath The binary path to check
- * @returns True if the binary path is excluded, false if it is not excluded, and undefined if the
- * no exclusions have been specified.
- */
-function isExcludedInstallation(binpath: string): boolean | undefined {
-	const excludedInstallations = getExcludedInstallations();
-	if (excludedInstallations.length === 0) {
-		return undefined;
-	}
-	return excludedInstallations.some(
-		excluded => isParentPath(binpath, excluded) || arePathsSame(binpath, excluded)
-	);
 }

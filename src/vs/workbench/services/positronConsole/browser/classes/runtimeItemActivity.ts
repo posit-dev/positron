@@ -1,28 +1,27 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { RuntimeItem } from './runtimeItem.js';
+import { ActivityItemStream } from './activityItemStream.js';
 import { ActivityItemPrompt } from './activityItemPrompt.js';
 import { ActivityItemOutputHtml } from './activityItemOutputHtml.js';
 import { ActivityItemOutputPlot } from './activityItemOutputPlot.js';
 import { ActivityItemErrorMessage } from './activityItemErrorMessage.js';
 import { ActivityItemOutputMessage } from './activityItemOutputMessage.js';
 import { ActivityItemInput, ActivityItemInputState } from './activityItemInput.js';
-import { ActivityItemErrorStream, ActivityItemOutputStream, ActivityItemStream } from './activityItemStream.js';
 
 /**
  * The ActivityItem type alias.
  */
 export type ActivityItem =
+	ActivityItemStream |
 	ActivityItemErrorMessage |
-	ActivityItemErrorStream |
 	ActivityItemInput |
 	ActivityItemOutputHtml |
 	ActivityItemOutputMessage |
 	ActivityItemOutputPlot |
-	ActivityItemOutputStream |
 	ActivityItemPrompt;
 
 /**
@@ -35,12 +34,8 @@ const isSameActivityItemStream = (
 	activityItemStream1: ActivityItemStream,
 	activityItemStream2: ActivityItemStream
 ) =>
-	(
-		(activityItemStream1 instanceof ActivityItemOutputStream &&
-			activityItemStream2 instanceof ActivityItemOutputStream) ||
-		(activityItemStream1 instanceof ActivityItemErrorStream &&
-			activityItemStream2 instanceof ActivityItemErrorStream)
-	) && activityItemStream1.parentId === activityItemStream2.parentId;
+	activityItemStream1.type === activityItemStream2.type &&
+	activityItemStream1.parentId === activityItemStream2.parentId;
 
 /**
  * RuntimeItemActivity class.
@@ -90,7 +85,6 @@ export class RuntimeItemActivity extends RuntimeItem {
 	 * @param activityItem The activity item to add.
 	 */
 	public addActivityItem(activityItem: ActivityItem) {
-
 		// Perform activity item processing if this is not the first activity item.
 		if (this._activityItems.length) {
 			// If the activity item being added is an ActivityItemStream, see if we can append it to
@@ -103,7 +97,6 @@ export class RuntimeItemActivity extends RuntimeItem {
 					// the same type with the same parent identifier, add the ActivityItemStream
 					// being added to the last ActivityItemStream.
 					if (isSameActivityItemStream(lastActivityItem, activityItem)) {
-
 						// Add the ActivityItemStream being added to the last ActivityItemStream. If
 						// an ActivityItemStream is returned, it becomes the next activity item to
 						// add.
@@ -116,8 +109,7 @@ export class RuntimeItemActivity extends RuntimeItem {
 						activityItem = activityItemStream;
 					}
 				}
-			} else if (activityItem instanceof ActivityItemInput &&
-				activityItem.state !== ActivityItemInputState.Provisional) {
+			} else if (activityItem instanceof ActivityItemInput && activityItem.state !== ActivityItemInputState.Provisional) {
 				// When a non-provisional ActivityItemInput is being added, see if there's a
 				// provisional ActivityItemInput for it in the activity items. If there is, replace
 				// the provisional ActivityItemInput with the actual ActivityItemInput.
@@ -140,15 +132,38 @@ export class RuntimeItemActivity extends RuntimeItem {
 	}
 
 	/**
-	 * Trims activity items.
-	 * @param max The maximum number of activity items to keep.
+	 * Gets the clipboard representation of the runtime item.
+	 * @param commentPrefix The comment prefix to use.
+	 * @returns The clipboard representation of the runtime item.
 	 */
-	public trimActivityItems(max: number) {
-		// Slice the array of activity items.
-		this._activityItems = this._activityItems.slice(-max);
+	public override getClipboardRepresentation(commentPrefix: string): string[] {
+		return this._activityItems.flatMap(activityItem =>
+			activityItem.getClipboardRepresentation(commentPrefix)
+		);
+	}
 
-		// Return the count of activity items.
-		return this._activityItems.length;
+	/**
+	 * Optimizes scrollback.
+	 * @param scrollbackSize The scrollback size.
+	 * @returns The remaining scrollback size.
+	 */
+	public override optimizeScrollback(scrollbackSize: number) {
+		// If scrollback size is zero, hide the item and return zero.
+		if (scrollbackSize === 0) {
+			this._isHidden = true;
+			return 0;
+		}
+
+		// Unhide the item.
+		this._isHidden = false;
+
+		// Optimize scrollback for each activity item in reverse order.
+		for (let i = this._activityItems.length - 1; i >= 0; i--) {
+			scrollbackSize = this._activityItems[i].optimizeScrollback(scrollbackSize);
+		}
+
+		// Return the remaining scrollback size.
+		return scrollbackSize;
 	}
 
 	//#endregion Public Methods

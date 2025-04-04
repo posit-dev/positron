@@ -311,6 +311,16 @@ class ShowDialogParams(BaseModel):
     )
 
 
+class AskForPasswordParams(BaseModel):
+    """
+    Ask the user for a password
+    """
+
+    prompt: StrictStr = Field(
+        description="The prompt, such as 'Please enter your password'",
+    )
+
+
 class PromptStateParams(BaseModel):
     """
     New state of the primary and secondary prompts
@@ -482,6 +492,8 @@ ShowMessageParams.update_forward_refs()
 ShowQuestionParams.update_forward_refs()
 
 ShowDialogParams.update_forward_refs()
+
+AskForPasswordParams.update_forward_refs()
 
 PromptStateParams.update_forward_refs()
 

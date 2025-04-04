@@ -42,20 +42,28 @@ export const ConsoleInstanceInfoButton = () => {
 	const ref = useRef<HTMLButtonElement>(undefined!);
 
 	const handlePressed = async () => {
-		if (!positronConsoleContext.activePositronConsoleInstance) {
+		// Get the session ID and the session. Note that we don't ask the
+		// console instance for the session directly since we want this to work
+		// even with a detached session.
+		const sessionId =
+			positronConsoleContext.activePositronConsoleInstance?.sessionId;
+		if (!sessionId) {
+			return;
+		}
+		const session = positronConsoleContext.runtimeSessionService.getSession(sessionId);
+		if (!session) {
 			return;
 		}
 
 		// Get the channels from the session.
-		const channels = intersectionOutputChannels(
-			await positronConsoleContext.activePositronConsoleInstance.session.listOutputChannels()
-		);
+		const channels =
+			intersectionOutputChannels(await session.listOutputChannels());
 
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
 			keybindingService: positronConsoleContext.keybindingService,
-			layoutService: positronConsoleContext.workbenchLayoutService,
-			container: positronConsoleContext.workbenchLayoutService.getContainer(DOM.getWindow(ref.current)),
+			layoutService: positronConsoleContext.layoutService,
+			container: positronConsoleContext.layoutService.getContainer(DOM.getWindow(ref.current)),
 			parent: ref.current
 		});
 
@@ -64,7 +72,7 @@ export const ConsoleInstanceInfoButton = () => {
 				anchorElement={ref.current}
 				channels={channels}
 				renderer={renderer}
-				session={positronConsoleContext.activePositronConsoleInstance.session}
+				session={session}
 			/>
 		);
 	}
@@ -75,6 +83,7 @@ export const ConsoleInstanceInfoButton = () => {
 			ref={ref}
 			align='right'
 			ariaLabel={positronConsoleInfo}
+			dataTestId={`info-${positronConsoleContext.activePositronConsoleInstance?.sessionId ?? 'unknown'}`}
 			iconId='info'
 			tooltip={positronConsoleInfo}
 			onPressed={handlePressed}
@@ -105,6 +114,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 
 	const showKernelOutputChannelClickHandler = (channel: LanguageRuntimeSessionChannel) => {
 		props.session.showOutput(channel);
+		props.renderer.dispose();
 	}
 
 	// Render.
@@ -112,7 +122,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 		<PositronModalPopup
 			anchorElement={props.anchorElement}
 			fixedHeight={true}
-			height='min-content'
+			height='auto'
 			keyboardNavigationStyle='menu'
 			popupAlignment='auto'
 			popupPosition='auto'

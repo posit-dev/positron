@@ -71,10 +71,17 @@ export const serverOptions: OptionDescriptions<Required<ServerParsedArgs>> = {
 	'list-extensions': OPTIONS['list-extensions'],
 	'locate-extension': OPTIONS['locate-extension'],
 
+	// --- Start Positron ---
+	// Allow disabling extensions in server mode.
+	'disable-extension': OPTIONS['disable-extension'],
+	'bootstrap-extensions-dir': { type: 'string', description: nls.localize('bootstrap-extensions-dir', "The directory to look for extensions to install on launch.") },
+	// --- End Positron ---
+
 	'show-versions': OPTIONS['show-versions'],
 	'category': OPTIONS['category'],
 	'force': OPTIONS['force'],
 	'do-not-sync': OPTIONS['do-not-sync'],
+	'do-not-include-pack-dependencies': OPTIONS['do-not-include-pack-dependencies'],
 	'pre-release': OPTIONS['pre-release'],
 	'start-server': { type: 'boolean', cat: 'e', description: nls.localize('start-server', "Start the server when installing or uninstalling extensions. To be used in combination with 'install-extension', 'install-builtin-extension' and 'uninstall-extension'.") },
 
@@ -110,6 +117,9 @@ export interface ServerParsedArgs {
 	'disable-file-downloads'?: boolean;
 	'disable-file-uploads'?: boolean;
 	// --- End PWB ---
+	// --- Start Positron ---
+	'bootstrap-extensions-dir'?: string;
+	// --- End Positron ---
 
 	/* ----- server setup ----- */
 
@@ -214,8 +224,15 @@ export interface ServerParsedArgs {
 	force?: boolean; // used by install-extension
 	'do-not-sync'?: boolean; // used by install-extension
 	'pre-release'?: boolean; // used by install-extension
+	'do-not-include-pack-dependencies'?: boolean; // used by install-extension
+
 
 	'start-server'?: boolean;
+
+	// --- Start Positron ---
+	// Allow disabling extensions in server mode
+	'disable-extension'?: string[];
+	// --- End Positron ---
 
 	/* ----- remote development options ----- */
 

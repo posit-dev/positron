@@ -11,6 +11,7 @@ import logging
 import math
 import operator
 from datetime import datetime
+from decimal import Decimal
 from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
@@ -100,7 +101,6 @@ if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
 
-    # import pyarrow as pa
 
 logger = logging.getLogger(__name__)
 
@@ -812,9 +812,9 @@ def _box_number_stats(min_val, max_val, mean_val, median_val, std_val):
     )
 
 
-def _box_other_stats(num_unique):
+def _box_other_stats(num_unique, type_display=ColumnDisplayType.Object):
     return ColumnSummaryStats(
-        type_display=ColumnDisplayType.Object,
+        type_display=type_display,
         other_stats=SummaryStatsOther(num_unique=int(num_unique)),
     )
 
@@ -849,9 +849,52 @@ def _box_date_stats(num_unique, min_date, mean_date, median_date, max_date):
     )
 
 
-def _box_datetime_stats(num_unique, min_date, mean_date, median_date, max_date, timezone):
+def _format_utc_offset(x):
+    if x.tzinfo is None:
+        return ""
+
+    offset_seconds = x.utcoffset().total_seconds()
+    sign = "+" if offset_seconds >= 0 else "-"
+
+    offset_seconds = abs(offset_seconds)
+    offset_hours = int(offset_seconds // 3600)
+    offset_minutes = int((offset_seconds % 3600) // 60)
+    return f"{sign}{offset_hours:02d}:{offset_minutes:02d}"
+
+
+def _box_datetime_stats(
+    time_unit, num_unique, min_date, mean_date, median_date, max_date, timezone
+):
+    def format_no_micros(x, utc_offset):
+        return x.strftime("%Y-%m-%d %H:%M:%S") + utc_offset
+
+    def format_micros(x, utc_offset):
+        return x.strftime("%Y-%m-%d %H:%M:%S.%f") + utc_offset
+
     def format_date(x):
-        return str(x)
+        if x is None:
+            return None
+
+        utc_offset = _format_utc_offset(x)
+        if time_unit == "s":
+            return format_no_micros(x, utc_offset)
+        elif time_unit == "ms":
+            if x.microsecond == 0:
+                return format_no_micros(x, utc_offset)
+            else:
+                # Strip final 3 digits from microseconds, taking into account whether
+                # there is a UTC offset
+                formatted = format_micros(x, utc_offset)
+                return formatted[:-9] + formatted[-6:] if utc_offset else formatted[:-3]
+        elif time_unit == "us":
+            return (
+                format_no_micros(x, utc_offset)
+                if x.microsecond == 0
+                else format_micros(x, utc_offset)
+            )
+        else:
+            # This will format the UTC offset for us
+            return str(x)
 
     return ColumnSummaryStats(
         type_display=ColumnDisplayType.Datetime,
@@ -891,9 +934,13 @@ class NumPyMathHelper:
         return isinstance(value, (float, self.np.floating))
 
     def isnan(self, value):
+        if isinstance(value, Decimal):
+            return False
         return self.np.isnan(value)
 
     def isinf(self, value):
+        if isinstance(value, Decimal):
+            return False
         return self.np.isinf(value)
 
 
@@ -969,9 +1016,11 @@ _FILTER_RANGE_COMPARE_SUPPORTED = {
 }
 
 
-def _pandas_datetimetz_mapper(type_name):
+def _pandas_temporal_mapper(type_name):
     if "datetime64" in type_name:
         return "datetime"
+    elif "timedelta64" in type_name:
+        return "interval"
     return None
 
 
@@ -1021,9 +1070,13 @@ def _pandas_summarize_string(col: pd.Series, _options: FormatOptions):
     return _box_string_stats(num_empty, num_unique)
 
 
-def _pandas_summarize_object(col: pd.Series, _options: FormatOptions):
+def _pandas_summarize_object(
+    col: pd.Series,
+    _options: FormatOptions,
+    type_display: ColumnDisplayType = ColumnDisplayType.Object,
+):
     num_unique = col.nunique()
-    return _box_other_stats(num_unique)
+    return _box_other_stats(num_unique, type_display=type_display)
 
 
 def _pandas_summarize_boolean(col: pd.Series, _options: FormatOptions):
@@ -1059,7 +1112,7 @@ def _pandas_summarize_datetime(col: pd.Series, _options: FormatOptions):
 
     num_unique = _possibly(col.nunique)
 
-    timezones = col.apply(lambda x: x.tz).unique()
+    timezones = col.apply(lambda x: getattr(x, "tz", None)).unique()
     if len(timezones) == 1:
         timezone = str(timezones[0])
     else:
@@ -1068,7 +1121,14 @@ def _pandas_summarize_datetime(col: pd.Series, _options: FormatOptions):
         if len(timezones) > 2:
             timezone = timezone + f", ... ({len(timezones) - 2} more)"
 
-    return _box_datetime_stats(num_unique, min_date, mean_date, median_date, max_date, timezone)
+    # May have object dtype, so we only extract the time unit if
+    # the .dt attribute is present. Also, older versions of pandas did not
+    # support units other than nanos
+    time_unit = getattr(col.dt, "unit", "ns") if hasattr(col, "dt") else None
+
+    return _box_datetime_stats(
+        time_unit, num_unique, min_date, mean_date, median_date, max_date, timezone
+    )
 
 
 def _safe_stringify(x, max_length: int):
@@ -1292,7 +1352,7 @@ class PandasView(DataExplorerTableView):
             column_name=str(column_name),
             column_index=column_index,
             type_name=type_name,
-            type_display=type_display,
+            type_display=ColumnDisplayType(type_display),
         )
 
     @classmethod
@@ -1308,6 +1368,8 @@ class PandasView(DataExplorerTableView):
 
     @classmethod
     def _get_type(cls, column, column_index, state: DataExplorerState):
+        import pandas as pd
+
         # A helper function for returning the backend type_name and
         # the display type when returning schema results or analyzing
         # schema changes
@@ -1316,11 +1378,22 @@ class PandasView(DataExplorerTableView):
         if dtype == object:  # noqa: E721
             type_name = cls._get_inferred_dtype(column, column_index, state)
             type_name = cls.TYPE_NAME_MAPPING.get(type_name, type_name)
+            type_display = cls._get_type_display(type_name)
+        elif isinstance(dtype, pd.CategoricalDtype):
+            type_name = str(dtype)
+            if dtype.categories.dtype == object:
+                categories_type_name = cls._get_inferred_dtype(
+                    dtype.categories, column_index, state
+                )
+                type_display = cls.TYPE_NAME_MAPPING.get(categories_type_name, categories_type_name)
+            else:
+                categories_type_name = str(dtype.categories.dtype)
+                type_display = cls._get_type_display(categories_type_name)
         else:
             # TODO: more sophisticated type mapping
             type_name = str(dtype)
+            type_display = cls._get_type_display(type_name)
 
-        type_display = cls._get_type_display(type_name)
         return type_name, type_display
 
     TYPE_DISPLAY_MAPPING = MappingProxyType(
@@ -1346,11 +1419,12 @@ class PandasView(DataExplorerTableView):
             "mixed": "object",
             "decimal": "number",
             "complex": "number",
-            "categorical": "categorical",
             "bool": "boolean",
             "datetime64": "datetime",
             "datetime64[ns]": "datetime",
             "datetime": "datetime",
+            "timedelta64[ns]": "interval",
+            "timedelta": "interval",
             "date": "date",
             "time": "time",
             "bytes": "string",
@@ -1373,7 +1447,7 @@ class PandasView(DataExplorerTableView):
         }
     )
 
-    TYPE_MAPPERS = (_pandas_datetimetz_mapper,)
+    TYPE_MAPPERS = (_pandas_temporal_mapper,)
 
     @classmethod
     def _get_type_display(cls, type_name):
@@ -1463,8 +1537,6 @@ class PandasView(DataExplorerTableView):
     def _format_values(self, values, options: FormatOptions) -> list[ColumnValue]:
         import pandas as pd
 
-        nat = pd.NaT
-        na = pd.NA
         float_format = _get_float_formatter(options)
         max_length = options.max_value_length
 
@@ -1478,9 +1550,9 @@ class PandasView(DataExplorerTableView):
                     return float_format(x)
             elif x is None:
                 return _VALUE_NONE
-            elif x is nat:
+            elif x is pd.NaT:
                 return _VALUE_NAT
-            elif x is na:
+            elif x is pd.NA:
                 return _VALUE_NA
             else:
                 return _safe_stringify(x, max_length)
@@ -1757,8 +1829,11 @@ class PandasView(DataExplorerTableView):
 
         formatted_edges = self._format_values(bin_edges, format_options)
 
+        # TODO: formatted_edges should not contain any special values, but we should
+        # probably check more carefully.
+
         return ColumnHistogram(
-            bin_edges=formatted_edges,
+            bin_edges=[str(x) for x in formatted_edges],
             bin_counts=[int(x) for x in bin_counts],
             quantiles=[],
         )
@@ -1813,29 +1888,10 @@ class PandasView(DataExplorerTableView):
             support_status=SupportStatus.Supported,
             supported_types=[
                 ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.NullCount,
+                    profile_type=profile_type,
                     support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.SummaryStats,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.SmallHistogram,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.LargeHistogram,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.SmallFrequencyTable,
-                    support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.LargeFrequencyTable,
-                    support_status=SupportStatus.Supported,
-                ),
+                )
+                for profile_type in ColumnProfileType
             ],
         ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
@@ -1874,6 +1930,10 @@ def _get_histogram_numpy(data, num_bins, method="fd"):
 
     assert num_bins is not None
     hist_params = {"bins": num_bins} if method == "fixed" else {"bins": method}
+
+    if data.dtype == object:
+        # For decimals, we convert to float which is lossy but works for now
+        return _get_histogram_numpy(data.astype(float), num_bins, method=method)
 
     # We optimistically compute the histogram once, and then do extra
     # work in the special cases where the binning method produces a
@@ -1932,9 +1992,23 @@ def _date_median(x):
     import pandas as pd
 
     # the np.array calls are required to please pyright
-    median_date = np.median(np.array(pd.to_numeric(x)))
-    out = pd.to_datetime(np.array(median_date), utc=True)
-    return out.tz_convert(x[0].tz)
+    median_value = np.int64(np.median(pd.to_numeric(x).to_numpy()))  # type: ignore
+
+    if isinstance(x.dtype, pd.DatetimeTZDtype):
+        # pandas has been buggy with datetimetz dtype other than nanosecond,
+        # so we convert to nanoseconds and then back to the original dtype
+        if x.dtype.unit == "s":
+            median_value = median_value * 1_000_000_000
+        elif x.dtype.unit == "ms":
+            median_value = median_value * 1_000_000
+        elif x.dtype.unit == "us":
+            median_value = median_value * 1_000
+
+        median_value = pd.Series([median_value], dtype=pd.DatetimeTZDtype(unit="ns", tz=x.dtype.tz))
+    else:
+        median_value = pd.Series(np.array([median_value], dtype=x.dtype))
+
+    return median_value[0]
 
 
 def _possibly(f, otherwise=None):
@@ -2011,6 +2085,15 @@ def _polars_summarize_string(col: pl.Series, _):
     return _box_string_stats(num_empty, num_unique)
 
 
+def _polars_summarize_object(
+    col: pl.Series,
+    _format_options: FormatOptions,
+    type_display: ColumnDisplayType = ColumnDisplayType.Object,
+):
+    num_unique = col.n_unique()
+    return _box_other_stats(num_unique, type_display=type_display)
+
+
 def _polars_summarize_boolean(col: pl.Series, _):
     null_count = col.is_null().sum()
     true_count = col.sum()
@@ -2060,7 +2143,13 @@ def _polars_summarize_datetime(col: pl.Series, _):
     timezone = str(getattr(col.dtype, "time_zone", None))
 
     return _box_datetime_stats(
-        col.n_unique(), col.min(), mean_date, median_date, col.max(), timezone
+        getattr(col.dtype, "time_unit", None),
+        col.n_unique(),
+        col.min(),
+        mean_date,
+        median_date,
+        col.max(),
+        timezone,
     )
 
 
@@ -2190,13 +2279,23 @@ class PolarsView(DataExplorerTableView):
         column_name: str,
         column_index: int,
     ):
-        type_display = cls._get_type_display(column.dtype)
+        import polars as pl
+
+        if isinstance(column.dtype, pl.Categorical):
+            # Categorical is always string in polars
+            type_display = "string"
+            # For Categorical types, we just use "Categorical" for the type name
+            # for simplicity
+            type_name = "Categorical"
+        else:
+            type_display = cls._get_type_display(column.dtype)
+            type_name = str(column.dtype)
 
         return ColumnSchema(
             column_name=column_name,
             column_index=column_index,
-            type_name=str(column.dtype),
-            type_display=type_display,
+            type_name=type_name,
+            type_display=ColumnDisplayType(type_display),
         )
 
     TYPE_DISPLAY_MAPPING = MappingProxyType(
@@ -2217,12 +2316,12 @@ class PolarsView(DataExplorerTableView):
             "Date": "date",
             "Datetime": "datetime",
             "Time": "time",
+            "Duration": "interval",
             "Decimal": "number",
             "Object": "object",
             "List": "array",
             "Struct": "struct",
-            "Categorical": "unknown",  # See #3417
-            "Duration": "unknown",  # See #3418
+            "Categorical": "categorical",
             "Enum": "unknown",
             "Null": "unknown",  # Not yet implemented
             "Unknown": "unknown",
@@ -2538,6 +2637,7 @@ class PolarsView(DataExplorerTableView):
             ColumnDisplayType.Boolean: _polars_summarize_boolean,
             ColumnDisplayType.Number: _polars_summarize_number,
             ColumnDisplayType.String: _polars_summarize_string,
+            ColumnDisplayType.Object: _polars_summarize_object,
             ColumnDisplayType.Date: _polars_summarize_date,
             ColumnDisplayType.Datetime: _polars_summarize_datetime,
         }
@@ -2600,8 +2700,10 @@ class PolarsView(DataExplorerTableView):
 
         formatted_edges = self._format_values(bin_edges, format_options)
 
+        # TODO: make sure that formatted_edges has no special values
+
         return ColumnHistogram(
-            bin_edges=formatted_edges,
+            bin_edges=[str(x) for x in formatted_edges],
             bin_counts=[int(x) for x in bin_counts],
             quantiles=[],
         )
@@ -2627,13 +2729,10 @@ class PolarsView(DataExplorerTableView):
             support_status=SupportStatus.Supported,
             supported_types=[
                 ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.NullCount,
+                    profile_type=profile_type,
                     support_status=SupportStatus.Supported,
-                ),
-                ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.SummaryStats,
-                    support_status=SupportStatus.Supported,
-                ),
+                )
+                for profile_type in ColumnProfileType
             ],
         ),
         export_data_selection=ExportDataSelectionFeatures(

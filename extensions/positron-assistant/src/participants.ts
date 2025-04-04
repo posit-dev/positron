@@ -16,8 +16,12 @@ import { defaultHandler } from './commands/default';
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
 class PositronAssistantParticipant implements positron.ai.ChatParticipant {
+	readonly _context: vscode.ExtensionContext;
+	constructor(context: vscode.ExtensionContext) {
+		this._context = context;
+	}
 	readonly id = 'positron.positron-assistant';
-	readonly iconPath = new vscode.ThemeIcon('positron-posit-logo');
+	readonly iconPath = new vscode.ThemeIcon('positron-assistant');
 	readonly agentData: positron.ai.ChatAgentData = {
 		id: this.id,
 		name: 'positron-assistant',
@@ -33,6 +37,7 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 			positron.PositronChatAgentLocation.Terminal,
 			positron.PositronChatAgentLocation.Editor,
 			positron.PositronChatAgentLocation.Notebook,
+			positron.PositronChatAgentLocation.EditingSession,
 		],
 		disambiguation: []
 	};
@@ -42,6 +47,9 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 
 	readonly _performActionEventEmitter = new vscode.EventEmitter<vscode.ChatUserActionEvent>();
 	onDidPerformAction: vscode.Event<vscode.ChatUserActionEvent> = this._performActionEventEmitter.event;
+
+	readonly _pauseStateEventEmitter = new vscode.EventEmitter<vscode.ChatParticipantPauseStateEvent>();
+	onDidChangePauseState: vscode.Event<vscode.ChatParticipantPauseStateEvent> = this._pauseStateEventEmitter.event;
 
 	readonly followupProvider: vscode.ChatFollowupProvider = {
 		async provideFollowups(result: vscode.ChatResult, context: vscode.ChatContext, token: vscode.CancellationToken): Promise<vscode.ChatFollowup[]> {
@@ -73,22 +81,27 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 	};
 
 	readonly welcomeMessageProvider = {
-		async provideWelcomeMessage(token: vscode.CancellationToken) {
-			let welcomeText = await fs.promises.readFile(`${mdDir}/welcome.md`, 'utf8');
-
+		provideWelcomeMessage: async (token: vscode.CancellationToken) => {
+			let welcomeText;
 			const addLanguageModelMessage = vscode.l10n.t('Add a Language Model.');
 
 			// Show an extra configuration link if there are no configured models yet
-			if (getStoredModels().length === 0) {
-				const commandUri = vscode.Uri.parse('command:positron.assistant.addModelConfiguration');
+			if (getStoredModels(this._context).length === 0) {
+				welcomeText = await fs.promises.readFile(`${mdDir}/welcome.md`, 'utf8');
+				const commandUri = vscode.Uri.parse('command:positron-assistant.addModelConfiguration');
 				welcomeText += `\n\n[${addLanguageModelMessage}](${commandUri})`;
+			} else {
+				welcomeText = await fs.promises.readFile(`${mdDir}/welcomeready.md`, 'utf8');
+				// TODO: Replace with guide link once it has been created
+				const guideLink = vscode.Uri.parse('https://positron.posit.co');
+				welcomeText = welcomeText.replace('{guide-link}', `[${vscode.l10n.t('Positron Assistant User Guide')}](${guideLink})`);
 			}
 
-			const message = new vscode.MarkdownString(welcomeText);
+			const message = new vscode.MarkdownString(welcomeText, true);
 			message.isTrusted = true;
 
 			return {
-				icon: new vscode.ThemeIcon('positron-posit-logo'),
+				icon: new vscode.ThemeIcon('positron-assistant'),
 				title: 'Positron Assistant',
 				message,
 			};
@@ -108,7 +121,9 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 	dispose(): void { }
 }
 
-const participants: Record<string, positron.ai.ChatParticipant> = {
-	'positron-assistant': new PositronAssistantParticipant(),
-};
-export default participants;
+export function createParticipants(context: vscode.ExtensionContext): Record<string, positron.ai.ChatParticipant> {
+	return {
+		'positron-assistant': new PositronAssistantParticipant(context),
+	};
+}
+

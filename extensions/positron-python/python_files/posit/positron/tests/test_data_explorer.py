@@ -10,6 +10,7 @@ import inspect
 import math
 import pprint
 from decimal import Decimal
+from importlib.metadata import version
 from io import StringIO
 from typing import Any, Dict, List, Optional, Type, cast
 
@@ -18,6 +19,7 @@ import pandas as pd
 import polars as pl
 import pytest
 import pytz
+from packaging import version as pkg_version
 
 from .._vendor.pydantic import BaseModel
 from ..access_keys import encode_access_key
@@ -40,12 +42,14 @@ from ..data_explorer import (
 from ..data_explorer_comm import (
     ColumnDisplayType,
     ColumnProfileResult,
+    ColumnProfileType,
     ColumnProfileTypeSupportStatus,
     ColumnSchema,
     ColumnSortKey,
     FilterResult,
     FormatOptions,
     RowFilter,
+    RowFilterType,
     RowFilterTypeSupportStatus,
     SupportStatus,
 )
@@ -60,6 +64,16 @@ TARGET_NAME = "positron.dataExplorer"
 def supports_keyword(func, keyword):
     signature = inspect.signature(func)
     return keyword in signature.parameters
+
+
+def is_pandas_2_or_higher():
+    """Check if the installed pandas version is 2.0.0 or higher."""
+    try:
+        pandas_version = version("pandas")
+        return pkg_version.parse(pandas_version) >= pkg_version.parse("2.0.0")
+    except ImportError:
+        # Handle case where pandas is not installed
+        return False
 
 
 # ----------------------------------------------------------------------
@@ -78,13 +92,13 @@ def get_new_comm(
     de_service.register_table(table, title, comm_id=comm_id)
 
     # Clear any existing messages
-    new_comm = cast(DummyComm, de_service.comms[comm_id])
+    new_comm = cast("DummyComm", de_service.comms[comm_id])
     new_comm.messages.clear()
     return new_comm
 
 
 def get_last_message(de_service: DataExplorerService, comm_id: str):
-    comm = cast(DummyComm, de_service.comms[comm_id].comm)
+    comm = cast("DummyComm", de_service.comms[comm_id].comm)
     return comm.messages[-1]
 
 
@@ -224,7 +238,7 @@ def test_explorer_delete_variable(
 
         # Check that comms were all closed
         for comm in comms:
-            last_message = cast(DummyComm, comm.comm).messages[-1]
+            last_message = cast("DummyComm", comm.comm).messages[-1]
             assert last_message["msg_type"] == "comm_close"
 
         for path in paths:
@@ -235,14 +249,14 @@ def test_explorer_delete_variable(
 
 
 def _check_last_message(comm, expected_msg):
-    dummy_comm = cast(DummyComm, comm.comm)
+    dummy_comm = cast("DummyComm", comm.comm)
     last_message = dummy_comm.messages[-1]
     dummy_comm.messages.clear()
     assert last_message == expected_msg
 
 
 def _get_last_message(comm):
-    dummy_comm = cast(DummyComm, comm.comm)
+    dummy_comm = cast("DummyComm", comm.comm)
     return dummy_comm.messages[-1]
 
 
@@ -522,7 +536,7 @@ class DataExplorerFixture:
 
 
 def get_column_profile_result(de_service: DataExplorerService, comm_id: str, callback_id: str):
-    comm = cast(DummyComm, de_service.comms[comm_id].comm)
+    comm = cast("DummyComm", de_service.comms[comm_id].comm)
     for message in comm.messages:
         data = message["data"]
         if data.get("method", "") == "return_column_profiles":
@@ -616,19 +630,7 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
     assert row_filters["support_status"] == SupportStatus.Supported
     assert row_filters["supports_conditions"] == SupportStatus.Unsupported
 
-    row_filter_types = [
-        "between",
-        "compare",
-        "is_empty",
-        "is_false",
-        "is_null",
-        "is_true",
-        "not_between",
-        "not_empty",
-        "not_null",
-        "search",
-        "set_membership",
-    ]
+    row_filter_types = list(RowFilterType)
     for tp in row_filter_types:
         assert (
             RowFilterTypeSupportStatus(row_filter_type=tp, support_status=SupportStatus.Supported)
@@ -639,30 +641,10 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
     assert column_profiles["support_status"] == SupportStatus.Supported
 
     profile_types = [
-        ColumnProfileTypeSupportStatus(
-            profile_type="null_count", support_status=SupportStatus.Supported
-        ),
-        ColumnProfileTypeSupportStatus(
-            profile_type="summary_stats",
-            support_status=SupportStatus.Supported,
-        ),
-        ColumnProfileTypeSupportStatus(
-            profile_type="small_histogram",
-            support_status=SupportStatus.Supported,
-        ),
-        ColumnProfileTypeSupportStatus(
-            profile_type="large_histogram",
-            support_status=SupportStatus.Supported,
-        ),
-        ColumnProfileTypeSupportStatus(
-            profile_type="small_frequency_table",
-            support_status=SupportStatus.Supported,
-        ),
-        ColumnProfileTypeSupportStatus(
-            profile_type="large_frequency_table",
-            support_status=SupportStatus.Supported,
-        ),
+        ColumnProfileTypeSupportStatus(profile_type=pt, support_status=SupportStatus.Supported)
+        for pt in list(ColumnProfileType)
     ]
+
     for tp in profile_types:
         assert tp in column_profiles["supported_types"]
 
@@ -729,6 +711,30 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             "string",
             "string",
         ),
+        (
+            np.array(
+                ["NaT", 3600000000000, -3600000000000, 0, 0],
+                dtype="timedelta64[ns]",
+            ),
+            "timedelta64[ns]",
+            "interval",
+        ),
+        (
+            np.array(
+                ["NaT", 3600, -3600, 0, 0],
+                dtype="timedelta64[s]",
+            ),
+            # Older versions of pandas upcast seconds to nanoseconds
+            str(
+                pd.Series(
+                    np.array(
+                        ["NaT", 3600, -3600, 0, 0],
+                        dtype="timedelta64[s]",
+                    )
+                ).dtype
+            ),
+            "interval",
+        ),
         # datetimetz
         (
             pd.Series(
@@ -743,6 +749,17 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             ),
             "datetime64[ns, US/Eastern]",
             "datetime",
+        ),
+        # categorical
+        (
+            pd.Series(["foo", "bar", "foo", "baz", "qux"], dtype="category"),
+            "category",
+            "string",
+        ),
+        (
+            pd.Series([0, 1, 0, 1, 0], dtype="category"),
+            "category",
+            "number",
         ),
     ]
 
@@ -2531,8 +2548,40 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             "f10": ["str", 1, 2, None, False] * 20,
             # mixed-integer-float
             "f11": np.array([1.5, 2, 2, None, 3.5] * 20, dtype=object),
+            # decimal
+            "f12": [
+                Decimal("1.5"),
+                Decimal("2"),
+                Decimal("2"),
+                None,
+                Decimal("3.5"),
+            ]
+            * 20,
+            # datetime64[us] with 10us increments
+            "f13": pd.date_range("2000-01-01", freq="10us", periods=100).astype("datetime64[us]"),
+            "f14": (
+                pd.date_range("2000-01-01", freq="10us", periods=100)
+                .astype("datetime64[us]")
+                .tz_localize("US/Eastern")  # type: ignore
+            ),
+            # datetime64[ms] with 10ms increments
+            "f15": pd.date_range("2000-01-01", freq="10ms", periods=100).astype("datetime64[ms]"),
+            "f16": (
+                pd.date_range("2000-01-01", freq="10ms", periods=100)
+                .astype("datetime64[ms]")
+                .tz_localize("US/Eastern")  # type: ignore
+            ),
+            # datetime64[s] for 10s increments
+            "f17": pd.date_range("2000-01-01", freq="10s", periods=100).astype("datetime64[s]"),
+            "f18": (
+                pd.date_range("2000-01-01", freq="10s", periods=100)
+                .astype("datetime64[s]")
+                .tz_localize("US/Eastern")  # type: ignore
+            ),
         }
     )
+
+    f12_f64 = df1["f12"].astype("float64")
 
     df_mixed_tz1 = pd.concat(
         [
@@ -2680,15 +2729,28 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             11,
             {"num_unique": 3},
         ),
+        # decimal
+        (
+            "df1",
+            12,
+            {
+                "min_value": _format_float(f12_f64.min()),
+                "max_value": _format_float(f12_f64.max()),
+                "mean": _format_float(f12_f64.mean()),
+                "stdev": _format_float(f12_f64.std()),
+                "median": _format_float(f12_f64.median()),
+            },
+        ),
+        # mixed types
         (
             "df_mixed_tz1",
             0,
             {
                 "num_unique": 150,
-                "min_date": "None",
-                "mean_date": "None",
-                "median_date": "None",
-                "max_date": "None",
+                "min_date": None,
+                "mean_date": None,
+                "median_date": None,
+                "max_date": None,
                 "timezone": "None, US/Eastern, ... (1 more)",
             },
         ),
@@ -2698,13 +2760,95 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             {
                 "num_unique": 100,
                 "min_date": "2000-01-01 00:00:00+08:00",
-                "mean_date": "None",
-                "median_date": "None",
+                "mean_date": None,
+                "median_date": None,
                 "max_date": "2000-01-05 02:00:00-05:00",
                 "timezone": "US/Eastern, Asia/Hong_Kong",
             },
         ),
     ]
+
+    # Test cases that only work for pandas >= 2.0
+    if is_pandas_2_or_higher():
+        cases.extend(
+            [
+                # datetime64[us]
+                (
+                    "df1",
+                    13,
+                    {
+                        "num_unique": 100,
+                        "min_date": "2000-01-01 00:00:00",
+                        "mean_date": "2000-01-01 00:00:00.000495",
+                        "median_date": "2000-01-01 00:00:00.000495",
+                        "max_date": "2000-01-01 00:00:00.000990",
+                        "timezone": "None",
+                    },
+                ),
+                (
+                    "df1",
+                    14,
+                    {
+                        "num_unique": 100,
+                        "min_date": "2000-01-01 00:00:00-05:00",
+                        "mean_date": "2000-01-01 00:00:00.000495-05:00",
+                        "median_date": "2000-01-01 00:00:00.000495-05:00",
+                        "max_date": "2000-01-01 00:00:00.000990-05:00",
+                        "timezone": "US/Eastern",
+                    },
+                ),
+                # datetime64[ms]
+                (
+                    "df1",
+                    15,
+                    {
+                        "num_unique": 100,
+                        "min_date": "2000-01-01 00:00:00",
+                        "mean_date": "2000-01-01 00:00:00.495",
+                        "median_date": "2000-01-01 00:00:00.495",
+                        "max_date": "2000-01-01 00:00:00.990",
+                        "timezone": "None",
+                    },
+                ),
+                (
+                    "df1",
+                    16,
+                    {
+                        "num_unique": 100,
+                        "min_date": "2000-01-01 00:00:00-05:00",
+                        "mean_date": "2000-01-01 00:00:00.495-05:00",
+                        "median_date": "2000-01-01 00:00:00.495-05:00",
+                        "max_date": "2000-01-01 00:00:00.990-05:00",
+                        "timezone": "US/Eastern",
+                    },
+                ),
+                # datetime64[s]
+                (
+                    "df1",
+                    17,
+                    {
+                        "num_unique": 100,
+                        "min_date": "2000-01-01 00:00:00",
+                        "mean_date": "2000-01-01 00:08:15",
+                        "median_date": "2000-01-01 00:08:15",
+                        "max_date": "2000-01-01 00:16:30",
+                        "timezone": "None",
+                    },
+                ),
+                (
+                    "df1",
+                    18,
+                    {
+                        "num_unique": 100,
+                        "min_date": "2000-01-01 00:00:00-05:00",
+                        "mean_date": "2000-01-01 00:08:15-05:00",
+                        "median_date": "2000-01-01 00:08:15-05:00",
+                        "max_date": "2000-01-01 00:16:30-05:00",
+                        "timezone": "US/Eastern",
+                    },
+                ),
+            ]
+        )
 
     for table_name, col_index, ex_result in cases:
         profiles = [_get_summary_stats(col_index)]
@@ -2722,6 +2866,7 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
         max_value_length=1000,
         thousands_sep="_",
     )
+
     _format_float = _get_float_formatter(format_options)
 
     test_df = pd.DataFrame(
@@ -2732,6 +2877,23 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
             "d": [0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10],
             "e": [np.inf, -np.inf, 0, 1, 2, 3, 4, 5, 6, 7, 8],
             "f": np.ones(11),
+            # decimal test case
+            "g": np.array(
+                [
+                    Decimal("1.1"),
+                    Decimal("1.2"),
+                    Decimal("1.3"),
+                    Decimal("1.4"),
+                    Decimal("1.5"),
+                    Decimal("1.6"),
+                    Decimal("1.7"),
+                    Decimal("1.8"),
+                    Decimal("1.9"),
+                    Decimal("2.0"),
+                    None,
+                ],
+                dtype=object,
+            ),
         }
     )
     dfp = pl.DataFrame(
@@ -2742,6 +2904,23 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
             "d": [0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10],
             "e": [np.inf, -np.inf, 0, 1, 2, 3, 4, 5, 6, 7, 8],
             "f": np.ones(11),
+            # decimal test case
+            "g": np.array(
+                [
+                    Decimal("1.1"),
+                    Decimal("1.2"),
+                    Decimal("1.3"),
+                    Decimal("1.4"),
+                    Decimal("1.5"),
+                    Decimal("1.6"),
+                    Decimal("1.7"),
+                    Decimal("1.8"),
+                    Decimal("1.9"),
+                    Decimal("2.0"),
+                    None,
+                ],
+                dtype=object,
+            ),
         }
     )
 
@@ -2830,6 +3009,15 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
             {
                 "bin_edges": ["0.5000", "1.50"],
                 "bin_counts": [11],
+                "quantiles": [],
+            },
+        ),
+        # test decimal
+        (
+            _get_histogram(6, bins=4),
+            {
+                "bin_edges": ["1.10", "1.33", "1.55", "1.77", "2.00"],
+                "bin_counts": [3, 2, 2, 3],
                 "quantiles": [],
             },
         ),
@@ -2973,7 +3161,7 @@ POLARS_TYPE_EXAMPLES = [
         pl.Duration("ms"),
         [0, 1000, 2000, None],
         "Duration(time_unit='ms')",
-        "unknown",
+        "interval",
     ),
     (
         pl.Decimal(12, 4),
@@ -2998,7 +3186,8 @@ POLARS_TYPE_EXAMPLES = [
         "Struct({'a': Int64, 'b': List(String)})",
         "struct",
     ),
-    # (pl.Object, ["Hello", True, None, 5], "Object", "object"),
+    (pl.Categorical, ["a", "b", "a", None], "Categorical", "string"),
+    (pl.Object, ["Hello", True, None, 5], "Object", "object"),
 ]
 
 
@@ -3077,13 +3266,8 @@ def test_polars_get_state(dxf: DataExplorerFixture):
     assert export_data["support_status"] == SupportStatus.Supported
     assert export_data["supported_formats"] == ["csv", "tsv"]
     assert features["get_column_profiles"]["supported_types"] == [
-        ColumnProfileTypeSupportStatus(
-            profile_type="null_count", support_status=SupportStatus.Supported
-        ),
-        ColumnProfileTypeSupportStatus(
-            profile_type="summary_stats",
-            support_status=SupportStatus.Supported,
-        ),
+        ColumnProfileTypeSupportStatus(profile_type=pt, support_status=SupportStatus.Supported)
+        for pt in list(ColumnProfileType)
     ]
 
 
@@ -3132,7 +3316,8 @@ def test_polars_get_data_values(dxf: DataExplorerFixture):
             _VALUE_NULL,
             "{'a': 0, 'b': None}",
         ],  # Struct({'a': Int64, 'b': List(String)}),
-        # ["Hello", "True", _VALUE_NULL, "5"],  # Object
+        ["a", "b", "a", _VALUE_NULL],  # Categorical
+        ["Hello", "True", _VALUE_NULL, "5"],  # Object
     ]
 
     assert result["columns"] == expected_columns

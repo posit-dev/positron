@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import './radioButton.css';
 
 // React.
@@ -15,6 +16,7 @@ import React from 'react';
 interface RadioButtonItemOptions {
 	identifier: string;
 	title: string;
+	disabled?: boolean;
 }
 
 /**
@@ -34,6 +36,7 @@ export class RadioButtonItem {
 interface RadioButtonProps extends RadioButtonItemOptions {
 	selected: boolean;
 	groupName: string;
+	disabled?: boolean;
 	onSelected: () => void;
 }
 
@@ -45,10 +48,11 @@ interface RadioButtonProps extends RadioButtonItemOptions {
 export const RadioButton = (props: RadioButtonProps) => {
 	// Render.
 	return (
-		<div className='radio-button'>
+		<div className={positronClassNames('radio-button', { disabled: props.disabled })}>
 			<input
 				checked={props.selected}
 				className='radio-button-input'
+				disabled={props.disabled}
 				id={props.identifier}
 				name={props.groupName}
 				tabIndex={props.selected ? 0 : -1}

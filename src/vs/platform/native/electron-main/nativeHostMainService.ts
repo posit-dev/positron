@@ -225,6 +225,7 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 				diffMode: options.diffMode,
 				mergeMode: options.mergeMode,
 				addMode: options.addMode,
+				removeMode: options.removeMode,
 				gotoLineMode: options.gotoLineMode,
 				noRecentEntry: options.noRecentEntry,
 				waitMarkerFileURI: options.waitMarkerFileURI,
@@ -252,11 +253,6 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 		window?.toggleFullScreen();
 	}
 
-	async handleTitleDoubleClick(windowId: number | undefined, options?: INativeHostOptions): Promise<void> {
-		const window = this.windowById(options?.targetWindowId, windowId);
-		window?.handleTitleDoubleClick();
-	}
-
 	async getCursorScreenPoint(windowId: number | undefined): Promise<{ readonly point: IPoint; readonly display: IRectangle }> {
 		const point = screen.getCursorScreenPoint();
 		const display = screen.getDisplayNearestPoint(point);
@@ -267,21 +263,6 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 	async isMaximized(windowId: number | undefined, options?: INativeHostOptions): Promise<boolean> {
 		const window = this.windowById(options?.targetWindowId, windowId);
 		return window?.win?.isMaximized() ?? false;
-	}
-
-	async maximizeWindow(windowId: number | undefined, options?: INativeHostOptions): Promise<void> {
-		const window = this.windowById(options?.targetWindowId, windowId);
-		window?.win?.maximize();
-	}
-
-	async unmaximizeWindow(windowId: number | undefined, options?: INativeHostOptions): Promise<void> {
-		const window = this.windowById(options?.targetWindowId, windowId);
-		window?.win?.unmaximize();
-	}
-
-	async minimizeWindow(windowId: number | undefined, options?: INativeHostOptions): Promise<void> {
-		const window = this.windowById(options?.targetWindowId, windowId);
-		window?.win?.minimize();
 	}
 
 	async moveWindowTop(windowId: number | undefined, options?: INativeHostOptions): Promise<void> {
@@ -330,7 +311,9 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 	}
 
 	async saveWindowSplash(windowId: number | undefined, splash: IPartsSplash): Promise<void> {
-		this.themeMainService.saveWindowSplash(windowId, splash);
+		const window = this.codeWindowById(windowId);
+
+		this.themeMainService.saveWindowSplash(windowId, window?.openedWorkspace, splash);
 	}
 
 	//#endregion
@@ -706,6 +689,7 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 	async getScreenshot(windowId: number | undefined, options?: INativeHostOptions): Promise<ArrayBufferLike | undefined> {
 		const window = this.windowById(options?.targetWindowId, windowId);
 		const captured = await window?.win?.webContents.capturePage();
+
 		return captured?.toJPEG(95);
 	}
 
@@ -874,12 +858,6 @@ export class NativeHostMainService extends Disposable implements INativeHostMain
 	//#region Connectivity
 
 	async resolveProxy(windowId: number | undefined, url: string): Promise<string | undefined> {
-		if (this.environmentMainService.extensionTestsLocationURI) {
-			const testProxy = this.configurationService.getValue<string>('integration-test.http.proxy');
-			if (testProxy) {
-				return testProxy;
-			}
-		}
 		const window = this.codeWindowById(windowId);
 		const session = window?.win?.webContents?.session;
 

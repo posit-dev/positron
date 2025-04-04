@@ -92,6 +92,19 @@ test.describe('Reticulate', {
 		await verifyReticulateFunctionality(app, interpreter, sequential);
 
 	});
+
+	test('R - Verify Reticulate Restart', {
+		tag: [tags.RETICULATE, tags.CONSOLE]
+	}, async function ({ app, interpreter }) {
+		const interpreterDesc = 'Python (reticulate)';
+		if (!sequential) {
+			await app.workbench.interpreter.selectInterpreter('Python', interpreterDesc, true);
+		}
+		await app.workbench.interpreter.verifyInterpreterIsRunning(interpreterDesc);
+
+		await app.workbench.interpreter.restartPrimaryInterpreter(interpreterDesc);
+		await app.workbench.interpreter.verifyInterpreterIsRunning(interpreterDesc);
+	});
 });
 
 async function verifyReticulateFunctionality(app, interpreter, sequential) {

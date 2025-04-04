@@ -36,7 +36,6 @@ import { EditOperation, ISingleEditOperation } from '../../../../../editor/commo
 import { TabCompletionController } from '../../../snippets/browser/tabCompletion.js';
 import { TerminalContextKeys } from '../../../terminal/common/terminalContextKey.js';
 import { ParameterHintsController } from '../../../../../editor/contrib/parameterHints/browser/parameterHints.js';
-import { IInputHistoryEntry } from '../../../executionHistory/common/executionHistoryService.js';
 import { SelectionClipboardContributionID } from '../../../codeEditor/browser/selectionClipboard.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -46,6 +45,7 @@ import { HistoryPrefixMatchStrategy } from '../../common/historyPrefixMatchStrat
 import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from '../../common/historyMatchStrategy.js';
 import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ContentHoverController } from '../../../../../editor/contrib/hover/browser/contentHoverController.js';
+import { IInputHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
 
 // Position enumeration.
 const enum Position {
@@ -89,6 +89,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
 		useStateRef<string | undefined>(undefined);
+	const shouldExecuteOnStartRef = useRef(false);
 
 	/**
 	 * Determines whether it is OK to take focus.
@@ -157,8 +158,13 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Get the code from the code editor widget.
 		const code = codeEditorWidgetRef.current.getValue();
 
+		// Get the session to check against.
+		const session = props.positronConsoleInstance.attachedRuntimeSession;
+		if (!session) {
+			return false;
+		}
 		// Check on whether the code is complete and can be executed.
-		switch (await props.positronConsoleInstance.session.isCodeFragmentComplete(code)) {
+		switch (await session.isCodeFragmentComplete(code)) {
 			// If the code fragment is complete, execute it.
 			case RuntimeCodeFragmentStatus.Complete:
 				break;
@@ -195,8 +201,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Immediately change the prompt to be spaces to eliminate prompt flickering.
 		const promptWidth = Math.max(
-			props.positronConsoleInstance.session.dynState.inputPrompt.length,
-			props.positronConsoleInstance.session.dynState.continuationPrompt.length
+			session.dynState.inputPrompt.length,
+			session.dynState.continuationPrompt.length
 		);
 		codeEditorWidgetRef.current.updateOptions({
 			lineNumbers: (_: number) => ' '.repeat(promptWidth),
@@ -288,6 +294,83 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Dismiss the history browser.
 		disengageHistoryBrowser();
 	};
+
+	/**
+	 * Consumes an event.
+	 */
+	const consumeKbdEvent = (e: IKeyboardEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+	};
+	const navigateHistoryUp = (e: IKeyboardEvent) => {
+		// If the history browser is present, Up should select the
+		// previous history item.
+		if (historyBrowserActiveRef.current) {
+			setHistoryBrowserSelectedIndex(Math.max(
+				0, historyBrowserSelectedIndexRef.current - 1));
+			consumeKbdEvent(e);
+			return;
+		}
+
+		// Get the position. If it's at line number 1, allow backward history navigation.
+		const position = codeEditorWidgetRef.current.getPosition();
+		if (position?.lineNumber === 1) {
+			// Consume the event.
+			consumeKbdEvent(e);
+
+			// If there are history entries, process the event.
+			if (historyNavigatorRef.current) {
+				// When the user moves up from the end, and we don't have a current code editor
+				// fragment, set the current code fragment. Otherwise, move to the previous
+				// entry.
+				if (historyNavigatorRef.current.isAtEnd() &&
+					currentCodeFragmentRef.current === undefined) {
+					setCurrentCodeFragment(codeEditorWidgetRef.current.getValue());
+				} else {
+					historyNavigatorRef.current.previous();
+				}
+
+				// Get the current history entry, set it as the value of the code editor widget.
+				const inputHistoryEntry = historyNavigatorRef.current.current();
+				codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
+
+				// Position the code editor widget.
+				updateCodeEditorWidgetPosition(Position.First, Position.Last);
+			}
+		}
+	};
+
+	const navigateHistoryDown = (e: IKeyboardEvent) => {
+
+		// Get the position and text model. If it's on the last line, allow forward history
+		// navigation.
+		const position = codeEditorWidgetRef.current.getPosition();
+		const textModel = codeEditorWidgetRef.current.getModel();
+		if (position?.lineNumber === textModel?.getLineCount()) {
+			// Consume the event.
+			consumeKbdEvent(e);
+
+			// If there are history entries, process the event.
+			if (historyNavigatorRef.current) {
+				// When the user reaches the end of the history entries, restore the current
+				// code fragment.
+				if (historyNavigatorRef.current.isAtEnd()) {
+					if (currentCodeFragmentRef.current !== undefined) {
+						codeEditorWidgetRef.current.setValue(currentCodeFragmentRef.current);
+						setCurrentCodeFragment(undefined);
+					}
+				} else {
+					// Move to the next history entry and set it as the value of the code editor
+					// widget.
+					const inputHistoryEntry = historyNavigatorRef.current.next();
+					codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
+				}
+
+				// Position the code editor widget.
+				updateCodeEditorWidgetPosition(Position.Last, Position.Last);
+			}
+		}
+	}
 
 	// Key down event handler.
 	const keyDownHandler = async (e: IKeyboardEvent) => {
@@ -402,9 +485,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			case KeyCode.KeyR: {
 				// When Ctrl-R is pressed, engage a reverse history search (like bash).
 				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
-					engageHistoryBrowser(new HistoryInfixMatchStrategy(
-						historyNavigatorRef.current!
-					));
+					const entries = new HistoryNavigator2<IInputHistoryEntry>(
+						positronConsoleContext.executionHistoryService.getInputEntries(
+							props.positronConsoleInstance.runtimeMetadata.languageId
+						)
+					)
+					engageHistoryBrowser(new HistoryInfixMatchStrategy(entries));
 					consumeEvent();
 				}
 
@@ -419,6 +505,34 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					break;
 				}
 				break;
+			}
+
+			case KeyCode.KeyP: {
+				// Bind Ctrl+P to navigate history up ("Previous"). This is a GNU
+				// readline keybinding.
+				//
+				// <C-N> and <C-P> are only bound on macOS. This is because on
+				// Windows and Linux, <C-P> is the binding for opening the
+				// Command Palette.
+				if (isMacintosh) {
+					if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
+						consumeEvent();
+						navigateHistoryUp(e);
+						break;
+					}
+				}
+			}
+
+			case KeyCode.KeyN: {
+				// Bind Ctrl+N to navigate history down ("Next"). This is a GNU
+				// readline keybinding.
+				if (isMacintosh) {
+					if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
+						consumeEvent();
+						navigateHistoryDown(e);
+						break;
+					}
+				}
 			}
 
 			// Tab processing.
@@ -438,47 +552,16 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					// If the cmd or ctrl key is pressed, and the history
 					// browser is not up, engage the history browser with the
 					// prefix match strategy. This behavior mimics RStudio.
-					engageHistoryBrowser(new HistoryPrefixMatchStrategy(
-						historyNavigatorRef.current!
-					));
+					const entries = new HistoryNavigator2<IInputHistoryEntry>(
+						positronConsoleContext.executionHistoryService.getInputEntries(
+							props.positronConsoleInstance.runtimeMetadata.languageId
+						)
+					)
+					engageHistoryBrowser(new HistoryPrefixMatchStrategy(entries));
 					consumeEvent();
 					break;
-				}
-
-				// If the history browser is present, Up should select the
-				// previous history item.
-				else if (historyBrowserActiveRef.current) {
-					setHistoryBrowserSelectedIndex(Math.max(
-						0, historyBrowserSelectedIndexRef.current - 1));
-					consumeEvent();
-					break;
-				}
-
-				// Get the position. If it's at line number 1, allow backward history navigation.
-				const position = codeEditorWidgetRef.current.getPosition();
-				if (position?.lineNumber === 1) {
-					// Consume the event.
-					consumeEvent();
-
-					// If there are history entries, process the event.
-					if (historyNavigatorRef.current) {
-						// When the user moves up from the end, and we don't have a current code editor
-						// fragment, set the current code fragment. Otherwise, move to the previous
-						// entry.
-						if (historyNavigatorRef.current.isAtEnd() &&
-							currentCodeFragmentRef.current === undefined) {
-							setCurrentCodeFragment(codeEditorWidgetRef.current.getValue());
-						} else {
-							historyNavigatorRef.current.previous();
-						}
-
-						// Get the current history entry, set it as the value of the code editor widget.
-						const inputHistoryEntry = historyNavigatorRef.current.current();
-						codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
-
-						// Position the code editor widget.
-						updateCodeEditorWidgetPosition(Position.First, Position.Last);
-					}
+				} else {
+					navigateHistoryUp(e);
 				}
 				break;
 			}
@@ -493,36 +576,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 						historyBrowserSelectedIndexRef.current + 1));
 					consumeEvent();
 					break;
+				} else {
+					navigateHistoryDown(e);
 				}
 
-				// Get the position and text model. If it's on the last line, allow forward history
-				// navigation.
-				const position = codeEditorWidgetRef.current.getPosition();
-				const textModel = codeEditorWidgetRef.current.getModel();
-				if (position?.lineNumber === textModel?.getLineCount()) {
-					// Consume the event.
-					consumeEvent();
-
-					// If there are history entries, process the event.
-					if (historyNavigatorRef.current) {
-						// When the user reaches the end of the history entries, restore the current
-						// code fragment.
-						if (historyNavigatorRef.current.isAtEnd()) {
-							if (currentCodeFragmentRef.current !== undefined) {
-								codeEditorWidgetRef.current.setValue(currentCodeFragmentRef.current);
-								setCurrentCodeFragment(undefined);
-							}
-						} else {
-							// Move to the next history entry and set it as the value of the code editor
-							// widget.
-							const inputHistoryEntry = historyNavigatorRef.current.next();
-							codeEditorWidgetRef.current.setValue(inputHistoryEntry.input);
-						}
-
-						// Position the code editor widget.
-						updateCodeEditorWidgetPosition(Position.Last, Position.Last);
-					}
-				}
 				break;
 			}
 
@@ -564,6 +621,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 				// If the console instance isn't ready, ignore the event.
 				if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
+					if (!shouldExecuteOnStartRef.current) {
+						shouldExecuteOnStartRef.current = true;
+					}
 					break;
 				}
 
@@ -595,9 +655,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Build the history entries, if there is input history.
-		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getInputEntries(
-			props.positronConsoleInstance.session.runtimeMetadata.languageId
+		// Build the history entries, if there is input history. This input
+		// history is used for navigating inside this session with navigation
+		// keys (e.g. up, down), so it includes only the current session's
+		// input.
+		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getSessionInputEntries(
+			props.positronConsoleInstance.sessionMetadata.sessionId
 		);
 		if (inputHistoryEntries.length) {
 			// console.log(`There are input history entries for ${props.positronConsoleInstance.runtime.metadata.languageId}`);
@@ -613,28 +676,34 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		 * Creates the ILineNumbersOptions from IEditorOptions for the CodeEditorWidget.
 		 * @returns The ILineNumbersOptions from IEditorOptions for the CodeEditorWidget.
 		 */
-		const createLineNumbersOptions = (): ILineNumbersOptions => ({
-			lineNumbers: ((): LineNumbersType => {
-				switch (props.positronConsoleInstance.state) {
-					// When uninitialized, starting, or ready, use the show prompt line numbers
-					// function.
-					case PositronConsoleState.Uninitialized:
-					case PositronConsoleState.Starting:
-					case PositronConsoleState.Ready:
-						return (lineNumber: number) => lineNumber < 2 ?
-							props.positronConsoleInstance.session.dynState.inputPrompt :
-							props.positronConsoleInstance.session.dynState.continuationPrompt;
+		const createLineNumbersOptions = (): ILineNumbersOptions => {
+			const session = props.positronConsoleInstance.attachedRuntimeSession;
+			if (!session) {
+				return { lineNumbers: () => '', lineNumbersMinChars: 0 };
+			}
+			return {
+				lineNumbers: ((): LineNumbersType => {
+					switch (props.positronConsoleInstance.state) {
+						// When uninitialized, starting, or ready, use the show prompt line numbers
+						// function.
+						case PositronConsoleState.Uninitialized:
+						case PositronConsoleState.Starting:
+						case PositronConsoleState.Ready:
+							return (lineNumber: number) => lineNumber < 2 ?
+								session.dynState.inputPrompt :
+								session.dynState.continuationPrompt;
 
-					// In any other state, use the hide prompt line numbers function.
-					default:
-						return (_lineNumber: number) => '';
-				}
-			})(),
-			lineNumbersMinChars: Math.max(
-				props.positronConsoleInstance.session.dynState.inputPrompt.length,
-				props.positronConsoleInstance.session.dynState.continuationPrompt.length
-			)
-		});
+						// In any other state, use the hide prompt line numbers function.
+						default:
+							return (_lineNumber: number) => '';
+					}
+				})(),
+				lineNumbersMinChars: Math.max(
+					session.dynState.inputPrompt.length,
+					session.dynState.continuationPrompt.length
+				)
+			};
+		};
 
 		/**
 		 * Creates the full set of IEditorOptions for the CodeEditorWidget.
@@ -699,6 +768,13 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			}
 		);
 
+		// This fixes https://github.com/posit-dev/positron/issues/2281 by stopping mouse down
+		// events from propagating to the ConsoleInstance, which has its own context menu that was
+		// showing instead of the CodeEditorWidget's context menu.
+		codeEditorWidget.onMouseDown(e => {
+			e.event.stopPropagation();
+		});
+
 		// Add the code editor widget to the disposables store.
 		disposableStore.add(codeEditorWidget);
 		setCodeEditorWidget(codeEditorWidget);
@@ -710,11 +786,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		codeEditorWidget.setModel(positronConsoleContext.modelService.createModel(
 			'',
 			positronConsoleContext.languageService.createById(
-				props.positronConsoleInstance.session.runtimeMetadata.languageId
+				props.positronConsoleInstance.runtimeMetadata.languageId
 			),
 			URI.from({
 				scheme: Schemas.inMemory,
-				path: `/repl-${props.positronConsoleInstance.session.runtimeMetadata.languageId}-${generateUuid()}`
+				path: `/repl-${props.positronConsoleInstance.runtimeMetadata.languageId}-${generateUuid()}`
 			}),
 			false
 		));
@@ -812,6 +888,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
 			// Update just the line number options.
 			codeEditorWidget.updateOptions(createLineNumbersOptions());
+			if (state === PositronConsoleState.Ready && shouldExecuteOnStartRef.current) {
+				shouldExecuteOnStartRef.current = false;
+				executeCodeEditorWidgetCodeIfPossible();
+			}
 		}));
 
 		// Add the onDidPasteText event handler.
@@ -917,15 +997,18 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		}));
 
 		// Add the onDidReceiveRuntimeMessagePromptConfig event handler.
-		disposableStore.add(
-			props.positronConsoleInstance.session.onDidReceiveRuntimeMessagePromptConfig(() => {
-				// Update just the line number options.
-				codeEditorWidget.updateOptions(createLineNumbersOptions());
+		const session = props.positronConsoleInstance.attachedRuntimeSession;
+		if (session) {
+			disposableStore.add(
+				session.onDidReceiveRuntimeMessagePromptConfig(() => {
+					// Update just the line number options.
+					codeEditorWidget.updateOptions(createLineNumbersOptions());
 
-				// Render the code editor widget.
-				codeEditorWidget.render(true);
-			})
-		);
+					// Render the code editor widget.
+					codeEditorWidget.render(true);
+				})
+			);
+		}
 
 		// If it's OK to take focus, drive focus into the code editor widget.
 		if (okToTakeFocus()) {
@@ -953,8 +1036,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	 * @param e A FocusEvent<HTMLDivElement, Element> that contains the event data.
 	 */
 	const focusHandler = (e: FocusEvent<HTMLDivElement, Element>) => {
-		// Drive focus into the code editor widget.
-		if (codeEditorWidgetRef.current) {
+		// Drive focus into the code editor widget, if it doesn't already have it. Checking for
+		// hasTextFocus is part of the fix for https://github.com/posit-dev/positron/issues/2281.
+		// Without this check, the CodeEditorWidget's context menu is shown and immediately hidden
+		// by the unnecessary call to focus.
+		if (codeEditorWidgetRef.current && !codeEditorWidgetRef.current.hasTextFocus) {
 			codeEditorWidgetRef.current.focus();
 		}
 	};

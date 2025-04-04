@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,12 +8,13 @@ import * as chaiAsPromised from 'chai-as-promised';
 import * as sinon from 'sinon';
 import * as typemoq from 'typemoq';
 import { assert, use as chaiUse } from 'chai';
-import { Uri } from 'vscode';
+import { Uri, WorkspaceConfiguration } from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as path from 'path';
 import { EXTENSION_ROOT_DIR_FOR_TESTS } from '../constants';
 import * as commandApis from '../../client/common/vscodeApis/commandApis';
+import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 import * as createEnvironmentApis from '../../client/pythonEnvironments/creation/createEnvironment';
 import { IDisposableRegistry, IInterpreterPathService, IPathUtils } from '../../client/common/types';
 import { registerCreateEnvironmentFeatures } from '../../client/pythonEnvironments/creation/createEnvApi';
@@ -32,6 +33,7 @@ chaiUse(chaiAsPromised.default);
 suite('Positron Create Environment APIs', () => {
     let registerCommandStub: sinon.SinonStub;
     let handleCreateEnvironmentCommandStub: sinon.SinonStub;
+    let getConfigurationStub: sinon.SinonStub;
 
     const disposables: IDisposableRegistry = [];
     const mockProvider = createTypeMoq<CreateEnvironmentProvider>();
@@ -41,6 +43,7 @@ suite('Positron Create Environment APIs', () => {
     let pathUtils: typemoq.IMock<IPathUtils>;
     let interpreterQuickPick: typemoq.IMock<IInterpreterQuickPick>;
     let interpreterPathService: typemoq.IMock<IInterpreterPathService>;
+    let workspaceConfig: typemoq.IMock<WorkspaceConfiguration>;
 
     // Test workspace
     const workspace1 = {
@@ -72,6 +75,15 @@ suite('Positron Create Environment APIs', () => {
         pathUtils = createTypeMoq<IPathUtils>();
         interpreterQuickPick = createTypeMoq<IInterpreterQuickPick>();
         interpreterPathService = createTypeMoq<IInterpreterPathService>();
+        workspaceConfig = createTypeMoq<WorkspaceConfiguration>();
+
+        getConfigurationStub = sinon.stub(workspaceApis, 'getConfiguration');
+        getConfigurationStub.callsFake((section?: string) => {
+            if (section === 'python') {
+                return workspaceConfig.object;
+            }
+            return undefined;
+        });
 
         registerCommandStub.callsFake((_command: string, _callback: (...args: any[]) => any) => ({
             dispose: () => {

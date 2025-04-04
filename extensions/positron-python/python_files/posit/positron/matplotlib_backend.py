@@ -63,7 +63,7 @@ class FigureManagerPositron(FigureManagerBase):
         super().__init__(canvas, num)
 
         # Create the plot instance via the plots service.
-        self._plots_service = cast(PositronIPyKernel, PositronIPyKernel.instance()).plots_service
+        self._plots_service = cast("PositronIPyKernel", PositronIPyKernel.instance()).plots_service
         self._plot = self._plots_service.create_plot(canvas.render, canvas.intrinsic_size)
 
     @property

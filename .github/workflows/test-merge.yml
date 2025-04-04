@@ -15,6 +15,10 @@ jobs:
       project: "e2e-electron"
       display_name: "electron (ubuntu)"
       currents_tags: "merge,electron/ubuntu"
+      report_testrail: false
+      install_undetectable_interpreters: false
+      install_license: false
+      skip_tags: "@:nightly-only"
     secrets: inherit
 
   e2e-windows-electron:
@@ -36,6 +40,9 @@ jobs:
       project: "e2e-browser"
       currents_tags: "merge,browser/ubuntu"
       report_testrail: false
+      install_undetectable_interpreters: false
+      install_license: true
+      skip_tags: "@:nightly-only"
     secrets: inherit
 
   unit-tests:
@@ -54,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Notify Slack
-        uses: midleman/slack-workflow-status@v2.2.1
+        uses: midleman/slack-workflow-status@v2.3.0
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}

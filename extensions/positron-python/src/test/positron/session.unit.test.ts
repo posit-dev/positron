@@ -7,13 +7,10 @@
 
 import * as assert from 'assert';
 import { interfaces } from 'inversify';
-import * as os from 'os';
-import * as path from 'path';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
-import * as fs from '../../client/common/platform/fs-paths';
 import { ILanguageServerOutputChannel } from '../../client/activation/types';
 import { IApplicationShell, IWorkspaceService } from '../../client/common/application/types';
 import {
@@ -33,27 +30,21 @@ import {
     JupyterLanguageRuntimeSession,
 } from '../../client/positron-supervisor.d';
 import { PythonRuntimeSession } from '../../client/positron/session';
-import { InterpreterInformation, PythonEnvironment } from '../../client/pythonEnvironments/info';
-import { IPythonExecutionFactory, IPythonExecutionService } from '../../client/common/process/types';
+import { PythonEnvironment } from '../../client/pythonEnvironments/info';
 import { PythonVersion } from '../../client/pythonEnvironments/info/pythonVersion';
 import { mock } from './utils';
-import { EXTENSION_ROOT_DIR } from '../../client/constants';
+import { IpykernelBundle } from '../../client/positron/ipykernel';
 
 suite('Python Runtime Session', () => {
     let disposables: vscode.Disposable[];
     let applicationShell: IApplicationShell;
-    let runtimeMetadata: positron.LanguageRuntimeMetadata;
     let installerSpy: sinon.SinonSpiedInstance<IInstaller>;
     let interpreterPathService: IInterpreterPathService;
-    let workspaceConfiguration: vscode.WorkspaceConfiguration;
     let envVarsServiceSpy: sinon.SinonSpiedInstance<IEnvironmentVariablesService>;
-    let pythonExecutionService: IPythonExecutionService;
     let interpreter: PythonEnvironment;
     let serviceContainer: IServiceContainer;
     let kernelSpec: JupyterKernelSpec;
     let kernel: JupyterLanguageRuntimeSession;
-    let consoleSession: positron.LanguageRuntimeSession;
-    let notebookSession: positron.LanguageRuntimeSession;
 
     setup(() => {
         disposables = [];
@@ -69,11 +60,7 @@ suite('Python Runtime Session', () => {
         interpreter = mock<PythonEnvironment>({
             id: 'pythonEnvironmentId',
             path: '/path/to/python',
-            version: mock<PythonVersion>({ major: 3, minor: 8 }),
-        });
-
-        runtimeMetadata = mock<positron.LanguageRuntimeMetadata>({
-            extraRuntimeData: { pythonPath: interpreter.path },
+            version: mock<PythonVersion>({ major: 3, minor: 9 }),
         });
 
         const interpreterService = mock<IInterpreterService>({
@@ -89,13 +76,9 @@ suite('Python Runtime Session', () => {
 
         const outputChannel = mock<ILanguageServerOutputChannel>({});
 
-        workspaceConfiguration = mock<vscode.WorkspaceConfiguration>({
-            get: (section) => (section === 'useBundledIpykernel' ? true : undefined),
-        });
         const workspaceService = mock<IWorkspaceService>({
             workspaceFolders: undefined,
             getWorkspaceFolder: () => undefined,
-            getConfiguration: () => workspaceConfiguration,
         });
 
         const pythonSettings = mock<IPythonSettings>({
@@ -114,17 +97,6 @@ suite('Python Runtime Session', () => {
             appendPythonPath: () => Promise.resolve(),
         });
         envVarsServiceSpy = sinon.spy(envVarsService);
-
-        pythonExecutionService = mock<IPythonExecutionService>({
-            getInterpreterInformation: () =>
-                Promise.resolve(
-                    mock<InterpreterInformation>({ implementation: 'cpython', version: interpreter.version }),
-                ),
-        });
-
-        const pythonExecutionFactory = mock<IPythonExecutionFactory>({
-            create: () => Promise.resolve(pythonExecutionService),
-        });
 
         serviceContainer = mock<IServiceContainer>({
             get: <T>(serviceIdentifier: interfaces.ServiceIdentifier<T>) => {
@@ -145,8 +117,6 @@ suite('Python Runtime Session', () => {
                         return interpreterService as T;
                     case ILanguageServerOutputChannel:
                         return outputChannel as T;
-                    case IPythonExecutionFactory:
-                        return pythonExecutionFactory as T;
                     case IWorkspaceService:
                         return workspaceService as T;
                     default:
@@ -189,17 +159,18 @@ suite('Python Runtime Session', () => {
             get: () => undefined,
         });
         vscode.workspace.getConfiguration = () => nullConfig;
-
-        const consoleMetadata = mock<positron.RuntimeSessionMetadata>({
-            sessionMode: positron.LanguageRuntimeSessionMode.Console,
-        });
-        consoleSession = new PythonRuntimeSession(runtimeMetadata, consoleMetadata, serviceContainer, kernelSpec);
-
-        const notebookMetadata = mock<positron.RuntimeSessionMetadata>({
-            sessionMode: positron.LanguageRuntimeSessionMode.Notebook,
-        });
-        notebookSession = new PythonRuntimeSession(runtimeMetadata, notebookMetadata, serviceContainer, kernelSpec);
     });
+
+    function createSession(
+        sessionMode: positron.LanguageRuntimeSessionMode,
+        ipykernelBundle: IpykernelBundle = {},
+    ): PythonRuntimeSession {
+        const runtimeMetadata = mock<positron.LanguageRuntimeMetadata>({
+            extraRuntimeData: { pythonPath: interpreter.path, ipykernelBundle },
+        });
+        const metadata = mock<positron.RuntimeSessionMetadata>({ sessionMode });
+        return new PythonRuntimeSession(runtimeMetadata, metadata, serviceContainer, kernelSpec);
+    }
 
     teardown(() => {
         disposables.forEach((disposable) => disposable.dispose());
@@ -209,7 +180,8 @@ suite('Python Runtime Session', () => {
     test('Start: updates the active interpreter for console sessions', async () => {
         const target = sinon.spy(interpreterPathService, 'update');
 
-        await consoleSession.start();
+        const session = createSession(positron.LanguageRuntimeSessionMode.Console);
+        await session.start();
 
         sinon.assert.calledOnceWithExactly(
             target,
@@ -222,85 +194,34 @@ suite('Python Runtime Session', () => {
     test('Start: does not update the active interpreter for notebook sessions', async () => {
         const target = sinon.spy(interpreterPathService, 'update');
 
-        await notebookSession.start();
+        const session = createSession(positron.LanguageRuntimeSessionMode.Notebook);
+        await session.start();
 
         sinon.assert.notCalled(target);
     });
 
-    test('Start: bundle ipykernel', async () => {
-        // Start a console session.
-        await consoleSession.start();
+    test('Start: bundle ipykernel if enabled', async () => {
+        // Start a console session with ipykernel bundle paths.
+        const paths = ['path1', 'path2', 'path3'];
+        const ipykernelBundle: IpykernelBundle = { paths };
+        const session = createSession(positron.LanguageRuntimeSessionMode.Console, ipykernelBundle);
+        await session.start();
 
         // Should not try to use ipykernel from the environment.
         sinon.assert.notCalled(installerSpy.isProductVersionCompatible);
 
         // Ipykernel bundles should be added to the PYTHONPATH.
         sinon.assert.callCount(envVarsServiceSpy.appendPythonPath, 3);
-        const arch = os.arch();
-        assert.deepStrictEqual(envVarsServiceSpy.appendPythonPath.args[0], [
-            kernelSpec.env,
-            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', arch, 'cp38'),
-        ]);
-        assert.deepStrictEqual(envVarsServiceSpy.appendPythonPath.args[1], [
-            kernelSpec.env,
-            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', arch, 'cp3'),
-        ]);
-        assert.deepStrictEqual(envVarsServiceSpy.appendPythonPath.args[2], [
-            kernelSpec.env,
-            path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', 'py3'),
-        ]);
+        assert.deepStrictEqual(envVarsServiceSpy.appendPythonPath.args[0], [kernelSpec.env, paths[0]]);
+        assert.deepStrictEqual(envVarsServiceSpy.appendPythonPath.args[1], [kernelSpec.env, paths[1]]);
+        assert.deepStrictEqual(envVarsServiceSpy.appendPythonPath.args[2], [kernelSpec.env, paths[2]]);
     });
 
-    test('Start: dont bundle ipykernel if setting is disabled', async () => {
-        // Disable ipykernel bundling.
-        sinon.stub(workspaceConfiguration, 'get').withArgs('useBundledIpykernel').returns(false);
-
-        // Start a console session.
-        await consoleSession.start();
-
-        // PYTHONPATH should be unchanged.
-        sinon.assert.notCalled(envVarsServiceSpy.appendPythonPath);
-
-        // Should try to use ipykernel from the environment.
-        sinon.assert.called(installerSpy.isProductVersionCompatible);
-    });
-
-    test('Start: dont bundle ipykernel if version is incompatible', async () => {
-        // Stub the interpreter version to be incompatible.
-        sinon.stub(interpreter, 'version').get(() => mock<PythonVersion>({ major: 2, minor: 7 }));
-
-        // Start a console session.
-        await consoleSession.start();
-
-        // PYTHONPATH should be unchanged.
-        sinon.assert.notCalled(envVarsServiceSpy.appendPythonPath);
-
-        // Should try to use ipykernel from the environment.
-        sinon.assert.called(installerSpy.isProductVersionCompatible);
-    });
-
-    test('Start: dont bundle ipykernel if implementation is incompatible', async () => {
-        // Stub the interpreter implementation to be incompatible.
-        sinon.stub(pythonExecutionService, 'getInterpreterInformation').resolves(
-            mock<InterpreterInformation>({ implementation: 'not_cpython', version: interpreter.version }),
-        );
-
-        // Start a console session.
-        await consoleSession.start();
-
-        // PYTHONPATH should be unchanged.
-        sinon.assert.notCalled(envVarsServiceSpy.appendPythonPath);
-
-        // Should try to use ipykernel from the environment.
-        sinon.assert.called(installerSpy.isProductVersionCompatible);
-    });
-
-    test('Start: dont bundle if bundle path does not exist', async () => {
-        // Simulate the bundle paths not existing.
-        sinon.stub(fs, 'pathExists').resolves(false);
-
-        // Start a console session.
-        await consoleSession.start();
+    test('Start: dont bundle ipykernel if disabled', async () => {
+        // Start a console session with ipykernel bunding disabled.
+        const ipykernelBundle: IpykernelBundle = { disabledReason: 'disabled' };
+        const session = createSession(positron.LanguageRuntimeSessionMode.Console, ipykernelBundle);
+        await session.start();
 
         // PYTHONPATH should be unchanged.
         sinon.assert.notCalled(envVarsServiceSpy.appendPythonPath);
@@ -311,18 +232,19 @@ suite('Python Runtime Session', () => {
 
     test('Execute: dont uninstall bundled packages', async () => {
         // Start a console session.
-        await consoleSession.start();
+        const session = createSession(positron.LanguageRuntimeSessionMode.Console);
+        await session.start();
 
         // Spy on the kernel execute method.
         const executeSpy = sinon.spy(kernel, 'execute');
 
         // Record emitted runtime messages.
         const messages: positron.LanguageRuntimeMessage[] = [];
-        disposables.push(consoleSession.onDidReceiveRuntimeMessage((message) => messages.push(message)));
+        disposables.push(session.onDidReceiveRuntimeMessage((message) => messages.push(message)));
 
         // Execute a command that tries to uninstall a bundled package.
         const id = 'execute-id';
-        consoleSession.execute(
+        session.execute(
             'pip uninstall ipykernel',
             id,
             positron.RuntimeCodeExecutionMode.Interactive,

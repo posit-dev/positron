@@ -6,14 +6,18 @@
 import { defineConfig } from '@playwright/test';
 import { CustomTestOptions } from './test/e2e/tests/_test.setup';
 import type { GitHubActionOptions } from '@midleman/github-actions-reporter';
-import { currentsReporter } from '@currents/playwright';
+import { currentsReporter, CurrentsFixtures, CurrentsWorkerFixtures } from '@currents/playwright';
+
+// Merge Currents Fixtures into CustomTestOptions
+type ExtendedTestOptions = CustomTestOptions & CurrentsFixtures & CurrentsWorkerFixtures;
 
 process.env.PW_TEST = '1';
 
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
-export default defineConfig<CustomTestOptions>({
+export default defineConfig<ExtendedTestOptions>({
+	captureGitInfo: { commit: true, diff: true },
 	globalSetup: './test/e2e/tests/_global.setup.ts',
 	testDir: './test/e2e',
 	testIgnore: '**/example.test.ts',
@@ -63,6 +67,7 @@ export default defineConfig<CustomTestOptions>({
 		trace: 'off', // we are manually handling tracing in _test.setup.ts
 		actionTimeout: 15000,
 		navigationTimeout: 15000,
+		currentsFixturesEnabled: !!process.env.CI,
 	},
 
 	projects: [
@@ -72,7 +77,7 @@ export default defineConfig<CustomTestOptions>({
 				web: false,
 				artifactDir: 'e2e-electron'
 			},
-
+			grepInvert: /@:web-only/
 		},
 		{
 			name: 'e2e-browser',
@@ -89,7 +94,8 @@ export default defineConfig<CustomTestOptions>({
 				web: false,
 				artifactDir: 'e2e-windows',
 			},
-			grep: /@:win/
+			grep: /@:win/,
+			grepInvert: /@:web-only/
 		},
 	],
 });

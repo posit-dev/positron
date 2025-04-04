@@ -17,21 +17,28 @@ import * as fs from '../common/platform/fs-paths';
 import { IServiceContainer } from '../ioc/types';
 import { pythonRuntimeDiscoverer } from './discoverer';
 import { IInterpreterService } from '../interpreter/contracts';
-import { traceError, traceInfo } from '../logging';
-import { IConfigurationService, IDisposable } from '../common/types';
+import { traceError, traceInfo, traceLog } from '../logging';
+import { IConfigurationService, IDisposable, IInstaller, InstallerResponse, Product } from '../common/types';
 import { PythonRuntimeSession } from './session';
 import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
-import { EXTENSION_ROOT_DIR, MINIMUM_PYTHON_VERSION } from '../common/constants';
+import { Commands, EXTENSION_ROOT_DIR } from '../common/constants';
 import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
-import { checkAndInstallPython } from './extension';
-import { shouldIncludeInterpreter, isVersionSupported } from './interpreterSettings';
-import { parseVersion, toSemverLikeVersion } from '../pythonEnvironments/base/info/pythonVersion';
-import { PythonVersion } from '../pythonEnvironments/info/pythonVersion';
+import { shouldIncludeInterpreter, getUserDefaultInterpreter } from './interpreterSettings';
+import { hasFiles } from './util';
+import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
+import { EnvironmentType } from '../pythonEnvironments/info';
+import { IApplicationShell } from '../common/application/types';
+import { Interpreters } from '../common/utils/localize';
 
 export const IPythonRuntimeManager = Symbol('IPythonRuntimeManager');
 
 export interface IPythonRuntimeManager extends positron.LanguageRuntimeManager {
+    /**
+     * An event that fires when a new Python language runtime session is created or restored.
+     */
+    onDidCreateSession: Event<PythonRuntimeSession>;
+
     registerLanguageRuntimeFromPath(pythonPath: string): Promise<positron.LanguageRuntimeMetadata | undefined>;
     selectLanguageRuntimeFromPath(pythonPath: string): Promise<void>;
 }
@@ -41,7 +48,7 @@ export interface IPythonRuntimeManager extends positron.LanguageRuntimeManager {
  * implements positron.LanguageRuntimeManager.
  */
 @injectable()
-export class PythonRuntimeManager implements IPythonRuntimeManager {
+export class PythonRuntimeManager implements IPythonRuntimeManager, vscode.Disposable {
     /**
      * A map of Python interpreter paths to their language runtime metadata.
      */
@@ -49,14 +56,21 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
 
     private disposables: IDisposable[] = [];
 
-    private readonly onDidDiscoverRuntimeEmitter = new EventEmitter<positron.LanguageRuntimeMetadata>();
+    private readonly _onDidDiscoverRuntime = new EventEmitter<positron.LanguageRuntimeMetadata>();
+
+    private readonly _onDidCreateSession = new EventEmitter<PythonRuntimeSession>();
+
+    /**
+     * An event that fires when a new Python language runtime is discovered.
+     */
+    public readonly onDidDiscoverRuntime = this._onDidDiscoverRuntime.event;
+
+    public readonly onDidCreateSession = this._onDidCreateSession.event;
 
     constructor(
         @inject(IServiceContainer) private readonly serviceContainer: IServiceContainer,
         @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
     ) {
-        this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
-
         positron.runtime.registerLanguageRuntimeManager('python', this);
 
         this.disposables.push(
@@ -98,18 +112,64 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
     }
 
     /**
-     * Recommend a Python language runtime based on the workspace.
+     * Get the recommended Python interpreter path for the workspace.
+     * Returns an object with the path and whether it should be immediately selected.
      */
-    async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
-        // TODO: This is where we could recommend a runtime based on the
-        // workspace, e.g. if it contains a virtualenv
-        return undefined;
+    private async recommendedWorkspaceInterpreterPath(
+        workspaceUri: vscode.Uri | undefined,
+    ): Promise<{ path: string | undefined; isImmediate: boolean }> {
+        const userInterpreterSettings = getUserDefaultInterpreter(workspaceUri);
+        let interpreterPath: string | undefined;
+        let isImmediate = false;
+
+        if (!workspaceUri) {
+            if (userInterpreterSettings.globalValue) {
+                interpreterPath = userInterpreterSettings.globalValue;
+            } else {
+                return { path: undefined, isImmediate };
+            }
+        } else if (await hasFiles(['.venv/**/*'])) {
+            interpreterPath = path.join(workspaceUri.fsPath, '.venv', 'bin', 'python');
+            isImmediate = true;
+        } else if (await hasFiles(['.conda/**/*'])) {
+            interpreterPath = path.join(workspaceUri.fsPath, '.conda', 'bin', 'python');
+            isImmediate = true;
+        } else if (await hasFiles(['*/bin/python'])) {
+            // if we found */bin/python but not .venv or .conda, use the first one we find
+            const files = await vscode.workspace.findFiles('*/bin/python', '**/node_modules/**');
+            if (files.length > 0) {
+                interpreterPath = files[0].fsPath;
+                isImmediate = true;
+            }
+        } else {
+            interpreterPath =
+                userInterpreterSettings.workspaceValue ||
+                userInterpreterSettings.workspaceFolderValue ||
+                userInterpreterSettings.globalValue;
+        }
+
+        return { path: interpreterPath, isImmediate };
     }
 
     /**
-     * An event that fires when a new Python language runtime is discovered.
+     * Recommend a Python language runtime based on the workspace.
      */
-    onDidDiscoverRuntime: Event<positron.LanguageRuntimeMetadata>;
+    async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+        // TODO: may need other handling for multiroot workspaces
+        const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+        const { path: interpreterPath, isImmediate } = await this.recommendedWorkspaceInterpreterPath(workspaceUri);
+
+        if (interpreterPath) {
+            const interpreter = await this.interpreterService.getInterpreterDetails(interpreterPath, workspaceUri);
+            if (interpreter) {
+                const metadata = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, isImmediate);
+                traceInfo(`Recommended runtime for workspace: ${interpreter.path}`);
+                return metadata;
+            }
+        }
+        traceInfo('No recommended workspace runtime found.');
+        return undefined;
+    }
 
     /**
      * Registers a new language runtime with Positron.
@@ -118,18 +178,11 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
      */
     public registerLanguageRuntime(runtime: positron.LanguageRuntimeMetadata): void {
         const extraData = runtime.extraRuntimeData as PythonRuntimeExtraData;
-        const pythonVersion: PythonVersion = toSemverLikeVersion(parseVersion(runtime.languageVersion));
-
-        // Check if the interpreter should be included in the list of registered runtimes
-        if (!isVersionSupported(pythonVersion, MINIMUM_PYTHON_VERSION)) {
-            traceInfo(`Not registering runtime ${extraData.pythonPath} as it is not a supported version.`);
-            return;
-        }
 
         if (shouldIncludeInterpreter(extraData.pythonPath)) {
             // Save the runtime for later use
             this.registeredPythonRuntimes.set(extraData.pythonPath, runtime);
-            this.onDidDiscoverRuntimeEmitter.fire(runtime);
+            this._onDidDiscoverRuntime.fire(runtime);
         } else {
             traceInfo(`Not registering runtime ${extraData.pythonPath} as it is excluded via user settings.`);
         }
@@ -215,6 +268,10 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
             // On Windows, we need to use the 'signal' interrupt mode since 'message' is
             // not supported.
             interrupt_mode: os.platform() === 'win32' ? 'signal' : 'message',
+            // In the future this may need to be updated to reflect the exact version of
+            // the protocol supported by ipykernel. For now, use 5.3 as a lowest
+            // common denominator.
+            kernel_protocol_version: '5.3',
             env,
         };
 
@@ -222,7 +279,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
 
         // Create an adapter for the kernel to fulfill the LanguageRuntime interface.
         traceInfo(`createPythonSession: creating PythonRuntime`);
-        return new PythonRuntimeSession(runtimeMetadata, sessionMetadata, this.serviceContainer, kernelSpec);
+        return this.createPythonSession(runtimeMetadata, sessionMetadata, kernelSpec);
     }
 
     /**
@@ -237,7 +294,17 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
         runtimeMetadata: positron.LanguageRuntimeMetadata,
         sessionMetadata: positron.RuntimeSessionMetadata,
     ): Promise<positron.LanguageRuntimeSession> {
-        return new PythonRuntimeSession(runtimeMetadata, sessionMetadata, this.serviceContainer);
+        return this.createPythonSession(runtimeMetadata, sessionMetadata);
+    }
+
+    private createPythonSession(
+        runtimeMetadata: positron.LanguageRuntimeMetadata,
+        sessionMetadata: positron.RuntimeSessionMetadata,
+        kernelSpec?: JupyterKernelSpec,
+    ): positron.LanguageRuntimeSession {
+        const session = new PythonRuntimeSession(runtimeMetadata, sessionMetadata, this.serviceContainer, kernelSpec);
+        this._onDidCreateSession.fire(session);
+        return session;
     }
 
     /**
@@ -358,4 +425,41 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
             traceError(`Tried to switch to a language runtime that has not been registered: ${pythonPath}`);
         }
     }
+}
+
+export async function checkAndInstallPython(
+    pythonPath: string,
+    serviceContainer: IServiceContainer,
+): Promise<InstallerResponse> {
+    const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
+    const interpreter = await interpreterService.getInterpreterDetails(pythonPath);
+    if (!interpreter) {
+        return InstallerResponse.Ignore;
+    }
+    if (
+        isProblematicCondaEnvironment(interpreter) ||
+        (interpreter.id && !fs.existsSync(interpreter.id) && interpreter.envType === EnvironmentType.Conda)
+    ) {
+        if (interpreter) {
+            const installer = serviceContainer.get<IInstaller>(IInstaller);
+            const shell = serviceContainer.get<IApplicationShell>(IApplicationShell);
+            const progressOptions: vscode.ProgressOptions = {
+                location: vscode.ProgressLocation.Window,
+                title: `[${Interpreters.installingPython}](command:${Commands.ViewOutput})`,
+            };
+            traceLog('Conda envs without Python are known to not work well; fixing conda environment...');
+            const promise = installer.install(
+                Product.python,
+                await interpreterService.getInterpreterDetails(pythonPath),
+            );
+            shell.withProgress(progressOptions, () => promise);
+
+            // If Python is not installed into the environment, install it.
+            if (!(await installer.isInstalled(Product.python))) {
+                traceInfo(`Python not able to be installed.`);
+                return InstallerResponse.Ignore;
+            }
+        }
+    }
+    return InstallerResponse.Installed;
 }

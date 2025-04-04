@@ -6,7 +6,7 @@
 import * as React from 'react';
 import * as DOM from '../../../../../vs/base/browser/dom.js';
 import { useEffect, useLayoutEffect } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PreviewWebview } from '../../../../../vs/workbench/contrib/positronPreview/browser/previewWebview';
+import { PreviewWebview } from '../../../../../vs/workbench/contrib/positronPreview/browser/previewWebview.js';
 
 interface EditorPreviewContainerProps {
 	/** The preview loaded into the container, if any */

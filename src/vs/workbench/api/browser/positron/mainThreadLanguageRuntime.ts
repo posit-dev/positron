@@ -43,6 +43,7 @@ import { IPositronWebviewPreloadService } from '../../../services/positronWebvie
 import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/browser/interfaces/runtimeNotebookKernelService.js';
 import { LanguageRuntimeSessionChannel } from '../../common/positron/extHostTypes.positron.js';
+import { basename } from '../../../../base/common/resources.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -145,6 +146,12 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 			...initialState.dynState,
 		};
 
+		// If the session is a notebook session, set the current notebook URI
+		// to dynamic data so that it can be displayed in the UI.
+		if (metadata.notebookUri) {
+			this.dynState.currentNotebookUri = metadata.notebookUri;
+		}
+
 		// Bind events to emitters
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
 		this.onDidCompleteStartup = this._startupEmitter.event;
@@ -171,6 +178,11 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 				// Remove all clients; none can send or receive data any more
 				this._clients.clear();
 			}
+		});
+
+		// Listen for changes to the foreground session and notify the extension host
+		this._runtimeSessionService.onDidChangeForegroundSession((session) => {
+			this._proxy.$notifyForegroundSessionChanged(session?.sessionId);
 		});
 
 		this._runtimeSessionService.onDidReceiveRuntimeEvent(globalEvent => {
@@ -932,6 +944,13 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		}
 	}
 
+	getLabel(): string {
+		// If we're a notebook session, use the notebook name, otherwise use the runtime name
+		if (this.dynState.currentNotebookUri) {
+			return basename(this.dynState.currentNotebookUri);
+		}
+		return this.metadata.sessionName;
+	}
 	static clientCounter = 0;
 
 	dispose(): void {
@@ -1261,6 +1280,12 @@ export class MainThreadLanguageRuntime
 		return Promise.resolve(this._runtimeStartupService.getPreferredRuntime(languageId));
 	}
 
+	$getActiveSessions(): Promise<IRuntimeSessionMetadata[]> {
+		return Promise.resolve(
+			this._runtimeSessionService.getActiveSessions().map(
+				activeSession => activeSession.session.metadata));
+	}
+
 	$getForegroundSession(): Promise<string | undefined> {
 		return Promise.resolve(this._runtimeSessionService.foregroundSession?.sessionId);
 	}
@@ -1310,6 +1335,12 @@ export class MainThreadLanguageRuntime
 			'Extension-requested runtime restart via Positron API');
 	}
 
+	// Called by the extension host to interrupt a running session
+	$interruptSession(handle: number): Promise<void> {
+		return this._runtimeSessionService.interruptSession(
+			this.findSession(handle).sessionId);
+	}
+
 	// Signals that language runtime discovery is complete.
 	$completeLanguageRuntimeDiscovery(): void {
 		this._runtimeStartupService.completeDiscovery(this._id);
@@ -1323,8 +1354,8 @@ export class MainThreadLanguageRuntime
 		}
 	}
 
-	$executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior): Promise<boolean> {
-		return this._positronConsoleService.executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior);
+	$executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): Promise<string> {
+		return this._positronConsoleService.executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, executionId);
 	}
 
 	public dispose(): void {
