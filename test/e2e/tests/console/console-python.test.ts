@@ -11,6 +11,12 @@ test.use({
 
 test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
 
+	test('Python - queue user input while interpreter is starting', async function ({ app, sessions }) {
+		await sessions.startAndSkipMetadata({ language: 'Python', waitForReady: false });
+		await app.workbench.console.executeCode('Python', 'import time; time.sleep(5); print("done");');
+		await app.workbench.console.waitForConsoleContents('done', { expectedCount: 2 });
+	});
+
 	test('Python - Verify restart button on console bar', async function ({ app, python }) {
 		// Need to make console bigger to see all bar buttons
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
@@ -44,14 +50,6 @@ test.describe('Console Pane: Alternate Python', () => {
 		await app.workbench.console.barClearButton.click();
 		await app.workbench.console.pasteCodeToConsole(`import ipykernel; ipykernel.__file__`, true);
 		await app.workbench.console.waitForConsoleContents('site-packages');
-	});
-
-	test('Python - queue user input while interpreter is starting', async function ({ app, sessions }) {
-
-		await sessions.start('python');
-		await app.workbench.console.typeToConsole('import time; time.sleep(5); print("done");', true);
-		await app.workbench.console.waitForConsoleContents('done', { expectedCount: 2 });
-
 	});
 
 });
