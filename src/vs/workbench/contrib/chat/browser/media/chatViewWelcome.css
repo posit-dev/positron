@@ -106,3 +106,9 @@ div.chat-welcome-view {
 		}
 	}
 }
+
+/* --- Start Positron --- */
+div.chat-welcome-view-container div.chat-welcome-view-message .rendered-markdown .codicon {
+	vertical-align: middle;
+}
+/* --- End Positron --- */
