@@ -476,6 +476,23 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
+	 * Focus a runtime session by setting it as the foreground session.
+	 */
+	focusSession(sessionId: string): void {
+		const session = this.getSession(sessionId);
+		if (!session) {
+			throw new Error(`Could not find session with id {sessionId}.`);
+		}
+
+		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+			this.foregroundSession = session;
+		} else {
+			// TODO: we could potentially focus the notebook editor in this case.
+			throw new Error(`Cannot focus a notebook session.`);
+		}
+	}
+
+	/**
 	 * Shutdown a runtime session.
 	 *
 	 * @param session The session to shutdown.

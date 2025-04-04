@@ -1180,6 +1180,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 				`it can be restarted.`));
 	}
 
+	public focusSession(sessionId: string): void {
+		for (let i = 0; i < this._runtimeSessions.length; i++) {
+			if (this._runtimeSessions[i].metadata.sessionId === sessionId) {
+				return this._proxy.$focusSession(i);
+			}
+		}
+		throw new Error(`Session with ID '${sessionId}' must be started before ` +
+			`it can be focused.`);
+	}
+
 	/**
 	 * Interrupts an active session.
 	 *
