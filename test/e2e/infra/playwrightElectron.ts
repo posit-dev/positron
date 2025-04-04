@@ -10,7 +10,7 @@ import { IElectronConfiguration, resolveElectronConfiguration } from './electron
 import { measureAndLog } from './logger';
 import { ChildProcess } from 'child_process';
 
-export async function launch(options: LaunchOptions): Promise<{ electronProcess: ChildProcess; driver: PlaywrightDriver }> {
+export async function launch(options: LaunchOptions): Promise<{ electronProcess: ChildProcess; driver: PlaywrightDriver, electronApp: playwright.ElectronApplication }> {
 
 	// Resolve electron config and update
 	const { electronPath, args, env } = await resolveElectronConfiguration(options);
@@ -22,7 +22,8 @@ export async function launch(options: LaunchOptions): Promise<{ electronProcess:
 
 	return {
 		electronProcess,
-		driver: new PlaywrightDriver(electron, context, page, undefined /* no server process */, Promise.resolve() /* Window is open already */, options)
+		driver: new PlaywrightDriver(electron, context, page, undefined /* no server process */, Promise.resolve() /* Window is open already */, options),
+		electronApp: electron
 	};
 }
 
