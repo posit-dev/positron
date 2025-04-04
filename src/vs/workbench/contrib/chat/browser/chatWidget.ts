@@ -67,6 +67,7 @@ import { ChatViewWelcomePart } from './viewsWelcome/chatViewWelcomeController.js
 // --- Start Positron ---
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { ILanguageModelsService } from '../common/languageModels.js';
+import { ChatActionBarControl } from './positron/chatActionBarControl.js';
 // --- End Positron ---
 
 const $ = dom.$;
@@ -162,6 +163,10 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	// private persistedWelcomeMessage: IChatWelcomeMessageContent | undefined;
 	// --- End Positron ---
 	private readonly welcomePart: MutableDisposable<ChatViewWelcomePart> = this._register(new MutableDisposable());
+
+	// --- Start Positron ---
+	private actionBarContainer!: ChatActionBarControl;
+	// --- End Positron ---
 
 	private bodyDimension: dom.Dimension | undefined;
 	private visibleChangeCount = 0;
@@ -506,6 +511,11 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 		this._register(this.editorOptions.onDidChange(() => this.onDidStyleChange()));
 		this.onDidStyleChange();
+
+		// --- Start Positron ---
+		this.actionBarContainer = this._register(this.instantiationService.createInstance(ChatActionBarControl));
+		this.actionBarContainer.render(this.container);
+		// --- End Positron ---
 
 		// Do initial render
 		if (this.viewModel) {
@@ -1292,7 +1302,10 @@ Always verify results. AI assistants can sometimes produce incorrect code.`);
 		} else if (this.viewOptions.enableWorkingSet) {
 			extraOffset = Math.max(100 - this.inputPart.editSessionWidgetHeight, 0);
 		}
-		this.welcomeMessageContainer.style.height = `${listHeight - extraOffset}px`;
+		// --- Start Positron ---
+		const actionBarHeight = this.actionBarContainer.height;
+		// --- End Positron ---
+		this.welcomeMessageContainer.style.height = `${listHeight - extraOffset - actionBarHeight}px`;
 		this.welcomeMessageContainer.style.paddingBottom = `${extraOffset}px`;
 		this.renderer.layout(width);
 
